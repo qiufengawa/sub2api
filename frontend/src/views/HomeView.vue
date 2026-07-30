@@ -1,468 +1,353 @@
 <template>
-  <!-- Custom Home Content: Full Page Mode -->
+  <!-- Advanced custom home content keeps its existing full-page contract. -->
   <div v-if="homeContent" class="min-h-screen">
-    <!-- iframe mode -->
     <iframe
       v-if="isHomeContentUrl"
       :src="homeContent.trim()"
       class="h-screen w-full border-0"
       allowfullscreen
     ></iframe>
-    <!-- HTML mode - SECURITY: homeContent is admin-only setting, XSS risk is acceptable -->
+    <!-- SECURITY: homeContent is an administrator-controlled setting. -->
     <div v-else v-html="homeContent"></div>
   </div>
 
-  <!-- Default Home Page -->
-  <div
-    v-else
-    class="relative flex min-h-screen flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-primary-50/30 to-gray-100 dark:from-dark-950 dark:via-dark-900 dark:to-dark-950"
-  >
-    <!-- Background Decorations -->
-    <div class="pointer-events-none absolute inset-0 overflow-hidden">
-      <div
-        class="absolute -right-40 -top-40 h-96 w-96 rounded-full bg-primary-400/20 blur-3xl"
-      ></div>
-      <div
-        class="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-primary-500/15 blur-3xl"
-      ></div>
-      <div
-        class="absolute left-1/3 top-1/4 h-72 w-72 rounded-full bg-primary-300/10 blur-3xl"
-      ></div>
-      <div
-        class="absolute bottom-1/4 right-1/4 h-64 w-64 rounded-full bg-primary-400/10 blur-3xl"
-      ></div>
-      <div
-        class="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.03)_1px,transparent_1px)] bg-[size:64px_64px]"
-      ></div>
-    </div>
+  <div v-else id="home-top" class="qiu-home" :class="{ 'qiu-home-dark': isDark }">
+    <HomeSiteHeader
+      :site-name="siteName"
+      :site-logo="siteLogo"
+      :doc-url="docUrl"
+      :is-dark="isDark"
+      :is-authenticated="isAuthenticated"
+      :dashboard-path="dashboardPath"
+      :model-plaza-enabled="modelPlazaEnabled"
+      @toggle-theme="toggleTheme"
+    />
 
-    <!-- Header -->
-    <header class="relative z-20 px-6 py-4">
-      <nav class="mx-auto flex max-w-6xl items-center justify-between">
-        <!-- Logo -->
-        <div class="flex items-center">
-          <div class="h-10 w-10 overflow-hidden rounded-xl shadow-md">
-            <img :src="siteLogo || '/logo.svg'" alt="Logo" class="h-full w-full object-contain" />
-          </div>
-        </div>
-
-        <!-- Nav Actions -->
-        <div class="flex items-center gap-3">
-          <!-- Language Switcher -->
-          <LocaleSwitcher />
-
-          <!-- Doc Link -->
-          <a
-            v-if="docUrl"
-            :href="docUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white"
-            :title="t('home.viewDocs')"
-          >
-            <Icon name="book" size="md" />
-          </a>
-
-          <!-- Theme Toggle -->
-          <button
-            @click="toggleTheme"
-            class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white"
-            :title="isDark ? t('home.switchToLight') : t('home.switchToDark')"
-          >
-            <Icon v-if="isDark" name="sun" size="md" />
-            <Icon v-else name="moon" size="md" />
-          </button>
-
-          <!-- Login / Dashboard Button -->
-          <router-link
-            v-if="isAuthenticated"
-            :to="dashboardPath"
-            class="inline-flex items-center gap-1.5 rounded-full bg-gray-900 py-1 pl-1 pr-2.5 transition-colors hover:bg-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700"
-          >
-            <span
-              class="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-[10px] font-semibold text-white"
-            >
-              {{ userInitial }}
-            </span>
-            <span class="text-xs font-medium text-white">{{ t('home.dashboard') }}</span>
-            <svg
-              class="h-3 w-3 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25"
-              />
-            </svg>
-          </router-link>
-          <router-link
-            v-else
-            to="/login"
-            class="inline-flex items-center rounded-full bg-gray-900 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700"
-          >
-            {{ t('home.login') }}
-          </router-link>
-        </div>
-      </nav>
-    </header>
-
-    <!-- Main Content -->
-    <main class="relative z-10 flex-1 px-6 py-16">
-      <div class="mx-auto max-w-6xl">
-        <!-- Hero Section - Left/Right Layout -->
-        <div class="mb-12 flex flex-col items-center justify-between gap-12 lg:flex-row lg:gap-16">
-          <!-- Left: Text Content -->
-          <div class="flex-1 text-center lg:text-left">
-            <h1
-              class="mb-4 text-4xl font-bold text-gray-900 dark:text-white md:text-5xl lg:text-6xl"
-            >
-              {{ siteName }}
-            </h1>
-            <p class="mb-8 text-lg text-gray-600 dark:text-dark-300 md:text-xl">
-              {{ siteSubtitle }}
-            </p>
-
-            <!-- CTA Button -->
-            <div>
-              <router-link
-                :to="isAuthenticated ? dashboardPath : '/login'"
-                class="btn btn-primary px-8 py-3 text-base shadow-lg shadow-primary-500/30"
-              >
+    <main class="qiu-main">
+      <div class="qiu-wrap">
+        <section class="qiu-hero" aria-labelledby="home-hero-title">
+          <div class="qiu-hero-copy">
+            <h1 id="home-hero-title">{{ siteName }}</h1>
+            <h2>{{ siteSubtitle }}</h2>
+            <p>{{ t('home.heroDescription') }}</p>
+            <div class="qiu-actions">
+              <RouterLink class="qiu-btn qiu-btn-primary" :to="primaryEntryPath">
                 {{ isAuthenticated ? t('home.goToDashboard') : t('home.getStarted') }}
-                <Icon name="arrowRight" size="md" class="ml-2" :stroke-width="2" />
-              </router-link>
+                <Icon name="arrowRight" size="sm" />
+              </RouterLink>
+              <RouterLink v-if="modelPlazaEnabled" class="qiu-btn qiu-btn-blue" to="/model-plaza">
+                {{ t('home.viewModelsAndPricing') }}
+              </RouterLink>
+              <a v-if="docUrl" class="qiu-btn qiu-btn-green" :href="docUrl" target="_blank" rel="noopener noreferrer">
+                {{ t('home.docs') }}
+                <Icon name="externalLink" size="xs" />
+              </a>
             </div>
           </div>
 
-          <!-- Right: Terminal Animation -->
-          <div class="flex flex-1 justify-center lg:justify-end">
-            <div class="terminal-container">
-              <div class="terminal-window">
-                <!-- Window header -->
-                <div class="terminal-header">
-                  <div class="terminal-buttons">
-                    <span class="btn-close"></span>
-                    <span class="btn-minimize"></span>
-                    <span class="btn-maximize"></span>
-                  </div>
-                  <span class="terminal-title">terminal</span>
+          <div class="qiu-board" role="img" :aria-label="t('home.gatewayPreviewLabel', { site: siteName })">
+            <div class="qiu-board-brand">
+              <span class="qiu-board-logo">
+                <img :src="siteLogo || '/logo.svg'" alt="" />
+              </span>
+              <strong>{{ siteName }}</strong>
+              <code>{{ apiBaseUrl }}</code>
+            </div>
+            <div class="qiu-provider-doodles" aria-hidden="true">
+              <span class="qiu-provider-openai"><PlatformIcon platform="openai" size="lg" /></span>
+              <span class="qiu-provider-anthropic"><PlatformIcon platform="anthropic" size="lg" /></span>
+              <span class="qiu-provider-gemini"><PlatformIcon platform="gemini" size="lg" /></span>
+              <span class="qiu-provider-grok"><PlatformIcon platform="grok" size="lg" /></span>
+            </div>
+          </div>
+        </section>
+
+        <div class="qiu-strip" :aria-label="t('home.coreCapabilities')">
+          <span v-for="item in coreCapabilities" :key="item">{{ item }}</span>
+        </div>
+
+        <section id="advantages" class="qiu-section" aria-labelledby="advantages-title">
+          <div class="qiu-heading">
+            <h3 id="advantages-title">{{ t('home.sections.why.title', { site: siteName }) }}</h3>
+          </div>
+          <div class="qiu-advantage-layout">
+            <article class="qiu-feature-lead">
+              <Icon name="swap" size="xl" />
+              <h4>{{ t('home.sections.why.leadTitle') }}</h4>
+              <p>{{ t('home.sections.why.leadDescription') }}</p>
+            </article>
+            <div class="qiu-feature-list">
+              <article v-for="(feature, index) in advantageItems" :key="feature.title" :class="`qiu-feature-${index + 1}`">
+                <Icon :name="feature.icon" size="md" />
+                <div>
+                  <strong>{{ feature.title }}</strong>
+                  <p>{{ feature.description }}</p>
                 </div>
-                <!-- Terminal content -->
-                <div class="terminal-body">
-                  <div class="code-line line-1">
-                    <span class="code-prompt">$</span>
-                    <span class="code-cmd">curl</span>
-                    <span class="code-flag">-X POST</span>
-                    <span class="code-url">/v1/messages</span>
-                  </div>
-                  <div class="code-line line-2">
-                    <span class="code-comment"># Routing to upstream...</span>
-                  </div>
-                  <div class="code-line line-3">
-                    <span class="code-success">200 OK</span>
-                    <span class="code-response">{ "content": "Hello!" }</span>
-                  </div>
-                  <div class="code-line line-4">
-                    <span class="code-prompt">$</span>
-                    <span class="cursor"></span>
-                  </div>
-                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="qiu-section" aria-labelledby="prompts-title">
+          <div class="qiu-heading">
+            <h3 id="prompts-title">{{ t('home.sections.prompts.title') }}</h3>
+          </div>
+          <p class="qiu-intro qiu-dropcap">{{ t('home.sections.prompts.description') }}</p>
+          <div class="qiu-prompts">
+            <article v-for="prompt in promptItems" :key="prompt.label" class="qiu-prompt">
+              <b>{{ prompt.label }}</b>
+              <strong>{{ prompt.text }}</strong>
+            </article>
+          </div>
+        </section>
+
+        <section id="model-coverage" class="qiu-section" aria-labelledby="models-title">
+          <div class="qiu-heading">
+            <h3 id="models-title">{{ t('home.sections.models.title') }}</h3>
+          </div>
+          <p class="qiu-intro">{{ t('home.sections.models.description') }}</p>
+          <div class="qiu-model-grid">
+            <article v-for="provider in providerItems" :key="provider.name" class="qiu-model-item">
+              <span class="qiu-model-icon" :class="provider.colorClass">
+                <PlatformIcon :platform="provider.platform" size="lg" />
+              </span>
+              <div>
+                <b>{{ provider.name }}</b>
+                <strong>{{ provider.family }}</strong>
+                <p>{{ provider.description }}</p>
               </div>
-            </div>
+            </article>
           </div>
-        </div>
+          <RouterLink v-if="modelPlazaEnabled" to="/model-plaza" class="qiu-text-link">
+            {{ t('home.sections.models.openPlaza') }}
+            <Icon name="arrowRight" size="sm" />
+          </RouterLink>
+        </section>
 
-        <!-- Feature Tags - Centered -->
-        <div class="mb-12 flex flex-wrap items-center justify-center gap-4 md:gap-6">
-          <div
-            class="inline-flex items-center gap-2.5 rounded-full border border-gray-200/50 bg-white/80 px-5 py-2.5 shadow-sm backdrop-blur-sm dark:border-dark-700/50 dark:bg-dark-800/80"
-          >
-            <Icon name="swap" size="sm" class="text-primary-500" />
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{
-              t('home.tags.subscriptionToApi')
-            }}</span>
+        <section class="qiu-section" aria-labelledby="pricing-title">
+          <div class="qiu-heading">
+            <h3 id="pricing-title">{{ t('home.sections.pricing.title') }}</h3>
           </div>
-          <div
-            class="inline-flex items-center gap-2.5 rounded-full border border-gray-200/50 bg-white/80 px-5 py-2.5 shadow-sm backdrop-blur-sm dark:border-dark-700/50 dark:bg-dark-800/80"
-          >
-            <Icon name="shield" size="sm" class="text-primary-500" />
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{
-              t('home.tags.stickySession')
-            }}</span>
+          <div class="qiu-price-line">
+            <article v-for="item in pricingItems" :key="item.title">
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.description }}</p>
+            </article>
           </div>
-          <div
-            class="inline-flex items-center gap-2.5 rounded-full border border-gray-200/50 bg-white/80 px-5 py-2.5 shadow-sm backdrop-blur-sm dark:border-dark-700/50 dark:bg-dark-800/80"
-          >
-            <Icon name="chart" size="sm" class="text-primary-500" />
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{
-              t('home.tags.realtimeBilling')
-            }}</span>
-          </div>
-        </div>
+        </section>
 
-        <!-- Features Grid -->
-        <div class="mb-12 grid gap-6 md:grid-cols-3">
-          <!-- Feature 1: Unified Gateway -->
-          <div
-            class="group rounded-2xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/10 dark:border-dark-700/50 dark:bg-dark-800/60"
-          >
-            <div
-              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30 transition-transform group-hover:scale-110"
-            >
-              <Icon name="server" size="lg" class="text-white" />
-            </div>
-            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-              {{ t('home.features.unifiedGateway') }}
-            </h3>
-            <p class="text-sm leading-relaxed text-gray-600 dark:text-dark-400">
-              {{ t('home.features.unifiedGatewayDesc') }}
-            </p>
+        <section id="integration" class="qiu-section" aria-labelledby="integration-title">
+          <div class="qiu-heading">
+            <h3 id="integration-title">{{ t('home.sections.integration.title') }}</h3>
           </div>
+          <div class="qiu-integration-layout">
+            <div>
+              <p class="qiu-intro qiu-dropcap">{{ t('home.sections.integration.description') }}</p>
+              <pre class="qiu-code"><code>base_url = "{{ apiBaseUrl }}"
+api_key = "sk-xxxxxxxx"
+model = "{{ t('home.sections.integration.modelPlaceholder') }}"</code></pre>
+            </div>
+            <div class="qiu-endpoints">
+              <div v-for="endpoint in endpointItems" :key="`${endpoint.method}-${endpoint.path}`" class="qiu-endpoint">
+                <span class="qiu-method">{{ endpoint.method }}</span>
+                <code>{{ endpoint.path }}</code>
+              </div>
+              <p>{{ t('home.sections.integration.capabilityNote') }}</p>
+            </div>
+          </div>
+        </section>
 
-          <!-- Feature 2: Account Pool -->
-          <div
-            class="group rounded-2xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/10 dark:border-dark-700/50 dark:bg-dark-800/60"
-          >
-            <div
-              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/30 transition-transform group-hover:scale-110"
-            >
-              <svg
-                class="h-6 w-6 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="1.5"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"
-                />
-              </svg>
-            </div>
-            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-              {{ t('home.features.multiAccount') }}
-            </h3>
-            <p class="text-sm leading-relaxed text-gray-600 dark:text-dark-400">
-              {{ t('home.features.multiAccountDesc') }}
-            </p>
+        <section class="qiu-section" aria-labelledby="launch-title">
+          <div class="qiu-heading">
+            <h3 id="launch-title">{{ t('home.sections.launch.title') }}</h3>
           </div>
+          <ol class="qiu-timeline">
+            <li v-for="(step, index) in launchItems" :key="step.title">
+              <span>{{ index + 1 }}</span>
+              <div>
+                <h4>{{ step.title }}</h4>
+                <p>{{ step.description }}</p>
+              </div>
+            </li>
+          </ol>
+        </section>
 
-          <!-- Feature 3: Billing & Quota -->
-          <div
-            class="group rounded-2xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/10 dark:border-dark-700/50 dark:bg-dark-800/60"
-          >
-            <div
-              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-500/30 transition-transform group-hover:scale-110"
-            >
-              <svg
-                class="h-6 w-6 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="1.5"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"
-                />
-              </svg>
-            </div>
-            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-              {{ t('home.features.balanceQuota') }}
-            </h3>
-            <p class="text-sm leading-relaxed text-gray-600 dark:text-dark-400">
-              {{ t('home.features.balanceQuotaDesc') }}
-            </p>
+        <section class="qiu-section" aria-labelledby="capabilities-title">
+          <div class="qiu-heading">
+            <h3 id="capabilities-title">{{ t('home.sections.capabilities.title') }}</h3>
           </div>
-        </div>
+          <div class="qiu-ribbon">
+            <article v-for="capability in capabilityItems" :key="capability.title">
+              <Icon :name="capability.icon" size="md" />
+              <strong>{{ capability.title }}</strong>
+              <p>{{ capability.description }}</p>
+            </article>
+          </div>
+        </section>
 
-        <!-- Supported Providers -->
-        <div class="mb-8 text-center">
-          <h2 class="mb-3 text-2xl font-bold text-gray-900 dark:text-white">
-            {{ t('home.providers.title') }}
-          </h2>
-          <p class="text-sm text-gray-600 dark:text-dark-400">
-            {{ t('home.providers.description') }}
-          </p>
-        </div>
+        <section class="qiu-section" aria-labelledby="use-cases-title">
+          <div class="qiu-heading">
+            <h3 id="use-cases-title">{{ t('home.sections.useCases.title') }}</h3>
+          </div>
+          <div class="qiu-usecase-layout">
+            <p class="qiu-usecase-lead">{{ t('home.sections.useCases.lead') }}</p>
+            <div class="qiu-usecase-list">
+              <p v-for="item in useCaseItems" :key="item.title"><b>{{ item.title }}</b>{{ item.description }}</p>
+            </div>
+          </div>
+        </section>
 
-        <div class="mb-16 flex flex-wrap items-center justify-center gap-4">
-          <!-- Claude - Supported -->
-          <div
-            class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-400 to-orange-500"
-            >
-              <span class="text-xs font-bold text-white">C</span>
-            </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('home.providers.claude') }}</span>
-            <span
-              class="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
-              >{{ t('home.providers.supported') }}</span
-            >
+        <section id="faq" class="qiu-section" aria-labelledby="faq-title">
+          <div class="qiu-heading">
+            <h3 id="faq-title">{{ t('home.sections.faq.title') }}</h3>
           </div>
-          <!-- GPT - Supported -->
-          <div
-            class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-green-600"
-            >
-              <span class="text-xs font-bold text-white">G</span>
-            </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">GPT</span>
-            <span
-              class="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
-              >{{ t('home.providers.supported') }}</span
-            >
+          <div class="qiu-faq">
+            <article v-for="item in faqItems" :key="item.question">
+              <strong>{{ item.question }}</strong>
+              <p>{{ item.answer }}</p>
+            </article>
           </div>
-          <!-- Gemini - Supported -->
-          <div
-            class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600"
-            >
-              <span class="text-xs font-bold text-white">G</span>
-            </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('home.providers.gemini') }}</span>
-            <span
-              class="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
-              >{{ t('home.providers.supported') }}</span
-            >
-          </div>
-          <!-- Antigravity - Supported -->
-          <div
-            class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-pink-600"
-            >
-              <span class="text-xs font-bold text-white">A</span>
-            </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('home.providers.antigravity') }}</span>
-            <span
-              class="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
-              >{{ t('home.providers.supported') }}</span
-            >
-          </div>
-          <!-- More - Coming Soon -->
-          <div
-            class="flex items-center gap-2 rounded-xl border border-gray-200/50 bg-white/40 px-5 py-3 opacity-60 backdrop-blur-sm dark:border-dark-700/50 dark:bg-dark-800/40"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-gray-500 to-gray-600"
-            >
-              <span class="text-xs font-bold text-white">+</span>
-            </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('home.providers.more') }}</span>
-            <span
-              class="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-dark-700 dark:text-dark-400"
-              >{{ t('home.providers.soon') }}</span
-            >
-          </div>
-        </div>
+        </section>
+
+        <footer class="qiu-footer">
+          <span>&copy; {{ currentYear }} {{ siteName }}. {{ t('home.footer.allRightsReserved') }}</span>
+          <span>
+            {{ t('home.footer.poweredBy') }}
+            <a :href="githubUrl" target="_blank" rel="noopener noreferrer">Sub2API</a>
+          </span>
+        </footer>
       </div>
     </main>
-
-    <!-- Footer -->
-    <footer class="relative z-10 border-t border-gray-200/50 px-6 py-8 dark:border-dark-800/50">
-      <div
-        class="mx-auto flex max-w-6xl flex-col items-center justify-center gap-4 text-center sm:flex-row sm:text-left"
-      >
-        <p class="text-sm text-gray-500 dark:text-dark-400">
-          &copy; {{ currentYear }} {{ siteName }}. {{ t('home.footer.allRightsReserved') }}
-        </p>
-        <div class="flex items-center gap-4">
-          <a
-            v-if="docUrl"
-            :href="docUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-dark-400 dark:hover:text-white"
-          >
-            {{ t('home.docs') }}
-          </a>
-          <a
-            :href="githubUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-dark-400 dark:hover:text-white"
-          >
-            GitHub
-          </a>
-        </div>
-      </div>
-    </footer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
-import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
+import HomeSiteHeader from '@/components/home/HomeSiteHeader.vue'
 import Icon from '@/components/icons/Icon.vue'
+import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import { sanitizeUrl } from '@/utils/url'
+import type { GroupPlatform } from '@/types'
+
+type IconName = InstanceType<typeof Icon>['$props']['name']
+
+interface FeatureItem {
+  title: string
+  description: string
+  icon: IconName
+}
+
+interface ProviderItem {
+  name: string
+  family: string
+  description: string
+  platform: GroupPlatform
+  colorClass: string
+}
 
 const { t } = useI18n()
-
 const authStore = useAuthStore()
 const appStore = useAppStore()
 
-// Site settings - directly from appStore (already initialized from injected config)
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Sub2API')
 const siteLogo = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
-const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'AI API Gateway Platform')
+const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || t('home.heroSubtitle'))
 const docUrl = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.doc_url || appStore.docUrl || ''))
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
+const apiBaseUrl = computed(() => {
+  const value = String(appStore.cachedPublicSettings?.api_base_url || '').trim().replace(/\/+$/, '')
+  return value || '/v1'
+})
+const modelPlazaEnabled = computed(() => appStore.cachedPublicSettings?.model_plaza_enabled === true)
+const registrationEnabled = computed(() => appStore.cachedPublicSettings?.registration_enabled !== false)
 
-// Check if homeContent is a URL (for iframe display)
 const isHomeContentUrl = computed(() => {
   const content = homeContent.value.trim()
   return content.startsWith('http://') || content.startsWith('https://')
 })
 
-// Theme
 const isDark = ref(document.documentElement.classList.contains('dark'))
-
-// GitHub URL
-const githubUrl = 'https://github.com/qiufengawa/sub2api'
-
-// Auth state
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const isAdmin = computed(() => authStore.isAdmin)
 const dashboardPath = computed(() => isAdmin.value ? '/admin/dashboard' : '/dashboard')
-const userInitial = computed(() => {
-  const user = authStore.user
-  if (!user || !user.email) return ''
-  return user.email.charAt(0).toUpperCase()
+const primaryEntryPath = computed(() => {
+  if (isAuthenticated.value) return dashboardPath.value
+  return registrationEnabled.value ? '/register' : '/login'
 })
-
-// Current year for footer
 const currentYear = computed(() => new Date().getFullYear())
+const githubUrl = 'https://github.com/qiufengawa/sub2api'
 
-// Toggle theme
-function toggleTheme() {
+const coreCapabilities = computed(() => [
+  t('home.core.unifiedBaseUrl'),
+  t('home.core.multiModelRelay'),
+  t('home.core.pricingReference'),
+  t('home.core.usageAnalytics'),
+])
+
+const advantageItems = computed<FeatureItem[]>(() => [
+  { title: t('home.sections.why.items.pricing.title'), description: t('home.sections.why.items.pricing.description'), icon: 'dollar' },
+  { title: t('home.sections.why.items.coverage.title'), description: t('home.sections.why.items.coverage.description'), icon: 'grid' },
+  { title: t('home.sections.why.items.migration.title'), description: t('home.sections.why.items.migration.description'), icon: 'arrowRight' },
+])
+
+const promptItems = computed(() => ['integration', 'migration', 'selection', 'schema', 'benchmark', 'streaming'].map((key) => ({
+  label: t(`home.sections.prompts.items.${key}.label`),
+  text: t(`home.sections.prompts.items.${key}.text`),
+})))
+
+const providerItems = computed<ProviderItem[]>(() => [
+  { name: 'OpenAI', family: t('home.sections.models.items.openai.family'), description: t('home.sections.models.items.openai.description'), platform: 'openai', colorClass: 'qiu-model-openai' },
+  { name: 'Anthropic', family: t('home.sections.models.items.anthropic.family'), description: t('home.sections.models.items.anthropic.description'), platform: 'anthropic', colorClass: 'qiu-model-anthropic' },
+  { name: 'Google', family: t('home.sections.models.items.gemini.family'), description: t('home.sections.models.items.gemini.description'), platform: 'gemini', colorClass: 'qiu-model-gemini' },
+  { name: 'xAI', family: t('home.sections.models.items.grok.family'), description: t('home.sections.models.items.grok.description'), platform: 'grok', colorClass: 'qiu-model-grok' },
+  { name: 'DeepSeek', family: t('home.sections.models.items.deepseek.family'), description: t('home.sections.models.items.deepseek.description'), platform: 'composite', colorClass: 'qiu-model-deepseek' },
+  { name: t('home.sections.models.items.more.name'), family: t('home.sections.models.items.more.family'), description: t('home.sections.models.items.more.description'), platform: 'composite', colorClass: 'qiu-model-more' },
+])
+
+const pricingItems = computed(() => ['models', 'usage', 'live'].map((key) => ({
+  title: t(`home.sections.pricing.items.${key}.title`),
+  description: t(`home.sections.pricing.items.${key}.description`),
+})))
+
+const endpointItems = computed(() => [
+  { method: 'GET', path: `${apiBaseUrl.value}/models` },
+  { method: 'POST', path: `${apiBaseUrl.value}/chat/completions` },
+  { method: 'POST', path: `${apiBaseUrl.value}/responses` },
+])
+
+const launchItems = computed(() => ['key', 'endpoint', 'model', 'monitor'].map((key) => ({
+  title: t(`home.sections.launch.items.${key}.title`),
+  description: t(`home.sections.launch.items.${key}.description`),
+})))
+
+const capabilityItems = computed<FeatureItem[]>(() => [
+  { title: t('home.sections.capabilities.items.sdk.title'), description: t('home.sections.capabilities.items.sdk.description'), icon: 'cube' },
+  { title: t('home.sections.capabilities.items.streaming.title'), description: t('home.sections.capabilities.items.streaming.description'), icon: 'bolt' },
+  { title: t('home.sections.capabilities.items.structured.title'), description: t('home.sections.capabilities.items.structured.description'), icon: 'terminal' },
+  { title: t('home.sections.capabilities.items.tracking.title'), description: t('home.sections.capabilities.items.tracking.description'), icon: 'chart' },
+])
+
+const useCaseItems = computed(() => ['experiments', 'business', 'agents', 'rag'].map((key) => ({
+  title: t(`home.sections.useCases.items.${key}.title`),
+  description: t(`home.sections.useCases.items.${key}.description`),
+})))
+
+const faqItems = computed(() => ['official', 'sdk', 'models', 'production'].map((key) => ({
+  question: t(`home.sections.faq.items.${key}.question`),
+  answer: t(`home.sections.faq.items.${key}.answer`),
+})))
+
+function toggleTheme(): void {
   isDark.value = !isDark.value
   document.documentElement.classList.toggle('dark', isDark.value)
   localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
 }
 
-// Initialize theme
-function initTheme() {
+function initTheme(): void {
   const savedTheme = localStorage.getItem('theme')
-  if (
-    savedTheme === 'dark' ||
-    (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
-  ) {
+  if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
     isDark.value = true
     document.documentElement.classList.add('dark')
   }
@@ -470,176 +355,556 @@ function initTheme() {
 
 onMounted(() => {
   initTheme()
-
-  // Check auth state
   authStore.checkAuth()
-
-  // Ensure public settings are loaded (will use cache if already loaded from injected config)
-  if (!appStore.publicSettingsLoaded) {
-    appStore.fetchPublicSettings()
-  }
+  if (!appStore.publicSettingsLoaded) void appStore.fetchPublicSettings()
 })
 </script>
 
 <style scoped>
-/* Terminal Container */
-.terminal-container {
+.qiu-home {
+  --qiu-ink: #241e16;
+  --qiu-muted: #6b604e;
+  --qiu-paper: #fff8e7;
+  --qiu-surface: #fffdf3;
+  --qiu-yellow: #ffd85a;
+  --qiu-pink: #ff9fc7;
+  --qiu-blue: #8fd3ff;
+  --qiu-green: #9ee6a8;
+  --qiu-red: #d94a38;
+  --qiu-shadow: rgba(36, 30, 22, 0.18);
+  min-height: 100vh;
+  color: var(--qiu-ink);
+  background-color: var(--qiu-paper);
+  background-image:
+    linear-gradient(90deg, rgba(36, 30, 22, 0.055) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(36, 30, 22, 0.045) 1px, transparent 1px);
+  background-size: 22px 22px;
+  font-family: "Comic Sans MS", "Comic Neue", "Avenir Next Rounded", "PingFang SC", "Microsoft YaHei", sans-serif;
+  isolation: isolate;
+}
+
+.qiu-home-dark {
+  --qiu-ink: #f8edcf;
+  --qiu-muted: #b9aa8d;
+  --qiu-paper: #191713;
+  --qiu-surface: #24211b;
+  --qiu-yellow: #cda832;
+  --qiu-pink: #c56c96;
+  --qiu-blue: #4d9bc9;
+  --qiu-green: #67ad72;
+  --qiu-red: #ef7b68;
+  --qiu-shadow: rgba(0, 0, 0, 0.42);
+  background-image:
+    linear-gradient(90deg, rgba(255, 248, 231, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255, 248, 231, 0.035) 1px, transparent 1px);
+}
+
+.qiu-main {
   position: relative;
-  display: inline-block;
-}
-
-/* Terminal Window */
-.terminal-window {
-  width: 420px;
-  background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
-  border-radius: 14px;
-  box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
   overflow: hidden;
-  transform: perspective(1000px) rotateX(2deg) rotateY(-2deg);
-  transition: transform 0.3s ease;
 }
 
-.terminal-window:hover {
-  transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(-4px);
+.qiu-main::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(-7deg, transparent 0 18px, color-mix(in srgb, var(--qiu-ink) 3.5%, transparent) 19px 20px);
+  content: "";
+  pointer-events: none;
 }
 
-/* Terminal Header */
-.terminal-header {
-  display: flex;
+.qiu-wrap {
+  width: min(100%, 1180px);
+  margin: 0 auto;
+  padding: 24px 32px 56px;
+}
+
+.qiu-hero {
+  display: grid;
+  padding: 46px 0 54px;
+  grid-template-columns: minmax(0, 1.06fr) minmax(380px, 0.94fr);
   align-items: center;
-  padding: 12px 16px;
-  background: rgba(30, 41, 59, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 46px;
 }
 
-.terminal-buttons {
+.qiu-hero-copy {
+  min-width: 0;
+}
+
+.qiu-hero h1,
+.qiu-hero h2,
+.qiu-heading h3,
+.qiu-feature-lead h4,
+.qiu-usecase-lead {
+  overflow-wrap: anywhere;
+}
+
+.qiu-hero h1 {
+  margin: 0;
+  font-size: 88px;
+  line-height: 0.9;
+  font-weight: 900;
+  text-shadow: 4px 4px 0 var(--qiu-blue);
+}
+
+.qiu-hero h2 {
+  margin: 19px 0 0;
+  font-size: 42px;
+  line-height: 1.05;
+  font-weight: 900;
+}
+
+.qiu-hero p {
+  max-width: 650px;
+  margin: 18px 0 0;
+  color: var(--qiu-muted);
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.qiu-actions {
   display: flex;
-  gap: 8px;
-}
-
-.terminal-buttons span {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.btn-close {
-  background: #ef4444;
-}
-.btn-minimize {
-  background: #eab308;
-}
-.btn-maximize {
-  background: #22c55e;
-}
-
-.terminal-title {
-  flex: 1;
-  text-align: center;
-  font-size: 12px;
-  font-family: ui-monospace, monospace;
-  color: #64748b;
-  margin-right: 52px;
-}
-
-/* Terminal Body */
-.terminal-body {
-  padding: 20px 24px;
-  font-family: ui-monospace, 'Fira Code', monospace;
-  font-size: 14px;
-  line-height: 2;
-}
-
-.code-line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  margin-top: 26px;
   flex-wrap: wrap;
-  opacity: 0;
-  animation: line-appear 0.5s ease forwards;
+  gap: 12px;
 }
 
-.line-1 {
-  animation-delay: 0.3s;
-}
-.line-2 {
-  animation-delay: 1s;
-}
-.line-3 {
-  animation-delay: 1.8s;
-}
-.line-4 {
-  animation-delay: 2.5s;
-}
-
-@keyframes line-appear {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.code-prompt {
-  color: #22c55e;
-  font-weight: bold;
-}
-.code-cmd {
-  color: #38bdf8;
-}
-.code-flag {
-  color: #a78bfa;
-}
-.code-url {
-  color: #14b8a6;
-}
-.code-comment {
-  color: #64748b;
-  font-style: italic;
-}
-.code-success {
-  color: #22c55e;
-  background: rgba(34, 197, 94, 0.15);
-  padding: 2px 8px;
+.qiu-btn {
+  display: inline-flex;
+  min-height: 44px;
+  padding: 0 18px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 3px solid var(--qiu-ink);
   border-radius: 4px;
-  font-weight: 600;
-}
-.code-response {
-  color: #fbbf24;
-}
-
-/* Blinking Cursor */
-.cursor {
-  display: inline-block;
-  width: 8px;
-  height: 16px;
-  background: #22c55e;
-  animation: blink 1s step-end infinite;
+  color: var(--qiu-ink);
+  background: var(--qiu-surface);
+  box-shadow: 5px 5px 0 var(--qiu-shadow);
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 900;
+  text-decoration: none;
 }
 
-@keyframes blink {
-  0%,
-  50% {
-    opacity: 1;
-  }
-  51%,
-  100% {
-    opacity: 0;
-  }
+.qiu-btn-primary { background: var(--qiu-pink); transform: rotate(-1deg); }
+.qiu-btn-blue { background: var(--qiu-blue); transform: rotate(1deg); }
+.qiu-btn-green { background: var(--qiu-green); transform: rotate(-0.5deg); }
+
+.qiu-btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: 2px 2px 0 var(--qiu-shadow);
 }
 
-/* Dark mode adjustments */
-:deep(.dark) .terminal-window {
-  box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(20, 184, 166, 0.2),
-    0 0 40px rgba(20, 184, 166, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+.qiu-board {
+  position: relative;
+  min-height: 430px;
+  overflow: hidden;
+  transform: rotate(1deg);
+  border: 4px solid var(--qiu-ink);
+  border-radius: 4px;
+  background: var(--qiu-blue);
+  box-shadow: 12px 14px 0 var(--qiu-shadow);
+}
+
+.qiu-board::before,
+.qiu-board::after {
+  position: absolute;
+  width: 54%;
+  height: 48%;
+  border: 3px solid var(--qiu-ink);
+  background: var(--qiu-pink);
+  content: "";
+}
+
+.qiu-board::before { right: -14%; top: 23%; transform: rotate(-12deg); }
+.qiu-board::after { left: -20%; bottom: -22%; background: var(--qiu-yellow); transform: rotate(9deg); }
+
+.qiu-board-brand,
+.qiu-provider-doodles {
+  position: relative;
+  z-index: 2;
+}
+
+.qiu-board-brand {
+  display: flex;
+  min-width: 0;
+  padding: 48px 28px 0;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.qiu-board-logo {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 18px;
+  place-items: center;
+  overflow: hidden;
+  border: 3px solid #241e16;
+  border-radius: 4px;
+  background: #fff8e7;
+  box-shadow: 5px 5px 0 rgba(36, 30, 22, 0.2);
+}
+
+.qiu-board-logo img { width: 100%; height: 100%; object-fit: contain; }
+
+.qiu-board-brand strong {
+  max-width: 90%;
+  overflow-wrap: anywhere;
+  color: #fff8e7;
+  font-size: 54px;
+  line-height: 0.95;
+  text-shadow: 3px 3px 0 #241e16;
+}
+
+.qiu-board-brand code {
+  max-width: 80%;
+  margin-top: 15px;
+  overflow: hidden;
+  color: #241e16;
+  font-family: Consolas, monospace;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qiu-provider-doodles {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  display: grid;
+  grid-template-columns: repeat(2, 52px);
+  gap: 11px;
+}
+
+.qiu-provider-doodles span {
+  display: grid;
+  height: 52px;
+  place-items: center;
+  border: 3px solid #241e16;
+  border-radius: 4px;
+  color: #241e16;
+  background: #fff8e7;
+  box-shadow: 4px 4px 0 rgba(36, 30, 22, 0.18);
+}
+
+.qiu-provider-openai { transform: rotate(7deg); }
+.qiu-provider-anthropic { transform: rotate(-5deg); background: var(--qiu-yellow) !important; }
+.qiu-provider-gemini { transform: rotate(-8deg); background: var(--qiu-green) !important; }
+.qiu-provider-grok { transform: rotate(4deg); background: var(--qiu-pink) !important; }
+
+.qiu-strip {
+  display: grid;
+  overflow: hidden;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 3px solid var(--qiu-ink);
+  border-radius: 4px;
+  background: var(--qiu-surface);
+  box-shadow: 8px 8px 0 var(--qiu-shadow);
+}
+
+.qiu-strip span {
+  padding: 14px 10px;
+  border-right: 3px solid var(--qiu-ink);
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.qiu-strip span:last-child { border-right: 0; }
+
+.qiu-section {
+  padding: 52px 0;
+  border-bottom: 3px dashed color-mix(in srgb, var(--qiu-ink) 38%, transparent);
+  scroll-margin-top: 80px;
+}
+
+.qiu-heading {
+  margin-bottom: 24px;
+}
+
+.qiu-heading h3 {
+  margin: 0;
+  font-size: 42px;
+  line-height: 1;
+  font-weight: 900;
+  text-shadow: 3px 3px 0 color-mix(in srgb, var(--qiu-blue) 74%, transparent);
+}
+
+.qiu-intro {
+  max-width: 830px;
+  margin: -8px 0 24px;
+  color: var(--qiu-muted);
+  font-size: 15px;
+  line-height: 1.72;
+}
+
+.qiu-dropcap::first-letter {
+  float: left;
+  margin: 0.04em 0.12em 0 0;
+  color: var(--qiu-red);
+  font-size: 4.5em;
+  line-height: 0.72;
+  font-weight: 900;
+  text-shadow: 2px 2px 0 var(--qiu-yellow);
+}
+
+.qiu-advantage-layout {
+  display: grid;
+  grid-template-columns: 1.12fr 0.88fr;
+  gap: 18px;
+}
+
+.qiu-feature-lead,
+.qiu-feature-list article,
+.qiu-prompt,
+.qiu-model-item {
+  border: 3px solid var(--qiu-ink);
+  border-radius: 4px;
+  box-shadow: 6px 6px 0 var(--qiu-shadow);
+}
+
+.qiu-feature-lead {
+  min-height: 286px;
+  padding: 22px;
+  background: color-mix(in srgb, var(--qiu-yellow) 34%, var(--qiu-surface));
+}
+
+.qiu-feature-lead > svg { color: var(--qiu-red); }
+
+.qiu-feature-lead h4 {
+  margin: 44px 0 12px;
+  font-size: 34px;
+  line-height: 1.05;
+}
+
+.qiu-feature-lead p,
+.qiu-feature-list p,
+.qiu-model-item p,
+.qiu-price-line p,
+.qiu-ribbon p,
+.qiu-timeline p,
+.qiu-usecase-list,
+.qiu-faq p {
+  color: var(--qiu-muted);
+  font-size: 14px;
+  line-height: 1.62;
+}
+
+.qiu-feature-list {
+  display: grid;
+  gap: 13px;
+}
+
+.qiu-feature-list article {
+  display: flex;
+  padding: 16px;
+  align-items: flex-start;
+  gap: 13px;
+  background: var(--qiu-surface);
+}
+
+.qiu-feature-list article:nth-child(1) { background: color-mix(in srgb, var(--qiu-blue) 22%, var(--qiu-surface)); }
+.qiu-feature-list article:nth-child(2) { background: color-mix(in srgb, var(--qiu-pink) 20%, var(--qiu-surface)); }
+.qiu-feature-list article:nth-child(3) { background: color-mix(in srgb, var(--qiu-green) 22%, var(--qiu-surface)); }
+.qiu-feature-list strong { display: block; margin-bottom: 5px; font-size: 19px; }
+.qiu-feature-list p { margin: 0; }
+
+.qiu-prompts,
+.qiu-model-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.qiu-prompt {
+  min-height: 145px;
+  padding: 16px;
+  transform: rotate(-0.7deg);
+  background: var(--qiu-surface);
+}
+
+.qiu-prompt:nth-child(2n) { transform: rotate(0.7deg); background: color-mix(in srgb, var(--qiu-pink) 18%, var(--qiu-surface)); }
+.qiu-prompt:nth-child(3n) { transform: rotate(-0.3deg); background: color-mix(in srgb, var(--qiu-blue) 18%, var(--qiu-surface)); }
+.qiu-prompt:nth-child(4n) { transform: rotate(0.8deg); background: color-mix(in srgb, var(--qiu-green) 18%, var(--qiu-surface)); }
+.qiu-prompt b { display: block; margin-bottom: 10px; color: var(--qiu-red); font-family: Arial, sans-serif; font-size: 10px; text-transform: uppercase; }
+.qiu-prompt strong { display: block; font-size: 19px; line-height: 1.34; }
+
+.qiu-model-item {
+  display: flex;
+  min-width: 0;
+  padding: 17px;
+  gap: 14px;
+  background: var(--qiu-surface);
+}
+
+.qiu-model-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 2px solid var(--qiu-ink);
+  border-radius: 4px;
+  color: #241e16;
+}
+
+.qiu-model-openai { background: var(--qiu-green); }
+.qiu-model-anthropic { background: var(--qiu-yellow); }
+.qiu-model-gemini { background: var(--qiu-blue); }
+.qiu-model-grok { background: var(--qiu-pink); }
+.qiu-model-deepseek { background: color-mix(in srgb, var(--qiu-blue) 72%, var(--qiu-surface)); }
+.qiu-model-more { background: var(--qiu-surface); }
+.qiu-model-item b { display: block; color: var(--qiu-red); font-family: Arial, sans-serif; font-size: 10px; text-transform: uppercase; }
+.qiu-model-item strong { display: block; margin: 5px 0; font-size: 20px; line-height: 1.1; }
+.qiu-model-item p { margin: 0; }
+
+.qiu-text-link {
+  display: inline-flex;
+  margin-top: 22px;
+  align-items: center;
+  gap: 7px;
+  color: var(--qiu-red);
+  font-weight: 900;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.qiu-price-line {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.qiu-price-line article { padding-top: 13px; border-top: 4px solid var(--qiu-ink); }
+.qiu-price-line strong { display: block; margin-bottom: 8px; font-size: 25px; line-height: 1.05; }
+.qiu-price-line p { margin: 0; }
+
+.qiu-integration-layout,
+.qiu-usecase-layout {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  align-items: start;
+  gap: 32px;
+}
+
+.qiu-code {
+  margin: 18px 0 0;
+  padding: 16px;
+  overflow-x: auto;
+  border: 3px solid var(--qiu-ink);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--qiu-green) 17%, var(--qiu-surface));
+  box-shadow: 5px 5px 0 var(--qiu-shadow);
+  font: 13px/1.7 Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.qiu-endpoints { padding-left: 22px; border-left: 4px solid var(--qiu-ink); }
+.qiu-endpoint { display: grid; padding: 13px 0; grid-template-columns: 70px minmax(0, 1fr); gap: 12px; border-bottom: 2px dashed color-mix(in srgb, var(--qiu-ink) 32%, transparent); }
+.qiu-method { color: var(--qiu-red); font-family: Arial, sans-serif; font-size: 11px; font-weight: 900; }
+.qiu-endpoint code { overflow-wrap: anywhere; font: 12px/1.5 Consolas, monospace; }
+.qiu-endpoints > p { margin: 14px 0 0; color: var(--qiu-muted); font-size: 12px; line-height: 1.6; }
+
+.qiu-timeline { position: relative; display: grid; max-width: 820px; margin: 0; padding: 0; gap: 19px; list-style: none; }
+.qiu-timeline::before { position: absolute; top: 12px; bottom: 12px; left: 21px; border-left: 4px solid var(--qiu-ink); content: ""; }
+.qiu-timeline li { position: relative; display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 14px; }
+.qiu-timeline li > span { z-index: 1; display: grid; width: 42px; height: 42px; place-items: center; border: 3px solid var(--qiu-ink); border-radius: 50%; background: var(--qiu-yellow); box-shadow: 4px 4px 0 var(--qiu-shadow); font: 900 17px Arial, sans-serif; }
+.qiu-timeline h4 { margin: 0 0 5px; font-size: 20px; }
+.qiu-timeline p { margin: 0; }
+
+.qiu-ribbon { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 4px solid var(--qiu-ink); border-bottom: 4px solid var(--qiu-ink); background: color-mix(in srgb, var(--qiu-surface) 72%, transparent); box-shadow: 7px 7px 0 var(--qiu-shadow); }
+.qiu-ribbon article { padding: 20px 17px; border-right: 3px solid var(--qiu-ink); }
+.qiu-ribbon article:last-child { border-right: 0; }
+.qiu-ribbon svg { margin-bottom: 12px; color: var(--qiu-red); }
+.qiu-ribbon strong { display: block; margin-bottom: 8px; font-size: 20px; line-height: 1.1; }
+.qiu-ribbon p { margin: 0; }
+
+.qiu-usecase-layout { grid-template-columns: 1.1fr 0.9fr; }
+.qiu-usecase-lead { margin: 0; font-size: 42px; line-height: 1.02; font-weight: 900; text-shadow: 3px 3px 0 var(--qiu-pink); }
+.qiu-usecase-list { display: grid; }
+.qiu-usecase-list p { margin: 0; padding: 0 0 12px; border-bottom: 2px dashed color-mix(in srgb, var(--qiu-ink) 32%, transparent); }
+.qiu-usecase-list p + p { padding-top: 12px; }
+.qiu-usecase-list b { margin-right: 4px; color: var(--qiu-ink); font-size: 17px; }
+
+.qiu-faq { columns: 2 320px; column-gap: 34px; }
+.qiu-faq article { break-inside: avoid; margin: 0 0 18px; padding-bottom: 16px; border-bottom: 2px dashed color-mix(in srgb, var(--qiu-ink) 34%, transparent); }
+.qiu-faq strong { display: block; margin-bottom: 8px; font-size: 19px; }
+.qiu-faq p { margin: 0; }
+.qiu-footer {
+  display: flex;
+  padding-top: 21px;
+  justify-content: space-between;
+  gap: 18px;
+  color: var(--qiu-muted);
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.qiu-footer a { color: var(--qiu-red); text-underline-offset: 3px; }
+
+@media (max-width: 980px) {
+  .qiu-wrap { padding: 20px 20px 48px; }
+  .qiu-hero { grid-template-columns: 1fr; gap: 34px; padding: 38px 0 46px; }
+  .qiu-hero h1 { font-size: 72px; }
+  .qiu-hero h2 { max-width: 720px; font-size: 36px; }
+  .qiu-board { min-height: 360px; }
+  .qiu-advantage-layout,
+  .qiu-integration-layout,
+  .qiu-usecase-layout { grid-template-columns: 1fr; }
+  .qiu-prompts,
+  .qiu-model-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .qiu-ribbon { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .qiu-ribbon article:nth-child(2) { border-right: 0; }
+  .qiu-ribbon article:nth-child(-n + 2) { border-bottom: 3px solid var(--qiu-ink); }
+}
+
+@media (max-width: 640px) {
+  .qiu-wrap { padding: 14px 14px 42px; }
+  .qiu-hero { padding: 30px 0 38px; }
+  .qiu-hero h1 { font-size: 54px; }
+  .qiu-hero h2 { margin-top: 16px; font-size: 30px; }
+  .qiu-hero p { font-size: 16px; }
+  .qiu-actions { display: grid; grid-template-columns: 1fr; }
+  .qiu-btn { width: 100%; }
+  .qiu-board { min-height: 310px; }
+  .qiu-board-brand { padding: 30px 18px 0; }
+  .qiu-board-brand strong { font-size: 40px; }
+  .qiu-board-brand code { max-width: 72%; }
+  .qiu-provider-doodles { right: 16px; bottom: 16px; grid-template-columns: repeat(2, 44px); gap: 8px; }
+  .qiu-provider-doodles span { height: 44px; }
+  .qiu-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .qiu-strip span:nth-child(2) { border-right: 0; }
+  .qiu-strip span:nth-child(-n + 2) { border-bottom: 3px solid var(--qiu-ink); }
+  .qiu-section { padding: 42px 0; }
+  .qiu-heading h3 { font-size: 32px; }
+  .qiu-feature-lead { min-height: 0; }
+  .qiu-feature-lead h4 { margin-top: 30px; font-size: 28px; }
+  .qiu-prompts,
+  .qiu-model-grid,
+  .qiu-price-line { grid-template-columns: 1fr; }
+  .qiu-prompt { min-height: 0; }
+  .qiu-price-line { gap: 18px; }
+  .qiu-endpoints { padding-left: 14px; }
+  .qiu-endpoint { grid-template-columns: 1fr; gap: 4px; }
+  .qiu-ribbon { grid-template-columns: 1fr; }
+  .qiu-ribbon article { border-right: 0; border-bottom: 3px solid var(--qiu-ink); }
+  .qiu-ribbon article:last-child { border-bottom: 0; }
+  .qiu-usecase-lead { font-size: 31px; }
+  .qiu-faq { columns: 1; }
+  .qiu-footer { flex-direction: column; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qiu-home { scroll-behavior: auto; }
+  .qiu-btn,
+  .qiu-board,
+  .qiu-prompt { transform: none; }
 }
 </style>

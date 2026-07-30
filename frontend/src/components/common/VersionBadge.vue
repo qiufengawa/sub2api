@@ -31,8 +31,11 @@
         <div
           v-if="dropdownOpen"
           ref="dropdownRef"
-          class="absolute left-0 z-50 mt-1 overflow-hidden whitespace-normal rounded-[4px] border border-gray-200 bg-white shadow-md transition-colors duration-150 dark:border-dark-700 dark:bg-dark-800"
-          :class="rollbackPanelOpen && isReleaseBuild ? 'w-80' : 'w-64'"
+          class="absolute left-0 z-50 overflow-hidden whitespace-normal rounded-[4px] border border-gray-200 bg-white shadow-md transition-colors duration-150 dark:border-dark-700 dark:bg-dark-800"
+          :class="[
+            rollbackPanelOpen && isReleaseBuild ? 'w-80' : 'w-64',
+            placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
+          ]"
         >
           <!-- Header with refresh button -->
           <div
@@ -657,9 +660,12 @@ const DOCKER_IMAGE = 'ghcr.io/qiufengawa/sub2api'
 
 const { t } = useI18n()
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   version?: string
-}>()
+  placement?: 'top' | 'bottom'
+}>(), {
+  placement: 'bottom'
+})
 
 const authStore = useAuthStore()
 const appStore = useAppStore()

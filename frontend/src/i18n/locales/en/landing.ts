@@ -14,6 +14,113 @@ export default {
     login: 'Login',
     getStarted: 'Get Started',
     goToDashboard: 'Go to Dashboard',
+    viewModelsAndPricing: 'Models & Pricing',
+    gatewayPreviewLabel: '{site} multi-model gateway preview',
+    coreCapabilities: 'Core capabilities',
+    nav: {
+      primary: 'Primary navigation',
+      mobile: 'Mobile navigation',
+      toggleMenu: 'Toggle navigation menu',
+      advantages: 'Advantages',
+      models: 'Models',
+      integration: 'Integration',
+      faq: 'FAQ',
+      modelPlaza: 'Model Plaza'
+    },
+    core: {
+      unifiedBaseUrl: 'Unified Base URL',
+      multiModelRelay: 'Multi-model Relay',
+      pricingReference: 'Transparent Pricing',
+      usageAnalytics: 'Usage Analytics'
+    },
+    sections: {
+      why: {
+        title: 'Why {site}',
+        leadTitle: 'Reduce integration work and keep model choice flexible',
+        leadDescription: 'Avoid maintaining separate endpoints, authentication flows, and SDK adaptations for every provider. Test, compare, route, and switch models through one OpenAI-compatible integration layer.',
+        items: {
+          pricing: { title: 'Clear pricing reference', description: 'Compare prices, multipliers, and capabilities before choosing the right model for each workload.' },
+          coverage: { title: 'Broad model coverage', description: 'Access popular model families including GPT, Claude, Gemini, DeepSeek, Qwen, Kimi, GLM, and more.' },
+          migration: { title: 'Faster migration', description: 'Most OpenAI SDK projects only need a new Base URL, API key, and model name to get started.' }
+        }
+      },
+      prompts: {
+        title: 'Prompt Notes',
+        description: 'Use these prompts to validate model behavior, migrate existing projects, enforce structured outputs, and benchmark results across providers.',
+        items: {
+          integration: { label: 'Integration', text: 'Generate an OpenAI-compatible SDK example using Qiu API' },
+          migration: { label: 'Migration', text: 'Move base_url, api_key, and model settings to a unified gateway' },
+          selection: { label: 'Selection', text: 'Recommend a text, vision, embedding, or reasoning model for a task' },
+          schema: { label: 'Schema', text: 'Constrain responses to JSON Schema for reliable parsing' },
+          benchmark: { label: 'Benchmark', text: 'Compare models by accuracy, latency, cost, and reliability' },
+          streaming: { label: 'Streaming', text: 'Design streaming responses with incremental frontend rendering' }
+        }
+      },
+      models: {
+        title: 'Model Coverage',
+        description: 'Available models, pricing multipliers, context length, and channel status change over time. Refer to Model Plaza and the dashboard for live information.',
+        openPlaza: 'Open Model Plaza for live information',
+        items: {
+          openai: { family: 'GPT / o Series', description: 'General chat, coding, reasoning, structured output, and multi-turn workflows.' },
+          anthropic: { family: 'Claude Series', description: 'Long-context analysis, code review, writing refinement, and complex reasoning.' },
+          gemini: { family: 'Gemini Series', description: 'Multimodal understanding, long-context processing, visual analysis, and synthesis.' },
+          grok: { family: 'Grok Series', description: 'General conversation, real-time information, coding, and reasoning workloads.' },
+          deepseek: { family: 'DeepSeek Series', description: 'Reasoning, coding, math, batch workflows, and cost-sensitive scenarios.' },
+          more: { name: 'More Providers', family: 'Qwen / Kimi / GLM and more', description: 'Additional compatible models are continuously added through available channels.' }
+        }
+      },
+      pricing: {
+        title: 'Pricing Reference',
+        items: {
+          models: { title: 'Model-based pricing', description: 'Balance quality, latency, and budget per workload across different model cost profiles.' },
+          usage: { title: 'Use what you need', description: 'Run prototypes, batch jobs, internal tools, and production traffic through the same gateway.' },
+          live: { title: 'Live data wins', description: 'Availability and pricing may change. Check Model Plaza before launching production traffic.' }
+        }
+      },
+      integration: {
+        title: 'Integration Map',
+        description: 'Keep the OpenAI-style integration your application already understands. Replace the endpoint, choose an available model, and monitor usage as traffic grows.',
+        modelPlaceholder: 'choose an available model from Model Plaza',
+        capabilityNote: 'Vision, audio, rerank, and other endpoints depend on current upstream channel support.'
+      },
+      launch: {
+        title: 'Launch Flow',
+        items: {
+          key: { title: 'Create an API key', description: 'Create a key in the console and organize it by project, environment, or team.' },
+          endpoint: { title: 'Update your endpoint', description: 'Keep your OpenAI-style SDK workflow and replace only the Base URL and API key.' },
+          model: { title: 'Select and test a model', description: 'Check availability, pricing, and channel status before sending test requests.' },
+          monitor: { title: 'Monitor after launch', description: 'Use logs, quota, and error details to improve model choice, prompts, and cost.' }
+        }
+      },
+      capabilities: {
+        title: 'Platform Capabilities',
+        items: {
+          sdk: { title: 'SDK Compatibility', description: 'Works with common OpenAI-style SDKs and minimizes migration changes.' },
+          streaming: { title: 'Streaming Output', description: 'Supports incremental responses for chat, writing, and long generation.' },
+          structured: { title: 'Structured Output', description: 'Use JSON, tools, function calling, or schemas when supported.' },
+          tracking: { title: 'Usage Tracking', description: 'Review request logs, quota, errors, and model activity in one place.' }
+        }
+      },
+      useCases: {
+        title: 'Use Cases',
+        lead: 'One gateway layer for experiments, products, teams, agents, content, and RAG.',
+        items: {
+          experiments: { title: 'AI app experiments: ', description: 'chat, summarization, search, writing, translation, vision, and automation.' },
+          business: { title: 'Business integrations: ', description: 'connect multiple providers through one gateway and reduce maintenance.' },
+          agents: { title: 'Agent workflows: ', description: 'assign models to planning, execution, retrieval, vision, and structured output.' },
+          rag: { title: 'Knowledge base Q&A: ', description: 'combine embeddings, chat endpoints, and business data for lightweight RAG.' }
+        }
+      },
+      faq: {
+        title: 'FAQ',
+        items: {
+          official: { question: 'Is Qiu API an official model provider?', answer: 'No. Qiu API is a third-party gateway. Availability, pricing, and usage rules depend on platform settings and upstream channels.' },
+          sdk: { question: 'Can I keep using my current OpenAI SDK?', answer: 'Usually yes. Replace the Base URL and API key, then adjust model, tools, streaming, and other fields as needed.' },
+          models: { question: 'How do I check supported models?', answer: 'Use Model Plaza for current availability, context length, pricing multipliers, and channel status.' },
+          production: { question: 'Is it suitable for production?', answer: 'Run stability tests, plan quota, implement error handling, and monitor logs before moving critical traffic.' }
+        }
+      }
+    },
     // User-focused value proposition
     heroSubtitle: 'One Key, All AI Models',
     heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',
@@ -110,7 +217,8 @@ export default {
       button: 'Sign Up Free'
     },
     footer: {
-      allRightsReserved: 'All rights reserved.'
+      allRightsReserved: 'All rights reserved.',
+      poweredBy: 'Powered by'
     }
   },
 

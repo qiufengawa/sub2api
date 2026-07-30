@@ -16,11 +16,11 @@
         <router-link
           :to="homePath"
           class="sidebar-brand-title text-base font-semibold text-gray-900 transition-colors hover:text-primary-600 dark:text-white dark:hover:text-primary-400"
+          :title="siteName"
           @click="handleMenuItemClick(homePath)"
         >
           {{ siteName }}
         </router-link>
-        <VersionBadge :version="siteVersion" />
       </div>
     </div>
 
@@ -144,6 +144,16 @@
 
     <!-- Bottom Section -->
     <div class="mt-auto border-t border-gray-100 p-3 dark:border-dark-800">
+      <div
+        v-if="!sidebarCollapsed"
+        class="mb-2 flex min-h-7 items-center justify-between gap-2 border-b border-gray-100 px-1 pb-2 dark:border-dark-800"
+      >
+        <span class="text-[10px] font-medium text-gray-400 dark:text-dark-500">
+          {{ t('version.currentVersion') }}
+        </span>
+        <VersionBadge :version="siteVersion" placement="top" />
+      </div>
+
       <!-- Theme Toggle -->
       <button
         @click="toggleTheme"
@@ -957,12 +967,12 @@ onBeforeUnmount(() => {
 .sidebar-brand {
   min-width: 0;
   flex: 1 1 auto;
-  white-space: nowrap;
+  white-space: normal;
   transition:
     max-width 0.22s ease,
     opacity 0.14s ease,
     transform 0.14s ease;
-  max-width: 12rem;
+  max-width: 100%;
 }
 
 .sidebar-brand-collapsed {
@@ -974,10 +984,20 @@ onBeforeUnmount(() => {
 }
 
 .sidebar-brand-title {
-  display: block;
+  display: -webkit-box;
+  width: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25rem;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.sidebar-header:not(.sidebar-header-collapsed) {
+  min-height: 4rem;
+  height: auto;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
 }
 
 .sidebar-link-collapsed {

@@ -14,6 +14,122 @@ export default {
     login: '登录',
     getStarted: '立即开始',
     goToDashboard: '进入控制台',
+    viewModelsAndPricing: '查看模型与价格',
+    gatewayPreviewLabel: '{site} 多模型网关预览',
+    coreCapabilities: '核心能力',
+    nav: {
+      primary: '主页导航',
+      mobile: '移动端导航',
+      toggleMenu: '展开或收起导航菜单',
+      advantages: '核心优势',
+      models: '模型覆盖',
+      integration: '接入方式',
+      faq: '常见问题',
+      modelPlaza: '模型广场'
+    },
+    core: {
+      unifiedBaseUrl: '统一 Base URL',
+      multiModelRelay: '多模型转发',
+      pricingReference: '透明价格参考',
+      usageAnalytics: '完整用量分析'
+    },
+    sections: {
+      why: {
+        title: '为什么选择 {site}',
+        leadTitle: '减少重复接入工作，保留灵活的模型选择',
+        leadDescription: '不必为每个厂商分别维护接口、鉴权和 SDK 适配。通过统一的 OpenAI 兼容网关，在同一个接入层中测试、比较、路由和切换模型。',
+        items: {
+          pricing: {
+            title: '清晰的价格参考',
+            description: '在选择模型前比较价格、倍率和能力，为不同工作负载控制成本。'
+          },
+          coverage: {
+            title: '广泛的模型覆盖',
+            description: '统一接入 GPT、Claude、Gemini、DeepSeek、Qwen、Kimi、GLM 等主流模型系列。'
+          },
+          migration: {
+            title: '更快完成迁移',
+            description: '大多数 OpenAI SDK 项目只需替换 Base URL、API 密钥和模型名即可开始。'
+          }
+        }
+      },
+      prompts: {
+        title: '提示词笔记',
+        description: '使用这些提示词快速验证模型行为、迁移现有项目、约束结构化输出，并对不同厂商的结果进行基准比较。',
+        items: {
+          integration: { label: '接入', text: '生成一份使用 Qiu API 的 OpenAI 兼容 SDK 示例' },
+          migration: { label: '迁移', text: '将 base_url、api_key 和模型设置迁移到统一网关' },
+          selection: { label: '选型', text: '根据任务推荐文本、视觉、嵌入或推理模型' },
+          schema: { label: '结构', text: '使用 JSON Schema 约束响应，便于稳定解析' },
+          benchmark: { label: '评测', text: '从准确率、延迟、成本和稳定性比较多个模型' },
+          streaming: { label: '流式', text: '设计支持前端增量渲染的流式响应流程' }
+        }
+      },
+      models: {
+        title: '模型覆盖',
+        description: '可用模型、价格倍率、上下文长度和渠道状态会动态变化，请以模型广场和控制台中的实时信息为准。',
+        openPlaza: '打开模型广场查看实时信息',
+        items: {
+          openai: { family: 'GPT / o 系列', description: '适合通用对话、编程、推理、结构化输出和多轮应用。' },
+          anthropic: { family: 'Claude 系列', description: '适合长上下文分析、代码审查、写作优化和复杂推理。' },
+          gemini: { family: 'Gemini 系列', description: '适合多模态理解、长上下文处理、视觉分析和知识整合。' },
+          grok: { family: 'Grok 系列', description: '适合通用对话、实时信息处理、编码和推理工作负载。' },
+          deepseek: { family: 'DeepSeek 系列', description: '适合推理、编程、数学、批处理和成本敏感型场景。' },
+          more: { name: '更多厂商', family: 'Qwen / Kimi / GLM 等', description: '更多兼容模型会随渠道持续接入，具体以模型广场为准。' }
+        }
+      },
+      pricing: {
+        title: '价格参考',
+        items: {
+          models: { title: '按模型计价', description: '不同模型拥有不同成本结构，可针对每种工作负载平衡质量、延迟和预算。' },
+          usage: { title: '按实际需求使用', description: '原型、批处理、内部工具和生产流量可以通过同一网关按需选择模型。' },
+          live: { title: '以实时数据为准', description: '模型可用性和价格可能变化，上线前请在模型广场核对最新信息。' }
+        }
+      },
+      integration: {
+        title: '接入地图',
+        description: '沿用应用已经熟悉的 OpenAI 风格接入方式，替换服务地址、选择可用模型，并在流量增长后持续查看用量。',
+        modelPlaceholder: '从模型广场选择可用模型',
+        capabilityNote: '视觉、音频、重排等更多接口取决于当前上游渠道能力。'
+      },
+      launch: {
+        title: '开始使用',
+        items: {
+          key: { title: '创建 API 密钥', description: '在控制台创建密钥，并按项目、环境或团队组织使用范围。' },
+          endpoint: { title: '替换接入地址', description: '保留 OpenAI 风格 SDK 流程，只替换 Base URL 与 API 密钥。' },
+          model: { title: '选择并测试模型', description: '发送测试请求前核对模型可用性、价格和渠道状态。' },
+          monitor: { title: '上线后持续监控', description: '通过日志、额度和错误详情优化模型、提示词与成本结构。' }
+        }
+      },
+      capabilities: {
+        title: '平台能力',
+        items: {
+          sdk: { title: 'SDK 兼容', description: '兼容常见 OpenAI 风格 SDK，减少迁移改动。' },
+          streaming: { title: '流式输出', description: '支持聊天、写作和长内容生成的增量响应。' },
+          structured: { title: '结构化输出', description: '在模型支持时使用 JSON、工具调用与 Schema 输出。' },
+          tracking: { title: '用量追踪', description: '在一个控制台查看请求日志、额度、错误和模型活动。' }
+        }
+      },
+      useCases: {
+        title: '适用场景',
+        lead: '一层统一网关，覆盖实验、产品、团队、智能体、内容与 RAG。',
+        items: {
+          experiments: { title: 'AI 应用实验：', description: '对话、摘要、搜索、写作、翻译、图像理解与自动化。' },
+          business: { title: '业务系统接入：', description: '通过一个网关连接多个模型厂商，减少专用维护成本。' },
+          agents: { title: '智能体工作流：', description: '为规划、执行、检索、视觉和结构化输出分配不同模型。' },
+          rag: { title: '知识库问答：', description: '结合嵌入、对话接口和业务数据构建轻量 RAG 系统。' }
+        }
+      },
+      faq: {
+        title: '常见问题',
+        items: {
+          official: { question: 'Qiu API 是模型厂商的官方服务吗？', answer: '不是。Qiu API 是第三方模型网关，模型可用性、价格和使用规则取决于平台设置与上游渠道。' },
+          sdk: { question: '可以继续使用现有 OpenAI SDK 吗？', answer: '通常可以。先替换 Base URL 和 API 密钥，再按所选模型调整工具、流式输出等字段。' },
+          models: { question: '怎样确认当前支持哪些模型？', answer: '请在模型广场查看实时可用模型、上下文长度、价格倍率和渠道状态。' },
+          production: { question: '适合直接用于生产环境吗？', answer: '上线关键流量前应完成稳定性测试、额度规划、错误处理和日志监控。' }
+        }
+      }
+    },
     // 新增：面向用户的价值主张
     heroSubtitle: '一个密钥，畅用多个 AI 模型',
     heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini 等主流 AI 服务',
@@ -110,7 +226,8 @@ export default {
       button: '免费注册'
     },
     footer: {
-      allRightsReserved: '保留所有权利。'
+      allRightsReserved: '保留所有权利。',
+      poweredBy: '技术支持：'
     }
   },
 

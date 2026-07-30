@@ -499,4 +499,99 @@ describe('PaymentResultView', () => {
     expect(wrapper.text()).toContain('payment.methods.alipay')
     expect(wrapper.text()).not.toContain('payment.methods.alipay_direct')
   })
+
+  it('presents a completed balance order as a credited receipt and returns to the dashboard', async () => {
+    routeState.query = {
+      resume_token: 'resume-completed-balance',
+    }
+    resolveOrderPublicByResumeToken.mockResolvedValueOnce({
+      data: {
+        ...orderFactory('COMPLETED'),
+        amount: 100,
+        pay_amount: 103,
+        fee_rate: 3,
+        completed_at: '2026-04-20T12:01:00Z',
+      },
+    })
+
+    const wrapper = mount(PaymentResultView, {
+      global: {
+        stubs: {
+          OrderStatusBadge: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('payment.result.balanceCompletedHint')
+    expect(wrapper.text()).toContain('payment.result.receiptTitle')
+    expect(wrapper.text()).toContain('$100.00')
+    expect(wrapper.text()).toContain('103.00')
+    expect(wrapper.text()).toContain('payment.result.backToDashboard')
+
+    await wrapper.get('[data-test="payment-result-primary"]').trigger('click')
+    expect(routerPush).toHaveBeenCalledWith('/dashboard')
+  })
+
+  it('keeps paid-but-not-completed orders in processing and directs users to order status', async () => {
+    routeState.query = {
+      resume_token: 'resume-paid-processing',
+    }
+    resolveOrderPublicByResumeToken.mockResolvedValueOnce({
+      data: {
+        ...orderFactory('PAID'),
+        amount: 100,
+        pay_amount: 103,
+        fee_rate: 3,
+      },
+    })
+
+    const wrapper = mount(PaymentResultView, {
+      global: {
+        stubs: {
+          OrderStatusBadge: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('payment.result.paidProcessingHint')
+    expect(wrapper.text()).toContain('payment.result.expectedCredit')
+    expect(wrapper.text()).not.toContain('payment.result.balanceCompletedHint')
+
+    await wrapper.get('[data-test="payment-result-primary"]').trigger('click')
+    expect(routerPush).toHaveBeenCalledWith('/orders')
+  })
+
+  it('uses the subscription completion message and subscription destination', async () => {
+    routeState.query = {
+      resume_token: 'resume-completed-subscription',
+    }
+    resolveOrderPublicByResumeToken.mockResolvedValueOnce({
+      data: {
+        ...orderFactory('COMPLETED'),
+        order_type: 'subscription',
+        plan_id: 8,
+      },
+    })
+
+    const wrapper = mount(PaymentResultView, {
+      global: {
+        stubs: {
+          OrderStatusBadge: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('payment.result.subscriptionSuccess')
+    expect(wrapper.text()).toContain('payment.result.subscriptionCompletedHint')
+    expect(wrapper.text()).toContain('payment.result.viewSubscriptions')
+
+    await wrapper.get('[data-test="payment-result-primary"]').trigger('click')
+    expect(routerPush).toHaveBeenCalledWith('/subscriptions')
+  })
 })

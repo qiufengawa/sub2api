@@ -52,4 +52,21 @@ describe('AppSidebar header styles', () => {
     expect(sidebarHeaderBlockMatch?.[0]).not.toContain('@apply overflow-hidden;')
     expect(sidebarBrandBlockMatch?.[0]).not.toContain('overflow: hidden;')
   })
+
+  it('gives the site name its own two-line brand area', () => {
+    expect(componentSource).toContain(':title="siteName"')
+    expect(componentSource).toContain('-webkit-line-clamp: 2;')
+    expect(componentSource).toContain('max-width: 100%;')
+  })
+
+  it('moves the version control to the bottom tools and opens it upward', () => {
+    const headerEnd = componentSource.indexOf('<!-- Navigation -->')
+    const headerSource = componentSource.slice(0, headerEnd)
+
+    expect(headerSource).not.toContain('<VersionBadge')
+    expect(componentSource).toContain('<VersionBadge :version="siteVersion" placement="top" />')
+    expect(componentSource.indexOf('<VersionBadge')).toBeGreaterThan(
+      componentSource.indexOf('<!-- Bottom Section -->')
+    )
+  })
 })
