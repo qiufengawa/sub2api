@@ -3641,7 +3641,7 @@
                 </div>
               </div>
 
-              <!-- ★ 新增：系统全局默认平台限额矩阵 -->
+              <!--  新增：系统全局默认平台限额矩阵 -->
               <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
                 <div class="mb-3">
                   <label class="font-medium text-gray-900 dark:text-white">
@@ -3979,7 +3979,7 @@
                       </div>
                     </div>
 
-                    <!-- ★ 新增：auth source 平台限额覆盖区块 -->
+                    <!--  新增：auth source 平台限额覆盖区块 -->
                     <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
                       <div class="mb-3">
                         <label class="font-medium text-gray-900 dark:text-white">
@@ -9864,7 +9864,7 @@ function parseTablePageSizeOptionsInput(raw: string): number[] | null {
   return deduped;
 }
 
-// ── codex_cli_only 黑/白名单结构化编辑（行 ↔ JSON）──
+// ── codex_cli_only 黑/白名单结构化编辑（行  JSON）──
 interface CodexClientRow {
   originator: string;
   uaContains: string; // 逗号分隔，序列化时拆成 ua_contains 数组

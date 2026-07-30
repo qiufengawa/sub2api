@@ -1,6 +1,6 @@
 <template>
-  <div class="card p-4">
-    <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+  <div :class="props.compact ? 'rounded border border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-800' : 'card p-3'">
+    <h3 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">
       {{ t('admin.dashboard.tokenUsageTrend') }}
     </h3>
     <div v-if="loading" class="flex h-48 items-center justify-center">
@@ -35,6 +35,7 @@ import {
 import { Line } from 'vue-chartjs'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import type { TrendDataPoint } from '@/types'
+import { calculateCacheTokenReuseRate } from '@/utils/usageMetrics'
 
 ChartJS.register(
   CategoryScale,
@@ -49,10 +50,16 @@ ChartJS.register(
 
 const { t } = useI18n()
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   trendData: TrendDataPoint[]
   loading?: boolean
-}>()
+  compact?: boolean
+  colorScheme?: 'default' | 'blue' | 'categorical'
+}>(), {
+  loading: false,
+  compact: false,
+  colorScheme: 'default',
+})
 
 const isDarkMode = computed(() => {
   return document.documentElement.classList.contains('dark')
@@ -61,11 +68,11 @@ const isDarkMode = computed(() => {
 const chartColors = computed(() => ({
   text: isDarkMode.value ? '#e5e7eb' : '#374151',
   grid: isDarkMode.value ? '#374151' : '#e5e7eb',
-  input: '#3b82f6',
-  output: '#10b981',
-  cacheCreation: '#f59e0b',
-  cacheRead: '#06b6d4',
-  cacheHitRate: '#8b5cf6'
+  input: props.colorScheme === 'categorical' ? '#4f46e5' : '#366ef4',
+  output: props.colorScheme === 'blue' ? '#5b8ff9' : props.colorScheme === 'categorical' ? '#8b5cf6' : '#10b981',
+  cacheCreation: props.colorScheme === 'blue' ? '#93b5ff' : '#f59e0b',
+  cacheRead: props.colorScheme === 'blue' ? '#b6d2ff' : '#06b6d4',
+  cacheHitRate: props.colorScheme === 'blue' ? '#64748b' : props.colorScheme === 'categorical' ? '#db2777' : '#8b5cf6'
 }))
 
 const chartData = computed(() => {
@@ -80,6 +87,7 @@ const chartData = computed(() => {
         borderColor: chartColors.value.input,
         backgroundColor: `${chartColors.value.input}20`,
         fill: true,
+        pointRadius: 0,
         tension: 0.3
       },
       {
@@ -87,7 +95,8 @@ const chartData = computed(() => {
         data: props.trendData.map((d) => d.output_tokens),
         borderColor: chartColors.value.output,
         backgroundColor: `${chartColors.value.output}20`,
-        fill: true,
+        fill: props.colorScheme !== 'blue',
+        pointRadius: 0,
         tension: 0.3
       },
       {
@@ -95,7 +104,9 @@ const chartData = computed(() => {
         data: props.trendData.map((d) => d.cache_creation_tokens),
         borderColor: chartColors.value.cacheCreation,
         backgroundColor: `${chartColors.value.cacheCreation}20`,
-        fill: true,
+        borderDash: props.colorScheme === 'blue' ? [5, 3] : undefined,
+        fill: props.colorScheme !== 'blue',
+        pointRadius: 0,
         tension: 0.3
       },
       {
@@ -103,19 +114,23 @@ const chartData = computed(() => {
         data: props.trendData.map((d) => d.cache_read_tokens),
         borderColor: chartColors.value.cacheRead,
         backgroundColor: `${chartColors.value.cacheRead}20`,
-        fill: true,
+        borderDash: props.colorScheme === 'blue' ? [2, 3] : undefined,
+        fill: props.colorScheme !== 'blue',
+        pointRadius: 0,
         tension: 0.3
       },
       {
-        label: 'Cache Hit Rate',
-        data: props.trendData.map((d) => {
-          const totalPromptTokens = d.input_tokens + d.cache_read_tokens + d.cache_creation_tokens
-          return totalPromptTokens > 0 ? (d.cache_read_tokens / totalPromptTokens) * 100 : 0
-        }),
+        label: t('usage.cacheHitRate'),
+        data: props.trendData.map((d) => calculateCacheTokenReuseRate(
+          d.input_tokens,
+          d.cache_creation_tokens,
+          d.cache_read_tokens
+        )),
         borderColor: chartColors.value.cacheHitRate,
         backgroundColor: `${chartColors.value.cacheHitRate}20`,
         borderDash: [5, 5],
         fill: false,
+        pointRadius: 0,
         tension: 0.3,
         yAxisID: 'yPercent'
       }
@@ -137,7 +152,7 @@ const lineOptions = computed(() => ({
         color: chartColors.value.text,
         usePointStyle: true,
         pointStyle: 'circle',
-        padding: 15,
+        padding: 10,
         font: {
           size: 11
         }

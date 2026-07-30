@@ -16,7 +16,7 @@
         <div class="flex flex-col items-center py-4">
           <div class="h-10 w-10 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"></div>
           <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">{{ t('payment.qr.payInNewWindowHint') }}</p>
-          <button v-if="payUrl" class="btn btn-secondary mt-3 text-sm" @click="reopenPopup">
+          <button v-if="safePayUrl" class="btn btn-secondary mt-3 text-sm" @click="reopenPopup">
             {{ t('payment.qr.openPayWindow') }}
           </button>
         </div>
@@ -82,6 +82,7 @@ import { extractI18nErrorMessage } from '@/utils/apiError'
 import { getPaymentPopupFeatures, isBuiltInAlipayMethod, isBuiltInWxpayMethod } from '@/components/payment/providerConfig'
 import type { PaymentOrder } from '@/types/payment'
 import { currencySymbol } from '@/components/payment/currency'
+import { normalizePaymentNavigationUrl } from '@/components/payment/paymentFlow'
 import QRCode from 'qrcode'
 import alipayIcon from '@/assets/icons/alipay.svg'
 import wxpayIcon from '@/assets/icons/wxpay.svg'
@@ -108,6 +109,7 @@ const appStore = useAppStore()
 const qrCanvas = ref<HTMLCanvasElement | null>(null)
 const qrUrl = ref('')
 const remainingSeconds = ref(0)
+const safePayUrl = computed(() => normalizePaymentNavigationUrl(props.payUrl))
 const expired = ref(false)
 const cancelling = ref(false)
 const success = ref(false)
@@ -157,8 +159,8 @@ function getLogoForType(): string | null {
 
 
 function reopenPopup() {
-  if (props.payUrl) {
-    window.open(props.payUrl, 'paymentPopup', getPaymentPopupFeatures())
+  if (safePayUrl.value) {
+    window.open(safePayUrl.value, 'paymentPopup', getPaymentPopupFeatures())
   }
 }
 

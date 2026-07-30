@@ -66,9 +66,7 @@ volumes:
 ## Tags
 
 - `latest` - Latest stable release
-- `x.y.z` - Specific version
-- `x.y` - Latest patch of minor version
-- `x` - Latest minor of major version
+- `0.1.168-qiu.1` - Specific distribution release; the first triplet is the upstream baseline and `qiu.1` is the first fork revision
 
 ## Links
 

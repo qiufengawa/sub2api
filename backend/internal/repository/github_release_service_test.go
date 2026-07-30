@@ -106,6 +106,37 @@ func TestGitHubReleaseClientRedirectAuthorization(t *testing.T) {
 	}
 }
 
+func TestGitHubDownloadRedirectValidation(t *testing.T) {
+	checkRedirect := githubDownloadCheckRedirect(nil)
+	tests := []struct {
+		name    string
+		url     string
+		wantErr bool
+	}{
+		{name: "GitHub release", url: "https://github.com/test/repo/releases/download/v1/file"},
+		{name: "release asset CDN", url: "https://release-assets.githubusercontent.com/file"},
+		{name: "objects CDN", url: "https://objects.githubusercontent.com/file"},
+		{name: "untrusted host", url: "https://example.com/file", wantErr: true},
+		{name: "lookalike host", url: "https://github.com.evil.test/file", wantErr: true},
+		{name: "HTTP downgrade", url: "http://github.com/file", wantErr: true},
+		{name: "userinfo", url: "https://user@github.com/file", wantErr: true},
+		{name: "custom port", url: "https://github.com:8443/file", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodGet, tt.url, nil)
+			require.NoError(t, err)
+			err = checkRedirect(req, nil)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestGitHubReleaseClientDoesNotAuthorizeDownloads(t *testing.T) {
 	client := newTestGitHubReleaseClient()
 	client.updateGitHubToken = "update-secret"

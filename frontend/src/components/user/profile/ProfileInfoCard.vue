@@ -1,191 +1,85 @@
 <template>
-  <div class="space-y-6">
-    <section
-      data-testid="profile-overview-hero"
-      class="card overflow-hidden border border-primary-100/80 bg-gradient-to-br from-primary-50 via-white to-amber-50/70 dark:border-primary-900/40 dark:from-primary-950/40 dark:via-dark-900 dark:to-dark-950"
-    >
-      <div class="px-6 py-6 md:px-8">
-        <div class="flex flex-col gap-6 lg:flex-row lg:items-start">
-          <div
-            class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-primary-500 to-primary-600 text-2xl font-bold text-white shadow-lg shadow-primary-500/20"
-          >
-            <img
-              v-if="avatarUrl"
-              :src="avatarUrl"
-              :alt="displayName"
-              class="h-full w-full object-cover"
-            >
-            <span v-else>{{ avatarInitial }}</span>
-          </div>
+  <section
+    data-testid="profile-overview-hero"
+    class="grid overflow-hidden rounded border border-gray-200 bg-white md:grid-cols-[minmax(0,1.5fr)_minmax(0,2fr)] dark:border-dark-700 dark:bg-dark-800"
+  >
+    <div class="flex min-w-0 items-center gap-3 border-b border-gray-100 px-4 py-3 md:border-b-0 md:border-r dark:border-dark-700">
+      <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded bg-primary-500 text-base font-semibold text-white">
+        <img
+          v-if="avatarUrl"
+          :src="avatarUrl"
+          :alt="displayName"
+          class="h-full w-full object-cover"
+        >
+        <span v-else>{{ avatarInitial }}</span>
+      </div>
 
-          <div class="min-w-0 flex-1 space-y-5">
-            <div class="space-y-3">
-              <div class="flex flex-wrap items-center gap-2">
-                <h2 class="truncate text-2xl font-semibold text-gray-900 dark:text-white">
-                  {{ displayName }}
-                </h2>
-                <span :class="['badge', user?.role === 'admin' ? 'badge-primary' : 'badge-gray']">
-                  {{ user?.role === 'admin' ? t('profile.administrator') : t('profile.user') }}
-                </span>
-                <span
-                  :class="['badge', user?.status === 'active' ? 'badge-success' : 'badge-danger']"
-                >
-                  {{
-                    user?.status === 'active'
-                      ? t('common.active')
-                      : t('common.disabled')
-                  }}
-                </span>
-              </div>
-
-              <div class="space-y-1">
-                <p class="truncate text-sm text-gray-600 dark:text-gray-300">
-                  {{ primaryEmailDisplay }}
-                </p>
-                <div
-                  v-if="sourceHints.length"
-                  class="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400"
-                >
-                  <span
-                    v-for="hint in sourceHints"
-                    :key="hint.key"
-                    class="inline-flex items-center gap-1 rounded-full bg-white/80 px-3 py-1 ring-1 ring-primary-100 dark:bg-dark-900/70 dark:ring-primary-900/40"
-                  >
-                    <Icon name="link" size="sm" />
-                    {{ hint.text }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div class="grid gap-3 sm:grid-cols-3">
-              <div
-                data-testid="profile-overview-metric-balance"
-                class="rounded-2xl bg-white/85 px-4 py-3 shadow-sm ring-1 ring-white/70 dark:bg-dark-900/60 dark:ring-dark-700"
-              >
-                <p class="text-xs font-medium uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">
-                  {{ t('profile.accountBalance') }}
-                </p>
-                <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
-                  {{ formatCurrency(user?.balance || 0) }}
-                </p>
-              </div>
-              <div
-                data-testid="profile-overview-metric-concurrency"
-                class="rounded-2xl bg-white/85 px-4 py-3 shadow-sm ring-1 ring-white/70 dark:bg-dark-900/60 dark:ring-dark-700"
-              >
-                <p class="text-xs font-medium uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">
-                  {{ t('profile.concurrencyLimit') }}
-                </p>
-                <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
-                  {{ user?.concurrency || 0 }}
-                </p>
-              </div>
-              <div
-                data-testid="profile-overview-metric-member-since"
-                class="rounded-2xl bg-white/85 px-4 py-3 shadow-sm ring-1 ring-white/70 dark:bg-dark-900/60 dark:ring-dark-700"
-              >
-                <p class="text-xs font-medium uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">
-                  {{ t('profile.memberSince') }}
-                </p>
-                <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
-                  {{ memberSinceLabel }}
-                </p>
-              </div>
-            </div>
-          </div>
+      <div class="min-w-0 flex-1">
+        <div class="flex min-w-0 items-center gap-2">
+          <h2 class="min-w-0 truncate text-sm font-semibold text-gray-900 dark:text-white">
+            {{ displayName }}
+          </h2>
+          <span :class="['badge shrink-0', user?.role === 'admin' ? 'badge-primary' : 'badge-gray']">
+            {{ user?.role === 'admin' ? t('profile.administrator') : t('profile.user') }}
+          </span>
+          <span :class="['badge shrink-0', user?.status === 'active' ? 'badge-success' : 'badge-danger']">
+            {{ user?.status === 'active' ? t('common.active') : t('common.disabled') }}
+          </span>
         </div>
-      </div>
-    </section>
-
-    <div class="space-y-6">
-      <div data-testid="profile-main-column" class="space-y-6">
-        <section
-          data-testid="profile-basics-panel"
-          class="card border border-gray-100 bg-white/90 p-6 dark:border-dark-700 dark:bg-dark-900/50"
-        >
-          <div class="mb-5 flex items-start justify-between gap-4">
-            <div>
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ t('profile.basicsTitle') }}
-              </h3>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ t('profile.basicsDescription') }}
-              </p>
-            </div>
-          </div>
-
-          <div class="grid gap-6 sm:grid-cols-1 md:grid-cols-2">
-            <div class="rounded-3xl border border-gray-100 bg-gray-50/80 p-5 dark:border-dark-700 dark:bg-dark-900/30">
-              <ProfileAvatarCard
-                :user="user"
-                embedded
-              />
-            </div>
-
-            <div class="rounded-3xl border border-gray-100 bg-gray-50/80 p-5 dark:border-dark-700 dark:bg-dark-900/30">
-              <ProfileEditForm
-                :initial-username="user?.username || ''"
-                embedded
-              />
-            </div>
-          </div>
-        </section>
-
-        <section
-          data-testid="profile-auth-bindings-panel"
-          class="card border border-gray-100 bg-white/90 p-6 dark:border-dark-700 dark:bg-dark-900/50"
-        >
-          <ProfileIdentityBindingsSection
-            :user="user"
-            :linuxdo-enabled="linuxdoEnabled"
-            :dingtalk-enabled="dingtalkEnabled"
-            :oidc-enabled="oidcEnabled"
-            :oidc-provider-name="oidcProviderName"
-            :wechat-enabled="wechatEnabled"
-            :wechat-open-enabled="wechatOpenEnabled"
-            :wechat-mp-enabled="wechatMpEnabled"
-            embedded
-            compact
-          />
-        </section>
-      </div>
-
-      <div data-testid="profile-side-column" class="space-y-6">
-        <section
+        <p class="mt-1 truncate text-xs text-gray-500 dark:text-dark-400">
+          {{ primaryEmailDisplay || '-' }}
+        </p>
+        <p
           v-if="sourceHints.length"
-          class="card border border-gray-100 bg-white/90 p-6 dark:border-dark-700 dark:bg-dark-900/50"
+          class="mt-1 truncate text-[10px] text-gray-400 dark:text-dark-500"
+          :title="sourceHints.map((hint) => hint.text).join(' · ')"
         >
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-            {{ t('profile.linkedProfileSources') }}
-          </h3>
-          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {{ t('profile.linkedProfileSourcesDescription') }}
-          </p>
-
-          <div class="mt-5 grid gap-3">
-            <div
-              v-for="hint in sourceHints"
-              :key="hint.key"
-              class="flex items-start gap-3 rounded-2xl border border-gray-100 bg-gray-50/80 px-4 py-3 text-sm text-gray-600 dark:border-dark-700 dark:bg-dark-900/30 dark:text-gray-300"
-            >
-              <Icon name="link" size="sm" class="mt-0.5 text-gray-400 dark:text-gray-500" />
-              <span>{{ hint.text }}</span>
-            </div>
-          </div>
-        </section>
+          {{ sourceHints.map((hint) => hint.text).join(' · ') }}
+        </p>
       </div>
     </div>
-  </div>
+
+    <div class="grid grid-cols-3">
+      <div
+        data-testid="profile-overview-metric-balance"
+        class="min-w-0 border-r border-gray-100 px-3 py-3 sm:px-4 dark:border-dark-700"
+      >
+        <p class="truncate text-[10px] text-gray-500 sm:text-xs dark:text-dark-400">
+          {{ t('profile.accountBalance') }}
+        </p>
+        <p class="mt-1 truncate text-base font-semibold tabular-nums text-gray-900 dark:text-white">
+          {{ formatCurrency(user?.balance || 0) }}
+        </p>
+      </div>
+      <div
+        data-testid="profile-overview-metric-concurrency"
+        class="min-w-0 border-r border-gray-100 px-3 py-3 sm:px-4 dark:border-dark-700"
+      >
+        <p class="truncate text-[10px] text-gray-500 sm:text-xs dark:text-dark-400">
+          {{ t('profile.concurrencyLimit') }}
+        </p>
+        <p class="mt-1 truncate text-base font-semibold tabular-nums text-gray-900 dark:text-white">
+          {{ user?.concurrency || 0 }}
+        </p>
+      </div>
+      <div
+        data-testid="profile-overview-metric-member-since"
+        class="min-w-0 px-3 py-3 sm:px-4"
+      >
+        <p class="truncate text-[10px] text-gray-500 sm:text-xs dark:text-dark-400">
+          {{ t('profile.memberSince') }}
+        </p>
+        <p class="mt-1 truncate text-base font-semibold text-gray-900 dark:text-white">
+          {{ memberSinceLabel }}
+        </p>
+      </div>
+    </div>
+  </section>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import Icon from '@/components/icons/Icon.vue'
-import ProfileAvatarCard from '@/components/user/profile/ProfileAvatarCard.vue'
-import ProfileEditForm from '@/components/user/profile/ProfileEditForm.vue'
-import ProfileIdentityBindingsSection from '@/components/user/profile/ProfileIdentityBindingsSection.vue'
 import type { User, UserAuthBindingStatus, UserAuthProvider, UserProfileSourceContext } from '@/types'
 
 const props = withDefaults(defineProps<{

@@ -14,6 +14,9 @@ const {
   showWarning,
   showSuccess,
   showInfo,
+  listMyErrorRequests,
+  routeState,
+  appStoreState,
 } = vi.hoisted(() => ({
   query: vi.fn(),
   getStats: vi.fn(),
@@ -25,6 +28,15 @@ const {
   showWarning: vi.fn(),
   showSuccess: vi.fn(),
   showInfo: vi.fn(),
+  listMyErrorRequests: vi.fn(),
+  routeState: { query: {} as Record<string, string> },
+  appStoreState: {
+    cachedPublicSettings: { allow_user_view_error_requests: false },
+    showError: vi.fn(),
+    showWarning: vi.fn(),
+    showSuccess: vi.fn(),
+    showInfo: vi.fn(),
+  },
 }))
 
 const messages: Record<string, string> = {
@@ -70,6 +82,7 @@ vi.mock('@/api', () => ({
     getStats,
     getDashboardModels,
     getDashboardSnapshotV2,
+    listMyErrorRequests,
   },
   keysAPI: {
     list,
@@ -79,9 +92,9 @@ vi.mock('@/api', () => ({
   },
 }))
 
-vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({ showError, showWarning, showSuccess, showInfo }),
-}))
+vi.mock('@/stores/app', () => ({ useAppStore: () => appStoreState }))
+
+vi.mock('vue-router', () => ({ useRoute: () => routeState }))
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
@@ -95,6 +108,14 @@ vi.mock('vue-i18n', async () => {
 
 const simpleStub = { template: '<div><slot /></div>' }
 const chartStub = { template: '<div />' }
+const usageTableStub = {
+  name: 'UsageTable',
+  props: {
+    columns: { type: Array, default: () => [] },
+    embedLatencyInCost: Boolean,
+  },
+  template: '<div data-testid="usage-table-stub" />',
+}
 
 const usageLog = {
   id: 1,
@@ -121,6 +142,10 @@ const usageLog = {
   model: 'gpt-5.4',
   reasoning_effort: null,
   ip_address: '203.0.113.10',
+  inbound_endpoint: '/v1/responses',
+  upstream_endpoint: '/v1/chat/completions',
+  user_agent: 'codex-cli/1.0',
+  group: { id: 1, name: 'default' },
   api_key: { name: 'demo-key' },
   billing_mode: 'token',
   request_type: 'sync',
@@ -137,7 +162,7 @@ function mountUsageView() {
         DateRangePicker: true,
         Icon: true,
         UsageStatsCards: chartStub,
-        UsageTable: chartStub,
+        UsageTable: usageTableStub,
         ModelDistributionChart: chartStub,
         GroupDistributionChart: chartStub,
         EndpointDistributionChart: chartStub,
@@ -159,6 +184,14 @@ describe('user UsageView', () => {
     showWarning.mockReset()
     showSuccess.mockReset()
     showInfo.mockReset()
+    listMyErrorRequests.mockReset()
+    routeState.query = {}
+    appStoreState.cachedPublicSettings.allow_user_view_error_requests = false
+    appStoreState.showError = showError
+    appStoreState.showWarning = showWarning
+    appStoreState.showSuccess = showSuccess
+    appStoreState.showInfo = showInfo
+    localStorage.clear()
 
     query.mockResolvedValue({ items: [usageLog], total: 1, pages: 1 })
     getStats.mockResolvedValue({
@@ -189,6 +222,7 @@ describe('user UsageView', () => {
     })
     list.mockResolvedValue({ items: [{ id: 1, name: 'demo-key' }] })
     getAvailable.mockResolvedValue([{ id: 1, name: 'default' }])
+    listMyErrorRequests.mockResolvedValue({ items: [], total: 0 })
   })
 
   it('loads logs, stats, model stats, and snapshot on first render', async () => {
@@ -205,6 +239,67 @@ describe('user UsageView', () => {
     }))
     expect(list).toHaveBeenCalledWith(1, 100)
     expect(getAvailable).toHaveBeenCalled()
+  })
+
+  it('keeps draft filters local until the query action applies them to every data request', async () => {
+    const wrapper = mountUsageView()
+    await flushPromises()
+    query.mockClear()
+    getStats.mockClear()
+    getDashboardModels.mockClear()
+    getDashboardSnapshotV2.mockClear()
+
+    ;(wrapper.vm as any).filters.model = 'gpt-draft-model'
+    await flushPromises()
+
+    expect(query).not.toHaveBeenCalled()
+    expect(getStats).not.toHaveBeenCalled()
+
+    await wrapper.get('[data-testid="usage-apply-filters"]').trigger('click')
+    await flushPromises()
+
+    expect(query).toHaveBeenCalledWith(expect.objectContaining({ model: 'gpt-draft-model' }), expect.anything())
+    expect(getStats).toHaveBeenCalledWith(expect.objectContaining({ model: 'gpt-draft-model' }))
+    expect(getDashboardModels).toHaveBeenCalledWith(expect.objectContaining({ model: 'gpt-draft-model' }))
+    expect(getDashboardSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({ model: 'gpt-draft-model' }))
+  })
+
+  it('opens the failed-request tab from the dashboard link when the feature is enabled', async () => {
+    routeState.query = { tab: 'errors' }
+    appStoreState.cachedPublicSettings.allow_user_view_error_requests = true
+
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    expect(wrapper.find('.tab-active').text()).toBe('usage.tabs.errors')
+    expect(listMyErrorRequests).toHaveBeenCalled()
+  })
+
+  it('uses the user column order with latency immediately after cost', async () => {
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    expect((wrapper.vm as any).visibleColumns.map((column: { key: string }) => column.key)).toEqual([
+      'api_key',
+      'model',
+      'reasoning_effort',
+      'tokens',
+      'cost',
+      'latency',
+      'billing_mode',
+      'created_at',
+    ])
+    expect(wrapper.getComponent({ name: 'UsageTable' }).props('embedLatencyInCost')).toBe(false)
+  })
+
+  it('preserves latency in saved hidden-column preferences', async () => {
+    localStorage.setItem('user-usage-hidden-columns', JSON.stringify(['latency', 'user_agent']))
+
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    expect((wrapper.vm as any).hiddenColumns.has('latency')).toBe(true)
+    expect((wrapper.vm as any).visibleColumns.map((column: { key: string }) => column.key).includes('latency')).toBe(false)
   })
 
   it('exports csv with current filters and without admin-only fields', async () => {
@@ -239,14 +334,16 @@ describe('user UsageView', () => {
     expect(showSuccess).toHaveBeenCalled()
     expect(csvContent.startsWith('\uFEFF')).toBe(true)
     expect(csvContent.slice(1)).toBe([
-      'Time,API Key Name,Model,Reasoning Effort,Inbound Endpoint,IP Address,Type,Billing Mode,Input Tokens,Output Tokens,Cache Read Tokens,Cache Creation Tokens,Rate Multiplier,Billed Cost,Original Cost,First Token (ms),Duration (ms)',
-      '2026-03-08T00:00:00Z,demo-key,gpt-5.4,"\'-",,203.0.113.10,Sync,Token,4057,101,278272,4,1,0.09288300,0.09288300,12,345',
+      'Time,API Key Name,Model,Reasoning Effort,Inbound Endpoint,Upstream Endpoint,Group,IP Address,User Agent,Type,Billing Mode,Input Tokens,Output Tokens,Cache Read Tokens,Cache Creation Tokens,Rate Multiplier,Billed Cost,Original Cost,First Token (ms),Duration (ms)',
+      '2026-03-08T00:00:00Z,demo-key,gpt-5.4,"\'-",/v1/responses,/v1/chat/completions,default,203.0.113.10,codex-cli/1.0,Sync,Token,4057,101,278272,4,1,0.09288300,0.09288300,12,345',
     ].join('\n'))
     expect(csvContent).toContain('IP Address')
+    expect(csvContent).toContain('Upstream Endpoint')
+    expect(csvContent).toContain('User Agent')
+    expect(csvContent).toContain('default')
     expect(csvContent).toContain('203.0.113.10')
     expect(csvContent).toContain('Billed Cost')
     expect(csvContent).toContain('Original Cost')
-    expect(csvContent).not.toContain('Upstream Endpoint')
     expect(csvContent).not.toContain('account_cost')
     expect(csvContent).not.toContain('account_rate_multiplier')
 

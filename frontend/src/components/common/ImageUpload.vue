@@ -1,9 +1,9 @@
 <template>
-  <div class="flex items-start gap-4">
+  <div class="flex items-start gap-3">
     <!-- Preview Box -->
     <div class="flex-shrink-0">
       <div
-        class="flex items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 dark:border-dark-600 dark:bg-dark-800"
+        class="flex items-center justify-center overflow-hidden rounded-[4px] border border-dashed border-gray-300 bg-gray-50 dark:border-dark-600 dark:bg-dark-800"
         :class="[previewSizeClass, { 'border-solid': !!modelValue }]"
       >
         <!-- SVG mode: render inline -->
@@ -102,8 +102,8 @@ const sanitizedValue = computed(() =>
   props.mode === 'svg' ? sanitizeSvg(props.modelValue ?? '') : ''
 )
 
-const previewSizeClass = computed(() => props.size === 'sm' ? 'h-14 w-14' : 'h-20 w-20')
-const innerSizeClass = computed(() => props.size === 'sm' ? 'h-7 w-7' : 'h-12 w-12')
+const previewSizeClass = computed(() => props.size === 'sm' ? 'h-12 w-12' : 'h-16 w-16')
+const innerSizeClass = computed(() => props.size === 'sm' ? 'h-6 w-6' : 'h-9 w-9')
 const placeholderSizeClass = computed(() => props.size === 'sm' ? 'h-5 w-5' : 'h-8 w-8')
 
 function handleUpload(event: Event) {

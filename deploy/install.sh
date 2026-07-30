@@ -151,7 +151,7 @@ declare -A MSG_ZH=(
     ["cmd_uninstall"]="卸载 Sub2API"
     ["cmd_install_version"]="安装/回退到指定版本"
     ["cmd_list_versions"]="列出可用版本"
-    ["opt_version"]="指定要安装的版本号 (例如: v1.0.0)"
+    ["opt_version"]="指定要安装的版本号 (例如: v0.1.168-qiu.1)"
 
     # Server configuration
     ["server_config_title"]="服务器配置"
@@ -276,7 +276,7 @@ declare -A MSG_EN=(
     ["cmd_uninstall"]="Remove Sub2API"
     ["cmd_install_version"]="Install/rollback to a specific version"
     ["cmd_list_versions"]="List available versions"
-    ["opt_version"]="Specify version to install (e.g., v1.0.0)"
+    ["opt_version"]="Specify version to install (e.g., v0.1.168-qiu.1)"
 
     # Server configuration
     ["server_config_title"]="Server Configuration"
@@ -607,7 +607,7 @@ validate_version() {
 get_current_version() {
     if [ -f "$INSTALL_DIR/sub2api" ]; then
         # Use grep -E for better compatibility (works on macOS and Linux)
-        "$INSTALL_DIR/sub2api" --version 2>/dev/null | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "unknown"
+        "$INSTALL_DIR/sub2api" --version 2>/dev/null | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?' | head -1 || echo "unknown"
     else
         echo "not_installed"
     fi
@@ -627,18 +627,18 @@ download_and_extract() {
     trap "rm -rf $TEMP_DIR" EXIT
 
     # Download archive
-    if ! curl -sL "$download_url" -o "$TEMP_DIR/$archive_name"; then
+    if ! curl -fsSL "$download_url" -o "$TEMP_DIR/$archive_name"; then
         print_error "$(msg 'download_failed')"
         exit 1
     fi
 
     # Download and verify checksum
     print_info "$(msg 'verifying_checksum')"
-    if curl -sL "$checksum_url" -o "$TEMP_DIR/checksums.txt" 2>/dev/null; then
+    if curl -fsSL "$checksum_url" -o "$TEMP_DIR/checksums.txt" 2>/dev/null; then
         local expected_checksum=$(grep "$archive_name" "$TEMP_DIR/checksums.txt" | awk '{print $1}')
         local actual_checksum=$(sha256sum "$TEMP_DIR/$archive_name" | awk '{print $1}')
 
-        if [ "$expected_checksum" != "$actual_checksum" ]; then
+        if [ -z "$expected_checksum" ] || [ "$expected_checksum" != "$actual_checksum" ]; then
             print_error "$(msg 'checksum_failed')"
             print_error "Expected: $expected_checksum"
             print_error "Actual: $actual_checksum"
@@ -646,7 +646,8 @@ download_and_extract() {
         fi
         print_success "$(msg 'checksum_verified')"
     else
-        print_warning "$(msg 'checksum_not_found')"
+        print_error "$(msg 'checksum_not_found')"
+        exit 1
     fi
 
     # Extract
@@ -863,7 +864,7 @@ upgrade() {
     print_info "$(msg 'upgrading')"
 
     # Get current version
-    CURRENT_VERSION=$("$INSTALL_DIR/sub2api" --version 2>/dev/null | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")
+    CURRENT_VERSION=$(get_current_version)
     print_info "$(msg 'current_version'): $CURRENT_VERSION"
 
     # Stop service
@@ -1181,10 +1182,10 @@ main() {
             echo ""
             echo "Examples:"
             echo "  $0                        # Install latest version"
-            echo "  $0 install -v v0.1.0      # Install specific version"
+            echo "  $0 install -v v0.1.168-qiu.1 # Install specific version"
             echo "  $0 upgrade                # Upgrade to latest"
-            echo "  $0 upgrade -v v0.2.0      # Upgrade to specific version"
-            echo "  $0 rollback v0.1.0        # Rollback to v0.1.0"
+            echo "  $0 upgrade -v v0.1.168-qiu.2 # Upgrade to specific version"
+            echo "  $0 rollback v0.1.168-qiu.1   # Roll back to a specific version"
             echo "  $0 list-versions          # List available versions"
             echo ""
             exit 0

@@ -96,6 +96,18 @@ type CreateOrderFlowResult = CreateOrderResult & {
 
 type StorageWriter = Pick<Storage, 'removeItem' | 'setItem'>
 
+export function normalizePaymentNavigationUrl(rawUrl: string | null | undefined): string {
+  const value = (rawUrl || '').trim()
+  if (!value) return ''
+
+  try {
+    const parsed = new URL(value, 'https://sub2api.invalid')
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? value : ''
+  } catch {
+    return ''
+  }
+}
+
 export function normalizeVisibleMethod(method: string): VisiblePaymentMethod | '' {
   const normalized = VISIBLE_METHOD_ALIASES[method.trim() as keyof typeof VISIBLE_METHOD_ALIASES]
   return normalized ?? ''
@@ -157,7 +169,7 @@ export function decidePaymentLaunch(
     qrCode: result.qr_code || '',
     expiresAt: result.expires_at || '',
     paymentType: visibleMethod,
-    payUrl: result.pay_url || '',
+    payUrl: normalizePaymentNavigationUrl(result.pay_url),
     outTradeNo: result.out_trade_no || '',
     clientSecret: result.client_secret || '',
     intentId: result.intent_id || '',
@@ -196,8 +208,14 @@ export function decidePaymentLaunch(
     return { kind, paymentState, recovery: paymentState, stripeMethod }
   }
 
-  if (result.result_type === 'oauth_required' && result.oauth?.authorize_url) {
-    return { kind: 'wechat_oauth', paymentState: baseState, recovery: baseState, oauth: result.oauth }
+  const authorizeUrl = normalizePaymentNavigationUrl(result.oauth?.authorize_url)
+  if (result.result_type === 'oauth_required' && result.oauth && authorizeUrl) {
+    return {
+      kind: 'wechat_oauth',
+      paymentState: baseState,
+      recovery: baseState,
+      oauth: { ...result.oauth, authorize_url: authorizeUrl },
+    }
   }
 
   const jsapiPayload = result.jsapi ?? result.jsapi_payload
@@ -316,7 +334,7 @@ export function readPaymentRecoverySnapshot(
       qrCode: parsed.qrCode,
       expiresAt: parsed.expiresAt,
       paymentType: parsed.paymentType,
-      payUrl: parsed.payUrl,
+      payUrl: normalizePaymentNavigationUrl(parsed.payUrl),
       outTradeNo: parsed.outTradeNo || '',
       clientSecret: parsed.clientSecret,
       intentId: parsed.intentId || '',

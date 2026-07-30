@@ -160,6 +160,23 @@ describe('decidePaymentLaunch', () => {
     expect(decision.recovery.resumeToken).toBe('resume-2')
   })
 
+  it.each(['javascript:alert(1)', 'data:text/html,unsafe', 'file:///tmp/payment'])(
+    'rejects unsafe hosted payment URL %s',
+    (payUrl) => {
+      const decision = decidePaymentLaunch(createOrderResult({
+        pay_url: payUrl,
+        payment_mode: 'redirect',
+      }), {
+        visibleMethod: 'wxpay',
+        orderType: 'balance',
+        isMobile: true,
+      })
+
+      expect(decision.kind).toBe('unhandled')
+      expect(decision.paymentState.payUrl).toBe('')
+    },
+  )
+
   it('prefers redirect on mobile when both pay_url and qr_code are present', () => {
     const decision = decidePaymentLaunch(createOrderResult({
       pay_url: 'https://pay.example.com/mobile/session',
@@ -208,6 +225,25 @@ describe('decidePaymentLaunch', () => {
     expect(decision.kind).toBe('wechat_oauth')
     expect(decision.oauth?.authorize_url).toContain('/api/v1/auth/oauth/wechat/payment/start')
     expect(decision.paymentState.paymentType).toBe('wxpay')
+  })
+
+  it('rejects unsafe WeChat OAuth authorization URLs', () => {
+    const decision = decidePaymentLaunch(createOrderResult({
+      result_type: 'oauth_required',
+      oauth: {
+        authorize_url: 'javascript:alert(1)',
+        appid: 'wx123',
+        scope: 'snsapi_base',
+        redirect_url: '/auth/wechat/payment/callback',
+      },
+    }), {
+      visibleMethod: 'wxpay',
+      orderType: 'balance',
+      isMobile: true,
+    })
+
+    expect(decision.kind).toBe('unhandled')
+    expect(decision.oauth).toBeUndefined()
   })
 
   it('returns wechat jsapi launch when backend has a jsapi payload ready', () => {
@@ -403,6 +439,34 @@ describe('readPaymentRecoverySnapshot', () => {
     })
 
     expect(restored?.orderId).toBe(33)
+  })
+
+  it('removes unsafe payment URLs from recovery snapshots', () => {
+    const restored = readPaymentRecoverySnapshot(JSON.stringify({
+      orderId: 34,
+      amount: 18,
+      qrCode: 'https://pay.example.com/qr/34',
+      expiresAt: '2099-01-01T00:10:00.000Z',
+      paymentType: 'alipay',
+      payUrl: 'javascript:alert(1)',
+      outTradeNo: 'sub2_34',
+      clientSecret: '',
+      intentId: '',
+      currency: 'CNY',
+      countryCode: 'CN',
+      paymentEnv: '',
+      payAmount: 18,
+      orderType: 'balance',
+      paymentMode: 'qrcode',
+      resumeToken: 'resume-34',
+      createdAt: Date.UTC(2099, 0, 1, 0, 0, 0),
+    }), {
+      now: Date.UTC(2099, 0, 1, 0, 1, 0),
+      resumeToken: 'resume-34',
+    })
+
+    expect(restored?.payUrl).toBe('')
+    expect(restored?.qrCode).toBe('https://pay.example.com/qr/34')
   })
 
   it('drops expired or mismatched recovery snapshots', () => {

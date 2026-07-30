@@ -3,14 +3,15 @@
     <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
       {{ t('payment.paymentMethod') }}
     </label>
-    <div class="grid grid-cols-2 gap-3 sm:flex">
+    <div class="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,184px),1fr))]">
       <button
         v-for="method in sortedMethods"
         :key="method.type"
         type="button"
         :disabled="!method.available"
+        :title="methodLabel(method)"
         :class="[
-          'relative flex h-[60px] flex-col items-center justify-center rounded-lg border px-3 transition-all sm:flex-1',
+          'relative flex h-12 min-w-0 items-center justify-start rounded-[3px] border px-3 text-left transition-colors',
           !method.available
             ? 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-50 dark:border-dark-700 dark:bg-dark-800/50'
             : selected === method.type
@@ -19,13 +20,13 @@
         ]"
         @click="method.available && emit('select', method.type)"
       >
-        <span class="flex items-center gap-2">
-          <img :src="methodIcon(method.type)" :alt="methodLabel(method)" class="h-7 w-7 object-contain" />
-          <span class="flex flex-col items-start leading-none">
-            <span class="text-base font-semibold">{{ methodLabel(method) }}</span>
+        <span class="flex min-w-0 flex-1 items-center gap-2">
+          <img :src="methodIcon(method.type)" :alt="methodLabel(method)" class="h-6 w-6 shrink-0 object-contain" />
+          <span class="flex min-w-0 flex-1 flex-col items-start leading-none">
+            <span class="block max-w-full truncate whitespace-nowrap text-sm font-semibold">{{ methodLabel(method) }}</span>
             <span
               v-if="method.fee_rate > 0"
-              class="text-[10px] tracking-wide text-gray-500 dark:text-dark-400"
+              class="mt-1 whitespace-nowrap text-[10px] tracking-wide text-gray-500 dark:text-dark-400"
             >
               {{ t('payment.fee') }} {{ method.fee_rate }}%
             </span>

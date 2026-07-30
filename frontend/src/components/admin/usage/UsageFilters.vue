@@ -22,11 +22,11 @@
             class="absolute right-2 top-9 text-gray-400"
             aria-label="Clear user filter"
           >
-            ✕
+            <Icon name="x" size="sm" />
           </button>
           <div
             v-if="showUserDropdown && (userResults.length > 0 || userKeyword)"
-            class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border bg-white shadow-lg dark:bg-dark-800"
+            class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-[4px] border bg-white shadow-lg dark:bg-dark-800"
           >
             <button
               v-for="u in userResults"
@@ -59,11 +59,11 @@
             class="absolute right-2 top-9 text-gray-400"
             aria-label="Clear API key filter"
           >
-            ✕
+            <Icon name="x" size="sm" />
           </button>
           <div
             v-if="showApiKeyDropdown && apiKeyResults.length > 0"
-            class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border bg-white shadow-lg dark:bg-dark-800"
+            class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-[4px] border bg-white shadow-lg dark:bg-dark-800"
           >
             <button
               v-for="k in apiKeyResults"
@@ -102,11 +102,11 @@
             class="absolute right-2 top-9 text-gray-400"
             aria-label="Clear account filter"
           >
-            ✕
+            <Icon name="x" size="sm" />
           </button>
           <div
             v-if="showAccountDropdown && (accountResults.length > 0 || accountKeyword)"
-            class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border bg-white shadow-lg dark:bg-dark-800"
+            class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-[4px] border bg-white shadow-lg dark:bg-dark-800"
           >
             <button
               v-for="a in accountResults"
@@ -192,6 +192,7 @@ import { ref, onMounted, onUnmounted, toRef, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
+import Icon from '@/components/icons/Icon.vue'
 import { COMMON_ERROR_STATUS_CODES } from '@/utils/errorBadges'
 import type { SimpleApiKey, SimpleUser } from '@/api/admin/usage'
 

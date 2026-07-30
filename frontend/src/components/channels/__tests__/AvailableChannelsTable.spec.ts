@@ -72,6 +72,7 @@ const rows: UserAvailableChannel[] = [
 
 const baseProps = {
   columns: {
+    channelInfo: 'Channel information',
     name: 'Channel',
     description: 'Description',
     platform: 'Platform',
@@ -110,7 +111,7 @@ function mountTable(props = {}) {
 }
 
 describe('AvailableChannelsTable responsive surfaces', () => {
-  it('keeps the five-column table as the desktop-only surface', () => {
+  it('uses a four-column desktop summary with combined channel information', async () => {
     const wrapper = mountTable()
     const desktop = wrapper.get('[data-testid="desktop-channels"]')
 
@@ -118,9 +119,17 @@ describe('AvailableChannelsTable responsive surfaces', () => {
     // so these display utilities must remain important at both breakpoints.
     expect(desktop.classes()).toContain('!hidden')
     expect(desktop.classes()).toContain('lg:!table')
-    expect(desktop.findAll('thead th')).toHaveLength(5)
+    expect(desktop.findAll('thead th')).toHaveLength(4)
+    expect(desktop.findAll('thead th')[0].text()).toBe('Channel information')
     expect(desktop.text()).toContain('Primary channel')
     expect(desktop.text()).toContain('Fast and reliable access')
+    expect(desktop.findAll('[data-group-badge]')).toHaveLength(0)
+
+    const summaryRow = desktop.get('tbody tr[tabindex="0"]')
+    expect(summaryRow.attributes('aria-expanded')).toBe('false')
+    await summaryRow.trigger('click')
+
+    expect(summaryRow.attributes('aria-expanded')).toBe('true')
     expect(desktop.findAll('[data-group-badge]')).toHaveLength(2)
     expect(desktop.get('[data-model-chip]').text()).toContain('claude-test:No pricing')
   })

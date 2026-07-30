@@ -26,6 +26,11 @@
     <template #cell-payment_type="{ value }">
       <span class="text-sm text-gray-700 dark:text-gray-300">{{ t('payment.methods.' + value, value) }}</span>
     </template>
+    <template #cell-order_type="{ value }">
+      <span class="inline-flex rounded-[3px] border border-primary-100 bg-primary-50 px-1.5 py-0.5 text-[11px] font-medium text-primary-700 dark:border-primary-900 dark:bg-primary-950/30 dark:text-primary-300">
+        {{ value === 'subscription' ? t('payment.tabSubscribe') : t('payment.tabTopUp') }}
+      </span>
+    </template>
     <template #cell-status="{ value }">
       <OrderStatusBadge :status="value" />
     </template>
@@ -53,6 +58,7 @@ const props = defineProps<{
   orders: PaymentOrder[]
   loading: boolean
   showUser?: boolean
+  showOrderType?: boolean
 }>()
 
 function formatDate(dateStr: string) { return new Date(dateStr).toLocaleString() }
@@ -73,6 +79,7 @@ const columns = computed((): Column[] => {
   }
   cols.push(
     { key: 'pay_amount', label: t('payment.orders.payAmount') },
+    ...(props.showOrderType ? [{ key: 'order_type', label: t('payment.orders.orderType') }] : []),
     { key: 'payment_type', label: t('payment.orders.paymentMethod') },
     { key: 'status', label: t('payment.orders.status') },
     { key: 'created_at', label: t('payment.orders.createdAt') },

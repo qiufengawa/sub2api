@@ -22,6 +22,7 @@ const messages: Record<string, string> = {
   'admin.dashboard.metricTokens': 'By Tokens',
   'admin.dashboard.metricActualCost': 'By Actual Cost',
   'admin.dashboard.noDataAvailable': 'No data available',
+  'usage.rankingOther': 'Others',
   'admin.redeem.userPrefix': 'User #{id}',
 }
 
@@ -145,6 +146,33 @@ describe('ModelDistributionChart', () => {
     expect(wrapper.findAll('tbody tr')[0].findAll('td')).toHaveLength(5)
   })
 
+  it('renders a blue ranking, limits visible models, and aggregates the remainder', () => {
+    const extendedStats = [
+      ...modelStats,
+      { ...modelStats[0], model: 'model-c', total_tokens: 400, requests: 2 },
+      { ...modelStats[0], model: 'model-d', total_tokens: 300, requests: 1 },
+    ]
+    const wrapper = mount(ModelDistributionChart, {
+      props: {
+        modelStats: extendedStats,
+        displayMode: 'ranking',
+        colorScheme: 'blue',
+        maxItems: 2,
+        aggregateOther: true,
+        enableBreakdown: false,
+      },
+      global: { stubs: { LoadingSpinner: true } },
+    })
+
+    const ranking = wrapper.get('[data-testid="model-distribution-ranking"]')
+    expect(ranking.text()).toContain('model-a')
+    expect(ranking.text()).toContain('model-b')
+    expect(ranking.text()).toContain('Others')
+    expect(ranking.text()).not.toContain('model-c')
+    expect(ranking.findAll('.bg-primary-500')).toHaveLength(3)
+    expect(wrapper.find('.chart-data').exists()).toBe(false)
+  })
+
   it('renders Others in the spending ranking table and uses a dedicated chart color', async () => {
     const wrapper = mount(ModelDistributionChart, {
       props: {
@@ -176,7 +204,7 @@ describe('ModelDistributionChart', () => {
       'Others',
     ])
     expect(chartData.datasets[0].data).toEqual([12, 8, 10])
-    expect(chartData.datasets[0].backgroundColor[0]).toBe('#3b82f6')
+    expect(chartData.datasets[0].backgroundColor[0]).toBe('#366ef4')
     expect(chartData.datasets[0].backgroundColor[2]).toBe('#94a3b8')
     expect(chartData.datasets[0].backgroundColor[2]).not.toBe(chartData.datasets[0].backgroundColor[0])
 

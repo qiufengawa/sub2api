@@ -1,90 +1,76 @@
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-gray-50 px-4 dark:bg-dark-900">
-    <div class="w-full max-w-md space-y-6">
+  <div class="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8 dark:bg-dark-900">
+    <div class="w-full max-w-4xl space-y-3">
       <!-- Loading -->
       <div v-if="loading" class="flex items-center justify-center py-20">
         <div class="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"></div>
       </div>
       <template v-else>
-        <!-- Status Icon -->
-        <div class="text-center">
-          <div v-if="isSuccess"
-            class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-            <svg class="h-10 w-10 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-              stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <div v-else-if="isPending"
-            class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/30">
-            <div class="h-10 w-10 animate-spin rounded-full border-4 border-yellow-500 border-t-transparent"></div>
-          </div>
-          <div v-else
-            class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-            <svg class="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </div>
-          <h2 class="mt-4 text-2xl font-bold text-gray-900 dark:text-white">
-            {{ statusTitle }}
-          </h2>
-          <p v-if="isPending" class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            {{ t('payment.result.processingHint') }}
-          </p>
-        </div>
-        <!-- Order Info -->
-        <div v-if="order" class="rounded-xl bg-white p-5 shadow-sm dark:bg-dark-800">
-          <div class="space-y-3 text-sm">
-            <div v-if="hasOrderId(order)" class="flex justify-between">
-              <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.orderId') }}</span>
-              <span class="font-medium text-gray-900 dark:text-white">#{{ order.id }}</span>
+        <section class="overflow-hidden rounded border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800">
+          <header
+            class="flex items-center gap-3 border-b px-4 py-4 dark:border-dark-700"
+            :class="isSuccess ? 'border-green-100 bg-green-50/70 dark:bg-green-950/20' : isPending ? 'border-amber-100 bg-amber-50/70 dark:bg-amber-950/20' : 'border-red-100 bg-red-50/70 dark:bg-red-950/20'"
+          >
+            <span
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded"
+              :class="isSuccess ? 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-300' : isPending ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300'"
+            >
+              <Icon v-if="isSuccess" name="check" size="md" />
+              <Icon v-else-if="isPending" name="refresh" size="md" class="animate-spin" />
+              <Icon v-else name="exclamationCircle" size="md" />
+            </span>
+            <div class="min-w-0">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ statusTitle }}</h2>
+              <p v-if="isPending" class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ t('payment.result.processingHint') }}</p>
             </div>
-            <div v-if="order.out_trade_no" class="flex justify-between">
-              <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.orderNo') }}</span>
-              <span class="font-medium text-gray-900 dark:text-white">{{ order.out_trade_no }}</span>
+            <OrderStatusBadge v-if="order" class="ml-auto shrink-0" :status="displayOrderStatus(order.status)" />
+          </header>
+
+          <div v-if="order" class="grid gap-px bg-gray-100 sm:grid-cols-2 lg:grid-cols-3 dark:bg-dark-700">
+            <div v-if="hasOrderId(order)" class="bg-white px-4 py-3 dark:bg-dark-800">
+              <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.orderId') }}</p>
+              <p class="mt-1 font-medium tabular-nums text-gray-900 dark:text-white">#{{ order.id }}</p>
             </div>
-            <div v-if="hasAmountFields(order)" class="flex justify-between">
-              <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.baseAmount') }}</span>
-              <span class="font-medium text-gray-900 dark:text-white">{{ formatGatewayAmount(baseAmount) }}</span>
+            <div v-if="order.out_trade_no" class="min-w-0 bg-white px-4 py-3 dark:bg-dark-800">
+              <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.orderNo') }}</p>
+              <p class="mt-1 truncate font-medium text-gray-900 dark:text-white" :title="order.out_trade_no">{{ order.out_trade_no }}</p>
             </div>
-            <div v-if="hasAmountFields(order) && order.fee_rate > 0" class="flex justify-between">
-              <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.fee') }} ({{ order.fee_rate }}%)</span>
-              <span class="font-medium text-gray-900 dark:text-white">{{ formatGatewayAmount(feeAmount) }}</span>
+            <div v-if="hasPaymentType(order)" class="bg-white px-4 py-3 dark:bg-dark-800">
+              <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.paymentMethod') }}</p>
+              <p class="mt-1 font-medium text-gray-900 dark:text-white">{{ t(paymentMethodI18nKey(order.payment_type), normalizedOrderPaymentType(order.payment_type)) }}</p>
             </div>
-            <div v-if="hasAmountFields(order)" class="flex justify-between">
-              <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.payAmount') }}</span>
-              <span class="font-bold text-primary-600 dark:text-primary-400">{{ formatGatewayAmount(order.pay_amount) }}</span>
+            <div v-if="hasAmountFields(order)" class="bg-white px-4 py-3 dark:bg-dark-800">
+              <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.baseAmount') }}</p>
+              <p class="mt-1 font-medium tabular-nums text-gray-900 dark:text-white">{{ formatGatewayAmount(baseAmount) }}</p>
             </div>
-            <div v-if="hasAmountFields(order) && order.amount !== order.pay_amount" class="flex justify-between">
-              <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.creditedAmount') }}</span>
-              <span class="font-medium text-gray-900 dark:text-white">{{ order.order_type === 'balance' ? '$' + order.amount.toFixed(2) : formatGatewayAmount(order.amount) }}</span>
+            <div v-if="hasAmountFields(order) && order.fee_rate > 0" class="bg-white px-4 py-3 dark:bg-dark-800">
+              <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.fee') }} ({{ order.fee_rate }}%)</p>
+              <p class="mt-1 font-medium tabular-nums text-gray-900 dark:text-white">{{ formatGatewayAmount(feeAmount) }}</p>
             </div>
-            <div v-if="hasPaymentType(order)" class="flex justify-between">
-              <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.paymentMethod') }}</span>
-              <span class="font-medium text-gray-900 dark:text-white">{{ t(paymentMethodI18nKey(order.payment_type), normalizedOrderPaymentType(order.payment_type)) }}</span>
+            <div v-if="hasAmountFields(order)" class="bg-white px-4 py-3 dark:bg-dark-800">
+              <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.payAmount') }}</p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-primary-600 dark:text-primary-400">{{ formatGatewayAmount(order.pay_amount) }}</p>
             </div>
-            <div class="flex justify-between">
-              <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.status') }}</span>
-              <OrderStatusBadge :status="displayOrderStatus(order.status)" />
+            <div v-if="hasAmountFields(order) && order.amount !== order.pay_amount" class="bg-white px-4 py-3 dark:bg-dark-800">
+              <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.creditedAmount') }}</p>
+              <p class="mt-1 font-medium tabular-nums text-gray-900 dark:text-white">{{ order.order_type === 'balance' ? '$' + order.amount.toFixed(2) : formatGatewayAmount(order.amount) }}</p>
             </div>
           </div>
-        </div>
+        </section>
         <!-- EasyPay return info (when no order loaded) -->
-        <div v-else-if="returnInfo" class="rounded-xl bg-white p-5 shadow-sm dark:bg-dark-800">
-          <div class="space-y-3 text-sm">
-            <div v-if="returnInfo.outTradeNo" class="flex justify-between">
+        <div v-if="!order && returnInfo" class="grid gap-px overflow-hidden rounded border border-gray-200 bg-gray-100 sm:grid-cols-3 dark:border-dark-700 dark:bg-dark-700">
+            <div v-if="returnInfo?.outTradeNo" class="bg-white px-4 py-3 dark:bg-dark-800">
               <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.orderId') }}</span>
-              <span class="font-medium text-gray-900 dark:text-white">{{ returnInfo.outTradeNo }}</span>
+              <p class="mt-1 truncate font-medium text-gray-900 dark:text-white">{{ returnInfo?.outTradeNo }}</p>
             </div>
-            <div v-if="returnInfo.money" class="flex justify-between">
+            <div v-if="returnInfo?.money" class="bg-white px-4 py-3 dark:bg-dark-800">
               <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.payAmount') }}</span>
-              <span class="font-medium text-gray-900 dark:text-white">{{ formatGatewayAmount(Number(returnInfo.money) || 0) }}</span>
+              <p class="mt-1 font-medium text-gray-900 dark:text-white">{{ formatGatewayAmount(Number(returnInfo?.money) || 0) }}</p>
             </div>
-            <div v-if="returnInfo.type" class="flex justify-between">
+            <div v-if="returnInfo?.type" class="bg-white px-4 py-3 dark:bg-dark-800">
               <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.paymentMethod') }}</span>
-              <span class="font-medium text-gray-900 dark:text-white">{{ t(paymentMethodI18nKey(returnInfo.type), normalizedOrderPaymentType(returnInfo.type)) }}</span>
+              <p class="mt-1 font-medium text-gray-900 dark:text-white">{{ t(paymentMethodI18nKey(returnInfo?.type || ''), normalizedOrderPaymentType(returnInfo?.type || '')) }}</p>
             </div>
-          </div>
         </div>
         <!-- Actions -->
         <div class="flex gap-3">
@@ -101,6 +87,7 @@ import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import OrderStatusBadge from '@/components/payment/OrderStatusBadge.vue'
+import Icon from '@/components/icons/Icon.vue'
 import {
   PAYMENT_RECOVERY_STORAGE_KEY,
   clearPaymentRecoverySnapshot,

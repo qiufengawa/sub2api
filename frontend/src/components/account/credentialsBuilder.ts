@@ -301,7 +301,7 @@ export function readPlanType(credentials: Record<string, unknown> | undefined | 
 
 /**
  * 构建 plan_type 下拉选项：清空 + Plus/Pro/Free 预设。
- * 若当前值是某预设的别名（如 chatgptpro↔Pro），用当前的 canonical 值占据该
+ * 若当前值是某预设的别名（如 chatgptproPro），用当前的 canonical 值占据该
  * 标签位（保留 canonical，显示友好标签，避免重复项）；若是完全预设外的值
  * （如 team 或异常值），追加为一项，避免编辑时下拉丢失原值。
  */

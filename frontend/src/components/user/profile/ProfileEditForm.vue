@@ -9,7 +9,7 @@
       </h2>
     </div>
     <div :class="props.embedded ? '' : 'px-6 py-6'">
-      <form @submit.prevent="handleUpdateProfile" class="space-y-4">
+      <form @submit.prevent="handleUpdateProfile" :class="props.embedded ? 'space-y-3' : 'space-y-4'">
         <div v-if="props.embedded">
           <p class="text-sm font-semibold text-gray-900 dark:text-white">
             {{ t('profile.editProfile') }}
@@ -28,8 +28,8 @@
           />
         </div>
 
-        <div class="flex justify-end pt-4">
-          <button type="submit" :disabled="loading" class="btn btn-primary">
+        <div :class="props.embedded ? 'flex justify-end pt-1' : 'flex justify-end pt-4'">
+          <button type="submit" :disabled="loading" :class="props.embedded ? 'btn btn-primary btn-sm' : 'btn btn-primary'">
             {{ loading ? t('profile.updating') : t('profile.updateProfile') }}
           </button>
         </div>

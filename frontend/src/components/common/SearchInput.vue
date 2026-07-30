@@ -6,7 +6,7 @@
     <input
       :value="modelValue"
       type="text"
-      class="input pl-10"
+      class="input pl-9"
       :placeholder="placeholder"
       @input="handleInput"
     />

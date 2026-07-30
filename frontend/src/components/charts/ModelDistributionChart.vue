@@ -1,6 +1,6 @@
 <template>
-  <div class="card p-4">
-    <div class="mb-4 flex items-center justify-between gap-3">
+  <div class="card p-3">
+    <div class="mb-3 flex items-center justify-between gap-2">
       <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
         {{ !enableRankingView || activeView === 'model_distribution'
           ? t('admin.dashboard.modelDistribution')
@@ -9,7 +9,7 @@
       <div class="flex flex-wrap items-center justify-end gap-2">
         <div
           v-if="showSourceToggle"
-          class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800"
+          class="inline-flex rounded-[3px] border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800"
         >
           <button
             type="button"
@@ -44,7 +44,7 @@
         </div>
         <div
           v-if="showMetricToggle"
-          class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800"
+          class="inline-flex rounded-[3px] border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800"
         >
           <button
             type="button"
@@ -67,7 +67,7 @@
             {{ t('admin.dashboard.metricActualCost') }}
           </button>
         </div>
-        <div v-if="enableRankingView" class="inline-flex rounded-lg bg-gray-100 p-1 dark:bg-dark-800">
+        <div v-if="enableRankingView" class="inline-flex rounded-[3px] border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800">
           <button
             type="button"
             class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
@@ -100,8 +100,29 @@
       <LoadingSpinner />
     </div>
     <div
-      v-else-if="activeView === 'model_distribution' && displayModelStats.length > 0 && chartData"
-      class="flex flex-col items-center gap-4 sm:flex-row sm:gap-6"
+      v-else-if="activeView === 'model_distribution' && displayMode === 'ranking' && displayModelStats.length > 0"
+      class="space-y-2.5 py-1"
+      data-testid="model-distribution-ranking"
+    >
+      <div v-for="(model, index) in displayModelStats" :key="model.model" class="space-y-1">
+        <div class="flex items-center justify-between gap-3 text-xs">
+          <div class="flex min-w-0 items-center gap-2">
+            <span class="w-4 shrink-0 text-[10px] tabular-nums text-gray-400 dark:text-dark-500">{{ index + 1 }}</span>
+            <span class="truncate font-medium text-gray-700 dark:text-gray-200" :title="model.model">{{ model.model }}</span>
+          </div>
+          <div class="flex shrink-0 items-center gap-2 tabular-nums">
+            <span class="text-[10px] text-gray-400 dark:text-dark-500">{{ formatNumber(model.requests) }} {{ t('admin.dashboard.requests') }}</span>
+            <span class="font-medium text-gray-800 dark:text-gray-100">{{ formatMetricValue(model) }}</span>
+          </div>
+        </div>
+        <div class="ml-6 h-1.5 overflow-hidden rounded-sm bg-primary-50 dark:bg-dark-700">
+          <div class="h-full rounded-sm bg-primary-500" :style="rankingBarStyle(model, index)"></div>
+        </div>
+      </div>
+    </div>
+    <div
+      v-else-if="activeView === 'model_distribution' && displayMode !== 'ranking' && displayModelStats.length > 0 && chartData"
+      class="flex flex-col items-center gap-3 sm:flex-row sm:gap-4"
     >
       <div class="h-48 w-48 shrink-0">
         <Doughnut :data="chartData" :options="doughnutOptions" />
@@ -182,7 +203,7 @@
     >
       {{ t('admin.dashboard.failedToLoad') }}
     </div>
-    <div v-else-if="rankingDisplayItems.length > 0 && rankingChartData" class="flex flex-col items-center gap-4 sm:flex-row sm:gap-6">
+    <div v-else-if="rankingDisplayItems.length > 0 && rankingChartData" class="flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
       <div class="h-48 w-48 shrink-0">
         <Doughnut :data="rankingChartData" :options="rankingDoughnutOptions" />
       </div>
@@ -251,6 +272,7 @@ import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import UserBreakdownSubTable from './UserBreakdownSubTable.vue'
 import type { ModelStat, UserSpendingRankingItem, UserBreakdownItem } from '@/types'
 import { getUserBreakdown } from '@/api/admin/dashboard'
+import { getStableCategoryColor } from '@/utils/categoricalColors'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -258,6 +280,8 @@ const { t } = useI18n()
 
 type DistributionMetric = 'tokens' | 'actual_cost'
 type ModelSource = 'requested' | 'upstream' | 'mapping'
+type DistributionDisplayMode = 'doughnut' | 'ranking'
+type DistributionColorScheme = 'default' | 'blue' | 'categorical'
 type RankingDisplayItem = UserSpendingRankingItem & { isOther?: boolean }
 const props = withDefaults(defineProps<{
   modelStats: ModelStat[]
@@ -280,6 +304,10 @@ const props = withDefaults(defineProps<{
   startDate?: string
   endDate?: string
   filters?: Record<string, any>
+  displayMode?: DistributionDisplayMode
+  colorScheme?: DistributionColorScheme
+  maxItems?: number
+  aggregateOther?: boolean
 }>(), {
   upstreamModelStats: () => [],
   mappingModelStats: () => [],
@@ -296,7 +324,11 @@ const props = withDefaults(defineProps<{
   enableBreakdown: true,
   showAccountCost: true,
   rankingLoading: false,
-  rankingError: false
+  rankingError: false,
+  displayMode: 'doughnut',
+  colorScheme: 'default',
+  maxItems: 0,
+  aggregateOther: false,
 })
 
 const expandedKey = ref<string | null>(null)
@@ -340,7 +372,7 @@ const distributionColspan = computed(() => showAccountCost.value ? 6 : 5)
 const activeView = ref<'model_distribution' | 'spending_ranking'>('model_distribution')
 
 const chartColors = [
-  '#3b82f6',
+  '#366ef4',
   '#10b981',
   '#f59e0b',
   '#ef4444',
@@ -353,6 +385,7 @@ const chartColors = [
   '#06b6d4',
   '#a855f7'
 ]
+const blueChartColors = ['#366ef4', '#5b8ff9', '#7aa7f8', '#93b5ff', '#adc8ff', '#c6d8ff']
 
 const displayModelStats = computed(() => {
   const sourceStats = props.source === 'upstream'
@@ -363,8 +396,49 @@ const displayModelStats = computed(() => {
   if (!sourceStats?.length) return []
 
   const metricKey = props.metric === 'actual_cost' ? 'actual_cost' : 'total_tokens'
-  return [...sourceStats].sort((a, b) => toFiniteNumber(b[metricKey]) - toFiniteNumber(a[metricKey]))
+  const sorted = [...sourceStats].sort((a, b) => toFiniteNumber(b[metricKey]) - toFiniteNumber(a[metricKey]))
+  if (props.maxItems <= 0 || sorted.length <= props.maxItems) return sorted
+
+  const visible = sorted.slice(0, props.maxItems)
+  const remaining = sorted.slice(props.maxItems)
+  if (!props.aggregateOther) return visible
+  visible.push({
+    model: t('usage.rankingOther'),
+    requests: remaining.reduce((sum, item) => sum + toFiniteNumber(item.requests), 0),
+    input_tokens: remaining.reduce((sum, item) => sum + toFiniteNumber(item.input_tokens), 0),
+    output_tokens: remaining.reduce((sum, item) => sum + toFiniteNumber(item.output_tokens), 0),
+    cache_creation_tokens: remaining.reduce((sum, item) => sum + toFiniteNumber(item.cache_creation_tokens), 0),
+    cache_read_tokens: remaining.reduce((sum, item) => sum + toFiniteNumber(item.cache_read_tokens), 0),
+    total_tokens: remaining.reduce((sum, item) => sum + toFiniteNumber(item.total_tokens), 0),
+    actual_cost: remaining.reduce((sum, item) => sum + toFiniteNumber(item.actual_cost), 0),
+    account_cost: remaining.reduce((sum, item) => sum + toFiniteNumber(item.account_cost), 0),
+    cost: remaining.reduce((sum, item) => sum + toFiniteNumber(item.cost), 0),
+  })
+  return visible
 })
+
+const distributionColors = computed(() => props.colorScheme === 'blue' ? blueChartColors : chartColors)
+const rankingMaxValue = computed(() => Math.max(...displayModelStats.value.map(metricValue), 0))
+
+function metricValue(model: ModelStat): number {
+  return toFiniteNumber(props.metric === 'actual_cost' ? model.actual_cost : model.total_tokens)
+}
+
+function formatMetricValue(model: ModelStat): string {
+  const value = metricValue(model)
+  return props.metric === 'actual_cost' ? `$${formatCost(value)}` : formatTokens(value)
+}
+
+function rankingBarStyle(model: ModelStat, index: number) {
+  const percentage = rankingMaxValue.value > 0 ? (metricValue(model) / rankingMaxValue.value) * 100 : 0
+  return {
+    width: `${Math.max(percentage, 2)}%`,
+    opacity: props.colorScheme === 'categorical' ? '1' : String(Math.max(0.48, 1 - index * 0.09)),
+    backgroundColor: props.colorScheme === 'categorical'
+      ? getStableCategoryColor(model.model, model.model === t('usage.rankingOther'))
+      : undefined,
+  }
+}
 
 const chartData = computed(() => {
   if (!displayModelStats.value.length) return null
@@ -374,7 +448,11 @@ const chartData = computed(() => {
     datasets: [
       {
         data: displayModelStats.value.map((m) => toFiniteNumber(props.metric === 'actual_cost' ? m.actual_cost : m.total_tokens)),
-        backgroundColor: chartColors.slice(0, displayModelStats.value.length),
+        backgroundColor: displayModelStats.value.map((model, index) =>
+          props.colorScheme === 'categorical'
+            ? getStableCategoryColor(model.model, model.model === t('usage.rankingOther'))
+            : distributionColors.value[index % distributionColors.value.length]
+        ),
         borderWidth: 0
       }
     ]

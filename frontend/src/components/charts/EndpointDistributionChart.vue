@@ -1,5 +1,5 @@
 <template>
-  <div class="card p-4">
+  <div class="card p-3">
     <div class="mb-4 flex items-center justify-between gap-3">
       <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
         {{ title || t('usage.endpointDistribution') }}
@@ -7,7 +7,7 @@
       <div class="flex flex-wrap items-center justify-end gap-2">
         <div
           v-if="showSourceToggle"
-          class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800"
+          class="inline-flex rounded-[3px] border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800"
         >
           <button
             type="button"
@@ -43,7 +43,7 @@
 
         <div
           v-if="showMetricToggle"
-          class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800"
+          class="inline-flex rounded-[3px] border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800"
         >
           <button
             type="button"
@@ -71,7 +71,24 @@
     <div v-if="loading" class="flex h-48 items-center justify-center">
       <LoadingSpinner />
     </div>
-    <div v-else-if="displayEndpointStats.length > 0 && chartData" class="flex flex-col items-center gap-4 sm:flex-row sm:gap-6">
+    <div v-else-if="displayMode === 'ranking' && displayEndpointStats.length > 0" class="space-y-2.5 py-1" data-testid="endpoint-distribution-ranking">
+      <div v-for="(item, index) in displayEndpointStats" :key="item.endpoint" class="space-y-1">
+        <div class="flex items-center justify-between gap-3 text-xs">
+          <div class="flex min-w-0 items-center gap-2">
+            <span class="w-4 shrink-0 text-[10px] tabular-nums text-gray-400 dark:text-dark-500">{{ index + 1 }}</span>
+            <span class="truncate font-medium text-gray-700 dark:text-gray-200" :title="item.endpoint">{{ item.endpoint }}</span>
+          </div>
+          <div class="flex shrink-0 items-center gap-2 tabular-nums">
+            <span class="text-[10px] text-gray-400 dark:text-dark-500">{{ formatNumber(item.requests) }} {{ t('admin.dashboard.requests') }}</span>
+            <span class="font-medium text-gray-800 dark:text-gray-100">{{ formatMetricValue(item) }}</span>
+          </div>
+        </div>
+        <div class="ml-6 h-1.5 overflow-hidden rounded-sm bg-primary-50 dark:bg-dark-700">
+          <div class="h-full rounded-sm bg-primary-500" :style="rankingBarStyle(item, index)"></div>
+        </div>
+      </div>
+    </div>
+    <div v-else-if="displayEndpointStats.length > 0 && chartData" class="flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
       <div class="h-48 w-48 shrink-0">
         <Doughnut :data="chartData" :options="doughnutOptions" />
       </div>
@@ -141,6 +158,7 @@ import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import UserBreakdownSubTable from './UserBreakdownSubTable.vue'
 import type { EndpointStat, UserBreakdownItem } from '@/types'
 import { getUserBreakdown } from '@/api/admin/dashboard'
+import { getStableCategoryColor } from '@/utils/categoricalColors'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -148,6 +166,8 @@ const { t } = useI18n()
 
 type DistributionMetric = 'tokens' | 'actual_cost'
 type EndpointSource = 'inbound' | 'upstream' | 'path'
+type DistributionDisplayMode = 'doughnut' | 'ranking'
+type DistributionColorScheme = 'default' | 'blue' | 'categorical'
 
 const props = withDefaults(
   defineProps<{
@@ -164,6 +184,10 @@ const props = withDefaults(
     startDate?: string
     endDate?: string
     filters?: Record<string, any>
+    displayMode?: DistributionDisplayMode
+    colorScheme?: DistributionColorScheme
+    maxItems?: number
+    aggregateOther?: boolean
   }>(),
   {
     upstreamEndpointStats: () => [],
@@ -174,7 +198,11 @@ const props = withDefaults(
     source: 'inbound',
     showMetricToggle: false,
     showSourceToggle: false,
-    enableBreakdown: true
+    enableBreakdown: true,
+    displayMode: 'doughnut',
+    colorScheme: 'default',
+    maxItems: 0,
+    aggregateOther: false,
   }
 )
 
@@ -212,7 +240,7 @@ const toggleBreakdown = async (endpoint: string) => {
 }
 
 const chartColors = [
-  '#3b82f6',
+  '#366ef4',
   '#10b981',
   '#f59e0b',
   '#ef4444',
@@ -225,6 +253,7 @@ const chartColors = [
   '#06b6d4',
   '#a855f7'
 ]
+const blueChartColors = ['#366ef4', '#5b8ff9', '#7aa7f8', '#93b5ff', '#adc8ff', '#c6d8ff']
 
 const displayEndpointStats = computed(() => {
   const sourceStats = props.source === 'upstream'
@@ -235,8 +264,44 @@ const displayEndpointStats = computed(() => {
   if (!sourceStats?.length) return []
 
   const metricKey = props.metric === 'actual_cost' ? 'actual_cost' : 'total_tokens'
-  return [...sourceStats].sort((a, b) => b[metricKey] - a[metricKey])
+  const sorted = [...sourceStats].sort((a, b) => toFiniteNumber(b[metricKey]) - toFiniteNumber(a[metricKey]))
+  if (props.maxItems <= 0 || sorted.length <= props.maxItems) return sorted
+
+  const visible = sorted.slice(0, props.maxItems)
+  const remaining = sorted.slice(props.maxItems)
+  if (!props.aggregateOther) return visible
+  visible.push({
+    endpoint: t('usage.rankingOther'),
+    requests: remaining.reduce((sum, item) => sum + toFiniteNumber(item.requests), 0),
+    total_tokens: remaining.reduce((sum, item) => sum + toFiniteNumber(item.total_tokens), 0),
+    actual_cost: remaining.reduce((sum, item) => sum + toFiniteNumber(item.actual_cost), 0),
+    cost: remaining.reduce((sum, item) => sum + toFiniteNumber(item.cost), 0),
+  })
+  return visible
 })
+
+const distributionColors = computed(() => props.colorScheme === 'blue' ? blueChartColors : chartColors)
+const rankingMaxValue = computed(() => Math.max(...displayEndpointStats.value.map(metricValue), 0))
+
+function metricValue(item: EndpointStat): number {
+  return toFiniteNumber(props.metric === 'actual_cost' ? item.actual_cost : item.total_tokens)
+}
+
+function formatMetricValue(item: EndpointStat): string {
+  const value = metricValue(item)
+  return props.metric === 'actual_cost' ? `$${formatCost(value)}` : formatTokens(value)
+}
+
+function rankingBarStyle(item: EndpointStat, index: number) {
+  const percentage = rankingMaxValue.value > 0 ? (metricValue(item) / rankingMaxValue.value) * 100 : 0
+  return {
+    width: `${Math.max(percentage, 2)}%`,
+    opacity: props.colorScheme === 'categorical' ? '1' : String(Math.max(0.48, 1 - index * 0.09)),
+    backgroundColor: props.colorScheme === 'categorical'
+      ? getStableCategoryColor(item.endpoint, item.endpoint === t('usage.rankingOther'))
+      : undefined,
+  }
+}
 
 const chartData = computed(() => {
   if (!displayEndpointStats.value?.length) return null
@@ -248,7 +313,11 @@ const chartData = computed(() => {
         data: displayEndpointStats.value.map((item) =>
           props.metric === 'actual_cost' ? item.actual_cost : item.total_tokens
         ),
-        backgroundColor: chartColors.slice(0, displayEndpointStats.value.length),
+        backgroundColor: displayEndpointStats.value.map((item, index) =>
+          props.colorScheme === 'categorical'
+            ? getStableCategoryColor(item.endpoint, item.endpoint === t('usage.rankingOther'))
+            : distributionColors.value[index % distributionColors.value.length]
+        ),
         borderWidth: 0
       }
     ]
@@ -290,7 +359,12 @@ const formatTokens = (value: number): string => {
 }
 
 const formatNumber = (value: number): string => {
-  return value.toLocaleString()
+  return toFiniteNumber(value).toLocaleString()
+}
+
+const toFiniteNumber = (value: unknown): number => {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) ? numberValue : 0
 }
 
 const formatCost = (value: number): string => {

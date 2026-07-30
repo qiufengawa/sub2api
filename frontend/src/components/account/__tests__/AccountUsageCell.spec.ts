@@ -648,10 +648,12 @@ describe('AccountUsageCell', () => {
     await flushPromises()
 
     expect(getUsage).toHaveBeenCalledWith(3861)
-    expect(wrapper.text()).toContain('4 req')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.requests4')
     expect(wrapper.text()).toContain('1.2K')
-    expect(wrapper.text()).toContain('A $0.12')
-    expect(wrapper.text()).toContain('U $0.34')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.accountCost$0.12')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.userCost$0.34')
+    expect(wrapper.text()).not.toContain('A $0.12')
+    expect(wrapper.text()).not.toContain('U $0.34')
     expect(wrapper.text()).toContain('admin.accounts.usageWindow.grokRequests|0|2026-07-09T16:00:00Z')
 
     const badges = wrapper.findAll('span[title]')

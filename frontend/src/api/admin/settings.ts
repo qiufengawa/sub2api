@@ -72,7 +72,7 @@ export interface AuthSourceDefaultsValue {
   subscriptions: DefaultSubscriptionSetting[];
   grant_on_signup: boolean;
   grant_on_first_bind: boolean;
-  // ★ 新增：平台限额覆盖（key = PlatformType）
+  //  新增：平台限额覆盖（key = PlatformType）
   platform_quotas: DefaultPlatformQuotasMap;
 }
 

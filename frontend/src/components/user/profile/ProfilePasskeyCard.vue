@@ -1,18 +1,18 @@
 <template>
-  <div class="card">
-    <div class="flex items-start justify-between border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+  <div :class="props.embedded ? 'border-t border-gray-100 dark:border-dark-700' : 'card'">
+    <div :class="props.embedded ? 'flex items-start justify-between gap-3 px-4 pt-3' : 'flex items-start justify-between border-b border-gray-100 px-6 py-4 dark:border-dark-700'">
       <div>
-        <h2 class="text-lg font-medium text-gray-900 dark:text-white">
+        <h2 :class="props.embedded ? 'text-sm font-medium text-gray-900 dark:text-white' : 'text-lg font-medium text-gray-900 dark:text-white'">
           {{ t('profile.passkey.title') }}
         </h2>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <p :class="props.embedded ? 'mt-0.5 text-xs text-gray-500 dark:text-dark-400' : 'mt-1 text-sm text-gray-500 dark:text-gray-400'">
           {{ t('profile.passkey.description') }}
         </p>
       </div>
       <button
         v-if="enabled && supported && !showAddForm"
         type="button"
-        class="btn btn-primary"
+        :class="props.embedded ? 'btn btn-primary btn-sm' : 'btn btn-primary'"
         :disabled="busy"
         @click="showAddForm = true"
       >
@@ -20,17 +20,17 @@
       </button>
     </div>
 
-    <div class="px-6 py-6">
-      <div v-if="!enabled" class="mb-5 text-sm text-gray-500 dark:text-gray-400">
+    <div :class="props.embedded ? 'px-4 pb-3 pt-2' : 'px-6 py-6'">
+      <div v-if="!enabled" :class="props.embedded ? 'text-xs text-gray-500 dark:text-dark-400' : 'mb-5 text-sm text-gray-500 dark:text-gray-400'">
         {{ t('profile.passkey.featureDisabled') }}
       </div>
-      <div v-if="enabled && !supported" class="mb-5 text-sm text-amber-600 dark:text-amber-400">
+      <div v-if="enabled && !supported" :class="props.embedded ? 'text-xs text-amber-600 dark:text-amber-400' : 'mb-5 text-sm text-amber-600 dark:text-amber-400'">
         {{ t('profile.passkey.unsupported') }}
       </div>
       <div>
         <form
           v-if="enabled && supported && showAddForm"
-          class="mb-5 flex flex-col gap-3 rounded-lg border border-gray-200 p-4 dark:border-dark-700"
+          :class="props.embedded ? 'mb-3 flex flex-col gap-3 rounded border border-gray-200 p-3 dark:border-dark-700' : 'mb-5 flex flex-col gap-3 rounded-lg border border-gray-200 p-4 dark:border-dark-700'"
           @submit.prevent="addPasskey"
         >
           <div class="grid gap-3 sm:grid-cols-2">
@@ -69,22 +69,22 @@
           </div>
         </form>
 
-        <div v-if="loading" class="flex justify-center py-6">
-          <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-primary-500"></div>
+        <div v-if="enabled && supported && loading" :class="props.embedded ? 'flex justify-center py-3' : 'flex justify-center py-6'">
+          <div :class="props.embedded ? 'h-5 w-5' : 'h-8 w-8'" class="animate-spin rounded-full border-b-2 border-primary-500"></div>
         </div>
 
         <div
-          v-else-if="credentials.length === 0"
-          class="rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400"
+          v-else-if="enabled && supported && credentials.length === 0"
+          :class="props.embedded ? 'rounded border border-dashed border-gray-200 px-3 py-3 text-center text-xs text-gray-500 dark:border-dark-700 dark:text-dark-400' : 'rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400'"
         >
           {{ t('profile.passkey.empty') }}
         </div>
 
-        <div v-else class="divide-y divide-gray-100 dark:divide-dark-700">
+        <div v-else-if="enabled && supported" class="divide-y divide-gray-100 dark:divide-dark-700">
           <div
             v-for="credential in credentials"
             :key="credential.id"
-            class="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0"
+            :class="props.embedded ? 'flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0' : 'flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0'"
           >
             <div class="min-w-0">
               <div class="flex items-center gap-2">
@@ -183,7 +183,12 @@ import { passkeyAPI, type PasskeyCredentialSummary } from '@/api'
 import { Icon } from '@/components/icons'
 import { useAppStore } from '@/stores/app'
 
-const props = defineProps<{ enabled: boolean }>()
+const props = withDefaults(defineProps<{
+  enabled: boolean
+  embedded?: boolean
+}>(), {
+  embedded: false,
+})
 
 const { t } = useI18n()
 const appStore = useAppStore()

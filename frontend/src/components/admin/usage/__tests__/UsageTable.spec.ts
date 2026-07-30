@@ -51,6 +51,8 @@ const messages: Record<string, string> = {
   'admin.usage.billingModeToken': 'Token',
   'admin.usage.billingModePerRequest': 'Per request',
   'admin.usage.billingModeImage': 'Image',
+  'usage.latencyFirstToken': 'First',
+  'usage.latencyDuration': 'Total',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -150,6 +152,37 @@ describe('admin UsageTable tooltip', () => {
 
     expect(wrapper.findAll('[data-testid="long-context-billing-marker"]')).toHaveLength(1)
     expect(wrapper.get('[data-testid="long-context-billing-marker"]').text()).toBe('x2')
+  })
+
+  it('embeds first-token and total latency under cost only when enabled', () => {
+    const row = {
+      ...baseImageRow,
+      request_id: 'req-user-latency',
+      first_token_ms: 420,
+      duration_ms: 1240,
+    }
+    const mountTable = (embedLatencyInCost: boolean) => mount(UsageTable, {
+      props: {
+        data: [row],
+        loading: false,
+        columns: [],
+        embedLatencyInCost,
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    const userTable = mountTable(true)
+    expect(userTable.text()).toContain('First420ms·Total1.24s')
+
+    const adminTable = mountTable(false)
+    expect(adminTable.text()).not.toContain('First420ms')
   })
 
   it('shows service tier and billing breakdown in cost tooltip', async () => {

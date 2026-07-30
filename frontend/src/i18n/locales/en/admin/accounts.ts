@@ -47,7 +47,7 @@ export default {
       syncFromCrsTitle: 'Sync Accounts from CRS',
       syncFromCrsDesc:
         'Sync accounts from claude-relay-service (CRS) into this system (CRS is called server-to-server).',
-      crsVersionRequirement: '⚠️ Note: CRS version must be ≥ v1.1.240 to support this feature',
+      crsVersionRequirement: ' Note: CRS version must be ≥ v1.1.240 to support this feature',
       crsBaseUrl: 'CRS Base URL',
       crsBaseUrlPlaceholder: 'e.g. http://127.0.0.1:3000',
       crsUsername: 'Username',
@@ -1321,6 +1321,10 @@ export default {
       usageWindow: {
         statsTitle: '5-Hour Window Usage Statistics',
         statsTitleDaily: 'Daily Usage Statistics',
+        requests: 'Req',
+        tokens: 'Tokens',
+        accountCost: 'Cost',
+        userCost: 'Billed',
         geminiProDaily: 'Pro',
         geminiFlashDaily: 'Flash',
         gemini3Pro: 'G3P',

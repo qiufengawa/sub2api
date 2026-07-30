@@ -1080,7 +1080,7 @@ function accountStatsRulesToAPI(): AccountStatsPricingRule[] {
   return rules
 }
 
-// ── Form ↔ API conversion ──
+// ── Form  API conversion ──
 function formToAPI(): { group_ids: number[], model_pricing: ChannelModelPricing[], model_mapping: Record<string, Record<string, string>>, features_config: Record<string, unknown> } {
   const group_ids: number[] = []
   const model_pricing: ChannelModelPricing[] = []

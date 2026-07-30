@@ -2,11 +2,11 @@
   <div class="inline-flex flex-col gap-0.5 text-xs font-medium">
     <!-- Row 1: Platform + Type -->
     <div class="inline-flex items-center overflow-hidden rounded-md">
-      <span :class="['inline-flex items-center gap-1 px-2 py-1', platformClass]">
+      <span :class="['inline-flex items-center gap-1 px-2 py-0.5', platformClass]">
         <PlatformIcon :platform="platform" size="xs" />
         <span>{{ platformLabel }}</span>
       </span>
-      <span :class="['inline-flex items-center gap-1 px-1.5 py-1', typeClass]">
+      <span :class="['inline-flex items-center gap-1 px-1.5 py-0.5', typeClass]">
         <!-- OAuth icon -->
         <svg
           v-if="type === 'oauth'"
@@ -32,7 +32,7 @@
     </div>
     <!-- Row 2: Plan type + Privacy mode (only if either exists) -->
     <div v-if="planLabel || privacyBadge" class="inline-flex items-center overflow-hidden rounded-md">
-      <span v-if="planLabel" :class="['inline-flex items-center gap-1 px-1.5 py-1', planBadgeClass]">
+      <span v-if="planLabel" :class="['inline-flex items-center gap-1 px-1.5 py-0.5', planBadgeClass]">
         <GrokFreeIcon
           v-if="isGrokFreePlan"
           data-testid="grok-free-plan-icon"
@@ -48,7 +48,7 @@
       </span>
       <span
         v-if="privacyBadge"
-        :class="['inline-flex items-center gap-1 px-1.5 py-1', privacyBadge.class]"
+        :class="['inline-flex items-center gap-1 px-1.5 py-0.5', privacyBadge.class]"
         :title="privacyBadge.title"
       >
         <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

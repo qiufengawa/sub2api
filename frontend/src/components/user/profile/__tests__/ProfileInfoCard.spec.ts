@@ -70,7 +70,7 @@ function createUser(overrides: Partial<User> = {}): User {
 }
 
 describe('ProfileInfoCard', () => {
-  it('renders basic account information inside the new overview shell', () => {
+  it('renders basic account information inside the compact overview strip', () => {
     const wrapper = mount(ProfileInfoCard, {
       props: {
         user: createUser()
@@ -85,8 +85,8 @@ describe('ProfileInfoCard', () => {
     expect(wrapper.text()).toContain('alice@example.com')
     expect(wrapper.text()).toContain('alice')
     expect(wrapper.text()).toContain('User')
-    expect(wrapper.get('[data-testid="profile-basics-panel"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="profile-auth-bindings-panel"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="profile-overview-metric-balance"]').text()).toContain('$10.00')
+    expect(wrapper.get('[data-testid="profile-overview-metric-concurrency"]').text()).toContain('2')
   })
 
   it('renders third-party source hints from profile sources', () => {
@@ -172,7 +172,7 @@ describe('ProfileInfoCard', () => {
     expect(wrapper.text()).not.toContain('legacy-user@wechat-connect.invalid')
   })
 
-  it('renders the approved overview hero and two-column content shell', () => {
+  it('keeps all summary metrics in one flat overview component', () => {
     const wrapper = mount(ProfileInfoCard, {
       props: {
         user: createUser()
@@ -189,9 +189,7 @@ describe('ProfileInfoCard', () => {
     expect(wrapper.get('[data-testid="profile-overview-metric-concurrency"]').text()).toContain('Concurrency Limit')
     expect(wrapper.get('[data-testid="profile-overview-metric-member-since"]').text()).toContain('Member Since')
     expect(wrapper.find('[data-testid="profile-info-summary-grid"]').exists()).toBe(false)
-    expect(wrapper.get('[data-testid="profile-main-column"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="profile-side-column"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="profile-basics-panel"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="profile-auth-bindings-panel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="profile-main-column"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="profile-basics-panel"]').exists()).toBe(false)
   })
 })

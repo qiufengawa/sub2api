@@ -34,4 +34,21 @@ describe('PaymentMethodSelector', () => {
     expect(button.classes()).toContain('border-primary-500')
     expect(button.classes()).not.toContain('border-[#02A9F1]')
   })
+
+  it('keeps long custom names on one truncatable line in an adaptive grid', () => {
+    const longName = 'Enterprise International Credit Card Settlement Gateway'
+    const wrapper = mount(PaymentMethodSelector, {
+      props: {
+        selected: 'enterprise-card',
+        methods: [{ type: 'enterprise-card', display_name: longName, fee_rate: 2.5, available: true }],
+      },
+    })
+
+    expect(wrapper.get('button').attributes('title')).toBe(longName)
+    expect(wrapper.get('button span span span').classes()).toEqual(expect.arrayContaining([
+      'truncate',
+      'whitespace-nowrap',
+    ]))
+    expect(wrapper.get('.grid').attributes('class')).toContain('auto-fit')
+  })
 })

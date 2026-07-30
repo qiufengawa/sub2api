@@ -15,6 +15,7 @@ const messages: Record<string, string> = {
   'admin.dashboard.metricTokens': 'By Tokens',
   'admin.dashboard.metricActualCost': 'By Actual Cost',
   'admin.dashboard.noDataAvailable': 'No data available',
+  'usage.rankingOther': 'Others',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -129,5 +130,29 @@ describe('GroupDistributionChart', () => {
     expect(wrapper.text()).not.toContain('Account Cost')
     expect(wrapper.findAll('thead th')).toHaveLength(5)
     expect(wrapper.findAll('tbody tr')[0].findAll('td')).toHaveLength(5)
+  })
+
+  it('keeps the legacy default while supporting a capped blue ranking with Others', () => {
+    const wrapper = mount(GroupDistributionChart, {
+      props: {
+        groupStats: [
+          ...groupStats,
+          { ...groupStats[0], group_id: 3, group_name: 'group-c', total_tokens: 200, requests: 2 },
+        ],
+        displayMode: 'ranking',
+        colorScheme: 'blue',
+        maxItems: 2,
+        aggregateOther: true,
+        enableBreakdown: false,
+      },
+      global: { stubs: { LoadingSpinner: true } },
+    })
+
+    const ranking = wrapper.get('[data-testid="group-distribution-ranking"]')
+    expect(ranking.text()).toContain('group-a')
+    expect(ranking.text()).toContain('group-b')
+    expect(ranking.text()).toContain('Others')
+    expect(ranking.text()).not.toContain('group-c')
+    expect(wrapper.find('.chart-data').exists()).toBe(false)
   })
 })

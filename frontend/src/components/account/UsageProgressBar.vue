@@ -1,54 +1,41 @@
 <template>
-  <div>
-    <!-- Window stats row (above progress bar) -->
-    <div
+  <div class="min-w-[196px] space-y-1">
+    <UsageWindowStats
       v-if="windowStats && (windowStats.requests > 0 || windowStats.tokens > 0)"
-      class="mb-0.5 flex items-center"
-    >
-      <div class="flex items-center gap-1.5 text-[9px] text-gray-500 dark:text-gray-400">
-        <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
-          {{ formatRequests }} req
-        </span>
-        <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
-          {{ formatTokens }}
-        </span>
-        <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800" :title="t('usage.accountBilled')">
-          A ${{ formatAccountCost }}
-        </span>
-        <span
-          v-if="windowStats?.user_cost != null"
-          class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800"
-          :title="t('usage.userBilled')"
-        >
-          U ${{ formatUserCost }}
-        </span>
-      </div>
-    </div>
+      :stats="windowStats"
+    />
 
     <!-- Progress bar row -->
-    <div class="flex items-center gap-1">
+    <div class="grid grid-cols-[40px_96px_38px_minmax(42px,auto)] items-center gap-x-1.5">
       <!-- Label badge (fixed width for alignment) -->
       <span
-        :class="['w-[32px] shrink-0 rounded px-1 text-center text-[10px] font-medium', labelClass]"
+        :class="[
+          'inline-flex h-5 items-center justify-center rounded-[3px] px-1 text-center text-[10px] font-semibold leading-none',
+          labelClass
+        ]"
       >
         {{ label }}
       </span>
 
       <!-- Progress bar container -->
-      <div class="h-1.5 w-8 shrink-0 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+      <div class="h-2 overflow-hidden rounded-[3px] bg-gray-200/90 dark:bg-gray-700">
         <div
-          :class="['h-full transition-all duration-300', barClass]"
+          :class="['h-full rounded-[3px] transition-[width] duration-300', barClass]"
           :style="{ width: barWidth }"
         ></div>
       </div>
 
       <!-- Percentage -->
-      <span :class="['w-[32px] shrink-0 text-right text-[10px] font-medium', textClass]">
+      <span :class="['text-right text-[10px] font-semibold tabular-nums', textClass]">
         {{ displayPercent }}
       </span>
 
       <!-- Reset time -->
-      <span v-if="shouldShowResetTime" class="shrink-0 text-[10px] text-gray-400">
+      <span
+        v-if="shouldShowResetTime"
+        class="inline-flex min-w-0 items-center gap-0.5 whitespace-nowrap text-[10px] tabular-nums text-gray-400 dark:text-gray-500"
+      >
+        <Icon name="clock" size="xs" :stroke-width="1.8" />
         {{ formatResetTime }}
       </span>
     </div>
@@ -60,7 +47,8 @@ import { computed, ref, watch } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import type { WindowStats } from '@/types'
-import { formatCompactNumber } from '@/utils/format'
+import Icon from '@/components/icons/Icon.vue'
+import UsageWindowStats from './UsageWindowStats.vue'
 
 const props = defineProps<{
   label: string
@@ -195,27 +183,6 @@ const formatResetTime = computed(() => {
   } else {
     return `${diffMins}m`
   }
-})
-
-// Window stats formatters
-const formatRequests = computed(() => {
-  if (!props.windowStats) return ''
-  return formatCompactNumber(props.windowStats.requests, { allowBillions: false })
-})
-
-const formatTokens = computed(() => {
-  if (!props.windowStats) return ''
-  return formatCompactNumber(props.windowStats.tokens)
-})
-
-const formatAccountCost = computed(() => {
-  if (!props.windowStats) return '0.00'
-  return props.windowStats.cost.toFixed(2)
-})
-
-const formatUserCost = computed(() => {
-  if (!props.windowStats || props.windowStats.user_cost == null) return '0.00'
-  return props.windowStats.user_cost.toFixed(2)
 })
 
 </script>

@@ -2,6 +2,7 @@ package service
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bufio"
 	"compress/gzip"
 	"context"
@@ -33,11 +34,13 @@ const (
 	githubRepo     = "qiufengawa/sub2api"
 
 	// Security: allowed download domains for updates
-	allowedDownloadHost = "github.com"
-	allowedAssetHost    = "objects.githubusercontent.com"
+	allowedDownloadHost     = "github.com"
+	allowedAssetHost        = "objects.githubusercontent.com"
+	allowedReleaseAssetHost = "release-assets.githubusercontent.com"
 
 	// Security: max download size (500MB)
 	maxDownloadSize = 500 * 1024 * 1024
+	maxBinarySize   = 500 * 1024 * 1024
 
 	// Rollback: expose at most the 3 most recent versions older than current
 	maxRollbackVersions = 3
@@ -118,7 +121,7 @@ type GitHubRelease struct {
 
 // RollbackVersion describes a release version the system can roll back to
 type RollbackVersion struct {
-	Version     string `json:"version"` // without "v" prefix, e.g. "0.1.146"
+	Version     string `json:"version"` // without "v" prefix, e.g. "0.1.168-qiu.1"
 	PublishedAt string `json:"published_at"`
 	HTMLURL     string `json:"html_url"`
 }
@@ -181,11 +184,13 @@ func (s *UpdateService) PerformUpdate(ctx context.Context) error {
 func (s *UpdateService) applyReleaseAssets(ctx context.Context, releaseAssets []Asset) error {
 	// Find matching archive and checksum for current platform
 	archiveName := s.getArchiveName()
+	var downloadName string
 	var downloadURL string
 	var checksumURL string
 
 	for _, asset := range releaseAssets {
 		if strings.Contains(asset.Name, archiveName) && !strings.HasSuffix(asset.Name, ".txt") {
+			downloadName = asset.Name
 			downloadURL = asset.DownloadURL
 		}
 		if asset.Name == "checksums.txt" {
@@ -196,15 +201,16 @@ func (s *UpdateService) applyReleaseAssets(ctx context.Context, releaseAssets []
 	if downloadURL == "" {
 		return fmt.Errorf("no compatible release found for %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
+	if checksumURL == "" {
+		return fmt.Errorf("release checksum asset checksums.txt is required")
+	}
 
 	// SECURITY: Validate download URL is from trusted domain
 	if err := validateDownloadURL(downloadURL); err != nil {
 		return fmt.Errorf("invalid download URL: %w", err)
 	}
-	if checksumURL != "" {
-		if err := validateDownloadURL(checksumURL); err != nil {
-			return fmt.Errorf("invalid checksum URL: %w", err)
-		}
+	if err := validateDownloadURL(checksumURL); err != nil {
+		return fmt.Errorf("invalid checksum URL: %w", err)
 	}
 
 	// Get current executable path
@@ -228,16 +234,18 @@ func (s *UpdateService) applyReleaseAssets(ctx context.Context, releaseAssets []
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Download archive
-	archivePath := filepath.Join(tempDir, filepath.Base(downloadURL))
+	archiveFileName := filepath.Base(downloadName)
+	if archiveFileName == "." || archiveFileName == string(filepath.Separator) || archiveFileName == "" {
+		return fmt.Errorf("invalid release asset name: %q", downloadName)
+	}
+	archivePath := filepath.Join(tempDir, archiveFileName)
 	if err := s.downloadFile(ctx, downloadURL, archivePath); err != nil {
 		return fmt.Errorf("download failed: %w", err)
 	}
 
-	// Verify checksum if available
-	if checksumURL != "" {
-		if err := s.verifyChecksum(ctx, archivePath, checksumURL); err != nil {
-			return fmt.Errorf("checksum verification failed: %w", err)
-		}
+	// Every executable update must be authenticated by the release checksum file.
+	if err := s.verifyChecksum(ctx, archivePath, checksumURL); err != nil {
+		return fmt.Errorf("checksum verification failed: %w", err)
 	}
 
 	// Extract binary from archive
@@ -378,6 +386,9 @@ func (s *UpdateService) fetchRollbackCandidates(ctx context.Context) ([]*GitHubR
 		if v == "" || seen[v] {
 			continue
 		}
+		if _, ok := parseVersion(v); !ok {
+			continue
+		}
 		// Only versions strictly older than current (also excludes current itself)
 		if compareVersions(v, s.currentVersion) >= 0 {
 			continue
@@ -406,6 +417,9 @@ func (s *UpdateService) fetchLatestRelease(ctx context.Context) (*UpdateInfo, er
 	}
 
 	latestVersion := strings.TrimPrefix(release.TagName, "v")
+	if _, ok := parseVersion(latestVersion); !ok {
+		return nil, fmt.Errorf("latest release has unsupported version tag %q", release.TagName)
+	}
 
 	assets := make([]Asset, len(release.Assets))
 	for i, a := range release.Assets {
@@ -455,13 +469,19 @@ func validateDownloadURL(rawURL string) error {
 		return fmt.Errorf("only HTTPS URLs are allowed")
 	}
 
+	if parsedURL.User != nil || parsedURL.Port() != "" {
+		return fmt.Errorf("download URL must not include user info or a custom port")
+	}
+
 	// Check against allowed hosts
-	host := parsedURL.Host
+	host := strings.ToLower(parsedURL.Hostname())
 	// GitHub release URLs can be from github.com or objects.githubusercontent.com
 	if host != allowedDownloadHost &&
 		!strings.HasSuffix(host, "."+allowedDownloadHost) &&
 		host != allowedAssetHost &&
-		!strings.HasSuffix(host, "."+allowedAssetHost) {
+		!strings.HasSuffix(host, "."+allowedAssetHost) &&
+		host != allowedReleaseAssetHost &&
+		!strings.HasSuffix(host, "."+allowedReleaseAssetHost) {
 		return fmt.Errorf("download from untrusted host: %s", host)
 	}
 
@@ -501,6 +521,9 @@ func (s *UpdateService) verifyChecksum(ctx context.Context, filePath, checksumUR
 			return fmt.Errorf("checksum mismatch: expected %s, got %s", parts[0], actualHash)
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("read checksums: %w", err)
+	}
 
 	return fmt.Errorf("checksum not found for %s", fileName)
 }
@@ -512,10 +535,11 @@ func (s *UpdateService) extractBinary(archivePath, destPath string) error {
 	}
 	defer func() { _ = f.Close() }()
 
+	lowerPath := strings.ToLower(archivePath)
 	var reader io.Reader = f
 
 	// Handle gzip compression
-	if strings.HasSuffix(archivePath, ".gz") || strings.HasSuffix(archivePath, ".tar.gz") || strings.HasSuffix(archivePath, ".tgz") {
+	if strings.HasSuffix(lowerPath, ".tar.gz") || strings.HasSuffix(lowerPath, ".tgz") {
 		gzr, err := gzip.NewReader(f)
 		if err != nil {
 			return err
@@ -525,7 +549,7 @@ func (s *UpdateService) extractBinary(archivePath, destPath string) error {
 	}
 
 	// Handle tar archive
-	if strings.Contains(archivePath, ".tar") {
+	if strings.HasSuffix(lowerPath, ".tar") || strings.HasSuffix(lowerPath, ".tar.gz") || strings.HasSuffix(lowerPath, ".tgz") {
 		tr := tar.NewReader(reader)
 		for {
 			hdr, err := tr.Next()
@@ -553,44 +577,77 @@ func (s *UpdateService) extractBinary(archivePath, destPath string) error {
 			// Only extract the specific binary we need
 			if baseName == "sub2api" || baseName == "sub2api.exe" {
 				// Additional security: limit file size (max 500MB)
-				const maxBinarySize = 500 * 1024 * 1024
 				if hdr.Size > maxBinarySize {
 					return fmt.Errorf("binary too large: %d bytes (max %d)", hdr.Size, maxBinarySize)
 				}
 
-				out, err := os.Create(destPath)
+				return writeLimitedBinary(destPath, tr, maxBinarySize)
+			}
+		}
+		return fmt.Errorf("binary not found in archive")
+	}
+
+	if strings.HasSuffix(lowerPath, ".zip") {
+		if err := f.Close(); err != nil {
+			return err
+		}
+		zr, err := zip.OpenReader(archivePath)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = zr.Close() }()
+
+		for _, entry := range zr.File {
+			baseName := filepath.Base(entry.Name)
+			if entry.FileInfo().Mode().IsRegular() && (baseName == "sub2api" || baseName == "sub2api.exe") {
+				if entry.UncompressedSize64 > maxBinarySize {
+					return fmt.Errorf("binary too large: %d bytes (max %d)", entry.UncompressedSize64, maxBinarySize)
+				}
+				rc, err := entry.Open()
 				if err != nil {
 					return err
 				}
-
-				// Use LimitReader to prevent decompression bombs
-				limited := io.LimitReader(tr, maxBinarySize)
-				if _, err := io.Copy(out, limited); err != nil {
-					_ = out.Close()
+				err = writeLimitedBinary(destPath, rc, maxBinarySize)
+				closeErr := rc.Close()
+				if err != nil {
 					return err
 				}
-				if err := out.Close(); err != nil {
-					return err
-				}
-				return nil
+				return closeErr
 			}
 		}
 		return fmt.Errorf("binary not found in archive")
 	}
 
 	// Direct copy for non-tar files (with size limit)
-	const maxBinarySize = 500 * 1024 * 1024
+	return writeLimitedBinary(destPath, reader, maxBinarySize)
+}
+
+func writeLimitedBinary(destPath string, reader io.Reader, maxSize int64) error {
 	out, err := os.Create(destPath)
 	if err != nil {
 		return err
 	}
 
-	limited := io.LimitReader(reader, maxBinarySize)
-	if _, err := io.Copy(out, limited); err != nil {
-		_ = out.Close()
-		return err
+	written, copyErr := io.Copy(out, io.LimitReader(reader, maxSize+1))
+	closeErr := out.Close()
+	if copyErr != nil {
+		_ = os.Remove(destPath)
+		return copyErr
 	}
-	return out.Close()
+	if closeErr != nil {
+		_ = os.Remove(destPath)
+		return closeErr
+	}
+	if written > maxSize {
+		_ = os.Remove(destPath)
+		return fmt.Errorf("binary exceeded maximum size of %d bytes", maxSize)
+	}
+	if written == 0 {
+		_ = out.Close()
+		_ = os.Remove(destPath)
+		return fmt.Errorf("binary is empty")
+	}
+	return nil
 }
 
 func (s *UpdateService) getFromCache(ctx context.Context) (*UpdateInfo, error) {
@@ -637,30 +694,149 @@ func (s *UpdateService) saveToCache(ctx context.Context, info *UpdateInfo) {
 	_ = s.cache.SetUpdateInfo(ctx, string(data), time.Duration(updateCacheTTL)*time.Second)
 }
 
-// compareVersions compares two semantic versions
+// compareVersions compares distribution versions. The current format is
+// <upstream semver>-qiu.<revision>, for example 0.1.168-qiu.1.
+// The upstream version is compared first, then the qiu revision.
+//
+// Migration compatibility:
+//   - an upstream-only version is treated as distribution version 0.0.0;
+//   - x.y.z-vA.B.C remains comparable as the superseded paired format;
+//   - the historical standalone v1.0.0 release predates every fork release.
 func compareVersions(current, latest string) int {
-	currentParts := parseVersion(current)
-	latestParts := parseVersion(latest)
+	currentParts, currentOK := parseVersion(current)
+	latestParts, latestOK := parseVersion(latest)
+	if !currentOK && !latestOK {
+		return 0
+	}
+	if !currentOK {
+		return -1
+	}
+	if !latestOK {
+		return 1
+	}
 
-	for i := 0; i < 3; i++ {
-		if currentParts[i] < latestParts[i] {
+	if currentParts.kind == versionKindLegacyStandalone || latestParts.kind == versionKindLegacyStandalone {
+		if currentParts.kind == latestParts.kind {
+			return 0
+		}
+		if currentParts.kind == versionKindLegacyStandalone {
 			return -1
 		}
-		if currentParts[i] > latestParts[i] {
+		return 1
+	}
+
+	for i := 0; i < 3; i++ {
+		if currentParts.upstream[i] < latestParts.upstream[i] {
+			return -1
+		}
+		if currentParts.upstream[i] > latestParts.upstream[i] {
+			return 1
+		}
+	}
+
+	// On the same upstream baseline, the canonical qiu.N format supersedes the
+	// short-lived -vA.B.C format, regardless of its numeric suffix.
+	currentRank := versionKindRank(currentParts.kind)
+	latestRank := versionKindRank(latestParts.kind)
+	if currentRank < latestRank {
+		return -1
+	}
+	if currentRank > latestRank {
+		return 1
+	}
+
+	for i := 0; i < 3; i++ {
+		if currentParts.distribution[i] < latestParts.distribution[i] {
+			return -1
+		}
+		if currentParts.distribution[i] > latestParts.distribution[i] {
 			return 1
 		}
 	}
 	return 0
 }
 
-func parseVersion(v string) [3]int {
-	v = strings.TrimPrefix(v, "v")
-	parts := strings.Split(v, ".")
-	result := [3]int{0, 0, 0}
-	for i := 0; i < len(parts) && i < 3; i++ {
-		if parsed, err := strconv.Atoi(parts[i]); err == nil {
-			result[i] = parsed
-		}
+func versionKindRank(kind versionKind) int {
+	switch kind {
+	case versionKindQiuRevision:
+		return 2
+	case versionKindPaired:
+		return 1
+	default:
+		return 0
 	}
-	return result
+}
+
+type versionKind uint8
+
+const (
+	versionKindUpstream versionKind = iota
+	versionKindQiuRevision
+	versionKindPaired
+	versionKindLegacyStandalone
+)
+
+type forkVersion struct {
+	upstream     [3]int
+	distribution [3]int
+	kind         versionKind
+}
+
+func parseVersion(v string) (forkVersion, bool) {
+	v = strings.TrimPrefix(strings.TrimSpace(v), "v")
+	if v == "1.0.0" {
+		return forkVersion{kind: versionKindLegacyStandalone}, true
+	}
+
+	if upstreamText, distributionText, ok := strings.Cut(v, "-v"); ok {
+		upstream, upstreamOK := parseVersionTriplet(upstreamText)
+		distribution, distributionOK := parseVersionTriplet(distributionText)
+		if !upstreamOK || !distributionOK {
+			return forkVersion{}, false
+		}
+		return forkVersion{
+			upstream:     upstream,
+			distribution: distribution,
+			kind:         versionKindPaired,
+		}, true
+	}
+
+	if upstreamText, revisionText, ok := strings.Cut(v, "-qiu."); ok {
+		upstream, upstreamOK := parseVersionTriplet(upstreamText)
+		revision, err := strconv.Atoi(revisionText)
+		if !upstreamOK || err != nil || revision <= 0 {
+			return forkVersion{}, false
+		}
+		return forkVersion{
+			upstream:     upstream,
+			distribution: [3]int{0, 0, revision},
+			kind:         versionKindQiuRevision,
+		}, true
+	}
+
+	upstream, ok := parseVersionTriplet(v)
+	if !ok {
+		return forkVersion{}, false
+	}
+	return forkVersion{upstream: upstream, kind: versionKindUpstream}, true
+}
+
+func parseVersionTriplet(value string) ([3]int, bool) {
+	parts := strings.Split(value, ".")
+	if len(parts) != 3 {
+		return [3]int{}, false
+	}
+
+	result := [3]int{}
+	for i, part := range parts {
+		if part == "" {
+			return [3]int{}, false
+		}
+		parsed, err := strconv.Atoi(part)
+		if err != nil || parsed < 0 {
+			return [3]int{}, false
+		}
+		result[i] = parsed
+	}
+	return result, true
 }

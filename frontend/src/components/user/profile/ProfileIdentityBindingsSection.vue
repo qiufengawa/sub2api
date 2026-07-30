@@ -27,11 +27,11 @@
         :key="item.provider"
         :class="rowClass"
       >
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div class="flex min-w-0 flex-1 items-start gap-4">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div class="flex min-w-0 flex-1 items-start gap-3">
             <div
               :class="providerIconClass(item.provider)"
-              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-semibold"
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-xs font-semibold"
             >
               <Icon
                 v-if="item.provider === 'email'"
@@ -42,7 +42,7 @@
               <span v-else>{{ providerInitial(item.provider) }}</span>
             </div>
 
-            <div class="min-w-0 flex-1 space-y-3">
+            <div class="min-w-0 flex-1 space-y-2">
               <div class="flex flex-wrap items-center gap-2">
                 <h3 class="font-medium text-gray-900 dark:text-white">
                   {{ item.label }}
@@ -61,14 +61,14 @@
 
               <p
                 v-if="providerSummary(item.provider)"
-                class="text-sm text-gray-600 dark:text-gray-300"
+                class="text-xs text-gray-600 dark:text-gray-300"
               >
                 {{ providerSummary(item.provider) }}
               </p>
 
               <div
                 v-if="hasBindingDetails(item.provider, item.details)"
-                class="grid gap-1 text-sm text-gray-500 dark:text-gray-400"
+                class="grid gap-1 text-xs text-gray-500 dark:text-gray-400"
               >
                 <p
                   v-if="item.provider !== 'email' && item.details?.display_name"
@@ -148,7 +148,7 @@
             </div>
           </div>
 
-          <div class="flex shrink-0 flex-wrap items-center gap-3">
+          <div class="flex shrink-0 flex-wrap items-center gap-2">
             <button
               v-if="item.provider === 'email' && compact"
               data-testid="profile-binding-email-toggle"
@@ -284,8 +284,8 @@ const compact = computed(() => props.compact)
 const rowClass = computed(() =>
   props.embedded
     ? compact.value
-      ? 'rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-900/40'
-      : 'rounded-2xl border border-gray-100 bg-gray-50/70 p-4 dark:border-dark-700 dark:bg-dark-900/30'
+      ? 'border-t border-gray-100 py-3 dark:border-dark-700'
+      : 'rounded border border-gray-100 bg-gray-50/70 p-4 dark:border-dark-700 dark:bg-dark-900/30'
     : 'px-6 py-5'
 )
 const emailBound = computed(() => getBindingStatus('email'))

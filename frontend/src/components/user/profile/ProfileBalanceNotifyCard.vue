@@ -1,14 +1,14 @@
 <template>
-  <div class="card">
-    <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
-      <h2 class="text-lg font-medium text-gray-900 dark:text-white">
+  <div :class="props.embedded ? (props.flat ? '' : 'overflow-hidden rounded border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800') : 'card'">
+    <div :class="props.embedded ? (props.flat ? 'pb-3' : 'border-b border-gray-100 px-4 py-3 dark:border-dark-700') : 'border-b border-gray-100 px-6 py-4 dark:border-dark-700'">
+      <h2 :class="props.embedded ? 'text-sm font-semibold text-gray-900 dark:text-white' : 'text-lg font-medium text-gray-900 dark:text-white'">
         {{ t('profile.balanceNotify.title') }}
       </h2>
-      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+      <p :class="props.embedded ? 'mt-0.5 text-xs text-gray-500 dark:text-dark-400' : 'mt-1 text-sm text-gray-500 dark:text-gray-400'">
         {{ t('profile.balanceNotify.description') }}
       </p>
     </div>
-    <div class="px-6 py-6 space-y-6">
+    <div :class="props.embedded ? (props.flat ? 'space-y-4' : 'space-y-4 px-4 py-4') : 'space-y-6 px-6 py-6'">
       <!-- Enable toggle -->
       <div class="flex items-center justify-between">
         <label class="input-label mb-0">{{ t('profile.balanceNotify.enabled') }}</label>
@@ -53,7 +53,7 @@
           <!-- Saved email entries -->
           <div v-if="emailEntries.length > 0" class="space-y-2 mb-3">
             <div v-for="(entry, idx) in emailEntries" :key="idx"
-              class="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-dark-700 rounded-lg">
+              class="flex items-center justify-between rounded bg-gray-50 px-3 py-2 dark:bg-dark-700">
               <div class="flex items-center gap-2 min-w-0 flex-1">
                 <label class="relative inline-flex items-center cursor-pointer shrink-0">
                   <input type="checkbox" :checked="!entry.disabled" @change="handleEmailToggle(entry)" class="sr-only peer" />
@@ -101,7 +101,7 @@
           <!-- Pending (unverified) emails in verification flow -->
           <div v-if="pendingEmails.length > 0" class="space-y-2 mb-3">
             <div v-for="(pe, idx) in pendingEmails" :key="pe.email"
-              class="flex items-center gap-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border border-yellow-200 dark:border-yellow-800">
+              class="flex items-center gap-2 rounded border border-yellow-200 bg-yellow-50 px-3 py-2 dark:border-yellow-800 dark:bg-yellow-900/10">
               <span class="flex-1 text-sm text-gray-700 dark:text-gray-300">{{ pe.email }}</span>
               <div v-if="!pe.codeSent" class="flex items-center gap-1">
                 <button @click="sendCodeFor(idx)" :disabled="pe.sending" class="text-xs text-primary-600 hover:text-primary-700">
@@ -183,6 +183,8 @@ const props = defineProps<{
   extraEmails: NotifyEmailEntry[]
   systemDefaultThreshold: number
   userEmail: string
+  embedded?: boolean
+  flat?: boolean
 }>()
 
 const { t } = useI18n()

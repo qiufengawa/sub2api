@@ -82,7 +82,7 @@ export async function performUpdate(): Promise<UpdateResult> {
 
 /**
  * Rollback to a previous version
- * @param version - Target version (e.g. "0.1.146"); omit to restore the local backup binary
+ * @param version - Target version (e.g. "0.1.168-qiu.1"); omit to restore the local backup binary
  */
 export async function rollback(version?: string): Promise<UpdateResult> {
   const { data } = await apiClient.post<UpdateResult>(

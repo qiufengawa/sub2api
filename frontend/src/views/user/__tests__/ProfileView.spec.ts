@@ -73,16 +73,23 @@ describe('ProfileView', () => {
     })
   })
 
-  it('renders the simplified single-column profile shell without separate stat cards', async () => {
+  it('renders one full-width settings workspace with collapsed password details', async () => {
     const wrapper = mount(ProfileView, {
       global: {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
           StatCard: { template: '<div class="stat-card" />' },
           ProfileInfoCard: { template: '<div data-testid="profile-info-card" />' },
-          ProfileBalanceNotifyCard: { template: '<div data-testid="profile-balance-notify-card" />' },
+          ProfileAvatarCard: { template: '<div data-testid="profile-avatar-card" />' },
+          ProfileEditForm: { template: '<div data-testid="profile-edit-form" />' },
+          ProfileIdentityBindingsSection: { template: '<div data-testid="profile-identity-bindings" />' },
+          ProfileBalanceNotifyCard: {
+            props: ['embedded', 'flat'],
+            template: '<div data-testid="profile-balance-notify-card" :data-flat="flat" />'
+          },
           ProfilePasswordForm: { template: '<div data-testid="profile-password-form" />' },
           ProfileTotpCard: { template: '<div data-testid="profile-totp-card" />' },
+          ProfilePasskeyCard: { template: '<div data-testid="profile-passkey-card" />' },
           Icon: true
         }
       }
@@ -93,7 +100,14 @@ describe('ProfileView', () => {
     expect(wrapper.findAll('.stat-card')).toHaveLength(0)
     expect(wrapper.get('[data-testid="profile-shell"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-info-card')
-    expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-password-form')
+    expect(wrapper.get('[data-testid="profile-settings-panel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="profile-main-column"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="profile-side-column"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="profile-security-panel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="profile-password-form"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-totp-card')
+
+    await wrapper.get('[data-testid="profile-password-toggle"]').trigger('click')
+    expect(wrapper.get('[data-testid="profile-password-form"]').exists()).toBe(true)
   })
 })

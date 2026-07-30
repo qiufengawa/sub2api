@@ -108,8 +108,8 @@ describe('UsageProgressBar', () => {
     })
 
     expect(wrapper.text()).toContain('100%')
-    expect(wrapper.get('.h-1\\.5 > div').attributes('style')).toContain('width: 100%')
-    expect(wrapper.get('.h-1\\.5 > div').classes()).toContain('bg-green-500')
+    expect(wrapper.get('.h-2 > div').attributes('style')).toContain('width: 100%')
+    expect(wrapper.get('.h-2 > div').classes()).toContain('bg-green-500')
   })
 
   it('剩余容量模式在低量和耗尽时缩短并变红', async () => {
@@ -123,14 +123,14 @@ describe('UsageProgressBar', () => {
     })
 
     expect(wrapper.text()).toContain('15%')
-    expect(wrapper.get('.h-1\\.5 > div').attributes('style')).toContain('width: 15%')
-    expect(wrapper.get('.h-1\\.5 > div').classes()).toContain('bg-red-500')
+    expect(wrapper.get('.h-2 > div').attributes('style')).toContain('width: 15%')
+    expect(wrapper.get('.h-2 > div').classes()).toContain('bg-red-500')
 
     await wrapper.setProps({ utilization: 0 })
 
     expect(wrapper.text()).toContain('0%')
-    expect(wrapper.get('.h-1\\.5 > div').attributes('style')).toContain('width: 0%')
-    expect(wrapper.get('.h-1\\.5 > div').classes()).toContain('bg-red-500')
+    expect(wrapper.get('.h-2 > div').attributes('style')).toContain('width: 0%')
+    expect(wrapper.get('.h-2 > div').classes()).toContain('bg-red-500')
   })
 
   it('默认利用率模式仍把超限显示为满格红色', () => {
@@ -143,7 +143,32 @@ describe('UsageProgressBar', () => {
     })
 
     expect(wrapper.text()).toContain('120%')
-    expect(wrapper.get('.h-1\\.5 > div').attributes('style')).toContain('width: 100%')
-    expect(wrapper.get('.h-1\\.5 > div').classes()).toContain('bg-red-500')
+    expect(wrapper.get('.h-2 > div').attributes('style')).toContain('width: 100%')
+    expect(wrapper.get('.h-2 > div').classes()).toContain('bg-red-500')
+  })
+
+  it('以可读标签展示窗口请求、Token 和两类计费信息', () => {
+    const wrapper = mount(UsageProgressBar, {
+      props: {
+        label: '5h',
+        utilization: 42,
+        color: 'indigo',
+        windowStats: {
+          requests: 1280,
+          tokens: 2400000,
+          cost: 12.34,
+          user_cost: 18.56
+        }
+      }
+    })
+
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.requests')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.tokens')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.accountCost')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.userCost')
+    expect(wrapper.text()).toContain('$12.34')
+    expect(wrapper.text()).toContain('$18.56')
+    expect(wrapper.text()).not.toContain('A $')
+    expect(wrapper.text()).not.toContain('U $')
   })
 })

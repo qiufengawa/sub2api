@@ -9,13 +9,8 @@
       </h2>
     </div>
     <div :class="props.embedded ? '' : 'px-6 py-6'">
-      <form @submit.prevent="handleChangePassword" class="space-y-4">
-        <div v-if="props.embedded">
-          <p class="text-sm font-semibold text-gray-900 dark:text-white">
-            {{ t('profile.changePassword') }}
-          </p>
-        </div>
-        <div>
+      <form @submit.prevent="handleChangePassword" :class="props.embedded ? 'grid gap-3 sm:grid-cols-2' : 'space-y-4'">
+        <div :class="props.embedded ? 'sm:col-span-2' : ''">
           <label for="old_password" class="input-label">
             {{ t('profile.currentPassword') }}
           </label>
@@ -60,8 +55,8 @@
           />
         </div>
 
-        <div class="flex justify-end pt-4">
-          <button type="submit" :disabled="loading" class="btn btn-primary">
+        <div :class="props.embedded ? 'flex justify-end pt-1 sm:col-span-2' : 'flex justify-end pt-4'">
+          <button type="submit" :disabled="loading" :class="props.embedded ? 'btn btn-primary btn-sm' : 'btn btn-primary'">
             {{ loading ? t('profile.changingPassword') : t('profile.changePasswordButton') }}
           </button>
         </div>

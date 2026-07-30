@@ -2,9 +2,9 @@
   <AppLayout>
     <TablePageLayout>
       <template #filters>
-        <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
-          <div class="flex flex-1 flex-wrap items-center gap-3">
-            <div class="relative w-full sm:w-80">
+        <div class="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+          <div class="flex flex-1 flex-wrap items-center gap-2">
+            <div class="relative w-full sm:w-72 lg:w-80">
               <Icon
                 name="search"
                 size="md"
@@ -19,7 +19,13 @@
             </div>
           </div>
 
-          <div class="flex w-full flex-shrink-0 flex-wrap items-center justify-end gap-3 lg:w-auto">
+          <div class="flex flex-shrink-0 items-center justify-end gap-2">
+            <span
+              data-testid="available-channel-count"
+              class="inline-flex h-8 items-center rounded border border-primary-100 bg-primary-50 px-2.5 text-xs font-medium text-primary-700 dark:border-primary-900 dark:bg-primary-950/30 dark:text-primary-300"
+            >
+              {{ t('availableChannels.resultCount', { count: filteredChannels.length }) }}
+            </span>
             <button
               @click="loadChannels"
               :disabled="loading"
@@ -69,6 +75,7 @@ const loading = ref(false)
 const searchQuery = ref('')
 
 const columnLabels = computed(() => ({
+  channelInfo: t('availableChannels.columns.channelInfo'),
   name: t('availableChannels.columns.name'),
   description: t('availableChannels.columns.description'),
   platform: t('availableChannels.columns.platform'),

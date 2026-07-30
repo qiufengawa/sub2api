@@ -22,7 +22,7 @@ const BaseDialogStub = {
 }
 
 const DataTableStub = {
-  props: ['data'],
+  props: ['data', 'columns'],
   template: `
     <div>
       <div v-for="row in data" :key="row.id">
@@ -121,6 +121,24 @@ describe('admin order currency display', () => {
     expect(text).toContain('$108.00')
     expect(text).toContain('¥108.00')
     expect(text).toContain('$100.00')
+    expect(wrapper.findComponent(DataTableStub).props('columns')).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ key: 'order_type' })])
+    )
+  })
+
+  it('adds the order type column only when the user table requests it', () => {
+    const wrapper = mount(OrderTable, {
+      props: {
+        orders: [orderFactory()],
+        loading: false,
+        showOrderType: true,
+      },
+      global: { stubs: { DataTable: DataTableStub, OrderStatusBadge: true } },
+    })
+
+    expect(wrapper.findComponent(DataTableStub).props('columns')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ key: 'order_type' })])
+    )
   })
 
   it('renders payment currency consistently in the admin order table', () => {

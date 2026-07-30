@@ -61,6 +61,7 @@ func NewGitHubReleaseClient(proxyURL string, allowDirectOnProxyError bool) servi
 		downloadClient = &http.Client{Timeout: 10 * time.Minute}
 	}
 	downloadClient = cloneHTTPClient(downloadClient)
+	downloadClient.CheckRedirect = githubDownloadCheckRedirect(downloadClient.CheckRedirect)
 
 	return &githubReleaseClient{
 		httpClient:         apiClient,
@@ -83,6 +84,28 @@ func githubAPICheckRedirect(previous func(*http.Request, []*http.Request) error)
 	return func(req *http.Request, via []*http.Request) error {
 		if !isGitHubAPIURL(req.URL) {
 			req.Header.Del("Authorization")
+		}
+		if previous != nil {
+			return previous(req, via)
+		}
+		return nil
+	}
+}
+
+func isTrustedGitHubDownloadURL(downloadURL *url.URL) bool {
+	if downloadURL == nil || !strings.EqualFold(downloadURL.Scheme, "https") || downloadURL.User != nil || downloadURL.Port() != "" {
+		return false
+	}
+	host := strings.ToLower(downloadURL.Hostname())
+	return host == "github.com" || strings.HasSuffix(host, ".github.com") ||
+		host == "objects.githubusercontent.com" || strings.HasSuffix(host, ".objects.githubusercontent.com") ||
+		host == "release-assets.githubusercontent.com" || strings.HasSuffix(host, ".release-assets.githubusercontent.com")
+}
+
+func githubDownloadCheckRedirect(previous func(*http.Request, []*http.Request) error) func(*http.Request, []*http.Request) error {
+	return func(req *http.Request, via []*http.Request) error {
+		if !isTrustedGitHubDownloadURL(req.URL) {
+			return fmt.Errorf("update download redirected to untrusted URL: %s", req.URL.Redacted())
 		}
 		if previous != nil {
 			return previous(req, via)
@@ -232,7 +255,7 @@ func (c *githubReleaseClient) FetchChecksumFile(ctx context.Context, url string)
 		return nil, err
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.downloadHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

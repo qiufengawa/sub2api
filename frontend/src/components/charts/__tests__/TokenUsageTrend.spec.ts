@@ -6,6 +6,7 @@ import TokenUsageTrend from '../TokenUsageTrend.vue'
 const messages: Record<string, string> = {
   'admin.dashboard.tokenUsageTrend': 'Token Usage Trend',
   'admin.dashboard.noDataAvailable': 'No data available',
+  'usage.cacheHitRate': 'Cache',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -26,7 +27,7 @@ vi.mock('vue-chartjs', () => ({
 }))
 
 describe('TokenUsageTrend', () => {
-  it('calculates cache hit rate against all prompt tokens', () => {
+  it('calculates cache token reuse against all prompt tokens', () => {
     const wrapper = mount(TokenUsageTrend, {
       props: {
         trendData: [
@@ -51,7 +52,7 @@ describe('TokenUsageTrend', () => {
 
     const chartData = JSON.parse(wrapper.find('.chart-data').text())
     const hitRateDataset = chartData.datasets.find(
-      (ds: any) => ds.label === 'Cache Hit Rate'
+      (ds: any) => ds.label === 'Cache'
     )
     // Hit rate = 1500 / (500 + 1500 + 0) * 100 = 75%
     expect(hitRateDataset.data[0]).toBe(75)
@@ -82,7 +83,7 @@ describe('TokenUsageTrend', () => {
 
     const chartData = JSON.parse(wrapper.find('.chart-data').text())
     const hitRateDataset = chartData.datasets.find(
-      (ds: any) => ds.label === 'Cache Hit Rate'
+      (ds: any) => ds.label === 'Cache'
     )
     expect(hitRateDataset.data[0]).toBe(0)
   })
@@ -112,7 +113,7 @@ describe('TokenUsageTrend', () => {
 
     const chartData = JSON.parse(wrapper.find('.chart-data').text())
     const hitRateDataset = chartData.datasets.find(
-      (ds: any) => ds.label === 'Cache Hit Rate'
+      (ds: any) => ds.label === 'Cache'
     )
     // Hit rate = 500 / (200 + 500 + 300) * 100 = 50%
     expect(hitRateDataset.data[0]).toBe(50)

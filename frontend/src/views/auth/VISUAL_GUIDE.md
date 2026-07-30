@@ -39,7 +39,7 @@ Centered: Both horizontally and vertically
 ```
 ┌─────────────────────────────────────────────┐
 │                                             │
-│         🔷 Sub2API                          │
+│         [Logo] Sub2API                          │
 │    Subscription to API Conversion Platform  │
 │                                             │
 │  ┌─────────────────────────────────────┐   │
@@ -57,7 +57,7 @@ Centered: Both horizontally and vertically
 │  │  │ ••••••••••••••                 │ │   │
 │  │  └────────────────────────────────┘ │   │
 │  │                                     │   │
-│  │  ☐ Remember me                      │   │
+│  │  [ ] Remember me                      │   │
 │  │                                     │   │
 │  │  ┌────────────────────────────────┐ │   │
 │  │  │       Sign In                  │ │   │
@@ -85,7 +85,7 @@ Centered: Both horizontally and vertically
 │  │  │ ••••••••••••            │  │         │
 │  │  └──────────────────────────┘  │         │
 │  │                                │         │
-│  │  ☑ Remember me                 │         │
+│  │  [x] Remember me                 │         │
 │  │                                │         │
 │  │  ┌──────────────────────────┐  │         │
 │  │  │ ⟳ Signing in...         │  │ ← Spinner
@@ -104,17 +104,17 @@ Centered: Both horizontally and vertically
 │  │  ┌──────────────────────────┐  │         │
 │  │  │ jo                       │  │ ← Red border
 │  │  └──────────────────────────┘  │         │
-│  │  ⚠ Username must be at least 3 │ ← Red text
+│  │  [Warning] Username must be at least 3 │ ← Red text
 │  │     characters                 │         │
 │  │                                │         │
 │  │  Password                      │         │
 │  │  ┌──────────────────────────┐  │         │
 │  │  │                          │  │ ← Red border
 │  │  └──────────────────────────┘  │         │
-│  │  ⚠ Password is required        │ ← Red text
+│  │  [Warning] Password is required        │ ← Red text
 │  │                                │         │
 │  │  ┌──────────────────────────┐  │         │
-│  │  │ ⚠ Invalid username or    │  │ ← Error banner
+│  │  │ [Warning] Invalid username or    │  │ ← Error banner
 │  │  │   password. Please try   │  │
 │  │  │   again.                 │  │
 │  │  └──────────────────────────┘  │         │
@@ -133,7 +133,7 @@ Centered: Both horizontally and vertically
 ```
 ┌─────────────────────────────────────────────┐
 │                                             │
-│         🔷 Sub2API                          │
+│         [Logo] Sub2API                          │
 │    Subscription to API Conversion Platform  │
 │                                             │
 │  ┌─────────────────────────────────────┐   │
@@ -186,21 +186,21 @@ Centered: Both horizontally and vertically
 │  │  ┌──────────────────────────┐  │         │
 │  │  │ jane@smith               │  │ ← Red border
 │  │  └──────────────────────────┘  │         │
-│  │  ⚠ Username can only contain   │ ← Red text
+│  │  [Warning] Username can only contain   │ ← Red text
 │  │     letters, numbers, _, and - │         │
 │  │                                │         │
 │  │  Email                         │         │
 │  │  ┌──────────────────────────┐  │         │
 │  │  │ invalid-email            │  │ ← Red border
 │  │  └──────────────────────────┘  │         │
-│  │  ⚠ Please enter a valid email  │ ← Red text
+│  │  [Warning] Please enter a valid email  │ ← Red text
 │  │     address                    │         │
 │  │                                │         │
 │  │  Password                      │         │
 │  │  ┌──────────────────────────┐  │         │
 │  │  │ short                    │  │ ← Red border
 │  │  └──────────────────────────┘  │         │
-│  │  ⚠ Password must be at least 8 │ ← Red text
+│  │  [Warning] Password must be at least 8 │ ← Red text
 │  │     characters with letters    │         │
 │  │     and numbers                │         │
 │  │                                │         │
@@ -208,7 +208,7 @@ Centered: Both horizontally and vertically
 │  │  ┌──────────────────────────┐  │         │
 │  │  │ different                │  │ ← Red border
 │  │  └──────────────────────────┘  │         │
-│  │  ⚠ Passwords do not match      │ ← Red text
+│  │  [Warning] Passwords do not match      │ ← Red text
 │  │                                │         │
 │  └────────────────────────────────┘         │
 └─────────────────────────────────────────────┘

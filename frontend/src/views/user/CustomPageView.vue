@@ -2,6 +2,25 @@
   <AppLayout>
     <div class="custom-page-layout">
       <div class="card flex-1 min-h-0 overflow-hidden">
+        <header v-if="menuItem && !loading" class="custom-page-header">
+          <div class="min-w-0">
+            <h1 class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ menuItem.label }}</h1>
+            <p class="mt-0.5 text-[11px] text-gray-500 dark:text-dark-400">
+              {{ isMarkdownMode ? t('customPage.markdownMode') : t('customPage.embeddedMode') }}
+            </p>
+          </div>
+          <a
+            v-if="!isMarkdownMode && isValidUrl"
+            :href="embeddedUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn btn-secondary btn-sm shrink-0"
+          >
+            <Icon name="externalLink" size="sm" />
+            {{ t('customPage.openInNewTab') }}
+          </a>
+        </header>
+
         <div v-if="loading" class="flex h-full items-center justify-center py-12">
           <div
             class="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
@@ -27,8 +46,20 @@
           </div>
         </div>
 
+        <div v-else-if="loadError" class="flex min-h-0 flex-1 items-center justify-center p-8 text-center">
+          <div class="max-w-sm">
+            <div class="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-[4px] bg-red-50 dark:bg-red-950/20">
+              <Icon name="exclamationCircle" size="lg" class="text-red-500" />
+            </div>
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('common.loadFailed') }}</h3>
+            <button type="button" class="btn btn-primary btn-sm mt-4" @click="retryLoad">
+              {{ t('common.retry') }}
+            </button>
+          </div>
+        </div>
+
         <!-- Markdown mode with TOC -->
-        <div v-else-if="isMarkdownMode" class="flex h-full overflow-hidden">
+        <div v-else-if="isMarkdownMode" class="flex min-h-0 flex-1 overflow-hidden">
           <!-- TOC Sidebar -->
           <aside
             v-show="tocVisible"
@@ -70,7 +101,7 @@
           <!-- Content -->
           <div
             ref="markdownContainer"
-            class="markdown-page-content flex-1 h-full overflow-auto p-6 md:p-10"
+            class="markdown-page-content h-full flex-1 overflow-auto p-4 md:p-6"
             v-html="renderedHtml"
             @scroll="onContentScroll"
           ></div>
@@ -95,15 +126,6 @@
 
         <!-- Iframe embed mode -->
         <div v-else class="custom-embed-shell">
-          <a
-            :href="embeddedUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="btn btn-secondary btn-sm custom-open-fab"
-          >
-            <Icon name="externalLink" size="sm" class="mr-1.5" :stroke-width="2" />
-            {{ t('customPage.openInNewTab') }}
-          </a>
           <iframe
             :src="embeddedUrl"
             class="custom-embed-frame"
@@ -142,6 +164,7 @@ const authStore = useAuthStore()
 const adminSettingsStore = useAdminSettingsStore()
 
 const loading = ref(false)
+const loadError = ref(false)
 const pageTheme = ref<'light' | 'dark'>('light')
 const renderedHtml = ref('')
 const markdownContainer = ref<HTMLElement | null>(null)
@@ -223,6 +246,7 @@ function buildPageImageUrl(slug: string, src: string): string {
 
 async function fetchAndRenderMarkdown(slug: string) {
   loading.value = true
+  loadError.value = false
   tocItems.value = []
   activeHeadingId.value = ''
   try {
@@ -230,7 +254,8 @@ async function fetchAndRenderMarkdown(slug: string) {
       headers: authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {},
     })
     if (!resp.ok) {
-      renderedHtml.value = `<p class="text-red-500">${t('common.pageNotFound')}</p>`
+      renderedHtml.value = ''
+      loadError.value = true
       return
     }
     let raw = await resp.text()
@@ -263,13 +288,22 @@ async function fetchAndRenderMarkdown(slug: string) {
     renderedHtml.value = withIds
     tocItems.value = toc
   } catch {
-    renderedHtml.value = '<p class="text-red-500">Failed to load page</p>'
+    renderedHtml.value = ''
+    loadError.value = true
   } finally {
     loading.value = false
     await nextTick()
     await nextTick()
     injectCopyButtons()
   }
+}
+
+function retryLoad() {
+  if (markdownSlug.value) {
+    void fetchAndRenderMarkdown(markdownSlug.value)
+    return
+  }
+  loadError.value = false
 }
 
 function scrollToHeading(id: string) {
@@ -340,6 +374,7 @@ watch(markdownSlug, (slug) => {
   } else {
     renderedHtml.value = ''
     tocItems.value = []
+    loadError.value = false
   }
 }, { immediate: true })
 
@@ -379,6 +414,14 @@ onUnmounted(() => {
   height: calc(100vh - 64px - 4rem);
 }
 
+.custom-page-layout > .card {
+  @apply flex flex-col;
+}
+
+.custom-page-header {
+  @apply flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-dark-700;
+}
+
 .toc-sidebar {
   @apply flex flex-col h-full border-r border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-800;
   width: min(240px, 30%);
@@ -409,7 +452,7 @@ onUnmounted(() => {
 }
 
 .toc-close-btn {
-  @apply p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-dark-200 hover:bg-gray-200 dark:hover:bg-dark-600 transition-colors;
+  @apply rounded-[3px] p-1 text-gray-400 hover:text-gray-600 dark:hover:text-dark-200 hover:bg-gray-200 dark:hover:bg-dark-600 transition-colors;
 }
 
 .toc-nav {
@@ -417,7 +460,7 @@ onUnmounted(() => {
 }
 
 .toc-item {
-  @apply block px-2 py-1.5 text-sm rounded transition-colors truncate;
+  @apply block truncate rounded-[3px] px-2 py-1.5 text-sm transition-colors;
   @apply text-gray-600 dark:text-dark-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-dark-600;
 }
 
@@ -431,22 +474,17 @@ onUnmounted(() => {
 .toc-level-4 { padding-left: 44px; }
 
 .toc-toggle-btn {
-  @apply absolute left-2 top-2 z-10 flex items-center px-2 py-1.5 rounded-md text-sm;
+  @apply absolute left-2 top-2 z-10 flex items-center rounded-[3px] px-2 py-1.5 text-sm;
   @apply bg-white dark:bg-dark-700 border border-gray-200 dark:border-dark-500;
   @apply text-gray-600 dark:text-dark-300 hover:bg-gray-100 dark:hover:bg-dark-600;
   @apply shadow-sm transition-colors cursor-pointer;
 }
 
 .custom-embed-shell {
-  @apply relative;
-  @apply h-full w-full overflow-hidden rounded-2xl;
+  @apply relative min-h-0 flex-1;
+  @apply w-full overflow-hidden rounded-[4px];
   @apply bg-gradient-to-b from-gray-50 to-white dark:from-dark-900 dark:to-dark-950;
   @apply p-0;
-}
-
-.custom-open-fab {
-  @apply absolute right-3 top-3 z-10;
-  @apply shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-dark-800/80;
 }
 
 .custom-embed-frame {
@@ -476,12 +514,12 @@ onUnmounted(() => {
 .markdown-page-content li { @apply mb-1; }
 .markdown-page-content a { @apply text-primary-500 hover:text-primary-600 underline; }
 .markdown-page-content blockquote { @apply border-l-4 border-gray-300 dark:border-dark-500 pl-4 italic text-gray-600 dark:text-dark-300 my-4; }
-.markdown-page-content img { @apply max-w-full h-auto rounded-lg my-4; }
+.markdown-page-content img { @apply my-4 h-auto max-w-full rounded-[4px]; }
 .markdown-page-content table { @apply w-full border-collapse my-4; }
 .markdown-page-content th { @apply border border-gray-300 dark:border-dark-500 px-3 py-2 bg-gray-50 dark:bg-dark-700 font-semibold text-left; }
 .markdown-page-content td { @apply border border-gray-300 dark:border-dark-500 px-3 py-2; }
 .markdown-page-content code { @apply bg-gray-100 dark:bg-dark-700 px-1.5 py-0.5 rounded text-sm font-mono; }
-.markdown-page-content pre { @apply bg-gray-900 dark:bg-dark-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4 relative; }
+.markdown-page-content pre { @apply relative my-4 overflow-x-auto rounded-[4px] bg-gray-900 p-4 text-gray-100 dark:bg-dark-900; }
 .markdown-page-content pre code { @apply bg-transparent p-0 text-inherit; }
 .markdown-page-content hr { @apply my-6 border-gray-200 dark:border-dark-600; }
 

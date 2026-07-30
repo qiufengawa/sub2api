@@ -1,26 +1,25 @@
 <template>
-  <div class="mt-3 flex items-end justify-between">
-    <div class="text-[11px] uppercase tracking-widest text-gray-400">
-      {{ windowLabel }}
+  <div class="flex min-w-0 items-center justify-between gap-3 border-y border-gray-100 py-2 md:border-y-0 md:py-0 dark:border-dark-700/60">
+    <div class="min-w-0">
+      <div class="truncate text-[10px] font-semibold uppercase tracking-wider text-gray-400" :title="windowLabel">
+        {{ windowLabel }}
+      </div>
+      <div v-if="samplesLabel" class="mt-1 truncate text-[10px] text-gray-400" :title="samplesLabel">
+        {{ samplesLabel }}
+      </div>
     </div>
-    <div class="flex items-baseline gap-0.5">
+    <div class="flex shrink-0 items-baseline gap-0.5">
       <span
-        class="text-3xl font-bold tabular-nums leading-none"
+        class="text-lg font-bold tabular-nums leading-none"
         :style="colorStyle"
       >
         {{ displayValue }}
       </span>
       <span
-        class="text-base font-semibold leading-none"
+        class="text-xs font-semibold leading-none"
         :style="colorStyle"
       >%</span>
     </div>
-  </div>
-  <div
-    v-if="samplesLabel"
-    class="mt-1 text-[11px] text-gray-400 text-right"
-  >
-    {{ samplesLabel }}
   </div>
 </template>
 

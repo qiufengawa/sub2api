@@ -13,6 +13,9 @@ const messages: Record<string, string> = {
   'usage.cacheBreakdown': 'Cache Token Breakdown',
   'usage.cacheCreationTokensLabel': 'Cache Creation',
   'usage.cacheReadTokensLabel': 'Cache Read',
+  'usage.cacheHitRate': 'Cache',
+  'usage.cacheHitRateShort': 'Cache',
+  'usage.cacheHitRateFormula': 'Cache read / all prompt tokens',
   'usage.totalCost': 'Total Cost',
   'usage.accountCost': 'Cost',
   'usage.standardCost': 'Standard',
@@ -63,5 +66,23 @@ describe('UsageStatsCards', () => {
     expect(text).toContain('12')
     expect(text).toContain('Cache Read')
     expect(text).toContain('22')
+  })
+
+  it('shows the aggregate cache token reuse rate only when explicitly enabled', () => {
+    const wrapper = mount(UsageStatsCards, {
+      props: {
+        stats,
+        showCacheHitRate: true,
+        userVariant: true,
+      },
+      global: {
+        stubs: {
+          Icon: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('Cache 16.4%')
+    expect(wrapper.text()).toContain('Cache read / all prompt tokens')
   })
 })

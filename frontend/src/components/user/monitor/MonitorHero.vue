@@ -1,9 +1,19 @@
 <template>
-  <section class="py-3 md:py-4">
-    <div class="flex items-center justify-end gap-3 flex-wrap">
+  <section class="mb-3 rounded-[4px] border border-gray-200 bg-white px-4 py-3 dark:border-dark-700 dark:bg-dark-800">
+    <div class="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
+      <div class="min-w-0">
+        <h1 class="text-base font-semibold text-gray-900 dark:text-white">
+          {{ t('channelStatus.title') }}
+        </h1>
+        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+          {{ t('channelStatus.description') }}
+        </p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
       <div
         role="tablist"
-        class="inline-flex p-0.5 rounded-xl bg-gray-100 dark:bg-dark-800 border border-gray-200/60 dark:border-dark-700/60 text-xs"
+        class="inline-flex rounded-[4px] border border-gray-200 bg-gray-50 p-0.5 text-xs dark:border-dark-700 dark:bg-dark-900/50"
       >
         <button
           v-for="opt in windowOptions"
@@ -11,7 +21,7 @@
           type="button"
           role="tab"
           :aria-selected="window === opt.value"
-          class="px-3 py-1 rounded-lg transition-colors"
+          class="rounded-[3px] px-3 py-1 transition-colors"
           :class="window === opt.value
             ? 'bg-white dark:bg-dark-700 shadow-sm text-gray-900 dark:text-white font-semibold'
             : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
@@ -22,7 +32,7 @@
       </div>
 
       <span
-        class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold tracking-wider uppercase"
+        class="inline-flex items-center rounded-[3px] px-2.5 py-1 text-xs font-semibold tracking-wide uppercase"
         :class="overallChipClass"
       >
         <span
@@ -34,7 +44,7 @@
 
       <button
         type="button"
-        class="h-8 w-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-dark-700 transition-colors disabled:opacity-50"
+        class="flex h-8 w-8 items-center justify-center rounded-[3px] text-gray-500 transition-colors hover:bg-primary-50 hover:text-primary-700 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-primary-900/20 dark:hover:text-primary-300"
         :disabled="loading"
         :title="t('common.refresh')"
         @click="emit('refresh')"
@@ -51,6 +61,7 @@
         @update:enabled="autoRefresh.setEnabled"
         @update:interval="autoRefresh.setInterval"
       />
+      </div>
     </div>
   </section>
 </template>

@@ -188,33 +188,33 @@ async function register() {
 
 ```typescript
 // Valid inputs
-✅ Username: "john_doe" (3+ chars)
-✅ Password: "SecurePass123" (6+ chars)
+[OK] Username: "john_doe" (3+ chars)
+[OK] Password: "SecurePass123" (6+ chars)
 
 // Invalid inputs
-❌ Username: "jo" → Error: "Username must be at least 3 characters"
-❌ Password: "12345" → Error: "Password must be at least 6 characters"
-❌ Username: "" → Error: "Username is required"
-❌ Password: "" → Error: "Password is required"
+[Error] Username: "jo" → Error: "Username must be at least 3 characters"
+[Error] Password: "12345" → Error: "Password must be at least 6 characters"
+[Error] Username: "" → Error: "Username is required"
+[Error] Password: "" → Error: "Password is required"
 ```
 
 ### Registration Validation
 
 ```typescript
 // Valid inputs
-✅ Username: "jane_smith" (3-50 chars, alphanumeric + _ -)
-✅ Email: "jane@example.com" (valid format)
-✅ Password: "SecurePass123" (8+ chars, letters + numbers)
-✅ Confirm: "SecurePass123" (matches password)
+[OK] Username: "jane_smith" (3-50 chars, alphanumeric + _ -)
+[OK] Email: "jane@example.com" (valid format)
+[OK] Password: "SecurePass123" (8+ chars, letters + numbers)
+[OK] Confirm: "SecurePass123" (matches password)
 
 // Invalid inputs
-❌ Username: "ja" → Error: "Username must be at least 3 characters"
-❌ Username: "jane@smith" → Error: "Username can only contain letters, numbers, underscores, and hyphens"
-❌ Email: "invalid-email" → Error: "Please enter a valid email address"
-❌ Password: "short" → Error: "Password must be at least 8 characters with letters and numbers"
-❌ Password: "12345678" → Error: "Password must be at least 8 characters with letters and numbers" (no letters)
-❌ Password: "password" → Error: "Password must be at least 8 characters with letters and numbers" (no numbers)
-❌ Confirm: "DifferentPass" → Error: "Passwords do not match"
+[Error] Username: "ja" → Error: "Username must be at least 3 characters"
+[Error] Username: "jane@smith" → Error: "Username can only contain letters, numbers, underscores, and hyphens"
+[Error] Email: "invalid-email" → Error: "Please enter a valid email address"
+[Error] Password: "short" → Error: "Password must be at least 8 characters with letters and numbers"
+[Error] Password: "12345678" → Error: "Password must be at least 8 characters with letters and numbers" (no letters)
+[Error] Password: "password" → Error: "Password must be at least 8 characters with letters and numbers" (no numbers)
+[Error] Confirm: "DifferentPass" → Error: "Passwords do not match"
 ```
 
 ## Error Handling Examples
@@ -514,11 +514,11 @@ async function handleRegister(): Promise<void> {
 // Router configuration with lazy loading
 {
   path: '/login',
-  component: () => import('@/views/auth/LoginView.vue'), // ✅ Lazy loaded
+  component: () => import('@/views/auth/LoginView.vue'), // [OK] Lazy loaded
 }
 
 // Direct import (not recommended for routes)
-import LoginView from '@/views/auth/LoginView.vue'; // ❌ Eager loaded
+import LoginView from '@/views/auth/LoginView.vue'; // [Error] Eager loaded
 ```
 
 ### Optimization Tips
@@ -562,13 +562,13 @@ authStore.checkAuth() // Restore auth from localStorage
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
 
-  // ✅ Correct: Check specific routes
+  // [OK] Correct: Check specific routes
   if (authStore.isAuthenticated && (to.path === '/login' || to.path === '/register')) {
     next('/dashboard')
     return
   }
 
-  // ❌ Wrong: Blanket redirect
+  // [Error] Wrong: Blanket redirect
   // if (authStore.isAuthenticated) {
   //   next('/dashboard'); // This causes loops!
   // }

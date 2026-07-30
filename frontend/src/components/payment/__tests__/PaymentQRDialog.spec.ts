@@ -102,4 +102,33 @@ describe('PaymentQRDialog currency display', () => {
     expect(wrapper.text()).toContain('$100.00')
     expect(wrapper.text()).toContain('¥108.00')
   })
+
+  it('does not render a reopen action for unsafe payment URLs', async () => {
+    pollOrderStatus.mockResolvedValue(null)
+    const openSpy = vi.spyOn(window, 'open')
+    const wrapper = mount(PaymentQRDialog, {
+      props: {
+        show: true,
+        orderId: 42,
+        qrCode: '',
+        payUrl: 'data:text/html,unsafe',
+        expiresAt: '2099-01-01T10:30:00Z',
+        paymentType: 'alipay',
+      },
+      global: {
+        stubs: {
+          BaseDialog: {
+            props: ['show'],
+            template: '<div v-if="show"><slot /><slot name="footer" /></div>',
+          },
+          Icon: true,
+        },
+      },
+    })
+
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('payment.qr.openPayWindow')
+    expect(openSpy).not.toHaveBeenCalled()
+    openSpy.mockRestore()
+  })
 })

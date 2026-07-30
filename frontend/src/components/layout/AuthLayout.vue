@@ -1,63 +1,102 @@
 <template>
-  <div class="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
-    <!-- Background -->
+  <div class="auth-page relative min-h-screen overflow-hidden bg-white dark:bg-dark-950">
+    <header
+      v-if="settingsLoaded"
+      class="absolute left-5 top-6 z-20 flex items-center gap-3 sm:top-8"
+    >
+      <div
+        class="flex h-10 w-10 items-center justify-center overflow-hidden rounded-[4px] border border-[#e7e7e7] bg-white p-1.5 dark:border-dark-700 dark:bg-dark-900"
+      >
+        <img :src="siteLogo || '/logo.svg'" alt="Logo" class="h-full w-full object-contain" />
+      </div>
+      <div>
+        <div class="text-lg font-semibold tracking-tight text-[#181818] dark:text-white">
+          {{ siteName }}
+        </div>
+        <div class="mt-0.5 text-xs text-[#8b8b8b] dark:text-dark-400">管理控制台</div>
+      </div>
+    </header>
+
     <div
-      class="absolute inset-0 bg-gradient-to-br from-gray-50 via-primary-50/30 to-gray-100 dark:from-dark-950 dark:via-dark-900 dark:to-dark-950"
-    ></div>
+      class="relative z-10 mx-auto flex min-h-screen w-full max-w-[1440px] items-center px-5 pb-24 pt-28 sm:px-10 lg:px-[5%] lg:py-24"
+    >
+      <main class="w-full lg:w-[44%]">
+        <div class="mx-auto w-full max-w-[400px] lg:mx-0">
+          <slot />
 
-    <!-- Decorative Elements -->
-    <div class="pointer-events-none absolute inset-0 overflow-hidden">
-      <!-- Gradient Orbs -->
-      <div
-        class="absolute -right-40 -top-40 h-80 w-80 rounded-full bg-primary-400/20 blur-3xl"
-      ></div>
-      <div
-        class="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-primary-500/15 blur-3xl"
-      ></div>
-      <div
-        class="absolute left-1/2 top-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-300/10 blur-3xl"
-      ></div>
+          <div class="mt-8 text-center text-sm">
+            <slot name="footer" />
+          </div>
+        </div>
+      </main>
 
-      <!-- Grid Pattern -->
-      <div
-        class="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.03)_1px,transparent_1px)] bg-[size:64px_64px]"
-      ></div>
+      <aside
+        class="relative hidden min-h-[560px] flex-1 items-center justify-center overflow-hidden lg:flex"
+        aria-hidden="true"
+      >
+        <div class="auth-visual-halo absolute h-[520px] w-[640px] rounded-full"></div>
+        <div class="auth-console relative h-[390px] w-[590px] overflow-hidden rounded-md">
+          <div class="flex h-11 items-center border-b border-[#e7e7e7] bg-white px-4 dark:border-dark-700 dark:bg-dark-900">
+            <div class="flex gap-1.5">
+              <span class="h-2 w-2 rounded-full bg-[#dcdcdc] dark:bg-dark-600"></span>
+              <span class="h-2 w-2 rounded-full bg-[#dcdcdc] dark:bg-dark-600"></span>
+              <span class="h-2 w-2 rounded-full bg-primary-200 dark:bg-primary-800"></span>
+            </div>
+            <div class="ml-7 h-2 w-28 rounded-sm bg-[#eeeeee] dark:bg-dark-700"></div>
+          </div>
+
+          <div class="flex h-[346px] bg-[#f3f3f3] dark:bg-dark-950">
+            <div class="w-32 border-r border-[#e7e7e7] bg-white px-3 py-5 dark:border-dark-700 dark:bg-dark-900">
+              <div class="mb-6 flex items-center gap-2 px-2">
+                <div class="h-6 w-6 rounded-[3px] bg-primary-600"></div>
+                <div class="h-2 w-14 rounded-sm bg-[#dcdcdc] dark:bg-dark-600"></div>
+              </div>
+              <div class="space-y-2">
+                <div class="flex h-8 items-center gap-2 rounded-[3px] bg-primary-50 px-2 dark:bg-primary-950/40">
+                  <div class="h-3 w-3 rounded-[2px] bg-primary-600"></div>
+                  <div class="h-2 w-12 rounded-sm bg-primary-200 dark:bg-primary-800"></div>
+                </div>
+                <div v-for="index in 5" :key="index" class="flex h-8 items-center gap-2 px-2">
+                  <div class="h-3 w-3 rounded-[2px] bg-[#dcdcdc] dark:bg-dark-600"></div>
+                  <div class="h-2 rounded-sm bg-[#e7e7e7] dark:bg-dark-700" :class="index % 2 === 0 ? 'w-14' : 'w-10'"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex-1 p-5">
+              <div class="mb-5 flex items-center justify-between">
+                <div>
+                  <div class="h-3 w-24 rounded-sm bg-[#777777] dark:bg-dark-400"></div>
+                  <div class="mt-2 h-2 w-36 rounded-sm bg-[#dcdcdc] dark:bg-dark-600"></div>
+                </div>
+                <div class="h-7 w-16 rounded-[3px] bg-primary-600"></div>
+              </div>
+
+              <div class="grid grid-cols-3 gap-3">
+                <div v-for="index in 3" :key="index" class="rounded-[4px] border border-[#e7e7e7] bg-white p-3 dark:border-dark-700 dark:bg-dark-900">
+                  <div class="h-2 w-12 rounded-sm bg-[#c5c5c5] dark:bg-dark-600"></div>
+                  <div class="mt-4 h-4 w-16 rounded-sm" :class="index === 1 ? 'bg-primary-600' : 'bg-[#5e5e5e] dark:bg-dark-400'"></div>
+                  <div class="mt-3 h-1.5 w-20 rounded-sm bg-[#eeeeee] dark:bg-dark-700"></div>
+                </div>
+              </div>
+
+              <div class="mt-3 rounded-[4px] border border-[#e7e7e7] bg-white p-4 dark:border-dark-700 dark:bg-dark-900">
+                <div class="mb-5 flex items-center justify-between">
+                  <div class="h-2.5 w-20 rounded-sm bg-[#777777] dark:bg-dark-400"></div>
+                  <div class="h-2 w-12 rounded-sm bg-primary-200 dark:bg-primary-800"></div>
+                </div>
+                <div class="flex h-24 items-end gap-2 border-b border-l border-[#eeeeee] pl-3 dark:border-dark-700">
+                  <div v-for="height in chartBars" :key="height" class="flex-1 rounded-t-[2px] bg-primary-100 dark:bg-primary-900/60" :style="{ height: `${height}%` }"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
     </div>
 
-    <!-- Content Container -->
-    <div class="relative z-10 w-full max-w-md">
-      <!-- Logo/Brand -->
-      <div class="mb-8 text-center">
-        <!-- Custom Logo or Default Logo -->
-        <template v-if="settingsLoaded">
-          <div
-            class="mb-4 inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-lg shadow-primary-500/30"
-          >
-            <img :src="siteLogo || '/logo.svg'" alt="Logo" class="h-full w-full object-contain" />
-          </div>
-          <h1 class="text-gradient mb-2 text-3xl font-bold">
-            {{ siteName }}
-          </h1>
-          <p class="text-sm text-gray-500 dark:text-dark-400">
-            {{ siteSubtitle }}
-          </p>
-        </template>
-      </div>
-
-      <!-- Card Container -->
-      <div class="card-glass rounded-2xl p-8 shadow-glass">
-        <slot />
-      </div>
-
-      <!-- Footer Links -->
-      <div class="mt-6 text-center text-sm">
-        <slot name="footer" />
-      </div>
-
-      <!-- Copyright -->
-      <div class="mt-8 text-center text-xs text-gray-400 dark:text-dark-500">
-        &copy; {{ currentYear }} {{ siteName }}. All rights reserved.
-      </div>
+    <div class="absolute bottom-7 left-5 z-20 text-xs text-[#8b8b8b] dark:text-dark-500 sm:left-10 lg:left-[5%]">
+      &copy; {{ currentYear }} {{ siteName }}. All rights reserved.
     </div>
   </div>
 </template>
@@ -71,10 +110,10 @@ const appStore = useAppStore()
 
 const siteName = computed(() => appStore.siteName || 'Sub2API')
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
-const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'Subscription to API Conversion Platform')
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
 
 const currentYear = computed(() => new Date().getFullYear())
+const chartBars = [34, 48, 42, 67, 58, 82, 64, 88, 76, 94, 84, 100]
 
 onMounted(() => {
   appStore.fetchPublicSettings()
@@ -82,7 +121,33 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.text-gradient {
-  @apply bg-gradient-to-r from-primary-600 to-primary-500 bg-clip-text text-transparent;
+.auth-page {
+  background-image:
+    linear-gradient(90deg, transparent 0%, transparent 46%, rgb(242 243 255 / 0.32) 46%, rgb(242 243 255 / 0.32) 100%);
+}
+
+.auth-visual-halo {
+  background: radial-gradient(circle, rgb(54 110 244 / 0.12) 0%, rgb(242 243 255 / 0.72) 45%, transparent 72%);
+}
+
+.auth-console {
+  border: 1px solid rgb(220 220 220 / 0.9);
+  box-shadow: 0 14px 40px rgb(54 110 244 / 0.12);
+  transform: perspective(1200px) rotateY(-2deg) rotateX(1deg);
+}
+
+:global(.dark) .auth-page {
+  background-image: linear-gradient(90deg, transparent 0%, transparent 46%, rgb(0 26 87 / 0.12) 46%, rgb(0 26 87 / 0.12) 100%);
+}
+
+:global(.dark) .auth-console {
+  border-color: rgb(51 65 85 / 0.9);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.28);
+}
+
+@media (max-width: 1023px) {
+  .auth-page {
+    background-image: linear-gradient(180deg, rgb(242 243 255 / 0.72) 0, transparent 240px);
+  }
 }
 </style>

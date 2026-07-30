@@ -193,6 +193,22 @@
             <div v-if="showAccountBilling && row.account_rate_multiplier != null" class="mt-0.5 text-[11px] text-orange-500 dark:text-orange-400">
               A ${{ accountBilled(row).toFixed(6) }}
             </div>
+            <div
+              v-if="embedLatencyInCost"
+              class="mt-1 flex flex-wrap items-center gap-x-1 text-[11px] leading-4"
+            >
+              <template v-if="row.first_token_ms != null">
+                <span class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyFirstToken') }}</span>
+                <span class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[firstTokenSeverity(row.first_token_ms)]">
+                  {{ formatDuration(row.first_token_ms) }}
+                </span>
+                <span class="text-gray-300 dark:text-dark-600">·</span>
+              </template>
+              <span class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyDuration') }}</span>
+              <span class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[durationSeverity(row.duration_ms ?? 0)]">
+                {{ formatDuration(row.duration_ms) }}
+              </span>
+            </div>
           </div>
         </template>
 
@@ -523,6 +539,7 @@ interface Props {
   defaultSortOrder?: 'asc' | 'desc'
   showAccountBilling?: boolean
   showUpstreamEndpoint?: boolean
+  embedLatencyInCost?: boolean
   /** 嵌入统一卡片内使用：去掉自身卡片外观 */
   flat?: boolean
 }
@@ -534,6 +551,7 @@ const props = withDefaults(defineProps<Props>(), {
   defaultSortOrder: 'asc',
   showAccountBilling: true,
   showUpstreamEndpoint: true,
+  embedLatencyInCost: false,
   flat: false
 })
 const emit = defineEmits<{
@@ -544,6 +562,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const showAccountBilling = props.showAccountBilling
 const showUpstreamEndpoint = props.showUpstreamEndpoint
+const embedLatencyInCost = props.embedLatencyInCost
 const ipGeoBatchLoading = ref(false)
 
 const showIpGeoToolbar = computed(() => props.columns.some((col) => col.key === 'ip_address'))

@@ -2,16 +2,18 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AffiliateView from '../AffiliateView.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
-const { copyToClipboard, getAffiliateDetail } = vi.hoisted(() => ({
+const { copyToClipboard, getAffiliateDetail, transferAffiliateQuota } = vi.hoisted(() => ({
   copyToClipboard: vi.fn(),
   getAffiliateDetail: vi.fn(),
+  transferAffiliateQuota: vi.fn(),
 }))
 
 vi.mock('@/api/user', () => ({
   default: {
     getAffiliateDetail,
-    transferAffiliateQuota: vi.fn(),
+    transferAffiliateQuota,
   },
 }))
 
@@ -37,7 +39,8 @@ vi.mock('vue-i18n', async (importOriginal) => {
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string) => key,
+      t: (key: string, params?: Record<string, unknown>) =>
+        params?.amount ? `${key} ${String(params.amount)}` : key,
     }),
   }
 })
@@ -61,7 +64,7 @@ describe('AffiliateView', () => {
     })
   })
 
-  it('stacks long values and copy controls on mobile while retaining desktop rows', async () => {
+  it('keeps long values truncated in one workspace while copying the complete values', async () => {
     const wrapper = mount(AffiliateView, {
       global: {
         stubs: {
@@ -78,17 +81,12 @@ describe('AffiliateView', () => {
     for (const value of values) {
       expect(value.classes()).toEqual(expect.arrayContaining([
         'min-w-0',
-        'break-all',
-        'sm:flex-1',
-        'sm:truncate',
+        'truncate',
       ]))
-      expect(Array.from(value.element.parentElement?.classList ?? [])).toEqual(expect.arrayContaining([
-        'flex-col',
-        'items-stretch',
-        'sm:flex-row',
-        'sm:items-center',
-      ]))
+      expect(value.attributes('title')).toBe(value.text())
     }
+
+    expect(wrapper.findAll('[data-testid="affiliate-workspace"]')).toHaveLength(1)
 
     const copyButtons = wrapper.findAll('button').filter((button) =>
       ['affiliate.copyCode', 'affiliate.copyLink'].includes(button.text()),
@@ -96,9 +94,7 @@ describe('AffiliateView', () => {
     expect(copyButtons).toHaveLength(2)
     for (const button of copyButtons) {
       expect(button.classes()).toEqual(expect.arrayContaining([
-        'w-full',
-        'sm:w-auto',
-        'sm:shrink-0',
+        'shrink-0',
       ]))
     }
 
@@ -112,5 +108,50 @@ describe('AffiliateView', () => {
       `${window.location.origin}/register?aff=${encodeURIComponent(affiliateCode)}`,
       'affiliate.linkCopied',
     )
+  })
+
+  it('requires a second confirmation before transferring rebate quota', async () => {
+    getAffiliateDetail.mockResolvedValue({
+      user_id: 1,
+      aff_code: affiliateCode,
+      inviter_id: null,
+      aff_count: 2,
+      aff_quota: 25,
+      aff_frozen_quota: 0,
+      aff_history_quota: 50,
+      effective_rebate_rate_percent: 10,
+      invitees: [],
+    })
+    transferAffiliateQuota.mockResolvedValue({ transferred_quota: 25 })
+
+    const wrapper = mount(AffiliateView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<main><slot /></main>' },
+          Icon: true,
+          BaseDialog: {
+            props: ['show'],
+            template: '<div v-if="show"><slot /><slot name="footer" /></div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+
+    const transferButton = wrapper.findAll('button').find((button) =>
+      button.text().includes('affiliate.transfer.button'),
+    )
+    expect(transferButton).toBeDefined()
+    await transferButton!.trigger('click')
+
+    const dialog = wrapper.findComponent(ConfirmDialog)
+    expect(dialog.props('show')).toBe(true)
+    expect(dialog.props('message')).toContain('$25.00')
+    expect(transferAffiliateQuota).not.toHaveBeenCalled()
+
+    dialog.vm.$emit('confirm')
+    await flushPromises()
+
+    expect(transferAffiliateQuota).toHaveBeenCalledTimes(1)
   })
 })
