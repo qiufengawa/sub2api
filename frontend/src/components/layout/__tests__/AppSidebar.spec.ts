@@ -6,8 +6,49 @@ import { describe, expect, it } from 'vitest'
 
 const componentPath = resolve(dirname(fileURLToPath(import.meta.url)), '../AppSidebar.vue')
 const componentSource = readFileSync(componentPath, 'utf8')
+const headerPath = resolve(dirname(fileURLToPath(import.meta.url)), '../AppHeader.vue')
+const headerSource = readFileSync(headerPath, 'utf8')
 const stylePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../style.css')
 const styleSource = readFileSync(stylePath, 'utf8')
+
+describe('AppSidebar model plaza navigation', () => {
+  it('places the embedded model plaza entry between available channels and channel status', () => {
+    const availableChannelsIndex = componentSource.indexOf("{ path: '/available-channels'")
+    const modelPlazaIndex = componentSource.indexOf(
+      'createModelPlazaNavItem()',
+      availableChannelsIndex
+    )
+    const channelStatusIndex = componentSource.indexOf("{ path: '/monitor'")
+
+    expect(availableChannelsIndex).toBeGreaterThan(-1)
+    expect(modelPlazaIndex).toBeGreaterThan(availableChannelsIndex)
+    expect(channelStatusIndex).toBeGreaterThan(modelPlazaIndex)
+    expect(componentSource).toContain("query: { embedded: '1' }")
+    expect(componentSource).toContain(
+      'const flagModelPlaza = makeSidebarFlag(FeatureFlags.modelPlaza)'
+    )
+  })
+
+  it('keeps model plaza out of the primary admin system navigation', () => {
+    const adminNavStart = componentSource.indexOf('const adminNavItems = computed')
+    const baseItemsEnd = componentSource.indexOf('const visible = applyFeatureFlags(baseItems)')
+    const adminBaseItems = componentSource.slice(adminNavStart, baseItemsEnd)
+
+    expect(adminNavStart).toBeGreaterThan(-1)
+    expect(baseItemsEnd).toBeGreaterThan(adminNavStart)
+    expect(adminBaseItems).not.toContain('createModelPlazaNavItem()')
+  })
+
+  it('adds the feature-filtered model plaza entry to the admin simple-mode user area', () => {
+    expect(componentSource).toContain(
+      'filtered.push(...applyFeatureFlags([createModelPlazaNavItem()]))'
+    )
+  })
+
+  it('removes the duplicate model plaza entry from the authenticated header', () => {
+    expect(headerSource).not.toContain("path: '/model-plaza'")
+  })
+})
 
 describe('AppSidebar custom SVG styles', () => {
   it('does not override uploaded SVG fill or stroke colors', () => {
