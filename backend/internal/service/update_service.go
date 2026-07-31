@@ -121,7 +121,7 @@ type GitHubRelease struct {
 
 // RollbackVersion describes a release version the system can roll back to
 type RollbackVersion struct {
-	Version     string `json:"version"` // without "v" prefix, e.g. "0.1.169-qiu.3.1"
+	Version     string `json:"version"` // without "v" prefix, e.g. "0.1.169-qiu.4"
 	PublishedAt string `json:"published_at"`
 	HTMLURL     string `json:"html_url"`
 }
@@ -695,8 +695,10 @@ func (s *UpdateService) saveToCache(ctx context.Context, info *UpdateInfo) {
 }
 
 // compareVersions compares distribution versions. The current format is
-// <upstream semver>-qiu.<revision>[.<patch>], for example 0.1.169-qiu.3.1.
-// The upstream version is compared first, then each qiu revision component.
+// <upstream semver>-qiu.<revision>, for example 0.1.169-qiu.4.
+// The upstream version is compared first, then the qiu revision. The parser
+// also accepts the historical qiu.N.P form so existing releases remain
+// comparable in update and rollback lists.
 //
 // Migration compatibility:
 //   - an upstream-only version is treated as distribution version 0.0.0;
@@ -734,8 +736,8 @@ func compareVersions(current, latest string) int {
 		}
 	}
 
-	// On the same upstream baseline, the canonical qiu.N[.P] format supersedes the
-	// short-lived -vA.B.C format, regardless of its numeric suffix.
+	// On the same upstream baseline, qiu-tagged releases supersede the short-lived
+	// -vA.B.C format, regardless of their numeric suffix.
 	currentRank := versionKindRank(currentParts.kind)
 	latestRank := versionKindRank(latestParts.kind)
 	if currentRank < latestRank {
