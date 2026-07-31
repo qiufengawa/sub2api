@@ -783,8 +783,6 @@ func (s *PaymentConfigService) buildCatalogPreview(ctx context.Context, client *
 			}
 			preview.Changes = append(preview.Changes, PaymentCatalogImportChange{Kind: "group", Action: act, Key: g.Key, Name: g.Name, Fields: changes, AffectedSubscriptions: activeCount})
 		}
-		if len(g.copySources) > 0 && len(rows) == 0 { /* resolved below; new groups are expected to receive bindings */
-		}
 		if len(g.copySources) == 0 && len(rows) == 0 {
 			preview.Issues = append(preview.Issues, PaymentCatalogImportIssue{Severity: "warning", Code: "GROUP_HAS_NO_ACCOUNT_SOURCE", Path: "groups." + g.Key, Message: "new group has no account source; it will be created without account bindings"})
 		}
