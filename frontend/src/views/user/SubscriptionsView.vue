@@ -253,7 +253,12 @@ import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import { formatDateTimeToMinute } from '@/utils/format'
 import { hasPeakRate, serverTimezoneLabel } from '@/utils/peak-rate'
 import { platformBadgeClass, platformLabel } from '@/utils/platformColors'
-import { getRemainingDurationParts, isOneTimeDailyQuota, type RemainingDurationParts } from '@/utils/subscriptionQuota'
+import {
+  getExpirationDateRelation,
+  getRemainingDurationParts,
+  isOneTimeDailyQuota,
+  type RemainingDurationParts
+} from '@/utils/subscriptionQuota'
 
 type QuotaPeriod = 'daily' | 'weekly' | 'monthly'
 
@@ -463,10 +468,16 @@ function quotaTextClass(percentage: number): string {
 function expirationRemainingLabel(expiresAt: string | null): string {
   if (!expiresAt) return t('userSubscriptions.noExpiration')
 
-  const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-  if (days < 0) return t('userSubscriptions.status.expired')
-  if (days === 0) return t('common.today')
-  if (days === 1) return t('common.tomorrow')
+  const now = new Date()
+  const expires = new Date(expiresAt)
+  const relation = getExpirationDateRelation(expires, now)
+
+  if (relation === null) return ''
+  if (relation === 'expired') return t('userSubscriptions.status.expired')
+  if (relation === 'today') return t('common.today')
+  if (relation === 'tomorrow') return t('common.tomorrow')
+
+  const days = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
   return t('userSubscriptions.daysCompact', { days })
 }
 
@@ -477,7 +488,14 @@ function formatExpirationExactDate(expiresAt: string): string {
 function expirationTextClass(expiresAt: string | null): string {
   if (!expiresAt) return 'text-gray-700 dark:text-gray-300'
 
-  const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+  const now = new Date()
+  const expires = new Date(expiresAt)
+  const relation = getExpirationDateRelation(expires, now)
+
+  if (relation === null) return 'text-gray-700 dark:text-gray-300'
+  if (relation === 'expired') return 'font-medium text-red-600 dark:text-red-400'
+
+  const days = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
   if (days <= 3) return 'text-red-600 dark:text-red-400'
   if (days <= 7) return 'text-orange-600 dark:text-orange-300'
   return 'text-gray-700 dark:text-gray-300'

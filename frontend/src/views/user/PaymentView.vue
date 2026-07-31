@@ -603,10 +603,10 @@ const subscriptionUsdToCnyRate = computed(() => {
 })
 const creditedAmount = computed(() => Math.round((validAmount.value * balanceRechargeMultiplier.value) * 100) / 100)
 
-// Keep plan records wide enough to show quotas, model scope, and peak windows.
+// Keep the established responsive plan grid: one column on phones, two on tablets, three on desktop.
 const planGridClass = computed(() => {
   if (checkout.value.plans.length === 1) return 'mx-auto grid max-w-2xl grid-cols-1 gap-5'
-  return 'grid grid-cols-1 gap-5 md:grid-cols-2'
+  return 'grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3'
 })
 
 // Check if an amount fits a method's [min, max]. 0 = no limit.
