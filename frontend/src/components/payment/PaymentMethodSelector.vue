@@ -3,7 +3,10 @@
     <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
       {{ t('payment.paymentMethod') }}
     </label>
-    <div class="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,184px),1fr))]">
+    <div
+      data-testid="payment-method-grid"
+      class="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,184px),1fr))]"
+    >
       <button
         v-for="method in sortedMethods"
         :key="method.type"
@@ -23,7 +26,9 @@
         <span class="flex min-w-0 flex-1 items-center gap-2">
           <img :src="methodIcon(method.type)" :alt="methodLabel(method)" class="h-6 w-6 shrink-0 object-contain" />
           <span class="flex min-w-0 flex-1 flex-col items-start leading-none">
-            <span class="block max-w-full truncate whitespace-nowrap text-sm font-semibold">{{ methodLabel(method) }}</span>
+            <span data-testid="payment-method-label" class="block max-w-full truncate whitespace-nowrap text-sm font-semibold">
+              {{ methodLabel(method) }}
+            </span>
             <span
               v-if="method.fee_rate > 0"
               class="mt-1 whitespace-nowrap text-[10px] tracking-wide text-gray-500 dark:text-dark-400"
