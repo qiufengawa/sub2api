@@ -2,32 +2,29 @@
   <AppLayout>
     <TablePageLayout>
       <template #filters>
-        <div class="flex flex-wrap items-center gap-3">
-          <!-- Left: Search + Filters -->
-          <div class="relative w-full sm:w-64">
-            <Icon
-              name="search"
-              size="md"
-              class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
-            />
-            <input
-              v-model="searchQuery"
-              type="text"
-              :placeholder="t('admin.proxies.searchProxies')"
-              class="input pl-10"
-              @input="handleSearch"
-            />
-          </div>
+        <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
+          <div class="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-[minmax(240px,1fr)_160px_144px]">
+            <div class="relative min-w-0">
+              <Icon
+                name="search"
+                size="md"
+                class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
+              />
+              <input
+                v-model="searchQuery"
+                type="text"
+                :placeholder="t('admin.proxies.searchProxies')"
+                class="input pl-10"
+                @input="handleSearch"
+              />
+            </div>
 
-          <div class="w-full sm:w-40">
             <Select
               v-model="filters.protocol"
               :options="protocolOptions"
               :placeholder="t('admin.proxies.allProtocols')"
               @change="loadProxies"
             />
-          </div>
-          <div class="w-full sm:w-36">
             <Select
               v-model="filters.status"
               :options="statusOptions"
@@ -36,20 +33,20 @@
             />
           </div>
 
-          <!-- Right: All action buttons -->
-          <div class="flex flex-1 flex-wrap items-center justify-end gap-2">
+          <div class="flex w-full items-center gap-2 overflow-x-auto pb-1 xl:w-auto xl:justify-end xl:overflow-visible xl:pb-0">
             <button
               @click="loadProxies"
               :disabled="loading"
-              class="btn btn-secondary"
+              class="btn btn-secondary shrink-0"
               :title="t('common.refresh')"
+              :aria-label="t('common.refresh')"
             >
               <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
             </button>
             <button
               @click="handleBatchTest"
               :disabled="batchTesting || loading"
-              class="btn btn-secondary"
+              class="btn btn-secondary shrink-0"
               :title="t('admin.proxies.testConnection')"
             >
               <Icon name="play" size="md" class="mr-2" />
@@ -58,7 +55,7 @@
             <button
               @click="handleBatchQualityCheck"
               :disabled="batchQualityChecking || loading"
-              class="btn btn-secondary"
+              class="btn btn-secondary shrink-0"
               :title="t('admin.proxies.batchQualityCheck')"
             >
               <Icon name="shield" size="md" class="mr-2" :class="batchQualityChecking ? 'animate-pulse' : ''" />
@@ -67,19 +64,21 @@
             <button
               @click="openBatchDelete"
               :disabled="selectedCount === 0"
-              class="btn btn-danger"
+              class="btn btn-danger shrink-0"
               :title="t('admin.proxies.batchDeleteAction')"
             >
               <Icon name="trash" size="md" class="mr-2" />
               {{ t('admin.proxies.batchDeleteAction') }}
             </button>
-            <button @click="showImportData = true" class="btn btn-secondary">
+            <button @click="showImportData = true" class="btn btn-secondary shrink-0">
+              <Icon name="upload" size="sm" />
               {{ t('admin.proxies.dataImport') }}
             </button>
-            <button @click="showExportDataDialog = true" class="btn btn-secondary">
+            <button @click="showExportDataDialog = true" class="btn btn-secondary shrink-0">
+              <Icon name="download" size="sm" />
               {{ selectedCount > 0 ? t('admin.proxies.dataExportSelected') : t('admin.proxies.dataExport') }}
             </button>
-            <button @click="showCreateModal = true" class="btn btn-primary">
+            <button @click="showCreateModal = true" class="btn btn-primary shrink-0">
               <Icon name="plus" size="md" class="mr-2" />
               {{ t('admin.proxies.createProxy') }}
             </button>
@@ -135,24 +134,37 @@
           <template #cell-address="{ row }">
             <div class="flex items-center gap-1.5">
               <code class="code text-xs">{{ row.host }}:{{ row.port }}</code>
-              <div class="relative">
+              <div class="relative flex items-center">
                 <button
                   type="button"
                   class="rounded p-0.5 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400"
                   :title="t('admin.proxies.copyProxyUrl')"
+                  :aria-label="t('admin.proxies.copyProxyUrl')"
                   @click.stop="copyProxyUrl(row)"
                   @contextmenu.prevent="toggleCopyMenu(row.id)"
                 >
                   <Icon name="copy" size="sm" />
                 </button>
-                <!-- 右键展开格式选择菜单 -->
+                <button
+                  type="button"
+                  class="rounded p-0.5 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400"
+                  :title="t('admin.proxies.copyFormats')"
+                  :aria-label="t('admin.proxies.copyFormats')"
+                  aria-haspopup="menu"
+                  :aria-expanded="copyMenuProxyId === row.id"
+                  @click.stop="toggleCopyMenu(row.id)"
+                >
+                  <Icon name="chevronDown" size="xs" />
+                </button>
                 <div
                   v-if="copyMenuProxyId === row.id"
-                  class="absolute left-0 top-full z-50 mt-1 w-auto min-w-[180px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-500 dark:bg-dark-700"
+                  role="menu"
+                  class="absolute left-0 top-full z-50 mt-1 w-auto min-w-[180px] rounded-[4px] border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-500 dark:bg-dark-700"
                 >
                   <button
                     v-for="fmt in getCopyFormats(row)"
                     :key="fmt.label"
+                    role="menuitem"
                     class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-gray-100 dark:hover:bg-dark-600"
                     @click.stop="copyFormat(fmt.value)"
                   >
@@ -175,6 +187,8 @@
                 v-if="row.password"
                 type="button"
                 class="ml-1 rounded p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                :title="t(visiblePasswordIds.has(row.id) ? 'admin.proxies.hidePassword' : 'admin.proxies.showPassword')"
+                :aria-label="t(visiblePasswordIds.has(row.id) ? 'admin.proxies.hidePassword' : 'admin.proxies.showPassword')"
                 @click.stop="visiblePasswordIds.has(row.id) ? visiblePasswordIds.delete(row.id) : visiblePasswordIds.add(row.id)"
               >
                 <Icon :name="visiblePasswordIds.has(row.id) ? 'eyeOff' : 'eye'" size="sm" />
@@ -441,7 +455,7 @@
           <label class="input-label">{{ t('admin.proxies.protocol') }}</label>
           <Select v-model="createForm.protocol" :options="protocolSelectOptions" />
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label class="input-label">{{ t('admin.proxies.host') }}</label>
             <input
@@ -486,6 +500,8 @@
             <button
               type="button"
               class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              :title="t(createPasswordVisible ? 'admin.proxies.hidePassword' : 'admin.proxies.showPassword')"
+              :aria-label="t(createPasswordVisible ? 'admin.proxies.hidePassword' : 'admin.proxies.showPassword')"
               @click="createPasswordVisible = !createPasswordVisible"
             >
               <Icon :name="createPasswordVisible ? 'eyeOff' : 'eye'" size="md" />
@@ -681,7 +697,7 @@
           <label class="input-label">{{ t('admin.proxies.protocol') }}</label>
           <Select v-model="editForm.protocol" :options="protocolSelectOptions" />
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label class="input-label">{{ t('admin.proxies.host') }}</label>
             <input v-model="editForm.host" type="text" required class="input" />
@@ -715,6 +731,8 @@
             <button
               type="button"
               class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              :title="t(editPasswordVisible ? 'admin.proxies.hidePassword' : 'admin.proxies.showPassword')"
+              :aria-label="t(editPasswordVisible ? 'admin.proxies.hidePassword' : 'admin.proxies.showPassword')"
               @click="editPasswordVisible = !editPasswordVisible"
             >
               <Icon :name="editPasswordVisible ? 'eyeOff' : 'eye'" size="md" />

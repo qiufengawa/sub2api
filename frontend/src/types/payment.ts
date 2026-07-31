@@ -136,6 +136,125 @@ export interface SubscriptionPlan {
   sort_order: number
 }
 
+export interface PaymentCatalogPaymentSettings {
+  balance_recharge_multiplier?: number
+  subscription_usd_to_cny_rate?: number
+}
+
+export interface PaymentCatalogDefaults {
+  platform?: string
+  subscription_type?: string
+  rate_multiplier?: number
+  is_exclusive?: boolean
+  status?: string
+  validity_days?: number
+  validity_unit?: string
+  currency?: string
+  for_sale?: boolean
+}
+
+export interface PaymentCatalogRoute {
+  public_model: string
+  match_type?: string
+  target_platform: string
+  upstream_model?: string
+  endpoint?: string
+  priority?: number
+  enabled?: boolean
+  notes?: string
+}
+
+export interface PaymentCatalogGroup {
+  key: string
+  name: string
+  description?: string
+  platform?: string
+  subscription_type?: string
+  rate_multiplier?: number
+  is_exclusive?: boolean
+  status?: string
+  daily_limit_usd?: number | null
+  weekly_limit_usd?: number | null
+  monthly_limit_usd?: number | null
+  default_validity_days?: number
+  sort_order?: number
+  copy_accounts_from?: string[]
+  routes?: PaymentCatalogRoute[]
+}
+
+export interface PaymentCatalogPlan {
+  group_key: string
+  name: string
+  description?: string
+  price: number
+  original_price?: number | null
+  currency?: string
+  validity_days?: number
+  validity_unit?: string
+  features?: string[]
+  product_name?: string
+  for_sale?: boolean
+  sort_order?: number
+}
+
+export interface PaymentCatalogImportRequest {
+  schema_version: number
+  mode: string
+  payment_settings?: PaymentCatalogPaymentSettings
+  defaults: PaymentCatalogDefaults
+  groups: PaymentCatalogGroup[]
+  plans: PaymentCatalogPlan[]
+}
+
+export interface PaymentCatalogImportIssue {
+  severity: 'error' | 'warning'
+  code: string
+  path?: string
+  message: string
+}
+
+export interface PaymentCatalogFieldDiff {
+  field: string
+  before: unknown
+  after: unknown
+}
+
+export interface PaymentCatalogImportChange {
+  kind: 'group' | 'plan' | 'route' | 'account_binding' | 'setting'
+  action: 'create' | 'update' | 'unchanged'
+  key: string
+  name: string
+  fields?: PaymentCatalogFieldDiff[]
+  affected_subscriptions?: number
+}
+
+export interface PaymentCatalogImportSummary {
+  groups_created: number
+  groups_updated: number
+  groups_unchanged: number
+  plans_created: number
+  plans_updated: number
+  plans_unchanged: number
+  routes_created: number
+  routes_updated: number
+  routes_unchanged: number
+  bindings_added: number
+  settings_updated: number
+}
+
+export interface PaymentCatalogImportPreview {
+  preview_token: string
+  can_apply: boolean
+  summary: PaymentCatalogImportSummary
+  changes: PaymentCatalogImportChange[]
+  issues: PaymentCatalogImportIssue[]
+}
+
+export interface PaymentCatalogImportResult {
+  summary: PaymentCatalogImportSummary
+  changes?: PaymentCatalogImportChange[]
+}
+
 export interface PaymentChannel {
   id: number
   group_id?: number

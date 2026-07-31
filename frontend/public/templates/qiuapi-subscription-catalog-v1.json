@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "mode": "upsert",
+  "payment_settings": {
+    "balance_recharge_multiplier": 1,
+    "subscription_usd_to_cny_rate": 0
+  },
+  "defaults": {
+    "platform": "composite",
+    "subscription_type": "subscription",
+    "rate_multiplier": 1,
+    "is_exclusive": true,
+    "status": "active",
+    "validity_days": 28,
+    "validity_unit": "days",
+    "currency": "CNY",
+    "for_sale": true
+  },
+  "groups": [
+    {
+      "key": "lite",
+      "name": "Lite 全模型订阅",
+      "description": "Lite 套餐专属分组，每 7 天重置 5 积分。",
+      "weekly_limit_usd": 5,
+      "monthly_limit_usd": 20,
+      "default_validity_days": 28,
+      "sort_order": 10,
+      "copy_accounts_from": []
+    },
+    {
+      "key": "starter",
+      "name": "Starter 全模型订阅",
+      "description": "Starter 套餐专属分组，每 7 天重置 15 积分。",
+      "weekly_limit_usd": 15,
+      "monthly_limit_usd": 60,
+      "default_validity_days": 28,
+      "sort_order": 20,
+      "copy_accounts_from": []
+    },
+    {
+      "key": "standard",
+      "name": "Standard 全模型订阅",
+      "description": "Standard 套餐专属分组，每 7 天重置 40 积分。",
+      "weekly_limit_usd": 40,
+      "monthly_limit_usd": 160,
+      "default_validity_days": 28,
+      "sort_order": 30,
+      "copy_accounts_from": []
+    },
+    {
+      "key": "pro",
+      "name": "Pro 全模型订阅",
+      "description": "Pro 套餐专属分组，每 7 天重置 100 积分。",
+      "weekly_limit_usd": 100,
+      "monthly_limit_usd": 400,
+      "default_validity_days": 28,
+      "sort_order": 40,
+      "copy_accounts_from": []
+    },
+    {
+      "key": "max",
+      "name": "Max 全模型订阅",
+      "description": "Max 套餐专属分组，每 7 天重置 250 积分。",
+      "weekly_limit_usd": 250,
+      "monthly_limit_usd": 1000,
+      "default_validity_days": 28,
+      "sort_order": 50,
+      "copy_accounts_from": []
+    }
+  ],
+  "plans": [
+    {
+      "group_key": "lite",
+      "name": "Lite",
+      "price": 12.9,
+      "original_price": 20,
+      "currency": "CNY",
+      "validity_days": 28,
+      "validity_unit": "days",
+      "sort_order": 10,
+      "description": "每 7 天 5 积分，28 天累计最高 20 积分。单买价值 20 元，订阅仅需 12.9 元，适合偶尔问答和轻量文本使用。",
+      "features": [
+        "每 7 天重置 5 积分",
+        "28 天累计最高 20 积分",
+        "未使用额度不结转",
+        "支持多模型"
+      ],
+      "product_name": "Qiu API Lite 订阅",
+      "for_sale": true
+    },
+    {
+      "group_key": "starter",
+      "name": "Starter",
+      "price": 38.9,
+      "original_price": 60,
+      "currency": "CNY",
+      "validity_days": 28,
+      "validity_unit": "days",
+      "sort_order": 20,
+      "description": "每 7 天 15 积分，28 天累计最高 60 积分。单买价值 60 元，订阅仅需 38.9 元，适合日常对话、翻译和轻度开发。",
+      "features": [
+        "每 7 天重置 15 积分",
+        "28 天累计最高 60 积分",
+        "未使用额度不结转",
+        "支持多模型"
+      ],
+      "product_name": "Qiu API Starter 订阅",
+      "for_sale": true
+    },
+    {
+      "group_key": "standard",
+      "name": "Standard",
+      "price": 103.9,
+      "original_price": 160,
+      "currency": "CNY",
+      "validity_days": 28,
+      "validity_unit": "days",
+      "sort_order": 30,
+      "description": "每 7 天 40 积分，28 天累计最高 160 积分。单买价值 160 元，订阅仅需 103.9 元，适合稳定开发和内容创作。",
+      "features": [
+        "每 7 天重置 40 积分",
+        "28 天累计最高 160 积分",
+        "未使用额度不结转",
+        "支持多模型"
+      ],
+      "product_name": "Qiu API Standard 订阅",
+      "for_sale": true
+    },
+    {
+      "group_key": "pro",
+      "name": "Pro",
+      "price": 259,
+      "original_price": 400,
+      "currency": "CNY",
+      "validity_days": 28,
+      "validity_unit": "days",
+      "sort_order": 40,
+      "description": "每 7 天 100 积分，28 天累计最高 400 积分。单买价值 400 元，订阅仅需 259 元，适合高频开发、批量处理和多模型使用。",
+      "features": [
+        "每 7 天重置 100 积分",
+        "28 天累计最高 400 积分",
+        "未使用额度不结转",
+        "支持多模型"
+      ],
+      "product_name": "Qiu API Pro 订阅",
+      "for_sale": true
+    },
+    {
+      "group_key": "max",
+      "name": "Max",
+      "price": 649,
+      "original_price": 1000,
+      "currency": "CNY",
+      "validity_days": 28,
+      "validity_unit": "days",
+      "sort_order": 50,
+      "description": "每 7 天 250 积分，28 天累计最高 1000 积分。单买价值 1000 元，订阅仅需 649 元，适合重度使用、小型团队和生产业务。",
+      "features": [
+        "每 7 天重置 250 积分",
+        "28 天累计最高 1000 积分",
+        "未使用额度不结转",
+        "支持多模型"
+      ],
+      "product_name": "Qiu API Max 订阅",
+      "for_sale": true
+    }
+  ]
+}

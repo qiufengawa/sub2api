@@ -48,7 +48,7 @@ export default {
         title: 'Prompt Notes',
         description: 'Use these prompts to validate model behavior, migrate existing projects, enforce structured outputs, and benchmark results across providers.',
         items: {
-          integration: { label: 'Integration', text: 'Generate an OpenAI-compatible SDK example using Qiu API' },
+          integration: { label: 'Integration', text: 'Generate an OpenAI-compatible SDK example using {site}' },
           migration: { label: 'Migration', text: 'Move base_url, api_key, and model settings to a unified gateway' },
           selection: { label: 'Selection', text: 'Recommend a text, vision, embedding, or reasoning model for a task' },
           schema: { label: 'Schema', text: 'Constrain responses to JSON Schema for reliable parsing' },
@@ -114,7 +114,7 @@ export default {
       faq: {
         title: 'FAQ',
         items: {
-          official: { question: 'Is Qiu API an official model provider?', answer: 'No. Qiu API is a third-party gateway. Availability, pricing, and usage rules depend on platform settings and upstream channels.' },
+          official: { question: 'Is {site} an official model provider?', answer: 'No. {site} is a third-party gateway. Availability, pricing, and usage rules depend on platform settings and upstream channels.' },
           sdk: { question: 'Can I keep using my current OpenAI SDK?', answer: 'Usually yes. Replace the Base URL and API key, then adjust model, tools, streaming, and other fields as needed.' },
           models: { question: 'How do I check supported models?', answer: 'Use Model Plaza for current availability, context length, pricing multipliers, and channel status.' },
           production: { question: 'Is it suitable for production?', answer: 'Run stability tests, plan quota, implement error handling, and monitor logs before moving critical traffic.' }
@@ -224,6 +224,8 @@ export default {
 
   // Key Usage Query Page
   keyUsage: {
+    showApiKey: 'Show API key',
+    hideApiKey: 'Hide API key',
     title: 'API Key Usage',
     subtitle: 'Enter your API Key to view real-time spending and usage status',
     placeholder: 'sk-ant-mirror-xxxxxxxxxxxx',
@@ -236,6 +238,8 @@ export default {
     dateRange30d: '30 Days',
     dateRange90d: '90 Days',
     dateRangeCustom: 'Custom',
+    customStartDate: 'Custom range start date',
+    customEndDate: 'Custom range end date',
     apply: 'Apply',
     used: 'Used',
     detailInfo: 'Detail Information',
@@ -256,6 +260,10 @@ export default {
     // Status
     quotaMode: 'Key Quota Mode',
     walletBalance: 'Wallet Balance',
+    statusActive: 'Active',
+    statusQuotaExhausted: 'Quota Exhausted',
+    statusExpired: 'Expired',
+    statusUnknown: 'Unknown',
     // Ring card titles
     totalQuota: 'Total Quota',
     limit5h: '5-Hour Limit',
@@ -270,6 +278,7 @@ export default {
     daysLeft: '({days} days)',
     usedQuota: 'Used Quota',
     resetNow: 'Resetting soon',
+    resetsIn: 'Resets in {time}',
     subscriptionType: 'Subscription Type',
     subscriptionExpires: 'Subscription Expires',
     // Usage stat cells

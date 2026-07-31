@@ -1,95 +1,41 @@
 <template>
-  <Teleport to="body">
-    <Transition name="popup-fade">
-      <div
-        v-if="displayedAnnouncement"
-        class="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/40 p-4"
+  <BaseDialog
+    :show="Boolean(displayedAnnouncement)"
+    :title="displayedAnnouncement?.title || t('announcements.title')"
+    width="normal"
+    :z-index="120"
+    :close-on-escape="true"
+    :show-close-button="preview"
+    @close="handleDismiss"
+  >
+    <AnnouncementDetail
+      v-if="displayedAnnouncement"
+      :announcement="displayedAnnouncement"
+      :read-state="preview ? undefined : 'unread'"
+    />
+
+    <template #footer>
+      <button
+        type="button"
+        data-testid="announcement-popup-dismiss"
+        class="btn btn-primary btn-sm w-full sm:w-auto"
+        @click="handleDismiss"
       >
-        <div
-          class="flex max-h-[calc(100vh-2rem)] w-full max-w-[680px] flex-col overflow-hidden rounded-[4px] border border-gray-200 bg-white shadow-lg dark:border-dark-700 dark:bg-dark-800"
-          @click.stop
-        >
-          <div class="border-b border-gray-200 bg-primary-50 px-5 py-4 dark:border-dark-700 dark:bg-primary-900/10">
-            <div>
-              <!-- Icon and badge -->
-              <div class="mb-2 flex items-center gap-2">
-                <div class="flex h-8 w-8 items-center justify-center rounded-[3px] bg-primary-600 text-white">
-                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                </div>
-                <span class="inline-flex items-center gap-1.5 rounded-[3px] bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">
-                  <span class="relative flex h-2 w-2">
-                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-500 opacity-50"></span>
-                    <span class="relative inline-flex h-2 w-2 rounded-full bg-primary-600"></span>
-                  </span>
-                  {{ t('announcements.unread') }}
-                </span>
-              </div>
-
-              <!-- Title -->
-              <h2 class="mb-1 text-lg font-semibold leading-tight text-gray-900 dark:text-white">
-                {{ displayedAnnouncement.title }}
-              </h2>
-
-              <!-- Time -->
-              <div class="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <time>{{ formatRelativeWithDateTime(displayedAnnouncement.created_at) }}</time>
-              </div>
-            </div>
-          </div>
-
-          <!-- Body -->
-          <div class="min-h-0 flex-1 overflow-y-auto bg-white px-5 py-4 dark:bg-dark-800">
-            <div class="relative">
-              <div class="absolute bottom-0 left-0 top-0 w-0.5 bg-primary-600"></div>
-              <div class="pl-4">
-                <div
-                  class="markdown-body prose prose-sm max-w-none dark:prose-invert"
-                  v-html="renderedContent"
-                ></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Footer -->
-          <div class="border-t border-gray-200 bg-gray-50 px-5 py-3 dark:border-dark-700 dark:bg-dark-900/30">
-            <div class="flex items-center justify-end">
-              <button
-                @click="handleDismiss"
-                data-testid="announcement-popup-dismiss"
-                class="min-h-8 rounded-[3px] border border-primary-600 bg-primary-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:border-primary-500 hover:bg-primary-500"
-              >
-                <span class="flex items-center gap-2">
-                  <svg v-if="preview" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  <svg v-else class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                  {{ preview ? t('common.close') : t('announcements.markRead') }}
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+        <Icon :name="preview ? 'x' : 'check'" size="sm" />
+        {{ preview ? t('common.close') : t('announcements.markRead') }}
+      </button>
+    </template>
+  </BaseDialog>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, watch } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
 import { useAnnouncementStore } from '@/stores/announcements'
-import { formatRelativeWithDateTime } from '@/utils/format'
 import type { Announcement, UserAnnouncement } from '@/types'
-import '@/styles/announcement-markdown.css'
+import Icon from '@/components/icons/Icon.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
+import AnnouncementDetail from '@/components/common/AnnouncementDetail.vue'
 
 type PreviewAnnouncement = Pick<Announcement | UserAnnouncement, 'title' | 'content' | 'created_at'>
 
@@ -111,85 +57,11 @@ const displayedAnnouncement = computed(() => (
   props.preview ? props.announcement : announcementStore.currentPopup
 ))
 
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-})
-
-const renderedContent = computed(() => {
-  const content = displayedAnnouncement.value?.content
-  if (!content) return ''
-  const html = marked.parse(content) as string
-  return DOMPurify.sanitize(html)
-})
-
 function handleDismiss() {
   if (props.preview) {
     emit('close')
     return
   }
-  announcementStore.dismissPopup()
+  void announcementStore.dismissPopup()
 }
-
-// Manage body overflow — only set, never unset (bell component handles restore)
-watch(
-  displayedAnnouncement,
-  (popup) => {
-    if (popup) {
-      document.body.style.overflow = 'hidden'
-    } else if (props.preview) {
-      document.body.style.overflow = ''
-    }
-  },
-  { immediate: true },
-)
-
-onBeforeUnmount(() => {
-  if (props.preview) {
-    document.body.style.overflow = ''
-  }
-})
 </script>
-
-<style scoped>
-.popup-fade-enter-active {
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.popup-fade-leave-active {
-  transition: all 0.2s cubic-bezier(0.4, 0, 1, 1);
-}
-
-.popup-fade-enter-from,
-.popup-fade-leave-to {
-  opacity: 0;
-}
-
-.popup-fade-enter-from > div {
-  transform: scale(0.94) translateY(-12px);
-  opacity: 0;
-}
-
-.popup-fade-leave-to > div {
-  transform: scale(0.96) translateY(-8px);
-  opacity: 0;
-}
-
-/* Scrollbar Styling */
-.overflow-y-auto::-webkit-scrollbar {
-  width: 8px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, #cbd5e1, #94a3b8);
-  border-radius: 4px;
-}
-
-.dark .overflow-y-auto::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, #4b5563, #374151);
-}
-</style>

@@ -29,18 +29,23 @@
           <!-- Right: Action buttons -->
           <div class="flex flex-1 flex-wrap items-center justify-end gap-2">
             <button
+              type="button"
               @click="loadCodes"
               :disabled="loading"
-              class="btn btn-secondary"
+              class="btn btn-secondary btn-icon"
               :title="t('common.refresh')"
+              :aria-label="t('common.refresh')"
             >
               <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
             </button>
-            <button @click="handleExportCodes" class="btn btn-secondary">
+            <button type="button" @click="handleExportCodes" class="btn btn-secondary">
+              <Icon name="download" size="sm" class="mr-1.5" />
               {{ t('admin.redeem.exportCsv') }}
             </button>
             <button
+              v-if="selectedCount > 0"
               data-test="batch-update-open"
+              type="button"
               @click="openBatchUpdateDialog"
               :disabled="selectedCount === 0 || batchUpdating"
               class="btn btn-secondary"
@@ -48,7 +53,8 @@
               <Icon name="edit" size="md" class="mr-2" />
               {{ t('admin.redeem.batchUpdate') }}
             </button>
-            <button @click="showGenerateDialog = true" class="btn btn-primary">
+            <button type="button" @click="showGenerateDialog = true" class="btn btn-primary">
+              <Icon name="plus" size="sm" class="mr-1.5" />
               {{ t('admin.redeem.generateCodes') }}
             </button>
           </div>
@@ -88,9 +94,10 @@
           </template>
 
           <template #cell-code="{ value }">
-            <div class="flex items-center space-x-2">
-              <code class="font-mono text-sm text-gray-900 dark:text-gray-100">{{ value }}</code>
+            <div class="flex max-w-[18rem] min-w-0 items-center gap-2">
+              <code class="min-w-0 flex-1 truncate font-mono text-sm text-gray-900 dark:text-gray-100" :title="String(value)">{{ value }}</code>
               <button
+                type="button"
                 @click="copyToClipboard(value)"
                 :class="[
                   'flex items-center transition-colors',
@@ -99,16 +106,10 @@
                     : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
                 ]"
                 :title="copiedCode === value ? t('admin.redeem.copied') : t('keys.copyToClipboard')"
+                :aria-label="copiedCode === value ? t('admin.redeem.copied') : t('keys.copyToClipboard')"
               >
                 <Icon v-if="copiedCode !== value" name="copy" size="sm" :stroke-width="2" />
-                <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
+                <Icon v-else name="check" size="sm" :stroke-width="2" />
               </button>
             </div>
           </template>
@@ -157,7 +158,7 @@
           </template>
 
           <template #cell-used_by="{ value, row }">
-            <span class="text-sm text-gray-500 dark:text-dark-400">
+            <span class="block max-w-[16rem] truncate text-sm text-gray-500 dark:text-dark-400" :title="row.user?.email || ''">
               {{ row.user?.email || (value ? t('admin.redeem.userPrefix', { id: value }) : '-') }}
             </span>
           </template>
@@ -185,18 +186,13 @@
             <div class="flex items-center space-x-2">
               <button
                 v-if="row.status === 'unused'"
+                type="button"
                 @click="handleDelete(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                class="btn btn-ghost btn-icon text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                :title="t('common.delete')"
+                :aria-label="t('common.delete')"
               >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-                <span class="text-xs">{{ t('common.delete') }}</span>
+                <Icon name="trash" size="sm" />
               </button>
               <span v-else class="text-gray-400 dark:text-dark-500">-</span>
             </div>

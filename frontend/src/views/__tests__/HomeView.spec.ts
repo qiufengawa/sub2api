@@ -31,7 +31,12 @@ vi.mock('@/stores', () => ({
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
-  return { ...actual, useI18n: () => ({ t: (key: string) => key }) }
+  return {
+    ...actual,
+    useI18n: () => ({
+      t: (key: string, params?: { site?: string }) => params?.site ? `${key}:${params.site}` : key,
+    }),
+  }
 })
 
 const RouterLinkStub = {
@@ -86,6 +91,8 @@ describe('HomeView', () => {
     expect(wrapper.get('.qiu-board-logo img').attributes('src')).toBe('/uploads/qiu-logo.svg')
     expect(wrapper.get('.qiu-code').text()).toContain('https://api.example.test/v1')
     expect(wrapper.get('.qiu-code').text()).not.toContain('/v1/')
+    expect(wrapper.text()).toContain('home.sections.prompts.items.integration.text:Qiu API Enterprise Gateway With A Long Name')
+    expect(wrapper.text()).toContain('home.sections.faq.items.official.question:Qiu API Enterprise Gateway With A Long Name')
     expect(wrapper.findAll('a[href="/model-plaza"]')).toHaveLength(2)
     expect(wrapper.get('a[href="https://docs.example.test/start"]').attributes('rel')).toBe('noopener noreferrer')
     expect(wrapper.get('a[href="/register"]').exists()).toBe(true)

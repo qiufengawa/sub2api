@@ -158,7 +158,7 @@ function onNextPage() {
 </script>
 
 <template>
-  <section class="card p-4 md:p-5">
+  <section class="rounded-[4px] border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800 md:p-5">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
       <h3 class="text-sm font-bold text-gray-900 dark:text-white">
         {{ t('admin.ops.openaiTokenStats.title') }}
@@ -198,7 +198,7 @@ function onNextPage() {
       </div>
     </div>
 
-    <div v-if="errorMessage" class="mb-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-900/20 dark:text-red-400">
+    <div v-if="errorMessage" class="mb-4 rounded-[4px] border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-600 dark:border-red-900/30 dark:bg-red-900/20 dark:text-red-400">
       {{ errorMessage }}
     </div>
 
@@ -213,8 +213,8 @@ function onNextPage() {
     />
 
     <div v-else class="space-y-3">
-      <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-dark-700">
-        <div class="max-h-[420px] overflow-auto">
+      <div class="overflow-hidden rounded-[4px] border border-gray-200 dark:border-dark-700">
+        <div class="max-h-[520px] overflow-auto">
           <div v-if="!isDesktopViewport" class="divide-y divide-gray-100 dark:divide-dark-800">
             <div v-for="row in items" :key="row.model" class="space-y-2 p-3">
               <div class="break-all text-xs font-medium text-gray-900 dark:text-gray-100">{{ row.model }}</div>
@@ -262,7 +262,7 @@ function onNextPage() {
               <tr
                 v-for="row in items"
                 :key="row.model"
-                class="border-b border-gray-100 text-gray-700 last:border-b-0 dark:border-dark-800 dark:text-gray-200"
+                class="border-b border-gray-100 text-gray-700 transition-colors last:border-b-0 hover:bg-gray-50 dark:border-dark-800 dark:text-gray-200 dark:hover:bg-dark-700/40"
               >
                 <td class="px-2 py-2 font-medium">{{ row.model }}</td>
                 <td class="px-2 py-2">{{ formatInt(row.request_count) }}</td>

@@ -7,6 +7,7 @@ import type { OpsErrorDistributionResponse } from '@/api/admin/ops'
 import type { ChartState } from '../types'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import Icon from '@/components/icons/Icon.vue'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -109,8 +110,8 @@ const options = computed(() => ({
 </script>
 
 <template>
-  <div class="flex h-full flex-col rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-900/5 dark:bg-dark-800 dark:ring-dark-700">
-    <div class="mb-4 flex items-center justify-between">
+  <div class="flex h-full min-w-0 w-full flex-col overflow-hidden rounded-[4px] border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800">
+    <div class="mb-2 flex min-h-7 items-center justify-between">
       <h3 class="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
         <svg class="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path
@@ -125,18 +126,18 @@ const options = computed(() => ({
       </h3>
       <button
         type="button"
-        class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-300 dark:hover:bg-dark-800"
+        class="inline-flex h-7 w-7 items-center justify-center rounded-[4px] border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-red-600 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-red-400"
         :disabled="state !== 'ready'"
-        :title="t('admin.ops.errorTrend')"
+        :title="t('admin.ops.requestDetails.details')"
         @click="emit('openDetails')"
       >
-        {{ t('admin.ops.requestDetails.details') }}
+        <Icon name="eye" size="xs" />
       </button>
     </div>
 
-    <div class="relative min-h-0 flex-1">
-      <div v-if="state === 'ready' && chartData" class="flex h-full flex-col">
-        <div class="flex-1">
+    <div class="relative min-h-0 min-w-0 w-full flex-1">
+      <div v-if="state === 'ready' && chartData" class="flex h-full min-h-0 min-w-0 w-full flex-col">
+        <div class="min-h-0 min-w-0 w-full flex-1">
           <Doughnut :data="chartData" :options="{ ...options, cutout: '65%' }" />
         </div>
         <div class="mt-4 flex flex-col items-center gap-2">

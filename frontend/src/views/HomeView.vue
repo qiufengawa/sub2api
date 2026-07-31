@@ -294,7 +294,7 @@ const advantageItems = computed<FeatureItem[]>(() => [
 
 const promptItems = computed(() => ['integration', 'migration', 'selection', 'schema', 'benchmark', 'streaming'].map((key) => ({
   label: t(`home.sections.prompts.items.${key}.label`),
-  text: t(`home.sections.prompts.items.${key}.text`),
+  text: t(`home.sections.prompts.items.${key}.text`, { site: siteName.value }),
 })))
 
 const providerItems = computed<ProviderItem[]>(() => [
@@ -335,8 +335,8 @@ const useCaseItems = computed(() => ['experiments', 'business', 'agents', 'rag']
 })))
 
 const faqItems = computed(() => ['official', 'sdk', 'models', 'production'].map((key) => ({
-  question: t(`home.sections.faq.items.${key}.question`),
-  answer: t(`home.sections.faq.items.${key}.answer`),
+  question: t(`home.sections.faq.items.${key}.question`, { site: siteName.value }),
+  answer: t(`home.sections.faq.items.${key}.answer`, { site: siteName.value }),
 })))
 
 function toggleTheme(): void {

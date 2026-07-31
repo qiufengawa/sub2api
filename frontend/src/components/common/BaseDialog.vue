@@ -11,7 +11,12 @@
         @click.self="handleClose"
       >
         <!-- Modal panel -->
-        <div ref="dialogRef" :class="['modal-content', widthClasses]" @click.stop>
+        <div
+          ref="dialogRef"
+          :class="['modal-content', widthClasses]"
+          tabindex="-1"
+          @click.stop
+        >
           <!-- Header -->
           <div class="modal-header">
             <h3 :id="dialogId" class="modal-title">
@@ -19,9 +24,10 @@
             </h3>
             <button
               v-if="showCloseButton"
+              type="button"
               @click="emit('close')"
               class="-mr-1 flex h-7 w-7 items-center justify-center rounded-[3px] text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:text-dark-500 dark:hover:bg-dark-700 dark:hover:text-dark-300"
-              aria-label="Close modal"
+              :aria-label="t('common.close')"
             >
               <Icon name="x" size="md" />
             </button>
@@ -44,15 +50,35 @@
 
 <script setup lang="ts">
 import { computed, watch, onMounted, onUnmounted, ref, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
+import { isTopDialog, registerDialog, unregisterDialog } from '@/utils/modalStack'
 
 // 生成唯一ID以避免多个对话框时ID冲突
 let dialogIdCounter = 0
 const dialogId = `modal-title-${++dialogIdCounter}`
+const dialogInstanceId = Symbol(dialogId)
+const { t } = useI18n()
 
 // 焦点管理
 const dialogRef = ref<HTMLElement | null>(null)
+const effectiveZIndex = ref(50)
 let previousActiveElement: HTMLElement | null = null
+let isRegistered = false
+
+const focusableSelector = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])'
+].join(',')
+
+const getFocusableElements = () =>
+  Array.from(dialogRef.value?.querySelectorAll<HTMLElement>(focusableSelector) ?? []).filter(
+    (element) => !element.hasAttribute('hidden') && element.getAttribute('aria-hidden') !== 'true'
+  )
 
 type DialogWidth = 'narrow' | 'normal' | 'wide' | 'extra-wide' | 'full'
 
@@ -80,10 +106,9 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>()
 
-// Custom z-index style (overrides the default z-50 from CSS)
-const zIndexStyle = computed(() => {
-  return props.zIndex !== 50 ? { zIndex: props.zIndex } : undefined
-})
+// A caller-provided z-index is the minimum layer. The shared stack raises
+// later dialogs above any dialog that is already open.
+const zIndexStyle = computed(() => ({ zIndex: effectiveZIndex.value }))
 
 const widthClasses = computed(() => {
   // Width guidance: narrow=confirm/short prompts, normal=standard forms,
@@ -106,9 +131,50 @@ const handleClose = () => {
 }
 
 const handleEscape = (event: KeyboardEvent) => {
-  if (props.show && props.closeOnEscape && event.key === 'Escape') {
+  if (!props.show || !isTopDialog(dialogInstanceId)) return
+
+  if (props.closeOnEscape && event.key === 'Escape') {
+    event.preventDefault()
     emit('close')
+    return
   }
+
+  if (event.key !== 'Tab') return
+
+  const focusableElements = getFocusableElements()
+  if (focusableElements.length === 0) {
+    event.preventDefault()
+    dialogRef.value?.focus()
+    return
+  }
+
+  const firstElement = focusableElements[0]
+  const lastElement = focusableElements[focusableElements.length - 1]
+  const activeElement = document.activeElement
+
+  if (event.shiftKey && (activeElement === firstElement || !dialogRef.value?.contains(activeElement))) {
+    event.preventDefault()
+    lastElement.focus()
+  } else if (!event.shiftKey && (activeElement === lastElement || !dialogRef.value?.contains(activeElement))) {
+    event.preventDefault()
+    firstElement.focus()
+  }
+}
+
+const unregisterCurrentDialog = () => {
+  if (!isRegistered) return
+
+  const wasTopDialog = unregisterDialog(dialogInstanceId)
+  isRegistered = false
+  if (
+    wasTopDialog
+    && previousActiveElement?.isConnected
+    && typeof previousActiveElement.focus === 'function'
+  ) {
+    previousActiveElement.focus()
+  }
+  previousActiveElement = null
+  effectiveZIndex.value = props.zIndex
 }
 
 // Prevent body scroll when modal is open and manage focus
@@ -116,26 +182,18 @@ watch(
   () => props.show,
   async (isOpen) => {
     if (isOpen) {
-      // 保存当前焦点元素
       previousActiveElement = document.activeElement as HTMLElement
-      // 使用CSS类而不是直接操作style,更易于管理多个对话框
-      document.body.classList.add('modal-open')
+      effectiveZIndex.value = registerDialog(dialogInstanceId, props.zIndex)
+      isRegistered = true
 
-      // 等待DOM更新后设置焦点到对话框
       await nextTick()
       if (dialogRef.value) {
-        const firstFocusable = dialogRef.value.querySelector<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )
-        firstFocusable?.focus()
+        const firstFocusable = getFocusableElements()[0]
+        const focusTarget = firstFocusable ?? dialogRef.value
+        focusTarget.focus()
       }
     } else {
-      document.body.classList.remove('modal-open')
-      // 恢复之前的焦点
-      if (previousActiveElement && typeof previousActiveElement.focus === 'function') {
-        previousActiveElement.focus()
-      }
-      previousActiveElement = null
+      unregisterCurrentDialog()
     }
   },
   { immediate: true }
@@ -147,7 +205,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleEscape)
-  // 确保组件卸载时移除滚动锁定
-  document.body.classList.remove('modal-open')
+  unregisterCurrentDialog()
 })
 </script>

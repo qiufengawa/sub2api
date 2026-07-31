@@ -67,7 +67,7 @@
           :doc-url="appStore.docUrl"
         />
 
-        <div v-if="dashboardStage === 'ready'" class="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
+        <div v-if="dashboardStage === 'ready'" class="grid grid-cols-1 items-stretch gap-4">
           <UserDashboardCharts
             v-model:range-days="rangeDays"
             :loading="false"
@@ -84,6 +84,7 @@
             class="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2"
           >
             <UserDashboardCharts
+              class="xl:col-span-2"
               v-model:range-days="rangeDays"
               :loading="loadingCharts"
               :trend="trendData"
@@ -98,6 +99,7 @@
             />
             <UserDashboardModelBreakdown :models="modelStats" :loading="loadingCharts" />
             <UserDashboardRecentUsage
+              class="xl:col-span-2"
               :data="recentUsage"
               :errors="errorViewEnabled ? recentErrors : []"
               :show-errors="errorViewEnabled"

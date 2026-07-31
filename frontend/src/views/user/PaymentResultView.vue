@@ -126,11 +126,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import OrderStatusBadge from '@/components/payment/OrderStatusBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { useAppStore } from '@/stores/app'
 import {
   PAYMENT_RECOVERY_STORAGE_KEY,
   clearPaymentRecoverySnapshot,
@@ -154,6 +155,7 @@ const i18n = useI18n()
 const { t } = i18n
 const route = useRoute()
 const router = useRouter()
+const appStore = useAppStore()
 const paymentStore = usePaymentStore()
 
 type ResolvedOrder = PaymentOrder | PublicOrderVerifyResult
@@ -172,6 +174,22 @@ const returnInfo = ref<ReturnInfo | null>(null)
 
 const SUCCESS_STATUSES = new Set(['COMPLETED', 'PAID', 'RECHARGING'])
 const PENDING_STATUSES = new Set(['PENDING', 'CREATED', 'WAITING', 'PROCESSING'])
+const TERMINAL_FAILURE_STATUSES = new Set(['EXPIRED', 'CANCELLED', 'FAILED'])
+const KNOWN_ORDER_STATUSES = new Set<OrderStatus>([
+  'PENDING',
+  'PAID',
+  'RECHARGING',
+  'COMPLETED',
+  'EXPIRED',
+  'CANCELLED',
+  'FAILED',
+  'REFUND_REQUESTED',
+  'REFUNDING',
+  'REFUND_PENDING',
+  'PARTIALLY_REFUNDED',
+  'REFUNDED',
+  'REFUND_FAILED',
+])
 const STATUS_REFRESH_INTERVAL_MS = 2000
 const STATUS_REFRESH_MAX_ATTEMPTS = 15
 
@@ -208,7 +226,7 @@ const isSuccess = computed(() => {
 })
 
 const isPending = computed(() => {
-  return isPendingStatus(order.value?.status)
+  return !!order.value && isPendingStatus(order.value.status)
 })
 
 const isCompleted = computed(() => normalizeOrderStatus(order.value?.status) === 'COMPLETED')
@@ -219,17 +237,19 @@ const isSubscriptionOrder = computed(() => {
   return !!order.value && 'order_type' in order.value && order.value.order_type === 'subscription'
 })
 
-const statusTitle = computed(() => {
+const statusTitleKey = computed(() => {
   if (isSuccess.value) {
     return isSubscriptionOrder.value && isCompleted.value
-      ? t('payment.result.subscriptionSuccess')
-      : t('payment.result.success')
+      ? 'payment.result.subscriptionSuccess'
+      : 'payment.result.success'
   }
   if (isPending.value) {
-    return t('payment.result.processing')
+    return 'payment.result.processing'
   }
-  return t('payment.result.failed')
+  return 'payment.result.failed'
 })
+
+const statusTitle = computed(() => t(statusTitleKey.value))
 
 const statusDescription = computed(() => {
   if (isCompleted.value) {
@@ -245,6 +265,19 @@ const statusDescription = computed(() => {
   }
   return t('payment.result.failedHint')
 })
+
+watch(
+  [loading, statusTitleKey, () => appStore.siteName],
+  ([isLoading, titleKey, siteName]) => {
+    if (typeof document === 'undefined') return
+    const resolvedTitleKey = isLoading ? 'payment.result.processing' : titleKey
+    route.meta.titleKey = resolvedTitleKey
+    const label = t(resolvedTitleKey)
+    const normalizedSiteName = String(siteName || '').trim()
+    document.title = normalizedSiteName ? `${label} - ${normalizedSiteName}` : label
+  },
+  { immediate: true },
+)
 
 const showPrimaryAmount = computed(() => hasAmountFields(order.value))
 
@@ -364,7 +397,8 @@ function normalizeOrderStatus(status: string | null | undefined): string {
 }
 
 function displayOrderStatus(status: string): OrderStatus {
-  return normalizeOrderStatus(status) as OrderStatus
+  const normalized = normalizeOrderStatus(status) as OrderStatus
+  return KNOWN_ORDER_STATUSES.has(normalized) ? normalized : 'PENDING'
 }
 
 function isSuccessStatus(status: string | null | undefined): boolean {
@@ -372,7 +406,10 @@ function isSuccessStatus(status: string | null | undefined): boolean {
 }
 
 function isPendingStatus(status: string | null | undefined): boolean {
-  return PENDING_STATUSES.has(normalizeOrderStatus(status))
+  const normalized = normalizeOrderStatus(status)
+  if (!normalized) return false
+  return PENDING_STATUSES.has(normalized)
+    || (!SUCCESS_STATUSES.has(normalized) && !TERMINAL_FAILURE_STATUSES.has(normalized))
 }
 
 function readRouteQueryString(key: string): string {
@@ -459,8 +496,8 @@ function clearRecoverySnapshot(): void {
 }
 
 function clearRecoverySnapshotForTerminalStatus(status: string | null | undefined): void {
-  if (!status) return
-  if (!isPendingStatus(status)) {
+  const normalized = normalizeOrderStatus(status)
+  if (SUCCESS_STATUSES.has(normalized) || TERMINAL_FAILURE_STATUSES.has(normalized)) {
     clearRecoverySnapshot()
   }
 }

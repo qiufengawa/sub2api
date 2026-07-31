@@ -164,6 +164,10 @@ describe('user SubscriptionsView', () => {
 
     expect(wrapper.get('[data-testid="subscription-summary"]').text()).toContain('3')
     expect(wrapper.get('[data-testid="subscription-summary"]').text()).toContain('93%')
+    expect(wrapper.get('[data-testid="subscription-summary"]').classes()).toEqual(expect.arrayContaining([
+      'grid-cols-1',
+      'sm:grid-cols-3',
+    ]))
     expect(wrapper.get('[data-testid="subscriptions-grid"]').classes()).toEqual(expect.arrayContaining([
       'md:grid-cols-2',
     ]))

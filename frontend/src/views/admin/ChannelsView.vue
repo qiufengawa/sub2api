@@ -58,11 +58,11 @@
           @sort="handleSort"
         >
           <template #cell-name="{ value }">
-            <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
+            <span class="block max-w-[16rem] truncate font-medium text-gray-900 dark:text-white" :title="String(value)">{{ value }}</span>
           </template>
 
           <template #cell-description="{ value }">
-            <span class="text-sm text-gray-600 dark:text-gray-400">{{ value || '-' }}</span>
+            <span class="block max-w-[22rem] truncate text-sm text-gray-600 dark:text-gray-400" :title="value || ''">{{ value || '-' }}</span>
           </template>
 
           <template #cell-status="{ row }">
@@ -99,18 +99,22 @@
           <template #cell-actions="{ row }">
             <div class="flex items-center gap-1">
               <button
+                type="button"
                 @click="openEditDialog(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-400"
+                class="btn btn-ghost btn-icon text-gray-500 hover:text-primary-600 dark:hover:text-primary-400"
+                :title="t('common.edit', 'Edit')"
+                :aria-label="t('common.edit', 'Edit')"
               >
                 <Icon name="edit" size="sm" />
-                <span class="text-xs">{{ t('common.edit', 'Edit') }}</span>
               </button>
               <button
+                type="button"
                 @click="handleDelete(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                class="btn btn-ghost btn-icon text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                :title="t('common.delete', 'Delete')"
+                :aria-label="t('common.delete', 'Delete')"
               >
                 <Icon name="trash" size="sm" />
-                <span class="text-xs">{{ t('common.delete', 'Delete') }}</span>
               </button>
             </div>
           </template>
@@ -147,10 +151,12 @@
     >
       <div class="channel-dialog-body">
         <!-- Tab Bar -->
-        <div class="flex items-center border-b border-gray-200 dark:border-dark-700 flex-shrink-0 -mx-4 sm:-mx-6 px-4 sm:px-6 -mt-3 sm:-mt-4">
+        <div class="-mx-4 -mt-3 flex flex-shrink-0 items-center overflow-x-auto whitespace-nowrap border-b border-gray-200 px-4 dark:border-dark-700 sm:-mx-6 sm:-mt-4 sm:px-6" role="tablist">
           <!-- Basic Settings Tab -->
           <button
             type="button"
+            role="tab"
+            :aria-selected="activeTab === 'basic'"
             @click="activeTab = 'basic'"
             class="channel-tab"
             :class="activeTab === 'basic' ? 'channel-tab-active' : 'channel-tab-inactive'"
@@ -162,6 +168,8 @@
             v-for="section in form.platforms.filter(s => s.enabled)"
             :key="section.platform"
             type="button"
+            role="tab"
+            :aria-selected="activeTab === section.platform"
             @click="activeTab = section.platform"
             class="channel-tab group"
             :class="activeTab === section.platform ? 'channel-tab-active' : 'channel-tab-inactive'"
@@ -636,6 +644,7 @@ import { mTokToPerToken, perTokenToMTok, apiIntervalsToForm, formIntervalsToAPI,
 import type { AdminGroup, GroupPlatform } from '@/types'
 import type { Column } from '@/components/common/types'
 import { platformTextClass, platformBadgeLightClass } from '@/utils/platformColors'
+import { buildChannelGroupMap, fetchAllChannels } from '@/utils/channelConflict'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
@@ -804,14 +813,7 @@ function getGroupsForPlatform(platform: GroupPlatform): AdminGroup[] {
 
 // ── Group helpers ──
 const groupToChannelMap = computed(() => {
-  const map = new Map<number, Channel>()
-  for (const ch of allChannelsForConflict.value) {
-    if (editingChannel.value && ch.id === editingChannel.value.id) continue
-    for (const gid of ch.group_ids || []) {
-      map.set(gid, ch)
-    }
-  }
-  return map
+  return buildChannelGroupMap(allChannelsForConflict.value, editingChannel.value?.id)
 })
 
 function isGroupInOtherChannel(groupId: number, _platform: string): boolean {
@@ -1279,13 +1281,18 @@ async function loadGroups() {
   }
 }
 
-async function loadAllChannelsForConflict() {
+async function loadAllChannelsForConflict(): Promise<boolean> {
   try {
-    const response = await adminAPI.channels.list(1, 1000)
-    allChannelsForConflict.value = response.items || []
+    allChannelsForConflict.value = await fetchAllChannels((page, pageSize) => (
+      adminAPI.channels.list(page, pageSize)
+    ))
+    return true
   } catch (error) {
-    // Fallback to current page data
-    allChannelsForConflict.value = channels.value
+    allChannelsForConflict.value = []
+    appStore.showError(
+      extractApiErrorMessage(error, t('admin.channels.loadError', 'Failed to load channels'))
+    )
+    return false
   }
 }
 
@@ -1334,7 +1341,8 @@ function resetForm() {
 async function openCreateDialog() {
   editingChannel.value = null
   resetForm()
-  await Promise.all([loadGroups(), loadAllChannelsForConflict()])
+  const [, conflictsLoaded] = await Promise.all([loadGroups(), loadAllChannelsForConflict()])
+  if (!conflictsLoaded) return
   showDialog.value = true
 }
 
@@ -1347,7 +1355,8 @@ async function openEditDialog(channel: Channel) {
   form.billing_model_source = channel.billing_model_source || 'channel_mapped'
   form.apply_pricing_to_account_stats = channel.apply_pricing_to_account_stats || false
   // Must load groups first so apiToForm can map groupID → platform
-  await Promise.all([loadGroups(), loadAllChannelsForConflict()])
+  const [, conflictsLoaded] = await Promise.all([loadGroups(), loadAllChannelsForConflict()])
+  if (!conflictsLoaded) return
   form.platforms = apiToForm(channel)
 
   // Distribute channel-level rules into per-platform sections

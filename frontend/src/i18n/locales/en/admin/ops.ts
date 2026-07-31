@@ -2,6 +2,17 @@ export default {
     ops: {
       title: 'Ops Monitoring',
       description: 'Operational monitoring and troubleshooting',
+      sections: {
+        trafficCapacity: 'Traffic and capacity',
+        trafficCapacityDescription: 'Track request throughput, account switching, and live capacity to spot congestion and queues.',
+        qualityAnalysis: 'Quality and error analysis',
+        qualityAnalysisDescription: 'Correlate error trends, request latency, and error composition to assess service quality.'
+      },
+      overviewSections: {
+        traffic: 'Traffic overview',
+        stability: 'Stability',
+        latency: 'Latency experience'
+      },
       // Dashboard
       systemHealth: 'System Health',
       overview: 'Overview',
@@ -35,7 +46,11 @@ export default {
         written: 'Written',
         dropped: 'Dropped',
         failed: 'Failed',
+        avgWriteDelay: 'Avg write delay',
+        advancedFilters: 'Advanced filters',
+        runtimeConfigShort: 'Log settings',
         runtimeConfig: 'Runtime Log Configuration (applies immediately)',
+        runtimeConfigDescription: 'Adjust log level, sampling, and retention. Changes apply to the running service immediately.',
         all: 'All',
         level: 'Level',
         stacktraceThreshold: 'Stacktrace threshold',

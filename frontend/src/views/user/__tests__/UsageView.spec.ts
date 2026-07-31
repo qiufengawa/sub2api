@@ -113,6 +113,7 @@ const usageTableStub = {
   props: {
     columns: { type: Array, default: () => [] },
     embedLatencyInCost: Boolean,
+    mobileTable: Boolean,
   },
   template: '<div data-testid="usage-table-stub" />',
 }
@@ -290,6 +291,18 @@ describe('user UsageView', () => {
       'created_at',
     ])
     expect(wrapper.getComponent({ name: 'UsageTable' }).props('embedLatencyInCost')).toBe(false)
+    expect(wrapper.getComponent({ name: 'UsageTable' }).props('mobileTable')).toBe(true)
+  })
+
+  it('gives the token trend full width ahead of the category rankings', async () => {
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    const chartGrid = wrapper.get('[data-testid="usage-chart-grid"]')
+    expect(chartGrid.classes()).toEqual(expect.arrayContaining(['md:grid-cols-2', 'xl:grid-cols-3']))
+    const trend = wrapper.get('[data-testid="usage-token-trend"]')
+    expect(trend.classes()).toEqual(expect.arrayContaining(['md:col-span-2', 'xl:col-span-3']))
+    expect(chartGrid.element.firstElementChild).toBe(trend.element)
   })
 
   it('preserves latency in saved hidden-column preferences', async () => {

@@ -18,6 +18,7 @@ import type { ChartState } from '../types'
 import { formatHistoryLabel, sumNumbers } from '../utils/opsFormatters'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import Icon from '@/components/icons/Icon.vue'
 
 ChartJS.register(Title, Tooltip, Legend, LineElement, LinearScale, PointElement, CategoryScale, Filler)
 
@@ -38,8 +39,8 @@ const isDarkMode = computed(() => document.documentElement.classList.contains('d
 const colors = computed(() => ({
   red: '#ef4444',
   redAlpha: '#ef444420',
-  purple: '#8b5cf6',
-  purpleAlpha: '#8b5cf620',
+  orange: '#f59e0b',
+  orangeAlpha: '#f59e0b20',
   gray: '#9ca3af',
   grid: isDarkMode.value ? '#374151' : '#f3f4f6',
   text: isDarkMode.value ? '#9ca3af' : '#6b7280'
@@ -78,8 +79,8 @@ const chartData = computed(() => {
       {
         label: t('admin.ops.upstreamExcl429529'),
         data: props.points.map((p) => p.upstream_error_count_excl_429_529 ?? 0),
-        borderColor: colors.value.purple,
-        backgroundColor: colors.value.purpleAlpha,
+        borderColor: colors.value.orange,
+        backgroundColor: colors.value.orangeAlpha,
         fill: true,
         tension: 0.35,
         pointRadius: 0,
@@ -153,8 +154,8 @@ const options = computed(() => {
 </script>
 
 <template>
-  <div class="flex h-full flex-col rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-900/5 dark:bg-dark-800 dark:ring-dark-700">
-    <div class="mb-4 flex shrink-0 items-center justify-between">
+  <div class="flex h-full min-w-0 w-full flex-col overflow-hidden rounded-[4px] border border-gray-200 bg-white p-4 shadow-sm sm:p-5 dark:border-dark-700 dark:bg-dark-800">
+    <div class="mb-3 flex min-h-8 shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <h3 class="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
         <svg class="h-4 w-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path
@@ -167,27 +168,29 @@ const options = computed(() => {
         {{ t('admin.ops.errorTrend') }}
         <HelpTooltip :content="t('admin.ops.tooltips.errorTrend')" />
       </h3>
-      <div class="flex items-center gap-2">
+      <div class="flex shrink-0 items-center gap-1.5">
         <button
           type="button"
-          class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-300 dark:hover:bg-dark-800"
+          class="inline-flex h-7 w-7 items-center justify-center rounded-[4px] border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-red-600 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-red-400"
           :disabled="!hasRequestErrors"
+          :title="t('admin.ops.errorDetails.requestErrors')"
           @click="emit('openRequestErrors')"
         >
-          {{ t('admin.ops.errorDetails.requestErrors') }}
+          <Icon name="eye" size="xs" />
         </button>
         <button
           type="button"
-          class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-300 dark:hover:bg-dark-800"
+          class="inline-flex h-7 w-7 items-center justify-center rounded-[4px] border border-gray-200 bg-white text-orange-500 hover:bg-orange-50 hover:text-orange-700 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-orange-400 dark:hover:bg-orange-900/20"
           :disabled="!hasUpstreamErrors"
+          :title="t('admin.ops.errorDetails.upstreamErrors')"
           @click="emit('openUpstreamErrors')"
         >
-          {{ t('admin.ops.errorDetails.upstreamErrors') }}
+          <Icon name="eye" size="xs" />
         </button>
       </div>
     </div>
 
-    <div class="min-h-0 flex-1">
+    <div class="min-h-0 min-w-0 w-full flex-1">
       <Line v-if="state === 'ready' && chartData" :data="chartData" :options="options" />
       <div v-else class="flex h-full items-center justify-center">
         <div v-if="state === 'loading'" class="animate-pulse text-sm text-gray-400">{{ t('common.loading') }}</div>

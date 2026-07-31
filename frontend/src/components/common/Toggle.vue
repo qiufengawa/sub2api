@@ -6,6 +6,7 @@
     :class="[modelValue ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600']"
     role="switch"
     :aria-checked="modelValue"
+    :aria-label="ariaLabel"
   >
     <span
       class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-150 ease-in-out"
@@ -17,6 +18,7 @@
 <script setup lang="ts">
 const props = defineProps<{
   modelValue: boolean
+  ariaLabel?: string
 }>()
 
 const emit = defineEmits<{

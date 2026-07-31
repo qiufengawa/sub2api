@@ -49,10 +49,12 @@
             class="flex w-full flex-shrink-0 flex-wrap items-center justify-end gap-3 lg:w-auto"
           >
             <button
+              type="button"
               @click="loadGroups"
               :disabled="loading"
-              class="btn btn-secondary"
+              class="btn btn-secondary btn-icon"
               :title="t('common.refresh')"
+              :aria-label="t('common.refresh')"
             >
               <Icon
                 name="refresh"
@@ -62,9 +64,11 @@
             </button>
             <div class="relative" ref="columnDropdownRef">
               <button
+                type="button"
                 @click="showColumnDropdown = !showColumnDropdown"
-                class="btn btn-secondary"
+                class="btn btn-secondary px-2 md:px-3"
                 :title="t('admin.groups.columnSettings')"
+                :aria-label="t('admin.groups.columnSettings')"
               >
                 <Icon name="grid" size="md" class="mr-2" />
                 <span class="hidden md:inline">{{
@@ -73,15 +77,16 @@
               </button>
               <div
                 v-if="showColumnDropdown"
-                class="absolute right-0 top-full z-50 mt-1 max-h-80 w-48 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
+                class="absolute right-0 top-full z-50 mt-1 max-h-[min(20rem,calc(100dvh-5rem))] w-56 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-[4px] border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
               >
                 <button
                   v-for="col in toggleableColumns"
                   :key="col.key"
+                  type="button"
                   @click="toggleColumn(col.key)"
                   class="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
                 >
-                  <span>{{ col.label }}</span>
+                  <span class="min-w-0 truncate" :title="col.label">{{ col.label }}</span>
                   <Icon
                     v-if="isColumnVisible(col.key)"
                     name="check"
@@ -93,14 +98,17 @@
               </div>
             </div>
             <button
+              type="button"
               @click="openSortModal"
               class="btn btn-secondary"
               :title="t('admin.groups.sortOrder')"
+              :aria-label="t('admin.groups.sortOrder')"
             >
-              <Icon name="arrowsUpDown" size="md" class="mr-2" />
-              {{ t("admin.groups.sortOrder") }}
+              <Icon name="arrowsUpDown" size="md" class="md:mr-2" />
+              <span class="hidden md:inline">{{ t("admin.groups.sortOrder") }}</span>
             </button>
             <button
+              type="button"
               @click="openCreateModal"
               class="btn btn-primary"
               data-tour="groups-create-btn"
@@ -123,9 +131,7 @@
           @sort="handleSort"
         >
           <template #cell-name="{ value }">
-            <span class="font-medium text-gray-900 dark:text-white">{{
-              value
-            }}</span>
+            <span class="block max-w-[16rem] truncate font-medium text-gray-900 dark:text-white" :title="String(value)">{{ value }}</span>
           </template>
 
           <template #cell-id="{ value }">
@@ -360,14 +366,17 @@
           <template #cell-actions="{ row }">
             <div class="flex items-center gap-1">
               <button
+                type="button"
                 @click="handleEdit(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-400"
+                class="btn btn-ghost btn-icon text-gray-500 hover:text-primary-600 dark:hover:text-primary-400"
+                :title="t('common.edit')"
+                :aria-label="t('common.edit')"
               >
                 <Icon name="edit" size="sm" />
-                <span class="text-xs">{{ t("common.edit") }}</span>
               </button>
               <button
                 data-testid="group-duplicate"
+                type="button"
                 :title="
                   duplicatingGroupIds.has(row.id)
                     ? t('admin.groups.duplicating')
@@ -375,51 +384,47 @@
                 "
                 :disabled="duplicatingGroupIds.has(row.id)"
                 @click="handleDuplicate(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-dark-700 dark:hover:text-primary-400"
+                class="btn btn-ghost btn-icon text-gray-500 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-primary-400"
+                :aria-label="duplicatingGroupIds.has(row.id) ? t('admin.groups.duplicating') : t('admin.groups.duplicate')"
               >
                 <Icon name="copy" size="sm" />
-                <span class="text-xs">
-                  {{
-                    duplicatingGroupIds.has(row.id)
-                      ? t("admin.groups.duplicating")
-                      : t("admin.groups.duplicate")
-                  }}
-                </span>
               </button>
               <button
                 v-if="row.platform === 'composite'"
+                type="button"
                 @click="handleCompositeRoutes(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-cyan-600 dark:hover:bg-dark-700 dark:hover:text-cyan-400"
+                class="btn btn-ghost btn-icon text-gray-500 hover:text-cyan-600 dark:hover:text-cyan-400"
+                :title="t('admin.groups.compositeRoutes.action')"
+                :aria-label="t('admin.groups.compositeRoutes.action')"
               >
                 <Icon name="swap" size="sm" />
-                <span class="text-xs">{{
-                  t("admin.groups.compositeRoutes.action")
-                }}</span>
               </button>
               <button
+                type="button"
                 @click="handleRateMultipliers(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-purple-600 dark:hover:bg-dark-700 dark:hover:text-purple-400"
+                class="btn btn-ghost btn-icon text-gray-500 hover:text-purple-600 dark:hover:text-purple-400"
+                :title="t('admin.groups.rateMultipliers')"
+                :aria-label="t('admin.groups.rateMultipliers')"
               >
                 <Icon name="dollar" size="sm" />
-                <span class="text-xs">{{
-                  t("admin.groups.rateMultipliers")
-                }}</span>
               </button>
               <button
+                type="button"
                 @click="handleRPMOverrides(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-orange-600 dark:hover:bg-dark-700 dark:hover:text-orange-400"
+                class="btn btn-ghost btn-icon text-gray-500 hover:text-orange-600 dark:hover:text-orange-400"
+                :title="t('admin.groups.rpmOverrides')"
+                :aria-label="t('admin.groups.rpmOverrides')"
               >
                 <Icon name="bolt" size="sm" />
-                <span class="text-xs">{{
-                  t("admin.groups.rpmOverrides")
-                }}</span>
               </button>
               <button
+                type="button"
                 @click="handleDelete(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                class="btn btn-ghost btn-icon text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                :title="t('common.delete')"
+                :aria-label="t('common.delete')"
               >
                 <Icon name="trash" size="sm" />
-                <span class="text-xs">{{ t("common.delete") }}</span>
               </button>
             </div>
           </template>

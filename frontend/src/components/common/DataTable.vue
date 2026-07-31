@@ -1,5 +1,5 @@
 <template>
-  <div v-if="!isDesktopViewport" class="space-y-2">
+  <div v-if="!isDesktopViewport && !mobileTable" class="space-y-2" :aria-busy="loading">
     <template v-if="loading">
       <div v-for="i in 5" :key="i" class="rounded-[4px] border border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900">
         <div class="space-y-2">
@@ -94,9 +94,11 @@
     v-else
     ref="tableWrapperRef"
     class="table-wrapper"
+    :aria-busy="loading"
     :class="{
       'actions-expanded': actionsExpanded,
-      'is-scrollable': isScrollable
+      'is-scrollable': isScrollable,
+      'mobile-table-wrapper': mobileTable && !isDesktopViewport
     }"
   >
     <table class="w-full min-w-max divide-y divide-gray-200 dark:divide-dark-700">
@@ -125,13 +127,22 @@
             :class="[
               'sticky-header-cell py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-dark-400',
               getAdaptivePaddingClass(),
-              { 'cursor-pointer hover:bg-gray-100 dark:hover:bg-dark-700': column.sortable },
               getStickyColumnClass(column, index),
               column.class
             ]"
             @click="column.sortable && handleSort(column.key)"
           >
-            <div :class="['flex items-center space-x-1', getHeaderContentAlignmentClass(column)]">
+            <component
+              :is="column.sortable ? 'button' : 'div'"
+              :type="column.sortable ? 'button' : undefined"
+              :class="[
+                'flex w-full items-center space-x-1',
+                getHeaderContentAlignmentClass(column),
+                column.sortable
+                  ? 'rounded-[3px] text-left hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:hover:text-dark-200'
+                  : ''
+              ]"
+            >
               <slot
                 :name="`header-${column.key}`"
                 :column="column"
@@ -162,7 +173,7 @@
                   <path d="M5 8L1.5 3.5h7L5 8z" />
                 </svg>
               </span>
-            </div>
+            </component>
           </th>
         </tr>
       </thead>
@@ -471,6 +482,8 @@ interface Props {
   selectedKeys?: Array<string | number>
   /** Accessible label for a row selection checkbox. */
   selectionLabel?: string | ((row: any) => string)
+  /** Keep the desktop table layout on narrow viewports and allow horizontal scrolling. */
+  mobileTable?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -481,7 +494,8 @@ const props = withDefaults(defineProps<Props>(), {
   defaultSortOrder: 'asc',
   serverSideSort: false,
   selectable: false,
-  selectedKeys: () => []
+  selectedKeys: () => [],
+  mobileTable: false
 })
 
 const sortKey = ref<string>('')
@@ -638,12 +652,13 @@ const dataColumns = computed(() => props.columns.filter((column) => column.key !
 const columnsSignature = computed(() =>
   props.columns.map((column) => `${column.key}:${column.sortable ? '1' : '0'}`).join('|')
 )
+const usesTableLayout = computed(() => isDesktopViewport.value || props.mobileTable)
 
 watch(
-  isDesktopViewport,
-  async (isDesktop) => {
+  usesTableLayout,
+  async (usesTable) => {
     detachDesktopTableTracking()
-    if (!isDesktop) return
+    if (!usesTable) return
     await nextTick()
     attachDesktopTableTracking()
   },
@@ -958,6 +973,11 @@ defineExpose({
   flex: 1;
   min-height: 0;
   isolation: isolate;
+}
+
+.mobile-table-wrapper {
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* 表头容器，确保在滚动时覆盖表体内容 */

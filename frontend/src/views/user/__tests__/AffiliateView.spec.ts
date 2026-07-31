@@ -146,6 +146,7 @@ describe('AffiliateView', () => {
 
     const dialog = wrapper.findComponent(ConfirmDialog)
     expect(dialog.props('show')).toBe(true)
+    expect(dialog.props('danger')).toBe(true)
     expect(dialog.props('message')).toContain('$25.00')
     expect(transferAffiliateQuota).not.toHaveBeenCalled()
 
@@ -153,5 +154,54 @@ describe('AffiliateView', () => {
     await flushPromises()
 
     expect(transferAffiliateQuota).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the confirmation pending and blocks duplicate transfers until the request settles', async () => {
+    getAffiliateDetail.mockResolvedValue({
+      user_id: 1,
+      aff_code: affiliateCode,
+      inviter_id: null,
+      aff_count: 2,
+      aff_quota: 25,
+      aff_frozen_quota: 0,
+      aff_history_quota: 50,
+      effective_rebate_rate_percent: 10,
+      invitees: [],
+    })
+    let resolveTransfer!: (value: { transferred_quota: number }) => void
+    transferAffiliateQuota.mockReturnValue(new Promise((resolve) => {
+      resolveTransfer = resolve
+    }))
+
+    const wrapper = mount(AffiliateView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<main><slot /></main>' },
+          Icon: true,
+          BaseDialog: {
+            props: ['show'],
+            template: '<div v-if="show"><slot /><slot name="footer" /></div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+
+    const transferButton = wrapper.findAll('button').find((button) =>
+      button.text().includes('affiliate.transfer.button'),
+    )
+    await transferButton!.trigger('click')
+    const dialog = wrapper.findComponent(ConfirmDialog)
+    dialog.vm.$emit('confirm')
+    dialog.vm.$emit('confirm')
+    await flushPromises()
+
+    expect(dialog.props('show')).toBe(true)
+    expect(dialog.props('pending')).toBe(true)
+    expect(transferAffiliateQuota).toHaveBeenCalledTimes(1)
+
+    resolveTransfer({ transferred_quota: 25 })
+    await flushPromises()
+    expect(dialog.props('show')).toBe(false)
   })
 })

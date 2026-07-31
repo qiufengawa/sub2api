@@ -39,7 +39,7 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-3">
+    <div class="grid grid-cols-2 sm:grid-cols-3" data-testid="profile-overview-metrics">
       <div
         data-testid="profile-overview-metric-balance"
         class="min-w-0 border-r border-gray-100 px-3 py-3 sm:px-4 dark:border-dark-700"
@@ -53,7 +53,7 @@
       </div>
       <div
         data-testid="profile-overview-metric-concurrency"
-        class="min-w-0 border-r border-gray-100 px-3 py-3 sm:px-4 dark:border-dark-700"
+        class="min-w-0 px-3 py-3 sm:border-r sm:border-gray-100 sm:px-4 sm:dark:border-dark-700"
       >
         <p class="truncate text-[10px] text-gray-500 sm:text-xs dark:text-dark-400">
           {{ t('profile.concurrencyLimit') }}
@@ -64,7 +64,7 @@
       </div>
       <div
         data-testid="profile-overview-metric-member-since"
-        class="min-w-0 px-3 py-3 sm:px-4"
+        class="col-span-2 min-w-0 border-t border-gray-100 px-3 py-3 sm:col-span-1 sm:border-t-0 sm:px-4 dark:border-dark-700"
       >
         <p class="truncate text-[10px] text-gray-500 sm:text-xs dark:text-dark-400">
           {{ t('profile.memberSince') }}

@@ -1,13 +1,24 @@
 <template>
   <AppLayout>
     <div class="mx-auto max-w-7xl space-y-4">
-      <div v-if="loading" class="flex items-center justify-center py-20">
-        <div class="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"></div>
+      <div v-if="loading" class="flex items-center justify-center py-20" role="status" aria-live="polite">
+        <div class="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent" aria-hidden="true"></div>
+        <span class="sr-only">{{ t('common.loading') }}</span>
       </div>
       <template v-else>
         <!-- Tab Switcher (hide during payment and subscription confirm) -->
-        <div v-if="tabs.length > 1 && paymentPhase === 'select' && !selectedPlan" class="flex space-x-1 rounded-[4px] border border-gray-200 bg-gray-100 p-1 dark:border-dark-700 dark:bg-dark-800">
-          <button v-for="tab in tabs" :key="tab.key"
+        <div
+          v-if="tabs.length > 1 && paymentPhase === 'select' && !selectedPlan"
+          class="flex space-x-1 rounded-[4px] border border-gray-200 bg-gray-100 p-1 dark:border-dark-700 dark:bg-dark-800"
+          role="tablist"
+          :aria-label="t('payment.title')"
+        >
+          <button v-for="tab in tabs" :id="`payment-tab-${tab.key}`" :key="tab.key"
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === tab.key"
+            :aria-controls="`payment-tabpanel-${tab.key}`"
+            :tabindex="activeTab === tab.key ? 0 : -1"
             class="flex-1 rounded-[3px] px-4 py-2 text-sm font-medium transition-all"
             :class="activeTab === tab.key ? 'bg-white text-gray-900 shadow dark:bg-dark-700 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
             @click="activeTab = tab.key">{{ tab.label }}</button>
@@ -34,7 +45,12 @@
         <!-- Tab content (select phase) -->
         <template v-else>
           <!-- Top-up Tab -->
-          <template v-if="activeTab === 'recharge'">
+          <div
+            v-if="activeTab === 'recharge'"
+            id="payment-tabpanel-recharge"
+            role="tabpanel"
+            aria-labelledby="payment-tab-recharge"
+          >
             <div class="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
               <section class="overflow-hidden rounded border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800">
                 <div class="flex items-center justify-between gap-4 border-b border-gray-100 px-4 py-3 dark:border-dark-700">
@@ -96,7 +112,7 @@
                     </p>
                   </div>
                 </div>
-                <button :class="['btn w-full py-2.5 text-sm font-medium', paymentButtonClass]" :disabled="!canSubmit || submitting" @click="handleSubmitRecharge">
+                <button type="button" :class="['btn w-full py-2.5 text-sm font-medium', paymentButtonClass]" :disabled="!canSubmit || submitting" @click="handleSubmitRecharge">
                   <span v-if="submitting" class="flex items-center justify-center gap-2">
                     <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
                     {{ t('common.processing') }}
@@ -105,20 +121,25 @@
                 </button>
               </div>
             </div>
-          </template>
+          </div>
           <!-- Subscribe Tab -->
-          <template v-else-if="activeTab === 'subscription'">
+          <div
+            v-else-if="activeTab === 'subscription'"
+            id="payment-tabpanel-subscription"
+            role="tabpanel"
+            aria-labelledby="payment-tab-subscription"
+          >
             <!-- Subscription confirm (inline, replaces plan list) -->
             <template v-if="selectedPlan">
               <div class="grid items-start gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
                 <div class="overflow-hidden rounded border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800">
                   <div class="p-5">
                 <!-- Header: platform badge + plan name -->
-                <div class="mb-3 flex flex-wrap items-center gap-2">
+                <div class="mb-3 flex min-w-0 flex-wrap items-center gap-2">
                   <span :class="['rounded-md border px-2 py-0.5 text-xs font-medium', planBadgeClass]">
                     {{ platformLabel(selectedPlan.group_platform || '') }}
                   </span>
-                  <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ selectedPlan.name }}</h3>
+                  <h3 class="min-w-0 flex-1 break-words text-lg font-bold text-gray-900 dark:text-white">{{ selectedPlan.name }}</h3>
                 </div>
                 <!-- Price -->
                 <div class="flex items-baseline gap-2">
@@ -129,7 +150,7 @@
                   <span class="text-sm text-gray-500 dark:text-gray-400">/ {{ planValiditySuffix }}</span>
                 </div>
                 <!-- Description -->
-                <p v-if="selectedPlan.description" class="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                <p v-if="selectedPlan.description" class="mt-2 break-words text-sm leading-relaxed text-gray-500 dark:text-gray-400">
                   {{ selectedPlan.description }}
                 </p>
                 <!-- Rate + Limits grid -->
@@ -200,14 +221,14 @@
                     </div>
                   </div>
 
-                  <button :class="['btn w-full py-2.5 text-sm font-medium', paymentButtonClass]" :disabled="!canSubmitSubscription || submitting" @click="confirmSubscribe">
+                  <button type="button" :class="['btn w-full py-2.5 text-sm font-medium', paymentButtonClass]" :disabled="!canSubmitSubscription || submitting" @click="confirmSubscribe">
                     <span v-if="submitting" class="flex items-center justify-center gap-2">
                       <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
                       {{ t('common.processing') }}
                     </span>
                     <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(subTotalAmount) }}</span>
                   </button>
-                  <button class="btn btn-secondary w-full" @click="selectedPlan = null">{{ t('common.cancel') }}</button>
+                  <button type="button" class="btn btn-secondary w-full" @click="selectedPlan = null">{{ t('common.cancel') }}</button>
                 </aside>
               </div>
             </template>
@@ -248,43 +269,63 @@
                 <SubscriptionPlanCard v-for="plan in checkout.plans" :key="plan.id" :plan="plan" :active-subscriptions="activeSubscriptions" @select="selectPlan" />
               </div>
             </template>
-          </template>
+          </div>
         </template>
         <div v-if="(checkout.help_text || checkout.help_image_url) && paymentPhase === 'select' && !selectedPlan" class="card p-4">
           <div class="flex flex-col items-center gap-3">
-            <img v-if="checkout.help_image_url" :src="checkout.help_image_url" alt=""
-              class="h-40 max-w-full cursor-pointer rounded-[4px] object-contain transition-opacity hover:opacity-80"
-              @click="previewImage = checkout.help_image_url" />
+            <button
+              v-if="checkout.help_image_url"
+              type="button"
+              class="rounded-[4px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              :aria-label="t('payment.previewHelpImage')"
+              :title="t('payment.previewHelpImage')"
+              @click="previewImage = checkout.help_image_url"
+            >
+              <img
+                :src="checkout.help_image_url"
+                :alt="t('payment.helpImageAlt')"
+                class="h-40 max-w-full rounded-[4px] object-contain transition-opacity hover:opacity-80"
+              />
+            </button>
             <p v-if="checkout.help_text" class="text-center text-sm text-gray-500 dark:text-gray-400">{{ checkout.help_text }}</p>
           </div>
         </div>
       </template>
     </div>
-    <!-- Renewal Plan Selection Modal -->
-    <Teleport to="body">
-      <Transition name="modal">
-        <div v-if="showRenewalModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" @click.self="closeRenewalModal">
-          <div class="relative w-full max-w-2xl rounded-[4px] border border-gray-200 bg-white p-5 shadow-2xl dark:border-dark-700 dark:bg-dark-900">
-            <!-- Close button -->
-            <button class="absolute right-4 top-4 rounded-[3px] p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700 dark:hover:text-gray-200" @click="closeRenewalModal">
-              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-            <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">{{ t('payment.selectPlan') }}</h3>
-            <div class="grid gap-3 sm:grid-cols-2">
-              <SubscriptionPlanCard v-for="plan in renewalPlans" :key="plan.id" :plan="plan" :active-subscriptions="activeSubscriptions" @select="selectPlanFromModal" />
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-    <!-- Image Preview Overlay -->
-    <Teleport to="body">
-      <Transition name="modal">
-        <div v-if="previewImage" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm" @click="previewImage = ''">
-          <img :src="previewImage" alt="" class="max-h-[85vh] max-w-[90vw] rounded-[4px] object-contain shadow-2xl" />
-        </div>
-      </Transition>
-    </Teleport>
+    <BaseDialog
+      :show="showRenewalModal"
+      :title="t('payment.selectPlan')"
+      width="wide"
+      :z-index="50"
+      @close="closeRenewalModal"
+    >
+      <div class="grid gap-3 sm:grid-cols-2" data-testid="renewal-plan-list">
+        <SubscriptionPlanCard
+          v-for="plan in renewalPlans"
+          :key="plan.id"
+          :plan="plan"
+          :active-subscriptions="activeSubscriptions"
+          @select="selectPlanFromModal"
+        />
+      </div>
+    </BaseDialog>
+
+    <BaseDialog
+      :show="Boolean(previewImage)"
+      :title="t('payment.helpImageTitle')"
+      width="full"
+      :z-index="60"
+      @close="previewImage = ''"
+    >
+      <div class="flex min-h-0 items-center justify-center" data-testid="payment-help-image-preview">
+        <img
+          v-if="previewImage"
+          :src="previewImage"
+          :alt="t('payment.helpImageAlt')"
+          class="max-h-[calc(100dvh-10rem)] max-w-full rounded-[4px] object-contain"
+        />
+      </div>
+    </BaseDialog>
   </AppLayout>
 </template>
 
@@ -320,6 +361,7 @@ import {
 import { platformAccentBarClass, platformBadgeLightClass, platformBadgeClass, platformTextClass, platformLabel } from '@/utils/platformColors'
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import { DEFAULT_PAYMENT_CURRENCY, formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'

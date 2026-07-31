@@ -1,19 +1,21 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-dark-950">
+  <div class="app-shell min-h-screen bg-gray-50 dark:bg-dark-950">
     <!-- Sidebar -->
     <AppSidebar />
 
     <!-- Main Content Area -->
     <div
-      class="relative min-h-screen transition-all duration-300"
+      class="relative flex min-h-screen flex-col transition-all duration-300"
       :class="[sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-64']"
     >
       <!-- Header -->
       <AppHeader />
 
       <!-- Main Content -->
-      <main class="p-3 md:p-4 lg:p-6">
-        <slot />
+      <main class="app-main-content flex min-h-0 min-w-0 flex-1 flex-col p-3 md:p-4 lg:p-6">
+        <div class="app-page-content flex min-h-0 min-w-0 flex-1 flex-col">
+          <slot />
+        </div>
       </main>
     </div>
   </div>
@@ -47,3 +49,22 @@ onMounted(() => {
 
 defineExpose({ replayTour })
 </script>
+
+<style scoped>
+.app-shell {
+  --app-header-height: 4rem;
+  --app-content-block-padding: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .app-shell {
+    --app-content-block-padding: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-shell {
+    --app-content-block-padding: 3rem;
+  }
+}
+</style>

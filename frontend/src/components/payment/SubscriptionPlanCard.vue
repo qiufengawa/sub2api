@@ -15,7 +15,7 @@
       <div class="mb-3 flex items-start justify-between gap-2">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2">
-            <h3 class="truncate text-base font-bold text-gray-900 dark:text-white">{{ plan.name }}</h3>
+            <h3 class="truncate text-base font-bold text-gray-900 dark:text-white" :title="plan.name">{{ plan.name }}</h3>
             <span :class="['inline-flex shrink-0 items-center gap-1 rounded-[3px] px-2 py-0.5 text-[11px] font-medium', badgeLightClass]">
               <PlatformIcon :platform="platform as GroupPlatform" size="xs" />
               {{ pLabel }}
@@ -79,10 +79,8 @@
       <!-- Features list (compact) -->
       <div v-if="plan.features.length > 0" class="mb-3 space-y-1">
         <div v-for="feature in plan.features" :key="feature" class="flex items-start gap-1.5">
-          <svg :class="['mt-0.5 h-3.5 w-3.5 flex-shrink-0', iconClass]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          </svg>
-          <span class="text-xs text-gray-600 dark:text-gray-300">{{ feature }}</span>
+          <Icon name="check" size="sm" :class="['mt-0.5 flex-shrink-0', iconClass]" :stroke-width="2.5" />
+          <span class="min-w-0 break-words text-xs text-gray-600 dark:text-gray-300">{{ feature }}</span>
         </div>
       </div>
 
@@ -110,6 +108,7 @@ import { hasPeakRate as groupHasPeakRate, formatPeakRateWindow, serverTimezoneLa
 import { planValiditySuffix } from './validity'
 import { currencySymbol } from '@/components/payment/currency'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
+import Icon from '@/components/icons/Icon.vue'
 import {
   platformAccentBarClass,
   platformBadgeLightClass,

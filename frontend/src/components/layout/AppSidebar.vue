@@ -41,6 +41,7 @@
                   'sidebar-link-collapsed': sidebarCollapsed
                 }"
                 :title="sidebarCollapsed ? item.label : undefined"
+                :aria-expanded="isGroupExpanded(item)"
                 @click="handleGroupClick(item)"
               >
                 <component :is="item.icon" class="h-5 w-5 flex-shrink-0" />
@@ -186,7 +187,8 @@
   <transition name="fade">
     <div
       v-if="mobileOpen"
-      class="fixed inset-0 z-30 bg-black/50 lg:hidden"
+      class="fixed inset-0 z-[35] bg-black/50 lg:hidden"
+      aria-hidden="true"
       @click="closeMobile"
     ></div>
   </transition>
@@ -935,7 +937,20 @@ watch(
   { immediate: true }
 )
 
+watch(
+  mobileOpen,
+  (isOpen) => {
+    document.body.classList.toggle('sidebar-open', isOpen)
+  },
+  { immediate: true }
+)
+
+function handleGlobalKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && mobileOpen.value) closeMobile()
+}
+
 onMounted(() => {
+  document.addEventListener('keydown', handleGlobalKeydown)
   void refreshBatchImageAccess()
   if (isAdmin.value) {
     adminSettingsStore.fetch()
@@ -951,6 +966,8 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleGlobalKeydown)
+  document.body.classList.remove('sidebar-open')
   if (sidebarNavRef.value) {
     appStore.sidebarScrollTop = sidebarNavRef.value.scrollTop
   }
@@ -958,6 +975,10 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.sidebar {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 .sidebar-header-collapsed {
   gap: 0;
   padding-left: 1.125rem;

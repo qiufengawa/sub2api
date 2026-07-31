@@ -3,8 +3,8 @@
     <TablePageLayout>
       <template #filters>
         <div class="flex flex-col gap-2">
-          <div class="flex flex-col gap-2 2xl:flex-row 2xl:items-center 2xl:justify-between">
-            <div class="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[240px_148px_136px_144px] 2xl:w-auto">
+          <div class="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+            <div class="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[220px_140px_132px_140px] xl:w-auto">
               <div class="min-w-0">
                 <SearchInput
                   v-model="filters.taskName"
@@ -17,11 +17,11 @@
               <Select v-model="filters.status" :options="statusFilterOptions" class="w-full" @change="applyFilters" />
               <Select v-model="filters.downloaded" :options="downloadFilterOptions" class="w-full" @change="applyFilters" />
             </div>
-            <div class="flex flex-wrap items-center justify-start gap-2 sm:justify-end 2xl:flex-shrink-0">
+            <div class="flex flex-wrap items-center justify-start gap-2 sm:justify-end xl:flex-shrink-0">
               <button type="button" class="btn btn-secondary" :disabled="loadingJobs" @click="resetFilters">
                 {{ t('common.reset') }}
               </button>
-              <button type="button" class="btn btn-secondary" :disabled="loadingKeys || loadingJobs" :title="t('common.refresh')" @click="refreshPage">
+              <button type="button" class="btn btn-secondary btn-icon" :disabled="loadingKeys || loadingJobs" :title="t('common.refresh')" :aria-label="t('common.refresh')" @click="refreshPage">
                 <Icon name="refresh" size="md" :class="loadingKeys || loadingJobs ? 'animate-spin' : ''" />
               </button>
               <button type="button" class="btn btn-secondary" @click="showGuideModal = true">
@@ -37,7 +37,7 @@
 
           <div
             v-if="selectedJobIds.size"
-            class="flex flex-wrap items-center justify-between gap-2 rounded-[4px] border border-gray-200 bg-white px-3 py-2 dark:border-dark-700 dark:bg-dark-800"
+            class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 px-1 pt-2 dark:border-dark-700"
           >
             <i18n-t
               keypath="batchImage.list.selectedJobs"
@@ -80,6 +80,7 @@
           :data="visibleBatchJobs"
           :loading="loadingKeys || loadingJobs"
           :expandable-actions="false"
+          mobile-table
           row-key="id"
         >
           <template #header-select>
@@ -141,7 +142,7 @@
 	          </template>
 
           <template #cell-api_key_name="{ value }">
-            <span class="block truncate text-center text-sm text-gray-700 dark:text-gray-300">
+            <span class="block max-w-[130px] truncate text-center text-sm text-gray-700 dark:text-gray-300" :title="value || t('batchImage.list.keyNotRecorded')">
               {{ value || t('batchImage.list.keyNotRecorded') }}
             </span>
           </template>
@@ -164,13 +165,13 @@
           </template>
 
           <template #cell-cost="{ row }">
-            <span class="block text-center text-sm text-gray-700 dark:text-gray-300">
+            <span class="block max-w-[100px] truncate text-center text-sm text-gray-700 dark:text-gray-300" :title="costLabel(displayJob(row))">
               {{ costLabel(displayJob(row)) }}
             </span>
           </template>
 
           <template #cell-downloaded="{ row }">
-            <span class="block text-center text-sm" :class="row.downloaded_at ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-500 dark:text-gray-400'">
+            <span class="block max-w-[120px] truncate text-center text-sm" :title="row.downloaded_at ? formatDate(row.downloaded_at) : t('batchImage.list.notDownloaded')" :class="row.downloaded_at ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-500 dark:text-gray-400'">
               {{ row.downloaded_at ? formatDate(row.downloaded_at) : t('batchImage.list.notDownloaded') }}
             </span>
           </template>

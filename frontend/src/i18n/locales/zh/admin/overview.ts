@@ -666,6 +666,7 @@ export default {
       totalRecharged: '总充值',
       // Settings Dropdowns
       filterSettings: '筛选设置',
+      advancedFilters: '高级筛选',
       columnSettings: '列设置',
       filterValue: '输入值',
       // User Attributes

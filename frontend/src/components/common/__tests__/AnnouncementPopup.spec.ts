@@ -126,4 +126,21 @@ describe('AnnouncementPopup', () => {
     expect(wrapper.emitted('close')).toBeUndefined()
     wrapper.unmount()
   })
+
+  it('allows a user popup to be dismissed with Escape', async () => {
+    const store = useAnnouncementStore()
+    store.currentPopup = announcement
+    const dismissPopup = vi.spyOn(store, 'dismissPopup').mockResolvedValue()
+    const wrapper = mount(AnnouncementPopup)
+
+    document.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    }))
+    await wrapper.vm.$nextTick()
+
+    expect(dismissPopup).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
 })

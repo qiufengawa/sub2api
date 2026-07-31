@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import Icon from '@/components/icons/Icon.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import { adminAPI } from '@/api'
 import { opsAPI } from '@/api/admin/ops'
@@ -391,7 +392,7 @@ function cancelDelete() {
 </script>
 
 <template>
-  <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-900/5 dark:bg-dark-800 dark:ring-dark-700">
+  <div class="rounded-[4px] border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-800">
     <div class="mb-4 flex flex-wrap items-start justify-between gap-3 sm:gap-4">
       <div>
         <h3 class="text-sm font-bold text-gray-900 dark:text-white">{{ t('admin.ops.alertRules.title') }}</h3>
@@ -399,23 +400,24 @@ function cancelDelete() {
       </div>
 
       <div class="flex items-center gap-2">
-        <button class="btn btn-sm btn-primary" :disabled="loading" @click="openCreate">
+        <button type="button" class="btn btn-sm btn-primary" :disabled="loading" @click="openCreate">
+          <Icon name="plus" size="sm" class="mr-1" />
           {{ t('admin.ops.alertRules.create') }}
         </button>
         <button
-          class="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600"
+          type="button"
+          class="btn btn-secondary btn-icon"
           :disabled="loading"
+          :title="t('common.refresh')"
+          :aria-label="t('common.refresh')"
           @click="load"
         >
-          <svg class="h-3.5 w-3.5" :class="{ 'animate-spin': loading }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          {{ t('common.refresh') }}
+          <Icon name="refresh" size="sm" :class="{ 'animate-spin': loading }" />
         </button>
       </div>
     </div>
 
-    <div v-if="loading" class="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+    <div v-if="loading" class="py-10 text-center text-sm text-gray-500 dark:text-gray-400" role="status">
       {{ t('admin.ops.alertRules.loading') }}
     </div>
 
@@ -523,18 +525,18 @@ function cancelDelete() {
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div class="md:col-span-2">
-            <label class="input-label">{{ t('admin.ops.alertRules.form.name') }}</label>
-            <input v-model="draft!.name" class="input" type="text" />
+            <label for="ops-alert-rule-name" class="input-label">{{ t('admin.ops.alertRules.form.name') }}</label>
+            <input id="ops-alert-rule-name" v-model="draft!.name" class="input" type="text" />
           </div>
 
           <div class="md:col-span-2">
-            <label class="input-label">{{ t('admin.ops.alertRules.form.description') }}</label>
-            <input v-model="draft!.description" class="input" type="text" />
+            <label for="ops-alert-rule-description" class="input-label">{{ t('admin.ops.alertRules.form.description') }}</label>
+            <input id="ops-alert-rule-description" v-model="draft!.description" class="input" type="text" />
           </div>
 
           <div>
-            <label class="input-label">{{ t('admin.ops.alertRules.form.metric') }}</label>
-            <Select v-model="draft!.metric_type" :options="metricOptions" />
+            <label for="ops-alert-rule-metric" class="input-label">{{ t('admin.ops.alertRules.form.metric') }}</label>
+            <Select id="ops-alert-rule-metric" v-model="draft!.metric_type" :options="metricOptions" :aria-label="t('admin.ops.alertRules.form.metric')" />
             <div v-if="selectedMetricDefinition" class="mt-1 space-y-0.5 text-xs text-gray-500 dark:text-gray-400">
               <p>{{ selectedMetricDefinition.description }}</p>
               <p>
@@ -550,21 +552,23 @@ function cancelDelete() {
           </div>
 
           <div>
-            <label class="input-label">{{ t('admin.ops.alertRules.form.operator') }}</label>
-            <Select v-model="draft!.operator" :options="operatorOptions" />
+            <label for="ops-alert-rule-operator" class="input-label">{{ t('admin.ops.alertRules.form.operator') }}</label>
+            <Select id="ops-alert-rule-operator" v-model="draft!.operator" :options="operatorOptions" :aria-label="t('admin.ops.alertRules.form.operator')" />
           </div>
 
           <div class="md:col-span-2">
-            <label class="input-label">
+            <label for="ops-alert-rule-group" class="input-label">
               {{ t('admin.ops.alertRules.form.groupId') }}
               <span v-if="isGroupMetricSelected" class="ml-1 text-red-500">*</span>
             </label>
             <Select
+              id="ops-alert-rule-group"
               v-model="draftGroupId"
               :options="groupOptions"
               searchable
               :placeholder="t('admin.ops.alertRules.form.groupPlaceholder')"
               :error="isGroupMetricSelected && !draftGroupId"
+              :aria-label="t('admin.ops.alertRules.form.groupId')"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ isGroupMetricSelected ? t('admin.ops.alertRules.hints.groupRequired') : t('admin.ops.alertRules.hints.groupOptional') }}
@@ -572,39 +576,39 @@ function cancelDelete() {
           </div>
 
           <div>
-            <label class="input-label">{{ t('admin.ops.alertRules.form.threshold') }}</label>
-            <input v-model.number="draft!.threshold" class="input" type="number" />
+            <label for="ops-alert-rule-threshold" class="input-label">{{ t('admin.ops.alertRules.form.threshold') }}</label>
+            <input id="ops-alert-rule-threshold" v-model.number="draft!.threshold" class="input" type="number" />
           </div>
 
           <div>
-            <label class="input-label">{{ t('admin.ops.alertRules.form.severity') }}</label>
-            <Select v-model="draft!.severity" :options="severityOptions" />
+            <label for="ops-alert-rule-severity" class="input-label">{{ t('admin.ops.alertRules.form.severity') }}</label>
+            <Select id="ops-alert-rule-severity" v-model="draft!.severity" :options="severityOptions" :aria-label="t('admin.ops.alertRules.form.severity')" />
           </div>
 
           <div>
-            <label class="input-label">{{ t('admin.ops.alertRules.form.window') }}</label>
-            <Select v-model="draft!.window_minutes" :options="windowOptions" />
+            <label for="ops-alert-rule-window" class="input-label">{{ t('admin.ops.alertRules.form.window') }}</label>
+            <Select id="ops-alert-rule-window" v-model="draft!.window_minutes" :options="windowOptions" :aria-label="t('admin.ops.alertRules.form.window')" />
           </div>
 
           <div>
-            <label class="input-label">{{ t('admin.ops.alertRules.form.sustained') }}</label>
-            <input v-model.number="draft!.sustained_minutes" class="input" type="number" min="1" max="1440" />
+            <label for="ops-alert-rule-sustained" class="input-label">{{ t('admin.ops.alertRules.form.sustained') }}</label>
+            <input id="ops-alert-rule-sustained" v-model.number="draft!.sustained_minutes" class="input" type="number" min="1" max="1440" />
           </div>
 
           <div>
-            <label class="input-label">{{ t('admin.ops.alertRules.form.cooldown') }}</label>
-            <input v-model.number="draft!.cooldown_minutes" class="input" type="number" min="0" max="1440" />
+            <label for="ops-alert-rule-cooldown" class="input-label">{{ t('admin.ops.alertRules.form.cooldown') }}</label>
+            <input id="ops-alert-rule-cooldown" v-model.number="draft!.cooldown_minutes" class="input" type="number" min="0" max="1440" />
           </div>
 
-          <div class="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3 dark:bg-dark-800/50 md:col-span-2">
+          <label class="flex items-center justify-between border-t border-gray-200 py-3 dark:border-dark-700 md:col-span-2">
             <span class="text-xs font-bold text-gray-700 dark:text-gray-200">{{ t('admin.ops.alertRules.form.enabled') }}</span>
             <input v-model="draft!.enabled" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-          </div>
+          </label>
 
-          <div class="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3 dark:bg-dark-800/50 md:col-span-2">
+          <label class="flex items-center justify-between border-t border-gray-200 py-3 dark:border-dark-700 md:col-span-2">
             <span class="text-xs font-bold text-gray-700 dark:text-gray-200">{{ t('admin.ops.alertRules.form.notifyEmail') }}</span>
             <input v-model="draft!.notify_email" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-          </div>
+          </label>
         </div>
       </div>
 

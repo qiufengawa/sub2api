@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="mx-auto max-w-6xl space-y-6">
+    <div class="mx-auto w-full min-w-0 max-w-6xl space-y-6">
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-12">
         <div
@@ -9,7 +9,7 @@
       </div>
 
       <!-- Settings Form -->
-      <form v-else @submit.prevent="saveSettings" class="space-y-6" novalidate>
+      <form v-else @submit.prevent="saveSettings" class="min-w-0 space-y-6" novalidate>
         <!-- Tab Navigation -->
         <div class="settings-tabs-shell">
           <nav
@@ -45,9 +45,9 @@
         </div>
 
         <!-- Tab: Security — Admin API Key -->
-        <div v-show="activeTab === 'security'" class="space-y-6">
+        <div v-show="activeTab === 'security'" class="settings-panel">
           <!-- Admin API Key Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -202,9 +202,9 @@
         <!-- /Tab: Security — Admin API Key -->
 
         <!-- Tab: Gateway -->
-        <div v-show="activeTab === 'gateway'" class="space-y-6">
+        <div v-show="activeTab === 'gateway'" class="settings-panel">
           <!-- Overload Cooldown (529) Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -305,7 +305,7 @@
           </div>
 
           <!-- Rate Limit Cooldown (429) Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -412,7 +412,7 @@
           </div>
 
           <!-- Stream Timeout Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -592,7 +592,7 @@
           </div>
 
           <!-- Request Rectifier Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -791,7 +791,7 @@
             </div>
           </div>
           <!-- Beta Policy Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -1070,7 +1070,7 @@
             </div>
           </div>
           <!-- OpenAI Fast/Flex Policy Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -1373,9 +1373,9 @@
         <!-- /Tab: Gateway -->
 
         <!-- Tab: Security — Registration, Turnstile, LinuxDo -->
-        <div v-show="activeTab === 'security'" class="space-y-6">
+        <div v-show="activeTab === 'security'" class="settings-panel">
           <!-- Registration Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -1687,7 +1687,7 @@
           </div>
 
           <!-- API Key IP ACL Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -1774,7 +1774,7 @@
           </div>
 
           <!-- Panel API Rate Limit Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -1965,7 +1965,7 @@
           </div>
 
           <!-- Cloudflare Turnstile Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -2048,7 +2048,7 @@
           </div>
 
           <!-- LinuxDo Connect OAuth 登录 -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -2166,7 +2166,7 @@
           </div>
 
           <!-- GitHub / Google 邮箱快捷登录 -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -2392,7 +2392,7 @@
           </div>
 
           <!-- WeChat Connect OAuth 登录 -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -2734,7 +2734,7 @@
           </div>
 
           <!-- DingTalk Connect OAuth 登录 -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -3022,7 +3022,7 @@
           </div>
 
           <!-- Generic OIDC OAuth 登录 -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -3433,9 +3433,9 @@
         <!-- /Tab: Security — Registration, Turnstile, LinuxDo, OIDC -->
 
         <!-- Tab: Users -->
-        <div v-show="activeTab === 'users'" class="space-y-6">
+        <div v-show="activeTab === 'users'" class="settings-panel">
           <!-- Default Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -3708,7 +3708,7 @@
             </div>
           </div>
 
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -4049,9 +4049,9 @@
         <!-- /Tab: Users -->
 
         <!-- Tab: Gateway — Claude Code, Scheduling -->
-        <div v-show="activeTab === 'gateway'" class="space-y-6">
+        <div v-show="activeTab === 'gateway'" class="settings-panel">
           <!-- Claude Code Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -4103,7 +4103,7 @@
           </div>
 
           <!-- Codex Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -4351,7 +4351,7 @@
           </div>
 
           <!-- Upstream Billing Probe Settings -->
-          <div class="card" data-testid="upstream-billing-probe-settings">
+          <div class="settings-section" data-testid="upstream-billing-probe-settings">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -4437,7 +4437,7 @@
           </div>
 
           <!-- Ollama Cloud Usage Settings -->
-          <div class="card" data-testid="ollama-cloud-usage-global-settings">
+          <div class="settings-section" data-testid="ollama-cloud-usage-global-settings">
             <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
               <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
                 {{ t("admin.settings.ollamaCloudUsage.title") }}
@@ -4521,7 +4521,7 @@
           </div>
 
           <!-- Gateway Scheduling Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -4730,7 +4730,7 @@
           </div>
 
           <!-- Gateway Forwarding Behavior -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -5169,7 +5169,7 @@
           </div>
 
           <!-- Web Search Emulation -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -5605,7 +5605,7 @@
           </div>
 
         <!-- Usage Records Settings -->
-        <div class="card">
+        <div class="settings-section">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
               {{ t('admin.settings.usageRecords.title') }}
@@ -5636,9 +5636,9 @@
         <!-- /Tab: Gateway — Claude Code, Scheduling -->
 
         <!-- Tab: General -->
-        <div v-show="activeTab === 'general'" class="space-y-6">
+        <div v-show="activeTab === 'general'" class="settings-panel">
           <!-- Site Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -5992,7 +5992,7 @@
           </div>
 
           <!-- Custom Menu Items -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -6185,8 +6185,8 @@
 	        <!-- /Tab: General -->
 
 	        <!-- Tab: Login Agreement -->
-	        <div v-show="activeTab === 'agreement'" class="space-y-6">
-	          <div class="card">
+	        <div v-show="activeTab === 'agreement'" class="settings-panel">
+	          <div class="settings-section">
 	            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
 	              <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 	                <div>
@@ -6387,9 +6387,9 @@
         <!-- /Tab: Login Agreement -->
 
 	        <!-- Tab: Features (功能开关) -->
-        <div v-show="activeTab === 'features'" class="space-y-6">
+        <div v-show="activeTab === 'features'" class="settings-panel">
 
-        <div class="card">
+        <div class="settings-section">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
               {{ t('admin.settings.features.channelMonitor.title') }}
@@ -6439,7 +6439,7 @@
           </div>
         </div>
 
-        <div class="card">
+        <div class="settings-section">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
               {{ t('admin.settings.features.availableChannels.title') }}
@@ -6472,7 +6472,7 @@
           </div>
         </div>
 
-        <div class="card">
+        <div class="settings-section">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
               {{ t('admin.settings.features.modelPlaza.title') }}
@@ -6522,7 +6522,7 @@
           </div>
         </div>
 
-        <div class="card">
+        <div class="settings-section">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
               {{ t('admin.settings.features.riskControl.title') }}
@@ -6581,7 +6581,7 @@
         </div>
 
         <!-- Affiliate (邀请返利) feature card -->
-        <div class="card">
+        <div class="settings-section">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
               {{ t('admin.settings.features.affiliate.title') }}
@@ -6996,9 +6996,9 @@
 
         <!-- Tab: Email -->
         <!-- Tab: Payment -->
-        <div v-show="activeTab === 'payment'" class="space-y-6">
+        <div v-show="activeTab === 'payment'" class="settings-panel">
           <!-- Payment System Settings -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -7547,9 +7547,9 @@
           />
         </div>
 
-        <div v-show="activeTab === 'email'" class="space-y-6">
+        <div v-show="activeTab === 'email'" class="settings-panel">
           <!-- Email disabled hint - show when email_verify_enabled is off -->
-          <div v-if="!form.email_verify_enabled" class="card">
+          <div v-if="!form.email_verify_enabled" class="settings-section">
             <div class="p-6">
               <div class="flex items-start gap-3">
                 <Icon
@@ -7570,7 +7570,7 @@
           </div>
 
           <!-- SMTP Settings - Only show when email verification is enabled -->
-          <div v-if="form.email_verify_enabled" class="card">
+          <div v-if="form.email_verify_enabled" class="settings-section">
             <div
               class="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -7733,7 +7733,7 @@
           </div>
 
           <!-- Send Test Email - Only show when email verification is enabled -->
-          <div v-if="form.email_verify_enabled" class="card">
+          <div v-if="form.email_verify_enabled" class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -7800,7 +7800,7 @@
           </div>
 
           <!-- 订阅到期提醒 -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -7831,7 +7831,7 @@
           <EmailTemplateEditor />
 
           <!-- Balance Low Notification -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -7891,7 +7891,7 @@
           </div>
 
           <!-- Account Quota Notification -->
-          <div class="card">
+          <div class="settings-section">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -7969,7 +7969,7 @@
         <!-- /Tab: Email -->
 
         <!-- Tab: Backup -->
-        <div v-show="activeTab === 'backup'">
+        <div v-show="activeTab === 'backup'" class="settings-panel settings-panel-embedded">
           <BackupSettings />
         </div>
 
@@ -8177,6 +8177,11 @@ const settingsTabKeyboardActions = {
 
 function selectSettingsTab(tab: SettingsTab): void {
   activeTab.value = tab;
+  window.requestAnimationFrame(() => {
+    document
+      .getElementById(`settings-tab-${tab}`)
+      ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  });
 }
 
 function focusSettingsTab(tab: SettingsTab): void {
@@ -12047,23 +12052,34 @@ watch(
   @apply h-[42px];
 }
 
+/* One settings surface per logical tab block. Individual settings remain
+   sections separated by rules instead of independent nested cards. */
+.settings-panel {
+  @apply overflow-hidden rounded-[4px] border border-gray-200 bg-white shadow-none dark:border-dark-700 dark:bg-dark-800/50;
+}
+
+.settings-panel-embedded {
+  @apply overflow-visible border-0 bg-transparent;
+}
+
+.settings-section {
+  @apply bg-transparent;
+}
+
+.settings-section + .settings-section {
+  @apply border-t border-gray-200 dark:border-dark-700;
+}
+
 /* ============ 系统设置 Tab 导航 ============ */
 .settings-tabs-shell {
-  @apply sticky z-20 -mx-1 rounded-2xl border border-white/80 bg-white/90 p-1.5 backdrop-blur-xl;
-  top: 4.75rem;
-  box-shadow:
-    0 12px 28px rgb(15 23 42 / 0.07),
-    0 1px 0 rgb(255 255 255 / 0.9) inset;
+  @apply sticky z-20 -mx-1 max-w-full min-w-0 rounded-[4px] border border-gray-200 bg-white/95 p-1.5 backdrop-blur-sm dark:border-dark-700 dark:bg-dark-900/95;
+  top: calc(var(--app-header-height, 4rem) + 0.75rem);
 }
 
 .settings-tabs-scroll {
-  @apply overflow-x-auto;
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.settings-tabs-scroll::-webkit-scrollbar {
-  display: none;
+  @apply w-full max-w-full min-w-0 overflow-x-auto;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
 }
 
 .settings-tabs {
@@ -12071,10 +12087,11 @@ watch(
 }
 
 .settings-tab {
-  @apply relative isolate flex h-10 min-w-[6.75rem] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-transparent px-3 text-sm font-medium text-gray-600 outline-none transition-colors duration-200 ease-out dark:text-gray-300;
+  @apply relative isolate flex h-10 min-w-[6.75rem] shrink-0 scroll-mx-4 items-center justify-center gap-1.5 whitespace-nowrap rounded-[3px] border border-transparent px-3 text-sm font-medium text-gray-600 outline-none transition-colors duration-150 dark:text-gray-300;
+  scroll-margin-top: calc(var(--app-header-height, 4rem) + 1rem);
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1280px) {
   .settings-tabs {
     @apply min-w-full;
   }
@@ -12089,9 +12106,8 @@ watch(
 }
 
 .settings-tab::before {
-  @apply absolute inset-0 -z-10 rounded-xl opacity-0 transition-opacity duration-200;
+  @apply absolute inset-0 -z-10 rounded-[3px] bg-gray-50 opacity-0 transition-opacity duration-150 dark:bg-dark-800;
   content: "";
-  background: linear-gradient(135deg, rgb(248 250 252 / 0.95), rgb(241 245 249 / 0.8));
 }
 
 .settings-tab:hover::before,
@@ -12104,10 +12120,7 @@ watch(
 }
 
 .settings-tab-active {
-  @apply border-primary-200/80 bg-white text-primary-700 shadow-sm dark:border-primary-400/30 dark:bg-dark-700/95 dark:text-primary-200;
-  box-shadow:
-    0 8px 18px rgb(15 23 42 / 0.08),
-    0 1px 0 rgb(255 255 255 / 0.92) inset;
+  @apply border-primary-200 bg-primary-50 text-primary-700 dark:border-primary-700 dark:bg-primary-950/40 dark:text-primary-200;
 }
 
 .settings-tab-active::before {
@@ -12122,11 +12135,11 @@ watch(
   height: 2px;
   border-radius: 9999px;
   content: "";
-  background: linear-gradient(90deg, #14b8a6, #0ea5e9);
+  background: rgb(37 99 235);
 }
 
 .settings-tab-icon {
-  @apply flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors duration-200 dark:text-gray-400;
+  @apply flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px] text-gray-500 transition-colors duration-150 dark:text-gray-400;
 }
 
 .settings-tab:hover .settings-tab-icon,
@@ -12149,19 +12162,10 @@ watch(
    rules in the production build, leaving inactive tabs unreadable on dark. */
 .dark .settings-tabs-shell {
   border-color: rgb(51 65 85 / 0.65);
-  background: rgb(15 23 42 / 0.86);
-  box-shadow:
-    0 16px 36px rgb(0 0 0 / 0.28),
-    0 1px 0 rgb(255 255 255 / 0.06) inset;
+  background: rgb(15 23 42 / 0.95);
 }
 
 .dark .settings-tab::before {
-  background: linear-gradient(135deg, rgb(30 41 59 / 0.9), rgb(51 65 85 / 0.62));
-}
-
-.dark .settings-tab-active {
-  box-shadow:
-    0 12px 26px rgb(0 0 0 / 0.22),
-    0 1px 0 rgb(255 255 255 / 0.08) inset;
+  background: rgb(30 41 59 / 0.9);
 }
 </style>

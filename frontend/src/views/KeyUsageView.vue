@@ -1,11 +1,11 @@
 <template>
   <div class="relative flex min-h-screen flex-col bg-gray-50 dark:bg-dark-950">
     <!-- Header (same pattern as HomeView) -->
-    <header class="relative z-20 px-6 py-4">
+    <header class="relative z-20 px-4 py-4 sm:px-6">
       <nav class="mx-auto flex max-w-6xl items-center justify-between">
         <router-link to="/home" class="flex items-center gap-3">
-          <div class="h-10 w-10 overflow-hidden rounded-xl shadow-md">
-            <img :src="siteLogo || '/logo.svg'" alt="Logo" class="h-full w-full object-contain" />
+          <div class="h-10 w-10 overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900">
+            <img :src="siteLogo || '/logo.svg'" :alt="siteName" class="h-full w-full object-contain" />
           </div>
           <span class="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">{{ siteName }}</span>
         </router-link>
@@ -16,14 +16,17 @@
             :href="docUrl"
             target="_blank"
             rel="noopener noreferrer"
-            class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white"
+            class="btn btn-ghost btn-icon"
+            :aria-label="t('home.viewDocs')"
             :title="t('home.viewDocs')"
           >
             <Icon name="book" size="md" />
           </a>
           <button
+            type="button"
             @click="toggleTheme"
-            class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white"
+            class="btn btn-ghost btn-icon"
+            :aria-label="isDark ? t('home.switchToLight') : t('home.switchToDark')"
             :title="isDark ? t('home.switchToLight') : t('home.switchToDark')"
           >
             <Icon v-if="isDark" name="sun" size="md" />
@@ -34,10 +37,10 @@
     </header>
 
     <!-- Main Content -->
-    <main class="flex-1 w-full max-w-5xl mx-auto px-6 py-12">
+    <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-7 sm:px-6 sm:py-10">
       <!-- Hero -->
-      <div class="text-center mb-12">
-        <h1 class="text-3xl sm:text-4xl font-bold tracking-tight mb-3 text-gray-900 dark:text-white">
+      <div class="mb-7 text-center sm:mb-9">
+        <h1 class="mb-2 text-3xl font-semibold text-gray-900 dark:text-white">
           {{ t('keyUsage.title') }}
         </h1>
         <p class="text-gray-500 dark:text-dark-400 text-base max-w-md mx-auto">
@@ -46,46 +49,47 @@
       </div>
 
       <!-- Input Section -->
-      <div class="max-w-xl mx-auto mb-14">
-        <div class="flex gap-3">
-          <div class="flex-1 relative">
+      <div class="mx-auto mb-8 max-w-2xl sm:mb-10">
+        <div class="flex flex-col gap-3 sm:flex-row" data-testid="key-query-row">
+          <div class="relative min-w-0 flex-1">
+            <label for="key-usage-api-key" class="sr-only">{{ t('keyUsage.title') }}</label>
             <div class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-dark-500">
-              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
+              <Icon name="lock" size="md" />
             </div>
             <input
+              id="key-usage-api-key"
               v-model="apiKey"
               :type="keyVisible ? 'text' : 'password'"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck="false"
               :placeholder="t('keyUsage.placeholder')"
-              class="input-ring w-full h-12 pl-12 pr-12 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 placeholder:text-gray-400 transition-all dark:border-dark-700 dark:bg-dark-900 dark:text-white dark:placeholder:text-dark-500"
+              class="input-ring h-11 w-full rounded-[4px] border border-gray-200 bg-white pl-12 pr-12 text-sm text-gray-900 placeholder:text-gray-400 transition-all dark:border-dark-700 dark:bg-dark-900 dark:text-white dark:placeholder:text-dark-500"
               @keydown.enter="queryKey"
             />
             <button
+              type="button"
+              :aria-label="keyVisible ? t('keyUsage.hideApiKey') : t('keyUsage.showApiKey')"
+              :title="keyVisible ? t('keyUsage.hideApiKey') : t('keyUsage.showApiKey')"
+              data-testid="key-visibility-toggle"
               @click="keyVisible = !keyVisible"
               class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 dark:text-dark-500 dark:hover:text-white transition-colors"
             >
-              <svg v-if="!keyVisible" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                <line x1="1" y1="1" x2="23" y2="23"/>
-              </svg>
-              <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-              </svg>
+              <Icon :name="keyVisible ? 'eyeOff' : 'eye'" size="md" />
             </button>
           </div>
           <button
+            type="button"
             @click="queryKey"
             :disabled="isQuerying"
-            class="h-12 px-7 rounded-xl bg-primary-500 hover:bg-primary-600 text-white font-medium text-sm transition-all active:scale-[0.97] flex items-center gap-2 whitespace-nowrap disabled:opacity-60"
+            :aria-busy="isQuerying"
+            class="btn btn-primary h-11 w-full whitespace-nowrap px-6 sm:w-auto"
           >
-            <svg v-if="isQuerying" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+            <svg v-if="isQuerying" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
               <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
             </svg>
-            <svg v-else class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
+            <Icon v-else name="search" size="sm" />
             {{ isQuerying ? t('keyUsage.querying') : t('keyUsage.query') }}
           </button>
         </div>
@@ -94,33 +98,42 @@
         </p>
 
         <!-- Date Range Picker -->
-        <div v-if="showDatePicker" class="mt-4">
-          <div class="flex flex-wrap items-center gap-2 justify-center">
-            <span class="text-xs text-gray-500 dark:text-dark-400">{{ t('keyUsage.dateRange') }}</span>
+        <div v-if="showDatePicker" class="mt-4 border-t border-gray-200 pt-4 dark:border-dark-700">
+          <div class="flex flex-wrap items-center justify-start gap-2 sm:justify-center">
+            <span class="w-full text-xs text-gray-500 sm:w-auto dark:text-dark-400">{{ t('keyUsage.dateRange') }}</span>
             <button
               v-for="range in dateRanges"
               :key="range.key"
+              type="button"
               @click="setDateRange(range.key)"
-              class="text-xs px-3 py-1.5 rounded-lg border transition-all"
+              :aria-pressed="currentRange === range.key"
+              class="rounded-[3px] border px-3 py-1.5 text-xs transition-colors"
               :class="currentRange === range.key
                 ? 'bg-primary-500 text-white border-primary-500'
                 : 'border-gray-200 bg-white text-gray-700 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-200 hover:border-primary-300 dark:hover:border-dark-600'"
             >{{ range.label }}</button>
-            <div v-if="currentRange === 'custom'" class="flex items-center gap-2 ml-1">
+            <div
+              v-if="currentRange === 'custom'"
+              class="flex w-full flex-col gap-2 sm:ml-1 sm:w-auto sm:flex-row sm:items-center"
+              data-testid="custom-date-range"
+            >
               <input
+                :aria-label="t('keyUsage.customStartDate')"
                 v-model="customStartDate"
                 type="date"
-                class="input-ring text-xs px-2 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-900 dark:border-dark-700 dark:bg-dark-900 dark:text-white"
+                class="input-ring w-full rounded-[3px] border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-900 sm:w-auto dark:border-dark-700 dark:bg-dark-900 dark:text-white"
               />
-              <span class="text-xs text-gray-400">-</span>
+              <span class="hidden text-xs text-gray-400 sm:inline">-</span>
               <input
+                :aria-label="t('keyUsage.customEndDate')"
                 v-model="customEndDate"
                 type="date"
-                class="input-ring text-xs px-2 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-900 dark:border-dark-700 dark:bg-dark-900 dark:text-white"
+                class="input-ring w-full rounded-[3px] border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-900 sm:w-auto dark:border-dark-700 dark:bg-dark-900 dark:text-white"
               />
               <button
+                type="button"
                 @click="queryKey"
-                class="text-xs px-3 py-1.5 rounded-lg bg-primary-500 text-white hover:bg-primary-600"
+                class="btn btn-primary btn-sm w-full sm:w-auto"
               >{{ t('keyUsage.apply') }}</button>
             </div>
           </div>
@@ -128,20 +141,21 @@
       </div>
 
       <!-- Results Container -->
-      <div v-if="showResults">
+      <div v-if="showResults" :aria-busy="showLoading" aria-live="polite">
         <!-- Loading Skeleton -->
-        <div v-if="showLoading" class="space-y-6">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="rounded-2xl border border-gray-200 bg-white p-8 dark:border-dark-700 dark:bg-dark-900">
+        <div v-if="showLoading" class="space-y-6" role="status">
+          <span class="sr-only">{{ t('keyUsage.querying') }}</span>
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div class="rounded-[4px] border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900 sm:p-6">
               <div class="skeleton h-5 w-24 mb-6"></div>
               <div class="flex justify-center"><div class="skeleton w-44 h-44 rounded-full"></div></div>
             </div>
-            <div class="rounded-2xl border border-gray-200 bg-white p-8 dark:border-dark-700 dark:bg-dark-900">
+            <div class="rounded-[4px] border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900 sm:p-6">
               <div class="skeleton h-5 w-24 mb-6"></div>
               <div class="flex justify-center"><div class="skeleton w-44 h-44 rounded-full"></div></div>
             </div>
           </div>
-          <div class="rounded-2xl border border-gray-200 bg-white p-8 dark:border-dark-700 dark:bg-dark-900">
+          <div class="rounded-[4px] border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900 sm:p-6">
             <div class="skeleton h-5 w-32 mb-6"></div>
             <div class="space-y-4">
               <div class="skeleton h-4 w-full"></div>
@@ -153,10 +167,10 @@
         </div>
 
         <!-- Result Content -->
-        <div v-else-if="resultData" class="space-y-6">
+        <div v-else-if="resultData" class="space-y-4">
           <!-- Status Badge -->
-          <div v-if="statusInfo" class="fade-up flex items-center justify-center mb-2">
-            <div class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 bg-white/90 shadow-sm backdrop-blur-sm dark:border-dark-700 dark:bg-dark-900/90">
+          <div v-if="statusInfo" class="fade-up flex items-center justify-center border-y border-gray-200 py-3 dark:border-dark-700">
+            <div class="inline-flex items-center gap-2 px-2">
               <span
                 class="w-2.5 h-2.5 rounded-full pulse-dot"
                 :class="statusInfo.isActive ? 'bg-emerald-500' : 'bg-rose-500'"
@@ -172,29 +186,18 @@
             <div
               v-for="(ring, i) in ringItems"
               :key="i"
-              class="fade-up rounded-2xl border border-gray-200 bg-white/90 p-8 backdrop-blur-sm transition-all duration-300 hover:shadow-lg dark:border-dark-700 dark:bg-dark-900/90"
+              class="fade-up rounded-[4px] border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900 sm:p-6"
               :class="`fade-up-delay-${Math.min(i + 1, 4)}`"
             >
-              <div class="flex items-center justify-between mb-6">
+              <div class="mb-4 flex items-center justify-between">
                 <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">
                   {{ ring.title }}
                 </h3>
-                <!-- Clock icon -->
-                <svg v-if="ring.iconType === 'clock'" class="w-5 h-5 text-gray-400 dark:text-dark-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                </svg>
-                <!-- Calendar icon -->
-                <svg v-else-if="ring.iconType === 'calendar'" class="w-5 h-5 text-gray-400 dark:text-dark-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-                <!-- Dollar icon -->
-                <svg v-else class="w-5 h-5 text-gray-400 dark:text-dark-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                </svg>
+                <Icon :name="ring.iconType" size="md" class="text-gray-400 dark:text-dark-500" />
               </div>
               <div class="flex justify-center">
                 <div class="relative">
-                  <svg class="w-44 h-44" viewBox="0 0 160 160">
+                  <svg class="h-40 w-40" viewBox="0 0 160 160">
                     <circle cx="80" cy="80" r="68" fill="none" :stroke="ringTrackColor" stroke-width="10"/>
                     <circle
                       class="progress-ring"
@@ -226,8 +229,9 @@
                         class="text-sm font-semibold mt-1 tabular-nums"
                         :style="{ color: RING_GRADIENTS[i % 4].from }"
                       >{{ ring.amount }}</span>
-                      <p v-if="ring.resetAt && formatResetTime(ring.resetAt)" class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 tabular-nums">
-                        ⟳ {{ formatResetTime(ring.resetAt) }}
+                      <p v-if="ring.resetAt && formatResetTime(ring.resetAt)" class="mt-0.5 inline-flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+                        <Icon name="refresh" size="xs" aria-hidden="true" />
+                        {{ t('keyUsage.resetsIn', { time: formatResetTime(ring.resetAt) }) }}
                       </p>
                     </template>
                   </div>
@@ -239,26 +243,20 @@
           <!-- Detail Card -->
           <div
             v-if="detailRows.length > 0"
-            class="fade-up fade-up-delay-3 rounded-2xl border border-gray-200 bg-white/90 backdrop-blur-sm overflow-hidden dark:border-dark-700 dark:bg-dark-900/90"
+            class="fade-up fade-up-delay-3 overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900"
           >
-            <div class="px-8 py-5 border-b border-gray-200 dark:border-dark-700">
+            <div class="border-b border-gray-200 px-4 py-4 dark:border-dark-700 sm:px-6">
               <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.detailInfo') }}</h3>
             </div>
             <div class="divide-y divide-gray-100 dark:divide-dark-800">
               <div
                 v-for="(row, i) in detailRows"
                 :key="i"
-                class="px-8 py-4 flex items-center justify-between"
+                class="flex items-center justify-between gap-4 px-4 py-3 sm:px-6"
               >
                 <div class="flex items-center gap-3">
-                  <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="row.iconBg">
-                    <svg
-                      class="w-4 h-4"
-                      :class="row.iconColor"
-                      viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                      v-html="row.iconSvg"
-                    ></svg>
+                  <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[4px]" :class="row.iconBg">
+                    <Icon :name="row.iconName" size="sm" :class="row.iconColor" />
                   </div>
                   <span class="text-sm text-gray-700 dark:text-dark-200">{{ row.label }}</span>
                 </div>
@@ -272,16 +270,16 @@
           <!-- Usage Stats Card -->
           <div
             v-if="usageStatCells.length > 0"
-            class="fade-up fade-up-delay-3 rounded-2xl border border-gray-200 bg-white/90 backdrop-blur-sm overflow-hidden dark:border-dark-700 dark:bg-dark-900/90"
+            class="fade-up fade-up-delay-3 overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900"
           >
-            <div class="px-8 py-5 border-b border-gray-200 dark:border-dark-700">
+            <div class="border-b border-gray-200 px-4 py-4 dark:border-dark-700 sm:px-6">
               <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.tokenStats') }}</h3>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-100 dark:bg-dark-800">
               <div
                 v-for="(cell, i) in usageStatCells"
                 :key="i"
-                class="bg-white px-6 py-4 dark:bg-dark-900"
+                class="bg-white px-4 py-3 dark:bg-dark-900 sm:px-5"
               >
                 <div class="text-xs text-gray-500 dark:text-dark-400 mb-1">{{ cell.label }}</div>
                 <div class="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">{{ cell.value }}</div>
@@ -292,15 +290,17 @@
           <!-- Daily Usage Table -->
           <div
             v-if="showDailyUsage"
-            class="fade-up fade-up-delay-4 rounded-2xl border border-gray-200 bg-white/90 backdrop-blur-sm overflow-hidden dark:border-dark-700 dark:bg-dark-900/90"
+            class="fade-up fade-up-delay-4 overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900"
           >
-            <div class="flex flex-col gap-3 px-8 py-5 border-b border-gray-200 dark:border-dark-700 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex flex-col gap-3 border-b border-gray-200 px-4 py-4 dark:border-dark-700 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.dailyDetail') }}</h3>
               <div class="inline-flex rounded-lg border border-gray-200 bg-white p-0.5 dark:border-dark-700 dark:bg-dark-950">
                 <button
                   v-for="option in dailyUsageOptions"
                   :key="option.value"
+                  type="button"
                   @click="setDailyUsageDays(option.value)"
+                  :aria-pressed="dailyUsageDays === option.value"
                   class="min-w-12 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
                   :class="dailyUsageDays === option.value
                     ? 'bg-primary-500 text-white'
@@ -311,7 +311,7 @@
               </div>
             </div>
             <div v-if="dailyUsageRows.length > 0" class="overflow-x-auto">
-              <table class="w-full">
+              <table class="w-full min-w-[760px]" :aria-label="t('keyUsage.dailyDetail')">
                 <thead>
                   <tr class="border-b border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-950">
                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.date') }}</th>
@@ -348,13 +348,13 @@
           <!-- Model Stats Table -->
           <div
             v-if="modelStats.length > 0"
-            class="fade-up fade-up-delay-4 rounded-2xl border border-gray-200 bg-white/90 backdrop-blur-sm overflow-hidden dark:border-dark-700 dark:bg-dark-900/90"
+            class="fade-up fade-up-delay-4 overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900"
           >
-            <div class="px-8 py-5 border-b border-gray-200 dark:border-dark-700">
+            <div class="border-b border-gray-200 px-4 py-4 dark:border-dark-700 sm:px-6">
               <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.modelStats') }}</h3>
             </div>
             <div class="overflow-x-auto">
-              <table class="w-full">
+              <table class="w-full min-w-[900px]" :aria-label="t('keyUsage.modelStats')">
                 <thead>
                   <tr class="border-b border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-950">
                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.model') }}</th>
@@ -409,7 +409,7 @@
             target="_blank"
             rel="noopener noreferrer"
             class="text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-dark-400 dark:hover:text-white"
-          >GitHub</a>
+          >{{ t('nav.github') }}</a>
         </div>
       </div>
     </footer>
@@ -589,20 +589,20 @@ const statusInfo = computed(() => {
   if (data.mode === 'quota_limited') {
     const isValid = data.isValid !== false
     const statusMap: Record<string, string> = {
-      active: 'Active',
-      quota_exhausted: 'Quota Exhausted',
-      expired: 'Expired',
+      active: t('keyUsage.statusActive'),
+      quota_exhausted: t('keyUsage.statusQuotaExhausted'),
+      expired: t('keyUsage.statusExpired'),
     }
     return {
       label: t('keyUsage.quotaMode'),
-      statusText: statusMap[data.status] || data.status || 'Unknown',
+      statusText: statusMap[data.status] || data.status || t('keyUsage.statusUnknown'),
       isActive: isValid && data.status === 'active',
     }
   }
 
   return {
     label: data.planName || t('keyUsage.walletBalance'),
-    statusText: 'Active',
+    statusText: t('keyUsage.statusActive'),
     isActive: true,
   }
 })
@@ -665,7 +665,7 @@ const ringGridClass = computed(() => {
 interface DetailRow {
   iconBg: string
   iconColor: string
-  iconSvg: string
+  iconName: 'shield' | 'calendar' | 'dollar' | 'check'
   label: string
   value: string
   valueClass: string
@@ -682,18 +682,13 @@ const detailRows = computed<DetailRow[]>(() => {
   if (!data) return []
 
   const rows: DetailRow[] = []
-  const ICON_SHIELD = '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'
-  const ICON_CALENDAR = '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
-  const ICON_DOLLAR = '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'
-  const ICON_CHECK = '<polyline points="20 6 9 17 4 12"/>'
-
   if (data.mode === 'quota_limited') {
     if (data.quota) {
       const remainColor = data.quota.remaining <= 0 ? 'text-rose-500'
         : data.quota.remaining < data.quota.limit * 0.1 ? 'text-amber-500'
         : 'text-emerald-500'
       rows.push({
-        iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconSvg: ICON_SHIELD,
+        iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconName: 'shield',
         label: t('keyUsage.remainingQuota'), value: usd(data.quota.remaining), valueClass: remainColor,
       })
     }
@@ -704,7 +699,7 @@ const detailRows = computed<DetailRow[]>(() => {
         expiryStr += daysLeft > 0 ? ` ${t('keyUsage.daysLeft', { days: daysLeft })}` : daysLeft === 0 ? ` ${t('keyUsage.todayExpires')}` : ''
       }
       rows.push({
-        iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500', iconSvg: ICON_CALENDAR,
+        iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500', iconName: 'calendar',
         label: t('keyUsage.expiresAt'), value: expiryStr, valueClass: '',
       })
     }
@@ -715,10 +710,10 @@ const detailRows = computed<DetailRow[]>(() => {
         let valueStr = `${usd(rl.used)} / ${usd(rl.limit)}`
         const resetStr = formatResetTime(rl.reset_at)
         if (resetStr) {
-          valueStr += ` (⟳ ${resetStr})`
+          valueStr += ` (${t('keyUsage.resetsIn', { time: resetStr })})`
         }
         rows.push({
-          iconBg: 'bg-primary-500/10', iconColor: 'text-primary-500', iconSvg: ICON_DOLLAR,
+          iconBg: 'bg-primary-500/10', iconColor: 'text-primary-500', iconName: 'dollar',
           label: `${t('keyUsage.usedQuota')} (${windowMap[rl.window] || rl.window})`,
           value: valueStr,
           valueClass: getUsageColor(pct),
@@ -727,7 +722,7 @@ const detailRows = computed<DetailRow[]>(() => {
     }
   } else {
     rows.push({
-      iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconSvg: ICON_CHECK,
+      iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconName: 'check',
       label: t('keyUsage.subscriptionType'), value: data.planName || t('keyUsage.walletBalance'), valueClass: '',
     })
 
@@ -736,27 +731,27 @@ const detailRows = computed<DetailRow[]>(() => {
       if (sub.daily_limit_usd > 0) {
         const pct = (sub.daily_usage_usd / sub.daily_limit_usd) * 100
         rows.push({
-          iconBg: 'bg-primary-500/10', iconColor: 'text-primary-500', iconSvg: ICON_DOLLAR,
+          iconBg: 'bg-primary-500/10', iconColor: 'text-primary-500', iconName: 'dollar',
           label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '日' : 'D'})`, value: `${usd(sub.daily_usage_usd)} / ${usd(sub.daily_limit_usd)}`, valueClass: getUsageColor(pct),
         })
       }
       if (sub.weekly_limit_usd > 0) {
         const pct = (sub.weekly_usage_usd / sub.weekly_limit_usd) * 100
         rows.push({
-          iconBg: 'bg-indigo-500/10', iconColor: 'text-indigo-500', iconSvg: ICON_DOLLAR,
+          iconBg: 'bg-indigo-500/10', iconColor: 'text-indigo-500', iconName: 'dollar',
           label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '周' : 'W'})`, value: `${usd(sub.weekly_usage_usd)} / ${usd(sub.weekly_limit_usd)}`, valueClass: getUsageColor(pct),
         })
       }
       if (sub.monthly_limit_usd > 0) {
         const pct = (sub.monthly_usage_usd / sub.monthly_limit_usd) * 100
         rows.push({
-          iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconSvg: ICON_DOLLAR,
+          iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconName: 'dollar',
           label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '月' : 'M'})`, value: `${usd(sub.monthly_usage_usd)} / ${usd(sub.monthly_limit_usd)}`, valueClass: getUsageColor(pct),
         })
       }
       if (sub.expires_at) {
         rows.push({
-          iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500', iconSvg: ICON_CALENDAR,
+          iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500', iconName: 'calendar',
           label: t('keyUsage.subscriptionExpires'), value: formatDate(sub.expires_at), valueClass: '',
         })
       }
@@ -766,7 +761,7 @@ const detailRows = computed<DetailRow[]>(() => {
       ? (data.remaining <= 0 ? 'text-rose-500' : data.remaining < 10 ? 'text-amber-500' : 'text-emerald-500')
       : ''
     rows.push({
-      iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconSvg: ICON_SHIELD,
+      iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconName: 'shield',
       label: t('keyUsage.remainingQuota'), value: data.remaining != null ? usd(data.remaining) : '-', valueClass: remainColor,
     })
   }
@@ -998,6 +993,6 @@ onUnmounted(() => {
 /* Tabular nums */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 </style>

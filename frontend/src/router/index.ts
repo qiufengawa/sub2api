@@ -12,6 +12,7 @@ import { useNavigationLoadingState } from '@/composables/useNavigationLoading'
 import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
 import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
+import { isBackendModePublicRouteAllowed } from './backendModeAccess'
 import { resolveRouteDocumentTitle } from './title'
 
 /**
@@ -345,7 +346,7 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: false,
       requiresAdmin: false,
       title: 'Payment Result',
-      titleKey: 'payment.result.success',
+      titleKey: 'payment.result.title',
       requiresPayment: false
     }
   },
@@ -708,7 +709,8 @@ const routes: RouteRecordRaw[] = [
     name: 'NotFound',
     component: () => import('@/views/NotFoundView.vue'),
     meta: {
-      title: '404 Not Found'
+      title: '404 Not Found',
+      requiresAuth: false
     }
   }
 ]
@@ -738,34 +740,6 @@ let authInitialized = false
 const navigationLoading = useNavigationLoadingState()
 // 延迟初始化预加载，传入 router 实例
 let routePrefetch: ReturnType<typeof useRoutePrefetch> | null = null
-const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal']
-const BACKEND_MODE_CALLBACK_PATHS = [
-  '/auth/callback',
-  '/auth/linuxdo/callback',
-  '/auth/dingtalk/callback',
-  '/auth/dingtalk/email-completion',
-  '/auth/oidc/callback',
-  '/auth/wechat/callback',
-  '/auth/wechat/payment/callback',
-]
-const BACKEND_MODE_PENDING_AUTH_PATHS = ['/register', '/email-verify']
-
-function isBackendModePublicRouteAllowed(path: string, hasPendingAuthSession: boolean): boolean {
-  if (BACKEND_MODE_ALLOWED_PATHS.some((allowedPath) => path === allowedPath || path.startsWith(allowedPath))) {
-    return true
-  }
-
-  if (BACKEND_MODE_CALLBACK_PATHS.some((callbackPath) => path === callbackPath)) {
-    return true
-  }
-
-  if (hasPendingAuthSession && BACKEND_MODE_PENDING_AUTH_PATHS.some((allowedPath) => path === allowedPath)) {
-    return true
-  }
-
-  return false
-}
-
 router.beforeEach(async (to, _from, next) => {
   // 开始导航加载状态
   navigationLoading.startNavigation()

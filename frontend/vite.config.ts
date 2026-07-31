@@ -166,7 +166,7 @@ export default defineConfig(({ mode }) => {
           target: backendUrl,
           changeOrigin: true
         },
-        '/setup': {
+        '^/setup/(status|test-db|test-redis|install)$': {
           target: backendUrl,
           changeOrigin: true
         }

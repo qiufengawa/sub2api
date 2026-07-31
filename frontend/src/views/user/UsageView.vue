@@ -2,8 +2,8 @@
   <AppLayout>
     <div class="space-y-4" data-testid="usage-page">
       <section class="overflow-hidden rounded border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800">
-        <header class="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-dark-700">
-          <div>
+        <header class="flex flex-col items-stretch gap-3 border-b border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-dark-700">
+          <div class="min-w-0">
             <h2 class="text-sm font-semibold text-gray-900 dark:text-white">
               {{ t('usage.queryConditions') }}
             </h2>
@@ -11,26 +11,26 @@
               {{ t('usage.queryConditionsHint') }}
             </p>
           </div>
-          <div class="flex shrink-0 items-center gap-2">
+          <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
             <button
               type="button"
-              class="btn btn-secondary btn-sm md:hidden"
+              class="btn btn-secondary btn-sm flex-1 sm:flex-none md:hidden"
               data-testid="usage-advanced-filter-toggle"
               @click="advancedFiltersExpanded = !advancedFiltersExpanded"
             >
               {{ advancedFiltersExpanded ? t('common.collapse') : t('usage.moreFilters') }}
             </button>
-            <button type="button" class="btn btn-secondary btn-sm" @click="resetFilters">
+            <button type="button" class="btn btn-secondary btn-sm flex-1 sm:flex-none" @click="resetFilters">
               {{ t('common.reset') }}
             </button>
-            <button type="button" class="btn btn-primary btn-sm" data-testid="usage-apply-filters" @click="applyFilters">
+            <button type="button" class="btn btn-primary btn-sm flex-1 sm:flex-none" data-testid="usage-apply-filters" @click="applyFilters">
               {{ t('usage.queryAction') }}
             </button>
           </div>
         </header>
 
         <div class="grid gap-3 p-4 md:grid-cols-4 xl:grid-cols-5">
-          <div class="md:col-span-2">
+          <div class="min-w-0 md:col-span-2">
             <label class="input-label">{{ t('admin.dashboard.timeRange') }}</label>
             <DateRangePicker
               v-model:start-date="startDate"
@@ -91,7 +91,15 @@
         show-cache-hit-rate
       />
 
-      <section class="grid gap-4 md:grid-cols-2">
+      <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="usage-chart-grid">
+        <TokenUsageTrend
+          class="md:col-span-2 xl:col-span-3"
+          data-testid="usage-token-trend"
+          :trend-data="trendData"
+          :loading="chartsLoading"
+          compact
+          color-scheme="categorical"
+        />
         <ModelDistributionChart
           v-model:metric="modelDistributionMetric"
           :model-stats="requestedModelStats"
@@ -117,6 +125,7 @@
           show-metric-toggle
         />
         <EndpointDistributionChart
+          class="md:col-span-2 xl:col-span-1"
           v-model:metric="endpointDistributionMetric"
           :endpoint-stats="inboundEndpointStats"
           :loading="endpointStatsLoading"
@@ -127,7 +136,6 @@
           :enable-breakdown="false"
           show-metric-toggle
         />
-        <TokenUsageTrend :trend-data="trendData" :loading="chartsLoading" compact color-scheme="categorical" />
       </section>
 
       <section class="overflow-hidden rounded border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800">
@@ -213,6 +221,7 @@
             :data="usageLogs"
             :loading="loading"
             :columns="visibleColumns"
+            mobile-table
             :server-side-sort="true"
             :show-account-billing="false"
             :show-upstream-endpoint="false"

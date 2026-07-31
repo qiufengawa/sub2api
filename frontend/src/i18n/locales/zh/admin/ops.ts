@@ -2,6 +2,17 @@ export default {
     ops: {
       title: '运维监控',
       description: '运维监控与排障',
+      sections: {
+        trafficCapacity: '流量与容量',
+        trafficCapacityDescription: '观察请求吞吐、账号切换和实时容量，优先定位拥塞与排队。',
+        qualityAnalysis: '质量与错误分析',
+        qualityAnalysisDescription: '结合错误趋势、请求时长和错误构成判断服务质量变化。'
+      },
+      overviewSections: {
+        traffic: '流量总览',
+        stability: '稳定性',
+        latency: '延迟体验'
+      },
       // Dashboard
       systemHealth: '系统健康',
       overview: '概览',
@@ -35,7 +46,11 @@ export default {
         written: '已写入',
         dropped: '已丢弃',
         failed: '写入失败',
+        avgWriteDelay: '平均写入延迟',
+        advancedFilters: '高级筛选',
+        runtimeConfigShort: '日志配置',
         runtimeConfig: '运行时日志配置（立即生效）',
+        runtimeConfigDescription: '调整日志级别、采样和保留策略；保存后立即影响运行中的服务。',
         all: '全部',
         level: '级别',
         stacktraceThreshold: '堆栈阈值',

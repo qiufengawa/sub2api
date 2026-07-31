@@ -601,6 +601,7 @@ export default {
 
     // Subscriptions Management
     subscriptions: {
+      advancedFilters: '高级筛选',
       title: '订阅管理',
       description: '管理用户订阅和配额限制',
       assignSubscription: '分配订阅',

@@ -3,80 +3,98 @@
     <TablePageLayout>
       <!-- Filters -->
       <template #filters>
-        <div class="card p-4 sm:p-6">
-          <div class="flex flex-wrap items-end justify-between gap-4">
-            <!-- Left: filter fields -->
-            <div class="flex flex-1 flex-wrap items-end gap-4">
-              <div class="w-full sm:w-auto sm:min-w-[240px]">
-                <label class="input-label">{{ t('admin.audit.filters.q') }}</label>
-                <div class="relative">
-                  <Icon
-                    name="search"
-                    size="md"
-                    class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                  <input
-                    v-model.trim="filters.q"
-                    type="text"
-                    class="input pl-10"
-                    :placeholder="t('admin.audit.filters.qPlaceholder')"
-                    @keyup.enter="search"
-                  />
-                </div>
-              </div>
-
-              <div class="w-full sm:w-auto sm:min-w-[200px]">
-                <label class="input-label">{{ t('admin.audit.filters.actorEmail') }}</label>
-                <input v-model.trim="filters.actor_email" type="text" class="input" @keyup.enter="search" />
-              </div>
-
-              <div class="w-full sm:w-auto sm:min-w-[180px]">
-                <label class="input-label">{{ t('admin.audit.filters.action') }}</label>
-                <input v-model.trim="filters.action" type="text" class="input" @keyup.enter="search" />
-              </div>
-
-              <div class="w-full sm:w-auto sm:min-w-[160px]">
-                <label class="input-label">{{ t('admin.audit.filters.clientIp') }}</label>
-                <input v-model.trim="filters.client_ip" type="text" class="input" @keyup.enter="search" />
-              </div>
-
-              <div class="w-full sm:w-auto sm:min-w-[140px]">
-                <label class="input-label">{{ t('admin.audit.filters.method') }}</label>
-                <Select v-model="filters.method" :options="methodOptions" @change="search" />
-              </div>
-
-              <div class="w-full sm:w-auto sm:min-w-[170px]">
-                <label class="input-label">{{ t('admin.audit.filters.authMethod') }}</label>
-                <Select v-model="filters.auth_method" :options="authMethodOptions" @change="search" />
-              </div>
-
-              <div class="w-full sm:w-auto sm:min-w-[140px]">
-                <label class="input-label">{{ t('admin.audit.filters.result') }}</label>
-                <Select v-model="filters.success" :options="resultOptions" @change="search" />
-              </div>
-
-              <div class="w-full sm:w-auto sm:min-w-[170px]">
-                <label class="input-label">{{ t('admin.dashboard.timeRange') }}</label>
-                <Select
-                  :model-value="timeRange"
-                  :options="timeRangeOptions"
-                  @update:model-value="handleTimeRangeChange"
+        <div class="space-y-3" data-testid="audit-filter-workspace">
+          <div class="flex flex-wrap items-end gap-3">
+            <div class="w-full sm:min-w-[240px] sm:flex-1">
+              <label class="input-label">{{ t('admin.audit.filters.q') }}</label>
+              <div class="relative">
+                <Icon
+                  name="search"
+                  size="md"
+                  class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+                <input
+                  v-model.trim="filters.q"
+                  type="text"
+                  class="input pl-10"
+                  :placeholder="t('admin.audit.filters.qPlaceholder')"
+                  @keyup.enter="search"
                 />
               </div>
             </div>
 
-            <!-- Right: actions -->
-            <div class="flex w-full flex-wrap items-center justify-end gap-3 sm:w-auto">
-              <button type="button" class="btn btn-primary" :disabled="loading" @click="search">
+            <div class="w-full sm:w-40">
+              <label class="input-label">{{ t('admin.audit.filters.result') }}</label>
+              <Select v-model="filters.success" :options="resultOptions" @change="search" />
+            </div>
+
+            <div class="w-full sm:w-44">
+              <label class="input-label">{{ t('admin.dashboard.timeRange') }}</label>
+              <Select
+                :model-value="timeRange"
+                :options="timeRangeOptions"
+                @update:model-value="handleTimeRangeChange"
+              />
+            </div>
+
+            <button
+              type="button"
+              class="btn btn-secondary"
+              :aria-expanded="advancedFiltersExpanded"
+              data-testid="audit-advanced-toggle"
+              @click="advancedFiltersExpanded = !advancedFiltersExpanded"
+            >
+              <Icon name="filter" size="sm" class="mr-1.5" />
+              {{ t('admin.audit.filters.advanced') }}
+              <span
+                v-if="advancedFilterCount > 0"
+                class="ml-1 inline-flex min-w-5 justify-center rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 dark:bg-primary-900/40 dark:text-primary-300"
+              >
+                {{ advancedFilterCount }}
+              </span>
+              <Icon :name="advancedFiltersExpanded ? 'chevronUp' : 'chevronDown'" size="xs" class="ml-1" />
+            </button>
+
+            <div class="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+              <button type="button" class="btn btn-primary flex-1 sm:flex-none" :disabled="loading" @click="search">
                 {{ t('common.search') }}
               </button>
-              <button type="button" class="btn btn-secondary" :disabled="loading" @click="resetFilters">
+              <button type="button" class="btn btn-secondary flex-1 sm:flex-none" :disabled="loading" @click="resetFilters">
                 {{ t('common.reset') }}
               </button>
-              <button type="button" class="btn btn-danger" @click="openClearDialog">
-                <Icon name="trash" size="sm" class="mr-1.5" />
-                {{ t('admin.audit.clearAll') }}
-              </button>
+              <div class="w-full border-t border-gray-200 pt-2 sm:ml-1 sm:w-auto sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0 dark:border-dark-700">
+                <button type="button" class="btn btn-danger w-full sm:w-auto" @click="openClearDialog">
+                  <Icon name="trash" size="sm" class="mr-1.5" />
+                  {{ t('admin.audit.clearAll') }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div
+            v-if="advancedFiltersExpanded || advancedFilterCount > 0"
+            class="flex flex-wrap items-end gap-3 border-t border-gray-100 pt-3 dark:border-dark-700"
+            data-testid="audit-advanced-filters"
+          >
+            <div class="w-full sm:min-w-[200px] sm:flex-1">
+              <label class="input-label">{{ t('admin.audit.filters.actorEmail') }}</label>
+              <input v-model.trim="filters.actor_email" type="text" class="input" @keyup.enter="search" />
+            </div>
+            <div class="w-full sm:min-w-[180px] sm:flex-1">
+              <label class="input-label">{{ t('admin.audit.filters.action') }}</label>
+              <input v-model.trim="filters.action" type="text" class="input" @keyup.enter="search" />
+            </div>
+            <div class="w-full sm:w-44">
+              <label class="input-label">{{ t('admin.audit.filters.clientIp') }}</label>
+              <input v-model.trim="filters.client_ip" type="text" class="input" @keyup.enter="search" />
+            </div>
+            <div class="w-full sm:w-36">
+              <label class="input-label">{{ t('admin.audit.filters.method') }}</label>
+              <Select v-model="filters.method" :options="methodOptions" @change="search" />
+            </div>
+            <div class="w-full sm:w-44">
+              <label class="input-label">{{ t('admin.audit.filters.authMethod') }}</label>
+              <Select v-model="filters.auth_method" :options="authMethodOptions" @change="search" />
             </div>
           </div>
         </div>
@@ -84,7 +102,7 @@
 
       <!-- Table -->
       <template #table>
-        <DataTable :columns="columns" :data="logs" :loading="loading" row-key="id">
+        <DataTable :columns="columns" :data="logs" :loading="loading" row-key="id" mobile-table>
           <template #cell-created_at="{ value }">
             <span class="whitespace-nowrap text-gray-600 dark:text-gray-300">{{ formatTime(value) }}</span>
           </template>
@@ -385,6 +403,14 @@ const filters = reactive({
   auth_method: '',
   success: ''
 })
+const advancedFiltersExpanded = ref(false)
+const advancedFilterCount = computed(() => [
+  filters.actor_email,
+  filters.action,
+  filters.client_ip,
+  filters.method,
+  filters.auth_method
+].filter(Boolean).length)
 
 // 时间范围：预设窗口（同 /admin/ops 时间下拉）+ 自定义起止（datetime-local，支持时分）
 const timeRange = ref('')

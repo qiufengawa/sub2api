@@ -1,10 +1,10 @@
 <template>
   <section
-    class="rounded-2xl border bg-white shadow-card dark:bg-dark-800/50"
+    class="rounded-[4px] border bg-white dark:bg-dark-800/50"
     :class="[platformBorderStrongClass(group.platform)]"
   >
     <!-- 分组头部:名称/平台/倍率徽章/专属/订阅徽章 + 描述 -->
-    <header class="border-b border-gray-100 px-5 py-4 dark:border-dark-700/60">
+    <header class="border-b border-gray-100 px-3 py-3 dark:border-dark-700/60 sm:px-5 sm:py-4">
       <div class="flex flex-wrap items-center gap-2">
         <GroupBadge
           :name="group.name"
@@ -32,7 +32,7 @@
           {{ t('modelPlaza.badges.subscription') }}
         </span>
       </div>
-      <p v-if="group.description" class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+      <p v-if="group.description" class="mt-2 break-words text-sm leading-6 text-gray-500 dark:text-dark-400">
         {{ group.description }}
       </p>
       <p
@@ -45,7 +45,7 @@
     </header>
 
     <!-- 模型价格表 -->
-    <div class="px-5">
+    <div class="px-3 sm:px-5">
       <PlazaModelPricingTable
         v-if="group.models.length > 0"
         :models="group.models"

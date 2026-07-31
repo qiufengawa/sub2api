@@ -52,10 +52,16 @@
         <LocaleSwitcher />
 
         <!-- Account summary: balance and subscriptions share one visual rhythm. -->
-        <div v-if="user" class="hidden items-center gap-4 sm:flex">
+        <div v-if="user" class="hidden items-center gap-1 sm:flex">
           <!-- Balance Display -->
-          <div class="group relative">
-            <div class="flex min-h-10 items-center gap-2 px-1.5">
+          <div ref="balanceRef" class="relative">
+            <button
+              type="button"
+              class="flex min-h-10 items-center gap-2 rounded-[4px] px-1.5 text-left transition-colors hover:bg-gray-100/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:hover:bg-dark-800/70"
+              :aria-expanded="balanceOpen"
+              :aria-label="balanceAvailableText"
+              @click.stop="toggleBalance"
+            >
               <Icon name="dollar" size="sm" class="text-primary-500 dark:text-primary-400" />
               <div class="min-w-0 leading-tight">
                 <div class="flex items-center gap-1.5">
@@ -75,11 +81,13 @@
                   </span>
                 </div>
               </div>
-            </div>
+            </button>
 
-            <div
-              class="pointer-events-none absolute right-0 top-full mt-1 hidden w-56 rounded-[4px] border border-gray-200 bg-white p-3 text-xs shadow-lg group-hover:block dark:border-dark-700 dark:bg-dark-800"
-            >
+            <transition name="dropdown">
+              <div
+                v-if="balanceOpen"
+                class="absolute right-0 top-full z-50 mt-1 w-56 rounded-[4px] border border-gray-200 bg-white p-3 text-xs shadow-lg dark:border-dark-700 dark:bg-dark-800"
+              >
               <div class="flex items-center justify-between">
                 <span class="text-gray-500 dark:text-dark-400">{{ balanceAvailableText }}</span>
                 <span class="font-medium text-gray-900 dark:text-white">{{ formatHeaderMoney(availableBalance) }}</span>
@@ -94,10 +102,11 @@
                   <span class="font-semibold text-gray-900 dark:text-white">{{ formatHeaderMoney(totalBalance) }}</span>
                 </div>
               </div>
-            </div>
+              </div>
+            </transition>
           </div>
 
-          <SubscriptionProgressMini />
+          <SubscriptionProgressMini class="border-l border-gray-200 pl-1 dark:border-dark-700" />
         </div>
 
         <!-- User Dropdown -->
@@ -106,6 +115,7 @@
             @click="toggleDropdown"
             class="flex max-w-[190px] items-center gap-2 rounded-[4px] px-1.5 py-1 transition-colors hover:bg-gray-100/80 dark:hover:bg-dark-800/70"
             :aria-label="t('common.userMenu')"
+            :aria-expanded="dropdownOpen"
           >
             <div class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-sm font-semibold text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">
               <img
@@ -129,14 +139,28 @@
 
           <!-- Dropdown Menu -->
           <transition name="dropdown">
-            <div v-if="dropdownOpen" class="dropdown right-0 mt-2 w-56">
+            <div v-if="dropdownOpen" class="dropdown right-0 mt-2 w-56 max-w-[calc(100vw-1rem)]">
               <!-- User Info -->
               <div class="border-b border-gray-100 px-3 py-2 dark:border-dark-700">
-                <div class="text-sm font-medium text-gray-900 dark:text-white">
+                <div class="break-words text-sm font-medium text-gray-900 dark:text-white">
                   {{ displayName }}
                 </div>
-                <div class="text-xs text-gray-500 dark:text-dark-400">{{ user.email }}</div>
+                <div class="break-all text-xs text-gray-500 dark:text-dark-400">{{ user.email }}</div>
               </div>
+
+              <router-link
+                to="/subscriptions"
+                class="flex items-center justify-between gap-3 border-b border-gray-100 px-3 py-2 text-sm sm:hidden dark:border-dark-700"
+                @click="closeDropdown"
+              >
+                <span class="inline-flex items-center gap-2 text-gray-600 dark:text-dark-300">
+                  <Icon name="creditCard" size="sm" class="text-purple-500" />
+                  {{ t('nav.mySubscriptions') }}
+                </span>
+                <span class="font-semibold tabular-nums text-gray-900 dark:text-white">
+                  {{ activeSubscriptionCount }}
+                </span>
+              </router-link>
 
               <!-- Balance (mobile only) -->
               <div class="border-b border-gray-100 px-3 py-2 dark:border-dark-700 sm:hidden">
@@ -252,7 +276,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
+import { useAppStore, useAuthStore, useOnboardingStore, useSubscriptionStore } from '@/stores'
 import { useAdminSettingsStore } from '@/stores/adminSettings'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMini.vue'
@@ -268,10 +292,13 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 const adminSettingsStore = useAdminSettingsStore()
 const onboardingStore = useOnboardingStore()
+const subscriptionStore = useSubscriptionStore()
 
 const user = computed(() => authStore.user)
 const dropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
+const balanceOpen = ref(false)
+const balanceRef = ref<HTMLElement | null>(null)
 const contactInfo = computed(() => appStore.contactInfo)
 const docUrl = computed(() => sanitizeUrl(appStore.docUrl))
 const modelPlazaEnabled = computed(() => isFeatureFlagEnabled(FeatureFlags.modelPlaza))
@@ -283,6 +310,7 @@ const balanceAvailableText = computed(() => t('common.availableBalance') === 'co
 const balanceFrozenText = computed(() => t('common.frozenBalance') === 'common.frozenBalance' ? '冻结金额' : t('common.frozenBalance'))
 const balanceTotalText = computed(() => t('common.totalBalance') === 'common.totalBalance' ? '总余额' : t('common.totalBalance'))
 const balanceFrozenLabel = computed(() => `${balanceFrozenText.value} ${formatHeaderMoney(frozenBalance.value)}`)
+const activeSubscriptionCount = computed(() => subscriptionStore.activeSubscriptions.length)
 const roleLabel = computed(() => authStore.isAdmin ? t('profile.administrator') : t('profile.user'))
 
 // 只在标准模式的管理员下显示新手引导按钮
@@ -339,9 +367,15 @@ function toggleMobileSidebar() {
 
 function toggleDropdown() {
   dropdownOpen.value = !dropdownOpen.value
+  balanceOpen.value = false
 }
 
 function closeDropdown() {
+  dropdownOpen.value = false
+}
+
+function toggleBalance() {
+  balanceOpen.value = !balanceOpen.value
   dropdownOpen.value = false
 }
 
@@ -370,14 +404,25 @@ function handleClickOutside(event: MouseEvent) {
   if (dropdownRef.value && !dropdownRef.value.contains(event.target as Node)) {
     closeDropdown()
   }
+  if (balanceRef.value && !balanceRef.value.contains(event.target as Node)) {
+    balanceOpen.value = false
+  }
+}
+
+function handleEscape(event: KeyboardEvent) {
+  if (event.key !== 'Escape') return
+  closeDropdown()
+  balanceOpen.value = false
 }
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  document.addEventListener('keydown', handleEscape)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('keydown', handleEscape)
 })
 </script>
 

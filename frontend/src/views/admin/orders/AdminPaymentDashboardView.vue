@@ -1,15 +1,20 @@
 <template>
   <AppLayout>
-    <div class="space-y-6">
+    <div class="space-y-4">
       <!-- Header with Day Switcher -->
-      <div class="flex items-center justify-end">
+      <div class="flex flex-col gap-3 border-b border-gray-200 pb-3 dark:border-dark-700 sm:flex-row sm:items-end sm:justify-between">
+        <div class="min-w-0">
+          <h1 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('payment.admin.dashboardTitle') }}</h1>
+          <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ t('payment.admin.dashboardDesc') }}</p>
+        </div>
         <div class="flex items-center gap-2">
-          <div class="flex rounded-lg border border-gray-200 dark:border-dark-600">
+          <div class="flex rounded-[4px] border border-gray-200 dark:border-dark-600" role="group" :aria-label="t('payment.admin.dashboardTitle')">
             <button
               v-for="d in DAYS_OPTIONS"
               :key="d"
               type="button"
-              class="px-3 py-1.5 text-xs font-medium transition-colors first:rounded-l-lg last:rounded-r-lg"
+              :aria-pressed="days === d"
+              class="px-3 py-1.5 text-xs font-medium transition-colors first:rounded-l-[3px] last:rounded-r-[3px]"
               :class="days === d
                 ? 'bg-primary-600 text-white'
                 : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700'"
@@ -18,28 +23,28 @@
               {{ d }}{{ t('payment.admin.daySuffix') }}
             </button>
           </div>
-          <button @click="loadDashboard" :disabled="loading" class="btn btn-secondary" :title="t('common.refresh')">
+          <button type="button" @click="loadDashboard" :disabled="loading" class="btn btn-secondary btn-icon" :title="t('common.refresh')" :aria-label="t('common.refresh')">
             <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
           </button>
         </div>
       </div>
 
       <!-- Dashboard Content -->
-      <div v-if="loading" class="flex items-center justify-center py-12">
+      <div v-if="loading" class="flex items-center justify-center py-12" role="status" :aria-label="t('common.loading')">
         <LoadingSpinner />
       </div>
       <template v-else-if="stats">
         <OrderStatsCards :stats="stats" />
         <DailyRevenueChart :data="stats.daily_series || []" :loading="loading" />
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div class="card p-4">
             <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">{{ t('payment.admin.paymentDistribution') }}</h3>
             <div v-if="!stats.payment_methods?.length" class="flex h-32 items-center justify-center text-sm text-gray-500 dark:text-gray-400">{{ t('payment.admin.noData') }}</div>
             <div v-else class="space-y-3">
-              <div v-for="method in stats.payment_methods" :key="method.type" class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
+              <div v-for="method in stats.payment_methods" :key="method.type" class="flex min-w-0 items-center justify-between gap-3">
+                <div class="flex min-w-0 items-center gap-2">
                   <span :class="['inline-block h-3 w-3 rounded-full', methodColor(method.type)]"></span>
-                  <span class="text-sm text-gray-700 dark:text-gray-300">{{ t('payment.methods.' + method.type, method.type) }}</span>
+                  <span class="truncate text-sm text-gray-700 dark:text-gray-300" :title="t('payment.methods.' + method.type, method.type)">{{ t('payment.methods.' + method.type, method.type) }}</span>
                 </div>
                 <div class="space-y-1 text-right">
                   <span v-for="[currency, amount] in sortedAmounts(method.amount)" :key="currency" class="block text-sm font-medium text-gray-900 dark:text-white">{{ formatMoney(currency, amount) }}</span>
@@ -54,12 +59,12 @@
             <div v-else class="space-y-2">
               <div v-for="[currency, users] in sortedTopUsers(stats.top_users)" :key="currency" class="space-y-2">
                 <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">{{ currency }}</p>
-                <div v-for="(user, idx) in users" :key="user.user_id" class="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-dark-700">
-                  <div class="flex items-center gap-3">
+                <div v-for="(user, idx) in users" :key="user.user_id" class="flex min-w-0 items-center justify-between gap-3 rounded-[4px] px-3 py-2 hover:bg-gray-50 dark:hover:bg-dark-700">
+                  <div class="flex min-w-0 items-center gap-3">
                     <span :class="['flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold', rankClass(idx)]">{{ idx + 1 }}</span>
-                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ user.email }}</span>
+                    <span class="truncate text-sm text-gray-700 dark:text-gray-300" :title="user.email">{{ user.email }}</span>
                   </div>
-                  <span class="text-sm font-medium text-gray-900 dark:text-white">{{ formatMoney(currency, user.amount) }}</span>
+                  <span class="shrink-0 text-sm font-medium tabular-nums text-gray-900 dark:text-white">{{ formatMoney(currency, user.amount) }}</span>
                 </div>
               </div>
             </div>

@@ -22,7 +22,7 @@ const BaseDialogStub = {
 }
 
 const DataTableStub = {
-  props: ['data', 'columns'],
+  props: ['data', 'columns', 'mobileTable'],
   template: `
     <div>
       <div v-for="row in data" :key="row.id">
@@ -139,6 +139,20 @@ describe('admin order currency display', () => {
     expect(wrapper.findComponent(DataTableStub).props('columns')).toEqual(
       expect.arrayContaining([expect.objectContaining({ key: 'order_type' })])
     )
+  })
+
+  it('forwards the opt-in mobile table mode without changing the default', () => {
+    const defaultWrapper = mount(OrderTable, {
+      props: { orders: [orderFactory()], loading: false },
+      global: { stubs: { DataTable: DataTableStub, OrderStatusBadge: true } },
+    })
+    const mobileWrapper = mount(OrderTable, {
+      props: { orders: [orderFactory()], loading: false, mobileTable: true },
+      global: { stubs: { DataTable: DataTableStub, OrderStatusBadge: true } },
+    })
+
+    expect(defaultWrapper.findComponent(DataTableStub).props('mobileTable')).toBe(false)
+    expect(mobileWrapper.findComponent(DataTableStub).props('mobileTable')).toBe(true)
   })
 
   it('renders payment currency consistently in the admin order table', () => {

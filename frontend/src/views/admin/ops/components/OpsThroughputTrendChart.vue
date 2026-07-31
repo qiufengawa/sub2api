@@ -9,6 +9,7 @@ import type { ChartState } from '../types'
 import { formatHistoryLabel, sumNumbers } from '../utils/opsFormatters'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import Icon from '@/components/icons/Icon.vue'
 import { formatNumber } from '@/utils/format'
 
 ChartJS.register(Title, Tooltip, Legend, LineElement, LinearScale, PointElement, CategoryScale, Filler)
@@ -47,8 +48,8 @@ const isDarkMode = computed(() => document.documentElement.classList.contains('d
 const colors = computed(() => ({
   blue: '#3b82f6',
   blueAlpha: '#3b82f620',
-  green: '#10b981',
-  greenAlpha: '#10b98120',
+  cyan: '#06b6d4',
+  cyanAlpha: '#06b6d420',
   grid: isDarkMode.value ? '#374151' : '#f3f4f6',
   text: isDarkMode.value ? '#9ca3af' : '#6b7280'
 }))
@@ -73,8 +74,8 @@ const chartData = computed(() => {
       {
         label: t('admin.ops.tpsK'),
         data: props.points.map((p) => (p.tps ?? 0) / 1000),
-        borderColor: colors.value.green,
-        backgroundColor: colors.value.greenAlpha,
+        borderColor: colors.value.cyan,
+        backgroundColor: colors.value.cyanAlpha,
         fill: true,
         tension: 0.4,
         pointRadius: 0,
@@ -150,7 +151,7 @@ const options = computed(() => {
         display: true,
         position: 'right' as const,
         grid: { display: false },
-        ticks: { color: c.green, font: { size: 10 } }
+        ticks: { color: c.cyan, font: { size: 10 } }
       }
     }
   }
@@ -173,10 +174,10 @@ function downloadChart() {
 </script>
 
 <template>
-  <div class="flex h-full min-w-0 flex-col rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-900/5 dark:bg-dark-800 dark:ring-dark-700">
+  <div class="flex h-full min-w-0 flex-col rounded-[4px] border border-gray-200 bg-white p-4 shadow-sm sm:p-5 dark:border-dark-700 dark:bg-dark-800">
     <div
       data-testid="throughput-chart-header"
-      class="mb-4 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+      class="mb-3 flex min-h-8 shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
     >
       <h3 class="flex min-w-0 items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
         <svg class="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -190,34 +191,34 @@ function downloadChart() {
         class="flex w-full min-w-0 flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400 sm:w-auto sm:justify-end"
       >
         <span class="flex shrink-0 items-center gap-1"><span class="h-2 w-2 rounded-full bg-blue-500"></span>QPS</span>
-        <span class="flex shrink-0 items-center gap-1"><span class="h-2 w-2 rounded-full bg-green-500"></span>{{ t('admin.ops.tpsK') }}</span>
+        <span class="flex shrink-0 items-center gap-1"><span class="h-2 w-2 rounded-full bg-cyan-500"></span>{{ t('admin.ops.tpsK') }}</span>
         <template v-if="!props.fullscreen">
           <button
             type="button"
-            class="inline-flex shrink-0 items-center rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-300 dark:hover:bg-dark-800"
+            class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-white"
             :disabled="state !== 'ready'"
             :title="t('admin.ops.requestDetails.title')"
             @click="emit('openDetails')"
           >
-            {{ t('admin.ops.requestDetails.details') }}
+            <Icon name="eye" size="xs" />
           </button>
           <button
             type="button"
-            class="inline-flex shrink-0 items-center rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-300 dark:hover:bg-dark-800"
+            class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-white"
             :disabled="state !== 'ready'"
             :title="t('admin.ops.charts.resetZoomHint')"
             @click="resetZoom"
           >
-            {{ t('admin.ops.charts.resetZoom') }}
+            <Icon name="refresh" size="xs" />
           </button>
           <button
             type="button"
-            class="inline-flex shrink-0 items-center rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-300 dark:hover:bg-dark-800"
+            class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-white"
             :disabled="state !== 'ready'"
             :title="t('admin.ops.charts.downloadChartHint')"
             @click="downloadChart"
           >
-            {{ t('admin.ops.charts.downloadChart') }}
+            <Icon name="download" size="xs" />
           </button>
         </template>
       </div>
@@ -229,7 +230,7 @@ function downloadChart() {
         v-for="g in props.topGroups"
         :key="g.group_id"
         type="button"
-        class="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-200 dark:hover:bg-dark-800"
+        class="inline-flex items-center gap-2 rounded-[4px] border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-200 dark:hover:border-blue-800 dark:hover:bg-blue-950/30"
         @click="emit('selectGroup', g.group_id)"
       >
         <span class="max-w-[180px] truncate">{{ g.group_name || `#${g.group_id}` }}</span>
@@ -242,7 +243,7 @@ function downloadChart() {
         v-for="p in props.byPlatform"
         :key="p.platform"
         type="button"
-        class="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-200 dark:hover:bg-dark-800"
+        class="inline-flex items-center gap-2 rounded-[4px] border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-200 dark:hover:border-blue-800 dark:hover:bg-blue-950/30"
         @click="emit('selectPlatform', p.platform)"
       >
         <span class="uppercase">{{ p.platform }}</span>

@@ -57,7 +57,7 @@ export default {
         title: '提示词笔记',
         description: '使用这些提示词快速验证模型行为、迁移现有项目、约束结构化输出，并对不同厂商的结果进行基准比较。',
         items: {
-          integration: { label: '接入', text: '生成一份使用 Qiu API 的 OpenAI 兼容 SDK 示例' },
+          integration: { label: '接入', text: '生成一份使用 {site} 的 OpenAI 兼容 SDK 示例' },
           migration: { label: '迁移', text: '将 base_url、api_key 和模型设置迁移到统一网关' },
           selection: { label: '选型', text: '根据任务推荐文本、视觉、嵌入或推理模型' },
           schema: { label: '结构', text: '使用 JSON Schema 约束响应，便于稳定解析' },
@@ -123,7 +123,7 @@ export default {
       faq: {
         title: '常见问题',
         items: {
-          official: { question: 'Qiu API 是模型厂商的官方服务吗？', answer: '不是。Qiu API 是第三方模型网关，模型可用性、价格和使用规则取决于平台设置与上游渠道。' },
+          official: { question: '{site} 是模型厂商的官方服务吗？', answer: '不是。{site} 是第三方模型网关，模型可用性、价格和使用规则取决于平台设置与上游渠道。' },
           sdk: { question: '可以继续使用现有 OpenAI SDK 吗？', answer: '通常可以。先替换 Base URL 和 API 密钥，再按所选模型调整工具、流式输出等字段。' },
           models: { question: '怎样确认当前支持哪些模型？', answer: '请在模型广场查看实时可用模型、上下文长度、价格倍率和渠道状态。' },
           production: { question: '适合直接用于生产环境吗？', answer: '上线关键流量前应完成稳定性测试、额度规划、错误处理和日志监控。' }
@@ -233,6 +233,8 @@ export default {
 
   // Key Usage Query Page
   keyUsage: {
+    showApiKey: '显示 API 密钥',
+    hideApiKey: '隐藏 API 密钥',
     title: 'API Key 用量查询',
     subtitle: '输入您的 API Key 以查看实时消费金额与使用状态',
     placeholder: 'sk-ant-mirror-xxxxxxxxxxxx',
@@ -245,6 +247,8 @@ export default {
     dateRange30d: '30 天',
     dateRange90d: '90 天',
     dateRangeCustom: '自定义',
+    customStartDate: '自定义范围开始日期',
+    customEndDate: '自定义范围结束日期',
     apply: '应用',
     used: '已使用',
     detailInfo: '详细信息',
@@ -265,6 +269,10 @@ export default {
     // Status
     quotaMode: 'Key 限额模式',
     walletBalance: '钱包余额',
+    statusActive: '正常',
+    statusQuotaExhausted: '额度已用尽',
+    statusExpired: '已过期',
+    statusUnknown: '未知状态',
     // Ring card titles
     totalQuota: '总额度',
     limit5h: '5 小时限额',
@@ -279,6 +287,7 @@ export default {
     daysLeft: '({days} 天)',
     usedQuota: '已用额度',
     resetNow: '即将重置',
+    resetsIn: '{time} 后重置',
     subscriptionType: '订阅类型',
     subscriptionExpires: '订阅到期',
     // Usage stat cells

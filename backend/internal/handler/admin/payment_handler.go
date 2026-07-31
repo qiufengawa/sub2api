@@ -1,6 +1,10 @@
 package admin
 
 import (
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -10,6 +14,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+const paymentCatalogImportBodyLimit = 1 << 20
 
 // PaymentHandler handles admin payment management.
 type PaymentHandler struct {
@@ -274,6 +280,71 @@ func (h *PaymentHandler) QueryAndFinalizeRefund(c *gin.Context) {
 }
 
 // --- Subscription Plans ---
+
+// PreviewCatalogImport validates a catalog and returns its complete diff.
+// POST /api/v1/admin/payment/catalog/import/preview
+func (h *PaymentHandler) PreviewCatalogImport(c *gin.Context) {
+	var req service.PaymentCatalogImportRequest
+	if err := decodePaymentCatalogJSON(c, &req); err != nil {
+		response.BadRequest(c, "Invalid catalog JSON: "+err.Error())
+		return
+	}
+	preview, err := h.configService.PreviewCatalogImport(c.Request.Context(), req)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, preview)
+}
+
+// ApplyCatalogImport applies a previously previewed catalog atomically.
+// POST /api/v1/admin/payment/catalog/import/apply
+func (h *PaymentHandler) ApplyCatalogImport(c *gin.Context) {
+	var req service.PaymentCatalogImportApplyRequest
+	if err := decodePaymentCatalogJSON(c, &req); err != nil {
+		response.BadRequest(c, "Invalid catalog JSON: "+err.Error())
+		return
+	}
+	result, err := h.configService.ApplyCatalogImport(c.Request.Context(), req)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+// ExportCatalog returns a safe, re-importable catalog without credentials or user data.
+// GET /api/v1/admin/payment/catalog/export
+func (h *PaymentHandler) ExportCatalog(c *gin.Context) {
+	catalog, err := h.configService.ExportCatalog(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	c.Header("Content-Disposition", `attachment; filename="sub2api-payment-catalog.json"`)
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.JSON(http.StatusOK, catalog)
+}
+
+func decodePaymentCatalogJSON(c *gin.Context, dst any) error {
+	if c.Request == nil || c.Request.Body == nil {
+		return errors.New("request body is required")
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, paymentCatalogImportBodyLimit)
+	decoder := json.NewDecoder(c.Request.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(dst); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			return errors.New("request body exceeds 1 MiB")
+		}
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return errors.New("request body must contain exactly one JSON object")
+	}
+	return nil
+}
 
 // ListPlans returns all subscription plans.
 // GET /api/v1/admin/payment/plans

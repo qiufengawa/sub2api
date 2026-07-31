@@ -4,8 +4,8 @@
       <div class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
         <RouterLink to="/home" class="flex min-w-0 items-center gap-3">
           <template v-if="settings">
-            <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-dark-800 dark:ring-dark-700">
-              <img :src="siteLogo || '/logo.svg'" alt="Logo" class="h-full w-full object-contain" />
+            <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-[4px] bg-white ring-1 ring-gray-200 dark:bg-dark-800 dark:ring-dark-700">
+              <img :src="siteLogo || '/logo.svg'" :alt="siteName" class="h-full w-full object-contain" />
             </span>
             <span class="truncate text-base font-semibold text-gray-950 dark:text-white">
               {{ siteName }}
@@ -18,7 +18,7 @@
         </RouterLink>
         <RouterLink
           to="/login"
-          class="inline-flex flex-shrink-0 items-center justify-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-primary-600/20 transition hover:bg-primary-700"
+          class="inline-flex flex-shrink-0 items-center justify-center rounded-[4px] bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700"
         >
           {{ t('home.login') }}
         </RouterLink>
@@ -26,13 +26,15 @@
     </header>
 
     <main class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:py-10">
-      <div v-if="loading" class="flex min-h-[320px] items-center justify-center">
-        <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-primary-600"></div>
+      <div v-if="loading" class="flex min-h-[320px] items-center justify-center" role="status" aria-live="polite">
+        <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-primary-600" aria-hidden="true"></div>
+        <span class="sr-only">{{ t('common.loading') }}</span>
       </div>
 
       <section
         v-else-if="loadError"
         class="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
+        role="alert"
       >
         <h1 class="text-lg font-semibold">{{ t('legal.loadFailed') }}</h1>
         <p class="mt-2 text-sm">{{ t('legal.retryLater') }}</p>
@@ -55,7 +57,7 @@
         </div>
       </section>
 
-      <article v-else>
+      <article v-else :aria-labelledby="currentDocument ? 'legal-document-title' : undefined">
         <div class="mb-8 border-b border-gray-200 pb-6 dark:border-dark-700">
           <div class="flex items-start gap-4">
             <span class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">
@@ -63,7 +65,7 @@
             </span>
             <div class="min-w-0">
               <p class="text-sm font-medium text-primary-700 dark:text-primary-300">{{ documentTypeLabel }}</p>
-              <h1 class="mt-2 break-words text-2xl font-bold tracking-normal text-gray-950 dark:text-white sm:text-3xl">
+              <h1 id="legal-document-title" class="mt-2 break-words text-2xl font-bold tracking-normal text-gray-950 dark:text-white sm:text-3xl">
                 {{ currentDocument.title }}
               </h1>
               <p v-if="updatedAt" class="mt-3 text-sm text-gray-500 dark:text-dark-400">
@@ -175,7 +177,7 @@ const documentIcon = computed<LegalDocumentIcon>(() => {
 onMounted(async () => {
   loadError.value = false
   const loadedSettings = await appStore.fetchPublicSettings()
-  if (!loadedSettings) {
+  if (!loadedSettings && !isAdminComplianceDocument.value) {
     loadError.value = true
   }
   loading.value = false

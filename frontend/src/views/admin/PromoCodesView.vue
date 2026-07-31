@@ -49,9 +49,10 @@
           @sort="handleSort"
         >
           <template #cell-code="{ value }">
-            <div class="flex items-center space-x-2">
-              <code class="font-mono text-sm text-gray-900 dark:text-gray-100">{{ value }}</code>
+            <div class="flex max-w-[18rem] min-w-0 items-center gap-2">
+              <code class="min-w-0 flex-1 truncate font-mono text-sm text-gray-900 dark:text-gray-100" :title="String(value)">{{ value }}</code>
               <button
+                type="button"
                 @click="copyToClipboard(value)"
                 :class="[
                   'flex items-center transition-colors',
@@ -60,16 +61,10 @@
                     : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
                 ]"
                 :title="copiedCode === value ? t('admin.promo.copied') : t('keys.copyToClipboard')"
+                :aria-label="copiedCode === value ? t('admin.promo.copied') : t('keys.copyToClipboard')"
               >
                 <Icon v-if="copiedCode !== value" name="copy" size="sm" :stroke-width="2" />
-                <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
+                <Icon v-else name="check" size="sm" :stroke-width="2" />
               </button>
             </div>
           </template>
@@ -112,30 +107,38 @@
           <template #cell-actions="{ row }">
             <div class="flex items-center space-x-1">
               <button
+                type="button"
                 @click="copyRegisterLink(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20 dark:hover:text-green-400"
+                class="btn btn-ghost btn-icon text-gray-500 hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20 dark:hover:text-green-400"
                 :title="t('admin.promo.copyRegisterLink')"
+                :aria-label="t('admin.promo.copyRegisterLink')"
               >
                 <Icon name="link" size="sm" />
               </button>
               <button
+                type="button"
                 @click="handleViewUsages(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
+                class="btn btn-ghost btn-icon text-gray-500 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
                 :title="t('admin.promo.viewUsages')"
+                :aria-label="t('admin.promo.viewUsages')"
               >
                 <Icon name="eye" size="sm" />
               </button>
               <button
+                type="button"
                 @click="handleEdit(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-dark-600 dark:hover:text-gray-300"
+                class="btn btn-ghost btn-icon text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                 :title="t('common.edit')"
+                :aria-label="t('common.edit')"
               >
                 <Icon name="edit" size="sm" />
               </button>
               <button
+                type="button"
                 @click="handleDelete(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                class="btn btn-ghost btn-icon text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
                 :title="t('common.delete')"
+                :aria-label="t('common.delete')"
               >
                 <Icon name="trash" size="sm" />
               </button>

@@ -1,5 +1,11 @@
 <template>
-  <div class="plaza-pricing-table overflow-x-auto" :style="accentStyle">
+  <div
+    class="plaza-pricing-table overflow-x-auto focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500/25"
+    :style="accentStyle"
+    role="region"
+    :aria-label="t('modelPlaza.table.pricingTableLabel')"
+    tabindex="0"
+  >
     <table class="w-full min-w-[860px] table-fixed border-collapse text-sm tabular-nums">
       <colgroup>
         <col class="w-[22%]" />
@@ -353,5 +359,30 @@ tbody tr:hover .pz-cell {
 
 .pz-unit {
   color: color-mix(in srgb, var(--pz-title) 62%, transparent);
+}
+
+.plaza-pricing-table thead th:first-child,
+.plaza-pricing-table tbody td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: white;
+}
+
+.plaza-pricing-table thead th:first-child {
+  z-index: 2;
+}
+
+.plaza-pricing-table tbody tr:hover td:first-child {
+  background-color: rgb(249 250 251);
+}
+
+.dark .plaza-pricing-table thead th:first-child,
+.dark .plaza-pricing-table tbody td:first-child {
+  background-color: rgb(30 41 59);
+}
+
+.dark .plaza-pricing-table tbody tr:hover td:first-child {
+  background-color: rgb(36 49 68);
 }
 </style>

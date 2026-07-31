@@ -677,6 +677,7 @@ export default {
       peakNote: '高峰时段 {window} 计费倍率 ×{multiplier}'
     },
     table: {
+      pricingTableLabel: '模型价格对比表',
       model: '模型',
       input: '输入',
       output: '输出',
@@ -1017,6 +1018,7 @@ export default {
   errors: {
     somethingWentWrong: '出错了',
     pageNotFound: '页面未找到',
+    pageNotFoundDescription: '该页面可能已被删除、更名，或当前访问地址不正确。',
     unauthorized: '未授权',
     forbidden: '禁止访问',
     serverError: '服务器错误',

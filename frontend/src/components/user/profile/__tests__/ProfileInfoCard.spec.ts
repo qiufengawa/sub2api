@@ -70,6 +70,21 @@ function createUser(overrides: Partial<User> = {}): User {
 }
 
 describe('ProfileInfoCard', () => {
+  it('uses a two-plus-one metric layout on phones and three columns from small screens', () => {
+    const wrapper = mount(ProfileInfoCard, {
+      props: { user: createUser() },
+    })
+
+    expect(wrapper.get('[data-testid="profile-overview-metrics"]').classes()).toEqual(expect.arrayContaining([
+      'grid-cols-2',
+      'sm:grid-cols-3',
+    ]))
+    expect(wrapper.get('[data-testid="profile-overview-metric-member-since"]').classes()).toEqual(expect.arrayContaining([
+      'col-span-2',
+      'sm:col-span-1',
+    ]))
+  })
+
   it('renders basic account information inside the compact overview strip', () => {
     const wrapper = mount(ProfileInfoCard, {
       props: {

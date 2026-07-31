@@ -51,7 +51,7 @@
           <template #cell-title="{ value, row }">
             <div class="min-w-0">
               <div class="flex items-center gap-2">
-                <span class="truncate font-medium text-gray-900 dark:text-white">{{ value }}</span>
+                <span class="block max-w-[18rem] truncate font-medium text-gray-900 dark:text-white" :title="String(value)">{{ value }}</span>
               </div>
               <div class="mt-1 flex items-center gap-2 text-xs text-gray-500 dark:text-dark-400">
                 <span>#{{ row.id }}</span>
@@ -90,20 +90,20 @@
           </template>
 
           <template #cell-targeting="{ row }">
-            <span class="text-sm text-gray-600 dark:text-gray-300">
+            <span class="block max-w-[18rem] truncate text-sm text-gray-600 dark:text-gray-300" :title="targetingSummary(row.targeting)">
               {{ targetingSummary(row.targeting) }}
             </span>
           </template>
 
           <template #cell-timeRange="{ row }">
-            <div class="text-sm text-gray-600 dark:text-gray-300">
+            <div class="max-w-[18rem] text-sm text-gray-600 dark:text-gray-300">
               <div>
                 <span class="font-medium">{{ t('admin.announcements.form.startsAt') }}:</span>
-                <span class="ml-1">{{ row.starts_at ? formatDateTime(row.starts_at) : t('admin.announcements.timeImmediate') }}</span>
+                <span class="ml-1 whitespace-nowrap" :title="row.starts_at ? formatDateTime(row.starts_at) : t('admin.announcements.timeImmediate')">{{ row.starts_at ? formatDateTime(row.starts_at) : t('admin.announcements.timeImmediate') }}</span>
               </div>
               <div class="mt-0.5">
                 <span class="font-medium">{{ t('admin.announcements.form.endsAt') }}:</span>
-                <span class="ml-1">{{ row.ends_at ? formatDateTime(row.ends_at) : t('admin.announcements.timeNever') }}</span>
+                <span class="ml-1 whitespace-nowrap" :title="row.ends_at ? formatDateTime(row.ends_at) : t('admin.announcements.timeNever')">{{ row.ends_at ? formatDateTime(row.ends_at) : t('admin.announcements.timeNever') }}</span>
               </div>
             </div>
           </template>
@@ -115,30 +115,38 @@
           <template #cell-actions="{ row }">
             <div class="flex items-center space-x-1">
               <button
+                type="button"
                 @click="openPreview(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
+                class="btn btn-ghost btn-icon text-gray-500 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
                 :title="t('admin.announcements.preview')"
+                :aria-label="t('admin.announcements.preview')"
               >
                 <Icon name="eye" size="sm" />
               </button>
               <button
+                type="button"
                 @click="openReadStatus(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
+                class="btn btn-ghost btn-icon text-gray-500 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
                 :title="t('admin.announcements.readStatus')"
+                :aria-label="t('admin.announcements.readStatus')"
               >
                 <Icon name="chartBar" size="sm" />
               </button>
               <button
+                type="button"
                 @click="openEditDialog(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-dark-600 dark:hover:text-gray-300"
+                class="btn btn-ghost btn-icon text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                 :title="t('common.edit')"
+                :aria-label="t('common.edit')"
               >
                 <Icon name="edit" size="sm" />
               </button>
               <button
+                type="button"
                 @click="handleDelete(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                class="btn btn-ghost btn-icon text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
                 :title="t('common.delete')"
+                :aria-label="t('common.delete')"
               >
                 <Icon name="trash" size="sm" />
               </button>

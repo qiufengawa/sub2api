@@ -110,6 +110,10 @@ const UsageFiltersStub = defineComponent({
   template: '<div><span data-test="user-filter-label">{{ userKeyword }}</span><slot name="after-reset" /></div>',
 })
 const UsageTableStub = {
+  name: 'UsageTable',
+  props: {
+    mobileTable: Boolean,
+  },
   emits: ['userClick'],
   template: '<div data-test="usage-table"><button class="user-click" @click="$emit(\'userClick\', 2)">user</button></div>',
 }
@@ -419,6 +423,8 @@ describe('admin UsageView handleUserClick', () => {
 
     vi.advanceTimersByTime(120)
     await flushPromises()
+
+    expect(wrapper.getComponent(UsageTableStub).props('mobileTable')).toBe(true)
 
     await wrapper.find('[data-test="usage-table"] .user-click').trigger('click')
     await flushPromises()

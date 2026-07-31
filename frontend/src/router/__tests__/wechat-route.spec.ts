@@ -61,4 +61,12 @@ describe('router WeChat OAuth route', () => {
     expect(route?.meta.requiresAuth).toBe(false)
     expect(route?.meta.title).toBe('WeChat Payment Callback')
   })
+
+  it('keeps the not-found page public', async () => {
+    const { default: router } = await import('@/router')
+    const route = router.getRoutes().find((record) => record.name === 'NotFound')
+
+    expect(route?.path).toBe('/:pathMatch(.*)*')
+    expect(route?.meta.requiresAuth).toBe(false)
+  })
 })

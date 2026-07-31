@@ -9,7 +9,10 @@ import type {
   PaymentOrder,
   PaymentChannel,
   SubscriptionPlan,
-  ProviderInstance
+  ProviderInstance,
+  PaymentCatalogImportRequest,
+  PaymentCatalogImportPreview,
+  PaymentCatalogImportResult,
 } from '@/types/payment'
 import type { BasePaginationResponse } from '@/types'
 
@@ -167,6 +170,24 @@ export const adminPaymentAPI = {
   /** Delete a subscription plan */
   deletePlan(id: number) {
     return apiClient.delete(`/admin/payment/plans/${id}`)
+  },
+
+  /** Validate a complete subscription catalog without changing data. */
+  previewCatalogImport(catalog: PaymentCatalogImportRequest) {
+    return apiClient.post<PaymentCatalogImportPreview>('/admin/payment/catalog/import/preview', catalog)
+  },
+
+  /** Atomically apply the exact catalog state shown by the latest preview. */
+  applyCatalogImport(catalog: PaymentCatalogImportRequest, previewToken: string) {
+    return apiClient.post<PaymentCatalogImportResult>('/admin/payment/catalog/import/apply', {
+      catalog,
+      preview_token: previewToken,
+    })
+  },
+
+  /** Export the safe catalog format without credentials or user records. */
+  exportCatalog() {
+    return apiClient.get<PaymentCatalogImportRequest>('/admin/payment/catalog/export')
   },
 
   // ==================== Provider Instances ====================

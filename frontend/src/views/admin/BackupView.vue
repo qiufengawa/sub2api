@@ -1,7 +1,8 @@
 <template>
     <div class="space-y-6">
+      <div class="card overflow-hidden">
       <!-- S3 Storage Config -->
-      <div class="card p-6">
+      <section class="p-4 sm:p-6">
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 class="text-base font-semibold text-gray-900 dark:text-white">
@@ -52,10 +53,10 @@
             {{ savingS3 ? t('common.loading') : t('common.save') }}
           </button>
         </div>
-      </div>
+      </section>
 
       <!-- Async image object storage -->
-      <div class="card p-6">
+      <section class="border-t border-gray-200 p-4 dark:border-dark-700 sm:p-6">
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 class="text-base font-semibold text-gray-900 dark:text-white">
@@ -127,10 +128,10 @@
             {{ savingImageStorage ? t('common.loading') : t('common.save') }}
           </button>
         </div>
-      </div>
+      </section>
 
       <!-- Schedule Config -->
-      <div class="card p-6">
+      <section class="border-t border-gray-200 p-4 dark:border-dark-700 sm:p-6">
         <div class="mb-4">
           <h3 class="text-base font-semibold text-gray-900 dark:text-white">
             {{ t('admin.backup.schedule.title') }}
@@ -165,10 +166,11 @@
             {{ savingSchedule ? t('common.loading') : t('common.save') }}
           </button>
         </div>
+      </section>
       </div>
 
       <!-- Backup Operations -->
-      <div class="card p-6">
+      <section class="card p-4 sm:p-6">
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 class="text-base font-semibold text-gray-900 dark:text-white">
@@ -229,30 +231,36 @@
                 </td>
                 <td class="py-3 pr-4 text-xs">{{ formatDate(record.started_at) }}</td>
                 <td class="py-3 text-xs">
-                  <div class="flex flex-wrap gap-1">
+                  <div class="flex items-center gap-1 whitespace-nowrap">
                     <button
                       v-if="record.status === 'completed'"
                       type="button"
-                      class="btn btn-secondary btn-xs"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-dark-700 dark:hover:text-white"
+                      :title="t('admin.backup.actions.download')"
+                      :aria-label="t('admin.backup.actions.download')"
                       @click="downloadBackup(record.id)"
                     >
-                      {{ t('admin.backup.actions.download') }}
+                      <Icon name="download" size="sm" />
                     </button>
                     <button
                       v-if="record.status === 'completed'"
                       type="button"
-                      class="btn btn-secondary btn-xs"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-primary-600 hover:bg-primary-50 disabled:opacity-50 dark:text-primary-400 dark:hover:bg-primary-900/20"
                       :disabled="restoringId === record.id"
+                      :title="t('admin.backup.actions.restore')"
+                      :aria-label="t('admin.backup.actions.restore')"
                       @click="restoreBackup(record.id)"
                     >
-                      {{ restoringId === record.id ? t('common.loading') : t('admin.backup.actions.restore') }}
+                      <Icon name="refresh" size="sm" :class="restoringId === record.id ? 'animate-spin' : ''" />
                     </button>
                     <button
                       type="button"
-                      class="btn btn-danger btn-xs"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                      :title="t('common.delete')"
+                      :aria-label="t('common.delete')"
                       @click="removeBackup(record.id)"
                     >
-                      {{ t('common.delete') }}
+                      <Icon name="trash" size="sm" />
                     </button>
                   </div>
                 </td>
@@ -265,21 +273,17 @@
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
     </div>
 
     <!-- Cloudflare R2 Setup Guide Modal -->
-    <teleport to="body">
-      <transition name="modal">
-        <div v-if="showR2Guide" class="fixed inset-0 z-50 flex items-center justify-center p-4" @mousedown.self="showR2Guide = false">
-          <div class="fixed inset-0 bg-black/50" @click="showR2Guide = false"></div>
-          <div class="relative max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-2xl dark:bg-dark-800">
-            <button type="button" class="absolute right-4 top-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" @click="showR2Guide = false">
-              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-
-            <h2 class="mb-4 text-lg font-bold text-gray-900 dark:text-white">{{ t('admin.backup.r2Guide.title') }}</h2>
-            <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">{{ t('admin.backup.r2Guide.intro') }}</p>
+    <BaseDialog
+      :show="showR2Guide"
+      :title="t('admin.backup.r2Guide.title')"
+      width="wide"
+      @close="showR2Guide = false"
+    >
+      <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">{{ t('admin.backup.r2Guide.intro') }}</p>
 
             <!-- Step 1 -->
             <div class="mb-5">
@@ -344,13 +348,24 @@
               {{ t('admin.backup.r2Guide.freeTier') }}
             </div>
 
-            <div class="mt-4 text-right">
-              <button type="button" class="btn btn-primary btn-sm" @click="showR2Guide = false">{{ t('common.close') }}</button>
-            </div>
-          </div>
+      <template #footer>
+        <div class="flex justify-end">
+          <button type="button" class="btn btn-primary" @click="showR2Guide = false">{{ t('common.close') }}</button>
         </div>
-      </transition>
-    </teleport>
+      </template>
+    </BaseDialog>
+
+    <ConfirmDialog
+      :show="Boolean(deleteBackupId)"
+      :title="t('common.delete')"
+      :message="t('admin.backup.actions.deleteConfirm')"
+      :confirm-text="t('common.delete')"
+      :cancel-text="t('common.cancel')"
+      :pending="deletingBackup"
+      danger
+      @confirm="confirmRemoveBackup"
+      @cancel="deleteBackupId = ''"
+    />
     <TotpStepUpDialog :controller="backupStepUp" />
 </template>
 
@@ -367,6 +382,9 @@ import type {
 } from '@/api/admin/backup'
 import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/composables/useStepUp'
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import Icon from '@/components/icons/Icon.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -432,6 +450,8 @@ const loadingBackups = ref(false)
 const creatingBackup = ref(false)
 const restoringId = ref('')
 const manualExpireDays = ref(14)
+const deleteBackupId = ref('')
+const deletingBackup = ref(false)
 
 // Polling
 const pollingTimer = ref<ReturnType<typeof setInterval> | null>(null)
@@ -751,13 +771,21 @@ async function restoreBackup(id: string) {
 }
 
 async function removeBackup(id: string) {
-  if (!window.confirm(t('admin.backup.actions.deleteConfirm'))) return
+  deleteBackupId.value = id
+}
+
+async function confirmRemoveBackup() {
+  if (!deleteBackupId.value || deletingBackup.value) return
+  deletingBackup.value = true
   try {
-    await adminAPI.backup.deleteBackup(id)
+    await adminAPI.backup.deleteBackup(deleteBackupId.value)
     appStore.showSuccess(t('admin.backup.actions.deleted'))
+    deleteBackupId.value = ''
     await loadBackups()
   } catch (error) {
     appStore.showError((error as { message?: string })?.message || t('errors.networkError'))
+  } finally {
+    deletingBackup.value = false
   }
 }
 
@@ -811,14 +839,3 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>
-
-<style scoped>
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.2s ease;
-}
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-</style>

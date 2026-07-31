@@ -107,6 +107,14 @@ describe('OpsSystemLogTable host support', () => {
 
     expect(wrapper.text()).toContain('api-node-1')
 
+    const advancedFiltersButton = wrapper.findAll('button').find((button) =>
+      button.text().includes('admin.ops.systemLogs.advancedFilters')
+    )
+    expect(advancedFiltersButton).toBeDefined()
+    expect(advancedFiltersButton!.attributes('aria-expanded')).toBe('false')
+    await advancedFiltersButton!.trigger('click')
+    expect(advancedFiltersButton!.attributes('aria-expanded')).toBe('true')
+
     const hostLabel = wrapper.findAll('label').find((label) => label.text().includes('admin.ops.systemLogs.host'))
     expect(hostLabel).toBeDefined()
     await hostLabel!.find('input').setValue(' api-node-2 ')
@@ -124,6 +132,30 @@ describe('OpsSystemLogTable host support', () => {
     await flushPromises()
 
     expect(mockCleanupSystemLogs).toHaveBeenCalledWith(expect.objectContaining({ host: 'api-node-2' }))
+  })
+
+  it('keeps runtime settings collapsed until explicitly opened', async () => {
+    const wrapper = mount(OpsSystemLogTable, {
+      global: {
+        stubs: {
+          Select: SelectStub,
+          Pagination: PaginationStub,
+        },
+      },
+    })
+    await flushPromises()
+
+    const runtimeButton = wrapper.findAll('button').find((button) =>
+      button.text().includes('admin.ops.systemLogs.runtimeConfigShort')
+    )
+    expect(runtimeButton).toBeDefined()
+    expect(runtimeButton!.attributes('aria-expanded')).toBe('false')
+    expect(wrapper.text()).not.toContain('admin.ops.systemLogs.samplingInitial')
+
+    await runtimeButton!.trigger('click')
+
+    expect(runtimeButton!.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.text()).toContain('admin.ops.systemLogs.samplingInitial')
   })
 
   it.each([

@@ -195,9 +195,11 @@ type UpdatePlanRequest struct {
 // PaymentConfigService manages payment configuration and CRUD for
 // provider instances, channels, and subscription plans.
 type PaymentConfigService struct {
-	entClient     *dbent.Client
-	settingRepo   SettingRepository
-	encryptionKey []byte
+	entClient              *dbent.Client
+	settingRepo            SettingRepository
+	encryptionKey          []byte
+	catalogAuthInvalidator APIKeyAuthCacheInvalidator
+	catalogBillingCache    *BillingCacheService
 }
 
 // NewPaymentConfigService creates a new PaymentConfigService.

@@ -326,6 +326,48 @@ describe('PaymentView subscription confirmation amounts', () => {
   })
 })
 
+describe('PaymentView accessible purchase controls', () => {
+  beforeEach(() => {
+    routeState.path = '/purchase'
+    routeState.query = {}
+    routerReplace.mockReset().mockResolvedValue(undefined)
+    routerPush.mockReset().mockResolvedValue(undefined)
+    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoWithPlansFixture({
+      checkout: {
+        help_image_url: 'https://example.com/payment-help.png',
+      },
+    }))
+    fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
+  })
+
+  it('exposes tabs and opens the help image in a labelled dialog', async () => {
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          BaseDialog: {
+            props: ['show', 'title'],
+            template: '<div v-if="show" role="dialog" :aria-label="title"><slot /></div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    expect(tabs).toHaveLength(2)
+    expect(tabs[0].attributes('aria-selected')).toBe('true')
+    expect(tabs[1].attributes('aria-selected')).toBe('false')
+
+    const previewButton = wrapper.get('button[aria-label="payment.previewHelpImage"]')
+    await previewButton.trigger('click')
+
+    expect(wrapper.get('[role="dialog"]').attributes('aria-label')).toBe('payment.helpImageTitle')
+    expect(wrapper.get('[data-testid="payment-help-image-preview"] img').attributes('alt')).toBe('payment.helpImageAlt')
+  })
+})
+
 describe('PaymentView payment recovery', () => {
   beforeEach(() => {
     vi.useRealTimers()

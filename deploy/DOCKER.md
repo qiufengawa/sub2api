@@ -66,7 +66,7 @@ volumes:
 ## Tags
 
 - `latest` - Latest stable release
-- `0.1.168-qiu.1` - Specific distribution release; the first triplet is the upstream baseline and `qiu.1` is the first fork revision
+- `0.1.168-qiu.3` - Specific distribution release; the first triplet is the upstream baseline and `qiu.3` is the third fork revision
 
 ## Links
 

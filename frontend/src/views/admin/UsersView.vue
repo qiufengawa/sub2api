@@ -48,32 +48,55 @@
               />
             </div>
 
-            <!-- Group Filter (visible when enabled) -->
-            <div v-if="visibleFilters.has('group')" class="w-full sm:w-44">
-              <Select
-                v-model="filters.group"
-                :options="groupFilterOptions"
-                searchable
-                creatable
-                :creatable-prefix="t('admin.users.fuzzySearch')"
-                :search-placeholder="t('admin.users.searchAuthorizedGroups')"
-                @change="applyFilter"
-              />
-            </div>
+            <button
+              type="button"
+              class="btn btn-secondary w-full sm:w-auto"
+              :aria-expanded="advancedFiltersExpanded"
+              data-testid="users-advanced-toggle"
+              @click="advancedFiltersExpanded = !advancedFiltersExpanded"
+            >
+              <Icon name="filter" size="sm" class="mr-1.5" />
+              {{ t('admin.users.advancedFilters') }}
+              <span
+                v-if="advancedFilterCount > 0"
+                class="ml-1 inline-flex min-w-5 justify-center rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 dark:bg-primary-900/40 dark:text-primary-300"
+              >
+                {{ advancedFilterCount }}
+              </span>
+              <Icon :name="advancedFiltersExpanded ? 'chevronUp' : 'chevronDown'" size="xs" class="ml-1" />
+            </button>
 
-            <!-- API Key Group Filter (visible when enabled) -->
-            <div v-if="visibleFilters.has('apiKeyGroup')" class="w-full sm:w-44">
-              <Select
-                v-model="filters.apiKeyGroup"
-                :options="apiKeyGroupFilterOptions"
-                searchable
-                :search-placeholder="t('admin.users.searchApiKeyGroups')"
-                @change="applyFilter"
-              />
-            </div>
+            <div
+              v-if="advancedFiltersExpanded || advancedFilterCount > 0"
+              class="flex basis-full flex-wrap items-center gap-3 border-t border-gray-100 pt-3 dark:border-dark-700"
+              data-testid="users-advanced-filters"
+            >
+              <!-- Group Filter (visible when enabled) -->
+              <div v-if="visibleFilters.has('group')" class="w-full sm:w-44">
+                <Select
+                  v-model="filters.group"
+                  :options="groupFilterOptions"
+                  searchable
+                  creatable
+                  :creatable-prefix="t('admin.users.fuzzySearch')"
+                  :search-placeholder="t('admin.users.searchAuthorizedGroups')"
+                  @change="applyFilter"
+                />
+              </div>
 
-            <!-- Dynamic Attribute Filters -->
-            <template v-for="(value, attrId) in activeAttributeFilters" :key="attrId">
+              <!-- API Key Group Filter (visible when enabled) -->
+              <div v-if="visibleFilters.has('apiKeyGroup')" class="w-full sm:w-44">
+                <Select
+                  v-model="filters.apiKeyGroup"
+                  :options="apiKeyGroupFilterOptions"
+                  searchable
+                  :search-placeholder="t('admin.users.searchApiKeyGroups')"
+                  @change="applyFilter"
+                />
+              </div>
+
+              <!-- Dynamic Attribute Filters -->
+              <template v-for="(value, attrId) in activeAttributeFilters" :key="attrId">
               <div
                 v-if="visibleFilters.has(`attr_${attrId}`)"
                 class="relative w-full sm:w-36"
@@ -120,7 +143,8 @@
                   class="input w-full"
                 />
               </div>
-            </template>
+              </template>
+            </div>
           </div>
 
           <!-- Right: Actions and Settings -->
@@ -1113,6 +1137,12 @@ const filters = reactive({
   apiKeyGroup: null as number | null  // group id bound to the user's API keys, null = all
 })
 const activeAttributeFilters = reactive<Record<number, string>>({})
+const advancedFiltersExpanded = ref(false)
+const advancedFilterCount = computed(() => [
+  filters.group,
+  filters.apiKeyGroup,
+  ...Object.values(activeAttributeFilters)
+].filter(value => value !== '' && value !== null && value !== undefined).length)
 
 // Visible filters tracking (which filters are shown in the UI)
 // Keys: 'role', 'status', 'attr_${id}'
@@ -1676,6 +1706,7 @@ const toggleBuiltInFilter = (key: string) => {
     if (key === 'apiKeyGroup') filters.apiKeyGroup = null
   } else {
     visibleFilters.add(key)
+    if (key === 'group' || key === 'apiKeyGroup') advancedFiltersExpanded.value = true
     if (key === 'group') loadAllGroups()
     if (key === 'apiKeyGroup') loadAllGroupsForApiKeyFilter()
   }
@@ -1693,6 +1724,7 @@ const toggleAttributeFilter = (attr: UserAttributeDefinition) => {
   } else {
     visibleFilters.add(key)
     activeAttributeFilters[attr.id] = ''
+    advancedFiltersExpanded.value = true
   }
   saveFiltersToStorage()
   pagination.page = 1

@@ -30,11 +30,11 @@
 
       <template v-else>
         <section
-          class="grid grid-cols-3 overflow-hidden rounded border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800"
+          class="grid grid-cols-1 overflow-hidden rounded border border-gray-200 bg-white sm:grid-cols-3 dark:border-dark-700 dark:bg-dark-800"
           data-testid="subscription-summary"
         >
-          <div class="min-w-0 border-r border-gray-100 px-3 py-3 sm:px-4 dark:border-dark-700">
-            <p class="truncate text-[10px] text-gray-500 sm:text-xs dark:text-dark-400">
+          <div class="min-w-0 border-b border-gray-100 px-3 py-3 sm:border-b-0 sm:border-r sm:px-4 dark:border-dark-700">
+            <p class="text-[10px] text-gray-500 sm:text-xs dark:text-dark-400">
               {{ t('userSubscriptions.summaryActive') }}
             </p>
             <div class="mt-1 flex items-baseline gap-1.5">
@@ -47,27 +47,27 @@
             </div>
           </div>
 
-          <div class="min-w-0 border-r border-gray-100 px-3 py-3 sm:px-4 dark:border-dark-700">
-            <p class="truncate text-[10px] text-gray-500 sm:text-xs dark:text-dark-400">
+          <div class="min-w-0 border-b border-gray-100 px-3 py-3 sm:border-b-0 sm:border-r sm:px-4 dark:border-dark-700">
+            <p class="text-[10px] text-gray-500 sm:text-xs dark:text-dark-400">
               {{ t('userSubscriptions.summaryNearestExpiry') }}
             </p>
             <p class="mt-1 truncate text-sm font-semibold text-gray-900 dark:text-white">
               {{ nearestExpiration?.label || t('userSubscriptions.noUpcomingExpiration') }}
             </p>
-            <p v-if="nearestExpiration" class="mt-0.5 hidden truncate text-[11px] text-gray-400 sm:block dark:text-dark-500">
+            <p v-if="nearestExpiration" class="mt-0.5 truncate text-[11px] text-gray-400 dark:text-dark-500">
               {{ nearestExpiration.groupName }} · {{ t('userSubscriptions.expiresOn', { date: nearestExpiration.exactDate }) }}
             </p>
           </div>
 
           <div class="min-w-0 px-3 py-3 sm:px-4">
-            <p class="truncate text-[10px] text-gray-500 sm:text-xs dark:text-dark-400">
+            <p class="text-[10px] text-gray-500 sm:text-xs dark:text-dark-400">
               {{ t('userSubscriptions.summaryHighestUsage') }}
             </p>
             <div v-if="highestQuota" class="mt-1 flex items-baseline gap-1.5">
               <strong :class="['text-lg font-semibold tabular-nums sm:text-xl', quotaTextClass(highestQuota.percentage)]">
                 {{ formatPercentage(highestQuota.percentage) }}
               </strong>
-              <span class="hidden truncate text-[11px] text-gray-400 sm:inline dark:text-dark-500">
+              <span class="truncate text-[11px] text-gray-400 dark:text-dark-500">
                 {{ highestQuota.groupName }} · {{ highestQuota.label }}
               </span>
             </div>
@@ -125,8 +125,15 @@
             </header>
 
             <div class="border-b border-gray-100 px-4 py-3 text-[11px] dark:border-dark-700">
-              <div :class="['grid gap-0', subscriptionHasPeakRate(subscription) ? 'grid-cols-3' : 'grid-cols-2']">
-                <div class="min-w-0 pr-3">
+              <div :class="['grid gap-0', subscriptionHasPeakRate(subscription) ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2']">
+                <div
+                  :class="[
+                    'min-w-0 pr-3',
+                    subscriptionHasPeakRate(subscription)
+                      ? 'col-span-2 mb-3 border-b border-gray-100 pb-3 sm:col-span-1 sm:mb-0 sm:border-b-0 sm:pb-0 dark:border-dark-700'
+                      : '',
+                  ]"
+                >
                   <span class="text-gray-400 dark:text-dark-500">{{ t('userSubscriptions.remainingTime') }}</span>
                   <p
                     :class="['mt-0.5 truncate text-sm font-semibold', expirationTextClass(subscription.expires_at)]"
@@ -143,7 +150,14 @@
                     {{ formatExpirationExactDate(subscription.expires_at) }}
                   </p>
                 </div>
-                <div class="min-w-0 border-l border-gray-100 px-3 dark:border-dark-700">
+                <div
+                  :class="[
+                    'min-w-0',
+                    subscriptionHasPeakRate(subscription)
+                      ? 'pr-3 sm:border-l sm:border-gray-100 sm:px-3 sm:dark:border-dark-700'
+                      : 'border-l border-gray-100 px-3 dark:border-dark-700',
+                  ]"
+                >
                   <span class="text-gray-400 dark:text-dark-500">{{ t('userSubscriptions.baseRate') }}</span>
                   <p
                     class="mt-0.5 text-sm font-semibold tabular-nums text-gray-800 dark:text-gray-200"

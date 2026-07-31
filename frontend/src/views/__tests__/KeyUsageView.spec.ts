@@ -24,7 +24,11 @@ const messages: Record<string, string> = {
   'keyUsage.dateRange30d': '30 Days',
   'keyUsage.dateRange90d': '90 Days',
   'keyUsage.dateRangeCustom': 'Custom',
+  'keyUsage.customStartDate': 'Custom range start date',
+  'keyUsage.customEndDate': 'Custom range end date',
   'keyUsage.apply': 'Apply',
+  'keyUsage.showApiKey': 'Show API key',
+  'keyUsage.hideApiKey': 'Hide API key',
   'keyUsage.used': 'Used',
   'keyUsage.detailInfo': 'Detail Information',
   'keyUsage.tokenStats': 'Token Statistics',
@@ -38,6 +42,10 @@ const messages: Record<string, string> = {
   'keyUsage.cost': 'Cost',
   'keyUsage.quotaMode': 'Key Quota Mode',
   'keyUsage.walletBalance': 'Wallet Balance',
+  'keyUsage.statusActive': 'Active',
+  'keyUsage.statusQuotaExhausted': 'Quota Exhausted',
+  'keyUsage.statusExpired': 'Expired',
+  'keyUsage.statusUnknown': 'Unknown',
   'keyUsage.totalQuota': 'Total Quota',
   'keyUsage.limit5h': '5-Hour Limit',
   'keyUsage.limitDaily': 'Daily Limit',
@@ -46,6 +54,7 @@ const messages: Record<string, string> = {
   'keyUsage.limitMonthly': 'Monthly Limit',
   'keyUsage.remainingQuota': 'Remaining Quota',
   'keyUsage.usedQuota': 'Used Quota',
+  'keyUsage.resetsIn': 'Resets in {time}',
   'keyUsage.subscriptionType': 'Subscription Type',
   'keyUsage.todayRequests': 'Today Requests',
   'keyUsage.todayInputTokens': 'Today Input',
@@ -70,6 +79,7 @@ const messages: Record<string, string> = {
   'home.switchToLight': 'Light',
   'home.switchToDark': 'Dark',
   'home.footer.allRightsReserved': 'All rights reserved.',
+  'nav.github': 'GitHub',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -203,6 +213,34 @@ describe('KeyUsageView daily detail', () => {
     expect(text).toContain('30')
     expect(text).toContain('10')
     expect(text).toContain('$0.12')
+    expect(text).toContain('Active')
+
+    const dailyTable = wrapper.get('table[aria-label="Daily Detail"]')
+    expect(dailyTable.exists()).toBe(true)
+
+    const rangeButtons = wrapper.findAll('button[aria-pressed]')
+    expect(rangeButtons.some(button => button.text() === '30 Days' && button.attributes('aria-pressed') === 'true')).toBe(true)
+
+    wrapper.unmount()
+  })
+
+  it('stacks the query controls on small screens and labels the visibility toggle', () => {
+    const wrapper = mount(KeyUsageView, {
+      global: {
+        stubs: {
+          RouterLink: { template: '<a><slot /></a>' },
+          LocaleSwitcher: true,
+          Icon: true,
+        },
+      },
+    })
+
+    expect(wrapper.get('[data-testid="key-query-row"]').classes()).toEqual(expect.arrayContaining([
+      'flex-col',
+      'sm:flex-row',
+    ]))
+    expect(wrapper.get('[data-testid="key-visibility-toggle"]').attributes('aria-label')).toBe('Show API key')
+    expect(wrapper.get('button.btn-primary').attributes('aria-busy')).toBe('false')
 
     wrapper.unmount()
   })

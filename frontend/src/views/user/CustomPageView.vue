@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
     <div class="custom-page-layout">
-      <div class="card flex-1 min-h-0 overflow-hidden">
+      <div class="custom-page-surface">
         <header v-if="menuItem && !loading" class="custom-page-header">
           <div class="min-w-0">
             <h1 class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ menuItem.label }}</h1>
@@ -21,7 +21,12 @@
           </a>
         </header>
 
-        <div v-if="loading" class="flex h-full items-center justify-center py-12">
+        <div
+          v-if="loading"
+          class="flex h-full items-center justify-center py-12"
+          role="status"
+          :aria-label="t('common.loading')"
+        >
           <div
             class="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
           ></div>
@@ -59,16 +64,32 @@
         </div>
 
         <!-- Markdown mode with TOC -->
-        <div v-else-if="isMarkdownMode" class="flex min-h-0 flex-1 overflow-hidden">
+        <div v-else-if="isMarkdownMode" class="relative flex min-h-0 flex-1 overflow-hidden">
+          <button
+            v-if="tocVisible && isCompactToc"
+            type="button"
+            class="toc-backdrop"
+            :aria-label="t('common.close')"
+            @click="tocVisible = false"
+          ></button>
+
           <!-- TOC Sidebar -->
           <aside
+            id="custom-page-toc"
             v-show="tocVisible"
             class="toc-sidebar"
+            :aria-label="t('customPage.tableOfContents')"
           >
             <div class="toc-header">
               <span class="toc-title">{{ t('customPage.tableOfContents') }}</span>
-              <button class="toc-close-btn" @click="tocVisible = false">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+              <button
+                type="button"
+                class="toc-close-btn"
+                :aria-label="t('common.collapse')"
+                :title="t('common.collapse')"
+                @click="tocVisible = false"
+              >
+                <Icon name="chevronLeft" size="sm" />
               </button>
             </div>
             <nav class="toc-nav">
@@ -91,10 +112,13 @@
           <!-- TOC Toggle Button (when collapsed) -->
           <button
             v-show="!tocVisible && tocItems.length > 0"
+            type="button"
             class="toc-toggle-btn"
+            aria-controls="custom-page-toc"
+            :aria-expanded="tocVisible"
             @click="tocVisible = true"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+            <Icon name="menu" size="sm" />
             <span class="ml-1 text-xs">{{ t('customPage.tableOfContents') }}</span>
           </button>
 
@@ -128,6 +152,7 @@
         <div v-else class="custom-embed-shell">
           <iframe
             :src="embeddedUrl"
+            :title="menuItem.label || t('customPage.title')"
             class="custom-embed-frame"
             allowfullscreen
           ></iframe>
@@ -169,7 +194,8 @@ const pageTheme = ref<'light' | 'dark'>('light')
 const renderedHtml = ref('')
 const markdownContainer = ref<HTMLElement | null>(null)
 const tocItems = ref<TocItem[]>([])
-const tocVisible = ref(typeof window !== 'undefined' ? window.innerWidth > 768 : true)
+const isCompactToc = ref(typeof window !== 'undefined' ? window.innerWidth <= 640 : false)
+const tocVisible = ref(!isCompactToc.value)
 const activeHeadingId = ref('')
 let themeObserver: MutationObserver | null = null
 
@@ -244,6 +270,14 @@ function buildPageImageUrl(slug: string, src: string): string {
   return buildApiUrl(`/pages/${encodeURIComponent(slug)}/images/${encodedPath}${suffix}`)
 }
 
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
 async function fetchAndRenderMarkdown(slug: string) {
   loading.value = true
   loadError.value = false
@@ -271,10 +305,18 @@ async function fetchAndRenderMarkdown(slug: string) {
       ADD_ATTR: ['allowfullscreen', 'frameborder', 'src'],
     })
 
+    const tableLabel = escapeHtmlAttribute(t('customPage.scrollableTable'))
+    const withTableScroll = sanitized
+      .replace(
+        /<table([^>]*)>/gi,
+        `<div class="markdown-table-scroll" role="region" aria-label="${tableLabel}" tabindex="0"><table$1>`
+      )
+      .replace(/<\/table>/gi, '</table></div>')
+
     // Inject IDs into headings and build TOC
     const toc: TocItem[] = []
     let headingIndex = 0
-    const withIds = sanitized.replace(
+    const withIds = withTableScroll.replace(
       /<(h[1-4])[^>]*>(.*?)<\/h[1-4]>/gi,
       (_, tag: string, content: string) => {
         const level = parseInt(tag[1])
@@ -370,6 +412,9 @@ function injectCopyButtons() {
 
 watch(markdownSlug, (slug) => {
   if (slug) {
+    if (isCompactToc.value) {
+      tocVisible.value = false
+    }
     fetchAndRenderMarkdown(slug)
   } else {
     renderedHtml.value = ''
@@ -378,8 +423,24 @@ watch(markdownSlug, (slug) => {
   }
 }, { immediate: true })
 
+function syncTocLayout() {
+  const nextCompact = window.innerWidth <= 640
+  if (nextCompact === isCompactToc.value) return
+  isCompactToc.value = nextCompact
+  tocVisible.value = !nextCompact
+}
+
+function onPageKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && isCompactToc.value && tocVisible.value) {
+    tocVisible.value = false
+  }
+}
+
 onMounted(async () => {
   pageTheme.value = detectTheme()
+  syncTocLayout()
+  window.addEventListener('resize', syncTocLayout, { passive: true })
+  window.addEventListener('keydown', onPageKeydown)
 
   if (typeof document !== 'undefined') {
     themeObserver = new MutationObserver(() => {
@@ -401,6 +462,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', syncTocLayout)
+  window.removeEventListener('keydown', onPageKeydown)
   if (themeObserver) {
     themeObserver.disconnect()
     themeObserver = null
@@ -411,11 +474,14 @@ onUnmounted(() => {
 <style scoped>
 .custom-page-layout {
   @apply flex flex-col;
-  height: calc(100vh - 64px - 4rem);
+  height: calc(
+    100dvh - var(--app-header-height, 4rem) - var(--app-content-block-padding, 1.5rem)
+  );
+  min-height: 20rem;
 }
 
-.custom-page-layout > .card {
-  @apply flex flex-col;
+.custom-page-surface {
+  @apply flex min-h-0 flex-1 flex-col overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900;
 }
 
 .custom-page-header {
@@ -436,11 +502,15 @@ onUnmounted(() => {
     left: 0;
     top: 0;
     z-index: 20;
-    width: 70%;
-    max-width: 240px;
+    width: min(19rem, calc(100vw - 1.5rem));
+    max-width: none;
     height: 100%;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 4px 0 16px rgba(15, 23, 42, 0.12);
   }
+}
+
+.toc-backdrop {
+  @apply absolute inset-0 z-10 cursor-default bg-gray-950/35;
 }
 
 .toc-header {
@@ -483,7 +553,7 @@ onUnmounted(() => {
 .custom-embed-shell {
   @apply relative min-h-0 flex-1;
   @apply w-full overflow-hidden rounded-[4px];
-  @apply bg-gradient-to-b from-gray-50 to-white dark:from-dark-900 dark:to-dark-950;
+  @apply bg-gray-50 dark:bg-dark-950;
   @apply p-0;
 }
 
@@ -515,7 +585,8 @@ onUnmounted(() => {
 .markdown-page-content a { @apply text-primary-500 hover:text-primary-600 underline; }
 .markdown-page-content blockquote { @apply border-l-4 border-gray-300 dark:border-dark-500 pl-4 italic text-gray-600 dark:text-dark-300 my-4; }
 .markdown-page-content img { @apply my-4 h-auto max-w-full rounded-[4px]; }
-.markdown-page-content table { @apply w-full border-collapse my-4; }
+.markdown-table-scroll { @apply my-4 max-w-full overflow-x-auto rounded-[4px] focus:outline-none focus:ring-2 focus:ring-primary-500/25; }
+.markdown-page-content table { @apply w-full min-w-max border-collapse; }
 .markdown-page-content th { @apply border border-gray-300 dark:border-dark-500 px-3 py-2 bg-gray-50 dark:bg-dark-700 font-semibold text-left; }
 .markdown-page-content td { @apply border border-gray-300 dark:border-dark-500 px-3 py-2; }
 .markdown-page-content code { @apply bg-gray-100 dark:bg-dark-700 px-1.5 py-0.5 rounded text-sm font-mono; }
@@ -540,4 +611,9 @@ onUnmounted(() => {
 }
 .copy-btn:hover { background: rgba(255, 255, 255, 0.25); }
 pre:hover .copy-btn { opacity: 1; }
+.copy-btn:focus-visible { opacity: 1; outline: 2px solid rgb(255 255 255 / 0.8); outline-offset: 2px; }
+
+@media (hover: none) {
+  .copy-btn { opacity: 1; }
+}
 </style>

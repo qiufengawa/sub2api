@@ -210,7 +210,7 @@ describe('OpsOpenAITokenStatsCard', () => {
     })
     await flushPromises()
 
-    expect(wrapper.find('.max-h-\\[420px\\]').exists()).toBe(true)
+    expect(wrapper.find('.max-h-\\[520px\\]').exists()).toBe(true)
   })
 
   it('接口异常时显示错误提示', async () => {

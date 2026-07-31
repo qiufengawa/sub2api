@@ -21,6 +21,7 @@
         :columns="columns"
         :data="data"
         :loading="loading"
+        :mobile-table="mobileTable"
         :server-side-sort="serverSideSort"
         :default-sort-key="defaultSortKey"
         :default-sort-order="defaultSortOrder"
@@ -542,6 +543,8 @@ interface Props {
   embedLatencyInCost?: boolean
   /** 嵌入统一卡片内使用：去掉自身卡片外观 */
   flat?: boolean
+  /** 在窄屏继续使用表格，并通过横向滚动查看完整列。 */
+  mobileTable?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -552,7 +555,8 @@ const props = withDefaults(defineProps<Props>(), {
   showAccountBilling: true,
   showUpstreamEndpoint: true,
   embedLatencyInCost: false,
-  flat: false
+  flat: false,
+  mobileTable: false
 })
 const emit = defineEmits<{
   userClick: [userID: number, email?: string]

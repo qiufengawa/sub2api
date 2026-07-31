@@ -3,6 +3,10 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 const routeState = vi.hoisted(() => ({
   query: {} as Record<string, unknown>,
+  meta: {
+    title: 'Payment Result',
+    titleKey: 'payment.result.title',
+  },
 }))
 
 const routerPush = vi.hoisted(() => vi.fn())
@@ -34,6 +38,10 @@ vi.mock('@/stores/payment', () => ({
   usePaymentStore: () => ({
     pollOrderStatus,
   }),
+}))
+
+vi.mock('@/stores/app', () => ({
+  useAppStore: () => ({ siteName: 'Test Site' }),
 }))
 
 vi.mock('@/api/payment', () => ({
@@ -86,12 +94,14 @@ const recoverySnapshotFactory = (resumeToken: string) => ({
 describe('PaymentResultView', () => {
   beforeEach(() => {
     routeState.query = {}
+    routeState.meta.titleKey = 'payment.result.title'
     routerPush.mockReset()
     pollOrderStatus.mockReset()
     verifyOrder.mockReset()
     verifyOrderPublic.mockReset()
     resolveOrderPublicByResumeToken.mockReset()
     window.localStorage.clear()
+    document.title = 'Payment Result - Test Site'
   })
 
   afterEach(() => {
@@ -142,6 +152,7 @@ describe('PaymentResultView', () => {
     expect(wrapper.text()).toContain('payment.result.processing')
     expect(wrapper.text()).not.toContain('payment.result.success')
     expect(wrapper.text()).not.toContain('payment.result.failed')
+    expect(document.title).toBe('payment.result.processing - Test Site')
   })
 
   it('prefers the public resume-token result over a stale restored DB snapshot', async () => {
@@ -193,6 +204,7 @@ describe('PaymentResultView', () => {
     expect(wrapper.text()).toContain('payment.result.success')
     expect(wrapper.text()).toContain('103.00')
     expect(wrapper.text()).toContain('100.00')
+    expect(document.title).toBe('payment.result.success - Test Site')
     expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toBeNull()
   })
 
@@ -234,6 +246,37 @@ describe('PaymentResultView', () => {
     expect(wrapper.text()).toContain('payment.result.success')
     expect(wrapper.text()).not.toContain('payment.result.failed')
     expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toBeNull()
+  })
+
+  it('treats an unknown provider status as processing and preserves recovery data', async () => {
+    vi.useFakeTimers()
+    routeState.query = {
+      resume_token: 'resume-provider-review',
+    }
+    window.localStorage.setItem(
+      PAYMENT_RECOVERY_STORAGE_KEY,
+      JSON.stringify(recoverySnapshotFactory('resume-provider-review')),
+    )
+    resolveOrderPublicByResumeToken.mockResolvedValue({
+      data: orderFactory('PROVIDER_REVIEW'),
+    })
+
+    const wrapper = mount(PaymentResultView, {
+      global: {
+        stubs: {
+          OrderStatusBadge: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('payment.result.processing')
+    expect(wrapper.text()).not.toContain('payment.result.failed')
+    expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).not.toBeNull()
+
+    await vi.advanceTimersByTimeAsync(2000)
+    await flushPromises()
+    expect(resolveOrderPublicByResumeToken).toHaveBeenCalledTimes(2)
   })
 
   it('falls back to order_id polling when resume-token recovery fails', async () => {
@@ -413,7 +456,7 @@ describe('PaymentResultView', () => {
       out_trade_no: 'legacy-bare',
     }
 
-    mount(PaymentResultView, {
+    const wrapper = mount(PaymentResultView, {
       global: {
         stubs: {
           OrderStatusBadge: true,
@@ -424,6 +467,8 @@ describe('PaymentResultView', () => {
     await flushPromises()
 
     expect(verifyOrderPublic).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('payment.result.failed')
+    expect(document.title).toBe('payment.result.failed - Test Site')
   })
 
   it('resolves order by resume token when local recovery snapshot is missing', async () => {

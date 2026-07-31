@@ -139,6 +139,15 @@ function mountDialog({
 }
 
 describe('PlanEditDialog', () => {
+  it('uses single-column fields until the small-screen breakpoint', () => {
+    const wrapper = mountDialog()
+
+    expect(wrapper.get('[data-testid="plan-primary-fields"]').classes()).toEqual(expect.arrayContaining([
+      'grid-cols-1',
+      'sm:grid-cols-2',
+    ]))
+  })
+
   it('shows CNY channel charge using the configured subscription rate and fee', async () => {
     const wrapper = mountDialog({
       paymentConfig: {

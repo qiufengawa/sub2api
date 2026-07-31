@@ -1,5 +1,5 @@
 <template>
-  <DataTable :columns="columns" :data="orders" :loading="loading">
+  <DataTable :columns="columns" :data="orders" :loading="loading" :mobile-table="mobileTable">
     <template #cell-id="{ value }">
       <span class="font-mono text-sm">#{{ value }}</span>
     </template>
@@ -59,6 +59,7 @@ const props = defineProps<{
   loading: boolean
   showUser?: boolean
   showOrderType?: boolean
+  mobileTable?: boolean
 }>()
 
 function formatDate(dateStr: string) { return new Date(dateStr).toLocaleString() }

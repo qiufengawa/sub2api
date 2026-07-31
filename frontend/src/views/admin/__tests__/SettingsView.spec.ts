@@ -779,7 +779,7 @@ describe("admin SettingsView payment visible method controls", () => {
     await openSecurityTab(wrapper);
 
     const card = wrapper
-      .findAll(".card")
+      .findAll(".settings-section")
       .find((node) => node.text().includes("admin.settings.apiKeyAcl.title"));
     expect(card).toBeDefined();
     const toggle = card!.get('input[type="checkbox"]');

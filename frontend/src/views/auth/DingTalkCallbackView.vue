@@ -1,7 +1,7 @@
 <template>
   <AuthLayout>
     <div class="space-y-6">
-      <div class="text-center">
+      <div class="text-center" role="status" aria-live="polite" :aria-busy="isProcessing">
         <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
           {{ t('auth.dingtalk.callbackTitle') }}
         </h2>
@@ -80,6 +80,7 @@
             <div>
               <input
                 v-model="invitationCode"
+                :aria-label="t('auth.invitationCodeLabel')"
                 type="text"
                 class="input w-full"
                 :placeholder="t('auth.invitationCodePlaceholder')"
@@ -162,6 +163,7 @@
             <div class="space-y-3">
               <input
                 v-model="bindLoginEmail"
+                :aria-label="t('auth.emailLabel')"
                 data-testid="dingtalk-bind-login-email"
                 type="email"
                 class="input w-full"
@@ -171,6 +173,7 @@
               />
               <input
                 v-model="bindLoginPassword"
+                :aria-label="t('auth.passwordLabel')"
                 data-testid="dingtalk-bind-login-password"
                 type="password"
                 class="input w-full"
@@ -209,6 +212,7 @@
             <div class="space-y-3">
               <input
                 v-model="totpCode"
+                :aria-label="t('auth.verificationCode')"
                 data-testid="dingtalk-bind-login-totp"
                 type="text"
                 inputmode="numeric"

@@ -86,7 +86,6 @@ const stats = (overrides: Record<string, number> = {}) => ({
 
 const componentStub = (name: string) => ({
   name,
-  inheritAttrs: false,
   template: `<div data-test="${name}"></div>`,
 })
 const gettingStartedStub = {
@@ -168,6 +167,8 @@ describe('user DashboardView stages', () => {
     const contentGrid = wrapper.get('[data-testid="dashboard-content-grid"]')
     expect(contentGrid.classes()).toContain('xl:grid-cols-2')
     expect(contentGrid.element.children).toHaveLength(4)
+    expect((contentGrid.element.children[0] as HTMLElement).classList.contains('xl:col-span-2')).toBe(true)
+    expect((contentGrid.element.children[3] as HTMLElement).classList.contains('xl:col-span-2')).toBe(true)
     expect(Array.from(contentGrid.element.children).map((node) => (node as HTMLElement).dataset.test)).toEqual([
       'charts',
       'allowance',

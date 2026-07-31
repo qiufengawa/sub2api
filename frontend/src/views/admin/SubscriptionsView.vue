@@ -73,21 +73,46 @@
                 @change="applyFilters"
               />
             </div>
-            <div class="w-full sm:w-48">
-              <Select
-                v-model="filters.group_id"
-                :options="groupOptions"
-                :placeholder="t('admin.subscriptions.allGroups')"
-                @change="applyFilters"
-              />
-            </div>
-            <div class="w-full sm:w-40">
-              <Select
-                v-model="filters.platform"
-                :options="platformFilterOptions"
-                :placeholder="t('admin.subscriptions.allPlatforms')"
-                @change="applyFilters"
-              />
+
+            <button
+              type="button"
+              class="btn btn-secondary w-full sm:w-auto"
+              :aria-expanded="advancedFiltersExpanded"
+              data-testid="subscription-advanced-toggle"
+              @click="advancedFiltersExpanded = !advancedFiltersExpanded"
+            >
+              <Icon name="filter" size="sm" class="mr-1.5" />
+              {{ t('admin.subscriptions.advancedFilters') }}
+              <span
+                v-if="advancedFilterCount > 0"
+                class="ml-1 inline-flex min-w-5 justify-center rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 dark:bg-primary-900/40 dark:text-primary-300"
+              >
+                {{ advancedFilterCount }}
+              </span>
+              <Icon :name="advancedFiltersExpanded ? 'chevronUp' : 'chevronDown'" size="xs" class="ml-1" />
+            </button>
+
+            <div
+              v-if="advancedFiltersExpanded || advancedFilterCount > 0"
+              class="flex basis-full flex-wrap items-center gap-3 border-t border-gray-100 pt-3 dark:border-dark-700"
+              data-testid="subscription-advanced-filters"
+            >
+              <div class="w-full sm:w-48">
+                <Select
+                  v-model="filters.group_id"
+                  :options="groupOptions"
+                  :placeholder="t('admin.subscriptions.allGroups')"
+                  @change="applyFilters"
+                />
+              </div>
+              <div class="w-full sm:w-40">
+                <Select
+                  v-model="filters.platform"
+                  :options="platformFilterOptions"
+                  :placeholder="t('admin.subscriptions.allPlatforms')"
+                  @change="applyFilters"
+                />
+              </div>
             </div>
           </div>
 
@@ -942,6 +967,8 @@ const filters = reactive({
   platform: '',
   user_id: null as number | null
 })
+const advancedFiltersExpanded = ref(false)
+const advancedFilterCount = computed(() => [filters.group_id, filters.platform].filter(Boolean).length)
 
 // Sorting state
 const sortState = reactive({

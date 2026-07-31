@@ -210,6 +210,40 @@ describe('admin RiskControlView', () => {
     }))
   })
 
+  it('uses one settings surface with divider-based sections', async () => {
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          BaseDialog: BaseDialogStub,
+          Icon: true,
+          Select: true,
+          Toggle: true,
+          Pagination: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+        },
+      },
+    })
+
+    await flushPromises()
+    await findButtonByText(wrapper, 'admin.riskControl.openSettings').trigger('click')
+
+    const apiKeysSection = wrapper.get('[data-test="risk-api-keys-section"]')
+    expect(wrapper.findAll('[data-test="risk-settings-surface"]')).toHaveLength(1)
+    expect(apiKeysSection.classes()).not.toContain('rounded-xl')
+    expect(apiKeysSection.classes()).not.toContain('shadow-sm')
+
+    await findButtonByText(wrapper, 'admin.riskControl.tabs.scope').trigger('click')
+    const modelFilterSection = wrapper.get('[data-test="risk-model-filter-section"]')
+    expect(modelFilterSection.classes()).toContain('border-t')
+    expect(modelFilterSection.classes()).not.toContain('rounded-lg')
+
+    await findButtonByText(wrapper, 'admin.riskControl.tabs.response').trigger('click')
+    const responseOptions = wrapper.findAll('[data-test="risk-response-option"]')
+    expect(responseOptions).toHaveLength(3)
+    expect(responseOptions.every((option) => !option.classes().includes('rounded-lg'))).toBe(true)
+  })
+
   it('saves the selected model filter mode and models', async () => {
     const wrapper = mount(RiskControlView, {
       global: {
@@ -389,7 +423,7 @@ describe('admin RiskControlView', () => {
     expect(runtimeCards.classes()).toEqual(expect.arrayContaining([
       'grid',
       'grid-cols-1',
-      'xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)]',
+      'xl:grid-cols-[minmax(0,400px)_minmax(0,1fr)]',
     ]))
     expect(syncCard.element.parentElement).toBe(runtimeCards.element)
     expect(apiKeyLoadCard.element.parentElement).toBe(runtimeCards.element)
@@ -400,8 +434,8 @@ describe('admin RiskControlView', () => {
     expect(apiKeyLoadCard.get('h2').text()).toBe('admin.riskControl.preBlockAPIKeyLoad')
     expect(apiKeyLoadCard.text()).toContain('admin.riskControl.preBlockAPIKeyLoadHint')
     expect(wrapper.get('[data-test="pre-block-api-key-load-list"]').classes()).toEqual(expect.arrayContaining([
-      'max-h-[280px]',
-      'overflow-y-auto',
+      'xl:max-h-[360px]',
+      'xl:overflow-y-auto',
     ]))
   })
 })

@@ -669,6 +669,7 @@ export default {
       },
       // Settings Dropdowns
       filterSettings: 'Filter Settings',
+      advancedFilters: 'Advanced filters',
       columnSettings: 'Column Settings',
       filterValue: 'Enter value',
       // User Attributes

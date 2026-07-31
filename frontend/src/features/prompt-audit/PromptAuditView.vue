@@ -37,7 +37,7 @@
           </div>
         </div>
 
-        <main class="card px-4 sm:px-6 lg:px-8">
+        <main class="border-y border-gray-200 px-1 dark:border-dark-700 sm:px-2 lg:px-3">
           <div v-show="activeTab === 'config'" data-test="tab-panel-config">
             <RuntimeOverview :runtime="runtime" :loading="loading.runtime" :error="loadErrors.runtime" @refresh="loadRuntime" />
 

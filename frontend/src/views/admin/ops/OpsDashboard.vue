@@ -1,9 +1,9 @@
 <template>
   <component :is="isFullscreen ? 'div' : AppLayout" :class="isFullscreen ? 'flex min-h-screen flex-col justify-center bg-gray-50 dark:bg-dark-950' : ''">
-    <div :class="[isFullscreen ? 'p-4 md:p-6' : '', 'space-y-6 pb-12']">
+    <div :class="[isFullscreen ? 'p-4 md:p-6' : '', 'space-y-4 pb-10 lg:space-y-5']">
       <div
         v-if="errorMessage"
-        class="rounded-2xl bg-red-50 p-4 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400"
+        class="rounded-[4px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/60 dark:bg-red-900/20 dark:text-red-400"
       >
         {{ errorMessage }}
       </div>
@@ -39,53 +39,91 @@
         @exit-fullscreen="exitFullscreen"
       />
 
-      <!-- Row: Concurrency + Throughput -->
-      <div v-if="opsEnabled && !(loading && !hasLoadedOnce)" class="grid grid-cols-1 gap-6 lg:grid-cols-4">
-        <div class="lg:col-span-1 min-h-[360px]">
-          <OpsConcurrencyCard :platform-filter="platform" :group-id-filter="groupId" :refresh-token="dashboardRefreshToken" />
+      <section v-if="opsEnabled && !(loading && !hasLoadedOnce)" class="space-y-3" aria-labelledby="ops-traffic-heading" data-ops-section="traffic">
+        <div class="px-0.5">
+          <h2 id="ops-traffic-heading" class="text-sm font-semibold text-gray-900 dark:text-white">
+            {{ t('admin.ops.sections.trafficCapacity') }}
+          </h2>
+          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.ops.sections.trafficCapacityDescription') }}
+          </p>
         </div>
-        <div class="lg:col-span-1 h-[360px]">
-          <OpsSwitchRateTrendChart
-            :points="switchTrend?.points ?? []"
-            :loading="loadingSwitchTrend"
-            :time-range="switchTrendTimeRange"
-            :fullscreen="isFullscreen"
-          />
-        </div>
-        <div class="lg:col-span-2 h-[360px]">
-          <OpsThroughputTrendChart
-            :points="throughputTrend?.points ?? []"
-            :by-platform="throughputTrend?.by_platform ?? []"
-            :top-groups="throughputTrend?.top_groups ?? []"
-            :loading="loadingTrend"
-            :time-range="timeRange"
-            :fullscreen="isFullscreen"
-            @select-platform="handleThroughputSelectPlatform"
-            @select-group="handleThroughputSelectGroup"
-            @open-details="handleOpenRequestDetails"
-          />
-        </div>
-      </div>
 
-      <!-- Row: Visual Analysis (baseline 3-up grid) -->
-      <div v-if="opsEnabled && !(loading && !hasLoadedOnce)" class="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <OpsLatencyChart :latency-data="latencyHistogram" :loading="loadingLatency" />
-        <OpsErrorDistributionChart
-          :data="errorDistribution"
-          :loading="loadingErrorDistribution"
-          @open-details="openErrorDetails('request')"
-        />
-        <OpsErrorTrendChart
-          :points="errorTrend?.points ?? []"
-          :loading="loadingErrorTrend"
-          :time-range="timeRange"
-          @open-request-errors="openErrorDetails('request')"
-          @open-upstream-errors="openErrorDetails('upstream')"
-        />
-      </div>
+        <div class="grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <div class="grid min-w-0 gap-4 xl:col-span-7 xl:grid-rows-[minmax(340px,1fr)_190px]">
+            <div class="min-h-[340px] min-w-0">
+              <OpsThroughputTrendChart
+                :points="throughputTrend?.points ?? []"
+                :by-platform="throughputTrend?.by_platform ?? []"
+                :top-groups="throughputTrend?.top_groups ?? []"
+                :loading="loadingTrend"
+                :time-range="timeRange"
+                :fullscreen="isFullscreen"
+                @select-platform="handleThroughputSelectPlatform"
+                @select-group="handleThroughputSelectGroup"
+                @open-details="handleOpenRequestDetails"
+              />
+            </div>
+            <div class="h-[190px] min-w-0">
+              <OpsSwitchRateTrendChart
+                :points="switchTrend?.points ?? []"
+                :loading="loadingSwitchTrend"
+                :time-range="switchTrendTimeRange"
+                :fullscreen="isFullscreen"
+              />
+            </div>
+          </div>
 
-      <!-- Row: OpenAI Token Stats -->
-      <div v-if="opsEnabled && showOpenAITokenStats && !(loading && !hasLoadedOnce)" class="grid grid-cols-1 gap-6">
+          <div class="min-h-[420px] xl:col-span-5 xl:min-h-[546px]">
+            <OpsConcurrencyCard
+              :platform-filter="platform"
+              :group-id-filter="groupId"
+              :refresh-token="dashboardRefreshToken"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section v-if="opsEnabled && !(loading && !hasLoadedOnce)" class="space-y-3" aria-labelledby="ops-quality-heading" data-ops-section="quality">
+        <div class="px-0.5">
+          <h2 id="ops-quality-heading" class="text-sm font-semibold text-gray-900 dark:text-white">
+            {{ t('admin.ops.sections.qualityAnalysis') }}
+          </h2>
+          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.ops.sections.qualityAnalysisDescription') }}
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 xl:h-[456px] xl:grid-cols-12">
+          <div class="min-h-[360px] min-w-0 xl:col-span-7 xl:h-[456px] xl:min-h-0">
+            <OpsErrorTrendChart
+              :points="errorTrend?.points ?? []"
+              :loading="loadingErrorTrend"
+              :time-range="timeRange"
+              @open-request-errors="openErrorDetails('request')"
+              @open-upstream-errors="openErrorDetails('upstream')"
+            />
+          </div>
+          <div class="grid min-w-0 gap-4 md:grid-cols-2 xl:col-span-5 xl:h-[456px] xl:grid-cols-1 xl:grid-rows-2">
+            <div class="min-h-[220px] min-w-0 xl:min-h-0">
+              <OpsLatencyChart :latency-data="latencyHistogram" :loading="loadingLatency" />
+            </div>
+            <div class="min-h-[220px] min-w-0 xl:min-h-0">
+              <OpsErrorDistributionChart
+                :data="errorDistribution"
+                :loading="loadingErrorDistribution"
+                @open-details="openErrorDetails('request')"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Alert Events -->
+      <OpsAlertEventsCard v-if="opsEnabled && showAlertEvents && !(loading && !hasLoadedOnce)" data-ops-section="alerts" />
+
+      <!-- OpenAI Token Stats -->
+      <div v-if="opsEnabled && showOpenAITokenStats && !(loading && !hasLoadedOnce)" class="grid grid-cols-1 gap-4" data-ops-section="tokens">
         <OpsOpenAITokenStatsCard
           :platform-filter="platform"
           :group-id-filter="groupId"
@@ -93,12 +131,10 @@
         />
       </div>
 
-      <!-- Alert Events -->
-      <OpsAlertEventsCard v-if="opsEnabled && showAlertEvents && !(loading && !hasLoadedOnce)" />
-
       <!-- System Logs -->
       <OpsSystemLogTable
         v-if="opsEnabled && !(loading && !hasLoadedOnce)"
+        data-ops-section="logs"
         :platform-filter="platform"
         :refresh-token="dashboardRefreshToken"
       />

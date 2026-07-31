@@ -1,5 +1,5 @@
 <template>
-  <div class="auth-page relative min-h-screen overflow-hidden bg-white dark:bg-dark-950">
+  <div class="auth-page relative min-h-screen bg-white dark:bg-dark-950">
     <header
       v-if="settingsLoaded"
       class="absolute left-5 top-6 z-20 flex items-center gap-3 sm:top-8"
@@ -7,18 +7,17 @@
       <div
         class="flex h-10 w-10 items-center justify-center overflow-hidden rounded-[4px] border border-[#e7e7e7] bg-white p-1.5 dark:border-dark-700 dark:bg-dark-900"
       >
-        <img :src="siteLogo || '/logo.svg'" alt="Logo" class="h-full w-full object-contain" />
+        <img :src="siteLogo || '/logo.svg'" :alt="siteName" class="h-full w-full object-contain" />
       </div>
-      <div>
+      <div class="min-w-0">
         <div class="text-lg font-semibold tracking-tight text-[#181818] dark:text-white">
           {{ siteName }}
         </div>
-        <div class="mt-0.5 text-xs text-[#8b8b8b] dark:text-dark-400">管理控制台</div>
       </div>
     </header>
 
     <div
-      class="relative z-10 mx-auto flex min-h-screen w-full max-w-[1440px] items-center px-5 pb-24 pt-28 sm:px-10 lg:px-[5%] lg:py-24"
+      class="relative z-10 mx-auto flex min-h-screen w-full max-w-[1440px] items-start px-5 pb-20 pt-24 sm:px-10 sm:pb-24 sm:pt-28 lg:items-center lg:px-[5%] lg:py-20"
     >
       <main class="w-full lg:w-[44%]">
         <div class="mx-auto w-full max-w-[400px] lg:mx-0">
@@ -34,7 +33,6 @@
         class="relative hidden min-h-[560px] flex-1 items-center justify-center overflow-hidden lg:flex"
         aria-hidden="true"
       >
-        <div class="auth-visual-halo absolute h-[520px] w-[640px] rounded-full"></div>
         <div class="auth-console relative h-[390px] w-[590px] overflow-hidden rounded-md">
           <div class="flex h-11 items-center border-b border-[#e7e7e7] bg-white px-4 dark:border-dark-700 dark:bg-dark-900">
             <div class="flex gap-1.5">
@@ -96,17 +94,19 @@
     </div>
 
     <div class="absolute bottom-7 left-5 z-20 text-xs text-[#8b8b8b] dark:text-dark-500 sm:left-10 lg:left-[5%]">
-      &copy; {{ currentYear }} {{ siteName }}. All rights reserved.
+      &copy; {{ currentYear }} {{ siteName }}. {{ t('home.footer.allRightsReserved') }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores'
 import { sanitizeUrl } from '@/utils/url'
 
 const appStore = useAppStore()
+const { t } = useI18n()
 
 const siteName = computed(() => appStore.siteName || 'Sub2API')
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
@@ -121,33 +121,13 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.auth-page {
-  background-image:
-    linear-gradient(90deg, transparent 0%, transparent 46%, rgb(242 243 255 / 0.32) 46%, rgb(242 243 255 / 0.32) 100%);
-}
-
-.auth-visual-halo {
-  background: radial-gradient(circle, rgb(54 110 244 / 0.12) 0%, rgb(242 243 255 / 0.72) 45%, transparent 72%);
-}
-
 .auth-console {
   border: 1px solid rgb(220 220 220 / 0.9);
-  box-shadow: 0 14px 40px rgb(54 110 244 / 0.12);
-  transform: perspective(1200px) rotateY(-2deg) rotateX(1deg);
-}
-
-:global(.dark) .auth-page {
-  background-image: linear-gradient(90deg, transparent 0%, transparent 46%, rgb(0 26 87 / 0.12) 46%, rgb(0 26 87 / 0.12) 100%);
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.06);
 }
 
 :global(.dark) .auth-console {
   border-color: rgb(51 65 85 / 0.9);
-  box-shadow: 0 16px 48px rgb(0 0 0 / 0.28);
-}
-
-@media (max-width: 1023px) {
-  .auth-page {
-    background-image: linear-gradient(180deg, rgb(242 243 255 / 0.72) 0, transparent 240px);
-  }
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
 }
 </style>

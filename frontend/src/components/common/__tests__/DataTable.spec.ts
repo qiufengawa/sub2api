@@ -69,6 +69,7 @@ describe('DataTable', () => {
     await wrapper.vm.$nextTick()
 
     const nameHeader = wrapper.findAll('th')[0]
+    expect(nameHeader.find('button[type="button"]').exists()).toBe(true)
     expect(nameHeader.find('[data-test="custom-name-header"]').exists()).toBe(true)
     expect(nameHeader.attributes('aria-sort')).toBe('ascending')
     expect(nameHeader.findAll('svg')).toHaveLength(2)
@@ -356,5 +357,30 @@ describe('DataTable', () => {
     await wrapper.get('[data-test="select-all-mobile"]').setValue(true)
 
     expect(wrapper.emitted('update:selectedKeys')?.at(-1)?.[0]).toEqual([99, 1, 2])
+  })
+
+  it('keeps the table layout horizontally scrollable on mobile when requested', async () => {
+    stubMobileMatchMedia()
+    const wrapper = mount(DataTable, {
+      props: {
+        columns: [
+          { key: 'name', label: 'Name' },
+          { key: 'model', label: 'Model' },
+        ],
+        data: [
+          { id: 1, name: 'Key one', model: 'gpt-5.4' },
+          { id: 2, name: 'Key two', model: 'claude-sonnet-4.5' },
+        ],
+        rowKey: 'id',
+        mobileTable: true,
+      },
+    })
+
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('table').exists()).toBe(true)
+    expect(wrapper.find('.table-wrapper').classes()).toContain('mobile-table-wrapper')
+    expect(wrapper.findAll('tbody tr[data-index]')).toHaveLength(2)
+    expect(wrapper.find('[data-field="name"]').exists()).toBe(false)
   })
 })

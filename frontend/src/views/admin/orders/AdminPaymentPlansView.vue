@@ -1,18 +1,41 @@
 <template>
   <AppLayout>
-    <div class="space-y-4">
-      <!-- Actions -->
-      <div class="flex items-center justify-end gap-2">
-        <button @click="loadPlans" :disabled="plansLoading" class="btn btn-secondary" :title="t('common.refresh')">
-          <Icon name="refresh" size="md" :class="plansLoading ? 'animate-spin' : ''" />
-        </button>
-        <button @click="openPlanEdit(null)" class="btn btn-primary">{{ t('payment.admin.createPlan') }}</button>
-      </div>
+    <TablePageLayout>
+      <template #actions>
+        <div class="flex flex-col gap-3 border-b border-gray-200 pb-3 dark:border-dark-700 sm:flex-row sm:items-end sm:justify-between">
+          <div class="min-w-0">
+            <h1 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('payment.admin.plansPageTitle') }}</h1>
+            <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ t('payment.admin.plansPageDesc') }}</p>
+          </div>
+          <div class="flex flex-wrap items-center justify-end gap-2 self-stretch sm:self-auto">
+            <button type="button" @click="showImportDialog = true" class="btn btn-secondary whitespace-nowrap">
+              <Icon name="upload" size="sm" class="mr-1.5" />
+              {{ t('payment.admin.catalogImport.openButton') }}
+            </button>
+            <button type="button" @click="downloadCatalogTemplate" :disabled="catalogTemplateDownloading" class="btn btn-secondary whitespace-nowrap">
+              <Icon :name="catalogTemplateDownloading ? 'refresh' : 'document'" size="sm" class="mr-1.5" :class="catalogTemplateDownloading ? 'animate-spin' : ''" />
+              {{ t('payment.admin.catalogImport.downloadTemplate') }}
+            </button>
+            <button type="button" @click="exportCatalog" :disabled="catalogExporting" class="btn btn-secondary whitespace-nowrap">
+              <Icon :name="catalogExporting ? 'refresh' : 'download'" size="sm" class="mr-1.5" :class="catalogExporting ? 'animate-spin' : ''" />
+              {{ t('payment.admin.catalogImport.exportCurrent') }}
+            </button>
+            <button type="button" @click="loadPlans" :disabled="plansLoading" class="btn btn-secondary btn-icon" :title="t('common.refresh')" :aria-label="t('common.refresh')">
+              <Icon name="refresh" size="md" :class="plansLoading ? 'animate-spin' : ''" />
+            </button>
+            <button type="button" @click="openPlanEdit(null)" class="btn btn-primary">
+              <Icon name="plus" size="sm" class="mr-1.5" />
+              {{ t('payment.admin.createPlan') }}
+            </button>
+          </div>
+        </div>
+      </template>
 
       <!-- Plans Table -->
+      <template #table>
       <DataTable :columns="planColumns" :data="plans" :loading="plansLoading">
         <template #cell-name="{ value, row }">
-          <span class="text-sm font-medium" :class="getPlanNameClass(row.group_id)">{{ value }}</span>
+          <span class="block max-w-[16rem] truncate text-sm font-medium" :class="getPlanNameClass(row.group_id)" :title="String(value)">{{ value }}</span>
         </template>
         <template #cell-group_id="{ value }">
           <span v-if="isGroupMissing(value)" class="text-sm">
@@ -28,18 +51,20 @@
           <span v-else class="text-sm text-gray-400">-</span>
         </template>
         <template #cell-price="{ value, row }">
-          <div class="text-sm">
+          <div class="whitespace-nowrap text-sm">
             <span class="font-medium text-gray-900 dark:text-white">{{ planCurrencySymbol(row.currency) }}{{ (value ?? 0).toFixed(2) }}</span>
             <span v-if="row.currency" class="ml-1 text-xs text-gray-400">{{ row.currency }}</span>
             <span v-if="row.original_price" class="ml-1 text-xs text-gray-400 line-through">{{ planCurrencySymbol(row.currency) }}{{ row.original_price.toFixed(2) }}</span>
           </div>
         </template>
         <template #cell-validity_days="{ value, row }">
-          <span class="text-sm">{{ value }} {{ t('payment.admin.' + (row.validity_unit || 'days')) }}</span>
+          <span class="text-sm">{{ value }} {{ t(`payment.admin.${validityUnitKey(row.validity_unit)}`) }}</span>
         </template>
         <template #cell-for_sale="{ value, row }">
           <button
             type="button"
+            :aria-label="t('payment.admin.forSale')"
+            :aria-pressed="Boolean(value)"
             :class="[
               'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
               value ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-600'
@@ -53,22 +78,28 @@
           </button>
         </template>
         <template #cell-actions="{ row }">
-          <div class="flex items-center gap-2">
-            <button @click="openPlanEdit(row)" class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400">
+          <div class="flex items-center gap-1">
+            <button type="button" @click="openPlanEdit(row)" class="btn btn-ghost btn-icon text-gray-500 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400" :title="t('common.edit')" :aria-label="t('common.edit')">
               <Icon name="edit" size="sm" />
-              <span class="text-xs">{{ t('common.edit') }}</span>
             </button>
-            <button @click="confirmDeletePlan(row)" class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400">
+            <button type="button" @click="confirmDeletePlan(row)" class="btn btn-ghost btn-icon text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400" :title="t('common.delete')" :aria-label="t('common.delete')">
               <Icon name="trash" size="sm" />
-              <span class="text-xs">{{ t('common.delete') }}</span>
             </button>
           </div>
         </template>
       </DataTable>
-    </div>
+      </template>
+    </TablePageLayout>
 
     <!-- Plan Edit Dialog -->
     <PlanEditDialog :show="showPlanDialog" :plan="editingPlan" :groups="groups" :payment-config="paymentConfig" @close="showPlanDialog = false" @saved="loadPlans" />
+
+    <PlanImportDialog
+      :show="showImportDialog"
+      :groups="groups"
+      @close="showImportDialog = false"
+      @imported="handleCatalogImported"
+    />
 
     <ConfirmDialog :show="showDeletePlanDialog" :title="t('payment.admin.deletePlan')" :message="t('payment.admin.deletePlanConfirm')" :confirm-text="t('common.delete')" danger @confirm="handleDeletePlan" @cancel="showDeletePlanDialog = false" />
   </AppLayout>
@@ -86,19 +117,32 @@ import type { SubscriptionPlan } from '@/types/payment'
 import type { AdminGroup } from '@/types'
 import type { Column } from '@/components/common/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import PlanEditDialog from './PlanEditDialog.vue'
+import PlanImportDialog from './PlanImportDialog.vue'
 import { currencySymbol } from '@/components/payment/currency'
 import { platformTextClass } from '@/utils/platformColors'
+import {
+  isPaymentCatalogTemplate,
+  personalizeCatalogTemplateForInstallation,
+} from './catalogTemplate'
 
 const { t } = useI18n()
 const appStore = useAppStore()
 
 function planCurrencySymbol(currency?: string): string {
   return currencySymbol(currency || 'USD')
+}
+
+function validityUnitKey(unit?: string): 'days' | 'weeks' | 'months' {
+  const normalized = String(unit || 'day').trim().toLowerCase().replace(/s$/, '')
+  if (normalized === 'week') return 'weeks'
+  if (normalized === 'month') return 'months'
+  return 'days'
 }
 
 // ==================== Groups ====================
@@ -138,7 +182,10 @@ function getPlanNameClass(groupId: number): string {
 const plansLoading = ref(false)
 const plans = ref<SubscriptionPlan[]>([])
 const showPlanDialog = ref(false)
+const showImportDialog = ref(false)
 const showDeletePlanDialog = ref(false)
+const catalogExporting = ref(false)
+const catalogTemplateDownloading = ref(false)
 const editingPlan = ref<SubscriptionPlan | null>(null)
 const deletingPlanId = ref<number | null>(null)
 
@@ -190,6 +237,82 @@ async function handleDeletePlan() {
   if (!deletingPlanId.value) return
   try { await adminPaymentAPI.deletePlan(deletingPlanId.value); appStore.showSuccess(t('common.deleted')); showDeletePlanDialog.value = false; loadPlans() }
   catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
+}
+
+function saveCatalogFile(catalog: unknown, filename: string) {
+  const blob = new Blob([JSON.stringify(catalog, null, 2) + '\n'], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+async function downloadCatalogTemplate() {
+  if (catalogTemplateDownloading.value) return
+  catalogTemplateDownloading.value = true
+  try {
+    const base = String(import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')
+    const [response] = await Promise.all([
+      fetch(`${base}templates/qiuapi-subscription-catalog-v1.json`, { credentials: 'same-origin' }),
+      loadGroups(),
+    ])
+    if (!response.ok) throw new Error(`template request failed with status ${response.status}`)
+    const rawTemplate: unknown = await response.json()
+    if (!isPaymentCatalogTemplate(rawTemplate)) throw new Error('invalid catalog template')
+
+    const result = await personalizeCatalogTemplateForInstallation(
+      rawTemplate,
+      groups.value,
+      {
+        loadModels: group => adminAPI.groups.getModelsListCandidates(group.id, group.platform),
+        loadRoutes: group => adminAPI.groups.listCompositeRoutes(group.id),
+      },
+    )
+    saveCatalogFile(result.catalog, 'qiuapi-subscription-catalog-v1.json')
+    if (result.sourceCount === 0) {
+      appStore.showWarning(t('payment.admin.catalogImport.templateNoSources'))
+    } else if (result.failedSourceCount > 0 || result.omittedSourceCount > 0 || result.omittedRouteCount > 0) {
+      appStore.showWarning(t('payment.admin.catalogImport.templatePartial', {
+        count: result.sourceCount,
+        routes: result.routeCount,
+        failed: result.failedSourceCount,
+        omitted: result.omittedSourceCount + result.omittedRouteCount,
+      }))
+    } else {
+      appStore.showSuccess(t('payment.admin.catalogImport.templateSuccess', {
+        count: result.sourceCount,
+        routes: result.routeCount,
+      }))
+    }
+  } catch {
+    appStore.showError(t('payment.admin.catalogImport.templateFailed'))
+  } finally {
+    catalogTemplateDownloading.value = false
+  }
+}
+
+async function exportCatalog() {
+  if (catalogExporting.value) return
+  catalogExporting.value = true
+  try {
+    const response = await adminPaymentAPI.exportCatalog()
+    const date = new Date().toISOString().slice(0, 10)
+    saveCatalogFile(response.data, `qiuapi-payment-catalog-${date}.json`)
+    appStore.showSuccess(t('payment.admin.catalogImport.exportSuccess'))
+  } catch (err: unknown) {
+    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('payment.admin.catalogImport.exportFailed')))
+  } finally {
+    catalogExporting.value = false
+  }
+}
+
+function handleCatalogImported() {
+  showImportDialog.value = false
+  void Promise.all([loadPlans(), loadGroups(), loadPaymentConfig()])
 }
 
 // ==================== Lifecycle ====================

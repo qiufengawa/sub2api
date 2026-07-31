@@ -1,5 +1,5 @@
 <template>
-  <div class="table-page-layout" :class="{ 'mobile-mode': isMobile }">
+  <div class="table-page-layout">
     <!-- 固定区域：操作按钮 -->
     <div v-if="$slots.actions" class="layout-section-fixed">
       <slot name="actions" />
@@ -24,30 +24,9 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-
-const isMobile = ref(false)
-
-const checkMobile = () => {
-  isMobile.value = window.innerWidth < 1024
-}
-
-onMounted(() => {
-  checkMobile()
-  window.addEventListener('resize', checkMobile)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', checkMobile)
-})
-</script>
-
 <style scoped>
-/* 桌面端：Flexbox 布局 */
 .table-page-layout {
-  @apply flex flex-col gap-3;
-  height: calc(100vh - 56px - 3rem);
+  @apply flex min-h-0 flex-1 flex-col gap-3;
 }
 
 .layout-section-fixed {
@@ -91,18 +70,19 @@ onUnmounted(() => {
   @apply px-3 py-2 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-dark-800;
 }
 
-/* 移动端：恢复正常滚动 */
-.table-page-layout.mobile-mode .table-scroll-container {
-  @apply h-auto overflow-visible border-none shadow-none bg-transparent;
-}
+@media (max-width: 767px) {
+  .table-scroll-container {
+    @apply h-auto overflow-visible border-none bg-transparent shadow-none;
+  }
 
-.table-page-layout.mobile-mode .layout-section-scrollable {
-  @apply flex-none min-h-fit;
-}
+  .layout-section-scrollable {
+    @apply min-h-fit flex-none;
+  }
 
-.table-page-layout.mobile-mode .table-scroll-container :deep(table) {
-  @apply flex-none;
-  display: table;
-  min-width: 100%;
+  .table-scroll-container :deep(table) {
+    @apply flex-none;
+    display: table;
+    min-width: 100%;
+  }
 }
 </style>

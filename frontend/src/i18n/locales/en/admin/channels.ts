@@ -601,6 +601,7 @@ export default {
 
     // Subscriptions
     subscriptions: {
+      advancedFilters: 'Advanced filters',
       title: 'Subscription Management',
       description: 'Manage user subscriptions and quota limits',
       assignSubscription: 'Assign Subscription',

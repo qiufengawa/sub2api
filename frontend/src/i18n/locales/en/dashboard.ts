@@ -672,6 +672,7 @@ export default {
       peakNote: 'Peak hours {window}: billing rate ×{multiplier}'
     },
     table: {
+      pricingTableLabel: 'Model pricing comparison',
       model: 'Model',
       input: 'Input',
       output: 'Output',
@@ -1012,6 +1013,7 @@ export default {
   errors: {
     somethingWentWrong: 'Something went wrong',
     pageNotFound: 'Page not found',
+    pageNotFoundDescription: 'The page may have been removed, renamed, or the address may be incorrect.',
     unauthorized: 'Unauthorized',
     forbidden: 'Forbidden',
     serverError: 'Server error',

@@ -153,6 +153,8 @@
       :message="t('affiliate.transfer.confirmMessage', { amount: transferConfirmAmount })"
       :confirm-text="t('affiliate.transfer.confirmButton')"
       :cancel-text="t('common.cancel')"
+      :danger="true"
+      :pending="transferring"
       @confirm="transferQuota"
       @cancel="showTransferConfirm = false"
     />
@@ -235,7 +237,6 @@ function requestTransferQuota(): void {
 
 async function transferQuota(): Promise<void> {
   if (!detail.value || detail.value.aff_quota <= 0 || transferring.value) return
-  showTransferConfirm.value = false
   transferring.value = true
   try {
     const resp = await userAPI.transferAffiliateQuota()
@@ -248,6 +249,7 @@ async function transferQuota(): Promise<void> {
     appStore.showError(extractApiErrorMessage(error, t('affiliate.transferFailed')))
   } finally {
     transferring.value = false
+    showTransferConfirm.value = false
   }
 }
 

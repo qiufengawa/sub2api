@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { resolveCompletedSetupRedirectPath } from '@/router/setupRedirect'
+import { isBackendModePublicRouteAllowed } from '@/router/backendModeAccess'
 
 // Mock 导航加载状态
 vi.mock('@/composables/useNavigationLoading', () => {
@@ -84,19 +85,10 @@ function simulateGuard(
       return authState.isAdmin ? '/admin/dashboard' : '/dashboard'
     }
     if (authState.backendModeEnabled && !authState.isAuthenticated) {
-      const allowed = ['/login', '/key-usage', '/setup', '/payment/result']
-      const callbackPaths = [
-        '/auth/callback',
-        '/auth/linuxdo/callback',
-        '/auth/oidc/callback',
-        '/auth/wechat/callback',
-        '/auth/wechat/payment/callback',
-      ]
-      const pendingAuthPaths = ['/register', '/email-verify']
-      const isAllowed =
-        allowed.some((path) => toPath === path || toPath.startsWith(path)) ||
-        callbackPaths.includes(toPath) ||
-        (authState.hasPendingAuthSession && pendingAuthPaths.includes(toPath))
+      const isAllowed = isBackendModePublicRouteAllowed(
+        toPath,
+        authState.hasPendingAuthSession,
+      )
       if (!isAllowed) {
         return '/login'
       }
@@ -133,19 +125,10 @@ function simulateGuard(
     if (authState.isAuthenticated && authState.isAdmin) {
       return null
     }
-    const allowed = ['/login', '/key-usage', '/setup', '/payment/result']
-    const callbackPaths = [
-      '/auth/callback',
-      '/auth/linuxdo/callback',
-      '/auth/oidc/callback',
-      '/auth/wechat/callback',
-      '/auth/wechat/payment/callback',
-    ]
-    const pendingAuthPaths = ['/register', '/email-verify']
-    const isAllowed =
-      allowed.some((path) => toPath === path || toPath.startsWith(path)) ||
-      callbackPaths.includes(toPath) ||
-      (authState.hasPendingAuthSession && pendingAuthPaths.includes(toPath))
+    const isAllowed = isBackendModePublicRouteAllowed(
+      toPath,
+      authState.hasPendingAuthSession,
+    )
     if (!isAllowed) {
       return '/login'
     }
@@ -504,6 +487,21 @@ describe('路由守卫逻辑', () => {
       }
       const redirect = simulateGuard('/payment/result', { requiresAuth: false }, authState)
       expect(redirect).toBeNull()
+    })
+
+    it('unauthenticated: legal documents are allowed without widening the prefix', () => {
+      const authState: MockAuthState = {
+        isAuthenticated: false,
+        isAdmin: false,
+        isSimpleMode: false,
+        backendModeEnabled: true,
+        hasPendingAuthSession: false,
+      }
+
+      expect(simulateGuard('/legal/admin-compliance', { requiresAuth: false }, authState)).toBeNull()
+      expect(simulateGuard('/legal-not-a-document', { requiresAuth: false }, authState)).toBe('/login')
+      expect(simulateGuard('/loginfoo', { requiresAuth: false }, authState)).toBe('/login')
+      expect(simulateGuard('/login/unexpected', { requiresAuth: false }, authState)).toBe('/login')
     })
 
     it('unauthenticated: /register is allowed when a pending auth session exists', () => {

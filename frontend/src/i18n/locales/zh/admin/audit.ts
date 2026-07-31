@@ -7,6 +7,7 @@ export default {
     loadFailed: '加载操作日志失败',
     filters: {
       all: '全部',
+      advanced: '高级筛选',
       q: '关键字',
       qPlaceholder: '路径 / 动作 / 操作者邮箱',
       actorEmail: '操作者邮箱',

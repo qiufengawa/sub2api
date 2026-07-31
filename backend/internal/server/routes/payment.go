@@ -101,6 +101,13 @@ func RegisterPaymentRoutes(
 			plans.DELETE("/:id", adminPaymentHandler.DeletePlan)
 		}
 
+		catalog := adminGroup.Group("/catalog")
+		{
+			catalog.POST("/import/preview", adminPaymentHandler.PreviewCatalogImport)
+			catalog.POST("/import/apply", adminPaymentHandler.ApplyCatalogImport)
+			catalog.GET("/export", adminPaymentHandler.ExportCatalog)
+		}
+
 		// Provider Instances
 		providers := adminGroup.Group("/providers")
 		{

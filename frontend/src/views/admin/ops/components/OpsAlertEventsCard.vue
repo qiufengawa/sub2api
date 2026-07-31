@@ -346,6 +346,18 @@ function statusBadgeClass(status: string | undefined): string {
   return 'bg-gray-50 text-gray-700 ring-gray-600/20 dark:bg-gray-900/30 dark:text-gray-300 dark:ring-gray-500/30'
 }
 
+function priorityRowClass(event: AlertEvent): string {
+  if (String(event.status || '').trim().toLowerCase() !== 'firing') return ''
+  const severity = String(event.severity || '').trim().toLowerCase()
+  if (severity === 'p0' || severity === 'critical') {
+    return 'border-l-[3px] border-l-red-500 bg-red-50/60 dark:bg-red-950/20'
+  }
+  if (severity === 'p1' || severity === 'warning') {
+    return 'border-l-[3px] border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/15'
+  }
+  return 'border-l-[3px] border-l-orange-300 dark:border-l-orange-700'
+}
+
 function formatStatusLabel(status: string | undefined): string {
   const s = String(status || '').trim().toLowerCase()
   if (!s) return '-'
@@ -359,7 +371,7 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
 </script>
 
 <template>
-  <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-900/5 dark:bg-dark-800 dark:ring-dark-700">
+  <div class="rounded-[4px] border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800 md:p-5">
     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <div>
         <h3 class="text-sm font-bold text-gray-900 dark:text-white">{{ t('admin.ops.alertEvents.title') }}</h3>
@@ -372,7 +384,7 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
         <Select :model-value="status" :options="statusOptions" class="w-[110px]" @change="status = String($event || '')" />
         <Select :model-value="emailSent" :options="emailSentOptions" class="w-[110px]" @change="emailSent = String($event || '')" />
         <button
-          class="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600"
+          class="flex h-8 items-center gap-1.5 rounded-[4px] bg-gray-100 px-3 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600"
           :disabled="loading"
           @click="loadFirstPage"
         >
@@ -392,17 +404,17 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
       {{ t('admin.ops.alertEvents.loading') }}
     </div>
 
-    <div v-else-if="empty" class="rounded-xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400">
+    <div v-else-if="empty" class="rounded-[4px] border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400">
       {{ t('admin.ops.alertEvents.empty') }}
     </div>
 
-    <div v-else class="overflow-hidden rounded-xl border border-gray-200 dark:border-dark-700">
+    <div v-else class="overflow-hidden rounded-[4px] border border-gray-200 dark:border-dark-700">
       <div class="max-h-[600px] overflow-y-auto" @scroll="onScroll">
         <div v-if="!isDesktopViewport" class="divide-y divide-gray-100 dark:divide-dark-800">
           <div
             v-for="row in events"
             :key="row.id"
-            class="cursor-pointer space-y-2 p-4 hover:bg-gray-50 dark:hover:bg-dark-700/50"
+            :class="['cursor-pointer space-y-2 p-4 hover:bg-gray-50 dark:hover:bg-dark-700/50', priorityRowClass(row)]"
             @click="openDetail(row)"
           >
             <div class="flex flex-wrap items-center gap-2">
@@ -474,7 +486,7 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
             <tr
               v-for="row in events"
               :key="row.id"
-              class="cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-700/50"
+              :class="['cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-700/50', priorityRowClass(row)]"
               @click="openDetail(row)"
               :title="row.title || ''"
             >
@@ -563,7 +575,7 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
       </div>
 
       <div v-else class="space-y-5">
-        <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
+        <div class="rounded-[4px] bg-gray-50 p-4 dark:bg-dark-900">
           <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <div class="flex flex-wrap items-center gap-2">
@@ -606,15 +618,15 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
         </div>
 
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
+            <div class="rounded-[4px] bg-gray-50 p-4 dark:bg-dark-900">
               <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.alertEvents.detail.firedAt') }}</div>
               <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ formatDateTime(selected.fired_at || selected.created_at) }}</div>
             </div>
-            <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
+            <div class="rounded-[4px] bg-gray-50 p-4 dark:bg-dark-900">
               <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.alertEvents.detail.resolvedAt') }}</div>
               <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ selected.resolved_at ? formatDateTime(selected.resolved_at) : '-' }}</div>
             </div>
-            <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
+            <div class="rounded-[4px] bg-gray-50 p-4 dark:bg-dark-900">
               <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.alertEvents.detail.ruleId') }}</div>
               <div class="mt-1 flex flex-wrap items-center gap-2">
                 <div class="font-mono text-sm font-bold text-gray-900 dark:text-white">#{{ selected.rule_id }}</div>
@@ -634,7 +646,7 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
                 </a>
               </div>
             </div>
-            <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
+            <div class="rounded-[4px] bg-gray-50 p-4 dark:bg-dark-900">
               <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.alertEvents.detail.dimensions') }}</div>
               <div class="mt-1 text-sm text-gray-900 dark:text-white">
                 <div v-if="getDimensionString(selected, 'platform')">platform={{ getDimensionString(selected, 'platform') }}</div>
@@ -645,7 +657,7 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
           </div>
 
 
-        <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-800">
+        <div class="rounded-[4px] border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-800">
           <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div>
               <div class="text-sm font-bold text-gray-900 dark:text-white">{{ t('admin.ops.alertEvents.detail.historyTitle') }}</div>
@@ -692,4 +704,3 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
     </BaseDialog>
   </div>
 </template>
-

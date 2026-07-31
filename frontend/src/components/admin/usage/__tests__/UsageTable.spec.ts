@@ -66,7 +66,8 @@ vi.mock('vue-i18n', async () => {
 })
 
 const DataTableStub = {
-  props: ['data'],
+  name: 'DataTable',
+  props: ['data', 'mobileTable'],
   template: `
     <div>
       <div v-for="row in data" :key="row.request_id">
@@ -120,6 +121,20 @@ describe('admin UsageTable tooltip', () => {
       height: 20,
       toJSON: () => ({}),
     } as DOMRect)
+  })
+
+  it('forwards the opt-in mobile table layout without changing the default', () => {
+    const defaultWrapper = mount(UsageTable, {
+      props: { data: [], loading: false, columns: [] },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+    expect(defaultWrapper.getComponent({ name: 'DataTable' }).props('mobileTable')).toBe(false)
+
+    const mobileTableWrapper = mount(UsageTable, {
+      props: { data: [], loading: false, columns: [], mobileTable: true },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+    expect(mobileTableWrapper.getComponent({ name: 'DataTable' }).props('mobileTable')).toBe(true)
   })
 
   it('marks only usage rows that actually applied long-context billing', () => {

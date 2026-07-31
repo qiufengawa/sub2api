@@ -5,8 +5,8 @@
       <!-- Charts Section -->
       <div class="space-y-4">
         <div class="card p-4">
-          <div class="flex flex-wrap items-center gap-4">
-            <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-end gap-4">
+            <div class="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
               <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.dashboard.timeRange') }}:</span>
               <DateRangePicker
                 v-model:start-date="startDate"
@@ -14,7 +14,7 @@
                 @change="onDateRangeChange"
               />
             </div>
-            <div class="ml-auto flex items-center gap-2">
+            <div class="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
               <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.dashboard.granularity') }}:</span>
               <div class="w-28">
                 <Select v-model="granularity" :options="granularityOptions" @change="loadChartData" />
@@ -22,7 +22,14 @@
             </div>
           </div>
         </div>
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3" data-testid="admin-usage-chart-grid">
+          <TokenUsageTrend
+            class="lg:col-span-2 xl:col-span-3"
+            data-testid="admin-usage-token-trend"
+            :trend-data="trendData"
+            :loading="chartsLoading"
+            color-scheme="categorical"
+          />
           <ModelDistributionChart
             v-model:source="modelDistributionSource"
             v-model:metric="modelDistributionMetric"
@@ -35,6 +42,7 @@
             :start-date="startDate"
             :end-date="endDate"
             :filters="breakdownFilters"
+            color-scheme="categorical"
           />
           <GroupDistributionChart
             v-model:metric="groupDistributionMetric"
@@ -44,10 +52,10 @@
             :start-date="startDate"
             :end-date="endDate"
             :filters="breakdownFilters"
+            color-scheme="categorical"
           />
-        </div>
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <EndpointDistributionChart
+            class="lg:col-span-2 xl:col-span-1"
             v-model:source="endpointDistributionSource"
             v-model:metric="endpointDistributionMetric"
             :endpoint-stats="inboundEndpointStats"
@@ -60,8 +68,8 @@
             :start-date="startDate"
             :end-date="endDate"
             :filters="breakdownFilters"
+            color-scheme="categorical"
           />
-          <TokenUsageTrend :trend-data="trendData" :loading="chartsLoading" />
         </div>
       </div>
       <!-- 明细区：tab 栏 + 筛选 + 内容收进同一张卡片，消除割裂感 -->
@@ -123,6 +131,7 @@
         <div v-show="activeTab === 'usage'" class="overflow-hidden rounded-b-2xl">
           <UsageTable
             flat
+            mobile-table
             :data="usageLogs"
             :loading="loading"
             :columns="visibleColumns"

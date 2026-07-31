@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <div
-      class="pointer-events-none fixed right-4 top-4 z-[9999] space-y-2"
+      class="toast-region pointer-events-none fixed z-[9999] space-y-2"
       aria-live="polite"
       aria-atomic="true"
     >
@@ -17,7 +17,7 @@
           v-for="toast in toasts"
           :key="toast.id"
           :class="[
-            'pointer-events-auto w-[calc(100vw-2rem)] min-w-0 max-w-[360px] overflow-hidden rounded-[4px]',
+            'pointer-events-auto min-w-0 overflow-hidden rounded-[4px]',
             'border shadow-md',
             getSurfaceClass(toast.type)
           ]"
@@ -52,7 +52,7 @@
                       : 'text-[#383838] dark:text-white'
                   ]"
                 >
-                  {{ toast.message }}
+                  <span class="break-words">{{ toast.message }}</span>
                 </p>
               </div>
 
@@ -60,7 +60,7 @@
               <button
                 @click="removeToast(toast.id)"
                 class="-mr-1 -mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[3px] text-[#8b8b8b] transition-colors hover:bg-black/5 hover:text-[#383838] dark:text-gray-500 dark:hover:bg-white/10 dark:hover:text-gray-300"
-                aria-label="Close notification"
+                :aria-label="t('common.close')"
               >
                 <Icon name="x" size="sm" />
               </button>
@@ -82,10 +82,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import { useAppStore } from '@/stores/app'
 
 const appStore = useAppStore()
+const { t } = useI18n()
 
 const toasts = computed(() => appStore.toasts)
 
@@ -149,6 +151,23 @@ const removeToast = (id: string) => {
 </script>
 
 <style scoped>
+.toast-region {
+  top: max(1rem, env(safe-area-inset-top));
+  right: max(1rem, env(safe-area-inset-right));
+  left: max(1rem, env(safe-area-inset-left));
+}
+
+.toast-region > :deep(*) {
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .toast-region {
+    left: auto;
+    width: min(360px, calc(100vw - 2rem));
+  }
+}
+
 .toast-progress {
   width: 100%;
   animation-name: toast-progress-shrink;
@@ -162,6 +181,12 @@ const removeToast = (id: string) => {
   }
   to {
     width: 0%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-progress {
+    animation: none;
   }
 }
 </style>
