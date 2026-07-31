@@ -20,7 +20,7 @@
 
 本分支保留 Sub2API 原有功能，重点维护自己的前端版本与完整发行链路：从本仓库安装，就会继续从本仓库检查更新、下载新版本和执行回滚，不再跳回上游仓库。
 
-历史版本 [`v1.0.0`](https://github.com/qiufengawa/sub2api/releases/tag/v1.0.0) 完成了独立发行源的建立。当前源码版本为 `v0.1.169-qiu.3`，版本号会同时记录上游基线与本发行分支的迭代序号。
+历史版本 [`v1.0.0`](https://github.com/qiufengawa/sub2api/releases/tag/v1.0.0) 完成了独立发行源的建立。当前源码版本为 `v0.1.169-qiu.3.1`，版本号会同时记录上游基线、本发行分支的主迭代与小版本序号。
 
 ## 本分支带来了什么？
 
@@ -83,7 +83,7 @@ docker pull ghcr.io/qiufengawa/sub2api:latest
 如需固定版本，使用明确的版本标签，避免 `latest` 自动变化：
 
 ```bash
-docker pull ghcr.io/qiufengawa/sub2api:0.1.169-qiu.3
+docker pull ghcr.io/qiufengawa/sub2api:0.1.169-qiu.3.1
 ```
 
 更完整的部署、备份和迁移说明见 [deploy/README.md](deploy/README.md)。Apple 芯片 Mac 可参考 [Apple Container 安装说明](deploy/APPLE_CONTAINER.md)。
@@ -97,7 +97,7 @@ docker pull ghcr.io/qiufengawa/sub2api:0.1.169-qiu.3
 安装脚本会自动识别系统架构并下载合适的稳定版本。需要固定版本时，可以给安装脚本传入版本号：
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/qiufengawa/sub2api/ui/main/deploy/install.sh | sudo bash -s -- --version v0.1.169-qiu.3
+curl -sSL https://raw.githubusercontent.com/qiufengawa/sub2api/ui/main/deploy/install.sh | sudo bash -s -- --version v0.1.169-qiu.3.1
 ```
 
 ## 更新与回滚
@@ -124,7 +124,7 @@ docker compose up -d
 生产环境建议在 Compose 文件中固定具体版本，例如：
 
 ```yaml
-image: ghcr.io/qiufengawa/sub2api:0.1.169-qiu.3
+image: ghcr.io/qiufengawa/sub2api:0.1.169-qiu.3.1
 ```
 
 升级前请先备份数据库、Redis 数据和应用数据目录。
@@ -162,21 +162,22 @@ GitHub Release + GHCR 镜像
 本分支固定使用以下格式：
 
 ```text
-v<上游官方版本>-qiu.<迭代序号>
+v<上游官方版本>-qiu.<主迭代序号>[.<小版本序号>]
 ```
 
-例如 `v0.1.169-qiu.3` 表示：
+例如 `v0.1.169-qiu.3.1` 表示：
 
 - 上游基线为 `Wei-Shaw/sub2api v0.1.169`；
-- 这是本发行分支基于该上游版本发布的第 3 个迭代版本。
+- 这是本发行分支第 3 个主迭代下的第 1 个小版本。
 
 版本递增规则：
 
-- 每次发布本分支的新迭代时递增 `qiu.N`，例如 `v0.1.169-qiu.2` → `v0.1.169-qiu.3`；
-- 同步到新的上游版本时更新前半段，`qiu.N` 继续作为本分支发行序号递增，例如 `v0.1.168-qiu.2` → `v0.1.169-qiu.3`；
+- 同一主迭代的小范围修复递增小版本，例如 `v0.1.169-qiu.3` → `v0.1.169-qiu.3.1` → `v0.1.169-qiu.3.2`；
+- 较大的本分支迭代递增主迭代序号，例如 `v0.1.169-qiu.3.2` → `v0.1.169-qiu.4`；
+- 官方版本号更新时同步前半段，并将本分支版本重置为 `qiu.1.0`；
 - 每个 Release 的说明必须分别列出“同步的上游内容”和“本分支改动”。
 
-历史标签 `v1.0.0` 以及曾使用的 `v<上游版本>-v<发行版本>` 格式继续由更新与回滚逻辑识别。`-qiu.N` 在语义化版本工具中属于预发布形态，本仓库通过 GoReleaser 明确将其发布为正式 Release，因此后台更新、安装脚本和 `latest` 镜像会继续跟踪稳定版本。
+历史标签 `v1.0.0` 以及曾使用的 `v<上游版本>-v<发行版本>` 格式继续由更新与回滚逻辑识别。`-qiu.N[.P]` 在语义化版本工具中属于预发布形态，本仓库通过 GoReleaser 明确将其发布为正式 Release，因此后台更新、安装脚本和 `latest` 镜像会继续跟踪稳定版本。
 
 ## 说明
 

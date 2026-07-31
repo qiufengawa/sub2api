@@ -108,6 +108,10 @@ func TestCompareVersionsUsesUpstreamBaselineThenForkRevision(t *testing.T) {
 		want    int
 	}{
 		{name: "qiu revision increments", current: "0.1.168-qiu.1", latest: "0.1.168-qiu.2", want: -1},
+		{name: "qiu patch increments", current: "0.1.169-qiu.3", latest: "0.1.169-qiu.3.1", want: -1},
+		{name: "qiu patch compares numerically", current: "0.1.169-qiu.3.10", latest: "0.1.169-qiu.3.2", want: 1},
+		{name: "next qiu revision wins over patches", current: "0.1.169-qiu.3.99", latest: "0.1.169-qiu.4", want: -1},
+		{name: "zero patch matches legacy whole revision", current: "0.1.169-qiu.3", latest: "0.1.169-qiu.3.0", want: 0},
 		{name: "upstream baseline wins over qiu revision", current: "0.1.168-qiu.99", latest: "0.1.169-qiu.1", want: -1},
 		{name: "newer upstream wins after qiu revision increments", current: "0.1.169-qiu.1", latest: "0.1.168-qiu.99", want: 1},
 		{name: "outer v prefix is ignored for qiu revision", current: "v0.1.168-qiu.1", latest: "0.1.168-qiu.1", want: 0},
@@ -130,6 +134,19 @@ func TestCompareVersionsUsesUpstreamBaselineThenForkRevision(t *testing.T) {
 	}
 }
 
+func TestParseVersionAcceptsQiuPatchRevision(t *testing.T) {
+	version, ok := parseVersion("v0.1.169-qiu.3.1")
+
+	require.True(t, ok)
+	require.Equal(t, [3]int{0, 1, 169}, version.upstream)
+	require.Equal(t, [3]int{3, 1, 0}, version.distribution)
+	require.Equal(t, versionKindQiuRevision, version.kind)
+
+	resetVersion, resetOK := parseVersion("v0.1.170-qiu.1.0")
+	require.True(t, resetOK)
+	require.Equal(t, [3]int{1, 0, 0}, resetVersion.distribution)
+}
+
 func TestParseVersionRejectsUnsupportedFormats(t *testing.T) {
 	for _, version := range []string{
 		"",
@@ -138,11 +155,29 @@ func TestParseVersionRejectsUnsupportedFormats(t *testing.T) {
 		"0.1.168-v1.0.0-extra",
 		"0.1.168-qiu.0",
 		"0.1.168-qiu.-1",
+		"0.1.169-qiu.03.1",
+		"0.1.169-qiu.3.01",
+		"0.1.169-qiu.3.1.1",
 		"release-0.1.168-v1.0.0",
 	} {
 		_, ok := parseVersion(version)
 		require.False(t, ok, "version %q should be rejected", version)
 	}
+}
+
+func TestUpdateServiceDetectsQiuPatchRevisionOnSameUpstreamBaseline(t *testing.T) {
+	svc := NewUpdateService(
+		&updateServiceCacheStub{},
+		&updateServiceGitHubClientStub{release: &GitHubRelease{TagName: "v0.1.169-qiu.3.1"}},
+		"0.1.169-qiu.3",
+		"release",
+	)
+
+	info, err := svc.CheckUpdate(context.Background(), true)
+
+	require.NoError(t, err)
+	require.True(t, info.HasUpdate)
+	require.Equal(t, "0.1.169-qiu.3.1", info.LatestVersion)
 }
 
 func TestUpdateServiceDetectsQiuRevisionOnSameUpstreamBaseline(t *testing.T) {

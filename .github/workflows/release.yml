@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to release (e.g., v0.1.169-qiu.3)'
+        description: 'Tag to release (e.g., v0.1.169-qiu.3.1)'
         required: true
         type: string
       simple_release:
@@ -38,9 +38,9 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
-          if ! printf '%s\n' "$RELEASE_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+-qiu\.[1-9][0-9]*$'; then
+          if ! printf '%s\n' "$RELEASE_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+-qiu\.[1-9][0-9]*(\.(0|[1-9][0-9]*))?$'; then
             echo "Invalid release tag: $RELEASE_TAG" >&2
-            echo "Expected: v<upstream-version>-qiu.<revision>, for example v0.1.168-qiu.1" >&2
+            echo "Expected: v<upstream-version>-qiu.<revision>[.<patch>], for example v0.1.169-qiu.3.1" >&2
             exit 1
           fi
           VERSION=${RELEASE_TAG#v}
@@ -289,7 +289,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
-          if ! printf '%s\n' "$RELEASE_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+-qiu\.[1-9][0-9]*$'; then
+          if ! printf '%s\n' "$RELEASE_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+-qiu\.[1-9][0-9]*(\.(0|[1-9][0-9]*))?$'; then
             echo "Invalid release tag: $RELEASE_TAG" >&2
             exit 1
           fi

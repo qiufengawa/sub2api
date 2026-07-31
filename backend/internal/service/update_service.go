@@ -121,7 +121,7 @@ type GitHubRelease struct {
 
 // RollbackVersion describes a release version the system can roll back to
 type RollbackVersion struct {
-	Version     string `json:"version"` // without "v" prefix, e.g. "0.1.168-qiu.1"
+	Version     string `json:"version"` // without "v" prefix, e.g. "0.1.169-qiu.3.1"
 	PublishedAt string `json:"published_at"`
 	HTMLURL     string `json:"html_url"`
 }
@@ -695,8 +695,8 @@ func (s *UpdateService) saveToCache(ctx context.Context, info *UpdateInfo) {
 }
 
 // compareVersions compares distribution versions. The current format is
-// <upstream semver>-qiu.<revision>, for example 0.1.168-qiu.1.
-// The upstream version is compared first, then the qiu revision.
+// <upstream semver>-qiu.<revision>[.<patch>], for example 0.1.169-qiu.3.1.
+// The upstream version is compared first, then each qiu revision component.
 //
 // Migration compatibility:
 //   - an upstream-only version is treated as distribution version 0.0.0;
@@ -734,7 +734,7 @@ func compareVersions(current, latest string) int {
 		}
 	}
 
-	// On the same upstream baseline, the canonical qiu.N format supersedes the
+	// On the same upstream baseline, the canonical qiu.N[.P] format supersedes the
 	// short-lived -vA.B.C format, regardless of its numeric suffix.
 	currentRank := versionKindRank(currentParts.kind)
 	latestRank := versionKindRank(latestParts.kind)
@@ -803,13 +803,13 @@ func parseVersion(v string) (forkVersion, bool) {
 
 	if upstreamText, revisionText, ok := strings.Cut(v, "-qiu."); ok {
 		upstream, upstreamOK := parseVersionTriplet(upstreamText)
-		revision, err := strconv.Atoi(revisionText)
-		if !upstreamOK || err != nil || revision <= 0 {
+		revision, revisionOK := parseQiuRevision(revisionText)
+		if !upstreamOK || !revisionOK {
 			return forkVersion{}, false
 		}
 		return forkVersion{
 			upstream:     upstream,
-			distribution: [3]int{0, 0, revision},
+			distribution: revision,
 			kind:         versionKindQiuRevision,
 		}, true
 	}
@@ -819,6 +819,31 @@ func parseVersion(v string) (forkVersion, bool) {
 		return forkVersion{}, false
 	}
 	return forkVersion{upstream: upstream, kind: versionKindUpstream}, true
+}
+
+func parseQiuRevision(value string) ([3]int, bool) {
+	parts := strings.Split(value, ".")
+	if len(parts) == 0 || len(parts) > 2 {
+		return [3]int{}, false
+	}
+
+	result := [3]int{}
+	for i, part := range parts {
+		if part == "" || (len(part) > 1 && part[0] == '0') {
+			return [3]int{}, false
+		}
+		for _, char := range part {
+			if char < '0' || char > '9' {
+				return [3]int{}, false
+			}
+		}
+		parsed, err := strconv.Atoi(part)
+		if err != nil || parsed < 0 || (i == 0 && parsed == 0) {
+			return [3]int{}, false
+		}
+		result[i] = parsed
+	}
+	return result, true
 }
 
 func parseVersionTriplet(value string) ([3]int, bool) {
