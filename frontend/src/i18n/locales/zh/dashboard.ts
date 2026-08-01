@@ -654,6 +654,7 @@ export default {
   modelPlaza: {
     title: '模型广场',
     description: '按分组浏览可用模型与价格',
+    summary: '共 {models} 个模型 · {groups} 个分组 · {platforms} 个平台',
     loading: '加载中...',
     empty: '暂无可展示的分组',
     loadFailed: '加载模型广场失败',
@@ -665,7 +666,9 @@ export default {
       rateLabel: '倍率',
       modelLabel: '模型',
       searchPlaceholder: '搜索模型名称',
-      all: '全部'
+      all: '全部',
+      allModels: '全部模型',
+      filterButton: '筛选'
     },
     badges: {
       exclusive: '专属分组',
@@ -691,7 +694,9 @@ export default {
       perUnitRequest: '/ 次',
       perUnitImage: '/ 张',
       perRequest: '按次计费',
-      perImage: '按图片计费'
+      perImage: '按图片计费',
+      perRequestPrice: '按次价格',
+      perImagePrice: '按图片价格'
     },
     nav: {
       login: '登录',

@@ -335,6 +335,7 @@ export default {
     paymentMethod: '支付方式',
     fee: '手续费',
     actualPay: '实付金额',
+    orderSummary: '订单明细',
     createOrder: '确认支付',
     methods: {
       easypay: '易支付',
@@ -513,6 +514,8 @@ export default {
     helpImageAlt: '站点管理员提供的支付说明图片',
     planFeatures: '功能特性',
     planCard: {
+      price: '价格',
+      validity: '有效期',
       rate: '倍率',
       peakRate: '高峰倍率',
       dailyLimit: '日限额',

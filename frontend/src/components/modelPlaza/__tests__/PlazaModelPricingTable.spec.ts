@@ -77,7 +77,7 @@ describe('PlazaModelPricingTable', () => {
     expect(text).toContain('$2.40')
     expect(text).toContain('$12.00')
     // 倍率列:原倍率划线 + 专属倍率
-    const struck = wrapper.find('td .line-through')
+    const struck = wrapper.find('[data-testid="rate-cell"] .line-through')
     expect(struck.exists()).toBe(true)
     expect(struck.text()).toBe('1x')
     expect(text).toContain('0.8x')
@@ -107,7 +107,9 @@ describe('PlazaModelPricingTable', () => {
     const noOfficial = tokenModel({ name: 'model-no-official', official_pricing: null })
 
     const wrapper = mountTable([cheap, noOfficial, expensive], 1)
-    const names = wrapper.findAll('tbody tr').map((tr) => tr.find('td').text())
+    const names = wrapper
+      .findAll('[data-testid="pricing-row"]')
+      .map((row) => row.attributes('data-model'))
     expect(names).toEqual(['model-expensive', 'model-cheap', 'model-no-official'])
   })
 
@@ -116,8 +118,10 @@ describe('PlazaModelPricingTable', () => {
     const text = wrapper.text()
     expect(text).toContain('modelPlaza.table.paidPrice')
     expect(text).toContain('modelPlaza.table.officialPrice')
-    // token 行:模型 + 实付 3 列 + 官方 3 列 + 倍率
-    expect(wrapper.findAll('tbody td')).toHaveLength(8)
+    expect(wrapper.find('[data-testid="pricing-desktop-head"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="paid-price-band"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="official-price-band"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="rate-cell"]').exists()).toBe(true)
   })
 
   it('官方价包含 1h 缓存写入价;official_pricing 为 null 时官方三列显示 -', () => {
@@ -126,11 +130,10 @@ describe('PlazaModelPricingTable', () => {
     expect(withOfficial.text()).toContain('(1h')
 
     const withoutOfficial = mountTable([tokenModel({ official_pricing: null })], 1)
-    const cells = withoutOfficial.findAll('tbody td')
-    // 官方 输入/输出/缓存 三列均为 -
-    expect(cells[4].text().trim()).toBe('-')
-    expect(cells[5].text().trim()).toBe('-')
-    expect(cells[6].text().trim()).toBe('-')
+    const officialBand = withoutOfficial.find('[data-testid="official-price-band"]')
+    expect(officialBand.find('.official-input strong').text().trim()).toBe('-')
+    expect(officialBand.find('.official-output strong').text().trim()).toBe('-')
+    expect(officialBand.find('.official-cache strong').text().trim()).toBe('-')
   })
 
   it('per_request 模型按单次价 × 倍率展示,官方价列显示 -', () => {
@@ -154,8 +157,10 @@ describe('PlazaModelPricingTable', () => {
     // 0.04 × 0.5 = 0.02,scale=1
     expect(text).toContain('$0.02')
     expect(text).toContain('modelPlaza.table.perRequest')
+    expect(text).toContain('modelPlaza.table.perRequestPrice')
     // 单位后缀跟在价格后(按次 → / 次)
     expect(text).toContain('modelPlaza.table.perUnitRequest')
+    expect(wrapper.find('.official-wide').text()).toBe('-')
   })
 
   it('token 模型阶梯定价内联进输入/输出列,按倍率折算', () => {
@@ -202,9 +207,13 @@ describe('PlazaModelPricingTable', () => {
     expect(text).toContain('$1.50')
     expect(text).toContain('$7.50')
     expect(text).toContain('$15.00')
+    const mobileTiers = wrapper.find('[data-testid="token-tier-list"]')
+    expect(mobileTiers.findAll('.token-tier-row')).toHaveLength(2)
+    expect(mobileTiers.text()).toContain('modelPlaza.table.input')
+    expect(mobileTiers.text()).toContain('modelPlaza.table.output')
   })
 
-  it('按图模型主行展示阶梯芯片,不把 image_output_price(每 token)当按次价', () => {
+  it('按图模型主行展示纵向阶梯价格,不把 image_output_price(每 token)当按次价', () => {
     const model = tokenModel({
       name: 'gpt-image-2',
       pricing: {
@@ -245,13 +254,31 @@ describe('PlazaModelPricingTable', () => {
     const wrapper = mountTable([model], 0.1)
     const text = wrapper.text()
     expect(text).toContain('modelPlaza.table.perImage')
-    // 芯片:1K $0.001 / 2K $0.002,单位后缀内嵌(按图 → / 张)
+    expect(text).toContain('modelPlaza.table.perImagePrice')
+    // 价格行:1K $0.001 / 2K $0.002,单位后缀内嵌(按图 → / 张)
     expect(text).toContain('1K')
     expect(text).toContain('$0.001')
     expect(text).toContain('2K')
     expect(text).toContain('$0.002')
     expect(text).toContain('modelPlaza.table.perUnitImage')
+    expect(wrapper.findAll('.request-tier')).toHaveLength(2)
     // 旧 bug:image_output_price × 0.1 = 0.000003 被当按次价
     expect(text).not.toContain('$0.000003')
+  })
+
+  it('手机端保留完整列表列并由价格表自身横向滚动,不固定模型列', () => {
+    const longName = 'provider-model-with-a-very-long-version-and-capability-suffix'
+    const wrapper = mountTable([tokenModel({ name: longName })], 1)
+    const surface = wrapper.find('[data-testid="pricing-responsive"]')
+    const row = wrapper.find('[data-testid="pricing-row"]')
+    const modelName = row.find('.model-name')
+
+    expect(surface.classes()).toContain('overflow-x-auto')
+    expect(wrapper.find('table').exists()).toBe(false)
+    expect(row.exists()).toBe(true)
+    expect(row.findAll('.price-band')).toHaveLength(2)
+    expect(modelName.text()).toBe(longName)
+    expect(modelName.attributes('title')).toBe(longName)
+    expect(modelName.classes()).toContain('min-w-0')
   })
 })

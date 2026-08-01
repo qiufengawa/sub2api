@@ -1,10 +1,55 @@
 <template>
-  <div class="space-y-4">
-    <!-- 页头(独立形态下展示标题;后台形态 AppHeader 已有页面标题) -->
-    <div v-if="!embedded">
-      <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ t('modelPlaza.title') }}</h1>
-      <p class="mt-1.5 text-sm text-gray-500 dark:text-dark-400">{{ t('modelPlaza.description') }}</p>
-    </div>
+  <div class="min-w-0 space-y-4">
+    <header class="min-w-0">
+      <div v-if="!embedded">
+        <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ t('modelPlaza.title') }}</h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('modelPlaza.description') }}</p>
+      </div>
+
+      <div class="mt-4 flex min-w-0 flex-col gap-3 border-b border-gray-200 pb-4 dark:border-dark-700 lg:flex-row lg:items-end lg:justify-between">
+        <div class="min-w-0">
+          <p
+            data-testid="model-plaza-summary"
+            class="text-sm font-medium text-gray-700 dark:text-gray-200"
+          >
+            {{ t('modelPlaza.summary', { models: modelCount, groups: groupCount, platforms: platformCount }) }}
+          </p>
+          <p
+            v-if="!isAuthenticated"
+            class="mt-1.5 flex items-center gap-1.5 text-xs text-gray-400 dark:text-dark-500"
+          >
+            <Icon name="infoCircle" size="xs" class="h-3.5 w-3.5 flex-shrink-0" />
+            {{ t('modelPlaza.anonymousHint') }}
+          </p>
+        </div>
+
+        <div class="relative w-full min-w-0 lg:w-[400px]">
+          <Icon
+            name="search"
+            size="sm"
+            class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-dark-500"
+          />
+          <input
+            :value="searchQuery"
+            type="search"
+            :aria-label="t('modelPlaza.filters.modelLabel')"
+            :placeholder="t('modelPlaza.filters.searchPlaceholder')"
+            class="input h-10 w-full pl-9 pr-9"
+            @input="searchQuery = ($event.target as HTMLInputElement).value"
+          />
+          <button
+            v-if="searchQuery"
+            type="button"
+            class="absolute right-2.5 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-[3px] text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:text-dark-500 dark:hover:bg-dark-800 dark:hover:text-gray-300"
+            :aria-label="t('common.reset')"
+            :title="t('common.reset')"
+            @click="searchQuery = ''"
+          >
+            <Icon name="x" size="xs" class="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    </header>
 
     <!-- 全局价格说明(管理员配置,Markdown) -->
     <div
@@ -13,23 +58,18 @@
       v-html="descriptionHtml"
     ></div>
 
-    <!-- 未登录提示 -->
-    <p
-      v-if="!isAuthenticated"
-      class="flex items-center gap-1.5 text-xs text-gray-400 dark:text-dark-500"
-    >
-      <Icon name="infoCircle" size="xs" class="h-3.5 w-3.5" />
-      {{ t('modelPlaza.anonymousHint') }}
-    </p>
-
-    <!-- 加载/错误/空 -->
     <div
       v-if="loading"
-      class="flex min-h-[240px] items-center justify-center"
+      class="overflow-hidden border-y border-gray-200 dark:border-dark-700"
       role="status"
       :aria-label="t('common.loading')"
     >
-      <div class="h-8 w-8 animate-spin rounded-full border-2 border-primary-600/25 border-t-primary-600 dark:border-primary-400/25 dark:border-t-primary-400"></div>
+      <div class="h-12 animate-pulse border-b border-gray-100 bg-gray-100/70 dark:border-dark-700 dark:bg-dark-800/70"></div>
+      <div
+        v-for="index in 5"
+        :key="index"
+        class="h-14 animate-pulse border-b border-gray-100 bg-white last:border-b-0 dark:border-dark-700 dark:bg-dark-900/30"
+      ></div>
     </div>
     <div
       v-else-if="error"
@@ -38,8 +78,7 @@
     >
       {{ t('modelPlaza.loadFailed') }}
     </div>
-    <template v-else>
-      <!-- 筛选区:平台 → 分组 → 倍率 -->
+    <div v-else class="plaza-browser">
       <PlazaFilterBar
         :platforms="platforms"
         :groups="groupOptions"
@@ -47,24 +86,23 @@
         :platform="selectedPlatform"
         :group-id="selectedGroupId"
         :rate="selectedRate"
-        :search="searchQuery"
         @update:platform="selectedPlatform = $event"
         @update:group-id="selectedGroupId = $event"
         @update:rate="selectedRate = $event"
-        @update:search="searchQuery = $event"
       />
 
-      <!-- 分组分节的模型清单(默认按生效倍率升序) -->
-      <div v-if="filteredGroups.length > 0" class="space-y-4">
-        <PlazaGroupSection v-for="g in filteredGroups" :key="g.id" :group="g" />
+      <div class="min-w-0">
+        <div v-if="filteredGroups.length > 0" class="plaza-group-list">
+          <PlazaGroupSection v-for="g in filteredGroups" :key="g.id" :group="g" />
+        </div>
+        <div
+          v-else
+          class="border-y border-dashed border-gray-300 px-5 py-10 text-center text-sm text-gray-500 dark:border-dark-600 dark:text-dark-400"
+        >
+          {{ searchActive ? t('modelPlaza.noSearchResult') : t('modelPlaza.empty') }}
+        </div>
       </div>
-      <div
-        v-else
-        class="border-y border-dashed border-gray-300 px-5 py-10 text-center text-sm text-gray-500 dark:border-dark-600 dark:text-dark-400"
-      >
-        {{ searchActive ? t('modelPlaza.noSearchResult') : t('modelPlaza.empty') }}
-      </div>
-    </template>
+    </div>
   </div>
 </template>
 
@@ -103,6 +141,14 @@ const descriptionHtml = computed(() => {
   if (!md) return ''
   return DOMPurify.sanitize(marked.parse(md) as string)
 })
+
+const modelCount = computed(
+  () => new Set((props.response?.groups ?? []).flatMap((group) => group.models.map((model) => model.name))).size
+)
+const groupCount = computed(() => props.response?.groups.length ?? 0)
+const platformCount = computed(
+  () => new Set((props.response?.groups ?? []).map((group) => group.platform).filter(Boolean)).size
+)
 
 /** 生效倍率 = 用户专属倍率 ?? 分组默认倍率。 */
 function effectiveRate(g: ModelPlazaGroup): number {
@@ -163,6 +209,21 @@ const filteredGroups = computed(() => {
 .plaza-description {
   line-height: 1.7;
   overflow-wrap: anywhere;
+}
+
+.plaza-browser {
+  @apply grid min-w-0 gap-4;
+}
+
+.plaza-group-list {
+  @apply min-w-0 border-y border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900/20;
+}
+
+@media (min-width: 1280px) {
+  .plaza-browser {
+    grid-template-columns: minmax(168px, 196px) minmax(0, 1fr);
+    @apply items-start gap-6;
+  }
 }
 
 .plaza-description :deep(h1),

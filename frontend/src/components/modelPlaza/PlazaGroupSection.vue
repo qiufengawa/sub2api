@@ -1,62 +1,76 @@
 <template>
-  <section
-    class="rounded-[4px] border bg-white dark:bg-dark-800/50"
-    :class="[platformBorderStrongClass(group.platform)]"
-  >
-    <!-- 分组头部:名称/平台/倍率徽章/专属/订阅徽章 + 描述 -->
-    <header class="border-b border-gray-100 px-3 py-3 dark:border-dark-700/60 sm:px-5 sm:py-4">
-      <div class="flex flex-wrap items-center gap-2">
-        <GroupBadge
-          :name="group.name"
-          :platform="group.platform as GroupPlatform"
-          :subscription-type="(group.subscription_type || 'standard') as SubscriptionType"
-          :rate-multiplier="group.rate_multiplier"
-          :user-rate-multiplier="group.user_rate_multiplier ?? null"
-          :peak-rate-enabled="group.peak_rate_enabled"
-          :peak-start="group.peak_start"
-          :peak-end="group.peak_end"
-          :peak-rate-multiplier="group.peak_rate_multiplier"
-          always-show-rate
-        />
-        <span
-          v-if="group.is_exclusive"
-          class="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-600 dark:bg-purple-900/20 dark:text-purple-400"
-        >
+  <section class="plaza-group" :style="accentStyle">
+    <header class="plaza-group-header">
+      <div class="flex min-w-0 items-start gap-2.5">
+        <span class="group-accent" aria-hidden="true"></span>
+        <div class="flex min-w-0 items-start gap-2.5">
+          <PlatformIcon
+            :platform="group.platform as GroupPlatform"
+            size="md"
+            class="mt-0.5 flex-shrink-0"
+            :style="{ color: platformAccentColor(group.platform) }"
+          />
+          <div class="min-w-0">
+            <div class="flex min-w-0 items-baseline gap-2">
+              <h2 class="group-title" :title="group.name">{{ group.name }}</h2>
+              <span class="hidden flex-shrink-0 text-xs text-gray-400 dark:text-dark-500 sm:inline">
+                {{ platformLabel(group.platform) }}
+              </span>
+            </div>
+            <p
+              v-if="group.description"
+              class="plaza-group-description mt-1 text-sm leading-5 text-gray-500 dark:text-dark-400"
+              :title="group.description"
+            >
+              {{ group.description }}
+            </p>
+            <p
+              v-if="peakNote"
+              class="mt-1 inline-flex items-start gap-1 text-xs leading-5 text-amber-600 dark:text-amber-400"
+            >
+              <Icon name="clock" size="xs" class="mt-0.5 h-3 w-3 flex-shrink-0" />
+              {{ peakNote }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="group-meta">
+        <span class="rate-label">
+          <span class="text-[10px] font-medium text-gray-400 dark:text-dark-500">
+            {{ t('modelPlaza.table.rate') }}
+          </span>
+          <template v-if="hasCustomRate">
+            <span class="text-xs text-gray-400 line-through dark:text-dark-500">{{ group.rate_multiplier }}x</span>
+            <span class="font-mono text-sm font-bold text-primary-600 dark:text-primary-400">{{ effectiveRate }}x</span>
+          </template>
+          <span v-else class="font-mono text-sm font-bold text-gray-800 dark:text-gray-100">
+            {{ effectiveRate }}x
+          </span>
+        </span>
+        <span v-if="group.is_exclusive" class="group-flag text-purple-600 dark:text-purple-400">
           <Icon name="shield" size="xs" class="h-3 w-3" />
           {{ t('modelPlaza.badges.exclusive') }}
         </span>
         <span
           v-if="group.subscription_type === 'subscription'"
-          class="inline-flex items-center rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600 dark:bg-violet-900/20 dark:text-violet-400"
+          class="group-flag text-violet-600 dark:text-violet-400"
         >
           {{ t('modelPlaza.badges.subscription') }}
         </span>
       </div>
-      <p v-if="group.description" class="mt-2 break-words text-sm leading-6 text-gray-500 dark:text-dark-400">
-        {{ group.description }}
-      </p>
-      <p
-        v-if="peakNote"
-        class="mt-1.5 inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400"
-      >
-        <Icon name="clock" size="xs" class="h-3 w-3" />
-        {{ peakNote }}
-      </p>
     </header>
 
-    <!-- 模型价格表 -->
-    <div class="px-3 sm:px-5">
-      <PlazaModelPricingTable
-        v-if="group.models.length > 0"
-        :models="group.models"
-        :platform="group.platform"
-        :rate-multiplier="group.rate_multiplier"
-        :user-rate-multiplier="group.user_rate_multiplier ?? null"
-      />
-      <p v-else class="py-4 text-center text-sm text-gray-400 dark:text-dark-500">
-        {{ t('modelPlaza.detail.noModels') }}
-      </p>
-    </div>
+    <PlazaModelPricingTable
+      v-if="group.models.length > 0"
+      :models="group.models"
+      :platform="group.platform"
+      :rate-multiplier="group.rate_multiplier"
+      :user-rate-multiplier="group.user_rate_multiplier ?? null"
+    />
+    <p v-else class="py-6 text-center text-sm text-gray-400 dark:text-dark-500">
+      {{ t('modelPlaza.detail.noModels') }}
+    </p>
   </section>
 </template>
 
@@ -64,11 +78,11 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
-import GroupBadge from '@/components/common/GroupBadge.vue'
+import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import PlazaModelPricingTable from './PlazaModelPricingTable.vue'
 import type { ModelPlazaGroup } from '@/api/modelPlaza'
-import type { GroupPlatform, SubscriptionType } from '@/types'
-import { platformBorderStrongClass } from '@/utils/platformColors'
+import type { GroupPlatform } from '@/types'
+import { platformAccentColor, platformLabel } from '@/utils/platformColors'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
 import { useAppStore } from '@/stores/app'
 
@@ -78,6 +92,14 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const appStore = useAppStore()
+
+const effectiveRate = computed(() => props.group.user_rate_multiplier ?? props.group.rate_multiplier)
+const hasCustomRate = computed(
+  () =>
+    props.group.user_rate_multiplier != null &&
+    props.group.user_rate_multiplier !== props.group.rate_multiplier
+)
+const accentStyle = computed(() => ({ '--plaza-accent': platformAccentColor(props.group.platform) }))
 
 const peakNote = computed(() => {
   if (!hasPeakRate(props.group)) return ''
@@ -91,3 +113,46 @@ const peakNote = computed(() => {
   })
 })
 </script>
+
+<style scoped>
+.plaza-group {
+  @apply min-w-0;
+}
+
+.plaza-group + .plaza-group {
+  @apply border-t border-gray-200 dark:border-dark-700;
+}
+
+.plaza-group-header {
+  @apply flex min-w-0 flex-col gap-2.5 border-b border-gray-200 bg-gray-50/70 px-3 py-3 dark:border-dark-700 dark:bg-dark-800/45 sm:flex-row sm:items-start sm:justify-between sm:px-4;
+}
+
+.group-accent {
+  @apply mt-0.5 h-8 w-0.5 flex-shrink-0 rounded-[2px];
+  background-color: var(--plaza-accent);
+}
+
+.group-title {
+  @apply min-w-0 truncate text-sm font-semibold leading-5 text-gray-900 dark:text-white sm:text-base;
+}
+
+.group-meta {
+  @apply flex flex-wrap items-center gap-x-3 gap-y-1 pl-5 sm:flex-shrink-0 sm:justify-end sm:pl-0;
+}
+
+.rate-label {
+  @apply inline-flex min-h-5 items-center gap-1.5;
+}
+
+.group-flag {
+  @apply inline-flex items-center gap-1 text-xs font-medium;
+}
+
+.plaza-group-description {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: 2;
+}
+</style>

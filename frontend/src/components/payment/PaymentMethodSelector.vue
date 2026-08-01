@@ -5,7 +5,7 @@
     </label>
     <div
       data-testid="payment-method-grid"
-      class="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,184px),1fr))]"
+      class="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,156px),1fr))]"
     >
       <button
         v-for="method in sortedMethods"
@@ -14,7 +14,7 @@
         :disabled="!method.available"
         :title="methodLabel(method)"
         :class="[
-          'relative flex h-12 min-w-0 items-center justify-start rounded-[3px] border px-3 text-left transition-colors',
+          'relative flex min-h-14 min-w-0 items-center justify-start rounded-[3px] border px-3 py-2.5 text-left transition-colors',
           !method.available
             ? 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-50 dark:border-dark-700 dark:bg-dark-800/50'
             : selected === method.type

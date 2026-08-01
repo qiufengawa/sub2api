@@ -19,6 +19,8 @@ const i18n = createI18n({
         perMonth: "month",
         models: "Models",
         planCard: {
+          price: "Price",
+          validity: "Validity",
           quota: "Quota",
           rate: "Rate",
           unlimited: "Unlimited",
@@ -61,28 +63,43 @@ describe("SubscriptionPlanCard", () => {
   });
 
   it("shows model scopes for Antigravity plans", () => {
-    const text = mountPlanCard("antigravity").text();
+    const wrapper = mountPlanCard("antigravity");
+    const text = wrapper.text();
+    const badges = wrapper.findAll(".plan-card-model-scope-badge");
 
     expect(text).toContain("Claude");
     expect(text).toContain("Gemini");
     expect(text).toContain("Imagen");
+    expect(badges).toHaveLength(3);
+    expect(badges[0].classes()).toEqual(expect.arrayContaining(["bg-orange-50", "text-orange-700"]));
+    expect(badges[1].classes()).toEqual(expect.arrayContaining(["bg-blue-50", "text-blue-700"]));
+    expect(badges[2].classes()).toEqual(expect.arrayContaining(["bg-violet-50", "text-violet-700"]));
   });
 
-  // #4607：管理端保存的单位是复数（months/weeks），此前用户侧只匹配单数
-  // 'month'，「1 个月」的套餐卡片被显示成「1天」。测试环境的 vue-i18n 为
-  // runtime-only 构建，t() 原样返回 key，故按 key 断言单位分支。
+  it("renders Composite as a cyan platform badge", () => {
+    const badge = mountPlanCard("composite").get(".plan-card-platform-badge");
+
+    expect(badge.text()).toContain("Composite");
+    expect(badge.classes()).toEqual(expect.arrayContaining([
+      "border-cyan-500/30",
+      "bg-cyan-500/10",
+      "text-cyan-700",
+    ]));
+  });
+
+  // #4607: admin forms persist plural units; keep every validity branch intact.
   it("renders plural admin-form validity units instead of mislabeled days (#4607)", () => {
-    expect(mountPlanCard("openai", { validity_days: 1, validity_unit: "months" }).text()).toContain("/ payment.perMonth");
-    expect(mountPlanCard("openai", { validity_days: 3, validity_unit: "months" }).text()).toContain("/ 3payment.months");
-    expect(mountPlanCard("openai", { validity_days: 2, validity_unit: "weeks" }).text()).toContain("/ 2payment.weeks");
-    expect(mountPlanCard("openai", { validity_days: 30, validity_unit: "day" }).text()).toContain("/ 30payment.days");
+    expect(mountPlanCard("openai", { validity_days: 1, validity_unit: "months" }).text()).toContain("payment.perMonth");
+    expect(mountPlanCard("openai", { validity_days: 3, validity_unit: "months" }).text()).toContain("3payment.months");
+    expect(mountPlanCard("openai", { validity_days: 2, validity_unit: "weeks" }).text()).toContain("2payment.weeks");
+    expect(mountPlanCard("openai", { validity_days: 30, validity_unit: "day" }).text()).toContain("30payment.days");
   });
 
   it("uses the configured currency symbol while preserving USD for legacy plans", () => {
     const cnyPlan = mountPlanCard("openai", { currency: "CNY", original_price: 20 }).text();
 
     expect(cnyPlan).toContain("¥10CNY");
-    expect(cnyPlan).toContain("¥20CNY");
+    expect(cnyPlan).toContain("¥20");
     expect(mountPlanCard("openai", { currency: "USD" }).text()).toContain("$10USD");
     expect(mountPlanCard("openai", { currency: "" }).text()).toContain("$10");
   });
@@ -91,7 +108,7 @@ describe("SubscriptionPlanCard", () => {
     ["long Chinese", "企业全球加速专业订阅套餐（含高级模型与优先支持）"],
     ["long English", "Enterprise Global Acceleration Subscription with Priority Support"],
     ["unbroken token", "EnterpriseGlobalAccelerationSubscriptionWithPrioritySupport1234567890"],
-  ])("keeps the full %s plan title accessible in a bounded two-line area", (_label, name) => {
+  ])("shows the complete %s plan title without clamping", (_label, name) => {
     const wrapper = mountPlanCard("openai", { name });
     const title = wrapper.get("h3");
 
@@ -99,53 +116,64 @@ describe("SubscriptionPlanCard", () => {
     expect(title.attributes("title")).toBe(name);
     expect(title.classes()).toEqual(expect.arrayContaining([
       "min-w-0",
-      "h-12",
       "break-words",
-      "line-clamp-2",
       "[overflow-wrap:anywhere]",
+      "text-lg",
     ]));
     expect(title.classes()).not.toContain("truncate");
+    expect(title.classes()).not.toContain("line-clamp-2");
+    expect(title.classes()).not.toContain("h-12");
   });
 
-  it("keeps title, badge, price, description, and purchase action in separate bounded regions", () => {
+  it("keeps the title and description full-width and all price values on one line container", () => {
     const wrapper = mountPlanCard("openai", {
       name: "Enterprise Global Acceleration Subscription with Priority Support",
       price: 123.45,
+      original_price: 200,
       currency: "USD",
       description: "Includes advanced models and priority support.",
     });
     const title = wrapper.get("h3");
-    const badge = wrapper.findAll("span").find((node) => node.text() === "OpenAI");
-    const price = wrapper.findAll("span").find((node) => node.text() === "123.45");
+    const priceLine = wrapper.get(".plan-card-price-line");
 
-    expect(title.element.parentElement?.classList).toContain("min-w-0");
-    expect(title.element.parentElement?.classList).toContain("flex-1");
-    expect(badge?.classes()).toContain("shrink-0");
-    expect([...(badge?.element.parentElement?.classList ?? [])]).toEqual(expect.arrayContaining([
+    expect(title.text()).toBe("Enterprise Global Acceleration Subscription with Priority Support");
+    expect(wrapper.get("p").text()).toBe("Includes advanced models and priority support.");
+    expect(wrapper.html()).not.toContain("line-clamp");
+    expect(priceLine.text()).toContain("$123.45USD");
+    expect(priceLine.text()).toContain("$200");
+    expect(priceLine.text()).toContain("-38%");
+    expect(priceLine.get(".plan-card-discount-badge").classes()).toEqual(expect.arrayContaining([
+      "bg-fuchsia-50",
+      "text-fuchsia-700",
+      "ring-fuchsia-200",
+    ]));
+    expect(priceLine.classes()).toEqual(expect.arrayContaining([
       "flex",
-      "items-center",
+      "flex-wrap",
+      "items-baseline",
       "justify-end",
     ]));
-    expect(badge?.element.parentElement?.textContent).toContain("/ 30payment.days");
-    expect(badge?.element.parentElement?.parentElement?.classList).toContain("shrink-0");
-    expect(price?.element.parentElement?.parentElement?.classList).toContain("shrink-0");
-    expect(wrapper.get("p").text()).toBe("Includes advanced models and priority support.");
     expect(wrapper.get("button").text()).toBe("payment.subscribeNow");
   });
 
-  it("keeps short plan titles compact and aligned", () => {
+  it("uses a neutral solid card without a colored top accent or gradient", () => {
     const wrapper = mountPlanCard("openai", { name: "Pro", description: "" });
-    const title = wrapper.get("h3");
-    const badge = wrapper.findAll("span").find((node) => node.text() === "OpenAI");
+    const root = wrapper.get(".group");
 
-    expect(title.text()).toBe("Pro");
-    expect(title.attributes("title")).toBe("Pro");
-    expect(title.classes()).toEqual(expect.arrayContaining(["text-base", "font-bold", "h-12"]));
-    expect([...(badge?.element.parentElement?.classList ?? [])]).toEqual(expect.arrayContaining([
-      "flex",
-      "items-center",
-      "justify-end",
+    expect(root.classes()).toEqual(expect.arrayContaining([
+      "border-gray-200",
+      "bg-white",
+      "p-4",
+      "h-full",
     ]));
-    expect(badge?.element.parentElement?.textContent).toContain("/ 30payment.days");
+    expect(wrapper.html()).not.toContain("bg-gradient");
+    expect(wrapper.html()).not.toContain("h-1.5");
+  });
+
+  it("does not render an empty discount when the original price is not higher", () => {
+    const wrapper = mountPlanCard("openai", { price: 10, original_price: 10 });
+
+    expect(wrapper.findAll(".line-through")).toHaveLength(0);
+    expect(wrapper.get(".plan-card-price-line").text()).not.toContain("-%");
   });
 });

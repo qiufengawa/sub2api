@@ -649,6 +649,7 @@ export default {
   modelPlaza: {
     title: 'Model Plaza',
     description: 'Browse available models and pricing by group',
+    summary: '{models} models · {groups} groups · {platforms} platforms',
     loading: 'Loading...',
     empty: 'No groups to display',
     loadFailed: 'Failed to load model plaza',
@@ -660,7 +661,9 @@ export default {
       rateLabel: 'Rate',
       modelLabel: 'Model',
       searchPlaceholder: 'Search models',
-      all: 'All'
+      all: 'All',
+      allModels: 'All models',
+      filterButton: 'Filters'
     },
     badges: {
       exclusive: 'Exclusive',
@@ -686,7 +689,9 @@ export default {
       perUnitRequest: '/ request',
       perUnitImage: '/ image',
       perRequest: 'Per request',
-      perImage: 'Per image'
+      perImage: 'Per image',
+      perRequestPrice: 'Per-request price',
+      perImagePrice: 'Per-image price'
     },
     nav: {
       login: 'Sign In',

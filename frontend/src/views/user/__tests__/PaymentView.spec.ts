@@ -277,6 +277,72 @@ async function mountSubscriptionPlanList(planCount: number) {
   return wrapper
 }
 
+async function mountRecharge() {
+  vi.useRealTimers()
+  routeState.path = '/purchase'
+  routeState.query = {}
+  routerReplace.mockReset().mockResolvedValue(undefined)
+  routerPush.mockReset().mockResolvedValue(undefined)
+  routerResolve.mockClear()
+  createOrder.mockReset()
+  refreshUser.mockReset()
+  fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
+  showError.mockReset()
+  showInfo.mockReset()
+  showWarning.mockReset()
+  getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture())
+  bridgeInvoke.mockReset()
+  window.localStorage.clear()
+  ;(window as Window & { WeixinJSBridge?: { invoke: typeof bridgeInvoke } }).WeixinJSBridge = undefined
+
+  const wrapper = shallowMount(PaymentView, {
+    global: {
+      stubs: {
+        AppLayout: {
+          template: '<div><slot /></div>',
+        },
+        Teleport: true,
+        Transition: false,
+      },
+    },
+  })
+  await flushPromises()
+  await flushPromises()
+  return wrapper
+}
+
+describe('PaymentView recharge layout', () => {
+  it('keeps the recharge workspace full-width until xl and uses compact mobile padding', async () => {
+    const wrapper = await mountRecharge()
+    const layout = wrapper.get('[data-testid="recharge-layout"]')
+    const amountSection = wrapper.get('[data-testid="recharge-amount-section"]')
+    const methodSection = wrapper.get('[data-testid="recharge-method-section"]')
+
+    expect(wrapper.get('[data-testid="payment-page"]').classes()).toContain('w-full')
+    expect(layout.classes()).toEqual(expect.arrayContaining([
+      'grid',
+      'gap-4',
+      'xl:grid-cols-[minmax(0,1fr)_20rem]',
+    ]))
+    expect(layout.attributes('class')).not.toContain('lg:grid-cols-')
+    expect(amountSection.classes()).toEqual(expect.arrayContaining(['p-3', 'sm:p-4']))
+    expect(methodSection.classes()).toEqual(expect.arrayContaining(['p-3', 'sm:p-4']))
+  })
+
+  it('keeps the order details and payment action in one auxiliary surface', async () => {
+    const wrapper = await mountRecharge()
+    const panel = wrapper.get('[data-testid="recharge-checkout-panel"]')
+
+    expect(panel.find('[data-testid="recharge-order-summary"]').exists()).toBe(true)
+    expect(panel.find('button').text()).toContain('payment.createOrder')
+    expect(panel.classes()).toEqual(expect.arrayContaining([
+      'border',
+      'bg-white',
+      'xl:sticky',
+    ]))
+  })
+})
+
 describe('PaymentView subscription plan grid', () => {
   it.each([3, 4, 6])('keeps %i plans on the existing mobile/tablet/desktop grid', async (planCount) => {
     const wrapper = await mountSubscriptionPlanList(planCount)
@@ -290,6 +356,7 @@ describe('PaymentView subscription plan grid', () => {
       'lg:grid-cols-3',
     ]))
   })
+
 })
 
 describe('PaymentView subscription confirmation amounts', () => {

@@ -311,6 +311,7 @@ export default {
     paymentMethod: 'Payment Method',
     fee: 'Fee',
     actualPay: 'Actual Payment',
+    orderSummary: 'Order Summary',
     createOrder: 'Confirm Payment',
     methods: {
       easypay: 'EasyPay',
@@ -489,6 +490,8 @@ export default {
     helpImageAlt: 'Payment instructions provided by the site administrator',
     planFeatures: 'Features',
     planCard: {
+      price: 'Price',
+      validity: 'Validity',
       rate: 'Rate',
       peakRate: 'Peak Rate',
       dailyLimit: 'Daily',

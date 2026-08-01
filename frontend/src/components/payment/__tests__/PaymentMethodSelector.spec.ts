@@ -28,13 +28,14 @@ describe('PaymentMethodSelector', () => {
     expect(grid.classes()).toEqual(expect.arrayContaining([
       'grid',
       'gap-2',
-      '[grid-template-columns:repeat(auto-fit,minmax(min(100%,184px),1fr))]',
+      '[grid-template-columns:repeat(auto-fit,minmax(min(100%,156px),1fr))]',
     ]))
     expect(grid.classes()).not.toContain('sm:flex')
 
     const buttons = wrapper.findAll('button')
     expect(buttons).toHaveLength(methods.length)
     expect(buttons.every(button => button.classes().includes('min-w-0'))).toBe(true)
+    expect(buttons.every(button => button.classes().includes('min-h-14'))).toBe(true)
     expect(buttons.every((button, index) => button.attributes('title') === methods[index].display_name)).toBe(true)
     expect(wrapper.findAll('[data-testid="payment-method-label"]').every(label => label.classes().includes('truncate'))).toBe(true)
   })
