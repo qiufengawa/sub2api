@@ -20,7 +20,7 @@
 
 本分支保留 Sub2API 原有功能，重点维护自己的前端版本与完整发行链路：从本仓库安装，就会继续从本仓库检查更新、下载新版本和执行回滚，不再跳回上游仓库。
 
-历史版本 [`v1.0.0`](https://github.com/qiufengawa/sub2api/releases/tag/v1.0.0) 完成了独立发行源的建立。当前源码版本为 `v0.1.169-qiu.4`，版本号会同时记录上游基线与本发行分支的整数迭代序号。
+历史版本 [`v1.0.0`](https://github.com/qiufengawa/sub2api/releases/tag/v1.0.0) 完成了独立发行源的建立。当前源码版本为 `v0.1.169-qiu.5`，版本号会同时记录上游基线与本发行分支的整数迭代序号。
 
 ## 本分支带来了什么？
 
@@ -83,7 +83,7 @@ docker pull ghcr.io/qiufengawa/sub2api:latest
 如需固定版本，使用明确的版本标签，避免 `latest` 自动变化：
 
 ```bash
-docker pull ghcr.io/qiufengawa/sub2api:0.1.169-qiu.4
+docker pull ghcr.io/qiufengawa/sub2api:0.1.169-qiu.5
 ```
 
 更完整的部署、备份和迁移说明见 [deploy/README.md](deploy/README.md)。Apple 芯片 Mac 可参考 [Apple Container 安装说明](deploy/APPLE_CONTAINER.md)。
@@ -97,7 +97,7 @@ docker pull ghcr.io/qiufengawa/sub2api:0.1.169-qiu.4
 安装脚本会自动识别系统架构并下载合适的稳定版本。需要固定版本时，可以给安装脚本传入版本号：
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/qiufengawa/sub2api/ui/main/deploy/install.sh | sudo bash -s -- --version v0.1.169-qiu.4
+curl -sSL https://raw.githubusercontent.com/qiufengawa/sub2api/ui/main/deploy/install.sh | sudo bash -s -- --version v0.1.169-qiu.5
 ```
 
 ## 更新与回滚
@@ -124,7 +124,7 @@ docker compose up -d
 生产环境建议在 Compose 文件中固定具体版本，例如：
 
 ```yaml
-image: ghcr.io/qiufengawa/sub2api:0.1.169-qiu.4
+image: ghcr.io/qiufengawa/sub2api:0.1.169-qiu.5
 ```
 
 升级前请先备份数据库、Redis 数据和应用数据目录。
@@ -165,10 +165,10 @@ GitHub Release + GHCR 镜像
 v<上游官方版本>-qiu.<整数迭代序号>
 ```
 
-例如 `v0.1.169-qiu.4` 表示：
+例如 `v0.1.169-qiu.5` 表示：
 
 - 上游基线为 `Wei-Shaw/sub2api v0.1.169`；
-- 这是本发行分支第 4 个整数迭代版本。
+- 这是本发行分支第 5 个整数迭代版本。
 
 版本递增规则：
 
