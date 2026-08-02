@@ -63,6 +63,8 @@ export interface UserProfileSourceContext {
   provider_label?: string | null
 }
 
+export type BillingPreference = 'subscription_first' | 'wallet_first' | 'subscription_only' | 'wallet_only'
+
 export interface User {
   id: number
   username: string
@@ -87,6 +89,7 @@ export interface User {
   role: 'admin' | 'user' // User role for authorization
   balance: number // User balance for API usage
   frozen_balance?: number // Balance currently held by async batch jobs
+  billing_preference?: BillingPreference
   concurrency: number // Allowed concurrent requests
   rpm_limit?: number // User-level RPM cap (0 = unlimited); effective as fallback when group has no rpm_limit
   status: 'active' | 'disabled' // Account status
@@ -213,6 +216,7 @@ export interface PublicSettings {
   compact_home_enabled: boolean
   hide_ccs_import_button: boolean
   payment_enabled: boolean
+  subscription_group_billing_enabled?: boolean
   risk_control_enabled: boolean
   table_default_page_size: number
   table_page_size_options: number[]
@@ -1585,6 +1589,9 @@ export interface UsageLog {
 
   // 计费模式
   billing_mode?: string | null
+  billing_source?: 'legacy' | 'wallet' | 'subscription' | string
+  billing_preference?: BillingPreference | null
+  billing_fallback_reason?: string | null
 
   created_at: string
 
@@ -1882,11 +1889,19 @@ export interface UserSubscription {
   id: number
   user_id: number
   group_id: number
+  plan_id?: number | null
+  plan_name?: string
   status: 'active' | 'expired' | 'revoked' | 'suspended'
   starts_at: string
   daily_usage_usd: number
   weekly_usage_usd: number
   monthly_usage_usd: number
+  cycle_quota_usd?: number | null
+  cycle_usage_usd?: number
+  cycle_reserved_usd?: number
+  reset_interval_seconds?: number
+  cycle_started_at?: string | null
+  wallet_fallback_enabled?: boolean
   daily_window_start: string | null
   weekly_window_start: string | null
   monthly_window_start: string | null
@@ -1896,6 +1911,7 @@ export interface UserSubscription {
   expires_at: string | null
   user?: User
   group?: Group
+  included_groups?: Group[]
 }
 
 export interface SubscriptionProgress {

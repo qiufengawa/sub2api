@@ -741,16 +741,25 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 		return ErrBillingServiceUnavailable
 	}
 
-	// 判断计费模式
-	isSubscriptionMode := group != nil && group.IsSubscriptionType() && subscription != nil
-
-	if isSubscriptionMode {
-		if err := s.checkSubscriptionEligibility(ctx, user.ID, group, subscription); err != nil {
+	// 判断计费模式。新模式下分组仅负责路由与倍率，资金来源由用户偏好、
+	// 套餐覆盖关系及周期剩余额度共同决定。
+	isSubscriptionMode := false
+	if s.cfg != nil && s.cfg.SubscriptionGroupBillingEnabled() {
+		var err error
+		isSubscriptionMode, err = s.checkSubscriptionGroupBillingEligibility(ctx, user, subscription)
+		if err != nil {
 			return err
 		}
 	} else {
-		if err := s.checkBalanceEligibility(ctx, user.ID); err != nil {
-			return err
+		isSubscriptionMode = group != nil && group.IsSubscriptionType() && subscription != nil
+		if isSubscriptionMode {
+			if err := s.checkSubscriptionEligibility(ctx, user.ID, group, subscription); err != nil {
+				return err
+			}
+		} else {
+			if err := s.checkBalanceEligibility(ctx, user.ID); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -774,6 +783,51 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 	}
 
 	return nil
+}
+
+func (s *BillingCacheService) checkSubscriptionGroupBillingEligibility(
+	ctx context.Context,
+	user *User,
+	subscription *UserSubscription,
+) (bool, error) {
+	if user == nil {
+		return false, ErrUserNotFound
+	}
+
+	now := time.Now()
+	subscriptionAvailable := subscription != nil &&
+		subscription.Status == SubscriptionStatusActive &&
+		subscription.ExpiresAt.After(now) &&
+		subscription.CheckCycleLimitAt(now, 0)
+
+	switch NormalizeBillingPreference(user.BillingPreference) {
+	case BillingPreferenceWalletOnly:
+		return false, s.checkBalanceEligibility(ctx, user.ID)
+	case BillingPreferenceWalletFirst:
+		if err := s.checkBalanceEligibility(ctx, user.ID); err == nil {
+			return false, nil
+		}
+		if subscriptionAvailable {
+			return true, nil
+		}
+		return false, ErrInsufficientBalance
+	case BillingPreferenceSubscriptionOnly:
+		if subscription == nil || subscription.Status != SubscriptionStatusActive || !subscription.ExpiresAt.After(now) {
+			return false, ErrSubscriptionInvalid
+		}
+		if !subscriptionAvailable {
+			return false, ErrSubscriptionQuotaExceeded
+		}
+		return true, nil
+	default:
+		if subscriptionAvailable {
+			return true, nil
+		}
+		if subscription != nil && !subscription.WalletFallbackEnabled {
+			return false, ErrSubscriptionQuotaExceeded
+		}
+		return false, s.checkBalanceEligibility(ctx, user.ID)
+	}
 }
 
 // checkRPM 执行并行 RPM 限流，所有适用的限制同时生效，任一超限即拒绝：

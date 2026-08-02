@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 )
 
@@ -82,6 +83,21 @@ func OriginalPrice(v float64) predicate.SubscriptionPlan {
 // Currency applies equality check predicate on the "currency" field. It's identical to CurrencyEQ.
 func Currency(v string) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldEQ(FieldCurrency, v))
+}
+
+// CycleQuotaUsd applies equality check predicate on the "cycle_quota_usd" field. It's identical to CycleQuotaUsdEQ.
+func CycleQuotaUsd(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldCycleQuotaUsd, v))
+}
+
+// ResetIntervalSeconds applies equality check predicate on the "reset_interval_seconds" field. It's identical to ResetIntervalSecondsEQ.
+func ResetIntervalSeconds(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldResetIntervalSeconds, v))
+}
+
+// WalletFallbackEnabled applies equality check predicate on the "wallet_fallback_enabled" field. It's identical to WalletFallbackEnabledEQ.
+func WalletFallbackEnabled(v bool) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldWalletFallbackEnabled, v))
 }
 
 // ValidityDays applies equality check predicate on the "validity_days" field. It's identical to ValidityDaysEQ.
@@ -449,6 +465,106 @@ func CurrencyContainsFold(v string) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldContainsFold(FieldCurrency, v))
 }
 
+// CycleQuotaUsdEQ applies the EQ predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdEQ(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldCycleQuotaUsd, v))
+}
+
+// CycleQuotaUsdNEQ applies the NEQ predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdNEQ(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNEQ(FieldCycleQuotaUsd, v))
+}
+
+// CycleQuotaUsdIn applies the In predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdIn(vs ...float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIn(FieldCycleQuotaUsd, vs...))
+}
+
+// CycleQuotaUsdNotIn applies the NotIn predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdNotIn(vs ...float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotIn(FieldCycleQuotaUsd, vs...))
+}
+
+// CycleQuotaUsdGT applies the GT predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdGT(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGT(FieldCycleQuotaUsd, v))
+}
+
+// CycleQuotaUsdGTE applies the GTE predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdGTE(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGTE(FieldCycleQuotaUsd, v))
+}
+
+// CycleQuotaUsdLT applies the LT predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdLT(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLT(FieldCycleQuotaUsd, v))
+}
+
+// CycleQuotaUsdLTE applies the LTE predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdLTE(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLTE(FieldCycleQuotaUsd, v))
+}
+
+// CycleQuotaUsdIsNil applies the IsNil predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdIsNil() predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIsNull(FieldCycleQuotaUsd))
+}
+
+// CycleQuotaUsdNotNil applies the NotNil predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdNotNil() predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotNull(FieldCycleQuotaUsd))
+}
+
+// ResetIntervalSecondsEQ applies the EQ predicate on the "reset_interval_seconds" field.
+func ResetIntervalSecondsEQ(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldResetIntervalSeconds, v))
+}
+
+// ResetIntervalSecondsNEQ applies the NEQ predicate on the "reset_interval_seconds" field.
+func ResetIntervalSecondsNEQ(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNEQ(FieldResetIntervalSeconds, v))
+}
+
+// ResetIntervalSecondsIn applies the In predicate on the "reset_interval_seconds" field.
+func ResetIntervalSecondsIn(vs ...int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIn(FieldResetIntervalSeconds, vs...))
+}
+
+// ResetIntervalSecondsNotIn applies the NotIn predicate on the "reset_interval_seconds" field.
+func ResetIntervalSecondsNotIn(vs ...int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotIn(FieldResetIntervalSeconds, vs...))
+}
+
+// ResetIntervalSecondsGT applies the GT predicate on the "reset_interval_seconds" field.
+func ResetIntervalSecondsGT(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGT(FieldResetIntervalSeconds, v))
+}
+
+// ResetIntervalSecondsGTE applies the GTE predicate on the "reset_interval_seconds" field.
+func ResetIntervalSecondsGTE(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGTE(FieldResetIntervalSeconds, v))
+}
+
+// ResetIntervalSecondsLT applies the LT predicate on the "reset_interval_seconds" field.
+func ResetIntervalSecondsLT(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLT(FieldResetIntervalSeconds, v))
+}
+
+// ResetIntervalSecondsLTE applies the LTE predicate on the "reset_interval_seconds" field.
+func ResetIntervalSecondsLTE(v int) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLTE(FieldResetIntervalSeconds, v))
+}
+
+// WalletFallbackEnabledEQ applies the EQ predicate on the "wallet_fallback_enabled" field.
+func WalletFallbackEnabledEQ(v bool) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldWalletFallbackEnabled, v))
+}
+
+// WalletFallbackEnabledNEQ applies the NEQ predicate on the "wallet_fallback_enabled" field.
+func WalletFallbackEnabledNEQ(v bool) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNEQ(FieldWalletFallbackEnabled, v))
+}
+
 // ValidityDaysEQ applies the EQ predicate on the "validity_days" field.
 func ValidityDaysEQ(v int) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldEQ(FieldValidityDays, v))
@@ -812,6 +928,75 @@ func UpdatedAtLT(v time.Time) predicate.SubscriptionPlan {
 // UpdatedAtLTE applies the LTE predicate on the "updated_at" field.
 func UpdatedAtLTE(v time.Time) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldLTE(FieldUpdatedAt, v))
+}
+
+// HasGroups applies the HasEdge predicate on the "groups" edge.
+func HasGroups() predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, GroupsTable, GroupsPrimaryKey...),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasGroupsWith applies the HasEdge predicate on the "groups" edge with a given conditions (other predicates).
+func HasGroupsWith(preds ...predicate.Group) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(func(s *sql.Selector) {
+		step := newGroupsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasUserSubscriptions applies the HasEdge predicate on the "user_subscriptions" edge.
+func HasUserSubscriptions() predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, UserSubscriptionsTable, UserSubscriptionsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasUserSubscriptionsWith applies the HasEdge predicate on the "user_subscriptions" edge with a given conditions (other predicates).
+func HasUserSubscriptionsWith(preds ...predicate.UserSubscription) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(func(s *sql.Selector) {
+		step := newUserSubscriptionsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasPlanGroups applies the HasEdge predicate on the "plan_groups" edge.
+func HasPlanGroups() predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, PlanGroupsTable, PlanGroupsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPlanGroupsWith applies the HasEdge predicate on the "plan_groups" edge with a given conditions (other predicates).
+func HasPlanGroupsWith(preds ...predicate.SubscriptionPlanGroup) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(func(s *sql.Selector) {
+		step := newPlanGroupsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
 }
 
 // And groups predicates with the AND operator between them.

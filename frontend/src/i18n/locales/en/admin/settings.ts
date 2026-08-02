@@ -600,6 +600,29 @@ export default {
         configGuide: 'Configuration Guide',
         enabled: 'Enable Payment',
         enabledHint: 'Enable or disable the payment system',
+        subscriptionGroupBillingEnabled: 'Bill subscriptions by routing group',
+        subscriptionGroupBillingEnabledHint:
+          'When enabled, subscriptions provide periodic quota while the API key routing group determines routing and billing multipliers.',
+        subscriptionGroupBillingEnabledWarning:
+          'Before enabling, verify every active plan has periodic quota, a reset interval, and at least one available group.',
+        subscriptionGroupBillingHelpAria: 'View subscription group billing details',
+        subscriptionGroupBillingHelpTitle: 'Subscription billing by routing group',
+        subscriptionGroupBillingHelpIntro:
+          'When enabled, a subscription provides spendable quota while the group selected by the API key continues to determine routing and the billing multiplier. Groups in a plan are not forced to a 1x rate.',
+        subscriptionGroupBillingHelpQuotaTitle: 'Subscription quota',
+        subscriptionGroupBillingHelpQuotaText:
+          'A request can use subscription quota only when the subscription is active, the plan includes the selected group, and enough quota remains in the current cycle.',
+        subscriptionGroupBillingHelpGroupTitle: 'Group billing',
+        subscriptionGroupBillingHelpGroupText:
+          'Requests still route through the actual group selected by the API key. The final charge follows the model price, that group multiplier, and the existing pricing rules.',
+        subscriptionGroupBillingHelpFallbackTitle: 'When unavailable',
+        subscriptionGroupBillingHelpFallbackText:
+          'If the plan does not include the selected group or its cycle quota is insufficient, the system either charges wallet balance or rejects the request according to the user billing preference and plan wallet-fallback setting.',
+        subscriptionGroupBillingHelpExampleTitle: 'Billing example',
+        subscriptionGroupBillingHelpExampleText:
+          'A plan includes GPT Group 1 at 0.1x and GPT Group 2 at 0.2x. An API key selecting Group 1 is billed at 0.1x, while one selecting Group 2 is billed at 0.2x; the subscription is only the quota source that covers the resulting charge.',
+        subscriptionGroupBillingHelpBeforeEnable:
+          'Before enabling, review the cycle quota, reset interval, allowed groups, and wallet-fallback policy of every active plan. Saving this switch affects subsequent requests immediately.',
         enabledPaymentTypes: 'Enabled Providers',
         enabledPaymentTypesHint: 'Disabling a provider will also disable its instances.',
         findProvider: 'Looking for a suitable EasyPay provider?',

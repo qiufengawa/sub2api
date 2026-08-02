@@ -8,6 +8,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -31,6 +32,7 @@ func (r *userSubscriptionRepository) Create(ctx context.Context, sub *service.Us
 	builder := client.UserSubscription.Create().
 		SetUserID(sub.UserID).
 		SetGroupID(sub.GroupID).
+		SetNillablePlanID(sub.PlanID).
 		SetExpiresAt(sub.ExpiresAt).
 		SetNillableDailyWindowStart(sub.DailyWindowStart).
 		SetNillableWeeklyWindowStart(sub.WeeklyWindowStart).
@@ -38,6 +40,11 @@ func (r *userSubscriptionRepository) Create(ctx context.Context, sub *service.Us
 		SetDailyUsageUsd(sub.DailyUsageUSD).
 		SetWeeklyUsageUsd(sub.WeeklyUsageUSD).
 		SetMonthlyUsageUsd(sub.MonthlyUsageUSD).
+		SetNillableCycleQuotaUsd(sub.CycleQuotaUSD).
+		SetResetIntervalSeconds(sub.ResetIntervalSeconds).
+		SetNillableCycleStartedAt(sub.CycleStartedAt).
+		SetCycleUsageUsd(sub.CycleUsageUSD).
+		SetWalletFallbackEnabled(sub.WalletFallbackEnabled).
 		SetNillableAssignedBy(sub.AssignedBy)
 
 	if sub.StartsAt.IsZero() {
@@ -68,6 +75,7 @@ func (r *userSubscriptionRepository) GetByID(ctx context.Context, id int64) (*se
 		WithUser().
 		WithGroup().
 		WithAssignedByUser().
+		WithPlan(func(q *dbent.SubscriptionPlanQuery) { q.WithGroups() }).
 		Only(ctx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
@@ -83,6 +91,7 @@ func (r *userSubscriptionRepository) GetByIDIncludeDeleted(ctx context.Context, 
 		WithUser().
 		WithGroup().
 		WithAssignedByUser().
+		WithPlan(func(q *dbent.SubscriptionPlanQuery) { q.WithGroups() }).
 		Only(queryCtx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
@@ -95,7 +104,9 @@ func (r *userSubscriptionRepository) GetByUserIDAndGroupID(ctx context.Context, 
 	m, err := client.UserSubscription.Query().
 		Where(usersubscription.UserIDEQ(userID), usersubscription.GroupIDEQ(groupID)).
 		WithGroup().
-		Only(ctx)
+		WithPlan(func(q *dbent.SubscriptionPlanQuery) { q.WithGroups() }).
+		Order(dbent.Desc(usersubscription.FieldExpiresAt), dbent.Desc(usersubscription.FieldID)).
+		First(ctx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
 	}
@@ -112,11 +123,103 @@ func (r *userSubscriptionRepository) GetActiveByUserIDAndGroupID(ctx context.Con
 			usersubscription.ExpiresAtGT(time.Now()),
 		).
 		WithGroup().
-		Only(ctx)
+		WithPlan(func(q *dbent.SubscriptionPlanQuery) { q.WithGroups() }).
+		Order(dbent.Asc(usersubscription.FieldExpiresAt), dbent.Asc(usersubscription.FieldID)).
+		First(ctx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
 	}
 	return userSubscriptionEntityToService(m), nil
+}
+
+func activeSubscriptionCoversGroup(groupID int64) predicate.UserSubscription {
+	return usersubscription.Or(
+		usersubscription.And(
+			usersubscription.PlanIDIsNil(),
+			usersubscription.GroupIDEQ(groupID),
+		),
+		usersubscription.And(
+			usersubscription.PlanIDNotNil(),
+			usersubscription.HasPlanWith(subscriptionplan.HasGroupsWith(group.IDEQ(groupID))),
+		),
+	)
+}
+
+func (r *userSubscriptionRepository) GetActiveCoveringGroup(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
+	client := clientFromContext(ctx, r.client)
+	m, err := client.UserSubscription.Query().
+		Where(
+			usersubscription.UserIDEQ(userID),
+			usersubscription.StatusEQ(service.SubscriptionStatusActive),
+			usersubscription.ExpiresAtGT(time.Now()),
+			activeSubscriptionCoversGroup(groupID),
+		).
+		WithGroup().
+		WithPlan(func(q *dbent.SubscriptionPlanQuery) { q.WithGroups() }).
+		Order(dbent.Asc(usersubscription.FieldExpiresAt), dbent.Asc(usersubscription.FieldID)).
+		First(ctx)
+	if err != nil {
+		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
+	}
+	return userSubscriptionEntityToService(m), nil
+}
+
+func (r *userSubscriptionRepository) GetByUserIDAndPlanID(ctx context.Context, userID, planID int64) (*service.UserSubscription, error) {
+	client := clientFromContext(ctx, r.client)
+	m, err := client.UserSubscription.Query().
+		Where(usersubscription.UserIDEQ(userID), usersubscription.PlanIDEQ(planID)).
+		WithGroup().
+		WithPlan(func(q *dbent.SubscriptionPlanQuery) { q.WithGroups() }).
+		Order(dbent.Desc(usersubscription.FieldExpiresAt), dbent.Desc(usersubscription.FieldID)).
+		First(ctx)
+	if err != nil {
+		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
+	}
+	return userSubscriptionEntityToService(m), nil
+}
+
+func (r *userSubscriptionRepository) ListActiveCoveringGroup(ctx context.Context, userID, groupID int64) ([]service.UserSubscription, error) {
+	client := clientFromContext(ctx, r.client)
+	rows, err := client.UserSubscription.Query().
+		Where(
+			usersubscription.UserIDEQ(userID),
+			usersubscription.StatusEQ(service.SubscriptionStatusActive),
+			usersubscription.ExpiresAtGT(time.Now()),
+			activeSubscriptionCoversGroup(groupID),
+		).
+		WithGroup().
+		WithPlan(func(q *dbent.SubscriptionPlanQuery) { q.WithGroups() }).
+		Order(dbent.Asc(usersubscription.FieldExpiresAt), dbent.Asc(usersubscription.FieldID)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return userSubscriptionEntitiesToService(rows), nil
+}
+
+func (r *userSubscriptionRepository) ExistsActiveCoveringGroup(ctx context.Context, userID, groupID int64) (bool, error) {
+	client := clientFromContext(ctx, r.client)
+	return client.UserSubscription.Query().Where(
+		usersubscription.UserIDEQ(userID),
+		usersubscription.StatusEQ(service.SubscriptionStatusActive),
+		usersubscription.ExpiresAtGT(time.Now()),
+		activeSubscriptionCoversGroup(groupID),
+	).Exist(ctx)
+}
+
+func (r *userSubscriptionRepository) UpdateBillingSnapshot(ctx context.Context, subscriptionID int64, snapshot service.SubscriptionBillingSnapshot, resetCycle bool) error {
+	client := clientFromContext(ctx, r.client)
+	update := client.UserSubscription.UpdateOneID(subscriptionID).
+		SetNillablePlanID(snapshot.PlanID).
+		SetNillableCycleQuotaUsd(snapshot.CycleQuotaUSD).
+		SetResetIntervalSeconds(snapshot.ResetIntervalSeconds).
+		SetNillableCycleStartedAt(snapshot.CycleStartedAt).
+		SetWalletFallbackEnabled(snapshot.WalletFallbackEnabled)
+	if resetCycle {
+		update.SetCycleUsageUsd(0)
+	}
+	_, err := update.Save(ctx)
+	return translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
 }
 
 func (r *userSubscriptionRepository) Update(ctx context.Context, sub *service.UserSubscription) error {
@@ -128,6 +231,7 @@ func (r *userSubscriptionRepository) Update(ctx context.Context, sub *service.Us
 	builder := client.UserSubscription.UpdateOneID(sub.ID).
 		SetUserID(sub.UserID).
 		SetGroupID(sub.GroupID).
+		SetNillablePlanID(sub.PlanID).
 		SetStartsAt(sub.StartsAt).
 		SetExpiresAt(sub.ExpiresAt).
 		SetStatus(sub.Status).
@@ -137,6 +241,11 @@ func (r *userSubscriptionRepository) Update(ctx context.Context, sub *service.Us
 		SetDailyUsageUsd(sub.DailyUsageUSD).
 		SetWeeklyUsageUsd(sub.WeeklyUsageUSD).
 		SetMonthlyUsageUsd(sub.MonthlyUsageUSD).
+		SetNillableCycleQuotaUsd(sub.CycleQuotaUSD).
+		SetResetIntervalSeconds(sub.ResetIntervalSeconds).
+		SetNillableCycleStartedAt(sub.CycleStartedAt).
+		SetCycleUsageUsd(sub.CycleUsageUSD).
+		SetWalletFallbackEnabled(sub.WalletFallbackEnabled).
 		SetNillableAssignedBy(sub.AssignedBy).
 		SetAssignedAt(sub.AssignedAt).
 		SetNotes(sub.Notes)
@@ -175,6 +284,7 @@ func (r *userSubscriptionRepository) ListByUserID(ctx context.Context, userID in
 	subs, err := client.UserSubscription.Query().
 		Where(usersubscription.UserIDEQ(userID)).
 		WithGroup().
+		WithPlan(func(q *dbent.SubscriptionPlanQuery) { q.WithGroups() }).
 		Order(dbent.Desc(usersubscription.FieldCreatedAt)).
 		All(ctx)
 	if err != nil {
@@ -192,6 +302,7 @@ func (r *userSubscriptionRepository) ListActiveByUserID(ctx context.Context, use
 			usersubscription.ExpiresAtGT(time.Now()),
 		).
 		WithGroup().
+		WithPlan(func(q *dbent.SubscriptionPlanQuery) { q.WithGroups() }).
 		Order(dbent.Desc(usersubscription.FieldCreatedAt)).
 		All(ctx)
 	if err != nil {
@@ -629,24 +740,31 @@ func userSubscriptionEntityToServiceWithStatusMapping(m *dbent.UserSubscription,
 		status = service.SubscriptionStatusRevoked
 	}
 	out := &service.UserSubscription{
-		ID:                 m.ID,
-		UserID:             m.UserID,
-		GroupID:            m.GroupID,
-		StartsAt:           m.StartsAt,
-		ExpiresAt:          m.ExpiresAt,
-		Status:             status,
-		DailyWindowStart:   m.DailyWindowStart,
-		WeeklyWindowStart:  m.WeeklyWindowStart,
-		MonthlyWindowStart: m.MonthlyWindowStart,
-		DailyUsageUSD:      m.DailyUsageUsd,
-		WeeklyUsageUSD:     m.WeeklyUsageUsd,
-		MonthlyUsageUSD:    m.MonthlyUsageUsd,
-		AssignedBy:         m.AssignedBy,
-		AssignedAt:         m.AssignedAt,
-		Notes:              derefString(m.Notes),
-		CreatedAt:          m.CreatedAt,
-		UpdatedAt:          m.UpdatedAt,
-		DeletedAt:          m.DeletedAt,
+		ID:                    m.ID,
+		UserID:                m.UserID,
+		GroupID:               m.GroupID,
+		PlanID:                m.PlanID,
+		StartsAt:              m.StartsAt,
+		ExpiresAt:             m.ExpiresAt,
+		Status:                status,
+		DailyWindowStart:      m.DailyWindowStart,
+		WeeklyWindowStart:     m.WeeklyWindowStart,
+		MonthlyWindowStart:    m.MonthlyWindowStart,
+		DailyUsageUSD:         m.DailyUsageUsd,
+		WeeklyUsageUSD:        m.WeeklyUsageUsd,
+		MonthlyUsageUSD:       m.MonthlyUsageUsd,
+		CycleQuotaUSD:         m.CycleQuotaUsd,
+		ResetIntervalSeconds:  m.ResetIntervalSeconds,
+		CycleStartedAt:        m.CycleStartedAt,
+		CycleUsageUSD:         m.CycleUsageUsd,
+		CycleReservedUSD:      m.CycleReservedUsd,
+		WalletFallbackEnabled: m.WalletFallbackEnabled,
+		AssignedBy:            m.AssignedBy,
+		AssignedAt:            m.AssignedAt,
+		Notes:                 derefString(m.Notes),
+		CreatedAt:             m.CreatedAt,
+		UpdatedAt:             m.UpdatedAt,
+		DeletedAt:             m.DeletedAt,
 	}
 	if m.Edges.User != nil {
 		out.User = userEntityToService(m.Edges.User)
@@ -656,6 +774,17 @@ func userSubscriptionEntityToServiceWithStatusMapping(m *dbent.UserSubscription,
 	}
 	if m.Edges.AssignedByUser != nil {
 		out.AssignedByUser = userEntityToService(m.Edges.AssignedByUser)
+	}
+	if m.Edges.Plan != nil {
+		out.PlanName = m.Edges.Plan.Name
+		for _, g := range m.Edges.Plan.Edges.Groups {
+			if mapped := groupEntityToService(g); mapped != nil {
+				out.IncludedGroups = append(out.IncludedGroups, *mapped)
+			}
+		}
+	}
+	if len(out.IncludedGroups) == 0 && out.Group != nil {
+		out.IncludedGroups = []service.Group{*out.Group}
 	}
 	return out
 }
@@ -675,6 +804,13 @@ func applyUserSubscriptionEntityToService(dst *service.UserSubscription, src *db
 		return
 	}
 	dst.ID = src.ID
+	dst.PlanID = src.PlanID
+	dst.CycleQuotaUSD = src.CycleQuotaUsd
+	dst.ResetIntervalSeconds = src.ResetIntervalSeconds
+	dst.CycleStartedAt = src.CycleStartedAt
+	dst.CycleUsageUSD = src.CycleUsageUsd
+	dst.CycleReservedUSD = src.CycleReservedUsd
+	dst.WalletFallbackEnabled = src.WalletFallbackEnabled
 	dst.CreatedAt = src.CreatedAt
 	dst.UpdatedAt = src.UpdatedAt
 }

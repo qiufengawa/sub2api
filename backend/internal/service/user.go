@@ -1,29 +1,59 @@
 package service
 
 import (
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
+const (
+	BillingPreferenceSubscriptionFirst = "subscription_first"
+	BillingPreferenceWalletFirst       = "wallet_first"
+	BillingPreferenceSubscriptionOnly  = "subscription_only"
+	BillingPreferenceWalletOnly        = "wallet_only"
+)
+
+func NormalizeBillingPreference(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case BillingPreferenceWalletFirst:
+		return BillingPreferenceWalletFirst
+	case BillingPreferenceSubscriptionOnly:
+		return BillingPreferenceSubscriptionOnly
+	case BillingPreferenceWalletOnly:
+		return BillingPreferenceWalletOnly
+	default:
+		return BillingPreferenceSubscriptionFirst
+	}
+}
+
+func IsValidBillingPreference(value string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	return normalized == BillingPreferenceSubscriptionFirst ||
+		normalized == BillingPreferenceWalletFirst ||
+		normalized == BillingPreferenceSubscriptionOnly ||
+		normalized == BillingPreferenceWalletOnly
+}
+
 type User struct {
-	ID             int64
-	Email          string
-	Username       string
-	Notes          string
-	AvatarURL      string
-	AvatarSource   string
-	AvatarMIME     string
-	AvatarByteSize int
-	AvatarSHA256   string
-	PasswordHash   string
-	Role           string
-	Balance        float64
-	FrozenBalance  float64
-	Concurrency    int
-	Status         string
-	AllowedGroups  []int64
-	TokenVersion   int64 // Incremented on password change to invalidate existing tokens
+	ID                int64
+	Email             string
+	Username          string
+	Notes             string
+	AvatarURL         string
+	AvatarSource      string
+	AvatarMIME        string
+	AvatarByteSize    int
+	AvatarSHA256      string
+	PasswordHash      string
+	Role              string
+	Balance           float64
+	FrozenBalance     float64
+	Concurrency       int
+	Status            string
+	BillingPreference string
+	AllowedGroups     []int64
+	TokenVersion      int64 // Incremented on password change to invalidate existing tokens
 	// TokenVersionResolved indicates TokenVersion already contains the fingerprint-derived
 	// value expected in JWT claims and refresh-token state.
 	TokenVersionResolved bool

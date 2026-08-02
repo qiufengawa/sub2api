@@ -238,6 +238,77 @@ func TestSettingService_UpdateSettings_PersistsCompactHomeEnabled(t *testing.T) 
 	require.Equal(t, "true", repo.updates[SettingKeyCompactHomeEnabled])
 }
 
+func TestSettingService_SubscriptionGroupBillingSetting(t *testing.T) {
+	t.Run("missing DB value falls back to config", func(t *testing.T) {
+		cfg := &config.Config{Billing: config.BillingConfig{SubscriptionGroupBillingEnabled: true}}
+		svc := NewSettingService(&settingGetAllRepoStub{values: map[string]string{}}, cfg)
+
+		settings, err := svc.GetAllSettings(context.Background())
+		require.NoError(t, err)
+		require.True(t, settings.SubscriptionGroupBillingEnabled)
+	})
+
+	t.Run("stored DB value overrides config", func(t *testing.T) {
+		cfg := &config.Config{Billing: config.BillingConfig{SubscriptionGroupBillingEnabled: true}}
+		svc := NewSettingService(&settingGetAllRepoStub{values: map[string]string{
+			SettingKeySubscriptionGroupBillingEnabled: "false",
+		}}, cfg)
+
+		settings, err := svc.GetAllSettings(context.Background())
+		require.NoError(t, err)
+		require.False(t, settings.SubscriptionGroupBillingEnabled)
+	})
+
+	t.Run("successful update persists and publishes runtime value", func(t *testing.T) {
+		repo := &settingUpdateRepoStub{}
+		cfg := &config.Config{}
+		cfg.SetSubscriptionGroupBillingEnabled(false)
+		svc := NewSettingService(repo, cfg)
+
+		err := svc.UpdateSettings(context.Background(), &SystemSettings{
+			SubscriptionGroupBillingEnabled: true,
+		})
+		require.NoError(t, err)
+		require.Equal(t, "true", repo.updates[SettingKeySubscriptionGroupBillingEnabled])
+		require.True(t, cfg.SubscriptionGroupBillingEnabled())
+	})
+
+	t.Run("failed update leaves runtime value unchanged", func(t *testing.T) {
+		repo := &settingUpdateRepoStub{setMultipleErr: errors.New("database unavailable")}
+		cfg := &config.Config{}
+		cfg.SetSubscriptionGroupBillingEnabled(false)
+		svc := NewSettingService(repo, cfg)
+
+		err := svc.UpdateSettings(context.Background(), &SystemSettings{
+			SubscriptionGroupBillingEnabled: true,
+		})
+		require.ErrorContains(t, err, "database unavailable")
+		require.False(t, cfg.SubscriptionGroupBillingEnabled())
+	})
+}
+
+func TestSettingService_LoadSubscriptionGroupBillingSetting(t *testing.T) {
+	t.Run("stored value wins", func(t *testing.T) {
+		repo := &forwardedIPMigrationRepoStub{values: map[string]string{
+			SettingKeySubscriptionGroupBillingEnabled: "false",
+		}}
+		cfg := &config.Config{Billing: config.BillingConfig{SubscriptionGroupBillingEnabled: true}}
+		svc := NewSettingService(repo, cfg)
+
+		require.NoError(t, svc.LoadSubscriptionGroupBillingSetting(context.Background()))
+		require.False(t, cfg.SubscriptionGroupBillingEnabled())
+	})
+
+	t.Run("missing value keeps config fallback", func(t *testing.T) {
+		repo := &forwardedIPMigrationRepoStub{values: map[string]string{}}
+		cfg := &config.Config{Billing: config.BillingConfig{SubscriptionGroupBillingEnabled: true}}
+		svc := NewSettingService(repo, cfg)
+
+		require.NoError(t, svc.LoadSubscriptionGroupBillingSetting(context.Background()))
+		require.True(t, cfg.SubscriptionGroupBillingEnabled())
+	})
+}
+
 func TestSettingService_UpdateSettings_DefaultSubscriptions_ValidGroup(t *testing.T) {
 	repo := &settingUpdateRepoStub{}
 	groupReader := &defaultSubGroupReaderStub{

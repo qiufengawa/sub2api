@@ -154,6 +154,76 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 		}
 	})
 
+	t.Run("subscription_group_billing_maintains_legacy_windows", func(t *testing.T) {
+		cfg := &config.Config{RunMode: config.RunModeStandard}
+		cfg.Billing.SubscriptionGroupBillingEnabled = true
+
+		realGroup := *group
+		realGroup.SubscriptionType = service.SubscriptionTypeStandard
+		realKey := *apiKey
+		realKey.Group = &realGroup
+		realKey.GroupID = &realGroup.ID
+		realKeyRepo := &stubApiKeyRepo{
+			getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+				if key != realKey.Key {
+					return nil, service.ErrAPIKeyNotFound
+				}
+				clone := realKey
+				return &clone, nil
+			},
+		}
+		apiKeyService := service.NewAPIKeyService(realKeyRepo, nil, nil, nil, nil, nil, cfg)
+
+		past := time.Now().Add(-48 * time.Hour)
+		sub := &service.UserSubscription{
+			ID:                 57,
+			UserID:             user.ID,
+			GroupID:            realGroup.ID,
+			Status:             service.SubscriptionStatusActive,
+			StartsAt:           time.Now().Add(-7 * 24 * time.Hour),
+			ExpiresAt:          time.Now().Add(21 * 24 * time.Hour),
+			DailyWindowStart:   &past,
+			WeeklyWindowStart:  &past,
+			MonthlyWindowStart: &past,
+			DailyUsageUSD:      10,
+		}
+		maintenanceCalled := make(chan struct{}, 1)
+		subscriptionRepo := &stubUserSubscriptionRepo{
+			getActive: func(context.Context, int64, int64) (*service.UserSubscription, error) {
+				clone := *sub
+				return &clone, nil
+			},
+			getByID: func(context.Context, int64) (*service.UserSubscription, error) {
+				clone := *sub
+				return &clone, nil
+			},
+			resetDaily: func(_ context.Context, _ int64, start time.Time) error {
+				sub.DailyWindowStart = &start
+				sub.DailyUsageUSD = 0
+				maintenanceCalled <- struct{}{}
+				return nil
+			},
+			resetWeekly:  func(context.Context, int64, time.Time) error { return nil },
+			resetMonthly: func(context.Context, int64, time.Time) error { return nil },
+		}
+		subscriptionService := service.NewSubscriptionService(nil, subscriptionRepo, nil, nil, cfg)
+		t.Cleanup(subscriptionService.Stop)
+
+		router := newAuthTestRouter(apiKeyService, subscriptionService, cfg)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/t", nil)
+		req.Header.Set("x-api-key", realKey.Key)
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusOK, w.Code)
+		select {
+		case <-maintenanceCalled:
+			// New billing ignores legacy limits but still advances their windows.
+		case <-time.After(time.Second):
+			t.Fatal("expected new billing mode to maintain legacy usage windows")
+		}
+	})
+
 	t.Run("standard_mode_revalidates_cas_loser_from_database", func(t *testing.T) {
 		cfg := &config.Config{RunMode: config.RunModeStandard}
 		apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)

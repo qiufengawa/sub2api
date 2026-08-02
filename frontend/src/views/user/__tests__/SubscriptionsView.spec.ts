@@ -141,6 +141,10 @@ function mountSubscriptionsView() {
     global: {
       stubs: {
         AppLayout: { template: '<main><slot /></main>' },
+        BaseDialog: {
+          props: ['show', 'title'],
+          template: '<section v-if="show" data-testid="base-dialog"><h2>{{ title }}</h2><slot /><slot name="footer" /></section>',
+        },
         Icon: true,
         PlatformIcon: {
           props: ['platform'],
@@ -201,6 +205,95 @@ describe('user SubscriptionsView', () => {
       path: '/purchase',
       query: { tab: 'subscription', group: '11' },
     })
+  })
+
+  it('opens the create and bind key flows for the selected active subscription', async () => {
+    const wrapper = mountSubscriptionsView()
+    await flushPromises()
+
+    const firstCard = wrapper.findAll('[data-testid="subscription-card"]')[0]
+    expect(firstCard.get('[data-testid="subscription-key-actions"]').exists()).toBe(true)
+
+    await firstCard.get('[data-testid="create-subscription-key"]').trigger('click')
+    expect(routerPush).toHaveBeenLastCalledWith({
+      path: '/keys',
+      query: { action: 'create', group_id: '11', source: 'subscription' },
+    })
+
+    await firstCard.get('[data-testid="bind-subscription-key"]').trigger('click')
+    expect(routerPush).toHaveBeenLastCalledWith({
+      path: '/keys',
+      query: { action: 'bind', group_id: '11', source: 'subscription' },
+    })
+  })
+
+  it('asks for a real routing group when a subscription includes multiple groups', async () => {
+    getMySubscriptions.mockResolvedValueOnce([{
+      ...subscriptionFixtures[0],
+      included_groups: [
+        { ...baseGroup, id: 201, name: 'GPT-1', rate_multiplier: 0.1 },
+        { ...baseGroup, id: 202, name: 'GPT-2', platform: 'anthropic', rate_multiplier: 0.2 },
+      ],
+    }])
+    const wrapper = mountSubscriptionsView()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="create-subscription-key"]').trigger('click')
+    expect(routerPush).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-testid="subscription-key-group-dialog"]').text()).toContain('GPT-1')
+    expect(wrapper.get('[data-testid="subscription-key-group-dialog"]').text()).toContain('GPT-2')
+
+    await wrapper.get('input[value="202"]').setValue(true)
+    await wrapper.get('[data-testid="confirm-subscription-key-group"]').trigger('click')
+    expect(routerPush).toHaveBeenCalledWith({
+      path: '/keys',
+      query: { action: 'create', group_id: '202', source: 'subscription' },
+    })
+    expect(wrapper.find('[data-testid="subscription-key-group-dialog"]').exists()).toBe(false)
+  })
+
+  it('counts pending settlement in cycle capacity without calling it used', async () => {
+    getMySubscriptions.mockResolvedValueOnce([{
+      ...subscriptionFixtures[0],
+      cycle_quota_usd: 10,
+      cycle_usage_usd: 7,
+      cycle_reserved_usd: 2,
+      reset_interval_seconds: 604800,
+      cycle_started_at: '2099-08-01T00:00:00Z',
+    }])
+    const wrapper = mountSubscriptionsView()
+    await flushPromises()
+
+    const quota = wrapper.get('[data-testid="quota-row"]')
+    expect(quota.text()).toContain('90%')
+    expect(quota.text()).toContain('$7.00 / $10.00')
+    expect(quota.get('[data-testid="quota-reserved"]').text()).toContain('"amount":"2.00"')
+    expect(quota.get('.h-full').attributes('style')).toContain('width: 90%')
+  })
+
+  it('caps an over-limit cycle bar while preserving the real percentage', async () => {
+    getMySubscriptions.mockResolvedValueOnce([{
+      ...subscriptionFixtures[0],
+      cycle_quota_usd: 10,
+      cycle_usage_usd: 9,
+      cycle_reserved_usd: 3,
+      reset_interval_seconds: 604800,
+      cycle_started_at: '2099-08-01T00:00:00Z',
+    }])
+    const wrapper = mountSubscriptionsView()
+    await flushPromises()
+
+    const quota = wrapper.get('[data-testid="quota-row"]')
+    expect(quota.text()).toContain('120%')
+    expect(quota.get('.h-full').attributes('style')).toContain('width: 100%')
+  })
+
+  it('does not offer subscription key actions for an inactive subscription', async () => {
+    getMySubscriptions.mockResolvedValueOnce([{ ...subscriptionFixtures[0], status: 'expired' }])
+    const wrapper = mountSubscriptionsView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="subscription-key-actions"]').exists()).toBe(false)
   })
 
   it('uses a full-width card for one subscription and handles empty and error states', async () => {

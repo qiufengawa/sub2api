@@ -73,14 +73,41 @@
               </button>
             </div>
           </div>
-          <button @click="showCreateModal = true" class="btn btn-primary" data-tour="keys-create-btn">
+          <button @click="openCreateModal(subscriptionIntentGroup)" class="btn btn-primary" data-tour="keys-create-btn">
             <Icon name="plus" size="md" class="mr-2" />
-            {{ t('keys.createKey') }}
+            {{ isSubscriptionBindMode ? t('keys.subscriptionIntent.createKey') : t('keys.createKey') }}
           </button>
         </div>
       </template>
 
       <template #table>
+        <div
+          v-if="isSubscriptionBindMode && subscriptionIntentGroup"
+          class="mb-3 flex flex-col gap-3 border border-primary-200 bg-primary-50 px-3 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-primary-800 dark:bg-primary-950/30"
+          data-testid="subscription-bind-banner"
+        >
+          <div class="flex min-w-0 items-start gap-2.5">
+            <Icon name="link" size="md" class="mt-0.5 shrink-0 text-primary-600 dark:text-primary-300" />
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                {{ t('keys.subscriptionIntent.bindTitle') }}
+              </p>
+              <p class="mt-0.5 text-xs leading-5 text-gray-600 dark:text-dark-300">
+                {{ t('keys.subscriptionIntent.bindDescription', { group: subscriptionIntentGroup.name }) }}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="btn btn-secondary h-8 shrink-0 self-end px-3 text-xs sm:self-auto"
+            :disabled="bindingSubscriptionKey"
+            data-testid="cancel-subscription-bind"
+            @click="clearSubscriptionBindingMode"
+          >
+            {{ t('common.cancel') }}
+          </button>
+        </div>
+
         <DataTable
           :columns="columns"
           :data="apiKeys"
@@ -137,9 +164,14 @@
             <div class="group/dropdown relative">
               <button
                 :ref="(el) => setGroupButtonRef(row.id, el)"
-                @click="openGroupSelector(row)"
-                class="flex max-w-full min-w-0 cursor-pointer flex-wrap items-center justify-end gap-1.5 rounded-[3px] px-0 py-1 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-dark-700 md:-mx-2 md:-my-1 md:flex-nowrap md:justify-start md:gap-2 md:px-2"
-                :title="t('keys.clickToChangeGroup')"
+                @click="!isSubscriptionBindMode && openGroupSelector(row)"
+                :class="[
+                  'flex max-w-full min-w-0 flex-wrap items-center justify-end gap-1.5 rounded-[3px] px-0 py-1 transition-all duration-200 md:-mx-2 md:-my-1 md:flex-nowrap md:justify-start md:gap-2 md:px-2',
+                  isSubscriptionBindMode
+                    ? 'cursor-default'
+                    : 'cursor-pointer hover:bg-gray-100 dark:hover:bg-dark-700'
+                ]"
+                :title="isSubscriptionBindMode ? undefined : t('keys.clickToChangeGroup')"
               >
                 <GroupBadge
                   v-if="row.group"
@@ -157,8 +189,9 @@
                 <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{
                   t('keys.noGroup')
                 }}</span>
-                <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('keys.selectGroup') }}</span>
+                <span v-if="!isSubscriptionBindMode" class="text-xs text-gray-500 dark:text-gray-400">{{ t('keys.selectGroup') }}</span>
                 <svg
+                  v-if="!isSubscriptionBindMode"
                   class="h-3.5 w-3.5 text-gray-400 opacity-60 transition-opacity group-hover/dropdown:opacity-100"
                   fill="none"
                   stroke="currentColor"
@@ -375,6 +408,23 @@
 
           <template #cell-actions="{ row }">
             <div class="flex items-center justify-end gap-1">
+              <button
+                v-if="isSubscriptionBindMode"
+                type="button"
+                class="inline-flex h-7 min-w-[72px] items-center justify-center gap-1 rounded-[3px] border px-2 text-xs font-medium transition-colors disabled:cursor-default disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400 dark:disabled:border-dark-700 dark:disabled:bg-dark-800 dark:disabled:text-dark-500"
+                :class="row.group_id === subscriptionIntentGroup?.id
+                  ? ''
+                  : 'border-primary-200 text-primary-700 hover:bg-primary-50 dark:border-primary-800 dark:text-primary-300 dark:hover:bg-primary-950/30'"
+                :disabled="row.group_id === subscriptionIntentGroup?.id"
+                data-testid="bind-key-action"
+                @click="requestSubscriptionBinding(row)"
+              >
+                <Icon :name="row.group_id === subscriptionIntentGroup?.id ? 'check' : 'link'" size="xs" />
+                {{ row.group_id === subscriptionIntentGroup?.id
+                  ? t('keys.subscriptionIntent.alreadyBound')
+                  : t('keys.subscriptionIntent.bindAction') }}
+              </button>
+              <template v-else>
               <!-- Use Key Button -->
               <button
                 @click="openUseKeyModal(row)"
@@ -432,15 +482,16 @@
                 <Icon name="trash" size="sm" />
                 <span class="sr-only">{{ t('common.delete') }}</span>
               </button>
+              </template>
             </div>
           </template>
 
           <template #empty>
             <EmptyState
-              :title="t('keys.noKeysYet')"
-              :description="t('keys.createFirstKey')"
-              :action-text="t('keys.createKey')"
-              @action="showCreateModal = true"
+              :title="isSubscriptionBindMode ? t('keys.subscriptionIntent.noKeys') : t('keys.noKeysYet')"
+              :description="isSubscriptionBindMode ? t('keys.subscriptionIntent.noKeysDescription') : t('keys.createFirstKey')"
+              :action-text="isSubscriptionBindMode ? t('keys.subscriptionIntent.createKey') : t('keys.createKey')"
+              @action="openCreateModal(subscriptionIntentGroup)"
             />
           </template>
         </DataTable>
@@ -461,11 +512,22 @@
     <!-- Create/Edit Modal -->
     <BaseDialog
       :show="showCreateModal || showEditModal"
-      :title="showEditModal ? t('keys.editKey') : t('keys.createKey')"
+      :title="showEditModal
+        ? t('keys.editKey')
+        : subscriptionCreateGroup
+          ? t('keys.subscriptionIntent.createTitle')
+          : t('keys.createKey')"
       width="wide"
       @close="closeModals"
     >
       <form id="key-form" @submit.prevent="handleSubmit" class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div
+          v-if="subscriptionCreateGroup && !showEditModal"
+          class="border border-primary-200 bg-primary-50 px-3 py-2.5 text-xs leading-5 text-primary-800 lg:col-span-2 dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-200"
+          data-testid="subscription-create-context"
+        >
+          {{ t('keys.subscriptionIntent.createDescription', { group: subscriptionCreateGroup.name }) }}
+        </div>
         <div>
           <label class="input-label">{{ t('keys.nameLabel') }}</label>
           <input
@@ -966,6 +1028,17 @@
       </template>
     </BaseDialog>
 
+    <ConfirmDialog
+      :show="pendingSubscriptionBindingKey !== null"
+      :title="t('keys.subscriptionIntent.confirmTitle')"
+      :message="subscriptionBindingConfirmMessage"
+      :confirm-text="t('keys.subscriptionIntent.confirmAction')"
+      :cancel-text="t('common.cancel')"
+      :pending="bindingSubscriptionKey"
+      @confirm="confirmSubscriptionBinding"
+      @cancel="cancelSubscriptionBinding"
+    />
+
     <!-- Delete Confirmation Dialog -->
     <ConfirmDialog
       :show="showDeleteDialog"
@@ -1133,12 +1206,15 @@
 <script setup lang="ts">
 	import { ref, reactive, computed, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
 	import { useI18n } from 'vue-i18n'
+	import { useRoute, useRouter } from 'vue-router'
 	import { useAppStore } from '@/stores/app'
 	import { useOnboardingStore } from '@/stores/onboarding'
 	import { useClipboard } from '@/composables/useClipboard'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
 import { keysAPI, authAPI, usageAPI, userGroupsAPI } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -1318,6 +1394,10 @@ const showCcsClientSelect = ref(false)
 const showColumnDropdown = ref(false)
 const pendingCcsRow = ref<ApiKey | null>(null)
 const selectedKey = ref<ApiKey | null>(null)
+const subscriptionIntentGroup = ref<Group | null>(null)
+const subscriptionCreateGroup = ref<Group | null>(null)
+const pendingSubscriptionBindingKey = ref<ApiKey | null>(null)
+const bindingSubscriptionKey = ref(false)
 const copiedKeyId = ref<number | null>(null)
 const groupSelectorKeyId = ref<number | null>(null)
 const publicSettings = ref<PublicSettings | null>(null)
@@ -1326,6 +1406,20 @@ const columnDropdownRef = ref<HTMLElement | null>(null)
 const dropdownPosition = ref<{ top?: number; bottom?: number; left: number } | null>(null)
 const groupButtonRefs = ref<Map<number, HTMLElement>>(new Map())
 let abortController: AbortController | null = null
+
+const isSubscriptionBindMode = computed(() => subscriptionIntentGroup.value !== null)
+
+const subscriptionBindingConfirmMessage = computed(() => {
+  const key = pendingSubscriptionBindingKey.value
+  const targetGroup = subscriptionIntentGroup.value
+  if (!key || !targetGroup) return ''
+
+  return t('keys.subscriptionIntent.confirmMessage', {
+    key: key.name,
+    current: key.group?.name || t('keys.noGroup'),
+    target: targetGroup.name,
+  })
+})
 
 // Get the currently selected key for group change
 const selectedKeyForGroup = computed(() => {
@@ -1341,7 +1435,7 @@ const setGroupButtonRef = (keyId: number, el: Element | ComponentPublicInstance 
   }
 }
 
-const formData = ref({
+const createEmptyFormData = () => ({
   name: '',
   group_id: null as number | null,
   status: 'active' as 'active' | 'inactive',
@@ -1362,6 +1456,8 @@ const formData = ref({
   expiration_preset: '30' as '7' | '30' | '90' | 'custom',
   expiration_date: ''
 })
+
+const formData = ref(createEmptyFormData())
 
 // 自定义Key验证
 const customKeyError = computed(() => {
@@ -1519,11 +1615,13 @@ const loadApiKeys = async () => {
   }
 }
 
-const loadGroups = async () => {
+const loadGroups = async (): Promise<boolean> => {
   try {
     groups.value = await userGroupsAPI.getAvailable()
+    return true
   } catch (error) {
     console.error('Failed to load groups:', error)
+    return false
   }
 }
 
@@ -1541,6 +1639,103 @@ const loadPublicSettings = async () => {
   } catch (error) {
     console.error('Failed to load public settings:', error)
   }
+}
+
+const openCreateModal = (group: Group | null = null) => {
+  showEditModal.value = false
+  selectedKey.value = null
+  formData.value = createEmptyFormData()
+  subscriptionCreateGroup.value = group
+  formData.value.group_id = group?.id ?? null
+  showCreateModal.value = true
+}
+
+const clearSubscriptionBindingMode = () => {
+  if (bindingSubscriptionKey.value) return
+  pendingSubscriptionBindingKey.value = null
+  subscriptionIntentGroup.value = null
+}
+
+const requestSubscriptionBinding = (key: ApiKey) => {
+  const targetGroup = subscriptionIntentGroup.value
+  if (!targetGroup || key.group_id === targetGroup.id) return
+  pendingSubscriptionBindingKey.value = key
+}
+
+const cancelSubscriptionBinding = () => {
+  if (bindingSubscriptionKey.value) return
+  pendingSubscriptionBindingKey.value = null
+}
+
+const confirmSubscriptionBinding = async () => {
+  const key = pendingSubscriptionBindingKey.value
+  const targetGroup = subscriptionIntentGroup.value
+  if (!key || !targetGroup || bindingSubscriptionKey.value) return
+
+  bindingSubscriptionKey.value = true
+  try {
+    await keysAPI.update(key.id, { group_id: targetGroup.id })
+    appStore.showSuccess(t('keys.subscriptionIntent.bindSuccess', { key: key.name, group: targetGroup.name }))
+    pendingSubscriptionBindingKey.value = null
+    subscriptionIntentGroup.value = null
+    await loadApiKeys()
+  } catch (error) {
+    appStore.showError(t('keys.subscriptionIntent.bindFailed'))
+  } finally {
+    bindingSubscriptionKey.value = false
+  }
+}
+
+const queryScalar = (value: unknown): string | null => typeof value === 'string' ? value : null
+
+const clearSubscriptionIntentQuery = async () => {
+  const query = { ...route.query }
+  delete query.action
+  delete query.group_id
+  delete query.source
+
+  try {
+    await router.replace({ query })
+  } catch (error) {
+    console.error('Failed to clear subscription key intent:', error)
+  }
+}
+
+const consumeSubscriptionKeyIntent = async (groupsLoaded: boolean) => {
+  const source = queryScalar(route.query.source)
+  if (source !== 'subscription') return
+
+  const action = queryScalar(route.query.action)
+  const rawGroupId = queryScalar(route.query.group_id)
+  await clearSubscriptionIntentQuery()
+
+  const groupId = rawGroupId === null ? Number.NaN : Number(rawGroupId)
+  if ((action !== 'create' && action !== 'bind') || !Number.isSafeInteger(groupId) || groupId <= 0) {
+    appStore.showError(t('keys.subscriptionIntent.invalid'))
+    return
+  }
+
+  if (!groupsLoaded) {
+    appStore.showError(t('keys.subscriptionIntent.groupsLoadFailed'))
+    return
+  }
+
+  const targetGroup = groups.value.find((group) =>
+    group.id === groupId &&
+    group.status === 'active'
+  )
+
+  if (!targetGroup) {
+    appStore.showError(t('keys.subscriptionIntent.unavailable'))
+    return
+  }
+
+  if (action === 'create') {
+    openCreateModal(targetGroup)
+    return
+  }
+
+  subscriptionIntentGroup.value = targetGroup
 }
 
 const openUseKeyModal = (key: ApiKey) => {
@@ -1572,6 +1767,7 @@ const handleSort = (key: string, order: 'asc' | 'desc') => {
 }
 
 const editKey = (key: ApiKey) => {
+  subscriptionCreateGroup.value = null
   selectedKey.value = key
   const hasIPRestriction = (key.ip_whitelist?.length > 0) || (key.ip_blacklist?.length > 0)
   const hasExpiration = !!key.expires_at
@@ -1731,6 +1927,9 @@ const handleSubmit = async () => {
 
   submitting.value = true
   try {
+    const createdForSubscription = !showEditModal.value &&
+      subscriptionCreateGroup.value !== null &&
+      formData.value.group_id === subscriptionCreateGroup.value.id
     if (showEditModal.value && selectedKey.value) {
       const updates: UpdateApiKeyRequest = {
         name: formData.value.name,
@@ -1765,6 +1964,9 @@ const handleSubmit = async () => {
       if (onboardingStore.isCurrentStep('[data-tour="key-form-submit"]')) {
         onboardingStore.nextStep(500)
       }
+    }
+    if (createdForSubscription) {
+      clearSubscriptionBindingMode()
     }
     closeModals()
     loadApiKeys()
@@ -1801,25 +2003,8 @@ const closeModals = () => {
   showCreateModal.value = false
   showEditModal.value = false
   selectedKey.value = null
-  formData.value = {
-    name: '',
-    group_id: null,
-    status: 'active',
-    use_custom_key: false,
-    custom_key: '',
-    enable_ip_restriction: false,
-    ip_whitelist: '',
-    ip_blacklist: '',
-    enable_quota: false,
-    quota: null,
-    enable_rate_limit: false,
-    rate_limit_5h: null,
-    rate_limit_1d: null,
-    rate_limit_7d: null,
-    enable_expiration: false,
-    expiration_preset: '30',
-    expiration_date: ''
-  }
+  subscriptionCreateGroup.value = null
+  formData.value = createEmptyFormData()
 }
 
 // Show reset quota confirmation dialog
@@ -1970,9 +2155,10 @@ function formatResetTime(resetAt: string | null): string {
 onMounted(() => {
   loadSavedColumns()
   loadApiKeys()
-  loadGroups()
+  const groupsLoaded = loadGroups()
   loadUserGroupRates()
   loadPublicSettings()
+  void groupsLoaded.then(consumeSubscriptionKeyIntent)
   document.addEventListener('click', closeGroupSelector)
   resetTimer = setInterval(() => { now.value = new Date() }, 60000)
 })

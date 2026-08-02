@@ -111,18 +111,24 @@ type PaymentCatalogImportRoute struct {
 }
 
 type PaymentCatalogImportPlan struct {
-	GroupKey      string   `json:"group_key"`
-	Name          string   `json:"name"`
-	Description   string   `json:"description,omitempty"`
-	Price         float64  `json:"price"`
-	OriginalPrice *float64 `json:"original_price"`
-	Currency      string   `json:"currency,omitempty"`
-	ValidityDays  *int     `json:"validity_days,omitempty"`
-	ValidityUnit  string   `json:"validity_unit,omitempty"`
-	Features      []string `json:"features,omitempty"`
-	ProductName   string   `json:"product_name,omitempty"`
-	ForSale       *bool    `json:"for_sale,omitempty"`
-	SortOrder     *int     `json:"sort_order,omitempty"`
+	GroupKey              string   `json:"group_key,omitempty"`
+	GroupID               *int64   `json:"group_id,omitempty"`
+	IncludedGroupKeys     []string `json:"included_group_keys,omitempty"`
+	IncludedGroupIDs      []int64  `json:"included_group_ids,omitempty"`
+	CycleQuotaUSD         *float64 `json:"cycle_quota_usd"`
+	ResetIntervalSeconds  int      `json:"reset_interval_seconds,omitempty"`
+	WalletFallbackEnabled *bool    `json:"wallet_fallback_enabled,omitempty"`
+	Name                  string   `json:"name"`
+	Description           string   `json:"description,omitempty"`
+	Price                 float64  `json:"price"`
+	OriginalPrice         *float64 `json:"original_price"`
+	Currency              string   `json:"currency,omitempty"`
+	ValidityDays          *int     `json:"validity_days,omitempty"`
+	ValidityUnit          string   `json:"validity_unit,omitempty"`
+	Features              []string `json:"features,omitempty"`
+	ProductName           string   `json:"product_name,omitempty"`
+	ForSale               *bool    `json:"for_sale,omitempty"`
+	SortOrder             *int     `json:"sort_order,omitempty"`
 }
 
 type PaymentCatalogImportApplyRequest struct {
@@ -209,13 +215,25 @@ type catalogGroup struct {
 
 type catalogPlan struct {
 	PaymentCatalogImportPlan
-	groupKey     string
-	currency     string
-	validityDays int
-	validityUnit string
-	forSale      bool
-	sortOrder    int
-	features     []string
+	groupKey              string
+	groupID               *int64
+	includedGroupKeys     []string
+	includedGroupIDs      []int64
+	groupRefs             []catalogGroupRef
+	cycleQuotaUSD         *float64
+	resetIntervalSeconds  int
+	walletFallbackEnabled bool
+	currency              string
+	validityDays          int
+	validityUnit          string
+	forSale               bool
+	sortOrder             int
+	features              []string
+}
+
+type catalogGroupRef struct {
+	key string
+	id  int64
 }
 
 type normalizedCatalog struct {
@@ -499,21 +517,49 @@ func (s *PaymentConfigService) normalizeCatalogImport(req PaymentCatalogImportRe
 	for i, raw := range plans {
 		path := fmt.Sprintf("plans[%d]", i)
 		groupKey := strings.TrimSpace(raw.GroupKey)
-		if _, ok := groupKeys[groupKey]; !ok {
-			add("error", "PLAN_GROUP_UNKNOWN", path+".group_key", "group_key does not reference an imported group")
+		groupID := cloneInt64(raw.GroupID)
+		if groupKey != "" && groupID != nil {
+			add("error", "PLAN_GROUP_REFERENCE_AMBIGUOUS", path, "use either group_key or group_id for the primary group, not both")
 		}
+		if groupKey == "" && groupID == nil {
+			add("error", "PLAN_GROUP_REQUIRED", path, "group_key or group_id is required")
+		}
+		if groupKey != "" {
+			if _, ok := groupKeys[groupKey]; !ok {
+				add("error", "PLAN_GROUP_UNKNOWN", path+".group_key", "group_key does not reference an imported group")
+			}
+		}
+		if groupID != nil && *groupID <= 0 {
+			add("error", "PLAN_GROUP_ID_INVALID", path+".group_id", "group_id must be a positive integer")
+		}
+		includedGroupKeys := normalizeCatalogPlanGroupKeys(groupKey, raw.IncludedGroupKeys)
+		for j, includedGroupKey := range includedGroupKeys {
+			if _, ok := groupKeys[includedGroupKey]; !ok {
+				add("error", "PLAN_INCLUDED_GROUP_UNKNOWN", fmt.Sprintf("%s.included_group_keys[%d]", path, j), "included_group_keys contains a key that does not reference an imported group")
+			}
+		}
+		for j, includedGroupID := range raw.IncludedGroupIDs {
+			if includedGroupID <= 0 {
+				add("error", "PLAN_INCLUDED_GROUP_ID_INVALID", fmt.Sprintf("%s.included_group_ids[%d]", path, j), "included_group_ids must contain positive integers")
+			}
+		}
+		includedGroupIDs := normalizeCatalogPlanGroupIDs(groupID, raw.IncludedGroupIDs)
+		groupRefs := normalizeCatalogPlanGroupRefs(groupKey, groupID, raw.IncludedGroupKeys, raw.IncludedGroupIDs)
 		name := strings.TrimSpace(raw.Name)
 		if name == "" || len([]rune(name)) > 100 {
 			add("error", "PLAN_NAME_INVALID", path+".name", "plan name is required and must be at most 100 characters")
 		}
-		planKey := groupKey + "\x00" + name
-		if _, exists := planKeys[planKey]; exists && groupKey != "" && name != "" {
+		planKey := catalogPlanImportIdentity(groupKey, groupID, name)
+		if _, exists := planKeys[planKey]; exists && planKey != "" && name != "" {
 			add("error", "PLAN_DUPLICATE", path, "plan name is duplicated in the same imported group")
 		}
-		if groupKey != "" && name != "" {
+		if planKey != "" && name != "" {
 			planKeys[planKey] = struct{}{}
 		}
 		raw.GroupKey = groupKey
+		raw.GroupID = cloneInt64(groupID)
+		raw.IncludedGroupKeys = includedGroupKeys
+		raw.IncludedGroupIDs = append([]int64(nil), includedGroupIDs...)
 		raw.Name = name
 		raw.Description = strings.TrimSpace(raw.Description)
 		if utf8.RuneCountInString(raw.Description) > paymentCatalogMaxDescriptionRunes {
@@ -532,6 +578,20 @@ func (s *PaymentConfigService) normalizeCatalogImport(req PaymentCatalogImportRe
 		}
 		if original != nil && finiteNumber(*original) && *original < raw.Price {
 			add("warning", "ORIGINAL_PRICE_BELOW_PRICE", path+".original_price", "original_price is below price")
+		}
+		cycleQuotaUSD := cloneFloat(raw.CycleQuotaUSD)
+		if cycleQuotaUSD != nil && !finitePositive(*cycleQuotaUSD) {
+			add("error", "PLAN_CYCLE_QUOTA_INVALID", path+".cycle_quota_usd", "cycle_quota_usd must be null or a finite number greater than zero")
+		}
+		if raw.ResetIntervalSeconds < 0 {
+			add("error", "PLAN_RESET_INTERVAL_INVALID", path+".reset_interval_seconds", "reset_interval_seconds must be greater than or equal to zero")
+		}
+		if cycleQuotaUSD != nil && raw.ResetIntervalSeconds <= 0 {
+			add("error", "PLAN_RESET_INTERVAL_REQUIRED", path+".reset_interval_seconds", "reset_interval_seconds must be greater than zero when cycle_quota_usd is set")
+		}
+		walletFallbackEnabled := true
+		if raw.WalletFallbackEnabled != nil {
+			walletFallbackEnabled = *raw.WalletFallbackEnabled
 		}
 		currency := d.currency
 		if strings.TrimSpace(raw.Currency) != "" {
@@ -581,7 +641,23 @@ func (s *PaymentConfigService) normalizeCatalogImport(req PaymentCatalogImportRe
 				features = append(features, f)
 			}
 		}
-		n.plans = append(n.plans, catalogPlan{PaymentCatalogImportPlan: raw, groupKey: groupKey, currency: currency, validityDays: validityDays, validityUnit: validityUnit, forSale: forSale, sortOrder: sortOrder, features: features})
+		n.plans = append(n.plans, catalogPlan{
+			PaymentCatalogImportPlan: raw,
+			groupKey:                 groupKey,
+			groupID:                  groupID,
+			includedGroupKeys:        includedGroupKeys,
+			includedGroupIDs:         includedGroupIDs,
+			groupRefs:                groupRefs,
+			cycleQuotaUSD:            cycleQuotaUSD,
+			resetIntervalSeconds:     raw.ResetIntervalSeconds,
+			walletFallbackEnabled:    walletFallbackEnabled,
+			currency:                 currency,
+			validityDays:             validityDays,
+			validityUnit:             validityUnit,
+			forSale:                  forSale,
+			sortOrder:                sortOrder,
+			features:                 features,
+		})
 	}
 
 	if n.settings != nil {
@@ -662,7 +738,7 @@ func (s *PaymentConfigService) ExportCatalog(ctx context.Context) (*PaymentCatal
 	if s == nil || s.entClient == nil {
 		return nil, infraerrors.InternalServer("CATALOG_DB_UNAVAILABLE", "catalog database is unavailable")
 	}
-	plans, err := s.entClient.SubscriptionPlan.Query().Order(subscriptionplan.BySortOrder()).All(ctx)
+	plans, err := s.entClient.SubscriptionPlan.Query().WithGroups().Order(subscriptionplan.BySortOrder()).All(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -701,11 +777,44 @@ func (s *PaymentConfigService) ExportCatalog(ctx context.Context) (*PaymentCatal
 		groupIDs[int64(g.ID)] = fmt.Sprintf("group_%d", g.ID)
 	}
 	for _, p := range plans {
-		if _, ok := groupIDs[p.GroupID]; !ok {
-			continue
+		includedGroupKeys := make([]string, 0, len(p.Edges.Groups)+1)
+		includedGroupIDs := make([]int64, 0, len(p.Edges.Groups)+1)
+		for _, includedGroupID := range normalizePlanGroupIDs(p.GroupID, planIncludedGroupIDs(p)) {
+			if key, ok := groupIDs[includedGroupID]; ok {
+				includedGroupKeys = append(includedGroupKeys, key)
+			} else {
+				includedGroupIDs = append(includedGroupIDs, includedGroupID)
+			}
+		}
+		var groupKey string
+		var groupID *int64
+		if key, ok := groupIDs[p.GroupID]; ok {
+			groupKey = key
+		} else {
+			value := p.GroupID
+			groupID = &value
 		}
 		features := splitCatalogFeatures(p.Features)
-		req.Plans = append(req.Plans, PaymentCatalogImportPlan{GroupKey: groupIDs[p.GroupID], Name: p.Name, Description: p.Description, Price: p.Price, OriginalPrice: cloneFloat(p.OriginalPrice), Currency: p.Currency, ValidityDays: catalogIntPtr(p.ValidityDays), ValidityUnit: p.ValidityUnit, Features: features, ProductName: p.ProductName, ForSale: catalogBoolPtr(p.ForSale), SortOrder: catalogIntPtr(p.SortOrder)})
+		req.Plans = append(req.Plans, PaymentCatalogImportPlan{
+			GroupKey:              groupKey,
+			GroupID:               groupID,
+			IncludedGroupKeys:     includedGroupKeys,
+			IncludedGroupIDs:      includedGroupIDs,
+			CycleQuotaUSD:         cloneFloat(p.CycleQuotaUsd),
+			ResetIntervalSeconds:  p.ResetIntervalSeconds,
+			WalletFallbackEnabled: catalogBoolPtr(p.WalletFallbackEnabled),
+			Name:                  p.Name,
+			Description:           p.Description,
+			Price:                 p.Price,
+			OriginalPrice:         cloneFloat(p.OriginalPrice),
+			Currency:              p.Currency,
+			ValidityDays:          catalogIntPtr(p.ValidityDays),
+			ValidityUnit:          p.ValidityUnit,
+			Features:              features,
+			ProductName:           p.ProductName,
+			ForSale:               catalogBoolPtr(p.ForSale),
+			SortOrder:             catalogIntPtr(p.SortOrder),
+		})
 	}
 	return req, nil
 }
@@ -730,15 +839,38 @@ func (s *PaymentConfigService) buildCatalogPreview(ctx context.Context, client *
 	if err != nil {
 		return nil, err
 	}
+	referencedGroups, err := s.loadCatalogGroupsByID(ctx, client, catalogReferencedGroupIDs(n))
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range catalogReferencedGroupIDs(n) {
+		referenced := referencedGroups[id]
+		if referenced == nil {
+			preview.Issues = append(preview.Issues, PaymentCatalogImportIssue{Severity: "error", Code: "GROUP_ID_NOT_FOUND", Path: fmt.Sprintf("group_id:%d", id), Message: "referenced group does not exist"})
+			continue
+		}
+		if referenced.Status != StatusActive {
+			preview.Issues = append(preview.Issues, PaymentCatalogImportIssue{Severity: "error", Code: "GROUP_ID_INACTIVE", Path: fmt.Sprintf("group_id:%d", id), Message: "referenced group must be active"})
+			continue
+		}
+		preview.Changes = append(preview.Changes, PaymentCatalogImportChange{Kind: "group", Action: "unchanged", Key: fmt.Sprintf("group_id:%d", id), Name: referenced.Name})
+	}
 	snapshot := &catalogEntitySnapshot{groups: nameMap, plans: map[string][]*dbent.SubscriptionPlan{}, routes: map[int64][]*dbent.CompositeModelRoute{}}
-	groupIDs := make([]int64, 0, len(n.groups))
+	groupIDs := make([]int64, 0, len(n.groups)+len(referencedGroups))
+	seenGroupIDs := make(map[int64]struct{}, cap(groupIDs))
 	for _, g := range n.groups {
 		if rows := nameMap[g.Name]; len(rows) == 1 {
-			groupIDs = append(groupIDs, rows[0].ID)
+			seenGroupIDs[rows[0].ID] = struct{}{}
 		}
 	}
+	for id := range referencedGroups {
+		seenGroupIDs[id] = struct{}{}
+	}
+	for id := range seenGroupIDs {
+		groupIDs = append(groupIDs, id)
+	}
 	if len(groupIDs) > 0 {
-		planQuery := client.SubscriptionPlan.Query().Where(subscriptionplan.GroupIDIn(groupIDs...))
+		planQuery := client.SubscriptionPlan.Query().Where(subscriptionplan.GroupIDIn(groupIDs...)).WithGroups()
 		plans, queryErr := planQuery.All(ctx)
 		if queryErr != nil {
 			return nil, queryErr
@@ -757,6 +889,7 @@ func (s *PaymentConfigService) buildCatalogPreview(ctx context.Context, client *
 		}
 	}
 	groupIDByKey := make(map[string]int64, len(n.groups))
+	importedExistingGroupIDs := make(map[int64]struct{}, len(n.groups))
 	for _, g := range n.groups {
 		rows := nameMap[g.Name]
 		if len(rows) > 1 {
@@ -768,6 +901,7 @@ func (s *PaymentConfigService) buildCatalogPreview(ctx context.Context, client *
 		} else {
 			existing := rows[0]
 			groupIDByKey[g.Key] = int64(existing.ID)
+			importedExistingGroupIDs[int64(existing.ID)] = struct{}{}
 			if existing.SubscriptionType != SubscriptionTypeSubscription || existing.Platform != g.platform {
 				preview.Issues = append(preview.Issues, PaymentCatalogImportIssue{Severity: "error", Code: "GROUP_IDENTITY_CONFLICT", Path: "groups." + g.Key, Message: "existing group has a different platform or subscription type"})
 				continue
@@ -785,6 +919,11 @@ func (s *PaymentConfigService) buildCatalogPreview(ctx context.Context, client *
 		}
 		if len(g.copySources) == 0 && len(rows) == 0 {
 			preview.Issues = append(preview.Issues, PaymentCatalogImportIssue{Severity: "warning", Code: "GROUP_HAS_NO_ACCOUNT_SOURCE", Path: "groups." + g.Key, Message: "new group has no account source; it will be created without account bindings"})
+		}
+	}
+	for id := range referencedGroups {
+		if _, mutatesSameGroup := importedExistingGroupIDs[id]; mutatesSameGroup {
+			preview.Issues = append(preview.Issues, PaymentCatalogImportIssue{Severity: "error", Code: "GROUP_REFERENCE_MUTATION_CONFLICT", Path: fmt.Sprintf("group_id:%d", id), Message: "a read-only group reference cannot also be managed by an imported group definition"})
 		}
 	}
 	// Resolve source groups and account additions after target IDs are known.
@@ -833,32 +972,41 @@ func (s *PaymentConfigService) buildCatalogPreview(ctx context.Context, client *
 	}
 
 	for _, p := range n.plans {
-		groupRows := nameMap[n.groupNameForKey(p.groupKey)]
-		groupID, ok := groupIDByKey[p.groupKey]
-		if !ok && len(groupRows) == 1 {
-			groupID = int64(groupRows[0].ID)
-			groupIDByKey[p.groupKey] = groupID
-			ok = true
+		primaryRef := p.primaryGroupRef()
+		groupID, ok := resolveCatalogGroupRef(primaryRef, groupIDByKey)
+		if primaryRef.id > 0 {
+			referenced := referencedGroups[primaryRef.id]
+			ok = referenced != nil && referenced.Status == StatusActive
 		}
+		changeKey := p.displayKey()
 		if !ok {
-			preview.Changes = append(preview.Changes, PaymentCatalogImportChange{Kind: "plan", Action: "create", Key: p.groupKey + ":" + p.Name, Name: p.Name})
+			if primaryRef.key != "" {
+				preview.Changes = append(preview.Changes, PaymentCatalogImportChange{Kind: "plan", Action: "create", Key: changeKey, Name: p.Name})
+			}
 			continue
 		}
 		rows := snapshot.plans[catalogPlanIdentity(groupID, p.Name)]
 		if len(rows) > 1 {
-			preview.Issues = append(preview.Issues, PaymentCatalogImportIssue{Severity: "error", Code: "PLAN_NAME_AMBIGUOUS", Path: "plans." + p.groupKey + "." + p.Name, Message: "more than one plan has this name in the target group"})
+			preview.Issues = append(preview.Issues, PaymentCatalogImportIssue{Severity: "error", Code: "PLAN_NAME_AMBIGUOUS", Path: "plans." + changeKey, Message: "more than one plan has this name in the target group"})
 			continue
 		}
 		if len(rows) == 0 {
-			preview.Changes = append(preview.Changes, PaymentCatalogImportChange{Kind: "plan", Action: "create", Key: p.groupKey + ":" + p.Name, Name: p.Name})
+			preview.Changes = append(preview.Changes, PaymentCatalogImportChange{Kind: "plan", Action: "create", Key: changeKey, Name: p.Name})
 			continue
 		}
-		changes := catalogPlanDiff(rows[0], p)
+		changes := catalogPlanDiff(rows[0], p, groupIDByKey)
 		action := "unchanged"
 		if len(changes) > 0 {
 			action = "update"
 		}
-		preview.Changes = append(preview.Changes, PaymentCatalogImportChange{Kind: "plan", Action: action, Key: p.groupKey + ":" + p.Name, Name: p.Name, Fields: changes})
+		affectedSubscriptions := 0
+		for _, change := range changes {
+			if change.Field == "included_group_keys" {
+				affectedSubscriptions = s.countActiveCatalogPlanSubscriptions(ctx, client, rows[0].ID)
+				break
+			}
+		}
+		preview.Changes = append(preview.Changes, PaymentCatalogImportChange{Kind: "plan", Action: action, Key: changeKey, Name: p.Name, Fields: changes, AffectedSubscriptions: affectedSubscriptions})
 	}
 
 	for _, g := range n.groups {
@@ -966,7 +1114,95 @@ func uniqueTrimmed(values []string) []string {
 	return out
 }
 
+func normalizeCatalogPlanGroupKeys(primary string, values []string) []string {
+	primary = strings.TrimSpace(primary)
+	ordered := make([]string, 0, len(values)+1)
+	if primary != "" {
+		ordered = append(ordered, primary)
+	}
+	ordered = append(ordered, values...)
+	return uniqueTrimmed(ordered)
+}
+
+func normalizeCatalogPlanGroupIDs(primary *int64, values []int64) []int64 {
+	ordered := make([]int64, 0, len(values)+1)
+	if primary != nil && *primary > 0 {
+		ordered = append(ordered, *primary)
+	}
+	ordered = append(ordered, values...)
+	seen := make(map[int64]struct{}, len(ordered))
+	result := make([]int64, 0, len(ordered))
+	for _, id := range ordered {
+		if id <= 0 {
+			continue
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		result = append(result, id)
+	}
+	return result
+}
+
+func normalizeCatalogPlanGroupRefs(primaryKey string, primaryID *int64, keys []string, ids []int64) []catalogGroupRef {
+	refs := make([]catalogGroupRef, 0, len(keys)+len(ids)+1)
+	primaryKey = strings.TrimSpace(primaryKey)
+	if primaryKey != "" {
+		refs = append(refs, catalogGroupRef{key: primaryKey})
+	} else if primaryID != nil && *primaryID > 0 {
+		refs = append(refs, catalogGroupRef{id: *primaryID})
+	}
+	for _, key := range keys {
+		if key = strings.TrimSpace(key); key != "" {
+			refs = append(refs, catalogGroupRef{key: key})
+		}
+	}
+	for _, id := range ids {
+		if id > 0 {
+			refs = append(refs, catalogGroupRef{id: id})
+		}
+	}
+	seen := make(map[string]struct{}, len(refs))
+	result := make([]catalogGroupRef, 0, len(refs))
+	for _, ref := range refs {
+		label := catalogGroupRefLabel(ref)
+		if _, exists := seen[label]; exists {
+			continue
+		}
+		seen[label] = struct{}{}
+		result = append(result, ref)
+	}
+	return result
+}
+
+func catalogGroupRefLabel(ref catalogGroupRef) string {
+	if ref.key != "" {
+		return ref.key
+	}
+	return fmt.Sprintf("group_id:%d", ref.id)
+}
+
+func catalogPlanImportIdentity(groupKey string, groupID *int64, name string) string {
+	groupKey = strings.TrimSpace(groupKey)
+	if groupKey != "" {
+		return "key:" + groupKey + "\x00" + strings.TrimSpace(name)
+	}
+	if groupID != nil && *groupID > 0 {
+		return fmt.Sprintf("id:%d\x00%s", *groupID, strings.TrimSpace(name))
+	}
+	return ""
+}
+
 func cloneFloat(value *float64) *float64 {
+	if value == nil {
+		return nil
+	}
+	v := *value
+	return &v
+}
+
+func cloneInt64(value *int64) *int64 {
 	if value == nil {
 		return nil
 	}
@@ -991,6 +1227,67 @@ func hasCatalogErrors(issues []PaymentCatalogImportIssue) bool {
 		}
 	}
 	return false
+}
+
+func catalogReferencedGroupIDs(n *normalizedCatalog) []int64 {
+	if n == nil {
+		return nil
+	}
+	seen := make(map[int64]struct{})
+	result := make([]int64, 0)
+	for _, plan := range n.plans {
+		for _, ref := range plan.groupRefs {
+			if ref.id <= 0 {
+				continue
+			}
+			if _, exists := seen[ref.id]; exists {
+				continue
+			}
+			seen[ref.id] = struct{}{}
+			result = append(result, ref.id)
+		}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i] < result[j] })
+	return result
+}
+
+func (p catalogPlan) primaryGroupRef() catalogGroupRef {
+	if p.groupKey != "" {
+		return catalogGroupRef{key: p.groupKey}
+	}
+	if p.groupID != nil {
+		return catalogGroupRef{id: *p.groupID}
+	}
+	return catalogGroupRef{}
+}
+
+func (p catalogPlan) displayKey() string {
+	return catalogGroupRefLabel(p.primaryGroupRef()) + ":" + p.Name
+}
+
+func resolveCatalogGroupRef(ref catalogGroupRef, groupIDByKey map[string]int64) (int64, bool) {
+	if ref.key != "" {
+		id, ok := groupIDByKey[ref.key]
+		return id, ok && id > 0
+	}
+	return ref.id, ref.id > 0
+}
+
+func resolveCatalogPlanGroupIDs(plan catalogPlan, groupIDByKey map[string]int64) ([]int64, error) {
+	seen := make(map[int64]struct{}, len(plan.groupRefs))
+	result := make([]int64, 0, len(plan.groupRefs))
+	for _, ref := range plan.groupRefs {
+		id, ok := resolveCatalogGroupRef(ref, groupIDByKey)
+		if !ok {
+			return nil, infraerrors.BadRequest("PLAN_GROUP_REFERENCE_UNRESOLVED", "plan references an unresolved group")
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		result = append(result, id)
+	}
+	return result, nil
 }
 
 func (n *normalizedCatalog) groupNameForKey(key string) string {
@@ -1022,6 +1319,21 @@ func (s *PaymentConfigService) loadCatalogGroups(ctx context.Context, client *db
 	}
 	for _, row := range rows {
 		result[row.Name] = append(result[row.Name], row)
+	}
+	return result, nil
+}
+
+func (s *PaymentConfigService) loadCatalogGroupsByID(ctx context.Context, client *dbent.Client, ids []int64) (map[int64]*dbent.Group, error) {
+	result := make(map[int64]*dbent.Group, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+	rows, err := client.Group.Query().Where(group.IDIn(ids...)).All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		result[row.ID] = row
 	}
 	return result, nil
 }
@@ -1066,8 +1378,35 @@ func catalogGroupDiff(existing *dbent.Group, desired catalogGroup) []PaymentCata
 	return diffs
 }
 
-func catalogPlanDiff(existing *dbent.SubscriptionPlan, desired catalogPlan) []PaymentCatalogImportFieldDiff {
+func catalogPlanDiff(existing *dbent.SubscriptionPlan, desired catalogPlan, groupIDByKey map[string]int64) []PaymentCatalogImportFieldDiff {
 	diffs := make([]PaymentCatalogImportFieldDiff, 0)
+	labelByGroupID := make(map[int64]string, len(desired.groupRefs))
+	desiredGroupLabels := make([]string, 0, len(desired.groupRefs))
+	seenDesiredIDs := make(map[int64]struct{}, len(desired.groupRefs))
+	for _, ref := range desired.groupRefs {
+		label := catalogGroupRefLabel(ref)
+		id, resolved := resolveCatalogGroupRef(ref, groupIDByKey)
+		if resolved {
+			if _, duplicate := seenDesiredIDs[id]; duplicate {
+				continue
+			}
+			seenDesiredIDs[id] = struct{}{}
+			labelByGroupID[id] = label
+		}
+		desiredGroupLabels = append(desiredGroupLabels, label)
+	}
+	existingGroupKeys := make([]string, 0, len(existing.Edges.Groups)+1)
+	for _, id := range normalizePlanGroupIDs(existing.GroupID, planIncludedGroupIDs(existing)) {
+		key, ok := labelByGroupID[id]
+		if !ok {
+			key = fmt.Sprintf("group_id:%d", id)
+		}
+		existingGroupKeys = append(existingGroupKeys, key)
+	}
+	appendCatalogDiff(&diffs, "included_group_keys", existingGroupKeys, desiredGroupLabels)
+	appendCatalogDiff(&diffs, "cycle_quota_usd", optionalFloat(existing.CycleQuotaUsd), optionalFloat(desired.cycleQuotaUSD))
+	appendCatalogDiff(&diffs, "reset_interval_seconds", existing.ResetIntervalSeconds, desired.resetIntervalSeconds)
+	appendCatalogDiff(&diffs, "wallet_fallback_enabled", existing.WalletFallbackEnabled, desired.walletFallbackEnabled)
 	appendCatalogDiff(&diffs, "description", existing.Description, desired.Description)
 	appendCatalogDiff(&diffs, "price", existing.Price, desired.Price)
 	appendCatalogDiff(&diffs, "original_price", optionalFloat(existing.OriginalPrice), optionalFloat(desired.OriginalPrice))
@@ -1105,6 +1444,18 @@ func splitCatalogFeatures(raw string) []string {
 func (s *PaymentConfigService) countActiveCatalogSubscriptions(ctx context.Context, client *dbent.Client, groupID int64) int {
 	count, err := client.UserSubscription.Query().Where(
 		usersubscription.GroupIDEQ(groupID),
+		usersubscription.StatusEQ(SubscriptionStatusActive),
+		usersubscription.ExpiresAtGT(time.Now()),
+	).Count(ctx)
+	if err != nil {
+		return 0
+	}
+	return count
+}
+
+func (s *PaymentConfigService) countActiveCatalogPlanSubscriptions(ctx context.Context, client *dbent.Client, planID int64) int {
+	count, err := client.UserSubscription.Query().Where(
+		usersubscription.PlanIDEQ(planID),
 		usersubscription.StatusEQ(SubscriptionStatusActive),
 		usersubscription.ExpiresAtGT(time.Now()),
 	).Count(ctx)
@@ -1211,6 +1562,19 @@ func (s *PaymentConfigService) applyCatalogWithinTx(ctx context.Context, client 
 	effects := &catalogApplyEffects{}
 	groupIDs := make(map[string]int64, len(n.groups))
 	touched := make(map[int64]struct{})
+	referencedGroups, err := s.loadCatalogGroupsByID(ctx, client, catalogReferencedGroupIDs(n))
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range catalogReferencedGroupIDs(n) {
+		referenced := referencedGroups[id]
+		if referenced == nil {
+			return nil, infraerrors.BadRequest("GROUP_ID_NOT_FOUND", "referenced group does not exist")
+		}
+		if referenced.Status != StatusActive {
+			return nil, infraerrors.BadRequest("GROUP_ID_INACTIVE", "referenced group must be active")
+		}
+	}
 
 	for _, desired := range n.groups {
 		rows, err := client.Group.Query().Where(group.NameEQ(desired.Name)).All(ctx)
@@ -1262,6 +1626,11 @@ func (s *PaymentConfigService) applyCatalogWithinTx(ctx context.Context, client 
 			}
 		}
 		groupIDs[desired.Key] = int64(current.ID)
+	}
+	for key, id := range groupIDs {
+		if _, referenced := referencedGroups[id]; referenced {
+			return nil, infraerrors.BadRequest("GROUP_REFERENCE_MUTATION_CONFLICT", "group "+key+" is both a read-only reference and an imported group definition")
+		}
 	}
 
 	for _, desired := range n.groups {
@@ -1350,8 +1719,11 @@ func (s *PaymentConfigService) applyCatalogWithinTx(ctx context.Context, client 
 	}
 
 	for _, desired := range n.plans {
-		groupID := groupIDs[desired.groupKey]
-		rows, err := client.SubscriptionPlan.Query().Where(subscriptionplan.GroupIDEQ(groupID), subscriptionplan.NameEQ(strings.TrimSpace(desired.Name))).All(ctx)
+		groupID, ok := resolveCatalogGroupRef(desired.primaryGroupRef(), groupIDs)
+		if !ok {
+			return nil, infraerrors.BadRequest("PLAN_GROUP_REFERENCE_UNRESOLVED", "plan primary group could not be resolved")
+		}
+		rows, err := client.SubscriptionPlan.Query().Where(subscriptionplan.GroupIDEQ(groupID), subscriptionplan.NameEQ(strings.TrimSpace(desired.Name))).WithGroups().All(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -1359,17 +1731,55 @@ func (s *PaymentConfigService) applyCatalogWithinTx(ctx context.Context, client 
 			return nil, infraerrors.Conflict("PLAN_NAME_AMBIGUOUS", "duplicate plan name in target group")
 		}
 		features := strings.Join(desired.features, "\n")
+		includedGroupIDs, err := resolveCatalogPlanGroupIDs(desired, groupIDs)
+		if err != nil {
+			return nil, err
+		}
 		if len(rows) == 0 {
-			builder := client.SubscriptionPlan.Create().SetGroupID(groupID).SetName(strings.TrimSpace(desired.Name)).SetDescription(desired.Description).SetPrice(desired.Price).SetNillableOriginalPrice(desired.OriginalPrice).SetCurrency(desired.currency).SetValidityDays(desired.validityDays).SetValidityUnit(desired.validityUnit).SetFeatures(features).SetProductName(desired.ProductName).SetForSale(desired.forSale).SetSortOrder(desired.sortOrder)
+			builder := client.SubscriptionPlan.Create().
+				SetGroupID(groupID).
+				AddGroupIDs(includedGroupIDs...).
+				SetName(strings.TrimSpace(desired.Name)).
+				SetDescription(desired.Description).
+				SetPrice(desired.Price).
+				SetNillableOriginalPrice(desired.OriginalPrice).
+				SetNillableCycleQuotaUsd(desired.cycleQuotaUSD).
+				SetResetIntervalSeconds(desired.resetIntervalSeconds).
+				SetWalletFallbackEnabled(desired.walletFallbackEnabled).
+				SetCurrency(desired.currency).
+				SetValidityDays(desired.validityDays).
+				SetValidityUnit(desired.validityUnit).
+				SetFeatures(features).
+				SetProductName(desired.ProductName).
+				SetForSale(desired.forSale).
+				SetSortOrder(desired.sortOrder)
 			if _, err := builder.Save(ctx); err != nil {
 				return nil, err
 			}
-		} else if len(catalogPlanDiff(rows[0], desired)) > 0 {
-			update := client.SubscriptionPlan.UpdateOneID(rows[0].ID).SetDescription(desired.Description).SetPrice(desired.Price).SetCurrency(desired.currency).SetValidityDays(desired.validityDays).SetValidityUnit(desired.validityUnit).SetFeatures(features).SetProductName(desired.ProductName).SetForSale(desired.forSale).SetSortOrder(desired.sortOrder)
+		} else if len(catalogPlanDiff(rows[0], desired, groupIDs)) > 0 {
+			update := client.SubscriptionPlan.UpdateOneID(rows[0].ID).
+				ClearGroups().
+				AddGroupIDs(includedGroupIDs...).
+				SetDescription(desired.Description).
+				SetPrice(desired.Price).
+				SetResetIntervalSeconds(desired.resetIntervalSeconds).
+				SetWalletFallbackEnabled(desired.walletFallbackEnabled).
+				SetCurrency(desired.currency).
+				SetValidityDays(desired.validityDays).
+				SetValidityUnit(desired.validityUnit).
+				SetFeatures(features).
+				SetProductName(desired.ProductName).
+				SetForSale(desired.forSale).
+				SetSortOrder(desired.sortOrder)
 			if desired.OriginalPrice == nil {
 				update.ClearOriginalPrice()
 			} else {
 				update.SetOriginalPrice(*desired.OriginalPrice)
+			}
+			if desired.cycleQuotaUSD == nil {
+				update.ClearCycleQuotaUsd()
+			} else {
+				update.SetCycleQuotaUsd(*desired.cycleQuotaUSD)
 			}
 			if _, err := update.Save(ctx); err != nil {
 				return nil, err

@@ -604,6 +604,60 @@ func (_u *UsageLogUpdate) AddBillingType(v int8) *UsageLogUpdate {
 	return _u
 }
 
+// SetBillingSource sets the "billing_source" field.
+func (_u *UsageLogUpdate) SetBillingSource(v string) *UsageLogUpdate {
+	_u.mutation.SetBillingSource(v)
+	return _u
+}
+
+// SetNillableBillingSource sets the "billing_source" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableBillingSource(v *string) *UsageLogUpdate {
+	if v != nil {
+		_u.SetBillingSource(*v)
+	}
+	return _u
+}
+
+// SetBillingPreference sets the "billing_preference" field.
+func (_u *UsageLogUpdate) SetBillingPreference(v string) *UsageLogUpdate {
+	_u.mutation.SetBillingPreference(v)
+	return _u
+}
+
+// SetNillableBillingPreference sets the "billing_preference" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableBillingPreference(v *string) *UsageLogUpdate {
+	if v != nil {
+		_u.SetBillingPreference(*v)
+	}
+	return _u
+}
+
+// ClearBillingPreference clears the value of the "billing_preference" field.
+func (_u *UsageLogUpdate) ClearBillingPreference() *UsageLogUpdate {
+	_u.mutation.ClearBillingPreference()
+	return _u
+}
+
+// SetBillingFallbackReason sets the "billing_fallback_reason" field.
+func (_u *UsageLogUpdate) SetBillingFallbackReason(v string) *UsageLogUpdate {
+	_u.mutation.SetBillingFallbackReason(v)
+	return _u
+}
+
+// SetNillableBillingFallbackReason sets the "billing_fallback_reason" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableBillingFallbackReason(v *string) *UsageLogUpdate {
+	if v != nil {
+		_u.SetBillingFallbackReason(*v)
+	}
+	return _u
+}
+
+// ClearBillingFallbackReason clears the value of the "billing_fallback_reason" field.
+func (_u *UsageLogUpdate) ClearBillingFallbackReason() *UsageLogUpdate {
+	_u.mutation.ClearBillingFallbackReason()
+	return _u
+}
+
 // SetStream sets the "stream" field.
 func (_u *UsageLogUpdate) SetStream(v bool) *UsageLogUpdate {
 	_u.mutation.SetStream(v)
@@ -1031,6 +1085,21 @@ func (_u *UsageLogUpdate) check() error {
 			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.BillingSource(); ok {
+		if err := usagelog.BillingSourceValidator(v); err != nil {
+			return &ValidationError{Name: "billing_source", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_source": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.BillingPreference(); ok {
+		if err := usagelog.BillingPreferenceValidator(v); err != nil {
+			return &ValidationError{Name: "billing_preference", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_preference": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.BillingFallbackReason(); ok {
+		if err := usagelog.BillingFallbackReasonValidator(v); err != nil {
+			return &ValidationError{Name: "billing_fallback_reason", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_fallback_reason": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.UserAgent(); ok {
 		if err := usagelog.UserAgentValidator(v); err != nil {
 			return &ValidationError{Name: "user_agent", err: fmt.Errorf(`ent: validator failed for field "UsageLog.user_agent": %w`, err)}
@@ -1230,6 +1299,21 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedBillingType(); ok {
 		_spec.AddField(usagelog.FieldBillingType, field.TypeInt8, value)
+	}
+	if value, ok := _u.mutation.BillingSource(); ok {
+		_spec.SetField(usagelog.FieldBillingSource, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.BillingPreference(); ok {
+		_spec.SetField(usagelog.FieldBillingPreference, field.TypeString, value)
+	}
+	if _u.mutation.BillingPreferenceCleared() {
+		_spec.ClearField(usagelog.FieldBillingPreference, field.TypeString)
+	}
+	if value, ok := _u.mutation.BillingFallbackReason(); ok {
+		_spec.SetField(usagelog.FieldBillingFallbackReason, field.TypeString, value)
+	}
+	if _u.mutation.BillingFallbackReasonCleared() {
+		_spec.ClearField(usagelog.FieldBillingFallbackReason, field.TypeString)
 	}
 	if value, ok := _u.mutation.Stream(); ok {
 		_spec.SetField(usagelog.FieldStream, field.TypeBool, value)
@@ -2061,6 +2145,60 @@ func (_u *UsageLogUpdateOne) AddBillingType(v int8) *UsageLogUpdateOne {
 	return _u
 }
 
+// SetBillingSource sets the "billing_source" field.
+func (_u *UsageLogUpdateOne) SetBillingSource(v string) *UsageLogUpdateOne {
+	_u.mutation.SetBillingSource(v)
+	return _u
+}
+
+// SetNillableBillingSource sets the "billing_source" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableBillingSource(v *string) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetBillingSource(*v)
+	}
+	return _u
+}
+
+// SetBillingPreference sets the "billing_preference" field.
+func (_u *UsageLogUpdateOne) SetBillingPreference(v string) *UsageLogUpdateOne {
+	_u.mutation.SetBillingPreference(v)
+	return _u
+}
+
+// SetNillableBillingPreference sets the "billing_preference" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableBillingPreference(v *string) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetBillingPreference(*v)
+	}
+	return _u
+}
+
+// ClearBillingPreference clears the value of the "billing_preference" field.
+func (_u *UsageLogUpdateOne) ClearBillingPreference() *UsageLogUpdateOne {
+	_u.mutation.ClearBillingPreference()
+	return _u
+}
+
+// SetBillingFallbackReason sets the "billing_fallback_reason" field.
+func (_u *UsageLogUpdateOne) SetBillingFallbackReason(v string) *UsageLogUpdateOne {
+	_u.mutation.SetBillingFallbackReason(v)
+	return _u
+}
+
+// SetNillableBillingFallbackReason sets the "billing_fallback_reason" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableBillingFallbackReason(v *string) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetBillingFallbackReason(*v)
+	}
+	return _u
+}
+
+// ClearBillingFallbackReason clears the value of the "billing_fallback_reason" field.
+func (_u *UsageLogUpdateOne) ClearBillingFallbackReason() *UsageLogUpdateOne {
+	_u.mutation.ClearBillingFallbackReason()
+	return _u
+}
+
 // SetStream sets the "stream" field.
 func (_u *UsageLogUpdateOne) SetStream(v bool) *UsageLogUpdateOne {
 	_u.mutation.SetStream(v)
@@ -2501,6 +2639,21 @@ func (_u *UsageLogUpdateOne) check() error {
 			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.BillingSource(); ok {
+		if err := usagelog.BillingSourceValidator(v); err != nil {
+			return &ValidationError{Name: "billing_source", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_source": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.BillingPreference(); ok {
+		if err := usagelog.BillingPreferenceValidator(v); err != nil {
+			return &ValidationError{Name: "billing_preference", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_preference": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.BillingFallbackReason(); ok {
+		if err := usagelog.BillingFallbackReasonValidator(v); err != nil {
+			return &ValidationError{Name: "billing_fallback_reason", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_fallback_reason": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.UserAgent(); ok {
 		if err := usagelog.UserAgentValidator(v); err != nil {
 			return &ValidationError{Name: "user_agent", err: fmt.Errorf(`ent: validator failed for field "UsageLog.user_agent": %w`, err)}
@@ -2717,6 +2870,21 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	}
 	if value, ok := _u.mutation.AddedBillingType(); ok {
 		_spec.AddField(usagelog.FieldBillingType, field.TypeInt8, value)
+	}
+	if value, ok := _u.mutation.BillingSource(); ok {
+		_spec.SetField(usagelog.FieldBillingSource, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.BillingPreference(); ok {
+		_spec.SetField(usagelog.FieldBillingPreference, field.TypeString, value)
+	}
+	if _u.mutation.BillingPreferenceCleared() {
+		_spec.ClearField(usagelog.FieldBillingPreference, field.TypeString)
+	}
+	if value, ok := _u.mutation.BillingFallbackReason(); ok {
+		_spec.SetField(usagelog.FieldBillingFallbackReason, field.TypeString, value)
+	}
+	if _u.mutation.BillingFallbackReasonCleared() {
+		_spec.ClearField(usagelog.FieldBillingFallbackReason, field.TypeString)
 	}
 	if value, ok := _u.mutation.Stream(); ok {
 		_spec.SetField(usagelog.FieldStream, field.TypeBool, value)

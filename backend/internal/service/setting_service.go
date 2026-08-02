@@ -212,6 +212,25 @@ func NewSettingService(settingRepo SettingRepository, cfg *config.Config) *Setti
 	}
 }
 
+// LoadSubscriptionGroupBillingSetting applies the DB-backed admin setting at
+// startup. Deployments without the key keep their YAML configuration value.
+func (s *SettingService) LoadSubscriptionGroupBillingSetting(ctx context.Context) error {
+	if s == nil || s.cfg == nil || s.settingRepo == nil {
+		return nil
+	}
+
+	enabled := s.cfg.SubscriptionGroupBillingEnabled()
+	value, err := s.settingRepo.GetValue(ctx, SettingKeySubscriptionGroupBillingEnabled)
+	if err == nil {
+		enabled = value == "true"
+	} else if !errors.Is(err, ErrSettingNotFound) {
+		return fmt.Errorf("get subscription group billing setting: %w", err)
+	}
+
+	s.cfg.SetSubscriptionGroupBillingEnabled(enabled)
+	return nil
+}
+
 // SetDefaultSubscriptionGroupReader injects an optional group reader for default subscription validation.
 func (s *SettingService) SetDefaultSubscriptionGroupReader(reader DefaultSubscriptionGroupReader) {
 	s.defaultSubGroupReader = reader

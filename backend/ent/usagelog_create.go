@@ -393,6 +393,48 @@ func (_c *UsageLogCreate) SetNillableBillingType(v *int8) *UsageLogCreate {
 	return _c
 }
 
+// SetBillingSource sets the "billing_source" field.
+func (_c *UsageLogCreate) SetBillingSource(v string) *UsageLogCreate {
+	_c.mutation.SetBillingSource(v)
+	return _c
+}
+
+// SetNillableBillingSource sets the "billing_source" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableBillingSource(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetBillingSource(*v)
+	}
+	return _c
+}
+
+// SetBillingPreference sets the "billing_preference" field.
+func (_c *UsageLogCreate) SetBillingPreference(v string) *UsageLogCreate {
+	_c.mutation.SetBillingPreference(v)
+	return _c
+}
+
+// SetNillableBillingPreference sets the "billing_preference" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableBillingPreference(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetBillingPreference(*v)
+	}
+	return _c
+}
+
+// SetBillingFallbackReason sets the "billing_fallback_reason" field.
+func (_c *UsageLogCreate) SetBillingFallbackReason(v string) *UsageLogCreate {
+	_c.mutation.SetBillingFallbackReason(v)
+	return _c
+}
+
+// SetNillableBillingFallbackReason sets the "billing_fallback_reason" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableBillingFallbackReason(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetBillingFallbackReason(*v)
+	}
+	return _c
+}
+
 // SetStream sets the "stream" field.
 func (_c *UsageLogCreate) SetStream(v bool) *UsageLogCreate {
 	_c.mutation.SetStream(v)
@@ -729,6 +771,10 @@ func (_c *UsageLogCreate) defaults() {
 		v := usagelog.DefaultBillingType
 		_c.mutation.SetBillingType(v)
 	}
+	if _, ok := _c.mutation.BillingSource(); !ok {
+		v := usagelog.DefaultBillingSource
+		_c.mutation.SetBillingSource(v)
+	}
 	if _, ok := _c.mutation.Stream(); !ok {
 		v := usagelog.DefaultStream
 		_c.mutation.SetStream(v)
@@ -847,6 +893,24 @@ func (_c *UsageLogCreate) check() error {
 	}
 	if _, ok := _c.mutation.BillingType(); !ok {
 		return &ValidationError{Name: "billing_type", err: errors.New(`ent: missing required field "UsageLog.billing_type"`)}
+	}
+	if _, ok := _c.mutation.BillingSource(); !ok {
+		return &ValidationError{Name: "billing_source", err: errors.New(`ent: missing required field "UsageLog.billing_source"`)}
+	}
+	if v, ok := _c.mutation.BillingSource(); ok {
+		if err := usagelog.BillingSourceValidator(v); err != nil {
+			return &ValidationError{Name: "billing_source", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_source": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.BillingPreference(); ok {
+		if err := usagelog.BillingPreferenceValidator(v); err != nil {
+			return &ValidationError{Name: "billing_preference", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_preference": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.BillingFallbackReason(); ok {
+		if err := usagelog.BillingFallbackReasonValidator(v); err != nil {
+			return &ValidationError{Name: "billing_fallback_reason", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_fallback_reason": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.Stream(); !ok {
 		return &ValidationError{Name: "stream", err: errors.New(`ent: missing required field "UsageLog.stream"`)}
@@ -1029,6 +1093,18 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.BillingType(); ok {
 		_spec.SetField(usagelog.FieldBillingType, field.TypeInt8, value)
 		_node.BillingType = value
+	}
+	if value, ok := _c.mutation.BillingSource(); ok {
+		_spec.SetField(usagelog.FieldBillingSource, field.TypeString, value)
+		_node.BillingSource = value
+	}
+	if value, ok := _c.mutation.BillingPreference(); ok {
+		_spec.SetField(usagelog.FieldBillingPreference, field.TypeString, value)
+		_node.BillingPreference = &value
+	}
+	if value, ok := _c.mutation.BillingFallbackReason(); ok {
+		_spec.SetField(usagelog.FieldBillingFallbackReason, field.TypeString, value)
+		_node.BillingFallbackReason = &value
 	}
 	if value, ok := _c.mutation.Stream(); ok {
 		_spec.SetField(usagelog.FieldStream, field.TypeBool, value)
@@ -1726,6 +1802,54 @@ func (u *UsageLogUpsert) UpdateBillingType() *UsageLogUpsert {
 // AddBillingType adds v to the "billing_type" field.
 func (u *UsageLogUpsert) AddBillingType(v int8) *UsageLogUpsert {
 	u.Add(usagelog.FieldBillingType, v)
+	return u
+}
+
+// SetBillingSource sets the "billing_source" field.
+func (u *UsageLogUpsert) SetBillingSource(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldBillingSource, v)
+	return u
+}
+
+// UpdateBillingSource sets the "billing_source" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateBillingSource() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldBillingSource)
+	return u
+}
+
+// SetBillingPreference sets the "billing_preference" field.
+func (u *UsageLogUpsert) SetBillingPreference(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldBillingPreference, v)
+	return u
+}
+
+// UpdateBillingPreference sets the "billing_preference" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateBillingPreference() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldBillingPreference)
+	return u
+}
+
+// ClearBillingPreference clears the value of the "billing_preference" field.
+func (u *UsageLogUpsert) ClearBillingPreference() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldBillingPreference)
+	return u
+}
+
+// SetBillingFallbackReason sets the "billing_fallback_reason" field.
+func (u *UsageLogUpsert) SetBillingFallbackReason(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldBillingFallbackReason, v)
+	return u
+}
+
+// UpdateBillingFallbackReason sets the "billing_fallback_reason" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateBillingFallbackReason() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldBillingFallbackReason)
+	return u
+}
+
+// ClearBillingFallbackReason clears the value of the "billing_fallback_reason" field.
+func (u *UsageLogUpsert) ClearBillingFallbackReason() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldBillingFallbackReason)
 	return u
 }
 
@@ -2628,6 +2752,62 @@ func (u *UsageLogUpsertOne) AddBillingType(v int8) *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) UpdateBillingType() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateBillingType()
+	})
+}
+
+// SetBillingSource sets the "billing_source" field.
+func (u *UsageLogUpsertOne) SetBillingSource(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetBillingSource(v)
+	})
+}
+
+// UpdateBillingSource sets the "billing_source" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateBillingSource() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateBillingSource()
+	})
+}
+
+// SetBillingPreference sets the "billing_preference" field.
+func (u *UsageLogUpsertOne) SetBillingPreference(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetBillingPreference(v)
+	})
+}
+
+// UpdateBillingPreference sets the "billing_preference" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateBillingPreference() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateBillingPreference()
+	})
+}
+
+// ClearBillingPreference clears the value of the "billing_preference" field.
+func (u *UsageLogUpsertOne) ClearBillingPreference() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearBillingPreference()
+	})
+}
+
+// SetBillingFallbackReason sets the "billing_fallback_reason" field.
+func (u *UsageLogUpsertOne) SetBillingFallbackReason(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetBillingFallbackReason(v)
+	})
+}
+
+// UpdateBillingFallbackReason sets the "billing_fallback_reason" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateBillingFallbackReason() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateBillingFallbackReason()
+	})
+}
+
+// ClearBillingFallbackReason clears the value of the "billing_fallback_reason" field.
+func (u *UsageLogUpsertOne) ClearBillingFallbackReason() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearBillingFallbackReason()
 	})
 }
 
@@ -3742,6 +3922,62 @@ func (u *UsageLogUpsertBulk) AddBillingType(v int8) *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) UpdateBillingType() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateBillingType()
+	})
+}
+
+// SetBillingSource sets the "billing_source" field.
+func (u *UsageLogUpsertBulk) SetBillingSource(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetBillingSource(v)
+	})
+}
+
+// UpdateBillingSource sets the "billing_source" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateBillingSource() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateBillingSource()
+	})
+}
+
+// SetBillingPreference sets the "billing_preference" field.
+func (u *UsageLogUpsertBulk) SetBillingPreference(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetBillingPreference(v)
+	})
+}
+
+// UpdateBillingPreference sets the "billing_preference" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateBillingPreference() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateBillingPreference()
+	})
+}
+
+// ClearBillingPreference clears the value of the "billing_preference" field.
+func (u *UsageLogUpsertBulk) ClearBillingPreference() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearBillingPreference()
+	})
+}
+
+// SetBillingFallbackReason sets the "billing_fallback_reason" field.
+func (u *UsageLogUpsertBulk) SetBillingFallbackReason(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetBillingFallbackReason(v)
+	})
+}
+
+// UpdateBillingFallbackReason sets the "billing_fallback_reason" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateBillingFallbackReason() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateBillingFallbackReason()
+	})
+}
+
+// ClearBillingFallbackReason clears the value of the "billing_fallback_reason" field.
+func (u *UsageLogUpsertBulk) ClearBillingFallbackReason() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearBillingFallbackReason()
 	})
 }
 

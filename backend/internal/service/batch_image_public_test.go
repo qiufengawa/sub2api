@@ -43,7 +43,7 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 		billing := svc.BillingRepo.(*fakeBatchImageBillingRepo)
 		require.Len(t, billing.reserves, 1)
 		require.Equal(t, BatchImageHoldRequestID(got.ID), billing.reserves[0].RequestID)
-		require.InDelta(t, 0.3, billing.reserves[0].HoldAmount, 1e-12)
+		requireBatchImageDecimal(t, "0.3", billing.reserves[0].HoldAmount)
 		require.Empty(t, billing.releases)
 		authCache := svc.AuthCache.(*fakeBatchImageAuthCacheInvalidator)
 		require.Equal(t, []int64{11}, authCache.userIDs)

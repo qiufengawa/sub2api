@@ -7059,6 +7059,39 @@
                 </div>
                 <Toggle v-model="form.payment_enabled" />
               </div>
+              <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
+                <div class="flex items-start justify-between gap-4">
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-1.5">
+                      <label class="font-medium text-gray-900 dark:text-white">
+                        {{ t("admin.settings.payment.subscriptionGroupBillingEnabled") }}
+                      </label>
+                      <button
+                        type="button"
+                        class="flex h-5 w-5 shrink-0 items-center justify-center rounded-[3px] text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:text-gray-500 dark:hover:bg-dark-700 dark:hover:text-primary-400"
+                        data-testid="subscription-group-billing-help-button"
+                        :aria-label="t('admin.settings.payment.subscriptionGroupBillingHelpAria')"
+                        :title="t('admin.settings.payment.subscriptionGroupBillingHelpAria')"
+                        @click="showSubscriptionGroupBillingHelpDialog = true"
+                      >
+                        <Icon name="questionCircle" size="sm" />
+                      </button>
+                    </div>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.payment.subscriptionGroupBillingEnabledHint") }}
+                    </p>
+                    <p class="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                      {{ t("admin.settings.payment.subscriptionGroupBillingEnabledWarning") }}
+                    </p>
+                  </div>
+                  <Toggle
+                    v-model="form.subscription_group_billing_enabled"
+                    class="shrink-0"
+                    data-testid="subscription-group-billing-toggle"
+                    :aria-label="t('admin.settings.payment.subscriptionGroupBillingEnabled')"
+                  />
+                </div>
+              </div>
               <template v-if="form.payment_enabled">
                 <!-- Row 1: Product name -->
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -8025,6 +8058,76 @@
         </div>
       </form>
 
+      <BaseDialog
+        :show="showSubscriptionGroupBillingHelpDialog"
+        :title="t('admin.settings.payment.subscriptionGroupBillingHelpTitle')"
+        width="normal"
+        :close-on-click-outside="true"
+        @close="showSubscriptionGroupBillingHelpDialog = false"
+      >
+        <div
+          class="space-y-5"
+          data-testid="subscription-group-billing-help-dialog"
+        >
+          <p class="text-sm leading-6 text-gray-600 dark:text-gray-300">
+            {{ t("admin.settings.payment.subscriptionGroupBillingHelpIntro") }}
+          </p>
+
+          <dl class="divide-y divide-gray-100 border-y border-gray-100 dark:divide-dark-700 dark:border-dark-700">
+            <div class="py-3 sm:grid sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-4">
+              <dt class="text-sm font-medium text-gray-900 dark:text-white">
+                {{ t("admin.settings.payment.subscriptionGroupBillingHelpQuotaTitle") }}
+              </dt>
+              <dd class="mt-1 text-sm leading-6 text-gray-600 sm:mt-0 dark:text-gray-300">
+                {{ t("admin.settings.payment.subscriptionGroupBillingHelpQuotaText") }}
+              </dd>
+            </div>
+            <div class="py-3 sm:grid sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-4">
+              <dt class="text-sm font-medium text-gray-900 dark:text-white">
+                {{ t("admin.settings.payment.subscriptionGroupBillingHelpGroupTitle") }}
+              </dt>
+              <dd class="mt-1 text-sm leading-6 text-gray-600 sm:mt-0 dark:text-gray-300">
+                {{ t("admin.settings.payment.subscriptionGroupBillingHelpGroupText") }}
+              </dd>
+            </div>
+            <div class="py-3 sm:grid sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-4">
+              <dt class="text-sm font-medium text-gray-900 dark:text-white">
+                {{ t("admin.settings.payment.subscriptionGroupBillingHelpFallbackTitle") }}
+              </dt>
+              <dd class="mt-1 text-sm leading-6 text-gray-600 sm:mt-0 dark:text-gray-300">
+                {{ t("admin.settings.payment.subscriptionGroupBillingHelpFallbackText") }}
+              </dd>
+            </div>
+          </dl>
+
+          <div class="border-l-2 border-primary-500 pl-3">
+            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">
+              {{ t("admin.settings.payment.subscriptionGroupBillingHelpExampleTitle") }}
+            </h4>
+            <p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">
+              {{ t("admin.settings.payment.subscriptionGroupBillingHelpExampleText") }}
+            </p>
+          </div>
+
+          <div class="flex items-start gap-2 text-sm leading-6 text-amber-700 dark:text-amber-400">
+            <Icon name="exclamationTriangle" size="sm" class="mt-1 shrink-0" />
+            <p>{{ t("admin.settings.payment.subscriptionGroupBillingHelpBeforeEnable") }}</p>
+          </div>
+        </div>
+
+        <template #footer>
+          <div class="flex w-full justify-end">
+            <button
+              type="button"
+              class="btn btn-primary btn-sm"
+              @click="showSubscriptionGroupBillingHelpDialog = false"
+            >
+              {{ t("common.close") }}
+            </button>
+          </div>
+        </template>
+      </BaseDialog>
+
       <!-- Provider dialogs placed outside the settings form to prevent form submission bubbling -->
       <PaymentProviderDialog
         ref="providerDialogRef"
@@ -8099,6 +8202,7 @@ import type { ProviderInstance } from "@/types/payment";
 import AppLayout from "@/components/layout/AppLayout.vue";
 import Icon from "@/components/icons/Icon.vue";
 import Select from "@/components/common/Select.vue";
+import BaseDialog from "@/components/common/BaseDialog.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import PaymentProviderList from "@/components/payment/PaymentProviderList.vue";
 import PaymentProviderDialog from "@/components/payment/PaymentProviderDialog.vue";
@@ -8782,6 +8886,7 @@ type SettingsForm = Omit<
   | "wechat_connect_mp_enabled"
   | "wechat_connect_mobile_enabled"
 > & {
+  subscription_group_billing_enabled: boolean;
   smtp_password: string;
   turnstile_secret_key: string;
   linuxdo_connect_client_secret: string;
@@ -8859,6 +8964,7 @@ const form = reactive<SettingsForm>({
   backend_mode_enabled: false,
   hide_ccs_import_button: false,
   payment_enabled: false,
+  subscription_group_billing_enabled: false,
   risk_control_enabled: false,
   cyber_session_block_enabled: false,
   cyber_session_block_ttl_seconds: 3600,
@@ -10530,6 +10636,8 @@ async function saveSettings() {
       ),
       // Payment configuration
       payment_enabled: form.payment_enabled,
+      subscription_group_billing_enabled:
+        form.subscription_group_billing_enabled,
       risk_control_enabled: form.risk_control_enabled,
       cyber_session_block_enabled: form.cyber_session_block_enabled,
       cyber_session_block_ttl_seconds:
@@ -11368,6 +11476,7 @@ function slog(...args: unknown[]) {
 const providersLoading = ref(false);
 const providerSaving = ref(false);
 const providers = ref<ProviderInstance[]>([]);
+const showSubscriptionGroupBillingHelpDialog = ref(false);
 const showProviderDialog = ref(false);
 const showDeleteProviderDialog = ref(false);
 const editingProvider = ref<ProviderInstance | null>(null);

@@ -149,6 +149,50 @@ func TestForwardedClientIPSettingsConcurrentPublication(t *testing.T) {
 	}
 }
 
+func TestSubscriptionGroupBillingRuntimeOverride(t *testing.T) {
+	cfg := &Config{Billing: BillingConfig{SubscriptionGroupBillingEnabled: true}}
+	require.True(t, cfg.SubscriptionGroupBillingEnabled())
+
+	cfg.SetSubscriptionGroupBillingEnabled(false)
+	require.False(t, cfg.SubscriptionGroupBillingEnabled())
+
+	cfg.SetSubscriptionGroupBillingEnabled(true)
+	require.True(t, cfg.SubscriptionGroupBillingEnabled())
+}
+
+func TestSubscriptionGroupBillingConcurrentPublication(t *testing.T) {
+	cfg := &Config{}
+	cfg.SetSubscriptionGroupBillingEnabled(false)
+
+	const iterations = 2000
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for _, enabled := range []bool{false, true} {
+		enabled := enabled
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			for i := 0; i < iterations; i++ {
+				cfg.SetSubscriptionGroupBillingEnabled(enabled)
+			}
+		}()
+	}
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			for j := 0; j < iterations; j++ {
+				_ = cfg.SubscriptionGroupBillingEnabled()
+			}
+		}()
+	}
+
+	close(start)
+	wg.Wait()
+}
+
 func TestLoadForwardedClientIPHeadersFromEnvironment(t *testing.T) {
 	resetViperWithJWTSecret(t)
 	t.Setenv("SECURITY_FORWARDED_CLIENT_IP_HEADERS", " x-cdn-ip , X-CDN-IP, true-client-ip ")

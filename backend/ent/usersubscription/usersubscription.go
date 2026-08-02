@@ -25,6 +25,8 @@ const (
 	FieldUserID = "user_id"
 	// FieldGroupID holds the string denoting the group_id field in the database.
 	FieldGroupID = "group_id"
+	// FieldPlanID holds the string denoting the plan_id field in the database.
+	FieldPlanID = "plan_id"
 	// FieldStartsAt holds the string denoting the starts_at field in the database.
 	FieldStartsAt = "starts_at"
 	// FieldExpiresAt holds the string denoting the expires_at field in the database.
@@ -43,6 +45,18 @@ const (
 	FieldWeeklyUsageUsd = "weekly_usage_usd"
 	// FieldMonthlyUsageUsd holds the string denoting the monthly_usage_usd field in the database.
 	FieldMonthlyUsageUsd = "monthly_usage_usd"
+	// FieldCycleQuotaUsd holds the string denoting the cycle_quota_usd field in the database.
+	FieldCycleQuotaUsd = "cycle_quota_usd"
+	// FieldResetIntervalSeconds holds the string denoting the reset_interval_seconds field in the database.
+	FieldResetIntervalSeconds = "reset_interval_seconds"
+	// FieldCycleStartedAt holds the string denoting the cycle_started_at field in the database.
+	FieldCycleStartedAt = "cycle_started_at"
+	// FieldCycleUsageUsd holds the string denoting the cycle_usage_usd field in the database.
+	FieldCycleUsageUsd = "cycle_usage_usd"
+	// FieldCycleReservedUsd holds the string denoting the cycle_reserved_usd field in the database.
+	FieldCycleReservedUsd = "cycle_reserved_usd"
+	// FieldWalletFallbackEnabled holds the string denoting the wallet_fallback_enabled field in the database.
+	FieldWalletFallbackEnabled = "wallet_fallback_enabled"
 	// FieldAssignedBy holds the string denoting the assigned_by field in the database.
 	FieldAssignedBy = "assigned_by"
 	// FieldAssignedAt holds the string denoting the assigned_at field in the database.
@@ -55,6 +69,8 @@ const (
 	EdgeGroup = "group"
 	// EdgeAssignedByUser holds the string denoting the assigned_by_user edge name in mutations.
 	EdgeAssignedByUser = "assigned_by_user"
+	// EdgePlan holds the string denoting the plan edge name in mutations.
+	EdgePlan = "plan"
 	// EdgeUsageLogs holds the string denoting the usage_logs edge name in mutations.
 	EdgeUsageLogs = "usage_logs"
 	// Table holds the table name of the usersubscription in the database.
@@ -80,6 +96,13 @@ const (
 	AssignedByUserInverseTable = "users"
 	// AssignedByUserColumn is the table column denoting the assigned_by_user relation/edge.
 	AssignedByUserColumn = "assigned_by"
+	// PlanTable is the table that holds the plan relation/edge.
+	PlanTable = "user_subscriptions"
+	// PlanInverseTable is the table name for the SubscriptionPlan entity.
+	// It exists in this package in order to avoid circular dependency with the "subscriptionplan" package.
+	PlanInverseTable = "subscription_plans"
+	// PlanColumn is the table column denoting the plan relation/edge.
+	PlanColumn = "plan_id"
 	// UsageLogsTable is the table that holds the usage_logs relation/edge.
 	UsageLogsTable = "usage_logs"
 	// UsageLogsInverseTable is the table name for the UsageLog entity.
@@ -97,6 +120,7 @@ var Columns = []string{
 	FieldDeletedAt,
 	FieldUserID,
 	FieldGroupID,
+	FieldPlanID,
 	FieldStartsAt,
 	FieldExpiresAt,
 	FieldStatus,
@@ -106,6 +130,12 @@ var Columns = []string{
 	FieldDailyUsageUsd,
 	FieldWeeklyUsageUsd,
 	FieldMonthlyUsageUsd,
+	FieldCycleQuotaUsd,
+	FieldResetIntervalSeconds,
+	FieldCycleStartedAt,
+	FieldCycleUsageUsd,
+	FieldCycleReservedUsd,
+	FieldWalletFallbackEnabled,
 	FieldAssignedBy,
 	FieldAssignedAt,
 	FieldNotes,
@@ -145,6 +175,14 @@ var (
 	DefaultWeeklyUsageUsd float64
 	// DefaultMonthlyUsageUsd holds the default value on creation for the "monthly_usage_usd" field.
 	DefaultMonthlyUsageUsd float64
+	// DefaultResetIntervalSeconds holds the default value on creation for the "reset_interval_seconds" field.
+	DefaultResetIntervalSeconds int
+	// DefaultCycleUsageUsd holds the default value on creation for the "cycle_usage_usd" field.
+	DefaultCycleUsageUsd float64
+	// DefaultCycleReservedUsd holds the default value on creation for the "cycle_reserved_usd" field.
+	DefaultCycleReservedUsd float64
+	// DefaultWalletFallbackEnabled holds the default value on creation for the "wallet_fallback_enabled" field.
+	DefaultWalletFallbackEnabled bool
 	// DefaultAssignedAt holds the default value on creation for the "assigned_at" field.
 	DefaultAssignedAt func() time.Time
 )
@@ -180,6 +218,11 @@ func ByUserID(opts ...sql.OrderTermOption) OrderOption {
 // ByGroupID orders the results by the group_id field.
 func ByGroupID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldGroupID, opts...).ToFunc()
+}
+
+// ByPlanID orders the results by the plan_id field.
+func ByPlanID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPlanID, opts...).ToFunc()
 }
 
 // ByStartsAt orders the results by the starts_at field.
@@ -227,6 +270,36 @@ func ByMonthlyUsageUsd(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldMonthlyUsageUsd, opts...).ToFunc()
 }
 
+// ByCycleQuotaUsd orders the results by the cycle_quota_usd field.
+func ByCycleQuotaUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCycleQuotaUsd, opts...).ToFunc()
+}
+
+// ByResetIntervalSeconds orders the results by the reset_interval_seconds field.
+func ByResetIntervalSeconds(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldResetIntervalSeconds, opts...).ToFunc()
+}
+
+// ByCycleStartedAt orders the results by the cycle_started_at field.
+func ByCycleStartedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCycleStartedAt, opts...).ToFunc()
+}
+
+// ByCycleUsageUsd orders the results by the cycle_usage_usd field.
+func ByCycleUsageUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCycleUsageUsd, opts...).ToFunc()
+}
+
+// ByCycleReservedUsd orders the results by the cycle_reserved_usd field.
+func ByCycleReservedUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCycleReservedUsd, opts...).ToFunc()
+}
+
+// ByWalletFallbackEnabled orders the results by the wallet_fallback_enabled field.
+func ByWalletFallbackEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldWalletFallbackEnabled, opts...).ToFunc()
+}
+
 // ByAssignedBy orders the results by the assigned_by field.
 func ByAssignedBy(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAssignedBy, opts...).ToFunc()
@@ -263,6 +336,13 @@ func ByAssignedByUserField(field string, opts ...sql.OrderTermOption) OrderOptio
 	}
 }
 
+// ByPlanField orders the results by plan field.
+func ByPlanField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPlanStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByUsageLogsCount orders the results by usage_logs count.
 func ByUsageLogsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -295,6 +375,13 @@ func newAssignedByUserStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AssignedByUserInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, AssignedByUserTable, AssignedByUserColumn),
+	)
+}
+func newPlanStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PlanInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, PlanTable, PlanColumn),
 	)
 }
 func newUsageLogsStep() *sqlgraph.Step {

@@ -156,7 +156,7 @@
                 <!-- Header: platform badge + plan name -->
                 <div class="mb-3 flex min-w-0 flex-wrap items-center gap-2">
                   <span :class="['rounded-md border px-2 py-0.5 text-xs font-medium', planBadgeClass]">
-                    {{ platformLabel(selectedPlan.group_platform || '') }}
+                    {{ platformLabel(selectedPlanPlatform) }}
                   </span>
                   <h3 class="min-w-0 flex-1 break-words text-lg font-bold text-gray-900 dark:text-white">{{ selectedPlan.name }}</h3>
                 </div>
@@ -172,33 +172,46 @@
                 <p v-if="selectedPlan.description" class="mt-2 break-words text-sm leading-relaxed text-gray-500 dark:text-gray-400">
                   {{ selectedPlan.description }}
                 </p>
-                <!-- Rate + Limits grid -->
+                <!-- Included routing groups and quota -->
+                <div class="mt-4 border-y border-gray-100 py-3 dark:border-dark-700">
+                  <p class="mb-2 text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.includedGroups') }}</p>
+                  <div class="grid gap-2 sm:grid-cols-2">
+                    <div v-for="group in selectedPlan.included_groups || []" :key="group.id" class="flex min-w-0 items-center gap-2 text-xs">
+                      <PlatformIcon :platform="group.platform as GroupPlatform" size="sm" class="shrink-0" />
+                      <span class="min-w-0 flex-1 truncate font-medium text-gray-700 dark:text-gray-300" :title="group.name">{{ group.name }}</span>
+                      <span class="shrink-0 tabular-nums text-gray-600 dark:text-gray-300">×{{ normalizedPlanRate(group.rate_multiplier) }}</span>
+                      <span v-if="group.peak_rate_enabled" class="shrink-0 rounded-[3px] bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+                        {{ t('payment.planCard.peakRateShort', { rate: normalizedPlanRate(group.peak_rate_multiplier ?? 1) }) }}
+                      </span>
+                    </div>
+                    <div v-if="(selectedPlan.included_groups || []).length === 0 && selectedPlan.rate_multiplier != null" class="flex min-w-0 items-center gap-2 text-xs">
+                      <span class="text-gray-400 dark:text-gray-500">{{ t('payment.planCard.rate') }}</span>
+                      <span class="font-medium tabular-nums text-gray-700 dark:text-gray-300">×{{ normalizedPlanRate(selectedPlan.rate_multiplier) }}</span>
+                      <span v-if="selectedPlan.peak_rate_enabled" class="shrink-0 rounded-[3px] bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+                        {{ t('payment.planCard.peakRateShort', { rate: normalizedPlanRate(selectedPlan.peak_rate_multiplier ?? 1) }) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
                 <div class="mt-3 grid grid-cols-2 gap-3">
-                  <div>
-                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.rate') }}</span>
-                    <div class="flex items-baseline">
-                      <span :class="['text-lg font-bold', planTextClass]">×{{ selectedPlan.rate_multiplier ?? 1 }}</span>
-                    </div>
+                  <div v-if="selectedPlan.cycle_quota_usd != null">
+                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.cycleQuota') }}</span>
+                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">${{ Number(selectedPlan.cycle_quota_usd).toFixed(2) }}</div>
+                    <p class="text-[10px] text-gray-400 dark:text-gray-500">{{ selectedPlanResetLabel }}</p>
                   </div>
-                  <div v-if="planHasPeakRate(selectedPlan)">
-                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.peakRate') }}</span>
-                    <div class="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                      {{ planPeakRateLabel(selectedPlan) }}
-                    </div>
-                  </div>
-                  <div v-if="selectedPlan.daily_limit_usd != null">
+                  <div v-else-if="selectedPlan.daily_limit_usd != null">
                     <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.dailyLimit') }}</span>
                     <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">${{ selectedPlan.daily_limit_usd }}</div>
                   </div>
-                  <div v-if="selectedPlan.weekly_limit_usd != null">
+                  <div v-if="selectedPlan.cycle_quota_usd == null && selectedPlan.weekly_limit_usd != null">
                     <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.weeklyLimit') }}</span>
                     <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">${{ selectedPlan.weekly_limit_usd }}</div>
                   </div>
-                  <div v-if="selectedPlan.monthly_limit_usd != null">
+                  <div v-if="selectedPlan.cycle_quota_usd == null && selectedPlan.monthly_limit_usd != null">
                     <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.monthlyLimit') }}</span>
                     <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">${{ selectedPlan.monthly_limit_usd }}</div>
                   </div>
-                  <div v-if="selectedPlan.daily_limit_usd == null && selectedPlan.weekly_limit_usd == null && selectedPlan.monthly_limit_usd == null">
+                  <div v-if="selectedPlan.cycle_quota_usd == null && selectedPlan.daily_limit_usd == null && selectedPlan.weekly_limit_usd == null && selectedPlan.monthly_limit_usd == null">
                     <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.quota') }}</span>
                     <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ t('payment.planCard.unlimited') }}</div>
                   </div>
@@ -361,6 +374,7 @@ import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiErro
 import { isMobileDevice } from '@/utils/device'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel, type PeakRateFields } from '@/utils/peak-rate'
 import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
+import type { GroupPlatform } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
@@ -808,8 +822,26 @@ const paymentButtonClass = computed(() => {
 })
 
 // Subscription confirm: platform accent colors (clean card, no gradient)
-const planBadgeClass = computed(() => platformBadgeClass(selectedPlan.value?.group_platform || ''))
-const planTextClass = computed(() => platformTextClass(selectedPlan.value?.group_platform || ''))
+const selectedPlanPlatform = computed(() => {
+  const plan = selectedPlan.value
+  if (!plan) return ''
+  const platforms = [...new Set((plan.included_groups || []).map(group => group.platform).filter(Boolean))]
+  if (platforms.length === 1) return platforms[0]
+  if (platforms.length > 1) return 'composite'
+  return plan.group_platform || ''
+})
+const planBadgeClass = computed(() => platformBadgeClass(selectedPlanPlatform.value))
+const planTextClass = computed(() => platformTextClass(selectedPlanPlatform.value))
+
+function normalizedPlanRate(rate: number): number {
+  return Number((rate ?? 1).toPrecision(10))
+}
+
+const selectedPlanResetLabel = computed(() => {
+  const seconds = Number(selectedPlan.value?.reset_interval_seconds) || 0
+  if (seconds <= 0) return t('payment.planCard.noReset')
+  return t('payment.planCard.resetEveryDays', { days: Number((seconds / 86400).toFixed(2)) })
+})
 
 // Renewal modal state
 const showRenewalModal = ref(false)
@@ -823,14 +855,6 @@ const planValiditySuffix = computed(() => {
   if (!selectedPlan.value) return ''
   return validitySuffixOf(selectedPlan.value, t)
 })
-
-function planHasPeakRate(plan: SubscriptionPlan): boolean {
-  return hasPeakRate(plan)
-}
-
-function planPeakRateLabel(plan: SubscriptionPlan): string {
-  return formatPeakRateWindow(plan, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
-}
 
 function selectPlan(plan: SubscriptionPlan) {
   selectedPlan.value = plan

@@ -104,6 +104,24 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 		h.errorResponse(c, status, code, message)
 		return
 	}
+	requestPayloadHash := service.HashUsageRequestPayload(body)
+	billingReservation, err := reserveRequestBilling(c, h.gatewayService, apiKey.User, apiKey, service.RequestBillingEstimate{
+		Kind:           service.RequestBillingEstimateWebSearch,
+		Model:          requestBillingEstimateModel(requestedModel, channelMapping),
+		Body:           body,
+		RequestCount:   1,
+		WebSearchCalls: 1,
+	}, requestPayloadHash)
+	if err != nil {
+		reqLog.Info("openai_alpha_search.billing_reservation_failed", zap.Error(err))
+		status, code, message, retryAfter := billingErrorDetails(err)
+		if retryAfter > 0 {
+			c.Header("Retry-After", strconv.Itoa(retryAfter))
+		}
+		h.errorResponse(c, status, code, message)
+		return
+	}
+	defer billingReservation.Close(c.Request.Context())
 
 	searchID := strings.TrimSpace(gjson.GetBytes(body, "id").String())
 	sessionHash := h.gatewayService.GenerateSessionHashWithFallback(c, nil, searchID)
@@ -170,7 +188,9 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 		if err == nil {
 			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, account.GetMappedModel(requestedModel), true, nil)
 			if result != nil {
-				h.recordAlphaSearchUsage(c, apiKey, account, subscription, channelMapping, requestedModel, body, result, subject.UserID)
+				if h.recordAlphaSearchUsage(c, apiKey, account, subscription, channelMapping, requestedModel, requestPayloadHash, result, subject.UserID) {
+					billingReservation.MarkForSettlement()
+				}
 			}
 			return
 		}
@@ -227,19 +247,18 @@ func (h *OpenAIGatewayHandler) recordAlphaSearchUsage(
 	subscription *service.UserSubscription,
 	channelMapping service.ChannelMappingResult,
 	requestedModel string,
-	body []byte,
+	requestPayloadHash string,
 	result *service.OpenAIForwardResult,
 	userID int64,
-) {
+) bool {
 	userAgent := c.GetHeader("User-Agent")
 	clientIP := ip.GetClientIP(c)
 	sessionID := service.ExtractClientSessionID(c)
-	requestPayloadHash := service.HashUsageRequestPayload(body)
 	inboundEndpoint := GetInboundEndpoint(c)
 	upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
 	quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 
-	h.submitMandatoryUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
+	return h.submitMandatoryUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 		if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 			Result:             result,
 			APIKey:             apiKey,

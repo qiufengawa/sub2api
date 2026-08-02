@@ -192,16 +192,19 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 
 		var subscription *service.UserSubscription
 		isSubscriptionType := apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
+		useSubscriptionGroupBilling := cfg.SubscriptionGroupBillingEnabled()
 
 		// 倍率自省不需要订阅数据；/v1/usage 仍保留原有订阅读取行为。
-		if isSubscriptionType && subscriptionService != nil && !billingInfoRequest {
-			sub, subErr := subscriptionService.GetActiveSubscription(
-				c.Request.Context(),
-				apiKey.User.ID,
-				apiKey.Group.ID,
-			)
+		if apiKey.Group != nil && subscriptionService != nil && !billingInfoRequest && (isSubscriptionType || useSubscriptionGroupBilling) {
+			var sub *service.UserSubscription
+			var subErr error
+			if useSubscriptionGroupBilling {
+				sub, subErr = subscriptionService.GetActiveSubscriptionForGroup(c.Request.Context(), apiKey.User.ID, apiKey.Group.ID)
+			} else {
+				sub, subErr = subscriptionService.GetActiveSubscription(c.Request.Context(), apiKey.User.ID, apiKey.Group.ID)
+			}
 			if subErr != nil {
-				if !skipBilling {
+				if isSubscriptionType && !skipBilling {
 					AbortWithError(c, 403, "SUBSCRIPTION_NOT_FOUND", "No active subscription found for this group")
 					return
 				}
@@ -234,8 +237,16 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 				return
 			}
 
-			// 订阅模式：验证订阅限额
-			if subscription != nil {
+			// 新计费模式仍维护旧窗口统计，保证管理端展示和灰度回退数据不会
+			// 跨窗口累计；额度资格只由 cycle 配额判断，不再校验旧分组限额。
+			if useSubscriptionGroupBilling && subscription != nil {
+				refreshed, maintenanceErr := subscriptionService.EnsureWindowMaintenance(c.Request.Context(), subscription)
+				if maintenanceErr != nil {
+					AbortWithError(c, 500, "SUBSCRIPTION_MAINTENANCE_FAILED", "Failed to maintain subscription usage windows")
+					return
+				}
+				subscription = refreshed
+			} else if subscription != nil {
 				needsMaintenance, validateErr := subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
 				if needsMaintenance {
 					refreshed, maintenanceErr := subscriptionService.EnsureWindowMaintenance(c.Request.Context(), subscription)
@@ -258,7 +269,7 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 					AbortWithError(c, status, code, validateErr.Error())
 					return
 				}
-			} else {
+			} else if !useSubscriptionGroupBilling {
 				// 非订阅模式 或 订阅模式但 subscriptionService 未注入：回退到余额检查
 				if apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) {
 					AbortWithError(c, 403, "INSUFFICIENT_BALANCE", "Insufficient account balance")

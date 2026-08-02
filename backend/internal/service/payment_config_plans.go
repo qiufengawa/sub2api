@@ -4,10 +4,14 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionplangroup"
+	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
@@ -48,6 +52,19 @@ func validatePlanRequired(name string, groupID int64, price float64, validityDay
 	return nil
 }
 
+func validatePlanCycle(cycleQuotaUSD *float64, resetIntervalSeconds int) error {
+	if cycleQuotaUSD != nil && *cycleQuotaUSD <= 0 {
+		return infraerrors.BadRequest("PLAN_CYCLE_QUOTA_INVALID", "cycle quota must be > 0")
+	}
+	if resetIntervalSeconds < 0 {
+		return infraerrors.BadRequest("PLAN_RESET_INTERVAL_INVALID", "reset interval must be >= 0")
+	}
+	if cycleQuotaUSD != nil && resetIntervalSeconds <= 0 {
+		return infraerrors.BadRequest("PLAN_RESET_INTERVAL_REQUIRED", "reset interval is required when cycle quota is set")
+	}
+	return nil
+}
+
 // validatePlanPatch validates only the non-nil fields in a patch update.
 func validatePlanPatch(req UpdatePlanRequest) error {
 	if req.Name != nil && strings.TrimSpace(*req.Name) == "" {
@@ -68,6 +85,12 @@ func validatePlanPatch(req UpdatePlanRequest) error {
 	if req.OriginalPrice != nil && *req.OriginalPrice < 0 {
 		return infraerrors.BadRequest("PLAN_ORIGINAL_PRICE_INVALID", "original price must be >= 0")
 	}
+	if req.CycleQuotaUSD != nil && *req.CycleQuotaUSD <= 0 {
+		return infraerrors.BadRequest("PLAN_CYCLE_QUOTA_INVALID", "cycle quota must be > 0")
+	}
+	if req.ResetIntervalSeconds != nil && *req.ResetIntervalSeconds < 0 {
+		return infraerrors.BadRequest("PLAN_RESET_INTERVAL_INVALID", "reset interval must be >= 0")
+	}
 	return nil
 }
 
@@ -75,6 +98,7 @@ func validatePlanPatch(req UpdatePlanRequest) error {
 
 // PlanGroupInfo holds the group details needed for subscription plan display.
 type PlanGroupInfo struct {
+	ID                 int64    `json:"id"`
 	Platform           string   `json:"platform"`
 	Name               string   `json:"name"`
 	RateMultiplier     float64  `json:"rate_multiplier"`
@@ -88,11 +112,31 @@ type PlanGroupInfo struct {
 	ModelScopes        []string `json:"supported_model_scopes"`
 }
 
+func IncludedPlanGroupInfo(plan *dbent.SubscriptionPlan, groupInfo map[int64]PlanGroupInfo) []PlanGroupInfo {
+	if plan == nil {
+		return []PlanGroupInfo{}
+	}
+	ids := normalizePlanGroupIDs(plan.GroupID, planIncludedGroupIDs(plan))
+	out := make([]PlanGroupInfo, 0, len(ids))
+	for _, id := range ids {
+		if info, ok := groupInfo[id]; ok {
+			out = append(out, info)
+		}
+	}
+	return out
+}
+
 // GetGroupInfoMap returns a map of group_id → PlanGroupInfo for the given plans.
 func (s *PaymentConfigService) GetGroupInfoMap(ctx context.Context, plans []*dbent.SubscriptionPlan) map[int64]PlanGroupInfo {
 	ids := make([]int64, 0, len(plans))
 	seen := make(map[int64]bool)
 	for _, p := range plans {
+		for _, includedGroup := range p.Edges.Groups {
+			if includedGroup != nil && !seen[includedGroup.ID] {
+				seen[includedGroup.ID] = true
+				ids = append(ids, includedGroup.ID)
+			}
+		}
 		if !seen[p.GroupID] {
 			seen[p.GroupID] = true
 			ids = append(ids, p.GroupID)
@@ -108,6 +152,7 @@ func (s *PaymentConfigService) GetGroupInfoMap(ctx context.Context, plans []*dbe
 	m := make(map[int64]PlanGroupInfo, len(groups))
 	for _, g := range groups {
 		m[int64(g.ID)] = PlanGroupInfo{
+			ID:                 int64(g.ID),
 			Platform:           g.Platform,
 			Name:               g.Name,
 			RateMultiplier:     g.RateMultiplier,
@@ -125,30 +170,47 @@ func (s *PaymentConfigService) GetGroupInfoMap(ctx context.Context, plans []*dbe
 }
 
 func (s *PaymentConfigService) ListPlans(ctx context.Context) ([]*dbent.SubscriptionPlan, error) {
-	return s.entClient.SubscriptionPlan.Query().Order(subscriptionplan.BySortOrder()).All(ctx)
+	return s.entClient.SubscriptionPlan.Query().WithGroups().Order(subscriptionplan.BySortOrder()).All(ctx)
 }
 
 func (s *PaymentConfigService) ListPlansForSale(ctx context.Context) ([]*dbent.SubscriptionPlan, error) {
-	return s.entClient.SubscriptionPlan.Query().Where(subscriptionplan.ForSaleEQ(true)).Order(subscriptionplan.BySortOrder()).All(ctx)
+	return s.entClient.SubscriptionPlan.Query().Where(subscriptionplan.ForSaleEQ(true)).WithGroups().Order(subscriptionplan.BySortOrder()).All(ctx)
 }
 
 func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanRequest) (*dbent.SubscriptionPlan, error) {
 	if err := validatePlanRequired(req.Name, req.GroupID, req.Price, req.ValidityDays, req.ValidityUnit, req.OriginalPrice); err != nil {
 		return nil, err
 	}
+	if err := validatePlanCycle(req.CycleQuotaUSD, req.ResetIntervalSeconds); err != nil {
+		return nil, err
+	}
 	currency, err := normalizePlanCurrency(req.Currency)
 	if err != nil {
+		return nil, err
+	}
+	includedGroupIDs := normalizePlanGroupIDs(req.GroupID, req.IncludedGroupIDs)
+	if err := s.validatePlanIncludedGroups(ctx, includedGroupIDs); err != nil {
 		return nil, err
 	}
 	b := s.entClient.SubscriptionPlan.Create().
 		SetGroupID(req.GroupID).SetName(req.Name).SetDescription(req.Description).
 		SetPrice(req.Price).SetCurrency(currency).SetValidityDays(req.ValidityDays).SetValidityUnit(req.ValidityUnit).
 		SetFeatures(req.Features).SetProductName(req.ProductName).
-		SetForSale(req.ForSale).SetSortOrder(req.SortOrder)
+		SetForSale(req.ForSale).SetSortOrder(req.SortOrder).
+		SetNillableCycleQuotaUsd(req.CycleQuotaUSD).
+		SetResetIntervalSeconds(req.ResetIntervalSeconds).
+		AddGroupIDs(includedGroupIDs...)
+	if req.WalletFallbackEnabled != nil {
+		b.SetWalletFallbackEnabled(*req.WalletFallbackEnabled)
+	}
 	if req.OriginalPrice != nil {
 		b.SetOriginalPrice(*req.OriginalPrice)
 	}
-	return b.Save(ctx)
+	plan, err := b.Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.GetPlan(ctx, plan.ID)
 }
 
 // UpdatePlan updates a subscription plan by ID (patch semantics).
@@ -156,6 +218,25 @@ func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanReq
 // plus a validation guard for non-nil fields.
 func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req UpdatePlanRequest) (*dbent.SubscriptionPlan, error) {
 	if err := validatePlanPatch(req); err != nil {
+		return nil, err
+	}
+	current, err := s.GetPlan(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	cycleQuotaUSD := current.CycleQuotaUsd
+	resetIntervalSeconds := current.ResetIntervalSeconds
+	cycleQuotaSet := req.CycleQuotaUSDSet || req.CycleQuotaUSD != nil
+	cycleQuotaCleared := cycleQuotaSet && req.CycleQuotaUSD == nil
+	if cycleQuotaSet {
+		cycleQuotaUSD = req.CycleQuotaUSD
+	}
+	if cycleQuotaCleared {
+		resetIntervalSeconds = 0
+	} else if req.ResetIntervalSeconds != nil {
+		resetIntervalSeconds = *req.ResetIntervalSeconds
+	}
+	if err := validatePlanCycle(cycleQuotaUSD, resetIntervalSeconds); err != nil {
 		return nil, err
 	}
 	u := s.entClient.SubscriptionPlan.UpdateOneID(id)
@@ -173,6 +254,19 @@ func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req Upd
 	}
 	if req.OriginalPrice != nil {
 		u.SetOriginalPrice(*req.OriginalPrice)
+	}
+	if cycleQuotaSet {
+		if cycleQuotaCleared {
+			u.ClearCycleQuotaUsd()
+		} else {
+			u.SetCycleQuotaUsd(*req.CycleQuotaUSD)
+		}
+	}
+	if cycleQuotaCleared || req.ResetIntervalSeconds != nil {
+		u.SetResetIntervalSeconds(resetIntervalSeconds)
+	}
+	if req.WalletFallbackEnabled != nil {
+		u.SetWalletFallbackEnabled(*req.WalletFallbackEnabled)
 	}
 	if req.Currency != nil {
 		currency, err := normalizePlanCurrency(*req.Currency)
@@ -199,7 +293,61 @@ func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req Upd
 	if req.SortOrder != nil {
 		u.SetSortOrder(*req.SortOrder)
 	}
-	return u.Save(ctx)
+	if req.IncludedGroupIDs != nil || req.GroupID != nil {
+		primaryGroupID := current.GroupID
+		if req.GroupID != nil {
+			primaryGroupID = *req.GroupID
+		}
+		values := planIncludedGroupIDs(current)
+		if req.IncludedGroupIDs != nil {
+			values = *req.IncludedGroupIDs
+		}
+		ids := normalizePlanGroupIDs(primaryGroupID, values)
+		if err := s.validatePlanIncludedGroups(ctx, ids); err != nil {
+			return nil, err
+		}
+		if req.IncludedGroupIDs != nil {
+			if err := s.requirePlanGroupRemovalConfirmation(ctx, id, ids, req.ConfirmGroupRemoval); err != nil {
+				return nil, err
+			}
+		}
+		u.ClearGroups().AddGroupIDs(ids...)
+	}
+	if _, err := u.Save(ctx); err != nil {
+		return nil, err
+	}
+	return s.GetPlan(ctx, id)
+}
+
+func planIncludedGroupIDs(plan *dbent.SubscriptionPlan) []int64 {
+	if plan == nil {
+		return nil
+	}
+	ids := make([]int64, 0, len(plan.Edges.Groups))
+	for _, includedGroup := range plan.Edges.Groups {
+		if includedGroup != nil {
+			ids = append(ids, includedGroup.ID)
+		}
+	}
+	return ids
+}
+
+func (s *PaymentConfigService) validatePlanIncludedGroups(ctx context.Context, ids []int64) error {
+	ids = normalizePlanGroupIDs(0, ids)
+	if len(ids) == 0 {
+		return infraerrors.BadRequest("PLAN_GROUP_REQUIRED", "at least one included group is required")
+	}
+	count, err := s.entClient.Group.Query().Where(
+		group.IDIn(ids...),
+		group.StatusEQ(payment.EntityStatusActive),
+	).Count(ctx)
+	if err != nil {
+		return fmt.Errorf("validate included groups: %w", err)
+	}
+	if count != len(ids) {
+		return infraerrors.BadRequest("PLAN_GROUP_INVALID", "all included groups must exist and be active")
+	}
+	return nil
 }
 
 func (s *PaymentConfigService) DeletePlan(ctx context.Context, id int64) error {
@@ -211,14 +359,92 @@ func (s *PaymentConfigService) DeletePlan(ctx context.Context, id int64) error {
 		return infraerrors.Conflict("PENDING_ORDERS",
 			fmt.Sprintf("this plan has %d in-progress orders and cannot be deleted — wait for orders to complete first", count))
 	}
-	return s.entClient.SubscriptionPlan.DeleteOneID(id).Exec(ctx)
+	subscriptionCount, err := s.entClient.UserSubscription.Query().
+		Where(usersubscription.PlanIDEQ(id)).
+		Count(mixins.SkipSoftDelete(ctx))
+	if err != nil {
+		return fmt.Errorf("check existing subscriptions: %w", err)
+	}
+	if subscriptionCount > 0 {
+		return infraerrors.Conflict("PLAN_HAS_SUBSCRIPTIONS",
+			fmt.Sprintf("this plan has %d subscription records and cannot be deleted; disable sale instead", subscriptionCount))
+	}
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return fmt.Errorf("begin plan deletion: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.SubscriptionPlanGroup.Delete().
+		Where(subscriptionplangroup.PlanIDEQ(id)).
+		Exec(ctx); err != nil {
+		return fmt.Errorf("delete plan group links: %w", err)
+	}
+	if err := tx.SubscriptionPlan.DeleteOneID(id).Exec(ctx); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit plan deletion: %w", err)
+	}
+	return nil
 }
 
 // GetPlan returns a subscription plan by ID.
 func (s *PaymentConfigService) GetPlan(ctx context.Context, id int64) (*dbent.SubscriptionPlan, error) {
-	plan, err := s.entClient.SubscriptionPlan.Get(ctx, id)
+	plan, err := s.entClient.SubscriptionPlan.Query().Where(subscriptionplan.IDEQ(id)).WithGroups().Only(ctx)
 	if err != nil {
 		return nil, infraerrors.NotFound("PLAN_NOT_FOUND", "subscription plan not found")
 	}
 	return plan, nil
+}
+
+func normalizePlanGroupIDs(primary int64, values []int64) []int64 {
+	seen := make(map[int64]struct{}, len(values)+1)
+	out := make([]int64, 0, len(values)+1)
+	if primary > 0 {
+		seen[primary] = struct{}{}
+		out = append(out, primary)
+	}
+	for _, id := range values {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+}
+
+func (s *PaymentConfigService) requirePlanGroupRemovalConfirmation(ctx context.Context, planID int64, next []int64, confirmed bool) error {
+	current, err := s.GetPlan(ctx, planID)
+	if err != nil {
+		return err
+	}
+	nextSet := make(map[int64]struct{}, len(next))
+	for _, id := range next {
+		nextSet[id] = struct{}{}
+	}
+	removed := false
+	for _, g := range current.Edges.Groups {
+		if _, ok := nextSet[g.ID]; !ok {
+			removed = true
+			break
+		}
+	}
+	if !removed || confirmed {
+		return nil
+	}
+	affected, err := s.entClient.UserSubscription.Query().Where(
+		usersubscription.PlanIDEQ(planID),
+		usersubscription.StatusEQ(SubscriptionStatusActive),
+		usersubscription.ExpiresAtGT(time.Now()),
+	).Count(ctx)
+	if err != nil {
+		return err
+	}
+	return infraerrors.Conflict("PLAN_GROUP_REMOVAL_CONFIRMATION_REQUIRED", "removing a covered group requires confirmation").WithMetadata(map[string]string{
+		"affected_subscriptions": fmt.Sprintf("%d", affected),
+	})
 }

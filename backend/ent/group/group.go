@@ -132,10 +132,14 @@ const (
 	EdgeAccounts = "accounts"
 	// EdgeAllowedUsers holds the string denoting the allowed_users edge name in mutations.
 	EdgeAllowedUsers = "allowed_users"
+	// EdgeSubscriptionPlans holds the string denoting the subscription_plans edge name in mutations.
+	EdgeSubscriptionPlans = "subscription_plans"
 	// EdgeAccountGroups holds the string denoting the account_groups edge name in mutations.
 	EdgeAccountGroups = "account_groups"
 	// EdgeUserAllowedGroups holds the string denoting the user_allowed_groups edge name in mutations.
 	EdgeUserAllowedGroups = "user_allowed_groups"
+	// EdgeSubscriptionPlanGroups holds the string denoting the subscription_plan_groups edge name in mutations.
+	EdgeSubscriptionPlanGroups = "subscription_plan_groups"
 	// Table holds the table name of the group in the database.
 	Table = "groups"
 	// APIKeysTable is the table that holds the api_keys relation/edge.
@@ -176,6 +180,11 @@ const (
 	// AllowedUsersInverseTable is the table name for the User entity.
 	// It exists in this package in order to avoid circular dependency with the "user" package.
 	AllowedUsersInverseTable = "users"
+	// SubscriptionPlansTable is the table that holds the subscription_plans relation/edge. The primary key declared below.
+	SubscriptionPlansTable = "subscription_plan_groups"
+	// SubscriptionPlansInverseTable is the table name for the SubscriptionPlan entity.
+	// It exists in this package in order to avoid circular dependency with the "subscriptionplan" package.
+	SubscriptionPlansInverseTable = "subscription_plans"
 	// AccountGroupsTable is the table that holds the account_groups relation/edge.
 	AccountGroupsTable = "account_groups"
 	// AccountGroupsInverseTable is the table name for the AccountGroup entity.
@@ -190,6 +199,13 @@ const (
 	UserAllowedGroupsInverseTable = "user_allowed_groups"
 	// UserAllowedGroupsColumn is the table column denoting the user_allowed_groups relation/edge.
 	UserAllowedGroupsColumn = "group_id"
+	// SubscriptionPlanGroupsTable is the table that holds the subscription_plan_groups relation/edge.
+	SubscriptionPlanGroupsTable = "subscription_plan_groups"
+	// SubscriptionPlanGroupsInverseTable is the table name for the SubscriptionPlanGroup entity.
+	// It exists in this package in order to avoid circular dependency with the "subscriptionplangroup" package.
+	SubscriptionPlanGroupsInverseTable = "subscription_plan_groups"
+	// SubscriptionPlanGroupsColumn is the table column denoting the subscription_plan_groups relation/edge.
+	SubscriptionPlanGroupsColumn = "group_id"
 )
 
 // Columns holds all SQL columns for group fields.
@@ -256,6 +272,9 @@ var (
 	// AllowedUsersPrimaryKey and AllowedUsersColumn2 are the table columns denoting the
 	// primary key for the allowed_users relation (M2M).
 	AllowedUsersPrimaryKey = []string{"user_id", "group_id"}
+	// SubscriptionPlansPrimaryKey and SubscriptionPlansColumn2 are the table columns denoting the
+	// primary key for the subscription_plans relation (M2M).
+	SubscriptionPlansPrimaryKey = []string{"plan_id", "group_id"}
 )
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -695,6 +714,20 @@ func ByAllowedUsers(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// BySubscriptionPlansCount orders the results by subscription_plans count.
+func BySubscriptionPlansCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSubscriptionPlansStep(), opts...)
+	}
+}
+
+// BySubscriptionPlans orders the results by subscription_plans terms.
+func BySubscriptionPlans(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSubscriptionPlansStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByAccountGroupsCount orders the results by account_groups count.
 func ByAccountGroupsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -720,6 +753,20 @@ func ByUserAllowedGroupsCount(opts ...sql.OrderTermOption) OrderOption {
 func ByUserAllowedGroups(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newUserAllowedGroupsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// BySubscriptionPlanGroupsCount orders the results by subscription_plan_groups count.
+func BySubscriptionPlanGroupsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSubscriptionPlanGroupsStep(), opts...)
+	}
+}
+
+// BySubscriptionPlanGroups orders the results by subscription_plan_groups terms.
+func BySubscriptionPlanGroups(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSubscriptionPlanGroupsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
 func newAPIKeysStep() *sqlgraph.Step {
@@ -764,6 +811,13 @@ func newAllowedUsersStep() *sqlgraph.Step {
 		sqlgraph.Edge(sqlgraph.M2M, true, AllowedUsersTable, AllowedUsersPrimaryKey...),
 	)
 }
+func newSubscriptionPlansStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SubscriptionPlansInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, true, SubscriptionPlansTable, SubscriptionPlansPrimaryKey...),
+	)
+}
 func newAccountGroupsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -776,5 +830,12 @@ func newUserAllowedGroupsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(UserAllowedGroupsInverseTable, UserAllowedGroupsColumn),
 		sqlgraph.Edge(sqlgraph.O2M, true, UserAllowedGroupsTable, UserAllowedGroupsColumn),
+	)
+}
+func newSubscriptionPlanGroupsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SubscriptionPlanGroupsInverseTable, SubscriptionPlanGroupsColumn),
+		sqlgraph.Edge(sqlgraph.O2M, true, SubscriptionPlanGroupsTable, SubscriptionPlanGroupsColumn),
 	)
 }

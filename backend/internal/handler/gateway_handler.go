@@ -246,6 +246,22 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		h.handleStreamingAwareError(c, status, code, message, streamStarted)
 		return
 	}
+	requestReservationPayloadHash := service.HashUsageRequestPayload(body)
+	billingReservation, err := reserveRequestBilling(c, h.gatewayService, apiKey.User, apiKey, service.RequestBillingEstimate{
+		Kind:  service.RequestBillingEstimateToken,
+		Model: requestBillingEstimateModel(reqModel, channelMapping),
+		Body:  body,
+	}, requestReservationPayloadHash)
+	if err != nil {
+		reqLog.Info("gateway.billing_reservation_failed", zap.Error(err))
+		status, code, message, retryAfter := billingErrorDetails(err)
+		if retryAfter > 0 {
+			c.Header("Retry-After", strconv.Itoa(retryAfter))
+		}
+		h.handleStreamingAwareError(c, status, code, message, streamStarted)
+		return
+	}
+	defer billingReservation.Close(c.Request.Context())
 
 	// 设置请求所属分组 ID（用于渠道级功能判断，如 WebSearch 模拟）
 	parsedReq.GroupID = apiKey.GroupID
@@ -536,7 +552,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			forceCacheBilling := fs.ForceCacheBilling
 			quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 			sessionID := service.ExtractClientSessionID(c)
-			h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
+			if h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 				if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
 					Result:             result,
 					QuotaPlatform:      quotaPlatform,
@@ -563,7 +579,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						zap.Int64("account_id", account.ID),
 					).Error("gateway.record_usage_failed", zap.Error(err))
 				}
-			})
+			}) {
+				billingReservation.MarkForSettlement()
+			}
 			return
 		}
 	}
@@ -870,6 +888,22 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 							h.handleStreamingAwareError(c, status, code, message, streamStarted)
 							return
 						}
+						if err := h.gatewayService.RebindRequestBilling(c.Request.Context(), billingReservation, fallbackAPIKey.User, fallbackAPIKey, service.RequestBillingEstimate{
+							Kind:  service.RequestBillingEstimateToken,
+							Model: reqModel,
+							Body:  body,
+						}, requestReservationPayloadHash); err != nil {
+							reqLog.Info("gateway.billing_reservation_fallback_rebind_failed",
+								zap.Int64("fallback_group_id", fallbackGroup.ID),
+								zap.Error(err),
+							)
+							status, code, message, retryAfter := billingErrorDetails(err)
+							if retryAfter > 0 {
+								c.Header("Retry-After", strconv.Itoa(retryAfter))
+							}
+							h.handleStreamingAwareError(c, status, code, message, streamStarted)
+							return
+						}
 						// 兜底重试按"直接请求兜底分组"处理：清除强制平台，允许按分组平台调度
 						ctx := context.WithValue(c.Request.Context(), ctxkey.ForcePlatform, "")
 						c.Request = c.Request.WithContext(ctx)
@@ -953,6 +987,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			clientIP := ip.GetClientIP(c)
 			// Forward 内部可能继续改写 body，usage 去重指纹必须使用最终上游接受的当前 body。
 			requestPayloadHash := service.HashUsageRequestPayload(attemptParsedReq.Body.Bytes())
+			if billingReservation.Reserved() {
+				requestPayloadHash = requestReservationPayloadHash
+			}
 			inboundEndpoint := GetInboundEndpoint(c)
 			upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
 
@@ -973,7 +1010,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			forceCacheBilling := fs.ForceCacheBilling
 			quotaPlatform := service.QuotaPlatform(c.Request.Context(), currentAPIKey)
 			sessionID := service.ExtractClientSessionID(c)
-			h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
+			if h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 				if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
 					Result:             result,
 					QuotaPlatform:      quotaPlatform,
@@ -1000,7 +1037,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						zap.Int64("account_id", account.ID),
 					).Error("gateway.record_usage_failed", zap.Error(err))
 				}
-			})
+			}) {
+				billingReservation.MarkForSettlement()
+			}
 			return
 		}
 		if !retryWithFallback {
@@ -2330,27 +2369,23 @@ func (h *GatewayHandler) maybeLogCompatibilityFallbackMetrics(reqLog *zap.Logger
 	)
 }
 
-func (h *GatewayHandler) submitUsageRecordTask(parent context.Context, task service.UsageRecordTask) {
+func (h *GatewayHandler) submitUsageRecordTask(parent context.Context, task service.UsageRecordTask) bool {
 	if task == nil {
-		return
+		return false
 	}
 	task = wrapUsageRecordTaskContext(parent, task)
 	if h.usageRecordWorkerPool != nil {
-		h.usageRecordWorkerPool.Submit(task)
-		return
-	}
-	// 回退路径：worker 池未注入时同步执行，避免退回到无界 goroutine 模式。
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	defer func() {
-		if recovered := recover(); recovered != nil {
-			logger.L().With(
-				zap.String("component", "handler.gateway.messages"),
-				zap.Any("panic", recovered),
-			).Error("gateway.usage_record_task_panic_recovered")
+		if mode := h.usageRecordWorkerPool.Submit(task); mode != service.UsageRecordSubmitModeDropped {
+			return true
 		}
-	}()
-	task(ctx)
+		if h.cfg == nil || !h.cfg.SubscriptionGroupBillingEnabled() {
+			return false
+		}
+		logger.L().With(
+			zap.String("component", "handler.gateway.usage"),
+		).Warn("gateway.usage_record_task_billing_sync_fallback")
+	}
+	return runUsageRecordTaskSynchronously(task, "handler.gateway.usage")
 }
 
 // getUserMsgQueueMode 获取当前请求的 UMQ 模式

@@ -31,7 +31,10 @@ const {
   listMyErrorRequests: vi.fn(),
   routeState: { query: {} as Record<string, string> },
   appStoreState: {
-    cachedPublicSettings: { allow_user_view_error_requests: false },
+    cachedPublicSettings: {
+      allow_user_view_error_requests: false,
+      subscription_group_billing_enabled: false,
+    },
     showError: vi.fn(),
     showWarning: vi.fn(),
     showSuccess: vi.fn(),
@@ -149,6 +152,11 @@ const usageLog = {
   group: { id: 1, name: 'default' },
   api_key: { name: 'demo-key' },
   billing_mode: 'token',
+  billing_source: 'subscription',
+  subscription_id: 42,
+  subscription: { id: 42, plan_name: 'Standard' },
+  billing_preference: 'subscription_first',
+  billing_fallback_reason: '',
   request_type: 'sync',
   stream: false,
 }
@@ -188,6 +196,7 @@ describe('user UsageView', () => {
     listMyErrorRequests.mockReset()
     routeState.query = {}
     appStoreState.cachedPublicSettings.allow_user_view_error_requests = false
+    appStoreState.cachedPublicSettings.subscription_group_billing_enabled = false
     appStoreState.showError = showError
     appStoreState.showWarning = showWarning
     appStoreState.showSuccess = showSuccess
@@ -294,6 +303,17 @@ describe('user UsageView', () => {
     expect(wrapper.getComponent({ name: 'UsageTable' }).props('mobileTable')).toBe(true)
   })
 
+  it('shows the billing source column when subscription group billing is enabled', async () => {
+    appStoreState.cachedPublicSettings.subscription_group_billing_enabled = true
+
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    expect((wrapper.vm as any).visibleColumns.map((column: { key: string }) => column.key)).toContain(
+      'billing_source'
+    )
+  })
+
   it('gives the token trend full width ahead of the category rankings', async () => {
     const wrapper = mountUsageView()
     await flushPromises()
@@ -347,8 +367,8 @@ describe('user UsageView', () => {
     expect(showSuccess).toHaveBeenCalled()
     expect(csvContent.startsWith('\uFEFF')).toBe(true)
     expect(csvContent.slice(1)).toBe([
-      'Time,API Key Name,Model,Reasoning Effort,Inbound Endpoint,Upstream Endpoint,Group,IP Address,User Agent,Type,Billing Mode,Input Tokens,Output Tokens,Cache Read Tokens,Cache Creation Tokens,Rate Multiplier,Billed Cost,Original Cost,First Token (ms),Duration (ms)',
-      '2026-03-08T00:00:00Z,demo-key,gpt-5.4,"\'-",/v1/responses,/v1/chat/completions,default,203.0.113.10,codex-cli/1.0,Sync,Token,4057,101,278272,4,1,0.09288300,0.09288300,12,345',
+      'Time,API Key Name,Model,Reasoning Effort,Inbound Endpoint,Upstream Endpoint,Group,IP Address,User Agent,Type,Billing Mode,Billing Source,Subscription Plan,Billing Preference,Billing Fallback Reason,Input Tokens,Output Tokens,Cache Read Tokens,Cache Creation Tokens,Rate Multiplier,Billed Cost,Original Cost,First Token (ms),Duration (ms)',
+      '2026-03-08T00:00:00Z,demo-key,gpt-5.4,"\'-",/v1/responses,/v1/chat/completions,default,203.0.113.10,codex-cli/1.0,Sync,Token,subscription,Standard,subscription_first,,4057,101,278272,4,1,0.09288300,0.09288300,12,345',
     ].join('\n'))
     expect(csvContent).toContain('IP Address')
     expect(csvContent).toContain('Upstream Endpoint')

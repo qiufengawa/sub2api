@@ -10,19 +10,20 @@ import (
 )
 
 type User struct {
-	ID            int64      `json:"id"`
-	Email         string     `json:"email"`
-	Username      string     `json:"username"`
-	Role          string     `json:"role"`
-	Balance       float64    `json:"balance"`
-	FrozenBalance float64    `json:"frozen_balance"`
-	Concurrency   int        `json:"concurrency"`
-	Status        string     `json:"status"`
-	AllowedGroups []int64    `json:"allowed_groups"`
-	LastActiveAt  *time.Time `json:"last_active_at,omitempty"`
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedAt     time.Time  `json:"updated_at"`
-	DeletedAt     *time.Time `json:"deleted_at,omitempty"`
+	ID                int64      `json:"id"`
+	Email             string     `json:"email"`
+	Username          string     `json:"username"`
+	Role              string     `json:"role"`
+	Balance           float64    `json:"balance"`
+	FrozenBalance     float64    `json:"frozen_balance"`
+	Concurrency       int        `json:"concurrency"`
+	Status            string     `json:"status"`
+	BillingPreference string     `json:"billing_preference"`
+	AllowedGroups     []int64    `json:"allowed_groups"`
+	LastActiveAt      *time.Time `json:"last_active_at,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
+	DeletedAt         *time.Time `json:"deleted_at,omitempty"`
 
 	// 余额不足通知
 	BalanceNotifyEnabled       bool               `json:"balance_notify_enabled"`
@@ -499,12 +500,15 @@ type UsageLog struct {
 	RateMultiplier            float64 `json:"rate_multiplier"`
 	LongContextBillingApplied bool    `json:"long_context_billing_applied"`
 
-	BillingType  int8   `json:"billing_type"`
-	RequestType  string `json:"request_type"`
-	Stream       bool   `json:"stream"`
-	OpenAIWSMode bool   `json:"openai_ws_mode"`
-	DurationMs   *int   `json:"duration_ms"`
-	FirstTokenMs *int   `json:"first_token_ms"`
+	BillingType           int8    `json:"billing_type"`
+	BillingSource         string  `json:"billing_source"`
+	BillingPreference     *string `json:"billing_preference,omitempty"`
+	BillingFallbackReason *string `json:"billing_fallback_reason,omitempty"`
+	RequestType           string  `json:"request_type"`
+	Stream                bool    `json:"stream"`
+	OpenAIWSMode          bool    `json:"openai_ws_mode"`
+	DurationMs            *int    `json:"duration_ms"`
+	FirstTokenMs          *int    `json:"first_token_ms"`
 
 	// 图片生成字段
 	ImageCount         int            `json:"image_count"`
@@ -611,9 +615,11 @@ type Setting struct {
 }
 
 type UserSubscription struct {
-	ID      int64 `json:"id"`
-	UserID  int64 `json:"user_id"`
-	GroupID int64 `json:"group_id"`
+	ID       int64  `json:"id"`
+	UserID   int64  `json:"user_id"`
+	GroupID  int64  `json:"group_id"`
+	PlanID   *int64 `json:"plan_id,omitempty"`
+	PlanName string `json:"plan_name,omitempty"`
 
 	StartsAt  time.Time `json:"starts_at"`
 	ExpiresAt time.Time `json:"expires_at"`
@@ -623,16 +629,23 @@ type UserSubscription struct {
 	WeeklyWindowStart  *time.Time `json:"weekly_window_start"`
 	MonthlyWindowStart *time.Time `json:"monthly_window_start"`
 
-	DailyUsageUSD   float64 `json:"daily_usage_usd"`
-	WeeklyUsageUSD  float64 `json:"weekly_usage_usd"`
-	MonthlyUsageUSD float64 `json:"monthly_usage_usd"`
+	DailyUsageUSD         float64    `json:"daily_usage_usd"`
+	WeeklyUsageUSD        float64    `json:"weekly_usage_usd"`
+	MonthlyUsageUSD       float64    `json:"monthly_usage_usd"`
+	CycleQuotaUSD         *float64   `json:"cycle_quota_usd,omitempty"`
+	CycleUsageUSD         float64    `json:"cycle_usage_usd"`
+	CycleReservedUSD      float64    `json:"cycle_reserved_usd"`
+	ResetIntervalSeconds  int        `json:"reset_interval_seconds"`
+	CycleStartedAt        *time.Time `json:"cycle_started_at,omitempty"`
+	WalletFallbackEnabled bool       `json:"wallet_fallback_enabled"`
 
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
 	RevokedAt *time.Time `json:"revoked_at,omitempty"`
 
-	User  *User  `json:"user,omitempty"`
-	Group *Group `json:"group,omitempty"`
+	User           *User    `json:"user,omitempty"`
+	Group          *Group   `json:"group,omitempty"`
+	IncludedGroups []*Group `json:"included_groups"`
 }
 
 // AdminUserSubscription 是管理员接口使用的订阅 DTO（包含分配信息/备注等字段）。

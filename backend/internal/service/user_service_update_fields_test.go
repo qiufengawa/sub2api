@@ -60,6 +60,23 @@ func TestUpdateProfile_AvatarOnlySkipsUserRowWrite(t *testing.T) {
 	require.Equal(t, []UserUpdateFields{{}}, repo.updateFields, "no user column should be declared")
 }
 
+func TestUpdateProfile_BillingPreferenceInvalidatesAPIKeyAuthCache(t *testing.T) {
+	repo := &mockUserRepo{getByIDUser: &User{
+		ID:                7,
+		Concurrency:       5,
+		BillingPreference: BillingPreferenceSubscriptionFirst,
+	}}
+	authCache := &mockAuthCacheInvalidator{}
+	svc := NewUserService(repo, nil, authCache, nil)
+	preference := BillingPreferenceWalletFirst
+
+	updated, err := svc.UpdateProfile(context.Background(), 7, UpdateProfileRequest{BillingPreference: &preference})
+	require.NoError(t, err)
+	require.Equal(t, BillingPreferenceWalletFirst, updated.BillingPreference)
+	require.Equal(t, []UserUpdateFields{{BillingPreference: true}}, repo.updateFields)
+	require.Equal(t, []int64{7}, authCache.invalidatedUserIDs)
+}
+
 func TestChangePassword_OnlyDeclaresPasswordHash(t *testing.T) {
 	user := &User{ID: 7, Balance: 0.30}
 	require.NoError(t, user.SetPassword("old-password"))

@@ -158,6 +158,20 @@ func (_c *UserCreate) SetNillableStatus(v *string) *UserCreate {
 	return _c
 }
 
+// SetBillingPreference sets the "billing_preference" field.
+func (_c *UserCreate) SetBillingPreference(v string) *UserCreate {
+	_c.mutation.SetBillingPreference(v)
+	return _c
+}
+
+// SetNillableBillingPreference sets the "billing_preference" field if the given value is not nil.
+func (_c *UserCreate) SetNillableBillingPreference(v *string) *UserCreate {
+	if v != nil {
+		_c.SetBillingPreference(*v)
+	}
+	return _c
+}
+
 // SetUsername sets the "username" field.
 func (_c *UserCreate) SetUsername(v string) *UserCreate {
 	_c.mutation.SetUsername(v)
@@ -620,6 +634,10 @@ func (_c *UserCreate) defaults() error {
 		v := user.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.BillingPreference(); !ok {
+		v := user.DefaultBillingPreference
+		_c.mutation.SetBillingPreference(v)
+	}
 	if _, ok := _c.mutation.Username(); !ok {
 		v := user.DefaultUsername
 		_c.mutation.SetUsername(v)
@@ -706,6 +724,14 @@ func (_c *UserCreate) check() error {
 	if v, ok := _c.mutation.Status(); ok {
 		if err := user.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "User.status": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.BillingPreference(); !ok {
+		return &ValidationError{Name: "billing_preference", err: errors.New(`ent: missing required field "User.billing_preference"`)}
+	}
+	if v, ok := _c.mutation.BillingPreference(); ok {
+		if err := user.BillingPreferenceValidator(v); err != nil {
+			return &ValidationError{Name: "billing_preference", err: fmt.Errorf(`ent: validator failed for field "User.billing_preference": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Username(); !ok {
@@ -811,6 +837,10 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(user.FieldStatus, field.TypeString, value)
 		_node.Status = value
+	}
+	if value, ok := _c.mutation.BillingPreference(); ok {
+		_spec.SetField(user.FieldBillingPreference, field.TypeString, value)
+		_node.BillingPreference = value
 	}
 	if value, ok := _c.mutation.Username(); ok {
 		_spec.SetField(user.FieldUsername, field.TypeString, value)
@@ -1264,6 +1294,18 @@ func (u *UserUpsert) UpdateStatus() *UserUpsert {
 	return u
 }
 
+// SetBillingPreference sets the "billing_preference" field.
+func (u *UserUpsert) SetBillingPreference(v string) *UserUpsert {
+	u.Set(user.FieldBillingPreference, v)
+	return u
+}
+
+// UpdateBillingPreference sets the "billing_preference" field to the value that was provided on create.
+func (u *UserUpsert) UpdateBillingPreference() *UserUpsert {
+	u.SetExcluded(user.FieldBillingPreference)
+	return u
+}
+
 // SetUsername sets the "username" field.
 func (u *UserUpsert) SetUsername(v string) *UserUpsert {
 	u.Set(user.FieldUsername, v)
@@ -1676,6 +1718,20 @@ func (u *UserUpsertOne) SetStatus(v string) *UserUpsertOne {
 func (u *UserUpsertOne) UpdateStatus() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetBillingPreference sets the "billing_preference" field.
+func (u *UserUpsertOne) SetBillingPreference(v string) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetBillingPreference(v)
+	})
+}
+
+// UpdateBillingPreference sets the "billing_preference" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateBillingPreference() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateBillingPreference()
 	})
 }
 
@@ -2293,6 +2349,20 @@ func (u *UserUpsertBulk) SetStatus(v string) *UserUpsertBulk {
 func (u *UserUpsertBulk) UpdateStatus() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetBillingPreference sets the "billing_preference" field.
+func (u *UserUpsertBulk) SetBillingPreference(v string) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetBillingPreference(v)
+	})
+}
+
+// UpdateBillingPreference sets the "billing_preference" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateBillingPreference() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateBillingPreference()
 	})
 }
 

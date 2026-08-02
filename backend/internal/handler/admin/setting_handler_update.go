@@ -279,6 +279,7 @@ type UpdateSettingsRequest struct {
 
 	// Payment configuration (integrated into settings, full replace)
 	PaymentEnabled                   *bool    `json:"payment_enabled"`
+	SubscriptionGroupBillingEnabled  *bool    `json:"subscription_group_billing_enabled"`
 	PaymentMinAmount                 *float64 `json:"payment_min_amount"`
 	PaymentMaxAmount                 *float64 `json:"payment_max_amount"`
 	PaymentDailyLimit                *float64 `json:"payment_daily_limit"`
@@ -1459,6 +1460,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		MaxClaudeCodeVersion:                   req.MaxClaudeCodeVersion,
 		AllowUngroupedKeyScheduling:            req.AllowUngroupedKeyScheduling,
 		BackendModeEnabled:                     req.BackendModeEnabled,
+		SubscriptionGroupBillingEnabled: func() bool {
+			if req.SubscriptionGroupBillingEnabled != nil {
+				return *req.SubscriptionGroupBillingEnabled
+			}
+			return previousSettings.SubscriptionGroupBillingEnabled
+		}(),
 		AllowUserViewErrorRequests: func() bool {
 			if req.AllowUserViewErrorRequests != nil {
 				return *req.AllowUserViewErrorRequests
@@ -2071,6 +2078,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		AccountQuotaNotifyEnabled:                              updatedSettings.AccountQuotaNotifyEnabled,
 		AccountQuotaNotifyEmails:                               dto.NotifyEmailEntriesFromService(updatedSettings.AccountQuotaNotifyEmails),
 		PaymentEnabled:                                         updatedPaymentCfg.Enabled,
+		SubscriptionGroupBillingEnabled:                        updatedSettings.SubscriptionGroupBillingEnabled,
 		PaymentMinAmount:                                       updatedPaymentCfg.MinAmount,
 		PaymentMaxAmount:                                       updatedPaymentCfg.MaxAmount,
 		PaymentDailyLimit:                                      updatedPaymentCfg.DailyLimit,

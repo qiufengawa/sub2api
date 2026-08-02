@@ -185,6 +185,20 @@ func (_u *UserUpdate) SetNillableStatus(v *string) *UserUpdate {
 	return _u
 }
 
+// SetBillingPreference sets the "billing_preference" field.
+func (_u *UserUpdate) SetBillingPreference(v string) *UserUpdate {
+	_u.mutation.SetBillingPreference(v)
+	return _u
+}
+
+// SetNillableBillingPreference sets the "billing_preference" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableBillingPreference(v *string) *UserUpdate {
+	if v != nil {
+		_u.SetBillingPreference(*v)
+	}
+	return _u
+}
+
 // SetUsername sets the "username" field.
 func (_u *UserUpdate) SetUsername(v string) *UserUpdate {
 	_u.mutation.SetUsername(v)
@@ -969,6 +983,11 @@ func (_u *UserUpdate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "User.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.BillingPreference(); ok {
+		if err := user.BillingPreferenceValidator(v); err != nil {
+			return &ValidationError{Name: "billing_preference", err: fmt.Errorf(`ent: validator failed for field "User.billing_preference": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Username(); ok {
 		if err := user.UsernameValidator(v); err != nil {
 			return &ValidationError{Name: "username", err: fmt.Errorf(`ent: validator failed for field "User.username": %w`, err)}
@@ -1032,6 +1051,9 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(user.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.BillingPreference(); ok {
+		_spec.SetField(user.FieldBillingPreference, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Username(); ok {
 		_spec.SetField(user.FieldUsername, field.TypeString, value)
@@ -1861,6 +1883,20 @@ func (_u *UserUpdateOne) SetNillableStatus(v *string) *UserUpdateOne {
 	return _u
 }
 
+// SetBillingPreference sets the "billing_preference" field.
+func (_u *UserUpdateOne) SetBillingPreference(v string) *UserUpdateOne {
+	_u.mutation.SetBillingPreference(v)
+	return _u
+}
+
+// SetNillableBillingPreference sets the "billing_preference" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableBillingPreference(v *string) *UserUpdateOne {
+	if v != nil {
+		_u.SetBillingPreference(*v)
+	}
+	return _u
+}
+
 // SetUsername sets the "username" field.
 func (_u *UserUpdateOne) SetUsername(v string) *UserUpdateOne {
 	_u.mutation.SetUsername(v)
@@ -2658,6 +2694,11 @@ func (_u *UserUpdateOne) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "User.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.BillingPreference(); ok {
+		if err := user.BillingPreferenceValidator(v); err != nil {
+			return &ValidationError{Name: "billing_preference", err: fmt.Errorf(`ent: validator failed for field "User.billing_preference": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Username(); ok {
 		if err := user.UsernameValidator(v); err != nil {
 			return &ValidationError{Name: "username", err: fmt.Errorf(`ent: validator failed for field "User.username": %w`, err)}
@@ -2738,6 +2779,9 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(user.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.BillingPreference(); ok {
+		_spec.SetField(user.FieldBillingPreference, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Username(); ok {
 		_spec.SetField(user.FieldUsername, field.TypeString, value)

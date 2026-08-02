@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
@@ -76,6 +77,20 @@ func (_c *UserSubscriptionCreate) SetUserID(v int64) *UserSubscriptionCreate {
 // SetGroupID sets the "group_id" field.
 func (_c *UserSubscriptionCreate) SetGroupID(v int64) *UserSubscriptionCreate {
 	_c.mutation.SetGroupID(v)
+	return _c
+}
+
+// SetPlanID sets the "plan_id" field.
+func (_c *UserSubscriptionCreate) SetPlanID(v int64) *UserSubscriptionCreate {
+	_c.mutation.SetPlanID(v)
+	return _c
+}
+
+// SetNillablePlanID sets the "plan_id" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillablePlanID(v *int64) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetPlanID(*v)
+	}
 	return _c
 }
 
@@ -189,6 +204,90 @@ func (_c *UserSubscriptionCreate) SetNillableMonthlyUsageUsd(v *float64) *UserSu
 	return _c
 }
 
+// SetCycleQuotaUsd sets the "cycle_quota_usd" field.
+func (_c *UserSubscriptionCreate) SetCycleQuotaUsd(v float64) *UserSubscriptionCreate {
+	_c.mutation.SetCycleQuotaUsd(v)
+	return _c
+}
+
+// SetNillableCycleQuotaUsd sets the "cycle_quota_usd" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableCycleQuotaUsd(v *float64) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetCycleQuotaUsd(*v)
+	}
+	return _c
+}
+
+// SetResetIntervalSeconds sets the "reset_interval_seconds" field.
+func (_c *UserSubscriptionCreate) SetResetIntervalSeconds(v int) *UserSubscriptionCreate {
+	_c.mutation.SetResetIntervalSeconds(v)
+	return _c
+}
+
+// SetNillableResetIntervalSeconds sets the "reset_interval_seconds" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableResetIntervalSeconds(v *int) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetResetIntervalSeconds(*v)
+	}
+	return _c
+}
+
+// SetCycleStartedAt sets the "cycle_started_at" field.
+func (_c *UserSubscriptionCreate) SetCycleStartedAt(v time.Time) *UserSubscriptionCreate {
+	_c.mutation.SetCycleStartedAt(v)
+	return _c
+}
+
+// SetNillableCycleStartedAt sets the "cycle_started_at" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableCycleStartedAt(v *time.Time) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetCycleStartedAt(*v)
+	}
+	return _c
+}
+
+// SetCycleUsageUsd sets the "cycle_usage_usd" field.
+func (_c *UserSubscriptionCreate) SetCycleUsageUsd(v float64) *UserSubscriptionCreate {
+	_c.mutation.SetCycleUsageUsd(v)
+	return _c
+}
+
+// SetNillableCycleUsageUsd sets the "cycle_usage_usd" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableCycleUsageUsd(v *float64) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetCycleUsageUsd(*v)
+	}
+	return _c
+}
+
+// SetCycleReservedUsd sets the "cycle_reserved_usd" field.
+func (_c *UserSubscriptionCreate) SetCycleReservedUsd(v float64) *UserSubscriptionCreate {
+	_c.mutation.SetCycleReservedUsd(v)
+	return _c
+}
+
+// SetNillableCycleReservedUsd sets the "cycle_reserved_usd" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableCycleReservedUsd(v *float64) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetCycleReservedUsd(*v)
+	}
+	return _c
+}
+
+// SetWalletFallbackEnabled sets the "wallet_fallback_enabled" field.
+func (_c *UserSubscriptionCreate) SetWalletFallbackEnabled(v bool) *UserSubscriptionCreate {
+	_c.mutation.SetWalletFallbackEnabled(v)
+	return _c
+}
+
+// SetNillableWalletFallbackEnabled sets the "wallet_fallback_enabled" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableWalletFallbackEnabled(v *bool) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetWalletFallbackEnabled(*v)
+	}
+	return _c
+}
+
 // SetAssignedBy sets the "assigned_by" field.
 func (_c *UserSubscriptionCreate) SetAssignedBy(v int64) *UserSubscriptionCreate {
 	_c.mutation.SetAssignedBy(v)
@@ -258,6 +357,11 @@ func (_c *UserSubscriptionCreate) SetNillableAssignedByUserID(id *int64) *UserSu
 // SetAssignedByUser sets the "assigned_by_user" edge to the User entity.
 func (_c *UserSubscriptionCreate) SetAssignedByUser(v *User) *UserSubscriptionCreate {
 	return _c.SetAssignedByUserID(v.ID)
+}
+
+// SetPlan sets the "plan" edge to the SubscriptionPlan entity.
+func (_c *UserSubscriptionCreate) SetPlan(v *SubscriptionPlan) *UserSubscriptionCreate {
+	return _c.SetPlanID(v.ID)
 }
 
 // AddUsageLogIDs adds the "usage_logs" edge to the UsageLog entity by IDs.
@@ -342,6 +446,22 @@ func (_c *UserSubscriptionCreate) defaults() error {
 		v := usersubscription.DefaultMonthlyUsageUsd
 		_c.mutation.SetMonthlyUsageUsd(v)
 	}
+	if _, ok := _c.mutation.ResetIntervalSeconds(); !ok {
+		v := usersubscription.DefaultResetIntervalSeconds
+		_c.mutation.SetResetIntervalSeconds(v)
+	}
+	if _, ok := _c.mutation.CycleUsageUsd(); !ok {
+		v := usersubscription.DefaultCycleUsageUsd
+		_c.mutation.SetCycleUsageUsd(v)
+	}
+	if _, ok := _c.mutation.CycleReservedUsd(); !ok {
+		v := usersubscription.DefaultCycleReservedUsd
+		_c.mutation.SetCycleReservedUsd(v)
+	}
+	if _, ok := _c.mutation.WalletFallbackEnabled(); !ok {
+		v := usersubscription.DefaultWalletFallbackEnabled
+		_c.mutation.SetWalletFallbackEnabled(v)
+	}
 	if _, ok := _c.mutation.AssignedAt(); !ok {
 		if usersubscription.DefaultAssignedAt == nil {
 			return fmt.Errorf("ent: uninitialized usersubscription.DefaultAssignedAt (forgotten import ent/runtime?)")
@@ -388,6 +508,18 @@ func (_c *UserSubscriptionCreate) check() error {
 	}
 	if _, ok := _c.mutation.MonthlyUsageUsd(); !ok {
 		return &ValidationError{Name: "monthly_usage_usd", err: errors.New(`ent: missing required field "UserSubscription.monthly_usage_usd"`)}
+	}
+	if _, ok := _c.mutation.ResetIntervalSeconds(); !ok {
+		return &ValidationError{Name: "reset_interval_seconds", err: errors.New(`ent: missing required field "UserSubscription.reset_interval_seconds"`)}
+	}
+	if _, ok := _c.mutation.CycleUsageUsd(); !ok {
+		return &ValidationError{Name: "cycle_usage_usd", err: errors.New(`ent: missing required field "UserSubscription.cycle_usage_usd"`)}
+	}
+	if _, ok := _c.mutation.CycleReservedUsd(); !ok {
+		return &ValidationError{Name: "cycle_reserved_usd", err: errors.New(`ent: missing required field "UserSubscription.cycle_reserved_usd"`)}
+	}
+	if _, ok := _c.mutation.WalletFallbackEnabled(); !ok {
+		return &ValidationError{Name: "wallet_fallback_enabled", err: errors.New(`ent: missing required field "UserSubscription.wallet_fallback_enabled"`)}
 	}
 	if _, ok := _c.mutation.AssignedAt(); !ok {
 		return &ValidationError{Name: "assigned_at", err: errors.New(`ent: missing required field "UserSubscription.assigned_at"`)}
@@ -473,6 +605,30 @@ func (_c *UserSubscriptionCreate) createSpec() (*UserSubscription, *sqlgraph.Cre
 		_spec.SetField(usersubscription.FieldMonthlyUsageUsd, field.TypeFloat64, value)
 		_node.MonthlyUsageUsd = value
 	}
+	if value, ok := _c.mutation.CycleQuotaUsd(); ok {
+		_spec.SetField(usersubscription.FieldCycleQuotaUsd, field.TypeFloat64, value)
+		_node.CycleQuotaUsd = &value
+	}
+	if value, ok := _c.mutation.ResetIntervalSeconds(); ok {
+		_spec.SetField(usersubscription.FieldResetIntervalSeconds, field.TypeInt, value)
+		_node.ResetIntervalSeconds = value
+	}
+	if value, ok := _c.mutation.CycleStartedAt(); ok {
+		_spec.SetField(usersubscription.FieldCycleStartedAt, field.TypeTime, value)
+		_node.CycleStartedAt = &value
+	}
+	if value, ok := _c.mutation.CycleUsageUsd(); ok {
+		_spec.SetField(usersubscription.FieldCycleUsageUsd, field.TypeFloat64, value)
+		_node.CycleUsageUsd = value
+	}
+	if value, ok := _c.mutation.CycleReservedUsd(); ok {
+		_spec.SetField(usersubscription.FieldCycleReservedUsd, field.TypeFloat64, value)
+		_node.CycleReservedUsd = value
+	}
+	if value, ok := _c.mutation.WalletFallbackEnabled(); ok {
+		_spec.SetField(usersubscription.FieldWalletFallbackEnabled, field.TypeBool, value)
+		_node.WalletFallbackEnabled = value
+	}
 	if value, ok := _c.mutation.AssignedAt(); ok {
 		_spec.SetField(usersubscription.FieldAssignedAt, field.TypeTime, value)
 		_node.AssignedAt = value
@@ -530,6 +686,23 @@ func (_c *UserSubscriptionCreate) createSpec() (*UserSubscription, *sqlgraph.Cre
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.AssignedBy = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.PlanIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   usersubscription.PlanTable,
+			Columns: []string{usersubscription.PlanColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionplan.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.PlanID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.UsageLogsIDs(); len(nodes) > 0 {
@@ -651,6 +824,24 @@ func (u *UserSubscriptionUpsert) SetGroupID(v int64) *UserSubscriptionUpsert {
 // UpdateGroupID sets the "group_id" field to the value that was provided on create.
 func (u *UserSubscriptionUpsert) UpdateGroupID() *UserSubscriptionUpsert {
 	u.SetExcluded(usersubscription.FieldGroupID)
+	return u
+}
+
+// SetPlanID sets the "plan_id" field.
+func (u *UserSubscriptionUpsert) SetPlanID(v int64) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldPlanID, v)
+	return u
+}
+
+// UpdatePlanID sets the "plan_id" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdatePlanID() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldPlanID)
+	return u
+}
+
+// ClearPlanID clears the value of the "plan_id" field.
+func (u *UserSubscriptionUpsert) ClearPlanID() *UserSubscriptionUpsert {
+	u.SetNull(usersubscription.FieldPlanID)
 	return u
 }
 
@@ -795,6 +986,114 @@ func (u *UserSubscriptionUpsert) UpdateMonthlyUsageUsd() *UserSubscriptionUpsert
 // AddMonthlyUsageUsd adds v to the "monthly_usage_usd" field.
 func (u *UserSubscriptionUpsert) AddMonthlyUsageUsd(v float64) *UserSubscriptionUpsert {
 	u.Add(usersubscription.FieldMonthlyUsageUsd, v)
+	return u
+}
+
+// SetCycleQuotaUsd sets the "cycle_quota_usd" field.
+func (u *UserSubscriptionUpsert) SetCycleQuotaUsd(v float64) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldCycleQuotaUsd, v)
+	return u
+}
+
+// UpdateCycleQuotaUsd sets the "cycle_quota_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateCycleQuotaUsd() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldCycleQuotaUsd)
+	return u
+}
+
+// AddCycleQuotaUsd adds v to the "cycle_quota_usd" field.
+func (u *UserSubscriptionUpsert) AddCycleQuotaUsd(v float64) *UserSubscriptionUpsert {
+	u.Add(usersubscription.FieldCycleQuotaUsd, v)
+	return u
+}
+
+// ClearCycleQuotaUsd clears the value of the "cycle_quota_usd" field.
+func (u *UserSubscriptionUpsert) ClearCycleQuotaUsd() *UserSubscriptionUpsert {
+	u.SetNull(usersubscription.FieldCycleQuotaUsd)
+	return u
+}
+
+// SetResetIntervalSeconds sets the "reset_interval_seconds" field.
+func (u *UserSubscriptionUpsert) SetResetIntervalSeconds(v int) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldResetIntervalSeconds, v)
+	return u
+}
+
+// UpdateResetIntervalSeconds sets the "reset_interval_seconds" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateResetIntervalSeconds() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldResetIntervalSeconds)
+	return u
+}
+
+// AddResetIntervalSeconds adds v to the "reset_interval_seconds" field.
+func (u *UserSubscriptionUpsert) AddResetIntervalSeconds(v int) *UserSubscriptionUpsert {
+	u.Add(usersubscription.FieldResetIntervalSeconds, v)
+	return u
+}
+
+// SetCycleStartedAt sets the "cycle_started_at" field.
+func (u *UserSubscriptionUpsert) SetCycleStartedAt(v time.Time) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldCycleStartedAt, v)
+	return u
+}
+
+// UpdateCycleStartedAt sets the "cycle_started_at" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateCycleStartedAt() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldCycleStartedAt)
+	return u
+}
+
+// ClearCycleStartedAt clears the value of the "cycle_started_at" field.
+func (u *UserSubscriptionUpsert) ClearCycleStartedAt() *UserSubscriptionUpsert {
+	u.SetNull(usersubscription.FieldCycleStartedAt)
+	return u
+}
+
+// SetCycleUsageUsd sets the "cycle_usage_usd" field.
+func (u *UserSubscriptionUpsert) SetCycleUsageUsd(v float64) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldCycleUsageUsd, v)
+	return u
+}
+
+// UpdateCycleUsageUsd sets the "cycle_usage_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateCycleUsageUsd() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldCycleUsageUsd)
+	return u
+}
+
+// AddCycleUsageUsd adds v to the "cycle_usage_usd" field.
+func (u *UserSubscriptionUpsert) AddCycleUsageUsd(v float64) *UserSubscriptionUpsert {
+	u.Add(usersubscription.FieldCycleUsageUsd, v)
+	return u
+}
+
+// SetCycleReservedUsd sets the "cycle_reserved_usd" field.
+func (u *UserSubscriptionUpsert) SetCycleReservedUsd(v float64) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldCycleReservedUsd, v)
+	return u
+}
+
+// UpdateCycleReservedUsd sets the "cycle_reserved_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateCycleReservedUsd() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldCycleReservedUsd)
+	return u
+}
+
+// AddCycleReservedUsd adds v to the "cycle_reserved_usd" field.
+func (u *UserSubscriptionUpsert) AddCycleReservedUsd(v float64) *UserSubscriptionUpsert {
+	u.Add(usersubscription.FieldCycleReservedUsd, v)
+	return u
+}
+
+// SetWalletFallbackEnabled sets the "wallet_fallback_enabled" field.
+func (u *UserSubscriptionUpsert) SetWalletFallbackEnabled(v bool) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldWalletFallbackEnabled, v)
+	return u
+}
+
+// UpdateWalletFallbackEnabled sets the "wallet_fallback_enabled" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateWalletFallbackEnabled() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldWalletFallbackEnabled)
 	return u
 }
 
@@ -951,6 +1250,27 @@ func (u *UserSubscriptionUpsertOne) SetGroupID(v int64) *UserSubscriptionUpsertO
 func (u *UserSubscriptionUpsertOne) UpdateGroupID() *UserSubscriptionUpsertOne {
 	return u.Update(func(s *UserSubscriptionUpsert) {
 		s.UpdateGroupID()
+	})
+}
+
+// SetPlanID sets the "plan_id" field.
+func (u *UserSubscriptionUpsertOne) SetPlanID(v int64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetPlanID(v)
+	})
+}
+
+// UpdatePlanID sets the "plan_id" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdatePlanID() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdatePlanID()
+	})
+}
+
+// ClearPlanID clears the value of the "plan_id" field.
+func (u *UserSubscriptionUpsertOne) ClearPlanID() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.ClearPlanID()
 	})
 }
 
@@ -1119,6 +1439,132 @@ func (u *UserSubscriptionUpsertOne) AddMonthlyUsageUsd(v float64) *UserSubscript
 func (u *UserSubscriptionUpsertOne) UpdateMonthlyUsageUsd() *UserSubscriptionUpsertOne {
 	return u.Update(func(s *UserSubscriptionUpsert) {
 		s.UpdateMonthlyUsageUsd()
+	})
+}
+
+// SetCycleQuotaUsd sets the "cycle_quota_usd" field.
+func (u *UserSubscriptionUpsertOne) SetCycleQuotaUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetCycleQuotaUsd(v)
+	})
+}
+
+// AddCycleQuotaUsd adds v to the "cycle_quota_usd" field.
+func (u *UserSubscriptionUpsertOne) AddCycleQuotaUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddCycleQuotaUsd(v)
+	})
+}
+
+// UpdateCycleQuotaUsd sets the "cycle_quota_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateCycleQuotaUsd() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateCycleQuotaUsd()
+	})
+}
+
+// ClearCycleQuotaUsd clears the value of the "cycle_quota_usd" field.
+func (u *UserSubscriptionUpsertOne) ClearCycleQuotaUsd() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.ClearCycleQuotaUsd()
+	})
+}
+
+// SetResetIntervalSeconds sets the "reset_interval_seconds" field.
+func (u *UserSubscriptionUpsertOne) SetResetIntervalSeconds(v int) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetResetIntervalSeconds(v)
+	})
+}
+
+// AddResetIntervalSeconds adds v to the "reset_interval_seconds" field.
+func (u *UserSubscriptionUpsertOne) AddResetIntervalSeconds(v int) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddResetIntervalSeconds(v)
+	})
+}
+
+// UpdateResetIntervalSeconds sets the "reset_interval_seconds" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateResetIntervalSeconds() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateResetIntervalSeconds()
+	})
+}
+
+// SetCycleStartedAt sets the "cycle_started_at" field.
+func (u *UserSubscriptionUpsertOne) SetCycleStartedAt(v time.Time) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetCycleStartedAt(v)
+	})
+}
+
+// UpdateCycleStartedAt sets the "cycle_started_at" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateCycleStartedAt() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateCycleStartedAt()
+	})
+}
+
+// ClearCycleStartedAt clears the value of the "cycle_started_at" field.
+func (u *UserSubscriptionUpsertOne) ClearCycleStartedAt() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.ClearCycleStartedAt()
+	})
+}
+
+// SetCycleUsageUsd sets the "cycle_usage_usd" field.
+func (u *UserSubscriptionUpsertOne) SetCycleUsageUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetCycleUsageUsd(v)
+	})
+}
+
+// AddCycleUsageUsd adds v to the "cycle_usage_usd" field.
+func (u *UserSubscriptionUpsertOne) AddCycleUsageUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddCycleUsageUsd(v)
+	})
+}
+
+// UpdateCycleUsageUsd sets the "cycle_usage_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateCycleUsageUsd() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateCycleUsageUsd()
+	})
+}
+
+// SetCycleReservedUsd sets the "cycle_reserved_usd" field.
+func (u *UserSubscriptionUpsertOne) SetCycleReservedUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetCycleReservedUsd(v)
+	})
+}
+
+// AddCycleReservedUsd adds v to the "cycle_reserved_usd" field.
+func (u *UserSubscriptionUpsertOne) AddCycleReservedUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddCycleReservedUsd(v)
+	})
+}
+
+// UpdateCycleReservedUsd sets the "cycle_reserved_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateCycleReservedUsd() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateCycleReservedUsd()
+	})
+}
+
+// SetWalletFallbackEnabled sets the "wallet_fallback_enabled" field.
+func (u *UserSubscriptionUpsertOne) SetWalletFallbackEnabled(v bool) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetWalletFallbackEnabled(v)
+	})
+}
+
+// UpdateWalletFallbackEnabled sets the "wallet_fallback_enabled" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateWalletFallbackEnabled() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateWalletFallbackEnabled()
 	})
 }
 
@@ -1452,6 +1898,27 @@ func (u *UserSubscriptionUpsertBulk) UpdateGroupID() *UserSubscriptionUpsertBulk
 	})
 }
 
+// SetPlanID sets the "plan_id" field.
+func (u *UserSubscriptionUpsertBulk) SetPlanID(v int64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetPlanID(v)
+	})
+}
+
+// UpdatePlanID sets the "plan_id" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdatePlanID() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdatePlanID()
+	})
+}
+
+// ClearPlanID clears the value of the "plan_id" field.
+func (u *UserSubscriptionUpsertBulk) ClearPlanID() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.ClearPlanID()
+	})
+}
+
 // SetStartsAt sets the "starts_at" field.
 func (u *UserSubscriptionUpsertBulk) SetStartsAt(v time.Time) *UserSubscriptionUpsertBulk {
 	return u.Update(func(s *UserSubscriptionUpsert) {
@@ -1617,6 +2084,132 @@ func (u *UserSubscriptionUpsertBulk) AddMonthlyUsageUsd(v float64) *UserSubscrip
 func (u *UserSubscriptionUpsertBulk) UpdateMonthlyUsageUsd() *UserSubscriptionUpsertBulk {
 	return u.Update(func(s *UserSubscriptionUpsert) {
 		s.UpdateMonthlyUsageUsd()
+	})
+}
+
+// SetCycleQuotaUsd sets the "cycle_quota_usd" field.
+func (u *UserSubscriptionUpsertBulk) SetCycleQuotaUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetCycleQuotaUsd(v)
+	})
+}
+
+// AddCycleQuotaUsd adds v to the "cycle_quota_usd" field.
+func (u *UserSubscriptionUpsertBulk) AddCycleQuotaUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddCycleQuotaUsd(v)
+	})
+}
+
+// UpdateCycleQuotaUsd sets the "cycle_quota_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateCycleQuotaUsd() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateCycleQuotaUsd()
+	})
+}
+
+// ClearCycleQuotaUsd clears the value of the "cycle_quota_usd" field.
+func (u *UserSubscriptionUpsertBulk) ClearCycleQuotaUsd() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.ClearCycleQuotaUsd()
+	})
+}
+
+// SetResetIntervalSeconds sets the "reset_interval_seconds" field.
+func (u *UserSubscriptionUpsertBulk) SetResetIntervalSeconds(v int) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetResetIntervalSeconds(v)
+	})
+}
+
+// AddResetIntervalSeconds adds v to the "reset_interval_seconds" field.
+func (u *UserSubscriptionUpsertBulk) AddResetIntervalSeconds(v int) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddResetIntervalSeconds(v)
+	})
+}
+
+// UpdateResetIntervalSeconds sets the "reset_interval_seconds" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateResetIntervalSeconds() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateResetIntervalSeconds()
+	})
+}
+
+// SetCycleStartedAt sets the "cycle_started_at" field.
+func (u *UserSubscriptionUpsertBulk) SetCycleStartedAt(v time.Time) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetCycleStartedAt(v)
+	})
+}
+
+// UpdateCycleStartedAt sets the "cycle_started_at" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateCycleStartedAt() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateCycleStartedAt()
+	})
+}
+
+// ClearCycleStartedAt clears the value of the "cycle_started_at" field.
+func (u *UserSubscriptionUpsertBulk) ClearCycleStartedAt() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.ClearCycleStartedAt()
+	})
+}
+
+// SetCycleUsageUsd sets the "cycle_usage_usd" field.
+func (u *UserSubscriptionUpsertBulk) SetCycleUsageUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetCycleUsageUsd(v)
+	})
+}
+
+// AddCycleUsageUsd adds v to the "cycle_usage_usd" field.
+func (u *UserSubscriptionUpsertBulk) AddCycleUsageUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddCycleUsageUsd(v)
+	})
+}
+
+// UpdateCycleUsageUsd sets the "cycle_usage_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateCycleUsageUsd() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateCycleUsageUsd()
+	})
+}
+
+// SetCycleReservedUsd sets the "cycle_reserved_usd" field.
+func (u *UserSubscriptionUpsertBulk) SetCycleReservedUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetCycleReservedUsd(v)
+	})
+}
+
+// AddCycleReservedUsd adds v to the "cycle_reserved_usd" field.
+func (u *UserSubscriptionUpsertBulk) AddCycleReservedUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddCycleReservedUsd(v)
+	})
+}
+
+// UpdateCycleReservedUsd sets the "cycle_reserved_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateCycleReservedUsd() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateCycleReservedUsd()
+	})
+}
+
+// SetWalletFallbackEnabled sets the "wallet_fallback_enabled" field.
+func (u *UserSubscriptionUpsertBulk) SetWalletFallbackEnabled(v bool) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetWalletFallbackEnabled(v)
+	})
+}
+
+// UpdateWalletFallbackEnabled sets the "wallet_fallback_enabled" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateWalletFallbackEnabled() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateWalletFallbackEnabled()
 	})
 }
 

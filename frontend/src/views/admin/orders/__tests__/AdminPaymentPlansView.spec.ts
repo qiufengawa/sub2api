@@ -135,10 +135,12 @@ describe('AdminPaymentPlansView', () => {
     ])
 
     expect(result.sourceCount).toBe(2)
-    expect(result.catalog.groups.map(group => group.copy_accounts_from)).toEqual([
-      ['OpenAI 主池', 'Anthropic 主池'],
-      ['OpenAI 主池', 'Anthropic 主池'],
-    ])
+	expect(result.catalog.groups).toEqual([])
+	expect(result.catalog.plans[0]).toEqual(expect.objectContaining({
+	  group_id: 1,
+	  included_group_ids: [1, 2],
+	}))
+	expect(result.catalog.plans[0].group_key).toBeUndefined()
     expect(catalog.groups[0].copy_accounts_from).toEqual(['stale source'])
   })
 
@@ -184,6 +186,27 @@ describe('AdminPaymentPlansView', () => {
 
   it('rejects malformed template payloads before download', () => {
     expect(isPaymentCatalogTemplate({ schema_version: 1, mode: 'upsert', defaults: {}, groups: [], plans: [] })).toBe(true)
+		expect(isPaymentCatalogTemplate({
+			schema_version: 1,
+			mode: 'upsert',
+			defaults: {},
+			groups: [],
+			plans: [{ group_id: 8, included_group_ids: [8], name: 'ID plan', price: 12.9 }],
+		})).toBe(true)
+		expect(isPaymentCatalogTemplate({
+			schema_version: 1,
+			mode: 'upsert',
+			defaults: {},
+			groups: [],
+			plans: [{ group_key: 'lite', group_id: 8, name: 'Ambiguous plan', price: 12.9 }],
+		})).toBe(false)
+		expect(isPaymentCatalogTemplate({
+			schema_version: 1,
+			mode: 'upsert',
+			defaults: {},
+			groups: [],
+			plans: [{ group_id: 0, name: 'Invalid ID plan', price: 12.9 }],
+		})).toBe(false)
     expect(isPaymentCatalogTemplate({ schema_version: 1, mode: 'upsert', defaults: {}, groups: [{}], plans: [] })).toBe(false)
     expect(isPaymentCatalogTemplate({ schema_version: 2, mode: 'upsert', defaults: {}, groups: [], plans: [] })).toBe(false)
   })

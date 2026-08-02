@@ -37,18 +37,27 @@
         <template #cell-name="{ value, row }">
           <span class="block max-w-[16rem] truncate text-sm font-medium" :class="getPlanNameClass(row.group_id)" :title="String(value)">{{ value }}</span>
         </template>
-        <template #cell-group_id="{ value }">
-          <span v-if="isGroupMissing(value)" class="text-sm">
-            <span class="text-gray-400">#{{ value }}</span>
-            <span class="ml-1 badge badge-danger">{{ t('payment.admin.groupMissing') }}</span>
-          </span>
-          <GroupBadge
-            v-else-if="getGroup(value)"
-            :name="getGroup(value)!.name"
-            :platform="getGroup(value)!.platform"
-            :rate-multiplier="getGroup(value)!.rate_multiplier"
-          />
-          <span v-else class="text-sm text-gray-400">-</span>
+        <template #cell-included_groups="{ value, row }">
+          <div class="flex max-w-[28rem] flex-wrap gap-1.5">
+            <GroupBadge
+              v-for="group in value || []"
+              :key="group.id"
+              :name="group.name"
+              :platform="group.platform"
+              :rate-multiplier="group.rate_multiplier"
+            />
+            <span v-if="!(value || []).length && isGroupMissing(row.group_id)" class="text-sm">
+              <span class="text-gray-400">#{{ row.group_id }}</span>
+              <span class="ml-1 badge badge-danger">{{ t('payment.admin.groupMissing') }}</span>
+            </span>
+          </div>
+        </template>
+        <template #cell-cycle_quota_usd="{ value, row }">
+          <div v-if="value != null" class="whitespace-nowrap text-sm">
+            <p class="font-medium tabular-nums text-gray-900 dark:text-white">${{ Number(value).toFixed(2) }}</p>
+            <p class="text-xs text-gray-400">{{ formatResetInterval(row.reset_interval_seconds) }}</p>
+          </div>
+          <span v-else class="text-xs text-gray-400">{{ t('payment.admin.legacyQuota') }}</span>
         </template>
         <template #cell-price="{ value, row }">
           <div class="whitespace-nowrap text-sm">
@@ -190,15 +199,21 @@ const editingPlan = ref<SubscriptionPlan | null>(null)
 const deletingPlanId = ref<number | null>(null)
 
 const planColumns = computed((): Column[] => [
-  { key: 'id', label: 'ID' },
   { key: 'name', label: t('payment.admin.planName') },
-  { key: 'group_id', label: t('payment.admin.group') },
+  { key: 'included_groups', label: t('payment.admin.includedGroups') },
+  { key: 'cycle_quota_usd', label: t('payment.admin.cycleQuota') },
   { key: 'price', label: t('payment.admin.price') },
   { key: 'validity_days', label: t('payment.admin.validity') },
   { key: 'for_sale', label: t('payment.admin.forSale') },
   { key: 'sort_order', label: t('payment.admin.sortOrder') },
   { key: 'actions', label: t('common.actions') },
 ])
+
+function formatResetInterval(seconds?: number): string {
+  if (!seconds || seconds <= 0) return t('payment.admin.noReset')
+  const days = seconds / 86400
+  return t('payment.admin.resetEveryDays', { days: Number(days.toFixed(2)) })
+}
 
 async function loadPlans() {
   plansLoading.value = true

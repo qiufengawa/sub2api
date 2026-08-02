@@ -287,10 +287,13 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 	if err != nil {
 		return nil, err
 	}
-	if err := reserveBatchImageBalanceHold(ctx, s.BillingRepo, job, requestHash); err != nil {
+	resolveBillingSource := s.Config != nil && s.Config.SubscriptionGroupBillingEnabled()
+	if err := reserveBatchImageBalanceHold(ctx, s.BillingRepo, job, owner.GroupID, resolveBillingSource, requestHash); err != nil {
 		code := "BILLING_HOLD_FAILED"
 		if errors.Is(err, ErrBatchImageInsufficientBalance) {
 			code = "INSUFFICIENT_BALANCE"
+		} else if errors.Is(err, ErrSubscriptionQuotaExceeded) {
+			code = "SUBSCRIPTION_QUOTA_EXCEEDED"
 		}
 		_ = s.Repo.RecordBatchImageJobSubmitFailure(ctx, job.BatchID, code, sanitizeBatchImagePublicMessage(err.Error()), true)
 		s.hidePreUpstreamSubmitFailure(ctx, owner, job)

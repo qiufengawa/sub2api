@@ -5,9 +5,11 @@ import "time"
 const subscriptionDayDuration = 24 * time.Hour
 
 type UserSubscription struct {
-	ID      int64
-	UserID  int64
-	GroupID int64
+	ID       int64
+	UserID   int64
+	GroupID  int64
+	PlanID   *int64
+	PlanName string
 
 	StartsAt  time.Time
 	ExpiresAt time.Time
@@ -21,6 +23,13 @@ type UserSubscription struct {
 	WeeklyUsageUSD  float64
 	MonthlyUsageUSD float64
 
+	CycleQuotaUSD         *float64
+	ResetIntervalSeconds  int
+	CycleStartedAt        *time.Time
+	CycleUsageUSD         float64
+	CycleReservedUSD      float64
+	WalletFallbackEnabled bool
+
 	AssignedBy *int64
 	AssignedAt time.Time
 	Notes      string
@@ -32,6 +41,65 @@ type UserSubscription struct {
 	User           *User
 	Group          *Group
 	AssignedByUser *User
+	IncludedGroups []Group
+}
+
+func (s *UserSubscription) CoversGroup(groupID int64) bool {
+	if s == nil || groupID <= 0 {
+		return false
+	}
+	for i := range s.IncludedGroups {
+		if s.IncludedGroups[i].ID == groupID {
+			return true
+		}
+	}
+	return s.GroupID == groupID
+}
+
+func (s *UserSubscription) HasCycleQuota() bool {
+	return s != nil && s.CycleQuotaUSD != nil && *s.CycleQuotaUSD > 0
+}
+
+func (s *UserSubscription) CycleResetTimeAt(now time.Time) *time.Time {
+	if s == nil || s.CycleStartedAt == nil || s.ResetIntervalSeconds <= 0 {
+		return nil
+	}
+	period := time.Duration(s.ResetIntervalSeconds) * time.Second
+	start := *s.CycleStartedAt
+	if !now.Before(start.Add(period)) {
+		periods := now.Sub(start) / period
+		start = start.Add(periods * period)
+	}
+	reset := start.Add(period)
+	if reset.After(s.ExpiresAt) {
+		reset = s.ExpiresAt
+	}
+	return &reset
+}
+
+func (s *UserSubscription) CycleUsageAt(now time.Time) float64 {
+	if s == nil || s.CycleStartedAt == nil || s.ResetIntervalSeconds <= 0 {
+		return s.CycleUsageUSD
+	}
+	if !now.Before(s.CycleStartedAt.Add(time.Duration(s.ResetIntervalSeconds) * time.Second)) {
+		return 0
+	}
+	return s.CycleUsageUSD
+}
+
+func (s *UserSubscription) CheckCycleLimitAt(now time.Time, additionalCost float64) bool {
+	if !s.HasCycleQuota() {
+		return true
+	}
+	reserved := s.CycleReservedUSD
+	if reserved < 0 {
+		reserved = 0
+	}
+	committed := s.CycleUsageAt(now) + reserved
+	if additionalCost <= 0 {
+		return committed < *s.CycleQuotaUSD
+	}
+	return committed+additionalCost <= *s.CycleQuotaUSD
 }
 
 func (s *UserSubscription) IsActive() bool {

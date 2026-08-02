@@ -80,6 +80,11 @@ func GroupID(v int64) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldEQ(FieldGroupID, v))
 }
 
+// PlanID applies equality check predicate on the "plan_id" field. It's identical to PlanIDEQ.
+func PlanID(v int64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldPlanID, v))
+}
+
 // StartsAt applies equality check predicate on the "starts_at" field. It's identical to StartsAtEQ.
 func StartsAt(v time.Time) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldEQ(FieldStartsAt, v))
@@ -123,6 +128,36 @@ func WeeklyUsageUsd(v float64) predicate.UserSubscription {
 // MonthlyUsageUsd applies equality check predicate on the "monthly_usage_usd" field. It's identical to MonthlyUsageUsdEQ.
 func MonthlyUsageUsd(v float64) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldEQ(FieldMonthlyUsageUsd, v))
+}
+
+// CycleQuotaUsd applies equality check predicate on the "cycle_quota_usd" field. It's identical to CycleQuotaUsdEQ.
+func CycleQuotaUsd(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldCycleQuotaUsd, v))
+}
+
+// ResetIntervalSeconds applies equality check predicate on the "reset_interval_seconds" field. It's identical to ResetIntervalSecondsEQ.
+func ResetIntervalSeconds(v int) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldResetIntervalSeconds, v))
+}
+
+// CycleStartedAt applies equality check predicate on the "cycle_started_at" field. It's identical to CycleStartedAtEQ.
+func CycleStartedAt(v time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldCycleStartedAt, v))
+}
+
+// CycleUsageUsd applies equality check predicate on the "cycle_usage_usd" field. It's identical to CycleUsageUsdEQ.
+func CycleUsageUsd(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldCycleUsageUsd, v))
+}
+
+// CycleReservedUsd applies equality check predicate on the "cycle_reserved_usd" field. It's identical to CycleReservedUsdEQ.
+func CycleReservedUsd(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldCycleReservedUsd, v))
+}
+
+// WalletFallbackEnabled applies equality check predicate on the "wallet_fallback_enabled" field. It's identical to WalletFallbackEnabledEQ.
+func WalletFallbackEnabled(v bool) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldWalletFallbackEnabled, v))
 }
 
 // AssignedBy applies equality check predicate on the "assigned_by" field. It's identical to AssignedByEQ.
@@ -308,6 +343,36 @@ func GroupIDIn(vs ...int64) predicate.UserSubscription {
 // GroupIDNotIn applies the NotIn predicate on the "group_id" field.
 func GroupIDNotIn(vs ...int64) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldNotIn(FieldGroupID, vs...))
+}
+
+// PlanIDEQ applies the EQ predicate on the "plan_id" field.
+func PlanIDEQ(v int64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldPlanID, v))
+}
+
+// PlanIDNEQ applies the NEQ predicate on the "plan_id" field.
+func PlanIDNEQ(v int64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNEQ(FieldPlanID, v))
+}
+
+// PlanIDIn applies the In predicate on the "plan_id" field.
+func PlanIDIn(vs ...int64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldIn(FieldPlanID, vs...))
+}
+
+// PlanIDNotIn applies the NotIn predicate on the "plan_id" field.
+func PlanIDNotIn(vs ...int64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNotIn(FieldPlanID, vs...))
+}
+
+// PlanIDIsNil applies the IsNil predicate on the "plan_id" field.
+func PlanIDIsNil() predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldIsNull(FieldPlanID))
+}
+
+// PlanIDNotNil applies the NotNil predicate on the "plan_id" field.
+func PlanIDNotNil() predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNotNull(FieldPlanID))
 }
 
 // StartsAtEQ applies the EQ predicate on the "starts_at" field.
@@ -725,6 +790,236 @@ func MonthlyUsageUsdLTE(v float64) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldLTE(FieldMonthlyUsageUsd, v))
 }
 
+// CycleQuotaUsdEQ applies the EQ predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdEQ(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldCycleQuotaUsd, v))
+}
+
+// CycleQuotaUsdNEQ applies the NEQ predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdNEQ(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNEQ(FieldCycleQuotaUsd, v))
+}
+
+// CycleQuotaUsdIn applies the In predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdIn(vs ...float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldIn(FieldCycleQuotaUsd, vs...))
+}
+
+// CycleQuotaUsdNotIn applies the NotIn predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdNotIn(vs ...float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNotIn(FieldCycleQuotaUsd, vs...))
+}
+
+// CycleQuotaUsdGT applies the GT predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdGT(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGT(FieldCycleQuotaUsd, v))
+}
+
+// CycleQuotaUsdGTE applies the GTE predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdGTE(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGTE(FieldCycleQuotaUsd, v))
+}
+
+// CycleQuotaUsdLT applies the LT predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdLT(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLT(FieldCycleQuotaUsd, v))
+}
+
+// CycleQuotaUsdLTE applies the LTE predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdLTE(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLTE(FieldCycleQuotaUsd, v))
+}
+
+// CycleQuotaUsdIsNil applies the IsNil predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdIsNil() predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldIsNull(FieldCycleQuotaUsd))
+}
+
+// CycleQuotaUsdNotNil applies the NotNil predicate on the "cycle_quota_usd" field.
+func CycleQuotaUsdNotNil() predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNotNull(FieldCycleQuotaUsd))
+}
+
+// ResetIntervalSecondsEQ applies the EQ predicate on the "reset_interval_seconds" field.
+func ResetIntervalSecondsEQ(v int) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldResetIntervalSeconds, v))
+}
+
+// ResetIntervalSecondsNEQ applies the NEQ predicate on the "reset_interval_seconds" field.
+func ResetIntervalSecondsNEQ(v int) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNEQ(FieldResetIntervalSeconds, v))
+}
+
+// ResetIntervalSecondsIn applies the In predicate on the "reset_interval_seconds" field.
+func ResetIntervalSecondsIn(vs ...int) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldIn(FieldResetIntervalSeconds, vs...))
+}
+
+// ResetIntervalSecondsNotIn applies the NotIn predicate on the "reset_interval_seconds" field.
+func ResetIntervalSecondsNotIn(vs ...int) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNotIn(FieldResetIntervalSeconds, vs...))
+}
+
+// ResetIntervalSecondsGT applies the GT predicate on the "reset_interval_seconds" field.
+func ResetIntervalSecondsGT(v int) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGT(FieldResetIntervalSeconds, v))
+}
+
+// ResetIntervalSecondsGTE applies the GTE predicate on the "reset_interval_seconds" field.
+func ResetIntervalSecondsGTE(v int) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGTE(FieldResetIntervalSeconds, v))
+}
+
+// ResetIntervalSecondsLT applies the LT predicate on the "reset_interval_seconds" field.
+func ResetIntervalSecondsLT(v int) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLT(FieldResetIntervalSeconds, v))
+}
+
+// ResetIntervalSecondsLTE applies the LTE predicate on the "reset_interval_seconds" field.
+func ResetIntervalSecondsLTE(v int) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLTE(FieldResetIntervalSeconds, v))
+}
+
+// CycleStartedAtEQ applies the EQ predicate on the "cycle_started_at" field.
+func CycleStartedAtEQ(v time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldCycleStartedAt, v))
+}
+
+// CycleStartedAtNEQ applies the NEQ predicate on the "cycle_started_at" field.
+func CycleStartedAtNEQ(v time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNEQ(FieldCycleStartedAt, v))
+}
+
+// CycleStartedAtIn applies the In predicate on the "cycle_started_at" field.
+func CycleStartedAtIn(vs ...time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldIn(FieldCycleStartedAt, vs...))
+}
+
+// CycleStartedAtNotIn applies the NotIn predicate on the "cycle_started_at" field.
+func CycleStartedAtNotIn(vs ...time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNotIn(FieldCycleStartedAt, vs...))
+}
+
+// CycleStartedAtGT applies the GT predicate on the "cycle_started_at" field.
+func CycleStartedAtGT(v time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGT(FieldCycleStartedAt, v))
+}
+
+// CycleStartedAtGTE applies the GTE predicate on the "cycle_started_at" field.
+func CycleStartedAtGTE(v time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGTE(FieldCycleStartedAt, v))
+}
+
+// CycleStartedAtLT applies the LT predicate on the "cycle_started_at" field.
+func CycleStartedAtLT(v time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLT(FieldCycleStartedAt, v))
+}
+
+// CycleStartedAtLTE applies the LTE predicate on the "cycle_started_at" field.
+func CycleStartedAtLTE(v time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLTE(FieldCycleStartedAt, v))
+}
+
+// CycleStartedAtIsNil applies the IsNil predicate on the "cycle_started_at" field.
+func CycleStartedAtIsNil() predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldIsNull(FieldCycleStartedAt))
+}
+
+// CycleStartedAtNotNil applies the NotNil predicate on the "cycle_started_at" field.
+func CycleStartedAtNotNil() predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNotNull(FieldCycleStartedAt))
+}
+
+// CycleUsageUsdEQ applies the EQ predicate on the "cycle_usage_usd" field.
+func CycleUsageUsdEQ(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldCycleUsageUsd, v))
+}
+
+// CycleUsageUsdNEQ applies the NEQ predicate on the "cycle_usage_usd" field.
+func CycleUsageUsdNEQ(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNEQ(FieldCycleUsageUsd, v))
+}
+
+// CycleUsageUsdIn applies the In predicate on the "cycle_usage_usd" field.
+func CycleUsageUsdIn(vs ...float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldIn(FieldCycleUsageUsd, vs...))
+}
+
+// CycleUsageUsdNotIn applies the NotIn predicate on the "cycle_usage_usd" field.
+func CycleUsageUsdNotIn(vs ...float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNotIn(FieldCycleUsageUsd, vs...))
+}
+
+// CycleUsageUsdGT applies the GT predicate on the "cycle_usage_usd" field.
+func CycleUsageUsdGT(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGT(FieldCycleUsageUsd, v))
+}
+
+// CycleUsageUsdGTE applies the GTE predicate on the "cycle_usage_usd" field.
+func CycleUsageUsdGTE(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGTE(FieldCycleUsageUsd, v))
+}
+
+// CycleUsageUsdLT applies the LT predicate on the "cycle_usage_usd" field.
+func CycleUsageUsdLT(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLT(FieldCycleUsageUsd, v))
+}
+
+// CycleUsageUsdLTE applies the LTE predicate on the "cycle_usage_usd" field.
+func CycleUsageUsdLTE(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLTE(FieldCycleUsageUsd, v))
+}
+
+// CycleReservedUsdEQ applies the EQ predicate on the "cycle_reserved_usd" field.
+func CycleReservedUsdEQ(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldCycleReservedUsd, v))
+}
+
+// CycleReservedUsdNEQ applies the NEQ predicate on the "cycle_reserved_usd" field.
+func CycleReservedUsdNEQ(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNEQ(FieldCycleReservedUsd, v))
+}
+
+// CycleReservedUsdIn applies the In predicate on the "cycle_reserved_usd" field.
+func CycleReservedUsdIn(vs ...float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldIn(FieldCycleReservedUsd, vs...))
+}
+
+// CycleReservedUsdNotIn applies the NotIn predicate on the "cycle_reserved_usd" field.
+func CycleReservedUsdNotIn(vs ...float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNotIn(FieldCycleReservedUsd, vs...))
+}
+
+// CycleReservedUsdGT applies the GT predicate on the "cycle_reserved_usd" field.
+func CycleReservedUsdGT(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGT(FieldCycleReservedUsd, v))
+}
+
+// CycleReservedUsdGTE applies the GTE predicate on the "cycle_reserved_usd" field.
+func CycleReservedUsdGTE(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGTE(FieldCycleReservedUsd, v))
+}
+
+// CycleReservedUsdLT applies the LT predicate on the "cycle_reserved_usd" field.
+func CycleReservedUsdLT(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLT(FieldCycleReservedUsd, v))
+}
+
+// CycleReservedUsdLTE applies the LTE predicate on the "cycle_reserved_usd" field.
+func CycleReservedUsdLTE(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLTE(FieldCycleReservedUsd, v))
+}
+
+// WalletFallbackEnabledEQ applies the EQ predicate on the "wallet_fallback_enabled" field.
+func WalletFallbackEnabledEQ(v bool) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldWalletFallbackEnabled, v))
+}
+
+// WalletFallbackEnabledNEQ applies the NEQ predicate on the "wallet_fallback_enabled" field.
+func WalletFallbackEnabledNEQ(v bool) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNEQ(FieldWalletFallbackEnabled, v))
+}
+
 // AssignedByEQ applies the EQ predicate on the "assigned_by" field.
 func AssignedByEQ(v int64) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldEQ(FieldAssignedBy, v))
@@ -931,6 +1226,29 @@ func HasAssignedByUser() predicate.UserSubscription {
 func HasAssignedByUserWith(preds ...predicate.User) predicate.UserSubscription {
 	return predicate.UserSubscription(func(s *sql.Selector) {
 		step := newAssignedByUserStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasPlan applies the HasEdge predicate on the "plan" edge.
+func HasPlan() predicate.UserSubscription {
+	return predicate.UserSubscription(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, PlanTable, PlanColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPlanWith applies the HasEdge predicate on the "plan" edge with a given conditions (other predicates).
+func HasPlanWith(preds ...predicate.SubscriptionPlan) predicate.UserSubscription {
+	return predicate.UserSubscription(func(s *sql.Selector) {
+		step := newPlanStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

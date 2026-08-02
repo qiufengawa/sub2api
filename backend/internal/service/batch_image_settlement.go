@@ -149,7 +149,8 @@ func (s *BatchImageSettlementService) Settle(ctx context.Context, batchID string
 		return nil, ErrBatchImageSettlementCostExceedsHold
 	}
 
-	if err := captureBatchImageBalanceHold(ctx, s.BillingRepo, job, actualCost, manifestHash); err != nil {
+	billingResult, err := captureBatchImageBalanceHold(ctx, s.BillingRepo, job, actualCost, manifestHash)
+	if err != nil {
 		msg := truncateBatchImageMessage(err.Error(), batchImageMaxErrorMessageLength)
 		if failErr := s.recordSettlementFailure(ctx, job, "SETTLEMENT_BILLING_FAILED", msg); failErr != nil {
 			return nil, failErr
@@ -177,7 +178,7 @@ func (s *BatchImageSettlementService) Settle(ctx context.Context, batchID string
 	}); err != nil {
 		return nil, err
 	}
-	s.recordUsageLog(ctx, job, actualCost, result.RequestID, now)
+	s.recordUsageLog(ctx, job, actualCost, result.RequestID, now, billingResult)
 
 	return result, nil
 }
@@ -249,7 +250,7 @@ func (s *BatchImageSettlementService) failExhaustedSettlement(ctx context.Contex
 	return ErrBatchImageSettlementBillingFailed
 }
 
-func (s *BatchImageSettlementService) recordUsageLog(ctx context.Context, job *BatchImageJob, actualCost float64, requestID string, createdAt time.Time) {
+func (s *BatchImageSettlementService) recordUsageLog(ctx context.Context, job *BatchImageJob, actualCost float64, requestID string, createdAt time.Time, billingResult *BatchImageBalanceHoldResult) {
 	if s == nil || s.UsageLogRepo == nil || job == nil || job.APIKeyID == nil || job.AccountID == nil {
 		return
 	}
@@ -258,6 +259,30 @@ func (s *BatchImageSettlementService) recordUsageLog(ctx context.Context, job *B
 	inboundEndpoint := "/v1/images/batches"
 	upstreamEndpoint := "vertex:batchPredictionJobs"
 	imageSize := "1K"
+	billingType := int8(BillingTypeBalance)
+	billingSource := BillingSourceWallet
+	var billingPreference *string
+	var billingFallbackReason *string
+	var subscriptionID *int64
+	var groupID *int64
+	if billingResult != nil {
+		if billingResult.BillingSource != "" {
+			billingSource = billingResult.BillingSource
+		}
+		if billingResult.BillingPreference != "" {
+			value := billingResult.BillingPreference
+			billingPreference = &value
+		}
+		if billingResult.BillingFallbackReason != "" {
+			value := billingResult.BillingFallbackReason
+			billingFallbackReason = &value
+		}
+		subscriptionID = billingResult.SubscriptionID
+		groupID = billingResult.GroupID
+	}
+	if billingSource == BillingSourceSubscription {
+		billingType = BillingTypeSubscription
+	}
 	usageLog := &UsageLog{
 		UserID:                job.UserID,
 		APIKeyID:              *job.APIKeyID,
@@ -273,7 +298,12 @@ func (s *BatchImageSettlementService) recordUsageLog(ctx context.Context, job *B
 		ActualCost:            actualCost,
 		RateMultiplier:        job.GroupRateMultiplier * job.BatchDiscountMultiplier,
 		AccountRateMultiplier: &accountRateMultiplier,
-		BillingType:           BillingTypeBalance,
+		GroupID:               groupID,
+		SubscriptionID:        subscriptionID,
+		BillingType:           billingType,
+		BillingSource:         billingSource,
+		BillingPreference:     billingPreference,
+		BillingFallbackReason: billingFallbackReason,
 		RequestType:           RequestTypeSync,
 		BillingMode:           &billingMode,
 		ImageSize:             &imageSize,

@@ -12,6 +12,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -828,6 +829,91 @@ func TestExecuteSubscriptionFulfillmentRecoversCommittedAssignmentWithoutExtendi
 		Count(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, assignmentAuditCount)
+}
+
+func TestExecuteSubscriptionFulfillmentAssignsRealGroupPlanSnapshot(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	ensurePaymentAuditOrderActionUniqueIndex(t, ctx, client)
+	order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusPaid, time.Now())
+
+	const (
+		planID  int64 = 12
+		groupID int64 = 9
+	)
+	quota := 40.0
+	order, err := client.PaymentOrder.UpdateOneID(order.ID).
+		SetPlanID(planID).
+		SetSubscriptionGroupID(groupID).
+		SetSubscriptionDays(28).
+		SetSubscriptionPlanSnapshot(map[string]any{
+			"schema_version":          subscriptionPlanOrderSnapshotVersion,
+			"plan_id":                 planID,
+			"plan_name":               "Standard",
+			"primary_group_id":        groupID,
+			"included_group_ids":      []int64{groupID},
+			"cycle_quota_usd":         quota,
+			"reset_interval_seconds":  604800,
+			"wallet_fallback_enabled": false,
+			"validity_days":           28,
+		}).
+		Save(ctx)
+	require.NoError(t, err)
+
+	groupRepo := &subscriptionGroupRepoStub{group: &Group{
+		ID: groupID, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeStandard,
+	}}
+	subRepo := &planAssignmentUserSubRepoStub{subscriptionUserSubRepoStub: newSubscriptionUserSubRepoStub()}
+	subscriptionSvc := NewSubscriptionService(groupRepo, subRepo, nil, nil, &config.Config{
+		Billing: config.BillingConfig{SubscriptionGroupBillingEnabled: true},
+	})
+	svc := &PaymentService{entClient: client, groupRepo: groupRepo, subscriptionSvc: subscriptionSvc}
+
+	require.NoError(t, svc.ExecuteSubscriptionFulfillment(ctx, order.ID))
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusCompleted, reloaded.Status)
+
+	subscription, err := subRepo.GetByUserIDAndPlanID(ctx, order.UserID, planID)
+	require.NoError(t, err)
+	require.Equal(t, groupID, subscription.GroupID)
+	require.NotNil(t, subscription.CycleQuotaUSD)
+	require.Equal(t, quota, *subscription.CycleQuotaUSD)
+	require.Equal(t, 604800, subscription.ResetIntervalSeconds)
+	require.False(t, subscription.WalletFallbackEnabled)
+
+	assignmentAuditCount, err := client.PaymentAuditLog.Query().
+		Where(
+			paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)),
+			paymentauditlog.ActionEQ("SUBSCRIPTION_ASSIGNED"),
+		).
+		Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, assignmentAuditCount)
+}
+
+func TestExecuteSubscriptionFulfillmentLegacyModeRejectsRealGroup(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	ensurePaymentAuditOrderActionUniqueIndex(t, ctx, client)
+	order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusPaid, time.Now())
+
+	groupRepo := &subscriptionGroupRepoStub{group: &Group{
+		ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeStandard,
+	}}
+	subRepo := newSubscriptionUserSubRepoStub()
+	svc := &PaymentService{
+		entClient:       client,
+		groupRepo:       groupRepo,
+		subscriptionSvc: NewSubscriptionService(groupRepo, subRepo, nil, nil, &config.Config{}),
+	}
+
+	err := svc.ExecuteSubscriptionFulfillment(ctx, order.ID)
+	require.ErrorIs(t, err, ErrGroupNotSubscriptionType)
+	reloaded, getErr := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, getErr)
+	require.Equal(t, OrderStatusFailed, reloaded.Status)
+	require.Equal(t, 0, subRepo.createCalls)
 }
 
 func TestHasPaymentSubscriptionOrderNoteRequiresIndependentExactLine(t *testing.T) {

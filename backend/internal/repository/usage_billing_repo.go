@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/shopspring/decimal"
 )
 
 type usageBillingRepository struct {
@@ -110,15 +112,19 @@ func (r *usageBillingRepository) claimUsageBillingRequest(ctx context.Context, t
 }
 
 func (r *usageBillingRepository) ReserveBatchImageBalance(ctx context.Context, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
-	return r.applyBatchImageBalanceHold(ctx, cmd, reserveUsageBillingBatchImageBalance)
+	apply := reserveUsageBillingBatchImageBalance
+	if cmd != nil && cmd.ResolveBillingSource {
+		apply = reserveUsageBillingBatchImageFunding
+	}
+	return r.applyBatchImageBalanceHold(ctx, cmd, apply)
 }
 
 func (r *usageBillingRepository) CaptureBatchImageBalance(ctx context.Context, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
-	return r.applyBatchImageBalanceHold(ctx, cmd, captureUsageBillingBatchImageBalance)
+	return r.applyBatchImageBalanceHold(ctx, cmd, captureUsageBillingBatchImageFunding)
 }
 
 func (r *usageBillingRepository) ReleaseBatchImageBalance(ctx context.Context, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
-	return r.applyBatchImageBalanceHold(ctx, cmd, releaseUsageBillingBatchImageBalance)
+	return r.applyBatchImageBalanceHold(ctx, cmd, releaseUsageBillingBatchImageFunding)
 }
 
 func (r *usageBillingRepository) applyBatchImageBalanceHold(
@@ -152,6 +158,13 @@ func (r *usageBillingRepository) applyBatchImageBalanceHold(
 		return nil, err
 	}
 	if !applied {
+		reservation, found, loadErr := loadBatchImageBillingReservation(ctx, tx, service.BatchImageHoldRequestID(cmd.BatchID), cmd.APIKeyID)
+		if loadErr != nil {
+			return nil, loadErr
+		}
+		if found {
+			return batchImageReservationResult(reservation, false), nil
+		}
 		return &service.BatchImageBalanceHoldResult{Applied: false}, nil
 	}
 
@@ -172,22 +185,34 @@ func (r *usageBillingRepository) applyBatchImageBalanceHold(
 }
 
 func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, tx *sql.Tx, cmd *service.UsageBillingCommand, result *service.UsageBillingApplyResult) error {
-	if cmd.SubscriptionCost > 0 && cmd.SubscriptionID != nil {
-		if err := incrementUsageBillingSubscription(ctx, tx, *cmd.SubscriptionID, cmd.SubscriptionCost); err != nil {
-			return err
-		}
-	}
-
-	if cmd.BalanceCost > 0 {
-		newBalance, sufficient, err := deductUsageBillingBalance(ctx, tx, cmd.UserID, cmd.BalanceCost)
+	if cmd.ResolveBillingSource {
+		settledReservation, err := settlePendingUsageBillingReservation(ctx, tx, cmd, result)
 		if err != nil {
 			return err
 		}
-		result.NewBalance = &newBalance
-		result.BalanceOverdrafted = !sufficient
+		if !settledReservation {
+			if err := applySubscriptionGroupBillingDecision(ctx, tx, cmd, result); err != nil {
+				return err
+			}
+		}
+	} else {
+		if cmd.SubscriptionCost.IsPositive() && cmd.SubscriptionID != nil {
+			if err := incrementUsageBillingSubscription(ctx, tx, *cmd.SubscriptionID, cmd.SubscriptionCost); err != nil {
+				return err
+			}
+		}
+
+		if cmd.BalanceCost.IsPositive() {
+			newBalance, sufficient, err := deductUsageBillingBalance(ctx, tx, cmd.UserID, cmd.BalanceCost)
+			if err != nil {
+				return err
+			}
+			result.NewBalance = &newBalance
+			result.BalanceOverdrafted = !sufficient
+		}
 	}
 
-	if cmd.APIKeyQuotaCost > 0 {
+	if cmd.APIKeyQuotaCost.IsPositive() {
 		exhausted, err := incrementUsageBillingAPIKeyQuota(ctx, tx, cmd.APIKeyID, cmd.APIKeyQuotaCost)
 		if err != nil {
 			return err
@@ -195,13 +220,13 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 		result.APIKeyQuotaExhausted = exhausted
 	}
 
-	if cmd.APIKeyRateLimitCost > 0 {
+	if cmd.APIKeyRateLimitCost.IsPositive() {
 		if err := incrementUsageBillingAPIKeyRateLimit(ctx, tx, cmd.APIKeyID, cmd.APIKeyRateLimitCost); err != nil {
 			return err
 		}
 	}
 
-	if cmd.AccountQuotaCost > 0 && (strings.EqualFold(cmd.AccountType, service.AccountTypeAPIKey) || strings.EqualFold(cmd.AccountType, service.AccountTypeBedrock)) {
+	if cmd.AccountQuotaCost.IsPositive() && (strings.EqualFold(cmd.AccountType, service.AccountTypeAPIKey) || strings.EqualFold(cmd.AccountType, service.AccountTypeBedrock)) {
 		quotaState, err := incrementUsageBillingAccountQuota(ctx, tx, cmd.AccountID, cmd.AccountQuotaCost)
 		if err != nil {
 			return err
@@ -212,13 +237,324 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 	return nil
 }
 
-func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, costUSD float64) error {
+type subscriptionBillingCandidate struct {
+	id                    int64
+	expiresAt             time.Time
+	cycleQuotaUSD         *decimal.Decimal
+	resetIntervalSeconds  int
+	cycleStartedAt        *time.Time
+	cycleUsageUSD         decimal.Decimal
+	cycleReservedUSD      decimal.Decimal
+	walletFallbackEnabled bool
+}
+
+func applySubscriptionGroupBillingDecision(
+	ctx context.Context,
+	tx *sql.Tx,
+	cmd *service.UsageBillingCommand,
+	result *service.UsageBillingApplyResult,
+) error {
+	preference, balance, err := lockUsageBillingUser(ctx, tx, cmd.UserID)
+	if err != nil {
+		return err
+	}
+	if requested := strings.TrimSpace(cmd.BillingPreference); requested != "" {
+		// The locked database value remains authoritative. The command snapshot is
+		// retained in the fingerprint only to detect conflicting retries.
+		_ = requested
+	}
+	preference = service.NormalizeBillingPreference(preference)
+	result.BillingPreference = preference
+
+	candidates, err := listSubscriptionBillingCandidates(ctx, tx, cmd.UserID, cmd.GroupID, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	amount := cmd.BillableCost
+	if amount.IsNegative() {
+		amount = decimal.Zero
+	}
+
+	chooseSubscription := func() *subscriptionBillingCandidate {
+		for i := range candidates {
+			candidate := &candidates[i]
+			if candidate.cycleQuotaUSD == nil || !candidate.cycleQuotaUSD.IsPositive() || candidate.cycleUsageUSD.Add(candidate.cycleReservedUSD).Add(amount).LessThanOrEqual(*candidate.cycleQuotaUSD) {
+				return candidate
+			}
+		}
+		return nil
+	}
+	useSubscription := func(candidate *subscriptionBillingCandidate, fallbackReason string) error {
+		if candidate == nil {
+			return service.ErrSubscriptionQuotaExceeded
+		}
+		if amount.IsPositive() {
+			if err := incrementSelectedUsageBillingSubscription(ctx, tx, candidate.id, amount); err != nil {
+				return err
+			}
+		}
+		result.BillingSource = service.BillingSourceSubscription
+		result.BillingFallbackReason = fallbackReason
+		result.SubscriptionID = &candidate.id
+		return nil
+	}
+	useWallet := func(fallbackReason string) error {
+		result.BillingSource = service.BillingSourceWallet
+		result.BillingFallbackReason = fallbackReason
+		if !amount.IsPositive() {
+			return nil
+		}
+		newBalance, sufficient, err := deductUsageBillingBalance(ctx, tx, cmd.UserID, amount)
+		if err != nil {
+			return err
+		}
+		result.NewBalance = &newBalance
+		result.BalanceOverdrafted = !sufficient
+		return nil
+	}
+
+	switch preference {
+	case service.BillingPreferenceWalletOnly:
+		err = useWallet("")
+	case service.BillingPreferenceWalletFirst:
+		if balance.GreaterThanOrEqual(amount) {
+			err = useWallet("")
+		} else if candidate := chooseSubscription(); candidate != nil {
+			err = useSubscription(candidate, "wallet_insufficient")
+		} else {
+			err = useWallet("wallet_insufficient_subscription_unavailable")
+		}
+	case service.BillingPreferenceSubscriptionOnly:
+		err = useSubscription(chooseSubscription(), "")
+	default:
+		if candidate := chooseSubscription(); candidate != nil {
+			err = useSubscription(candidate, "")
+		} else {
+			fallbackAllowed := len(candidates) == 0
+			for i := range candidates {
+				if candidates[i].walletFallbackEnabled {
+					fallbackAllowed = true
+					break
+				}
+			}
+			if !fallbackAllowed {
+				return service.ErrSubscriptionQuotaExceeded
+			}
+			reason := "subscription_unavailable"
+			if len(candidates) > 0 {
+				reason = "subscription_quota_exhausted"
+			}
+			err = useWallet(reason)
+		}
+	}
+	if err != nil {
+		return err
+	}
+
+	return insertSettledBillingReservation(ctx, tx, cmd, result, amount)
+}
+
+func lockUsageBillingUser(ctx context.Context, tx *sql.Tx, userID int64) (string, decimal.Decimal, error) {
+	var preference string
+	var balance decimal.Decimal
+	err := tx.QueryRowContext(ctx, `
+		SELECT billing_preference, balance
+		FROM users
+		WHERE id = $1 AND deleted_at IS NULL
+		FOR UPDATE
+	`, userID).Scan(&preference, &balance)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", decimal.Zero, service.ErrUserNotFound
+	}
+	return preference, balance, err
+}
+
+func listSubscriptionBillingCandidates(
+	ctx context.Context,
+	tx *sql.Tx,
+	userID int64,
+	groupID *int64,
+	now time.Time,
+) ([]subscriptionBillingCandidate, error) {
+	if groupID == nil || *groupID <= 0 {
+		return nil, nil
+	}
+	rows, err := tx.QueryContext(ctx, `
+		SELECT
+			us.id,
+			us.expires_at,
+			us.cycle_quota_usd,
+			us.reset_interval_seconds,
+			us.cycle_started_at,
+			us.cycle_usage_usd,
+			us.cycle_reserved_usd,
+			us.wallet_fallback_enabled
+		FROM user_subscriptions us
+		WHERE us.user_id = $1
+			AND us.deleted_at IS NULL
+			AND us.status = 'active'
+			AND us.expires_at > $3
+			AND (
+				(us.plan_id IS NULL AND us.group_id = $2)
+				OR (
+					us.plan_id IS NOT NULL
+					AND EXISTS (
+						SELECT 1
+						FROM subscription_plan_groups spg
+						WHERE spg.plan_id = us.plan_id AND spg.group_id = $2
+					)
+				)
+			)
+		ORDER BY us.expires_at ASC, us.id ASC
+		FOR UPDATE OF us
+	`, userID, *groupID, now)
+	if err != nil {
+		return nil, err
+	}
+	candidates := make([]subscriptionBillingCandidate, 0)
+	resetIndexes := make([]int, 0)
+	for rows.Next() {
+		var candidate subscriptionBillingCandidate
+		var quota decimal.NullDecimal
+		var cycleStart sql.NullTime
+		if err := rows.Scan(
+			&candidate.id,
+			&candidate.expiresAt,
+			&quota,
+			&candidate.resetIntervalSeconds,
+			&cycleStart,
+			&candidate.cycleUsageUSD,
+			&candidate.cycleReservedUSD,
+			&candidate.walletFallbackEnabled,
+		); err != nil {
+			return nil, err
+		}
+		if quota.Valid {
+			value := quota.Decimal
+			candidate.cycleQuotaUSD = &value
+		}
+		if cycleStart.Valid {
+			value := cycleStart.Time
+			candidate.cycleStartedAt = &value
+		}
+		needsReset := resetSubscriptionBillingCycle(&candidate, now)
+		candidates = append(candidates, candidate)
+		if needsReset {
+			resetIndexes = append(resetIndexes, len(candidates)-1)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	for _, index := range resetIndexes {
+		candidate := &candidates[index]
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE user_subscriptions
+			SET cycle_started_at = $1, cycle_usage_usd = 0, updated_at = NOW()
+			WHERE id = $2 AND deleted_at IS NULL
+		`, *candidate.cycleStartedAt, candidate.id); err != nil {
+			return nil, err
+		}
+	}
+	return candidates, nil
+}
+
+func resetSubscriptionBillingCycle(candidate *subscriptionBillingCandidate, now time.Time) bool {
+	if candidate == nil || candidate.resetIntervalSeconds <= 0 {
+		return false
+	}
+	period := time.Duration(candidate.resetIntervalSeconds) * time.Second
+	if candidate.cycleStartedAt == nil {
+		candidate.cycleStartedAt = &now
+		candidate.cycleUsageUSD = decimal.Zero
+		return true
+	}
+	start := *candidate.cycleStartedAt
+	if now.Before(start.Add(period)) {
+		return false
+	}
+	periods := now.Sub(start) / period
+	start = start.Add(periods * period)
+	candidate.cycleStartedAt = &start
+	candidate.cycleUsageUSD = decimal.Zero
+	return true
+}
+
+func incrementSelectedUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, amount decimal.Decimal) error {
+	res, err := tx.ExecContext(ctx, `
+		UPDATE user_subscriptions
+		SET cycle_usage_usd = cycle_usage_usd + $1,
+			daily_usage_usd = daily_usage_usd + $1,
+			weekly_usage_usd = weekly_usage_usd + $1,
+			monthly_usage_usd = monthly_usage_usd + $1,
+			updated_at = NOW()
+		WHERE id = $2 AND deleted_at IS NULL
+	`, amount, subscriptionID)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrSubscriptionNotFound
+	}
+	return nil
+}
+
+func insertSettledBillingReservation(
+	ctx context.Context,
+	tx *sql.Tx,
+	cmd *service.UsageBillingCommand,
+	result *service.UsageBillingApplyResult,
+	amount decimal.Decimal,
+) error {
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO billing_reservations (
+			request_id, api_key_id, user_id, group_id, subscription_id,
+			billing_source, billing_preference, fallback_reason,
+			reserved_amount, final_amount, status, settled_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9, $9, 'settled', NOW())
+	`,
+		cmd.RequestID,
+		cmd.APIKeyID,
+		cmd.UserID,
+		cmd.GroupID,
+		result.SubscriptionID,
+		result.BillingSource,
+		result.BillingPreference,
+		result.BillingFallbackReason,
+		amount,
+	)
+	return err
+}
+
+func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, costUSD decimal.Decimal) error {
 	const updateSQL = `
 		UPDATE user_subscriptions us
 		SET
 			daily_usage_usd = us.daily_usage_usd + $1,
 			weekly_usage_usd = us.weekly_usage_usd + $1,
 			monthly_usage_usd = us.monthly_usage_usd + $1,
+			cycle_started_at = CASE
+				WHEN us.reset_interval_seconds > 0 AND (
+					us.cycle_started_at IS NULL OR
+					NOW() >= us.cycle_started_at + us.reset_interval_seconds * INTERVAL '1 second'
+				) THEN NOW()
+				ELSE us.cycle_started_at
+			END,
+			cycle_usage_usd = CASE
+				WHEN us.reset_interval_seconds > 0 AND (
+					us.cycle_started_at IS NULL OR
+					NOW() >= us.cycle_started_at + us.reset_interval_seconds * INTERVAL '1 second'
+				) THEN $1
+				ELSE us.cycle_usage_usd + $1
+			END,
 			updated_at = NOW()
 		FROM groups g
 		WHERE us.id = $2
@@ -240,8 +576,8 @@ func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscrip
 	return service.ErrSubscriptionNotFound
 }
 
-func deductUsageBillingBalance(ctx context.Context, tx *sql.Tx, userID int64, amount float64) (float64, bool, error) {
-	var newBalance float64
+func deductUsageBillingBalance(ctx context.Context, tx *sql.Tx, userID int64, amount decimal.Decimal) (decimal.Decimal, bool, error) {
+	var newBalance decimal.Decimal
 	err := tx.QueryRowContext(ctx, `
 		UPDATE users
 		SET balance = balance - $1,
@@ -253,7 +589,7 @@ func deductUsageBillingBalance(ctx context.Context, tx *sql.Tx, userID int64, am
 		return newBalance, true, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return 0, false, err
+		return decimal.Zero, false, err
 	}
 
 	err = tx.QueryRowContext(ctx, `
@@ -264,19 +600,418 @@ func deductUsageBillingBalance(ctx context.Context, tx *sql.Tx, userID int64, am
 		RETURNING balance
 	`, amount, userID).Scan(&newBalance)
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, false, service.ErrUserNotFound
+		return decimal.Zero, false, service.ErrUserNotFound
 	}
 	if err != nil {
-		return 0, false, err
+		return decimal.Zero, false, err
 	}
 	return newBalance, false, nil
 }
 
-func reserveUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
-	if cmd.HoldAmount <= 0 {
+type batchImageBillingReservation struct {
+	id             int64
+	userID         int64
+	groupID        *int64
+	subscriptionID *int64
+	billingSource  string
+	preference     string
+	fallbackReason string
+	reservedAmount decimal.Decimal
+	finalAmount    decimal.Decimal
+	status         string
+}
+
+func reserveUsageBillingBatchImageFunding(ctx context.Context, tx *sql.Tx, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
+	if !cmd.HoldAmount.IsPositive() {
 		return &service.BatchImageBalanceHoldResult{}, nil
 	}
-	var balance, frozen float64
+	preference, balance, err := lockUsageBillingUser(ctx, tx, cmd.UserID)
+	if err != nil {
+		return nil, err
+	}
+	preference = service.NormalizeBillingPreference(preference)
+	candidates, err := listSubscriptionBillingCandidates(ctx, tx, cmd.UserID, cmd.GroupID, time.Now().UTC())
+	if err != nil {
+		return nil, err
+	}
+
+	chooseSubscription := func() *subscriptionBillingCandidate {
+		for i := range candidates {
+			candidate := &candidates[i]
+			if candidate.cycleQuotaUSD == nil || !candidate.cycleQuotaUSD.IsPositive() || candidate.cycleUsageUSD.Add(candidate.cycleReservedUSD).Add(cmd.HoldAmount).LessThanOrEqual(*candidate.cycleQuotaUSD) {
+				return candidate
+			}
+		}
+		return nil
+	}
+	result := &service.BatchImageBalanceHoldResult{
+		BillingPreference: preference,
+		GroupID:           cmd.GroupID,
+	}
+	useSubscription := func(candidate *subscriptionBillingCandidate, fallbackReason string) error {
+		if candidate == nil {
+			return service.ErrSubscriptionQuotaExceeded
+		}
+		if err := reserveSelectedUsageBillingSubscription(ctx, tx, candidate.id, cmd.HoldAmount); err != nil {
+			return err
+		}
+		result.BillingSource = service.BillingSourceSubscription
+		result.BillingFallbackReason = fallbackReason
+		result.SubscriptionID = &candidate.id
+		return nil
+	}
+	useWallet := func(fallbackReason string) error {
+		if balance.LessThan(cmd.HoldAmount) {
+			return service.ErrBatchImageInsufficientBalance
+		}
+		walletResult, err := reserveUsageBillingBatchImageBalance(ctx, tx, cmd)
+		if err != nil {
+			return err
+		}
+		result.BillingSource = service.BillingSourceWallet
+		result.BillingFallbackReason = fallbackReason
+		result.NewBalance = walletResult.NewBalance
+		result.FrozenBalance = walletResult.FrozenBalance
+		return nil
+	}
+
+	switch preference {
+	case service.BillingPreferenceWalletOnly:
+		err = useWallet("")
+	case service.BillingPreferenceWalletFirst:
+		if balance.GreaterThanOrEqual(cmd.HoldAmount) {
+			err = useWallet("")
+		} else if candidate := chooseSubscription(); candidate != nil {
+			err = useSubscription(candidate, "wallet_insufficient")
+		} else {
+			err = service.ErrBatchImageInsufficientBalance
+		}
+	case service.BillingPreferenceSubscriptionOnly:
+		err = useSubscription(chooseSubscription(), "")
+	default:
+		if candidate := chooseSubscription(); candidate != nil {
+			err = useSubscription(candidate, "")
+		} else {
+			fallbackAllowed := len(candidates) == 0
+			for i := range candidates {
+				if candidates[i].walletFallbackEnabled {
+					fallbackAllowed = true
+					break
+				}
+			}
+			if !fallbackAllowed {
+				return nil, service.ErrSubscriptionQuotaExceeded
+			}
+			reason := "subscription_unavailable"
+			if len(candidates) > 0 {
+				reason = "subscription_quota_exhausted"
+			}
+			err = useWallet(reason)
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := insertPendingBatchImageBillingReservation(ctx, tx, cmd, result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func reserveSelectedUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, amount decimal.Decimal) error {
+	res, err := tx.ExecContext(ctx, `
+		UPDATE user_subscriptions
+		SET cycle_reserved_usd = cycle_reserved_usd + $1,
+			updated_at = NOW()
+		WHERE id = $2
+			AND deleted_at IS NULL
+			AND (
+				cycle_quota_usd IS NULL
+				OR cycle_quota_usd <= 0
+				OR cycle_usage_usd + cycle_reserved_usd + $1 <= cycle_quota_usd
+			)
+	`, amount, subscriptionID)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrSubscriptionQuotaExceeded
+	}
+	return nil
+}
+
+func insertPendingBatchImageBillingReservation(ctx context.Context, tx *sql.Tx, cmd *service.BatchImageBalanceHoldCommand, result *service.BatchImageBalanceHoldResult) error {
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO billing_reservations (
+			request_id, api_key_id, user_id, group_id, subscription_id,
+			billing_source, billing_preference, fallback_reason,
+			reserved_amount, final_amount, status
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9, 0, 'pending')
+	`,
+		cmd.RequestID,
+		cmd.APIKeyID,
+		cmd.UserID,
+		cmd.GroupID,
+		result.SubscriptionID,
+		result.BillingSource,
+		result.BillingPreference,
+		result.BillingFallbackReason,
+		cmd.HoldAmount,
+	)
+	return err
+}
+
+func captureUsageBillingBatchImageFunding(ctx context.Context, tx *sql.Tx, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
+	reservation, found, err := loadBatchImageBillingReservation(ctx, tx, service.BatchImageHoldRequestID(cmd.BatchID), cmd.APIKeyID)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		result, err := captureUsageBillingBatchImageBalance(ctx, tx, cmd)
+		if result != nil {
+			result.BillingSource = service.BillingSourceWallet
+		}
+		return result, err
+	}
+	result := batchImageReservationResult(reservation, true)
+	switch reservation.status {
+	case "settled":
+		return result, nil
+	case "released":
+		return nil, service.ErrBatchImageBillingReservationReleased
+	case "pending":
+		// Continue with the only valid state transition: pending -> settled.
+	default:
+		return nil, errors.New("batch image billing reservation has invalid status")
+	}
+	if cmd.ActualAmount.GreaterThan(reservation.reservedAmount) {
+		return nil, service.ErrBatchImageSettlementCostExceedsHold
+	}
+	switch reservation.billingSource {
+	case service.BillingSourceSubscription:
+		if reservation.subscriptionID == nil {
+			return nil, service.ErrSubscriptionNotFound
+		}
+		if err := captureSelectedUsageBillingSubscription(ctx, tx, *reservation.subscriptionID, reservation.reservedAmount, cmd.ActualAmount); err != nil {
+			return nil, err
+		}
+	case service.BillingSourceWallet:
+		walletResult, err := captureUsageBillingBatchImageBalance(ctx, tx, &service.BatchImageBalanceHoldCommand{
+			UserID:       reservation.userID,
+			HoldAmount:   reservation.reservedAmount,
+			ActualAmount: cmd.ActualAmount,
+		})
+		if err != nil {
+			return nil, err
+		}
+		result.NewBalance = walletResult.NewBalance
+		result.FrozenBalance = walletResult.FrozenBalance
+	default:
+		return nil, errors.New("batch image billing reservation has invalid source")
+	}
+	if err := settleBatchImageBillingReservation(ctx, tx, reservation.id, cmd.ActualAmount); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func captureSelectedUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, reservedAmount, actualAmount decimal.Decimal) error {
+	res, err := tx.ExecContext(ctx, `
+		UPDATE user_subscriptions
+		SET cycle_reserved_usd = cycle_reserved_usd - $1,
+			cycle_usage_usd = cycle_usage_usd + $2,
+			daily_usage_usd = daily_usage_usd + $2,
+			weekly_usage_usd = weekly_usage_usd + $2,
+			monthly_usage_usd = monthly_usage_usd + $2,
+			updated_at = NOW()
+		WHERE id = $3 AND cycle_reserved_usd >= $1
+	`, reservedAmount, actualAmount, subscriptionID)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return errors.New("batch image subscription reservation is insufficient")
+	}
+	return nil
+}
+
+func releaseUsageBillingBatchImageFunding(ctx context.Context, tx *sql.Tx, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
+	reservation, found, err := loadBatchImageBillingReservation(ctx, tx, service.BatchImageHoldRequestID(cmd.BatchID), cmd.APIKeyID)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		result, err := releaseUsageBillingBatchImageBalance(ctx, tx, cmd)
+		if result != nil {
+			result.BillingSource = service.BillingSourceWallet
+		}
+		return result, err
+	}
+	result := batchImageReservationResult(reservation, true)
+	switch reservation.status {
+	case "settled", "released":
+		return result, nil
+	case "pending":
+		// Continue with the only state transition that releases funds.
+	default:
+		return nil, errors.New("batch image billing reservation has invalid status")
+	}
+	switch reservation.billingSource {
+	case service.BillingSourceSubscription:
+		if reservation.subscriptionID == nil {
+			return nil, service.ErrSubscriptionNotFound
+		}
+		if err := releaseSelectedUsageBillingSubscription(ctx, tx, *reservation.subscriptionID, reservation.reservedAmount); err != nil {
+			return nil, err
+		}
+	case service.BillingSourceWallet:
+		walletResult, err := releaseUsageBillingBatchImageBalance(ctx, tx, &service.BatchImageBalanceHoldCommand{
+			APIKeyID:   cmd.APIKeyID,
+			UserID:     reservation.userID,
+			BatchID:    cmd.BatchID,
+			HoldAmount: reservation.reservedAmount,
+		})
+		if err != nil {
+			return nil, err
+		}
+		result.NewBalance = walletResult.NewBalance
+		result.FrozenBalance = walletResult.FrozenBalance
+	default:
+		return nil, errors.New("batch image billing reservation has invalid source")
+	}
+	if err := releaseBatchImageBillingReservation(ctx, tx, reservation.id); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func releaseSelectedUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, reservedAmount decimal.Decimal) error {
+	res, err := tx.ExecContext(ctx, `
+		UPDATE user_subscriptions
+		SET cycle_reserved_usd = cycle_reserved_usd - $1,
+			updated_at = NOW()
+		WHERE id = $2 AND cycle_reserved_usd >= $1
+	`, reservedAmount, subscriptionID)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return errors.New("batch image subscription reservation is insufficient")
+	}
+	return nil
+}
+
+func loadBatchImageBillingReservation(ctx context.Context, tx *sql.Tx, requestID string, apiKeyID int64) (*batchImageBillingReservation, bool, error) {
+	var reservation batchImageBillingReservation
+	var groupID, subscriptionID sql.NullInt64
+	var fallbackReason sql.NullString
+	err := tx.QueryRowContext(ctx, `
+		SELECT id, user_id, group_id, subscription_id, billing_source,
+			billing_preference, fallback_reason, reserved_amount, final_amount, status
+		FROM billing_reservations
+		WHERE request_id = $1 AND api_key_id = $2
+		FOR UPDATE
+	`, requestID, apiKeyID).Scan(
+		&reservation.id,
+		&reservation.userID,
+		&groupID,
+		&subscriptionID,
+		&reservation.billingSource,
+		&reservation.preference,
+		&fallbackReason,
+		&reservation.reservedAmount,
+		&reservation.finalAmount,
+		&reservation.status,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	if groupID.Valid {
+		value := groupID.Int64
+		reservation.groupID = &value
+	}
+	if subscriptionID.Valid {
+		value := subscriptionID.Int64
+		reservation.subscriptionID = &value
+	}
+	if fallbackReason.Valid {
+		reservation.fallbackReason = fallbackReason.String
+	}
+	return &reservation, true, nil
+}
+
+func batchImageReservationResult(reservation *batchImageBillingReservation, applied bool) *service.BatchImageBalanceHoldResult {
+	if reservation == nil {
+		return &service.BatchImageBalanceHoldResult{Applied: applied}
+	}
+	return &service.BatchImageBalanceHoldResult{
+		Applied:               applied,
+		BillingSource:         reservation.billingSource,
+		BillingPreference:     reservation.preference,
+		BillingFallbackReason: reservation.fallbackReason,
+		SubscriptionID:        reservation.subscriptionID,
+		GroupID:               reservation.groupID,
+	}
+}
+
+func settleBatchImageBillingReservation(ctx context.Context, tx *sql.Tx, id int64, finalAmount decimal.Decimal) error {
+	res, err := tx.ExecContext(ctx, `
+		UPDATE billing_reservations
+		SET final_amount = $1, status = 'settled', settled_at = NOW()
+		WHERE id = $2 AND status = 'pending'
+	`, finalAmount, id)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return errors.New("batch image billing reservation is no longer pending")
+	}
+	return nil
+}
+
+func releaseBatchImageBillingReservation(ctx context.Context, tx *sql.Tx, id int64) error {
+	res, err := tx.ExecContext(ctx, `
+		UPDATE billing_reservations
+		SET status = 'released', released_at = NOW()
+		WHERE id = $1 AND status = 'pending'
+	`, id)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return errors.New("batch image billing reservation is no longer pending")
+	}
+	return nil
+}
+
+func reserveUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
+	if !cmd.HoldAmount.IsPositive() {
+		return &service.BatchImageBalanceHoldResult{}, nil
+	}
+	var balance, frozen decimal.Decimal
 	err := tx.QueryRowContext(ctx, `
 		UPDATE users
 		SET balance = balance - $1,
@@ -300,13 +1035,13 @@ func reserveUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 }
 
 func captureUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
-	if cmd.HoldAmount <= 0 && cmd.ActualAmount <= 0 {
+	if !cmd.HoldAmount.IsPositive() && !cmd.ActualAmount.IsPositive() {
 		return &service.BatchImageBalanceHoldResult{}, nil
 	}
-	if cmd.ActualAmount-cmd.HoldAmount > 0.00000001 {
+	if cmd.ActualAmount.GreaterThan(cmd.HoldAmount) {
 		return nil, service.ErrBatchImageSettlementCostExceedsHold
 	}
-	var balance, frozen float64
+	var balance, frozen decimal.Decimal
 	err := tx.QueryRowContext(ctx, `
 		UPDATE users
 		SET balance = balance
@@ -332,7 +1067,7 @@ func captureUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 }
 
 func releaseUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
-	if cmd.HoldAmount <= 0 {
+	if !cmd.HoldAmount.IsPositive() {
 		return &service.BatchImageBalanceHoldResult{}, nil
 	}
 	// 释放前校验该 job 确实预留过 hold（hold request id 已被 claim），
@@ -345,7 +1080,7 @@ func releaseUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 		logger.LegacyPrintf("repository.usage_billing", "[BatchImage] release skipped, hold was never reserved: batch=%s", cmd.BatchID)
 		return &service.BatchImageBalanceHoldResult{}, nil
 	}
-	var balance, frozen float64
+	var balance, frozen decimal.Decimal
 	err := tx.QueryRowContext(ctx, `
 		UPDATE users
 		SET balance = balance + $1,
@@ -413,7 +1148,7 @@ func userExistsForBilling(ctx context.Context, tx *sql.Tx, userID int64) (bool, 
 	return true, nil
 }
 
-func incrementUsageBillingAPIKeyQuota(ctx context.Context, tx *sql.Tx, apiKeyID int64, amount float64) (bool, error) {
+func incrementUsageBillingAPIKeyQuota(ctx context.Context, tx *sql.Tx, apiKeyID int64, amount decimal.Decimal) (bool, error) {
 	var exhausted bool
 	err := tx.QueryRowContext(ctx, `
 		UPDATE api_keys
@@ -439,7 +1174,7 @@ func incrementUsageBillingAPIKeyQuota(ctx context.Context, tx *sql.Tx, apiKeyID 
 	return exhausted, nil
 }
 
-func incrementUsageBillingAPIKeyRateLimit(ctx context.Context, tx *sql.Tx, apiKeyID int64, cost float64) error {
+func incrementUsageBillingAPIKeyRateLimit(ctx context.Context, tx *sql.Tx, apiKeyID int64, cost decimal.Decimal) error {
 	res, err := tx.ExecContext(ctx, `
 		UPDATE api_keys SET
 			usage_5h = CASE WHEN window_5h_start IS NOT NULL AND window_5h_start + INTERVAL '5 hours' <= NOW() THEN $1 ELSE usage_5h + $1 END,
@@ -464,7 +1199,7 @@ func incrementUsageBillingAPIKeyRateLimit(ctx context.Context, tx *sql.Tx, apiKe
 	return nil
 }
 
-func incrementUsageBillingAccountQuota(ctx context.Context, tx *sql.Tx, accountID int64, amount float64) (*service.AccountQuotaState, error) {
+func incrementUsageBillingAccountQuota(ctx context.Context, tx *sql.Tx, accountID int64, amount decimal.Decimal) (*service.AccountQuotaState, error) {
 	rows, err := tx.QueryContext(ctx,
 		`UPDATE accounts SET extra = (
 			COALESCE(extra, '{}'::jsonb)
@@ -513,12 +1248,14 @@ func incrementUsageBillingAccountQuota(ctx context.Context, tx *sql.Tx, accountI
 		return nil, err
 	}
 
-	var state service.AccountQuotaState
+	var totalUsed, totalLimit decimal.Decimal
+	var dailyUsed, dailyLimit decimal.Decimal
+	var weeklyUsed, weeklyLimit decimal.Decimal
 	if rows.Next() {
 		if err := rows.Scan(
-			&state.TotalUsed, &state.TotalLimit,
-			&state.DailyUsed, &state.DailyLimit,
-			&state.WeeklyUsed, &state.WeeklyLimit,
+			&totalUsed, &totalLimit,
+			&dailyUsed, &dailyLimit,
+			&weeklyUsed, &weeklyLimit,
 		); err != nil {
 			_ = rows.Close()
 			return nil, err
@@ -546,14 +1283,21 @@ func incrementUsageBillingAccountQuota(ctx context.Context, tx *sql.Tx, accountI
 	// 最终观察到 daily_used / weekly_used 大幅超过配置的 limit。
 	// 对于日/周额度，即使本次触发了周期重置（pre=0、post=amount），
 	// 判定式 (post-amount) < limit 同样成立，逻辑与总额度保持一致。
-	crossedTotal := state.TotalLimit > 0 && state.TotalUsed >= state.TotalLimit && (state.TotalUsed-amount) < state.TotalLimit
-	crossedDaily := state.DailyLimit > 0 && state.DailyUsed >= state.DailyLimit && (state.DailyUsed-amount) < state.DailyLimit
-	crossedWeekly := state.WeeklyLimit > 0 && state.WeeklyUsed >= state.WeeklyLimit && (state.WeeklyUsed-amount) < state.WeeklyLimit
+	crossedTotal := totalLimit.IsPositive() && totalUsed.GreaterThanOrEqual(totalLimit) && totalUsed.Sub(amount).LessThan(totalLimit)
+	crossedDaily := dailyLimit.IsPositive() && dailyUsed.GreaterThanOrEqual(dailyLimit) && dailyUsed.Sub(amount).LessThan(dailyLimit)
+	crossedWeekly := weeklyLimit.IsPositive() && weeklyUsed.GreaterThanOrEqual(weeklyLimit) && weeklyUsed.Sub(amount).LessThan(weeklyLimit)
 	if crossedTotal || crossedDaily || crossedWeekly {
 		if err := enqueueSchedulerOutbox(ctx, tx, service.SchedulerOutboxEventAccountChanged, &accountID, nil, nil); err != nil {
 			logger.LegacyPrintf("repository.usage_billing", "[SchedulerOutbox] enqueue quota exceeded failed: account=%d err=%v", accountID, err)
 			return nil, err
 		}
 	}
-	return &state, nil
+	return &service.AccountQuotaState{
+		TotalUsed:   totalUsed.InexactFloat64(),
+		TotalLimit:  totalLimit.InexactFloat64(),
+		DailyUsed:   dailyUsed.InexactFloat64(),
+		DailyLimit:  dailyLimit.InexactFloat64(),
+		WeeklyUsed:  weeklyUsed.InexactFloat64(),
+		WeeklyLimit: weeklyLimit.InexactFloat64(),
+	}, nil
 }

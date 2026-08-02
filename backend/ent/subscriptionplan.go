@@ -29,6 +29,12 @@ type SubscriptionPlan struct {
 	OriginalPrice *float64 `json:"original_price,omitempty"`
 	// Currency holds the value of the "currency" field.
 	Currency string `json:"currency,omitempty"`
+	// CycleQuotaUsd holds the value of the "cycle_quota_usd" field.
+	CycleQuotaUsd *float64 `json:"cycle_quota_usd,omitempty"`
+	// ResetIntervalSeconds holds the value of the "reset_interval_seconds" field.
+	ResetIntervalSeconds int `json:"reset_interval_seconds,omitempty"`
+	// WalletFallbackEnabled holds the value of the "wallet_fallback_enabled" field.
+	WalletFallbackEnabled bool `json:"wallet_fallback_enabled,omitempty"`
 	// ValidityDays holds the value of the "validity_days" field.
 	ValidityDays int `json:"validity_days,omitempty"`
 	// ValidityUnit holds the value of the "validity_unit" field.
@@ -44,8 +50,51 @@ type SubscriptionPlan struct {
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
-	UpdatedAt    time.Time `json:"updated_at,omitempty"`
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the SubscriptionPlanQuery when eager-loading is set.
+	Edges        SubscriptionPlanEdges `json:"edges"`
 	selectValues sql.SelectValues
+}
+
+// SubscriptionPlanEdges holds the relations/edges for other nodes in the graph.
+type SubscriptionPlanEdges struct {
+	// Groups holds the value of the groups edge.
+	Groups []*Group `json:"groups,omitempty"`
+	// UserSubscriptions holds the value of the user_subscriptions edge.
+	UserSubscriptions []*UserSubscription `json:"user_subscriptions,omitempty"`
+	// PlanGroups holds the value of the plan_groups edge.
+	PlanGroups []*SubscriptionPlanGroup `json:"plan_groups,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [3]bool
+}
+
+// GroupsOrErr returns the Groups value or an error if the edge
+// was not loaded in eager-loading.
+func (e SubscriptionPlanEdges) GroupsOrErr() ([]*Group, error) {
+	if e.loadedTypes[0] {
+		return e.Groups, nil
+	}
+	return nil, &NotLoadedError{edge: "groups"}
+}
+
+// UserSubscriptionsOrErr returns the UserSubscriptions value or an error if the edge
+// was not loaded in eager-loading.
+func (e SubscriptionPlanEdges) UserSubscriptionsOrErr() ([]*UserSubscription, error) {
+	if e.loadedTypes[1] {
+		return e.UserSubscriptions, nil
+	}
+	return nil, &NotLoadedError{edge: "user_subscriptions"}
+}
+
+// PlanGroupsOrErr returns the PlanGroups value or an error if the edge
+// was not loaded in eager-loading.
+func (e SubscriptionPlanEdges) PlanGroupsOrErr() ([]*SubscriptionPlanGroup, error) {
+	if e.loadedTypes[2] {
+		return e.PlanGroups, nil
+	}
+	return nil, &NotLoadedError{edge: "plan_groups"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -53,11 +102,11 @@ func (*SubscriptionPlan) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case subscriptionplan.FieldForSale:
+		case subscriptionplan.FieldWalletFallbackEnabled, subscriptionplan.FieldForSale:
 			values[i] = new(sql.NullBool)
-		case subscriptionplan.FieldPrice, subscriptionplan.FieldOriginalPrice:
+		case subscriptionplan.FieldPrice, subscriptionplan.FieldOriginalPrice, subscriptionplan.FieldCycleQuotaUsd:
 			values[i] = new(sql.NullFloat64)
-		case subscriptionplan.FieldID, subscriptionplan.FieldGroupID, subscriptionplan.FieldValidityDays, subscriptionplan.FieldSortOrder:
+		case subscriptionplan.FieldID, subscriptionplan.FieldGroupID, subscriptionplan.FieldResetIntervalSeconds, subscriptionplan.FieldValidityDays, subscriptionplan.FieldSortOrder:
 			values[i] = new(sql.NullInt64)
 		case subscriptionplan.FieldName, subscriptionplan.FieldDescription, subscriptionplan.FieldCurrency, subscriptionplan.FieldValidityUnit, subscriptionplan.FieldFeatures, subscriptionplan.FieldProductName:
 			values[i] = new(sql.NullString)
@@ -121,6 +170,25 @@ func (_m *SubscriptionPlan) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Currency = value.String
 			}
+		case subscriptionplan.FieldCycleQuotaUsd:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field cycle_quota_usd", values[i])
+			} else if value.Valid {
+				_m.CycleQuotaUsd = new(float64)
+				*_m.CycleQuotaUsd = value.Float64
+			}
+		case subscriptionplan.FieldResetIntervalSeconds:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field reset_interval_seconds", values[i])
+			} else if value.Valid {
+				_m.ResetIntervalSeconds = int(value.Int64)
+			}
+		case subscriptionplan.FieldWalletFallbackEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field wallet_fallback_enabled", values[i])
+			} else if value.Valid {
+				_m.WalletFallbackEnabled = value.Bool
+			}
 		case subscriptionplan.FieldValidityDays:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field validity_days", values[i])
@@ -182,6 +250,21 @@ func (_m *SubscriptionPlan) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
 }
 
+// QueryGroups queries the "groups" edge of the SubscriptionPlan entity.
+func (_m *SubscriptionPlan) QueryGroups() *GroupQuery {
+	return NewSubscriptionPlanClient(_m.config).QueryGroups(_m)
+}
+
+// QueryUserSubscriptions queries the "user_subscriptions" edge of the SubscriptionPlan entity.
+func (_m *SubscriptionPlan) QueryUserSubscriptions() *UserSubscriptionQuery {
+	return NewSubscriptionPlanClient(_m.config).QueryUserSubscriptions(_m)
+}
+
+// QueryPlanGroups queries the "plan_groups" edge of the SubscriptionPlan entity.
+func (_m *SubscriptionPlan) QueryPlanGroups() *SubscriptionPlanGroupQuery {
+	return NewSubscriptionPlanClient(_m.config).QueryPlanGroups(_m)
+}
+
 // Update returns a builder for updating this SubscriptionPlan.
 // Note that you need to call SubscriptionPlan.Unwrap() before calling this method if this SubscriptionPlan
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -224,6 +307,17 @@ func (_m *SubscriptionPlan) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("currency=")
 	builder.WriteString(_m.Currency)
+	builder.WriteString(", ")
+	if v := _m.CycleQuotaUsd; v != nil {
+		builder.WriteString("cycle_quota_usd=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("reset_interval_seconds=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ResetIntervalSeconds))
+	builder.WriteString(", ")
+	builder.WriteString("wallet_fallback_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.WalletFallbackEnabled))
 	builder.WriteString(", ")
 	builder.WriteString("validity_days=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ValidityDays))

@@ -139,6 +139,22 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		h.chatCompletionsErrorResponse(c, status, code, message)
 		return
 	}
+	requestPayloadHash := service.HashUsageRequestPayload(body)
+	billingReservation, err := reserveRequestBilling(c, h.gatewayService, apiKey.User, apiKey, service.RequestBillingEstimate{
+		Kind:  service.RequestBillingEstimateToken,
+		Model: requestBillingEstimateModel(reqModel, channelMapping),
+		Body:  body,
+	}, requestPayloadHash)
+	if err != nil {
+		reqLog.Info("gateway.cc.billing_reservation_failed", zap.Error(err))
+		status, code, message, retryAfter := billingErrorDetails(err)
+		if retryAfter > 0 {
+			c.Header("Retry-After", strconv.Itoa(retryAfter))
+		}
+		h.chatCompletionsErrorResponse(c, status, code, message)
+		return
+	}
+	defer billingReservation.Close(c.Request.Context())
 
 	// Parse request for session hash
 	bodyRef := service.NewRequestBodyRef(body)
@@ -304,13 +320,12 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		// 6. Record usage
 		userAgent := c.GetHeader("User-Agent")
 		clientIP := ip.GetClientIP(c)
-		requestPayloadHash := service.HashUsageRequestPayload(body)
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
 
 		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 		sessionID := service.ExtractClientSessionID(c)
-		h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
+		if h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 			if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
 				Result:             result,
 				QuotaPlatform:      quotaPlatform,
@@ -332,7 +347,9 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 					zap.Error(err),
 				)
 			}
-		})
+		}) {
+			billingReservation.MarkForSettlement()
+		}
 		return
 	}
 }

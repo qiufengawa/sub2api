@@ -51,6 +51,11 @@ const messages: Record<string, string> = {
   'admin.usage.billingModeToken': 'Token',
   'admin.usage.billingModePerRequest': 'Per request',
   'admin.usage.billingModeImage': 'Image',
+  'usage.billingSourceSubscription': 'Subscription',
+  'usage.billingSourceWallet': 'Wallet',
+  'usage.billingSourceLegacy': 'Legacy rule',
+  'usage.billingPreferenceSubscriptionFirst': 'Subscription first',
+  'usage.billingFallbackSubscriptionExhausted': 'Subscription exhausted; charged wallet',
   'usage.latencyFirstToken': 'First',
   'usage.latencyDuration': 'Total',
 }
@@ -73,6 +78,7 @@ const DataTableStub = {
       <div v-for="row in data" :key="row.request_id">
         <slot name="cell-model" :row="row" :value="row.model" />
         <slot name="cell-billing_mode" :row="row" />
+        <slot name="cell-billing_source" :row="row" />
         <slot name="cell-tokens" :row="row" />
         <slot name="cell-cost" :row="row" />
       </div>
@@ -408,6 +414,50 @@ describe('admin UsageTable tooltip', () => {
     expect(text).toContain('Per-image price')
     expect(text).toContain('not recorded')
     expect(text).not.toContain('(2K)')
+  })
+})
+
+describe('admin UsageTable billing source', () => {
+  it('renders the funding source, preference, and fallback reason when the optional column is used', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{
+          ...baseImageRow,
+          billing_source: 'wallet',
+          billing_preference: 'subscription_first',
+          billing_fallback_reason: 'subscription_quota_exhausted',
+        }],
+        loading: false,
+        columns: [{ key: 'billing_source', label: 'Funding Source' }],
+      },
+      global: { stubs: { DataTable: DataTableStub } },
+    })
+
+    expect(wrapper.text()).toContain('Wallet')
+    expect(wrapper.text()).toContain('Subscription first')
+    expect(wrapper.text()).toContain('Subscription exhausted; charged wallet')
+  })
+
+  it('renders the subscription plan name beneath the funding source', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{
+          ...baseImageRow,
+          billing_source: 'subscription',
+          subscription_id: 42,
+          subscription: {
+            id: 42,
+            plan_name: 'Standard 订阅',
+          },
+        }],
+        loading: false,
+        columns: [{ key: 'billing_source', label: 'Funding Source' }],
+      },
+      global: { stubs: { DataTable: DataTableStub } },
+    })
+
+    expect(wrapper.text()).toContain('Subscription')
+    expect(wrapper.text()).toContain('Standard 订阅')
   })
 })
 

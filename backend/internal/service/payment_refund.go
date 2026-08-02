@@ -257,9 +257,26 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, amt float
 func (s *PaymentService) prepDeduct(ctx context.Context, o *dbent.PaymentOrder, p *RefundPlan, force bool) *RefundResult {
 	if o.OrderType == payment.OrderTypeSubscription {
 		p.DeductionType = payment.DeductionTypeSubscription
-		if o.SubscriptionGroupID != nil && o.SubscriptionDays != nil {
-			p.SubDaysToDeduct = *o.SubscriptionDays
-			sub, err := s.subscriptionSvc.GetActiveSubscription(ctx, o.UserID, *o.SubscriptionGroupID)
+		snapshot, snapshotErr := resolvePaymentSubscriptionSnapshot(o)
+		if snapshotErr != nil {
+			if !force {
+				return &RefundResult{Success: false, Warning: "cannot read subscription snapshot for deduction, use force", RequireForce: true}
+			}
+			return nil
+		}
+		if snapshot.PrimaryGroupID > 0 && snapshot.ValidityDays > 0 {
+			p.SubDaysToDeduct = snapshot.ValidityDays
+			var sub *UserSubscription
+			var err error
+			if s.subscriptionGroupBillingEnabled() && snapshot.PlanID > 0 {
+				if coverageRepo, ok := s.subscriptionSvc.userSubRepo.(SubscriptionCoverageRepository); ok {
+					sub, err = coverageRepo.GetByUserIDAndPlanID(ctx, o.UserID, snapshot.PlanID)
+				} else {
+					err = ErrSubscriptionNotFound
+				}
+			} else {
+				sub, err = s.subscriptionSvc.GetActiveSubscription(ctx, o.UserID, snapshot.PrimaryGroupID)
+			}
 			if err == nil && sub != nil {
 				p.SubscriptionID = sub.ID
 			} else if !force {

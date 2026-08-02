@@ -71,6 +71,10 @@
   "plans": [
     {
       "group_key": "lite",
+      "included_group_keys": ["lite"],
+      "cycle_quota_usd": 5,
+      "reset_interval_seconds": 604800,
+      "wallet_fallback_enabled": true,
       "name": "Lite",
       "price": 12.9,
       "original_price": 20,
@@ -90,6 +94,10 @@
     },
     {
       "group_key": "starter",
+      "included_group_keys": ["starter"],
+      "cycle_quota_usd": 15,
+      "reset_interval_seconds": 604800,
+      "wallet_fallback_enabled": true,
       "name": "Starter",
       "price": 38.9,
       "original_price": 60,
@@ -109,6 +117,10 @@
     },
     {
       "group_key": "standard",
+      "included_group_keys": ["standard"],
+      "cycle_quota_usd": 40,
+      "reset_interval_seconds": 604800,
+      "wallet_fallback_enabled": true,
       "name": "Standard",
       "price": 103.9,
       "original_price": 160,
@@ -128,6 +140,10 @@
     },
     {
       "group_key": "pro",
+      "included_group_keys": ["pro"],
+      "cycle_quota_usd": 100,
+      "reset_interval_seconds": 604800,
+      "wallet_fallback_enabled": true,
       "name": "Pro",
       "price": 259,
       "original_price": 400,
@@ -147,6 +163,10 @@
     },
     {
       "group_key": "max",
+      "included_group_keys": ["max"],
+      "cycle_quota_usd": 250,
+      "reset_interval_seconds": 604800,
+      "wallet_fallback_enabled": true,
       "name": "Max",
       "price": 649,
       "original_price": 1000,

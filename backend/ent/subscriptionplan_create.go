@@ -11,7 +11,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
+	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 )
 
 // SubscriptionPlanCreate is the builder for creating a SubscriptionPlan entity.
@@ -78,6 +80,48 @@ func (_c *SubscriptionPlanCreate) SetCurrency(v string) *SubscriptionPlanCreate 
 func (_c *SubscriptionPlanCreate) SetNillableCurrency(v *string) *SubscriptionPlanCreate {
 	if v != nil {
 		_c.SetCurrency(*v)
+	}
+	return _c
+}
+
+// SetCycleQuotaUsd sets the "cycle_quota_usd" field.
+func (_c *SubscriptionPlanCreate) SetCycleQuotaUsd(v float64) *SubscriptionPlanCreate {
+	_c.mutation.SetCycleQuotaUsd(v)
+	return _c
+}
+
+// SetNillableCycleQuotaUsd sets the "cycle_quota_usd" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillableCycleQuotaUsd(v *float64) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetCycleQuotaUsd(*v)
+	}
+	return _c
+}
+
+// SetResetIntervalSeconds sets the "reset_interval_seconds" field.
+func (_c *SubscriptionPlanCreate) SetResetIntervalSeconds(v int) *SubscriptionPlanCreate {
+	_c.mutation.SetResetIntervalSeconds(v)
+	return _c
+}
+
+// SetNillableResetIntervalSeconds sets the "reset_interval_seconds" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillableResetIntervalSeconds(v *int) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetResetIntervalSeconds(*v)
+	}
+	return _c
+}
+
+// SetWalletFallbackEnabled sets the "wallet_fallback_enabled" field.
+func (_c *SubscriptionPlanCreate) SetWalletFallbackEnabled(v bool) *SubscriptionPlanCreate {
+	_c.mutation.SetWalletFallbackEnabled(v)
+	return _c
+}
+
+// SetNillableWalletFallbackEnabled sets the "wallet_fallback_enabled" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillableWalletFallbackEnabled(v *bool) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetWalletFallbackEnabled(*v)
 	}
 	return _c
 }
@@ -194,6 +238,36 @@ func (_c *SubscriptionPlanCreate) SetNillableUpdatedAt(v *time.Time) *Subscripti
 	return _c
 }
 
+// AddGroupIDs adds the "groups" edge to the Group entity by IDs.
+func (_c *SubscriptionPlanCreate) AddGroupIDs(ids ...int64) *SubscriptionPlanCreate {
+	_c.mutation.AddGroupIDs(ids...)
+	return _c
+}
+
+// AddGroups adds the "groups" edges to the Group entity.
+func (_c *SubscriptionPlanCreate) AddGroups(v ...*Group) *SubscriptionPlanCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddGroupIDs(ids...)
+}
+
+// AddUserSubscriptionIDs adds the "user_subscriptions" edge to the UserSubscription entity by IDs.
+func (_c *SubscriptionPlanCreate) AddUserSubscriptionIDs(ids ...int64) *SubscriptionPlanCreate {
+	_c.mutation.AddUserSubscriptionIDs(ids...)
+	return _c
+}
+
+// AddUserSubscriptions adds the "user_subscriptions" edges to the UserSubscription entity.
+func (_c *SubscriptionPlanCreate) AddUserSubscriptions(v ...*UserSubscription) *SubscriptionPlanCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddUserSubscriptionIDs(ids...)
+}
+
 // Mutation returns the SubscriptionPlanMutation object of the builder.
 func (_c *SubscriptionPlanCreate) Mutation() *SubscriptionPlanMutation {
 	return _c.mutation
@@ -236,6 +310,14 @@ func (_c *SubscriptionPlanCreate) defaults() {
 	if _, ok := _c.mutation.Currency(); !ok {
 		v := subscriptionplan.DefaultCurrency
 		_c.mutation.SetCurrency(v)
+	}
+	if _, ok := _c.mutation.ResetIntervalSeconds(); !ok {
+		v := subscriptionplan.DefaultResetIntervalSeconds
+		_c.mutation.SetResetIntervalSeconds(v)
+	}
+	if _, ok := _c.mutation.WalletFallbackEnabled(); !ok {
+		v := subscriptionplan.DefaultWalletFallbackEnabled
+		_c.mutation.SetWalletFallbackEnabled(v)
 	}
 	if _, ok := _c.mutation.ValidityDays(); !ok {
 		v := subscriptionplan.DefaultValidityDays
@@ -297,6 +379,12 @@ func (_c *SubscriptionPlanCreate) check() error {
 		if err := subscriptionplan.CurrencyValidator(v); err != nil {
 			return &ValidationError{Name: "currency", err: fmt.Errorf(`ent: validator failed for field "SubscriptionPlan.currency": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.ResetIntervalSeconds(); !ok {
+		return &ValidationError{Name: "reset_interval_seconds", err: errors.New(`ent: missing required field "SubscriptionPlan.reset_interval_seconds"`)}
+	}
+	if _, ok := _c.mutation.WalletFallbackEnabled(); !ok {
+		return &ValidationError{Name: "wallet_fallback_enabled", err: errors.New(`ent: missing required field "SubscriptionPlan.wallet_fallback_enabled"`)}
 	}
 	if _, ok := _c.mutation.ValidityDays(); !ok {
 		return &ValidationError{Name: "validity_days", err: errors.New(`ent: missing required field "SubscriptionPlan.validity_days"`)}
@@ -383,6 +471,18 @@ func (_c *SubscriptionPlanCreate) createSpec() (*SubscriptionPlan, *sqlgraph.Cre
 		_spec.SetField(subscriptionplan.FieldCurrency, field.TypeString, value)
 		_node.Currency = value
 	}
+	if value, ok := _c.mutation.CycleQuotaUsd(); ok {
+		_spec.SetField(subscriptionplan.FieldCycleQuotaUsd, field.TypeFloat64, value)
+		_node.CycleQuotaUsd = &value
+	}
+	if value, ok := _c.mutation.ResetIntervalSeconds(); ok {
+		_spec.SetField(subscriptionplan.FieldResetIntervalSeconds, field.TypeInt, value)
+		_node.ResetIntervalSeconds = value
+	}
+	if value, ok := _c.mutation.WalletFallbackEnabled(); ok {
+		_spec.SetField(subscriptionplan.FieldWalletFallbackEnabled, field.TypeBool, value)
+		_node.WalletFallbackEnabled = value
+	}
 	if value, ok := _c.mutation.ValidityDays(); ok {
 		_spec.SetField(subscriptionplan.FieldValidityDays, field.TypeInt, value)
 		_node.ValidityDays = value
@@ -414,6 +514,42 @@ func (_c *SubscriptionPlanCreate) createSpec() (*SubscriptionPlan, *sqlgraph.Cre
 	if value, ok := _c.mutation.UpdatedAt(); ok {
 		_spec.SetField(subscriptionplan.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
+	}
+	if nodes := _c.mutation.GroupsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   subscriptionplan.GroupsTable,
+			Columns: subscriptionplan.GroupsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &SubscriptionPlanGroupCreate{config: _c.config, mutation: newSubscriptionPlanGroupMutation(_c.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.UserSubscriptionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   subscriptionplan.UserSubscriptionsTable,
+			Columns: []string{subscriptionplan.UserSubscriptionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }
@@ -560,6 +696,60 @@ func (u *SubscriptionPlanUpsert) SetCurrency(v string) *SubscriptionPlanUpsert {
 // UpdateCurrency sets the "currency" field to the value that was provided on create.
 func (u *SubscriptionPlanUpsert) UpdateCurrency() *SubscriptionPlanUpsert {
 	u.SetExcluded(subscriptionplan.FieldCurrency)
+	return u
+}
+
+// SetCycleQuotaUsd sets the "cycle_quota_usd" field.
+func (u *SubscriptionPlanUpsert) SetCycleQuotaUsd(v float64) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldCycleQuotaUsd, v)
+	return u
+}
+
+// UpdateCycleQuotaUsd sets the "cycle_quota_usd" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdateCycleQuotaUsd() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldCycleQuotaUsd)
+	return u
+}
+
+// AddCycleQuotaUsd adds v to the "cycle_quota_usd" field.
+func (u *SubscriptionPlanUpsert) AddCycleQuotaUsd(v float64) *SubscriptionPlanUpsert {
+	u.Add(subscriptionplan.FieldCycleQuotaUsd, v)
+	return u
+}
+
+// ClearCycleQuotaUsd clears the value of the "cycle_quota_usd" field.
+func (u *SubscriptionPlanUpsert) ClearCycleQuotaUsd() *SubscriptionPlanUpsert {
+	u.SetNull(subscriptionplan.FieldCycleQuotaUsd)
+	return u
+}
+
+// SetResetIntervalSeconds sets the "reset_interval_seconds" field.
+func (u *SubscriptionPlanUpsert) SetResetIntervalSeconds(v int) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldResetIntervalSeconds, v)
+	return u
+}
+
+// UpdateResetIntervalSeconds sets the "reset_interval_seconds" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdateResetIntervalSeconds() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldResetIntervalSeconds)
+	return u
+}
+
+// AddResetIntervalSeconds adds v to the "reset_interval_seconds" field.
+func (u *SubscriptionPlanUpsert) AddResetIntervalSeconds(v int) *SubscriptionPlanUpsert {
+	u.Add(subscriptionplan.FieldResetIntervalSeconds, v)
+	return u
+}
+
+// SetWalletFallbackEnabled sets the "wallet_fallback_enabled" field.
+func (u *SubscriptionPlanUpsert) SetWalletFallbackEnabled(v bool) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldWalletFallbackEnabled, v)
+	return u
+}
+
+// UpdateWalletFallbackEnabled sets the "wallet_fallback_enabled" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdateWalletFallbackEnabled() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldWalletFallbackEnabled)
 	return u
 }
 
@@ -813,6 +1003,69 @@ func (u *SubscriptionPlanUpsertOne) SetCurrency(v string) *SubscriptionPlanUpser
 func (u *SubscriptionPlanUpsertOne) UpdateCurrency() *SubscriptionPlanUpsertOne {
 	return u.Update(func(s *SubscriptionPlanUpsert) {
 		s.UpdateCurrency()
+	})
+}
+
+// SetCycleQuotaUsd sets the "cycle_quota_usd" field.
+func (u *SubscriptionPlanUpsertOne) SetCycleQuotaUsd(v float64) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetCycleQuotaUsd(v)
+	})
+}
+
+// AddCycleQuotaUsd adds v to the "cycle_quota_usd" field.
+func (u *SubscriptionPlanUpsertOne) AddCycleQuotaUsd(v float64) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddCycleQuotaUsd(v)
+	})
+}
+
+// UpdateCycleQuotaUsd sets the "cycle_quota_usd" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdateCycleQuotaUsd() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateCycleQuotaUsd()
+	})
+}
+
+// ClearCycleQuotaUsd clears the value of the "cycle_quota_usd" field.
+func (u *SubscriptionPlanUpsertOne) ClearCycleQuotaUsd() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.ClearCycleQuotaUsd()
+	})
+}
+
+// SetResetIntervalSeconds sets the "reset_interval_seconds" field.
+func (u *SubscriptionPlanUpsertOne) SetResetIntervalSeconds(v int) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetResetIntervalSeconds(v)
+	})
+}
+
+// AddResetIntervalSeconds adds v to the "reset_interval_seconds" field.
+func (u *SubscriptionPlanUpsertOne) AddResetIntervalSeconds(v int) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddResetIntervalSeconds(v)
+	})
+}
+
+// UpdateResetIntervalSeconds sets the "reset_interval_seconds" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdateResetIntervalSeconds() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateResetIntervalSeconds()
+	})
+}
+
+// SetWalletFallbackEnabled sets the "wallet_fallback_enabled" field.
+func (u *SubscriptionPlanUpsertOne) SetWalletFallbackEnabled(v bool) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetWalletFallbackEnabled(v)
+	})
+}
+
+// UpdateWalletFallbackEnabled sets the "wallet_fallback_enabled" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdateWalletFallbackEnabled() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateWalletFallbackEnabled()
 	})
 }
 
@@ -1248,6 +1501,69 @@ func (u *SubscriptionPlanUpsertBulk) SetCurrency(v string) *SubscriptionPlanUpse
 func (u *SubscriptionPlanUpsertBulk) UpdateCurrency() *SubscriptionPlanUpsertBulk {
 	return u.Update(func(s *SubscriptionPlanUpsert) {
 		s.UpdateCurrency()
+	})
+}
+
+// SetCycleQuotaUsd sets the "cycle_quota_usd" field.
+func (u *SubscriptionPlanUpsertBulk) SetCycleQuotaUsd(v float64) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetCycleQuotaUsd(v)
+	})
+}
+
+// AddCycleQuotaUsd adds v to the "cycle_quota_usd" field.
+func (u *SubscriptionPlanUpsertBulk) AddCycleQuotaUsd(v float64) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddCycleQuotaUsd(v)
+	})
+}
+
+// UpdateCycleQuotaUsd sets the "cycle_quota_usd" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdateCycleQuotaUsd() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateCycleQuotaUsd()
+	})
+}
+
+// ClearCycleQuotaUsd clears the value of the "cycle_quota_usd" field.
+func (u *SubscriptionPlanUpsertBulk) ClearCycleQuotaUsd() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.ClearCycleQuotaUsd()
+	})
+}
+
+// SetResetIntervalSeconds sets the "reset_interval_seconds" field.
+func (u *SubscriptionPlanUpsertBulk) SetResetIntervalSeconds(v int) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetResetIntervalSeconds(v)
+	})
+}
+
+// AddResetIntervalSeconds adds v to the "reset_interval_seconds" field.
+func (u *SubscriptionPlanUpsertBulk) AddResetIntervalSeconds(v int) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddResetIntervalSeconds(v)
+	})
+}
+
+// UpdateResetIntervalSeconds sets the "reset_interval_seconds" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdateResetIntervalSeconds() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateResetIntervalSeconds()
+	})
+}
+
+// SetWalletFallbackEnabled sets the "wallet_fallback_enabled" field.
+func (u *SubscriptionPlanUpsertBulk) SetWalletFallbackEnabled(v bool) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetWalletFallbackEnabled(v)
+	})
+}
+
+// UpdateWalletFallbackEnabled sets the "wallet_fallback_enabled" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdateWalletFallbackEnabled() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateWalletFallbackEnabled()
 	})
 }
 

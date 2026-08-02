@@ -3,10 +3,14 @@
 package admin
 
 import (
+	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/gin-gonic/gin"
 
 	"github.com/stretchr/testify/require"
 )
@@ -64,4 +68,40 @@ func TestUpdateSettingsSMTPFromAliasIsWritable(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 
 	require.Equal(t, "new@example.com", repo.values[service.SettingKeySMTPFrom])
+}
+
+func TestUpdateSettingsSubscriptionGroupBillingSwitchPersistsAndPublishes(t *testing.T) {
+	cfg := &config.Config{Default: config.DefaultConfig{UserConcurrency: 5}}
+	repo := &settingHandlerRepoStub{values: map[string]string{}}
+	svc := service.NewSettingService(repo, cfg)
+	h := NewSettingHandler(svc, nil, nil, nil, nil, nil, nil)
+
+	rec := doUpdateSettings(t, h, map[string]any{
+		"subscription_group_billing_enabled": true,
+	}, nil)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "true", repo.values[service.SettingKeySubscriptionGroupBillingEnabled])
+	require.True(t, cfg.SubscriptionGroupBillingEnabled())
+	require.Contains(t, rec.Body.String(), `"subscription_group_billing_enabled":true`)
+
+	getRec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(getRec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/admin/settings", nil)
+	h.GetSettings(c)
+	require.Equal(t, http.StatusOK, getRec.Code)
+	require.Contains(t, getRec.Body.String(), `"subscription_group_billing_enabled":true`)
+
+	publicSettings, err := svc.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.True(t, publicSettings.SubscriptionGroupBillingEnabled)
+}
+
+func TestUpdateSettingsOmittedSubscriptionGroupBillingSwitchKeepsStoredValue(t *testing.T) {
+	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
+		service.SettingKeySubscriptionGroupBillingEnabled: "true",
+	})
+
+	rec := doUpdateSettings(t, h, map[string]any{"registration_enabled": true}, nil)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "true", repo.values[service.SettingKeySubscriptionGroupBillingEnabled])
 }

@@ -74,10 +74,10 @@ func TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier(t *testing.T
 			if cmd == nil {
 				t.Fatal("buildUsageBillingCommand returned nil")
 			}
-			if cmd.SubscriptionCost != tt.wantSub {
+			if !cmd.SubscriptionCost.Equal(BillingAmountFromFloat(tt.wantSub)) {
 				t.Errorf("SubscriptionCost = %v, want %v", cmd.SubscriptionCost, tt.wantSub)
 			}
-			if cmd.BalanceCost != tt.wantBalance {
+			if !cmd.BalanceCost.Equal(BillingAmountFromFloat(tt.wantBalance)) {
 				t.Errorf("BalanceCost = %v, want %v", cmd.BalanceCost, tt.wantBalance)
 			}
 		})

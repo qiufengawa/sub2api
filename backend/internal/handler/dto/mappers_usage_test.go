@@ -245,6 +245,30 @@ func TestUsageLogFromService_PreservesHistoricalMissingImageSize(t *testing.T) {
 	require.NotContains(t, string(body), `"image_size":"2K"`)
 }
 
+func TestUsageLogFromService_PreservesBillingDecisionMetadata(t *testing.T) {
+	t.Parallel()
+
+	preference := service.BillingPreferenceSubscriptionFirst
+	fallbackReason := "subscription_quota_exhausted"
+	log := &service.UsageLog{
+		RequestID:             "req_billing_metadata",
+		Model:                 "gpt-5.4",
+		BillingSource:         service.BillingSourceWallet,
+		BillingPreference:     &preference,
+		BillingFallbackReason: &fallbackReason,
+	}
+
+	for _, got := range []*UsageLog{UsageLogFromService(log), &UsageLogFromServiceAdmin(log).UsageLog} {
+		require.Equal(t, service.BillingSourceWallet, got.BillingSource)
+		require.Equal(t, preference, *got.BillingPreference)
+		require.Equal(t, fallbackReason, *got.BillingFallbackReason)
+
+		body, err := json.Marshal(got)
+		require.NoError(t, err)
+		require.Contains(t, string(body), `"billing_fallback_reason":"subscription_quota_exhausted"`)
+	}
+}
+
 func f64Ptr(value float64) *float64 {
 	return &value
 }

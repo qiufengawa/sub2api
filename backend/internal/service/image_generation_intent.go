@@ -507,6 +507,13 @@ func resolveOpenAIResponsesImageBillingConfigDetailedFromBody(body []byte, fallb
 	}, nil
 }
 
+// ResolveOpenAIResponsesImageBillingConfig exposes the same normalized model
+// and size decision used by forwarding so request reservations and final
+// image settlement cannot drift onto different aliases or size tiers.
+func ResolveOpenAIResponsesImageBillingConfig(body []byte, fallbackModel string) (OpenAIResponsesImageBillingConfig, error) {
+	return resolveOpenAIResponsesImageBillingConfigDetailedFromBody(body, fallbackModel)
+}
+
 func isOpenAIImageBillingModelAlias(model string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(model))
 	if normalized == "" {

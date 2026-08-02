@@ -50,27 +50,32 @@ func TestSanitizeAdminPaymentOrderForResponseAddsCurrency(t *testing.T) {
 
 func TestAdminSubscriptionPlansForResponseIncludesCompositeGroupInfo(t *testing.T) {
 	weekly := 25.0
+	cycleQuota := 100.0
 	now := time.Now()
 	plans := []*dbent.SubscriptionPlan{
 		{
-			ID:           11,
-			GroupID:      7,
-			Name:         "All models",
-			Description:  "Composite access",
-			Price:        19.99,
-			Currency:     "CNY",
-			ValidityDays: 30,
-			ValidityUnit: "days",
-			Features:     "OpenAI\nClaude\nGemini\nGrok",
-			ProductName:  "Sub2API",
-			ForSale:      true,
-			SortOrder:    1,
-			CreatedAt:    now,
-			UpdatedAt:    now,
+			ID:                    11,
+			GroupID:               7,
+			Name:                  "All models",
+			Description:           "Composite access",
+			Price:                 19.99,
+			Currency:              "CNY",
+			ValidityDays:          30,
+			ValidityUnit:          "days",
+			Features:              "OpenAI\nClaude\nGemini\nGrok",
+			ProductName:           "Sub2API",
+			ForSale:               true,
+			SortOrder:             1,
+			CycleQuotaUsd:         &cycleQuota,
+			ResetIntervalSeconds:  604800,
+			WalletFallbackEnabled: true,
+			CreatedAt:             now,
+			UpdatedAt:             now,
 		},
 	}
 	groupInfo := map[int64]service.PlanGroupInfo{
 		7: {
+			ID:             7,
 			Platform:       service.PlatformComposite,
 			Name:           "Bucket 2 composite",
 			RateMultiplier: 1.5,
@@ -95,6 +100,18 @@ func TestAdminSubscriptionPlansForResponseIncludesCompositeGroupInfo(t *testing.
 	}
 	if strings.Join(got[0].ModelScopes, ",") != "openai,claude,gemini,grok" {
 		t.Fatalf("expected model scopes to be preserved, got %#v", got[0].ModelScopes)
+	}
+	if len(got[0].IncludedGroups) != 1 || got[0].IncludedGroups[0].ID != 7 {
+		t.Fatalf("expected included group contract to be preserved, got %#v", got[0].IncludedGroups)
+	}
+	if got[0].CycleQuotaUSD == nil || *got[0].CycleQuotaUSD != cycleQuota {
+		t.Fatalf("expected cycle quota to be preserved, got %#v", got[0].CycleQuotaUSD)
+	}
+	if got[0].ResetIntervalSeconds != 604800 {
+		t.Fatalf("expected reset interval to be preserved, got %d", got[0].ResetIntervalSeconds)
+	}
+	if !got[0].WalletFallbackEnabled {
+		t.Fatal("expected wallet fallback flag to be preserved")
 	}
 	// 投影必须保留 ent 原始响应的全部套餐字段：currency 丢失曾导致编辑保存时
 	// 静默清空套餐货币（PlanEditDialog 回传空串 → SetCurrency("")）。

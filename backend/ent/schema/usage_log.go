@@ -113,6 +113,17 @@ func (UsageLog) Fields() []ent.Field {
 		// 其他字段
 		field.Int8("billing_type").
 			Default(0),
+		field.String("billing_source").
+			MaxLen(24).
+			Default("legacy"),
+		field.String("billing_preference").
+			MaxLen(24).
+			Optional().
+			Nillable(),
+		field.String("billing_fallback_reason").
+			MaxLen(64).
+			Optional().
+			Nillable(),
 		field.Bool("stream").
 			Default(false),
 		field.Int("duration_ms").

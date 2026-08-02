@@ -45,31 +45,48 @@
         <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.validity') }}</dt>
         <dd class="min-w-0 break-words text-right font-medium text-gray-800 dark:text-gray-200">{{ validitySuffix }}</dd>
       </div>
-      <div class="flex min-w-0 items-start justify-between gap-3 py-2.5">
-        <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.rate') }}</dt>
-        <dd class="min-w-0 break-words text-right font-medium text-gray-800 dark:text-gray-200">{{ rateDisplay }}</dd>
+      <div v-if="includedGroups.length" class="py-2.5">
+        <dt class="mb-2 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.includedGroups') }}</dt>
+        <dd class="space-y-1.5">
+          <div v-for="group in includedGroups" :key="group.id" class="flex min-w-0 items-center gap-2 text-xs">
+            <PlatformIcon :platform="group.platform as GroupPlatform" size="sm" class="shrink-0" />
+            <span class="min-w-0 flex-1 truncate font-medium text-gray-700 dark:text-gray-300" :title="group.name">{{ group.name }}</span>
+            <span class="shrink-0 tabular-nums text-gray-600 dark:text-gray-300">×{{ normalizedRate(group.rate_multiplier) }}</span>
+            <span v-if="group.peak_rate_enabled" class="shrink-0 rounded-[3px] bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+              {{ t('payment.planCard.peakRateShort', { rate: normalizedRate(group.peak_rate_multiplier ?? 1) }) }}
+            </span>
+          </div>
+        </dd>
       </div>
-      <div v-if="hasPeakRate" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
-        <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.peakRate') }}</dt>
-        <dd class="min-w-0 text-right">
-          <span class="inline-flex max-w-full break-words rounded-[3px] bg-amber-50 px-1.5 py-0.5 text-right text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30">
-            {{ peakRateDisplay }}
+      <div v-else-if="plan.rate_multiplier != null" class="flex min-w-0 items-center justify-between gap-3 py-2.5">
+        <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.rate') }}</dt>
+        <dd class="flex min-w-0 items-center justify-end gap-2 text-right">
+          <span class="shrink-0 font-medium tabular-nums text-gray-800 dark:text-gray-200">×{{ normalizedRate(plan.rate_multiplier) }}</span>
+          <span v-if="plan.peak_rate_enabled" class="shrink-0 rounded-[3px] bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+            {{ t('payment.planCard.peakRateShort', { rate: normalizedRate(plan.peak_rate_multiplier ?? 1) }) }}
           </span>
         </dd>
       </div>
-      <div v-if="plan.daily_limit_usd != null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
+      <div v-if="plan.cycle_quota_usd != null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
+        <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.cycleQuota') }}</dt>
+        <dd class="min-w-0 text-right font-medium text-gray-800 dark:text-gray-200">
+          <p class="tabular-nums">${{ normalizedQuota }}</p>
+          <p class="mt-0.5 text-[10px] font-normal text-gray-400 dark:text-gray-500">{{ resetIntervalLabel }}</p>
+        </dd>
+      </div>
+      <div v-else-if="plan.daily_limit_usd != null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
         <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.dailyLimit') }}</dt>
         <dd class="shrink-0 font-medium tabular-nums text-gray-800 dark:text-gray-200">${{ plan.daily_limit_usd }}</dd>
       </div>
-      <div v-if="plan.weekly_limit_usd != null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
+      <div v-if="plan.cycle_quota_usd == null && plan.weekly_limit_usd != null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
         <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.weeklyLimit') }}</dt>
         <dd class="shrink-0 font-medium tabular-nums text-gray-800 dark:text-gray-200">${{ plan.weekly_limit_usd }}</dd>
       </div>
-      <div v-if="plan.monthly_limit_usd != null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
+      <div v-if="plan.cycle_quota_usd == null && plan.monthly_limit_usd != null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
         <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.monthlyLimit') }}</dt>
         <dd class="shrink-0 font-medium tabular-nums text-gray-800 dark:text-gray-200">${{ plan.monthly_limit_usd }}</dd>
       </div>
-      <div v-if="plan.daily_limit_usd == null && plan.weekly_limit_usd == null && plan.monthly_limit_usd == null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
+      <div v-if="plan.cycle_quota_usd == null && plan.daily_limit_usd == null && plan.weekly_limit_usd == null && plan.monthly_limit_usd == null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
         <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.quota') }}</dt>
         <dd class="min-w-0 break-words text-right font-medium text-gray-800 dark:text-gray-200">{{ t('payment.planCard.unlimited') }}</dd>
       </div>
@@ -112,8 +129,6 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { SubscriptionPlan } from '@/types/payment'
 import type { GroupPlatform, UserSubscription } from '@/types'
-import { useAppStore } from '@/stores/app'
-import { hasPeakRate as groupHasPeakRate, formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
 import { planValiditySuffix } from './validity'
 import { currencySymbol } from '@/components/payment/currency'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
@@ -124,9 +139,15 @@ const props = defineProps<{ plan: SubscriptionPlan; activeSubscriptions?: UserSu
 const emit = defineEmits<{ select: [plan: SubscriptionPlan] }>()
 const { t } = useI18n()
 
-const platform = computed(() => props.plan.group_platform || '')
+const includedGroups = computed(() => props.plan.included_groups || [])
+const platform = computed(() => {
+  const platforms = [...new Set(includedGroups.value.map(group => group.platform).filter(Boolean))]
+  if (platforms.length === 1) return platforms[0]
+  if (platforms.length > 1) return 'composite'
+  return props.plan.group_platform || ''
+})
 const isRenewal = computed(() =>
-  props.activeSubscriptions?.some(s => s.group_id === props.plan.group_id && s.status === 'active') ?? false
+  props.activeSubscriptions?.some(s => (s.plan_id === props.plan.id || s.group_id === props.plan.group_id) && s.status === 'active') ?? false
 )
 
 const pLabel = computed(() => platformLabel(platform.value))
@@ -138,18 +159,18 @@ const discountText = computed(() => {
 })
 const showDiscount = computed(() => discountText.value !== '')
 
-const rateDisplay = computed(() => {
-  const rate = props.plan.rate_multiplier ?? 1
-  return `×${Number(rate.toPrecision(10))}`
-})
-
-const appStore = useAppStore()
 const planCurrencySymbol = computed(() => currencySymbol(props.plan.currency || 'USD'))
 
-const hasPeakRate = computed(() => groupHasPeakRate(props.plan))
+function normalizedRate(rate: number): number {
+  return Number((rate ?? 1).toPrecision(10))
+}
 
-const peakRateDisplay = computed(() => {
-  return formatPeakRateWindow(props.plan, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
+const normalizedQuota = computed(() => Number(props.plan.cycle_quota_usd || 0).toFixed(2))
+const resetIntervalLabel = computed(() => {
+  const seconds = Number(props.plan.reset_interval_seconds) || 0
+  if (seconds <= 0) return t('payment.planCard.noReset')
+  const days = Number((seconds / 86400).toFixed(2))
+  return t('payment.planCard.resetEveryDays', { days })
 })
 
 const MODEL_SCOPE_BADGES: Record<string, { label: string; className: string }> = {

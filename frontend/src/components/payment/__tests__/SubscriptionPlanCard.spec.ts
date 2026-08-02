@@ -176,4 +176,38 @@ describe("SubscriptionPlanCard", () => {
     expect(wrapper.findAll(".line-through")).toHaveLength(0);
     expect(wrapper.get(".plan-card-price-line").text()).not.toContain("-%");
   });
+
+  it("keeps the legacy single-group rate visible", () => {
+    const wrapper = mountPlanCard("openai", {
+      included_groups: undefined,
+      rate_multiplier: 1.5,
+      peak_rate_enabled: true,
+      peak_rate_multiplier: 2,
+    });
+
+    expect(wrapper.text()).toContain("Rate");
+    expect(wrapper.text()).toContain("×1.5");
+    expect(wrapper.text()).toContain("payment.planCard.peakRateShort");
+  });
+
+  it("shows real included-group rates and uses cycle quota as the canonical quota", () => {
+    const wrapper = mountPlanCard("openai", {
+      included_groups: [
+        { id: 10, name: "GPT-1", platform: "openai", rate_multiplier: 0.1 },
+        { id: 11, name: "GPT-2", platform: "claude", rate_multiplier: 0.2, peak_rate_enabled: true, peak_rate_multiplier: 0.3 },
+      ],
+      cycle_quota_usd: 40,
+      reset_interval_seconds: 604800,
+      weekly_limit_usd: 99,
+      monthly_limit_usd: 199,
+    });
+
+    expect(wrapper.text()).toContain("GPT-1");
+    expect(wrapper.text()).toContain("×0.1");
+    expect(wrapper.text()).toContain("GPT-2");
+    expect(wrapper.text()).toContain("×0.2");
+    expect(wrapper.text()).toContain("$40.00");
+    expect(wrapper.text()).not.toContain("$99");
+    expect(wrapper.text()).not.toContain("$199");
+  });
 });

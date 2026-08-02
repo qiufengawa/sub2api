@@ -212,13 +212,15 @@ describe('PlanImportDialog', () => {
     await previewButton!.trigger('click')
     await flushPromises()
 
-    const submitted = previewCatalogImport.mock.calls[0][0]
-    expect(submitted.groups.every((group: { copy_accounts_from: string[] }) => (
-      group.copy_accounts_from[0] === 'OpenAI 主池'
-    ))).toBe(true)
-    expect(submitted.groups[0].routes).toEqual(expect.arrayContaining([
-      expect.objectContaining({ public_model: 'deepseek-v3', target_platform: 'openai' }),
-    ]))
+	const submitted = previewCatalogImport.mock.calls[0][0]
+	expect(submitted.groups).toEqual([])
+	expect(submitted.plans).toHaveLength(5)
+	expect(submitted.plans[0]).toEqual(expect.objectContaining({
+	  group_id: 8,
+	  included_group_ids: [8],
+	}))
+	expect(submitted.plans[0].group_key).toBeUndefined()
+	expect(getModelsListCandidates).not.toHaveBeenCalled()
   })
 
   it('keeps apply disabled when the backend preview contains a blocking error', async () => {

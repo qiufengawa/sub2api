@@ -81,6 +81,12 @@ type UsageLog struct {
 	AccountRateMultiplier *float64 `json:"account_rate_multiplier,omitempty"`
 	// BillingType holds the value of the "billing_type" field.
 	BillingType int8 `json:"billing_type,omitempty"`
+	// BillingSource holds the value of the "billing_source" field.
+	BillingSource string `json:"billing_source,omitempty"`
+	// BillingPreference holds the value of the "billing_preference" field.
+	BillingPreference *string `json:"billing_preference,omitempty"`
+	// BillingFallbackReason holds the value of the "billing_fallback_reason" field.
+	BillingFallbackReason *string `json:"billing_fallback_reason,omitempty"`
 	// Stream holds the value of the "stream" field.
 	Stream bool `json:"stream,omitempty"`
 	// DurationMs holds the value of the "duration_ms" field.
@@ -204,7 +210,7 @@ func (*UsageLog) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case usagelog.FieldID, usagelog.FieldUserID, usagelog.FieldAPIKeyID, usagelog.FieldAccountID, usagelog.FieldChannelID, usagelog.FieldGroupID, usagelog.FieldSubscriptionID, usagelog.FieldInputTokens, usagelog.FieldOutputTokens, usagelog.FieldCacheCreationTokens, usagelog.FieldCacheReadTokens, usagelog.FieldCacheCreation5mTokens, usagelog.FieldCacheCreation1hTokens, usagelog.FieldBillingType, usagelog.FieldDurationMs, usagelog.FieldFirstTokenMs, usagelog.FieldImageCount, usagelog.FieldVideoCount, usagelog.FieldVideoDurationSeconds:
 			values[i] = new(sql.NullInt64)
-		case usagelog.FieldRequestID, usagelog.FieldModel, usagelog.FieldRequestedModel, usagelog.FieldUpstreamModel, usagelog.FieldModelMappingChain, usagelog.FieldBillingTier, usagelog.FieldBillingMode, usagelog.FieldUserAgent, usagelog.FieldIPAddress, usagelog.FieldImageSize, usagelog.FieldImageInputSize, usagelog.FieldImageOutputSize, usagelog.FieldImageSizeSource, usagelog.FieldVideoResolution:
+		case usagelog.FieldRequestID, usagelog.FieldModel, usagelog.FieldRequestedModel, usagelog.FieldUpstreamModel, usagelog.FieldModelMappingChain, usagelog.FieldBillingTier, usagelog.FieldBillingMode, usagelog.FieldBillingSource, usagelog.FieldBillingPreference, usagelog.FieldBillingFallbackReason, usagelog.FieldUserAgent, usagelog.FieldIPAddress, usagelog.FieldImageSize, usagelog.FieldImageInputSize, usagelog.FieldImageOutputSize, usagelog.FieldImageSizeSource, usagelog.FieldVideoResolution:
 			values[i] = new(sql.NullString)
 		case usagelog.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -411,6 +417,26 @@ func (_m *UsageLog) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field billing_type", values[i])
 			} else if value.Valid {
 				_m.BillingType = int8(value.Int64)
+			}
+		case usagelog.FieldBillingSource:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field billing_source", values[i])
+			} else if value.Valid {
+				_m.BillingSource = value.String
+			}
+		case usagelog.FieldBillingPreference:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field billing_preference", values[i])
+			} else if value.Valid {
+				_m.BillingPreference = new(string)
+				*_m.BillingPreference = value.String
+			}
+		case usagelog.FieldBillingFallbackReason:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field billing_fallback_reason", values[i])
+			} else if value.Valid {
+				_m.BillingFallbackReason = new(string)
+				*_m.BillingFallbackReason = value.String
 			}
 		case usagelog.FieldStream:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -685,6 +711,19 @@ func (_m *UsageLog) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("billing_type=")
 	builder.WriteString(fmt.Sprintf("%v", _m.BillingType))
+	builder.WriteString(", ")
+	builder.WriteString("billing_source=")
+	builder.WriteString(_m.BillingSource)
+	builder.WriteString(", ")
+	if v := _m.BillingPreference; v != nil {
+		builder.WriteString("billing_preference=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.BillingFallbackReason; v != nil {
+		builder.WriteString("billing_fallback_reason=")
+		builder.WriteString(*v)
+	}
 	builder.WriteString(", ")
 	builder.WriteString("stream=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Stream))

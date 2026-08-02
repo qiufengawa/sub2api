@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 const (
@@ -25,6 +26,12 @@ const (
 	FieldOriginalPrice = "original_price"
 	// FieldCurrency holds the string denoting the currency field in the database.
 	FieldCurrency = "currency"
+	// FieldCycleQuotaUsd holds the string denoting the cycle_quota_usd field in the database.
+	FieldCycleQuotaUsd = "cycle_quota_usd"
+	// FieldResetIntervalSeconds holds the string denoting the reset_interval_seconds field in the database.
+	FieldResetIntervalSeconds = "reset_interval_seconds"
+	// FieldWalletFallbackEnabled holds the string denoting the wallet_fallback_enabled field in the database.
+	FieldWalletFallbackEnabled = "wallet_fallback_enabled"
 	// FieldValidityDays holds the string denoting the validity_days field in the database.
 	FieldValidityDays = "validity_days"
 	// FieldValidityUnit holds the string denoting the validity_unit field in the database.
@@ -41,8 +48,33 @@ const (
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
 	FieldUpdatedAt = "updated_at"
+	// EdgeGroups holds the string denoting the groups edge name in mutations.
+	EdgeGroups = "groups"
+	// EdgeUserSubscriptions holds the string denoting the user_subscriptions edge name in mutations.
+	EdgeUserSubscriptions = "user_subscriptions"
+	// EdgePlanGroups holds the string denoting the plan_groups edge name in mutations.
+	EdgePlanGroups = "plan_groups"
 	// Table holds the table name of the subscriptionplan in the database.
 	Table = "subscription_plans"
+	// GroupsTable is the table that holds the groups relation/edge. The primary key declared below.
+	GroupsTable = "subscription_plan_groups"
+	// GroupsInverseTable is the table name for the Group entity.
+	// It exists in this package in order to avoid circular dependency with the "group" package.
+	GroupsInverseTable = "groups"
+	// UserSubscriptionsTable is the table that holds the user_subscriptions relation/edge.
+	UserSubscriptionsTable = "user_subscriptions"
+	// UserSubscriptionsInverseTable is the table name for the UserSubscription entity.
+	// It exists in this package in order to avoid circular dependency with the "usersubscription" package.
+	UserSubscriptionsInverseTable = "user_subscriptions"
+	// UserSubscriptionsColumn is the table column denoting the user_subscriptions relation/edge.
+	UserSubscriptionsColumn = "plan_id"
+	// PlanGroupsTable is the table that holds the plan_groups relation/edge.
+	PlanGroupsTable = "subscription_plan_groups"
+	// PlanGroupsInverseTable is the table name for the SubscriptionPlanGroup entity.
+	// It exists in this package in order to avoid circular dependency with the "subscriptionplangroup" package.
+	PlanGroupsInverseTable = "subscription_plan_groups"
+	// PlanGroupsColumn is the table column denoting the plan_groups relation/edge.
+	PlanGroupsColumn = "plan_id"
 )
 
 // Columns holds all SQL columns for subscriptionplan fields.
@@ -54,6 +86,9 @@ var Columns = []string{
 	FieldPrice,
 	FieldOriginalPrice,
 	FieldCurrency,
+	FieldCycleQuotaUsd,
+	FieldResetIntervalSeconds,
+	FieldWalletFallbackEnabled,
 	FieldValidityDays,
 	FieldValidityUnit,
 	FieldFeatures,
@@ -63,6 +98,12 @@ var Columns = []string{
 	FieldCreatedAt,
 	FieldUpdatedAt,
 }
+
+var (
+	// GroupsPrimaryKey and GroupsColumn2 are the table columns denoting the
+	// primary key for the groups relation (M2M).
+	GroupsPrimaryKey = []string{"plan_id", "group_id"}
+)
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
@@ -83,6 +124,10 @@ var (
 	DefaultCurrency string
 	// CurrencyValidator is a validator for the "currency" field. It is called by the builders before save.
 	CurrencyValidator func(string) error
+	// DefaultResetIntervalSeconds holds the default value on creation for the "reset_interval_seconds" field.
+	DefaultResetIntervalSeconds int
+	// DefaultWalletFallbackEnabled holds the default value on creation for the "wallet_fallback_enabled" field.
+	DefaultWalletFallbackEnabled bool
 	// DefaultValidityDays holds the default value on creation for the "validity_days" field.
 	DefaultValidityDays int
 	// DefaultValidityUnit holds the default value on creation for the "validity_unit" field.
@@ -145,6 +190,21 @@ func ByCurrency(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCurrency, opts...).ToFunc()
 }
 
+// ByCycleQuotaUsd orders the results by the cycle_quota_usd field.
+func ByCycleQuotaUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCycleQuotaUsd, opts...).ToFunc()
+}
+
+// ByResetIntervalSeconds orders the results by the reset_interval_seconds field.
+func ByResetIntervalSeconds(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldResetIntervalSeconds, opts...).ToFunc()
+}
+
+// ByWalletFallbackEnabled orders the results by the wallet_fallback_enabled field.
+func ByWalletFallbackEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldWalletFallbackEnabled, opts...).ToFunc()
+}
+
 // ByValidityDays orders the results by the validity_days field.
 func ByValidityDays(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldValidityDays, opts...).ToFunc()
@@ -183,4 +243,67 @@ func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByUpdatedAt orders the results by the updated_at field.
 func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
+}
+
+// ByGroupsCount orders the results by groups count.
+func ByGroupsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newGroupsStep(), opts...)
+	}
+}
+
+// ByGroups orders the results by groups terms.
+func ByGroups(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGroupsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByUserSubscriptionsCount orders the results by user_subscriptions count.
+func ByUserSubscriptionsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newUserSubscriptionsStep(), opts...)
+	}
+}
+
+// ByUserSubscriptions orders the results by user_subscriptions terms.
+func ByUserSubscriptions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newUserSubscriptionsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByPlanGroupsCount orders the results by plan_groups count.
+func ByPlanGroupsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newPlanGroupsStep(), opts...)
+	}
+}
+
+// ByPlanGroups orders the results by plan_groups terms.
+func ByPlanGroups(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPlanGroupsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+func newGroupsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GroupsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, false, GroupsTable, GroupsPrimaryKey...),
+	)
+}
+func newUserSubscriptionsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(UserSubscriptionsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, UserSubscriptionsTable, UserSubscriptionsColumn),
+	)
+}
+func newPlanGroupsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PlanGroupsInverseTable, PlanGroupsColumn),
+		sqlgraph.Edge(sqlgraph.O2M, true, PlanGroupsTable, PlanGroupsColumn),
+	)
 }

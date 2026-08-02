@@ -159,6 +159,37 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		h.errorResponse(c, status, code, message)
 		return
 	}
+	payloadForHash := body
+	if len(payloadForHash) == 0 && strings.TrimSpace(requestID) != "" {
+		payloadForHash = []byte(requestID)
+	}
+	requestPayloadHash := service.HashUsageRequestPayload(payloadForHash)
+	billingReservation := &service.RequestBillingReservationHandle{}
+	if shouldRecordGrokMediaUsage(endpoint, requestModel) {
+		estimateKind := service.RequestBillingEstimateImage
+		if endpoint == service.GrokMediaEndpointVideosGenerations || endpoint == service.GrokMediaEndpointVideosEdits || endpoint == service.GrokMediaEndpointVideosExtensions {
+			estimateKind = service.RequestBillingEstimateVideo
+		}
+		billingReservation, err = reserveRequestBilling(c, h.gatewayService, apiKey.User, apiKey, service.RequestBillingEstimate{
+			Kind:            estimateKind,
+			Model:           routingModel,
+			Body:            body,
+			RequestCount:    requestInfo.N,
+			SizeTier:        requestInfo.SizeTier,
+			Resolution:      requestInfo.Resolution,
+			DurationSeconds: requestInfo.DurationSeconds,
+		}, requestPayloadHash)
+		if err != nil {
+			reqLog.Info("grok_media.billing_reservation_failed", zap.Error(err))
+			status, code, message, retryAfter := billingErrorDetails(err)
+			if retryAfter > 0 {
+				c.Header("Retry-After", strconv.Itoa(retryAfter))
+			}
+			h.errorResponse(c, status, code, message)
+			return
+		}
+		defer billingReservation.Close(c.Request.Context())
+	}
 
 	sessionSeed := body
 	if len(sessionSeed) == 0 && strings.TrimSpace(requestID) != "" {
@@ -405,7 +436,9 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 			}
 		}
 		if shouldRecordGrokMediaUsage(endpoint, requestModel) {
-			recordGrokMediaUsage(c, h, reqLog, apiKey, subject, subscription, account, result, requestModel, body, requestID)
+			if recordGrokMediaUsage(c, h, reqLog, apiKey, subject, subscription, account, result, requestModel, requestPayloadHash) {
+				billingReservation.MarkForSettlement()
+			}
 		}
 		reqLog.Debug("grok_media.request_completed",
 			zap.Int64("account_id", account.ID),
@@ -460,16 +493,11 @@ func recordGrokMediaUsage(
 	account *service.Account,
 	result *service.OpenAIForwardResult,
 	requestModel string,
-	body []byte,
-	requestID string,
-) {
+	requestPayloadHash string,
+) bool {
 	userAgent := c.GetHeader("User-Agent")
 	clientIP := ip.GetClientIP(c)
 	sessionID := service.ExtractClientSessionID(c)
-	payloadForHash := body
-	if len(payloadForHash) == 0 && strings.TrimSpace(requestID) != "" {
-		payloadForHash = []byte(requestID)
-	}
 	inboundEndpoint := GetInboundEndpoint(c)
 	upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
 	quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
@@ -480,7 +508,7 @@ func recordGrokMediaUsage(
 		OriginalModel:      clientRequestedModel(c, requestModel),
 		ChannelMappedModel: requestModel,
 	}
-	h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
+	return h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
 		if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 			Result:             result,
 			APIKey:             apiKey,
@@ -491,7 +519,7 @@ func recordGrokMediaUsage(
 			UpstreamEndpoint:   upstreamEndpoint,
 			UserAgent:          userAgent,
 			IPAddress:          clientIP,
-			RequestPayloadHash: service.HashUsageRequestPayload(payloadForHash),
+			RequestPayloadHash: requestPayloadHash,
 			APIKeyService:      h.apiKeyService,
 			QuotaPlatform:      quotaPlatform,
 			SessionID:          sessionID,

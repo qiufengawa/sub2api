@@ -14,6 +14,7 @@ import (
 func catalogTestRequest() PaymentCatalogImportRequest {
 	weekly := 5.0
 	monthly := 20.0
+	cycleQuota := 5.0
 	originalPrice := 20.0
 	validity := 28
 	sortOrder := 10
@@ -45,18 +46,21 @@ func catalogTestRequest() PaymentCatalogImportRequest {
 			SortOrder:           &sortOrder,
 		}},
 		Plans: []PaymentCatalogImportPlan{{
-			GroupKey:      "lite",
-			Name:          "Lite",
-			Description:   "28 day plan",
-			Price:         12.9,
-			OriginalPrice: &originalPrice,
-			Currency:      "CNY",
-			ValidityDays:  &validity,
-			ValidityUnit:  "days",
-			Features:      []string{"Weekly reset", "Unused quota does not roll over"},
-			ProductName:   "Qiu API Lite",
-			ForSale:       catalogBoolPtr(true),
-			SortOrder:     &sortOrder,
+			GroupKey:              "lite",
+			CycleQuotaUSD:         &cycleQuota,
+			ResetIntervalSeconds:  604800,
+			WalletFallbackEnabled: catalogBoolPtr(false),
+			Name:                  "Lite",
+			Description:           "28 day plan",
+			Price:                 12.9,
+			OriginalPrice:         &originalPrice,
+			Currency:              "CNY",
+			ValidityDays:          &validity,
+			ValidityUnit:          "days",
+			Features:              []string{"Weekly reset", "Unused quota does not roll over"},
+			ProductName:           "Qiu API Lite",
+			ForSale:               catalogBoolPtr(true),
+			SortOrder:             &sortOrder,
 		}},
 	}
 }
@@ -107,6 +111,25 @@ func TestPaymentCatalogImportValidationRejectsDuplicatesAndSelfSource(t *testing
 	}
 }
 
+func TestPaymentCatalogImportKeepsLegacySingleGroupPlansCompatible(t *testing.T) {
+	req := catalogTestRequest()
+	req.Plans[0].IncludedGroupKeys = nil
+	req.Plans[0].CycleQuotaUSD = nil
+	req.Plans[0].ResetIntervalSeconds = 0
+	req.Plans[0].WalletFallbackEnabled = nil
+
+	normalized := (&PaymentConfigService{}).normalizeCatalogImport(req)
+	if hasCatalogErrors(normalized.issues) {
+		t.Fatalf("legacy plan should remain valid: %#v", normalized.issues)
+	}
+	if len(normalized.plans) != 1 || len(normalized.plans[0].includedGroupKeys) != 1 || normalized.plans[0].includedGroupKeys[0] != "lite" {
+		t.Fatalf("legacy group_key was not normalized as the included group: %#v", normalized.plans)
+	}
+	if normalized.plans[0].cycleQuotaUSD != nil || normalized.plans[0].resetIntervalSeconds != 0 || !normalized.plans[0].walletFallbackEnabled {
+		t.Fatalf("legacy plan defaults changed: %#v", normalized.plans[0])
+	}
+}
+
 func TestPaymentCatalogImportValidationRejectsOversizedFieldsAndArrays(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -142,6 +165,15 @@ func TestPaymentCatalogImportValidationRejectsOversizedFieldsAndArrays(t *testin
 		}},
 		{name: "product name", code: "PRODUCT_NAME_INVALID", mutate: func(req *PaymentCatalogImportRequest) {
 			req.Plans[0].ProductName = strings.Repeat("p", paymentCatalogMaxProductNameRunes+1)
+		}},
+		{name: "included group", code: "PLAN_INCLUDED_GROUP_UNKNOWN", mutate: func(req *PaymentCatalogImportRequest) {
+			req.Plans[0].IncludedGroupKeys = []string{"missing"}
+		}},
+		{name: "cycle quota", code: "PLAN_CYCLE_QUOTA_INVALID", mutate: func(req *PaymentCatalogImportRequest) {
+			req.Plans[0].CycleQuotaUSD = floatPtr(0)
+		}},
+		{name: "cycle reset", code: "PLAN_RESET_INTERVAL_REQUIRED", mutate: func(req *PaymentCatalogImportRequest) {
+			req.Plans[0].ResetIntervalSeconds = 0
 		}},
 	}
 
@@ -184,6 +216,16 @@ func TestPaymentCatalogImportFirstAndRepeatedImport(t *testing.T) {
 	if err != nil || planCount != 1 {
 		t.Fatalf("plan count = %d, err = %v", planCount, err)
 	}
+	storedPlan, err := client.SubscriptionPlan.Query().Where(subscriptionplan.NameEQ("Lite")).WithGroups().Only(ctx)
+	if err != nil {
+		t.Fatalf("load imported plan: %v", err)
+	}
+	if storedPlan.CycleQuotaUsd == nil || *storedPlan.CycleQuotaUsd != 5 || storedPlan.ResetIntervalSeconds != 604800 || storedPlan.WalletFallbackEnabled {
+		t.Fatalf("plan cycle settings were not imported: %#v", storedPlan)
+	}
+	if len(storedPlan.Edges.Groups) != 1 || storedPlan.Edges.Groups[0].ID != storedPlan.GroupID {
+		t.Fatalf("legacy group_key must remain an included group: %#v", storedPlan.Edges.Groups)
+	}
 
 	repeatPreview, err := svc.PreviewCatalogImport(ctx, req)
 	if err != nil {
@@ -202,6 +244,216 @@ func TestPaymentCatalogImportFirstAndRepeatedImport(t *testing.T) {
 	planCount, _ = client.SubscriptionPlan.Query().Where(subscriptionplan.NameEQ("Lite")).Count(ctx)
 	if groupCount != 1 || planCount != 1 {
 		t.Fatalf("repeated import duplicated data: groups=%d plans=%d", groupCount, planCount)
+	}
+}
+
+func TestPaymentCatalogImportRoundTripsIncludedGroupsAndCycleSettings(t *testing.T) {
+	svc, client := newCatalogImportTestService(t)
+	ctx := context.Background()
+	req := catalogTestRequest()
+	secondGroup := req.Groups[0]
+	secondGroup.Key = "gpt-two"
+	secondGroup.Name = "GPT two subscription"
+	secondGroup.SortOrder = catalogIntPtr(20)
+	req.Groups = append(req.Groups, secondGroup)
+	req.Plans[0].IncludedGroupKeys = []string{"lite", "gpt-two", "gpt-two"}
+
+	preview, err := svc.PreviewCatalogImport(ctx, req)
+	if err != nil || !preview.CanApply {
+		t.Fatalf("preview multi-group catalog: preview=%#v err=%v", preview, err)
+	}
+	if _, err := svc.ApplyCatalogImport(ctx, PaymentCatalogImportApplyRequest{Catalog: req, PreviewToken: preview.PreviewToken}); err != nil {
+		t.Fatalf("apply multi-group catalog: %v", err)
+	}
+
+	stored, err := client.SubscriptionPlan.Query().Where(subscriptionplan.NameEQ("Lite")).WithGroups().Only(ctx)
+	if err != nil {
+		t.Fatalf("load multi-group plan: %v", err)
+	}
+	if len(stored.Edges.Groups) != 2 {
+		t.Fatalf("included group count = %d, want 2", len(stored.Edges.Groups))
+	}
+	exported, err := svc.ExportCatalog(ctx)
+	if err != nil {
+		t.Fatalf("export multi-group catalog: %v", err)
+	}
+	if len(exported.Plans) != 1 || len(exported.Plans[0].IncludedGroupKeys) != 2 {
+		t.Fatalf("included groups were not exported: %#v", exported.Plans)
+	}
+	if exported.Plans[0].CycleQuotaUSD == nil || *exported.Plans[0].CycleQuotaUSD != 5 || exported.Plans[0].ResetIntervalSeconds != 604800 || exported.Plans[0].WalletFallbackEnabled == nil || *exported.Plans[0].WalletFallbackEnabled {
+		t.Fatalf("cycle settings were not exported: %#v", exported.Plans[0])
+	}
+	reimportPreview, err := svc.PreviewCatalogImport(ctx, *exported)
+	if err != nil || !reimportPreview.CanApply || reimportPreview.Summary.PlansUnchanged != 1 {
+		t.Fatalf("multi-group export is not idempotent: preview=%#v err=%v", reimportPreview, err)
+	}
+
+	req.Plans[0].IncludedGroupKeys = []string{"lite"}
+	removePreview, err := svc.PreviewCatalogImport(ctx, req)
+	if err != nil || !removePreview.CanApply {
+		t.Fatalf("preview included-group removal: preview=%#v err=%v", removePreview, err)
+	}
+	foundGroupDiff := false
+	for _, change := range removePreview.Changes {
+		for _, field := range change.Fields {
+			if change.Kind == "plan" && field.Field == "included_group_keys" {
+				foundGroupDiff = true
+			}
+		}
+	}
+	if !foundGroupDiff {
+		t.Fatalf("included-group removal is missing from preview: %#v", removePreview.Changes)
+	}
+	if _, err := svc.ApplyCatalogImport(ctx, PaymentCatalogImportApplyRequest{Catalog: req, PreviewToken: removePreview.PreviewToken}); err != nil {
+		t.Fatalf("apply included-group removal: %v", err)
+	}
+	stored, err = client.SubscriptionPlan.Query().Where(subscriptionplan.NameEQ("Lite")).WithGroups().Only(ctx)
+	if err != nil || len(stored.Edges.Groups) != 1 || stored.Edges.Groups[0].ID != stored.GroupID {
+		t.Fatalf("included-group removal was not applied: plan=%#v err=%v", stored, err)
+	}
+}
+
+func TestPaymentCatalogImportReferencesExistingRealGroupsWithoutMutatingThem(t *testing.T) {
+	svc, client := newCatalogImportTestService(t)
+	ctx := context.Background()
+	primary, err := client.Group.Create().
+		SetName("GPT one real group").
+		SetDescription("primary routing group").
+		SetPlatform(PlatformOpenAI).
+		SetSubscriptionType(SubscriptionTypeStandard).
+		SetStatus(StatusActive).
+		SetRateMultiplier(0.1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create primary real group: %v", err)
+	}
+	included, err := client.Group.Create().
+		SetName("GPT two real group").
+		SetDescription("secondary routing group").
+		SetPlatform(PlatformOpenAI).
+		SetSubscriptionType(SubscriptionTypeStandard).
+		SetStatus(StatusActive).
+		SetRateMultiplier(0.2).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create included real group: %v", err)
+	}
+
+	req := catalogTestRequest()
+	req.Groups = nil
+	req.Plans[0].GroupKey = ""
+	primaryID := int64(primary.ID)
+	req.Plans[0].GroupID = &primaryID
+	req.Plans[0].IncludedGroupKeys = nil
+	req.Plans[0].IncludedGroupIDs = []int64{primary.ID, included.ID, included.ID}
+
+	preview, err := svc.PreviewCatalogImport(ctx, req)
+	if err != nil || !preview.CanApply {
+		t.Fatalf("preview real-group catalog: preview=%#v err=%v", preview, err)
+	}
+	if preview.Summary.GroupsUnchanged != 2 || preview.Summary.GroupsCreated != 0 || preview.Summary.GroupsUpdated != 0 || preview.Summary.PlansCreated != 1 {
+		t.Fatalf("unexpected real-group preview summary: %#v", preview.Summary)
+	}
+	if _, err := svc.ApplyCatalogImport(ctx, PaymentCatalogImportApplyRequest{Catalog: req, PreviewToken: preview.PreviewToken}); err != nil {
+		t.Fatalf("apply real-group catalog: %v", err)
+	}
+
+	storedPlan, err := client.SubscriptionPlan.Query().Where(subscriptionplan.NameEQ("Lite")).WithGroups().Only(ctx)
+	if err != nil {
+		t.Fatalf("load real-group plan: %v", err)
+	}
+	if storedPlan.GroupID != primary.ID || len(storedPlan.Edges.Groups) != 2 {
+		t.Fatalf("real groups were not attached to plan: %#v", storedPlan)
+	}
+	storedPrimary, err := client.Group.Get(ctx, primary.ID)
+	if err != nil {
+		t.Fatalf("reload primary real group: %v", err)
+	}
+	storedIncluded, err := client.Group.Get(ctx, included.ID)
+	if err != nil {
+		t.Fatalf("reload included real group: %v", err)
+	}
+	if storedPrimary.RateMultiplier != 0.1 || storedPrimary.Description == nil || *storedPrimary.Description != "primary routing group" || storedIncluded.RateMultiplier != 0.2 {
+		t.Fatalf("referenced real groups were mutated: primary=%#v included=%#v", storedPrimary, storedIncluded)
+	}
+
+	repeat, err := svc.PreviewCatalogImport(ctx, req)
+	if err != nil || !repeat.CanApply || repeat.Summary.PlansUnchanged != 1 {
+		t.Fatalf("real-group import is not idempotent: preview=%#v err=%v", repeat, err)
+	}
+	exported, err := svc.ExportCatalog(ctx)
+	if err != nil {
+		t.Fatalf("export real-group catalog: %v", err)
+	}
+	if len(exported.Plans) != 1 || exported.Plans[0].GroupID == nil || *exported.Plans[0].GroupID != primary.ID {
+		t.Fatalf("real primary group ID was not exported: %#v", exported.Plans)
+	}
+	if len(exported.Plans[0].IncludedGroupIDs) != 2 || len(exported.Plans[0].IncludedGroupKeys) != 0 {
+		t.Fatalf("real included group IDs were not exported: %#v", exported.Plans[0])
+	}
+}
+
+func TestPaymentCatalogImportRejectsMissingAndInactiveRealGroupReferences(t *testing.T) {
+	svc, client := newCatalogImportTestService(t)
+	ctx := context.Background()
+	inactive, err := client.Group.Create().
+		SetName("Inactive real group").
+		SetPlatform(PlatformOpenAI).
+		SetSubscriptionType(SubscriptionTypeStandard).
+		SetStatus(StatusDisabled).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create inactive real group: %v", err)
+	}
+
+	req := catalogTestRequest()
+	req.Groups = nil
+	req.Plans[0].GroupKey = ""
+	missingID := int64(999999)
+	req.Plans[0].GroupID = &missingID
+	req.Plans[0].IncludedGroupIDs = []int64{inactive.ID}
+	preview, err := svc.PreviewCatalogImport(ctx, req)
+	if err != nil {
+		t.Fatalf("preview invalid real-group references: %v", err)
+	}
+	if preview.CanApply {
+		t.Fatalf("invalid real-group references must block apply: %#v", preview)
+	}
+	codes := make(map[string]bool)
+	for _, issue := range preview.Issues {
+		codes[issue.Code] = true
+	}
+	if !codes["GROUP_ID_NOT_FOUND"] || !codes["GROUP_ID_INACTIVE"] {
+		t.Fatalf("missing reference issues: %#v", preview.Issues)
+	}
+}
+
+func TestPaymentCatalogImportAllowsMixedLegacyKeysAndRealGroupIDs(t *testing.T) {
+	svc, client := newCatalogImportTestService(t)
+	ctx := context.Background()
+	realGroup, err := client.Group.Create().
+		SetName("Existing 0.2x group").
+		SetPlatform(PlatformOpenAI).
+		SetSubscriptionType(SubscriptionTypeStandard).
+		SetStatus(StatusActive).
+		SetRateMultiplier(0.2).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create real group: %v", err)
+	}
+	req := catalogTestRequest()
+	req.Plans[0].IncludedGroupIDs = []int64{realGroup.ID}
+
+	preview, err := svc.PreviewCatalogImport(ctx, req)
+	if err != nil || !preview.CanApply {
+		t.Fatalf("preview mixed references: preview=%#v err=%v", preview, err)
+	}
+	if _, err := svc.ApplyCatalogImport(ctx, PaymentCatalogImportApplyRequest{Catalog: req, PreviewToken: preview.PreviewToken}); err != nil {
+		t.Fatalf("apply mixed references: %v", err)
+	}
+	stored, err := client.SubscriptionPlan.Query().Where(subscriptionplan.NameEQ("Lite")).WithGroups().Only(ctx)
+	if err != nil || len(stored.Edges.Groups) != 2 {
+		t.Fatalf("mixed references were not attached: plan=%#v err=%v", stored, err)
 	}
 }
 
@@ -292,6 +544,48 @@ func TestPaymentCatalogImportClearsNullableFields(t *testing.T) {
 	}
 	if storedPlan.OriginalPrice != nil {
 		t.Fatalf("original price was not cleared: %v", storedPlan.OriginalPrice)
+	}
+}
+
+func TestUpdatePlanCycleQuotaOmittedAndExplicitNull(t *testing.T) {
+	svc, client := newCatalogImportTestService(t)
+	ctx := context.Background()
+	req := catalogTestRequest()
+	preview, err := svc.PreviewCatalogImport(ctx, req)
+	if err != nil {
+		t.Fatalf("preview initial import: %v", err)
+	}
+	if _, err := svc.ApplyCatalogImport(ctx, PaymentCatalogImportApplyRequest{Catalog: req, PreviewToken: preview.PreviewToken}); err != nil {
+		t.Fatalf("apply initial import: %v", err)
+	}
+
+	stored, err := client.SubscriptionPlan.Query().Where(subscriptionplan.NameEQ("Lite")).Only(ctx)
+	if err != nil {
+		t.Fatalf("load plan: %v", err)
+	}
+
+	var omitted UpdatePlanRequest
+	if err := json.Unmarshal([]byte(`{"description":"updated"}`), &omitted); err != nil {
+		t.Fatalf("decode omitted patch: %v", err)
+	}
+	updated, err := svc.UpdatePlan(ctx, stored.ID, omitted)
+	if err != nil {
+		t.Fatalf("update omitted patch: %v", err)
+	}
+	if updated.CycleQuotaUsd == nil || *updated.CycleQuotaUsd != 5 || updated.ResetIntervalSeconds != 604800 {
+		t.Fatalf("omitted cycle fields changed: quota=%v reset=%d", updated.CycleQuotaUsd, updated.ResetIntervalSeconds)
+	}
+
+	var clear UpdatePlanRequest
+	if err := json.Unmarshal([]byte(`{"cycle_quota_usd":null}`), &clear); err != nil {
+		t.Fatalf("decode clear patch: %v", err)
+	}
+	updated, err = svc.UpdatePlan(ctx, stored.ID, clear)
+	if err != nil {
+		t.Fatalf("clear cycle quota: %v", err)
+	}
+	if updated.CycleQuotaUsd != nil || updated.ResetIntervalSeconds != 0 {
+		t.Fatalf("cycle quota was not cleared atomically: quota=%v reset=%d", updated.CycleQuotaUsd, updated.ResetIntervalSeconds)
 	}
 }
 

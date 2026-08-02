@@ -105,6 +105,11 @@ func Status(v string) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldStatus, v))
 }
 
+// BillingPreference applies equality check predicate on the "billing_preference" field. It's identical to BillingPreferenceEQ.
+func BillingPreference(v string) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldBillingPreference, v))
+}
+
 // Username applies equality check predicate on the "username" field. It's identical to UsernameEQ.
 func Username(v string) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldUsername, v))
@@ -683,6 +688,71 @@ func StatusEqualFold(v string) predicate.User {
 // StatusContainsFold applies the ContainsFold predicate on the "status" field.
 func StatusContainsFold(v string) predicate.User {
 	return predicate.User(sql.FieldContainsFold(FieldStatus, v))
+}
+
+// BillingPreferenceEQ applies the EQ predicate on the "billing_preference" field.
+func BillingPreferenceEQ(v string) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldBillingPreference, v))
+}
+
+// BillingPreferenceNEQ applies the NEQ predicate on the "billing_preference" field.
+func BillingPreferenceNEQ(v string) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldBillingPreference, v))
+}
+
+// BillingPreferenceIn applies the In predicate on the "billing_preference" field.
+func BillingPreferenceIn(vs ...string) predicate.User {
+	return predicate.User(sql.FieldIn(FieldBillingPreference, vs...))
+}
+
+// BillingPreferenceNotIn applies the NotIn predicate on the "billing_preference" field.
+func BillingPreferenceNotIn(vs ...string) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldBillingPreference, vs...))
+}
+
+// BillingPreferenceGT applies the GT predicate on the "billing_preference" field.
+func BillingPreferenceGT(v string) predicate.User {
+	return predicate.User(sql.FieldGT(FieldBillingPreference, v))
+}
+
+// BillingPreferenceGTE applies the GTE predicate on the "billing_preference" field.
+func BillingPreferenceGTE(v string) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldBillingPreference, v))
+}
+
+// BillingPreferenceLT applies the LT predicate on the "billing_preference" field.
+func BillingPreferenceLT(v string) predicate.User {
+	return predicate.User(sql.FieldLT(FieldBillingPreference, v))
+}
+
+// BillingPreferenceLTE applies the LTE predicate on the "billing_preference" field.
+func BillingPreferenceLTE(v string) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldBillingPreference, v))
+}
+
+// BillingPreferenceContains applies the Contains predicate on the "billing_preference" field.
+func BillingPreferenceContains(v string) predicate.User {
+	return predicate.User(sql.FieldContains(FieldBillingPreference, v))
+}
+
+// BillingPreferenceHasPrefix applies the HasPrefix predicate on the "billing_preference" field.
+func BillingPreferenceHasPrefix(v string) predicate.User {
+	return predicate.User(sql.FieldHasPrefix(FieldBillingPreference, v))
+}
+
+// BillingPreferenceHasSuffix applies the HasSuffix predicate on the "billing_preference" field.
+func BillingPreferenceHasSuffix(v string) predicate.User {
+	return predicate.User(sql.FieldHasSuffix(FieldBillingPreference, v))
+}
+
+// BillingPreferenceEqualFold applies the EqualFold predicate on the "billing_preference" field.
+func BillingPreferenceEqualFold(v string) predicate.User {
+	return predicate.User(sql.FieldEqualFold(FieldBillingPreference, v))
+}
+
+// BillingPreferenceContainsFold applies the ContainsFold predicate on the "billing_preference" field.
+func BillingPreferenceContainsFold(v string) predicate.User {
+	return predicate.User(sql.FieldContainsFold(FieldBillingPreference, v))
 }
 
 // UsernameEQ applies the EQ predicate on the "username" field.

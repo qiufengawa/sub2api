@@ -33,6 +33,57 @@
         </div>
       </div>
 
+	  <section class="border-y border-gray-100 py-4 dark:border-dark-700" data-testid="plan-included-groups">
+		<div class="mb-3">
+		  <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('payment.admin.includedGroups') }}</h3>
+		  <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.includedGroupsHint') }}</p>
+		</div>
+		<div class="max-h-52 divide-y divide-gray-100 overflow-y-auto border-y border-gray-100 dark:divide-dark-700 dark:border-dark-700">
+		  <label
+			v-for="group in includedGroupOptions"
+			:key="group.id"
+			class="flex cursor-pointer items-center gap-3 py-2.5"
+			:class="group.id === planForm.group_id ? 'cursor-default' : ''"
+		  >
+			<input
+			  type="checkbox"
+			  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+			  :checked="isIncludedGroup(group.id)"
+			  :disabled="group.id === planForm.group_id"
+			  @change="toggleIncludedGroup(group.id)"
+			/>
+			<GroupBadge :name="group.name" :platform="group.platform" :rate-multiplier="group.rate_multiplier" />
+			<span v-if="group.id === planForm.group_id" class="ml-auto shrink-0 text-xs text-gray-400">{{ t('payment.admin.primaryGroup') }}</span>
+		  </label>
+		</div>
+	  </section>
+
+	  <div class="flex items-center justify-between gap-4 border-b border-gray-100 pb-4 dark:border-dark-700">
+		<div class="min-w-0">
+		  <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('payment.admin.walletFallback') }}</p>
+		  <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.walletFallbackHint') }}</p>
+		</div>
+		<button
+		  type="button"
+		  :aria-pressed="planForm.wallet_fallback_enabled"
+		  :class="[
+			'relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+			planForm.wallet_fallback_enabled ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-600'
+		  ]"
+		  @click="planForm.wallet_fallback_enabled = !planForm.wallet_fallback_enabled"
+		>
+		  <span :class="['pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform', planForm.wallet_fallback_enabled ? 'translate-x-5' : 'translate-x-0']" />
+		</button>
+	  </div>
+
+	  <label v-if="removesIncludedGroups && affectedSubscriptions !== null" class="flex items-start gap-2 border-l-2 border-orange-400 bg-orange-50/70 px-3 py-2 text-xs text-orange-800 dark:bg-orange-500/10 dark:text-orange-200">
+		<input v-model="confirmGroupRemoval" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500" />
+		<span>{{ t('payment.admin.confirmGroupRemovalAffected', { count: affectedSubscriptions }) }}</span>
+	  </label>
+	  <p v-else-if="removesIncludedGroups" class="border-l-2 border-orange-400 px-3 py-1 text-xs text-orange-700 dark:text-orange-300">
+		{{ t('payment.admin.groupRemovalImpactCheck') }}
+	  </p>
+
       <div><label class="input-label">{{ t('payment.admin.planDescription') }} <span class="text-red-500">*</span></label><textarea v-model="planForm.description" rows="2" class="input" required></textarea></div>
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
@@ -47,6 +98,18 @@
         </div>
         <div><label class="input-label">{{ t('payment.admin.originalPrice') }}</label><input v-model.number="planForm.original_price" type="number" step="0.01" min="0" class="input" /></div>
       </div>
+	  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2" data-testid="plan-cycle-fields">
+		<div>
+		  <label class="input-label">{{ t('payment.admin.cycleQuota') }}</label>
+		  <input v-model.number="planForm.cycle_quota_usd" type="number" step="0.0001" min="0.0001" class="input" />
+		  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.cycleQuotaHint') }}</p>
+		</div>
+		<div>
+		  <label class="input-label">{{ t('payment.admin.resetIntervalDays') }}</label>
+		  <input v-model.number="planForm.reset_interval_days" type="number" step="0.01" min="0.01" class="input" />
+		  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.resetIntervalHint') }}</p>
+		</div>
+	  </div>
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div><label class="input-label">{{ t('payment.admin.validity') }} <span class="text-red-500">*</span></label><input v-model.number="planForm.validity_days" type="number" min="1" class="input" required /></div>
         <div><label class="input-label">{{ t('payment.admin.validityUnit') }} <span class="text-red-500">*</span></label><Select v-model="planForm.validity_unit" :options="validityUnitOptions" /></div>
@@ -96,7 +159,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import type { AdminPaymentConfig } from '@/api/admin/payment'
-import { extractApiErrorMessage } from '@/utils/apiError'
+import { extractApiErrorCode, extractApiErrorMessage, extractApiErrorMetadata } from '@/utils/apiError'
 import { formatPaymentAmount } from '@/components/payment/currency'
 import type { SubscriptionPlan } from '@/types/payment'
 import type { AdminGroup } from '@/types'
@@ -122,8 +185,26 @@ const { t } = useI18n()
 const appStore = useAppStore()
 
 const saving = ref(false)
-const planForm = reactive({ name: '', group_id: null as number | null, description: '', price: 0, original_price: 0, currency: '', validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true })
+const planForm = reactive({
+  name: '',
+  group_id: null as number | null,
+  included_group_ids: [] as number[],
+  cycle_quota_usd: null as number | null,
+  reset_interval_days: 7,
+  wallet_fallback_enabled: true,
+  description: '',
+  price: 0,
+  original_price: 0,
+  currency: '',
+  validity_days: 30,
+  validity_unit: 'days',
+  sort_order: 0,
+  for_sale: true,
+})
 const planFeaturesText = ref('')
+const initialIncludedGroupIDs = ref<number[]>([])
+const confirmGroupRemoval = ref(false)
+const affectedSubscriptions = ref<number | null>(null)
 
 const validityUnitOptions = computed(() => [
   { value: 'days', label: t('payment.admin.days') },
@@ -133,7 +214,7 @@ const validityUnitOptions = computed(() => [
 
 const groupOptions = computed(() =>
   props.groups
-    .filter(g => g.subscription_type === 'subscription')
+    .filter(g => g.status === 'active')
     .map(g => ({
       value: g.id,
       label: `${g.name} — ${g.platform} (${g.rate_multiplier}x)`,
@@ -141,10 +222,45 @@ const groupOptions = computed(() =>
     })),
 )
 
+const includedGroupOptions = computed(() =>
+  props.groups.filter(group => group.status === 'active'),
+)
+
 const selectedGroupInfo = computed(() => {
   if (!planForm.group_id) return null
   return props.groups.find(g => g.id === planForm.group_id) || null
 })
+
+const normalizedIncludedGroupIDs = computed(() => {
+  const primary = planForm.group_id
+  const seen = new Set<number>()
+  const result: number[] = []
+  for (const id of [primary, ...planForm.included_group_ids]) {
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    result.push(id)
+  }
+  return result
+})
+
+const removesIncludedGroups = computed(() => {
+  if (!props.plan) return false
+  const current = new Set(normalizedIncludedGroupIDs.value)
+  return initialIncludedGroupIDs.value.some(id => !current.has(id))
+})
+
+function isIncludedGroup(groupID: number): boolean {
+  return normalizedIncludedGroupIDs.value.includes(groupID)
+}
+
+function toggleIncludedGroup(groupID: number) {
+  if (groupID === planForm.group_id) return
+  const index = planForm.included_group_ids.indexOf(groupID)
+  if (index >= 0) planForm.included_group_ids.splice(index, 1)
+  else planForm.included_group_ids.push(groupID)
+  confirmGroupRemoval.value = false
+  affectedSubscriptions.value = null
+}
 
 function roundCnyAmount(value: number): number {
   return Math.round(value * 100) / 100
@@ -175,20 +291,54 @@ const subscriptionCnyPreview = computed(() => {
 watch(() => props.show, (visible) => {
   if (!visible) return
   if (props.plan) {
-    Object.assign(planForm, { name: props.plan.name, group_id: props.plan.group_id, description: props.plan.description, price: props.plan.price, original_price: props.plan.original_price || 0, currency: props.plan.currency || '', validity_days: props.plan.validity_days, validity_unit: props.plan.validity_unit || 'days', sort_order: props.plan.sort_order || 0, for_sale: props.plan.for_sale })
+    const includedGroupIDs = props.plan.included_groups?.map(group => group.id) || [props.plan.group_id]
+    Object.assign(planForm, {
+      name: props.plan.name,
+      group_id: props.plan.group_id,
+      included_group_ids: [...includedGroupIDs],
+      cycle_quota_usd: props.plan.cycle_quota_usd ?? null,
+      reset_interval_days: props.plan.reset_interval_seconds ? props.plan.reset_interval_seconds / 86400 : 7,
+      wallet_fallback_enabled: props.plan.wallet_fallback_enabled ?? true,
+      description: props.plan.description,
+      price: props.plan.price,
+      original_price: props.plan.original_price || 0,
+      currency: props.plan.currency || '',
+      validity_days: props.plan.validity_days,
+      validity_unit: props.plan.validity_unit || 'days',
+      sort_order: props.plan.sort_order || 0,
+      for_sale: props.plan.for_sale,
+    })
+    initialIncludedGroupIDs.value = [...new Set(includedGroupIDs)]
     planFeaturesText.value = (props.plan.features || []).join('\n')
   } else {
-    Object.assign(planForm, { name: '', group_id: null, description: '', price: 0, original_price: 0, currency: '', validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true })
+    Object.assign(planForm, { name: '', group_id: null, included_group_ids: [], cycle_quota_usd: null, reset_interval_days: 7, wallet_fallback_enabled: true, description: '', price: 0, original_price: 0, currency: '', validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true })
+    initialIncludedGroupIDs.value = []
     planFeaturesText.value = ''
+  }
+  confirmGroupRemoval.value = false
+  affectedSubscriptions.value = null
+})
+
+watch(() => planForm.group_id, (groupID) => {
+  confirmGroupRemoval.value = false
+  affectedSubscriptions.value = null
+  if (groupID && !planForm.included_group_ids.includes(groupID)) {
+    planForm.included_group_ids.unshift(groupID)
   }
 })
 
 /** Build request payload with snake_case keys matching backend JSON tags */
 function buildPlanPayload() {
   const features = planFeaturesText.value.split('\n').map(f => f.trim()).filter(Boolean).join('\n')
+  const cycleQuota = Number(planForm.cycle_quota_usd) > 0 ? Number(planForm.cycle_quota_usd) : null
   return {
     name: planForm.name,
     group_id: planForm.group_id,
+    included_group_ids: normalizedIncludedGroupIDs.value,
+    cycle_quota_usd: cycleQuota,
+    reset_interval_seconds: cycleQuota ? Math.round(Number(planForm.reset_interval_days) * 86400) : 0,
+    wallet_fallback_enabled: planForm.wallet_fallback_enabled,
+    confirm_group_removal: confirmGroupRemoval.value,
     description: planForm.description,
     price: planForm.price,
     original_price: planForm.original_price || 0,
@@ -214,6 +364,18 @@ async function handleSavePlan() {
     appStore.showError(t('payment.admin.validityRequired'))
     return
   }
+  if (planForm.cycle_quota_usd != null && Number(planForm.cycle_quota_usd) <= 0) {
+    appStore.showError(t('payment.admin.cycleQuotaRequired'))
+    return
+  }
+  if (Number(planForm.cycle_quota_usd) > 0 && Number(planForm.reset_interval_days) <= 0) {
+    appStore.showError(t('payment.admin.resetIntervalRequired'))
+    return
+  }
+  if (removesIncludedGroups.value && affectedSubscriptions.value !== null && !confirmGroupRemoval.value) {
+    appStore.showError(t('payment.admin.confirmGroupRemovalRequired'))
+    return
+  }
   saving.value = true
   try {
     const data = buildPlanPayload()
@@ -222,7 +384,16 @@ async function handleSavePlan() {
     appStore.showSuccess(t('common.saved'))
     emit('close')
     emit('saved')
-  } catch (err: unknown) { appStore.showError(extractApiErrorMessage(err, t('common.error'))) }
+  } catch (err: unknown) {
+    if (extractApiErrorCode(err) === 'PLAN_GROUP_REMOVAL_CONFIRMATION_REQUIRED') {
+      const rawCount = Number(extractApiErrorMetadata(err)?.affected_subscriptions)
+      affectedSubscriptions.value = Number.isFinite(rawCount) && rawCount >= 0 ? Math.trunc(rawCount) : 0
+      confirmGroupRemoval.value = false
+      appStore.showError(t('payment.admin.confirmGroupRemovalAffected', { count: affectedSubscriptions.value }))
+    } else {
+      appStore.showError(extractApiErrorMessage(err, t('common.error')))
+    }
+  }
   finally { saving.value = false }
 }
 </script>

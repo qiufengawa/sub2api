@@ -189,3 +189,24 @@ func TestOpenAIGatewayHandlerSubmitOpenAIUsageRecordTask_ImageResultUsesMandator
 
 	require.True(t, called.Load(), "image usage task must be mandatory when async submit is dropped")
 }
+
+func TestRunUsageRecordTaskSynchronouslyWithTimeout_TransfersLongRunningTask(t *testing.T) {
+	release := make(chan struct{})
+	started := make(chan struct{})
+	startedAt := time.Now()
+	accepted := runUsageRecordTaskSynchronouslyWithTimeout(func(context.Context) {
+		close(started)
+		<-release
+	}, "handler.test", 20*time.Millisecond)
+	require.True(t, accepted)
+	require.Less(t, time.Since(startedAt), time.Second)
+	<-started
+	close(release)
+}
+
+func TestRunUsageRecordTaskSynchronouslyWithTimeout_PanicIsNotTransferred(t *testing.T) {
+	accepted := runUsageRecordTaskSynchronouslyWithTimeout(func(context.Context) {
+		panic("boom")
+	}, "handler.test", time.Second)
+	require.False(t, accepted)
+}

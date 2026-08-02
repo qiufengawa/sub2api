@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"log/slog"
 	"strings"
 	"time"
@@ -78,6 +80,7 @@ type postUsageBillingParams struct {
 	Subscription          *UserSubscription
 	RequestPayloadHash    string
 	IsSubscriptionBill    bool
+	ResolveBillingSource  bool
 	AccountRateMultiplier float64
 	APIKeyService         APIKeyQuotaUpdater
 	Platform              string // 来自 APIKey 关联 Group 的平台标识
@@ -202,7 +205,7 @@ func postUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *bill
 	// by the caller after recording the usage log.
 }
 
-func resolveUsageBillingRequestID(ctx context.Context, upstreamRequestID string) string {
+func resolveUsageRecordRequestID(ctx context.Context, upstreamRequestID string) string {
 	if ctx != nil {
 		if clientRequestID, _ := ctx.Value(ctxkey.ClientRequestID).(string); strings.TrimSpace(clientRequestID) != "" {
 			return "client:" + strings.TrimSpace(clientRequestID)
@@ -215,6 +218,42 @@ func resolveUsageBillingRequestID(ctx context.Context, upstreamRequestID string)
 		return requestID
 	}
 	return "generated:" + generateRequestID()
+}
+
+func resolveUsageBillingRequestID(ctx context.Context, upstreamRequestID string) string {
+	if ctx != nil {
+		if requestID, _ := ctx.Value(ctxkey.UsageBillingRequestID).(string); strings.TrimSpace(requestID) != "" {
+			return strings.TrimSpace(requestID)
+		}
+	}
+	return resolveUsageRecordRequestID(ctx, upstreamRequestID)
+}
+
+// WithUsageBillingRequestScope derives an opaque, bounded billing key for one
+// logical child request (for example, a Responses WebSocket turn) without
+// changing the request ID shown in usage logs or operational traces.
+func WithUsageBillingRequestScope(ctx context.Context, scope string) context.Context {
+	ctx = EnsureUsageBillingRequestContext(ctx)
+	base := resolveUsageRecordRequestID(ctx, "")
+	sum := sha256.Sum256([]byte(base + "|" + strings.TrimSpace(scope)))
+	return context.WithValue(ctx, ctxkey.UsageBillingRequestID, "scope:"+hex.EncodeToString(sum[:]))
+}
+
+// EnsureUsageBillingRequestContext guarantees that reservation and settlement
+// derive the same request key even when a handler is invoked without the
+// normal request-ID middleware (for example, in direct tests or internal
+// dispatches). Existing client and server request IDs remain authoritative.
+func EnsureUsageBillingRequestContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if clientRequestID, _ := ctx.Value(ctxkey.ClientRequestID).(string); strings.TrimSpace(clientRequestID) != "" {
+		return ctx
+	}
+	if requestID, _ := ctx.Value(ctxkey.RequestID).(string); strings.TrimSpace(requestID) != "" {
+		return ctx
+	}
+	return context.WithValue(ctx, ctxkey.RequestID, generateRequestID())
 }
 
 func resolveUsageBillingPayloadFingerprint(ctx context.Context, requestPayloadHash string) string {
@@ -242,6 +281,7 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		APIKeyID:           p.APIKey.ID,
 		UserID:             p.User.ID,
 		AccountID:          p.Account.ID,
+		GroupID:            p.APIKey.GroupID,
 		AccountType:        p.Account.Type,
 		RequestPayloadHash: strings.TrimSpace(p.RequestPayloadHash),
 	}
@@ -268,21 +308,25 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 	// user-specific) rate multiplier consumes subscription quota at the expected
 	// speed. TotalCost remains the raw (pre-multiplier) value; downstream guards
 	// on "> 0" still correctly skip free subscriptions (RateMultiplier == 0).
-	if p.IsSubscriptionBill && p.Subscription != nil && p.Cost.TotalCost > 0 {
+	if p.ResolveBillingSource {
+		cmd.ResolveBillingSource = true
+		cmd.BillingPreference = NormalizeBillingPreference(p.User.BillingPreference)
+		cmd.BillableCost = BillingAmountFromFloat(p.Cost.ActualCost)
+	} else if p.IsSubscriptionBill && p.Subscription != nil && p.Cost.TotalCost > 0 {
 		cmd.SubscriptionID = &p.Subscription.ID
-		cmd.SubscriptionCost = p.Cost.ActualCost
+		cmd.SubscriptionCost = BillingAmountFromFloat(p.Cost.ActualCost)
 	} else if p.Cost.ActualCost > 0 {
-		cmd.BalanceCost = p.Cost.ActualCost
+		cmd.BalanceCost = BillingAmountFromFloat(p.Cost.ActualCost)
 	}
 
 	if p.shouldDeductAPIKeyQuota() {
-		cmd.APIKeyQuotaCost = p.Cost.ActualCost
+		cmd.APIKeyQuotaCost = BillingAmountFromFloat(p.Cost.ActualCost)
 	}
 	if p.shouldUpdateRateLimits() {
-		cmd.APIKeyRateLimitCost = p.Cost.ActualCost
+		cmd.APIKeyRateLimitCost = BillingAmountFromFloat(p.Cost.ActualCost)
 	}
 	if p.shouldUpdateAccountQuota() {
-		cmd.AccountQuotaCost = p.Cost.TotalCost * p.AccountRateMultiplier
+		cmd.AccountQuotaCost = BillingAmountFromFloat(p.Cost.TotalCost * p.AccountRateMultiplier)
 	}
 
 	cmd.Normalize()
@@ -311,6 +355,25 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 	if result == nil || !result.Applied {
 		deps.deferredService.ScheduleLastUsedUpdate(p.Account.ID)
 		return false, nil
+	}
+	if p.ResolveBillingSource {
+		p.IsSubscriptionBill = result.BillingSource == BillingSourceSubscription
+		if result.SubscriptionID != nil {
+			p.Subscription = &UserSubscription{ID: *result.SubscriptionID}
+		} else {
+			p.Subscription = nil
+		}
+		if usageLog != nil {
+			usageLog.BillingSource = result.BillingSource
+			usageLog.BillingPreference = optionalTrimmedStringPtr(result.BillingPreference)
+			usageLog.BillingFallbackReason = optionalTrimmedStringPtr(result.BillingFallbackReason)
+			usageLog.SubscriptionID = result.SubscriptionID
+			if p.IsSubscriptionBill {
+				usageLog.BillingType = BillingTypeSubscription
+			} else {
+				usageLog.BillingType = BillingTypeBalance
+			}
+		}
 	}
 
 	if result.APIKeyQuotaExhausted {
@@ -386,11 +449,11 @@ func syncBalanceCacheAfterDeduction(ctx context.Context, p *postUsageBillingPara
 	if p == nil || p.Cost == nil || p.User == nil || deps == nil || deps.billingCacheService == nil {
 		return
 	}
-	if result != nil && result.NewBalance != nil && deps.billingCacheService.balanceBelowEligibilityThreshold(*result.NewBalance) {
+	if result != nil && result.NewBalance != nil && deps.billingCacheService.balanceBelowEligibilityThreshold(result.NewBalance.InexactFloat64()) {
 		if err := deps.billingCacheService.InvalidateUserBalance(ctx, p.User.ID); err != nil {
 			slog.Warn("invalidate balance cache after exhausted deduction failed",
 				"user_id", p.User.ID,
-				"new_balance", *result.NewBalance,
+				"new_balance", result.NewBalance.String(),
 				"balance_overdrafted", result.BalanceOverdrafted,
 				"error", err,
 			)
@@ -435,7 +498,7 @@ func notifyBalanceLow(p *postUsageBillingParams, deps *billingDeps, result *Usag
 // Prefers the DB transaction result (newBalance + cost) over snapshot.
 func resolveOldBalance(p *postUsageBillingParams, result *UsageBillingApplyResult) float64 {
 	if result != nil && result.NewBalance != nil {
-		return *result.NewBalance + p.Cost.ActualCost
+		return result.NewBalance.InexactFloat64() + p.Cost.ActualCost
 	}
 	// Legacy fallback: snapshot balance from request context
 	return p.User.Balance
@@ -762,8 +825,8 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 			quotaPlatform = account.Platform
 		}
 	}
-	requestID := usageLog.RequestID
-	_, billingErr := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
+	billingRequestID := resolveUsageBillingRequestID(ctx, usageLog.RequestID)
+	_, billingErr := applyUsageBilling(ctx, billingRequestID, usageLog, &postUsageBillingParams{
 		Cost:                  cost,
 		User:                  user,
 		APIKey:                apiKey,
@@ -771,6 +834,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		Subscription:          subscription,
 		RequestPayloadHash:    resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
 		IsSubscriptionBill:    isSubscriptionBilling,
+		ResolveBillingSource:  s.cfg != nil && s.cfg.SubscriptionGroupBillingEnabled(),
 		AccountRateMultiplier: accountRateMultiplier,
 		APIKeyService:         input.APIKeyService,
 		Platform:              quotaPlatform,
@@ -978,7 +1042,7 @@ func (s *GatewayService) buildRecordUsageLog(
 	opts *recordUsageOpts,
 ) *UsageLog {
 	durationMs := int(result.Duration.Milliseconds())
-	requestID := resolveUsageBillingRequestID(ctx, result.RequestID)
+	requestID := resolveUsageRecordRequestID(ctx, result.RequestID)
 	usageLog := &UsageLog{
 		UserID:                user.ID,
 		APIKeyID:              apiKey.ID,

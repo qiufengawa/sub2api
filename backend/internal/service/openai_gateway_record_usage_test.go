@@ -876,7 +876,7 @@ func TestOpenAIGatewayServiceRecordUsage_PrefersClientRequestIDOverUpstreamReque
 	require.Equal(t, "client:openai-client-stable-123", usageRepo.lastLog.RequestID)
 }
 
-func TestOpenAIGatewayServiceRecordUsage_WSModePrefersUpstreamRequestIDOverClientRequestID(t *testing.T) {
+func TestOpenAIGatewayServiceRecordUsage_WSModeSeparatesTurnBillingIDFromUpstreamLogID(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{}
 	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
 	userRepo := &openAIRecordUsageUserRepoStub{}
@@ -884,6 +884,7 @@ func TestOpenAIGatewayServiceRecordUsage_WSModePrefersUpstreamRequestIDOverClien
 	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
 
 	ctx := context.WithValue(context.Background(), ctxkey.ClientRequestID, "openai-ws-connection-123")
+	ctx = WithUsageBillingRequestScope(ctx, "turn-456")
 	err := svc.RecordUsage(ctx, &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
 			RequestID:    "resp_openai_ws_turn_456",
@@ -902,7 +903,9 @@ func TestOpenAIGatewayServiceRecordUsage_WSModePrefersUpstreamRequestIDOverClien
 
 	require.NoError(t, err)
 	require.NotNil(t, billingRepo.lastCmd)
-	require.Equal(t, "resp_openai_ws_turn_456", billingRepo.lastCmd.RequestID)
+	require.True(t, strings.HasPrefix(billingRepo.lastCmd.RequestID, "scope:"))
+	require.NotEqual(t, "client:openai-ws-connection-123", billingRepo.lastCmd.RequestID)
+	require.NotEqual(t, "resp_openai_ws_turn_456", billingRepo.lastCmd.RequestID)
 	require.NotNil(t, usageRepo.lastLog)
 	require.Equal(t, "resp_openai_ws_turn_456", usageRepo.lastLog.RequestID)
 }

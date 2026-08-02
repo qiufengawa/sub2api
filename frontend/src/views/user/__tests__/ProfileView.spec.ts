@@ -64,6 +64,7 @@ describe('ProfileView', () => {
       contact_info: '',
       balance_low_notify_enabled: false,
       balance_low_notify_threshold: 0,
+      subscription_group_billing_enabled: true,
       linuxdo_oauth_enabled: true,
       wechat_oauth_enabled: true,
       wechat_oauth_open_enabled: true,
@@ -104,6 +105,7 @@ describe('ProfileView', () => {
     expect(wrapper.find('[data-testid="profile-main-column"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="profile-side-column"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="profile-security-panel"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="profile-billing-preference-panel"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="profile-password-form"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-totp-card')
 

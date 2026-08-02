@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,8 +43,8 @@ func TestBatchImageSettlementService_SettlesAndChargesSuccessfulImagesOnly(t *te
 	require.Equal(t, int64(321), billing.captures[0].APIKeyID)
 	require.Equal(t, job.UserID, billing.captures[0].UserID)
 	require.Equal(t, job.BatchID, billing.captures[0].BatchID)
-	require.Equal(t, 0.75, billing.captures[0].ActualAmount)
-	require.Equal(t, 1.25, billing.captures[0].HoldAmount)
+	requireBatchImageDecimal(t, "0.75", billing.captures[0].ActualAmount)
+	requireBatchImageDecimal(t, "1.25", billing.captures[0].HoldAmount)
 	require.NotContains(t, fmt.Sprintf("%+v", billing.captures[0]), batchImageTestData)
 	require.NotContains(t, fmt.Sprintf("%+v", billing.captures[0]), "gs://")
 	require.NotContains(t, fmt.Sprintf("%+v", billing.captures[0]), "prompt")
@@ -64,7 +65,7 @@ func TestBatchImageSettlementService_ZeroSuccessCanComplete(t *testing.T) {
 	require.Equal(t, 0.0, result.ActualCost)
 	require.Equal(t, BatchImageJobStatusCompleted, repo.jobs[job.BatchID].Status)
 	require.Len(t, billing.captures, 1)
-	require.Equal(t, 0.0, billing.captures[0].ActualAmount)
+	requireBatchImageDecimal(t, "0", billing.captures[0].ActualAmount)
 }
 
 func TestBatchImageSettlementService_CompletedJobReturnsAlreadySettledWithoutBilling(t *testing.T) {
@@ -183,8 +184,14 @@ func TestBatchImageSettlementService_UsesSubmittedPricingSnapshot(t *testing.T) 
 	require.NoError(t, err)
 	require.InDelta(t, 0.5, result.ActualCost, 1e-12)
 	require.Len(t, billing.captures, 1)
-	require.InDelta(t, 0.5, billing.captures[0].ActualAmount, 1e-12)
-	require.InDelta(t, 0.55, billing.captures[0].HoldAmount, 1e-12)
+	requireBatchImageDecimal(t, "0.5", billing.captures[0].ActualAmount)
+	requireBatchImageDecimal(t, "0.55", billing.captures[0].HoldAmount)
+}
+
+func requireBatchImageDecimal(t *testing.T, expected string, actual decimal.Decimal) {
+	t.Helper()
+	want := decimal.RequireFromString(expected)
+	require.True(t, want.Equal(actual), "expected %s, got %s", want, actual)
 }
 
 func TestBatchImageSettlementService_BillingFailureLeavesSettlingAndRecordsError(t *testing.T) {

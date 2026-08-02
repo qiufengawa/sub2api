@@ -909,6 +909,7 @@ func userEntityToService(u *dbent.User) *service.User {
 		FrozenBalance:              u.FrozenBalance,
 		Concurrency:                u.Concurrency,
 		Status:                     u.Status,
+		BillingPreference:          service.NormalizeBillingPreference(u.BillingPreference),
 		SignupSource:               u.SignupSource,
 		LastLoginAt:                u.LastLoginAt,
 		LastActiveAt:               u.LastActiveAt,

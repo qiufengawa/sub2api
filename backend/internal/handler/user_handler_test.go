@@ -194,6 +194,77 @@ func TestUserHandlerUpdateProfileReturnsAvatarURL(t *testing.T) {
 	require.Equal(t, "handler-avatar", resp.Data.Username)
 }
 
+func TestUserHandlerUpdateProfileReturnsBillingPreference(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	repo := &userHandlerRepoStub{
+		user: &service.User{
+			ID:                12,
+			Email:             "billing-preference@example.com",
+			Username:          "billing-preference",
+			Role:              service.RoleUser,
+			Status:            service.StatusActive,
+			BillingPreference: service.BillingPreferenceSubscriptionFirst,
+		},
+	}
+	handler := NewUserHandler(service.NewUserService(repo, nil, nil, nil), nil, nil, nil, nil, nil)
+
+	body := []byte(`{"billing_preference":"wallet_only"}`)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPut, "/api/v1/user", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 12})
+
+	handler.UpdateProfile(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var resp struct {
+		Code int `json:"code"`
+		Data struct {
+			BillingPreference string `json:"billing_preference"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.Equal(t, service.BillingPreferenceWalletOnly, resp.Data.BillingPreference)
+	require.Equal(t, service.BillingPreferenceWalletOnly, repo.user.BillingPreference)
+}
+
+func TestUserHandlerGetProfileReturnsBillingPreference(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	repo := &userHandlerRepoStub{
+		user: &service.User{
+			ID:                13,
+			Email:             "billing-profile@example.com",
+			Username:          "billing-profile",
+			Role:              service.RoleUser,
+			Status:            service.StatusActive,
+			BillingPreference: service.BillingPreferenceSubscriptionOnly,
+		},
+	}
+	handler := NewUserHandler(service.NewUserService(repo, nil, nil, nil), nil, nil, nil, nil, nil)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/user/profile", nil)
+	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 13})
+
+	handler.GetProfile(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var resp struct {
+		Code int `json:"code"`
+		Data struct {
+			BillingPreference string `json:"billing_preference"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.Equal(t, service.BillingPreferenceSubscriptionOnly, resp.Data.BillingPreference)
+}
+
 func TestUserHandlerGetProfileReturnsIdentitySummaries(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

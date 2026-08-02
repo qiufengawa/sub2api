@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
-import type { ApiKey } from '@/types'
+import type { ApiKey, Group } from '@/types'
 import KeysView from '../KeysView.vue'
 
 const {
@@ -11,8 +11,12 @@ const {
   getDashboardApiKeysUsage,
   getAvailableGroups,
   getUserGroupRates,
+  createKey,
+  updateKey,
   showError,
   showSuccess,
+  routerReplace,
+  routeState,
   copyToClipboard,
   isCurrentStep,
   nextStep,
@@ -22,8 +26,12 @@ const {
   getDashboardApiKeysUsage: vi.fn(),
   getAvailableGroups: vi.fn(),
   getUserGroupRates: vi.fn(),
+  createKey: vi.fn(),
+  updateKey: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn(),
+  routerReplace: vi.fn(),
+  routeState: { query: {} as Record<string, string | string[] | undefined> },
   copyToClipboard: vi.fn(),
   isCurrentStep: vi.fn(),
   nextStep: vi.fn(),
@@ -48,6 +56,23 @@ const messages: Record<string, string> = {
   'keys.lastUsedIP': 'Last Used IP',
   'keys.rateLimitColumn': 'Rate Limit',
   'keys.searchPlaceholder': 'Search name or key...',
+  'keys.subscriptionIntent.alreadyBound': 'Bound',
+  'keys.subscriptionIntent.bindAction': 'Bind',
+  'keys.subscriptionIntent.bindDescription': 'Choose a key to bind',
+  'keys.subscriptionIntent.bindFailed': 'Binding failed',
+  'keys.subscriptionIntent.bindSuccess': 'Binding succeeded',
+  'keys.subscriptionIntent.bindTitle': 'Bind an existing key',
+  'keys.subscriptionIntent.confirmAction': 'Confirm binding',
+  'keys.subscriptionIntent.confirmMessage': 'Confirm this key group change',
+  'keys.subscriptionIntent.confirmTitle': 'Confirm key group change',
+  'keys.subscriptionIntent.createDescription': 'Subscription group preselected',
+  'keys.subscriptionIntent.createKey': 'Create subscription key',
+  'keys.subscriptionIntent.createTitle': 'Create subscription key',
+  'keys.subscriptionIntent.groupsLoadFailed': 'Groups failed to load',
+  'keys.subscriptionIntent.invalid': 'Invalid subscription key request',
+  'keys.subscriptionIntent.noKeys': 'No keys available',
+  'keys.subscriptionIntent.noKeysDescription': 'Create a key instead',
+  'keys.subscriptionIntent.unavailable': 'Subscription group unavailable',
   'keys.status.active': 'Active',
   'keys.status.expired': 'Expired',
   'keys.status.inactive': 'Inactive',
@@ -58,8 +83,8 @@ const messages: Record<string, string> = {
 vi.mock('@/api', () => ({
   keysAPI: {
     list: listKeys,
-    create: vi.fn(),
-    update: vi.fn(),
+    create: createKey,
+    update: updateKey,
     delete: vi.fn(),
     toggleStatus: vi.fn(),
   },
@@ -74,6 +99,15 @@ vi.mock('@/api', () => ({
     getUserGroupRates,
   },
 }))
+
+vi.mock('vue-router', async () => {
+  const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
+  return {
+    ...actual,
+    useRoute: () => routeState,
+    useRouter: () => ({ replace: routerReplace }),
+  }
+})
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
@@ -136,6 +170,17 @@ const createApiKey = (): ApiKey => ({
   reset_7d_at: null,
 })
 
+const createSubscriptionGroup = (): Group => ({
+  id: 11,
+  name: 'OpenAI Subscription',
+  description: 'Subscription group',
+  platform: 'openai',
+  rate_multiplier: 1,
+  is_exclusive: true,
+  status: 'active',
+  subscription_type: 'subscription',
+} as Group)
+
 const AppLayoutStub = {
   template: '<div><slot /></div>',
 }
@@ -173,6 +218,9 @@ const DataTableStub = {
         <div data-test="current-concurrency">
           <slot name="cell-current_concurrency" :value="row.current_concurrency" :row="row" />
         </div>
+        <div data-test="key-actions">
+          <slot name="cell-actions" :row="row" />
+        </div>
         <div
           v-if="columns.some((col) => col.key === 'last_used_ip')"
           data-test="last-used-ip"
@@ -180,7 +228,7 @@ const DataTableStub = {
           <slot name="cell-last_used_ip" :value="row.last_used_ip" :row="row" />
         </div>
       </div>
-      <slot name="empty" />
+      <slot v-if="data.length === 0" name="empty" />
     </div>
   `,
 }
@@ -215,6 +263,33 @@ const IconStub = {
   template: '<span data-test="icon">{{ name }}</span>',
 }
 
+const BaseDialogStub = {
+  name: 'BaseDialog',
+  props: ['show', 'title'],
+  emits: ['close'],
+  template: `
+    <section v-if="show" data-test="base-dialog">
+      <h2>{{ title }}</h2>
+      <slot />
+      <slot name="footer" />
+    </section>
+  `,
+}
+
+const ConfirmDialogStub = {
+  name: 'ConfirmDialog',
+  props: ['show', 'title', 'message', 'confirmText', 'cancelText', 'pending'],
+  emits: ['confirm', 'cancel'],
+  template: `
+    <section v-if="show" data-test="confirm-dialog">
+      <h2>{{ title }}</h2>
+      <p>{{ message }}</p>
+      <button data-test="confirm-dialog-confirm" :disabled="pending" @click="$emit('confirm')">{{ confirmText }}</button>
+      <button data-test="confirm-dialog-cancel" :disabled="pending" @click="$emit('cancel')">{{ cancelText }}</button>
+    </section>
+  `,
+}
+
 const mountView = async () => {
   const wrapper = mount(KeysView, {
     global: {
@@ -223,8 +298,8 @@ const mountView = async () => {
         TablePageLayout: TablePageLayoutStub,
         DataTable: DataTableStub,
         Pagination: PaginationStub,
-        BaseDialog: true,
-        ConfirmDialog: true,
+        BaseDialog: BaseDialogStub,
+        ConfirmDialog: ConfirmDialogStub,
         EmptyState: true,
         Select: SelectStub,
         SearchInput: SearchInputStub,
@@ -265,8 +340,12 @@ describe('user KeysView column settings', () => {
     getDashboardApiKeysUsage.mockReset()
     getAvailableGroups.mockReset()
     getUserGroupRates.mockReset()
+    createKey.mockReset()
+    updateKey.mockReset()
     showError.mockReset()
     showSuccess.mockReset()
+    routerReplace.mockReset()
+    routeState.query = {}
     copyToClipboard.mockReset()
     isCurrentStep.mockReset()
     nextStep.mockReset()
@@ -282,6 +361,9 @@ describe('user KeysView column settings', () => {
     getDashboardApiKeysUsage.mockResolvedValue({ stats: {} })
     getAvailableGroups.mockResolvedValue([])
     getUserGroupRates.mockResolvedValue({})
+    createKey.mockResolvedValue(createApiKey())
+    updateKey.mockResolvedValue(createApiKey())
+    routerReplace.mockResolvedValue(undefined)
     isCurrentStep.mockReturnValue(false)
   })
 
@@ -437,5 +519,146 @@ describe('user KeysView column settings', () => {
       },
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     )
+  })
+
+  it('keeps ordinary key-page visits unchanged', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="subscription-bind-banner"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="subscription-create-context"]').exists()).toBe(false)
+    expect(routerReplace).not.toHaveBeenCalled()
+  })
+
+  it('waits for available groups before opening a preselected subscription key form', async () => {
+    const group = createSubscriptionGroup()
+    let resolveGroups!: (groups: Group[]) => void
+    getAvailableGroups.mockReturnValue(new Promise<Group[]>((resolve) => {
+      resolveGroups = resolve
+    }))
+    routeState.query = {
+      action: 'create',
+      group_id: String(group.id),
+      source: 'subscription',
+      keep: 'filter',
+    }
+
+    const wrapper = await mountView()
+    expect(wrapper.find('[data-testid="subscription-create-context"]').exists()).toBe(false)
+
+    resolveGroups([group])
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="subscription-create-context"]').text()).toContain(
+      'Subscription group preselected'
+    )
+    expect(
+      wrapper.findAllComponents({ name: 'Select' }).some((select) => select.props('modelValue') === group.id)
+    ).toBe(true)
+    expect(routerReplace).toHaveBeenCalledWith({ query: { keep: 'filter' } })
+
+    await wrapper.get('input[data-tour="key-form-name"]').setValue('subscription-key')
+    await wrapper.get('#key-form').trigger('submit')
+    await flushPromises()
+
+    expect(createKey.mock.calls[0].slice(0, 2)).toEqual(['subscription-key', group.id])
+  })
+
+  it('rejects a subscription group that is not currently available', async () => {
+    routeState.query = {
+      action: 'create',
+      group_id: '999',
+      source: 'subscription',
+    }
+    getAvailableGroups.mockResolvedValue([createSubscriptionGroup()])
+
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="subscription-create-context"]').exists()).toBe(false)
+    expect(showError).toHaveBeenCalledWith('Subscription group unavailable')
+    expect(routerReplace).toHaveBeenCalledWith({ query: {} })
+  })
+
+  it('rejects malformed subscription key intent parameters', async () => {
+    routeState.query = {
+      action: 'create',
+      group_id: 'not-a-number',
+      source: 'subscription',
+      keep: 'filter',
+    }
+
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="subscription-create-context"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="subscription-bind-banner"]').exists()).toBe(false)
+    expect(showError).toHaveBeenCalledWith('Invalid subscription key request')
+    expect(routerReplace).toHaveBeenCalledWith({ query: { keep: 'filter' } })
+  })
+
+  it('reports a group loading failure without opening a subscription flow', async () => {
+    routeState.query = {
+      action: 'bind',
+      group_id: '11',
+      source: 'subscription',
+    }
+    getAvailableGroups.mockRejectedValueOnce(new Error('network unavailable'))
+
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="subscription-bind-banner"]').exists()).toBe(false)
+    expect(showError).toHaveBeenCalledWith('Groups failed to load')
+    expect(routerReplace).toHaveBeenCalledWith({ query: {} })
+  })
+
+  it('binds an existing key only after confirmation and only updates group_id', async () => {
+    const group = createSubscriptionGroup()
+    getAvailableGroups.mockResolvedValue([group])
+    routeState.query = {
+      action: 'bind',
+      group_id: String(group.id),
+      source: 'subscription',
+    }
+
+    const wrapper = await mountView()
+
+    expect(wrapper.get('[data-testid="subscription-bind-banner"]').exists()).toBe(true)
+    const bindButton = wrapper.get('[data-testid="bind-key-action"]')
+    await bindButton.trigger('click')
+    expect(wrapper.get('[data-test="confirm-dialog"]').exists()).toBe(true)
+
+    await wrapper.get('[data-test="confirm-dialog-cancel"]').trigger('click')
+    expect(updateKey).not.toHaveBeenCalled()
+
+    await bindButton.trigger('click')
+    await wrapper.get('[data-test="confirm-dialog-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(updateKey).toHaveBeenCalledWith(1, { group_id: group.id })
+    expect(Object.keys(updateKey.mock.calls[0][1])).toEqual(['group_id'])
+    expect(showSuccess).toHaveBeenCalledWith('Binding succeeded')
+    expect(wrapper.find('[data-testid="subscription-bind-banner"]').exists()).toBe(false)
+  })
+
+  it('disables binding when a key already uses the target subscription group', async () => {
+    const group = createSubscriptionGroup()
+    listKeys.mockResolvedValueOnce({
+      items: [{ ...createApiKey(), group_id: group.id, group }],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    })
+    getAvailableGroups.mockResolvedValue([group])
+    routeState.query = {
+      action: 'bind',
+      group_id: String(group.id),
+      source: 'subscription',
+    }
+
+    const wrapper = await mountView()
+    const bindButton = wrapper.get('[data-testid="bind-key-action"]')
+
+    expect(bindButton.attributes()).toHaveProperty('disabled')
+    expect(bindButton.text()).toContain('Bound')
   })
 })

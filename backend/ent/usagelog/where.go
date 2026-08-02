@@ -200,6 +200,21 @@ func BillingType(v int8) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldBillingType, v))
 }
 
+// BillingSource applies equality check predicate on the "billing_source" field. It's identical to BillingSourceEQ.
+func BillingSource(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldBillingSource, v))
+}
+
+// BillingPreference applies equality check predicate on the "billing_preference" field. It's identical to BillingPreferenceEQ.
+func BillingPreference(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldBillingPreference, v))
+}
+
+// BillingFallbackReason applies equality check predicate on the "billing_fallback_reason" field. It's identical to BillingFallbackReasonEQ.
+func BillingFallbackReason(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldBillingFallbackReason, v))
+}
+
 // Stream applies equality check predicate on the "stream" field. It's identical to StreamEQ.
 func Stream(v bool) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldStream, v))
@@ -1568,6 +1583,221 @@ func BillingTypeLT(v int8) predicate.UsageLog {
 // BillingTypeLTE applies the LTE predicate on the "billing_type" field.
 func BillingTypeLTE(v int8) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldLTE(FieldBillingType, v))
+}
+
+// BillingSourceEQ applies the EQ predicate on the "billing_source" field.
+func BillingSourceEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldBillingSource, v))
+}
+
+// BillingSourceNEQ applies the NEQ predicate on the "billing_source" field.
+func BillingSourceNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldBillingSource, v))
+}
+
+// BillingSourceIn applies the In predicate on the "billing_source" field.
+func BillingSourceIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldBillingSource, vs...))
+}
+
+// BillingSourceNotIn applies the NotIn predicate on the "billing_source" field.
+func BillingSourceNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldBillingSource, vs...))
+}
+
+// BillingSourceGT applies the GT predicate on the "billing_source" field.
+func BillingSourceGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldBillingSource, v))
+}
+
+// BillingSourceGTE applies the GTE predicate on the "billing_source" field.
+func BillingSourceGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldBillingSource, v))
+}
+
+// BillingSourceLT applies the LT predicate on the "billing_source" field.
+func BillingSourceLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldBillingSource, v))
+}
+
+// BillingSourceLTE applies the LTE predicate on the "billing_source" field.
+func BillingSourceLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldBillingSource, v))
+}
+
+// BillingSourceContains applies the Contains predicate on the "billing_source" field.
+func BillingSourceContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldBillingSource, v))
+}
+
+// BillingSourceHasPrefix applies the HasPrefix predicate on the "billing_source" field.
+func BillingSourceHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldBillingSource, v))
+}
+
+// BillingSourceHasSuffix applies the HasSuffix predicate on the "billing_source" field.
+func BillingSourceHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldBillingSource, v))
+}
+
+// BillingSourceEqualFold applies the EqualFold predicate on the "billing_source" field.
+func BillingSourceEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldBillingSource, v))
+}
+
+// BillingSourceContainsFold applies the ContainsFold predicate on the "billing_source" field.
+func BillingSourceContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldBillingSource, v))
+}
+
+// BillingPreferenceEQ applies the EQ predicate on the "billing_preference" field.
+func BillingPreferenceEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldBillingPreference, v))
+}
+
+// BillingPreferenceNEQ applies the NEQ predicate on the "billing_preference" field.
+func BillingPreferenceNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldBillingPreference, v))
+}
+
+// BillingPreferenceIn applies the In predicate on the "billing_preference" field.
+func BillingPreferenceIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldBillingPreference, vs...))
+}
+
+// BillingPreferenceNotIn applies the NotIn predicate on the "billing_preference" field.
+func BillingPreferenceNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldBillingPreference, vs...))
+}
+
+// BillingPreferenceGT applies the GT predicate on the "billing_preference" field.
+func BillingPreferenceGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldBillingPreference, v))
+}
+
+// BillingPreferenceGTE applies the GTE predicate on the "billing_preference" field.
+func BillingPreferenceGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldBillingPreference, v))
+}
+
+// BillingPreferenceLT applies the LT predicate on the "billing_preference" field.
+func BillingPreferenceLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldBillingPreference, v))
+}
+
+// BillingPreferenceLTE applies the LTE predicate on the "billing_preference" field.
+func BillingPreferenceLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldBillingPreference, v))
+}
+
+// BillingPreferenceContains applies the Contains predicate on the "billing_preference" field.
+func BillingPreferenceContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldBillingPreference, v))
+}
+
+// BillingPreferenceHasPrefix applies the HasPrefix predicate on the "billing_preference" field.
+func BillingPreferenceHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldBillingPreference, v))
+}
+
+// BillingPreferenceHasSuffix applies the HasSuffix predicate on the "billing_preference" field.
+func BillingPreferenceHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldBillingPreference, v))
+}
+
+// BillingPreferenceIsNil applies the IsNil predicate on the "billing_preference" field.
+func BillingPreferenceIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldBillingPreference))
+}
+
+// BillingPreferenceNotNil applies the NotNil predicate on the "billing_preference" field.
+func BillingPreferenceNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldBillingPreference))
+}
+
+// BillingPreferenceEqualFold applies the EqualFold predicate on the "billing_preference" field.
+func BillingPreferenceEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldBillingPreference, v))
+}
+
+// BillingPreferenceContainsFold applies the ContainsFold predicate on the "billing_preference" field.
+func BillingPreferenceContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldBillingPreference, v))
+}
+
+// BillingFallbackReasonEQ applies the EQ predicate on the "billing_fallback_reason" field.
+func BillingFallbackReasonEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldBillingFallbackReason, v))
+}
+
+// BillingFallbackReasonNEQ applies the NEQ predicate on the "billing_fallback_reason" field.
+func BillingFallbackReasonNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldBillingFallbackReason, v))
+}
+
+// BillingFallbackReasonIn applies the In predicate on the "billing_fallback_reason" field.
+func BillingFallbackReasonIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldBillingFallbackReason, vs...))
+}
+
+// BillingFallbackReasonNotIn applies the NotIn predicate on the "billing_fallback_reason" field.
+func BillingFallbackReasonNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldBillingFallbackReason, vs...))
+}
+
+// BillingFallbackReasonGT applies the GT predicate on the "billing_fallback_reason" field.
+func BillingFallbackReasonGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldBillingFallbackReason, v))
+}
+
+// BillingFallbackReasonGTE applies the GTE predicate on the "billing_fallback_reason" field.
+func BillingFallbackReasonGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldBillingFallbackReason, v))
+}
+
+// BillingFallbackReasonLT applies the LT predicate on the "billing_fallback_reason" field.
+func BillingFallbackReasonLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldBillingFallbackReason, v))
+}
+
+// BillingFallbackReasonLTE applies the LTE predicate on the "billing_fallback_reason" field.
+func BillingFallbackReasonLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldBillingFallbackReason, v))
+}
+
+// BillingFallbackReasonContains applies the Contains predicate on the "billing_fallback_reason" field.
+func BillingFallbackReasonContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldBillingFallbackReason, v))
+}
+
+// BillingFallbackReasonHasPrefix applies the HasPrefix predicate on the "billing_fallback_reason" field.
+func BillingFallbackReasonHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldBillingFallbackReason, v))
+}
+
+// BillingFallbackReasonHasSuffix applies the HasSuffix predicate on the "billing_fallback_reason" field.
+func BillingFallbackReasonHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldBillingFallbackReason, v))
+}
+
+// BillingFallbackReasonIsNil applies the IsNil predicate on the "billing_fallback_reason" field.
+func BillingFallbackReasonIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldBillingFallbackReason))
+}
+
+// BillingFallbackReasonNotNil applies the NotNil predicate on the "billing_fallback_reason" field.
+func BillingFallbackReasonNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldBillingFallbackReason))
+}
+
+// BillingFallbackReasonEqualFold applies the EqualFold predicate on the "billing_fallback_reason" field.
+func BillingFallbackReasonEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldBillingFallbackReason, v))
+}
+
+// BillingFallbackReasonContainsFold applies the ContainsFold predicate on the "billing_fallback_reason" field.
+func BillingFallbackReasonContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldBillingFallbackReason, v))
 }
 
 // StreamEQ applies the EQ predicate on the "stream" field.

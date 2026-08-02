@@ -35,6 +35,8 @@ const (
 	FieldConcurrency = "concurrency"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldBillingPreference holds the string denoting the billing_preference field in the database.
+	FieldBillingPreference = "billing_preference"
 	// FieldUsername holds the string denoting the username field in the database.
 	FieldUsername = "username"
 	// FieldNotes holds the string denoting the notes field in the database.
@@ -204,6 +206,7 @@ var Columns = []string{
 	FieldFrozenBalance,
 	FieldConcurrency,
 	FieldStatus,
+	FieldBillingPreference,
 	FieldUsername,
 	FieldNotes,
 	FieldTotpSecretEncrypted,
@@ -268,6 +271,10 @@ var (
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	StatusValidator func(string) error
+	// DefaultBillingPreference holds the default value on creation for the "billing_preference" field.
+	DefaultBillingPreference string
+	// BillingPreferenceValidator is a validator for the "billing_preference" field. It is called by the builders before save.
+	BillingPreferenceValidator func(string) error
 	// DefaultUsername holds the default value on creation for the "username" field.
 	DefaultUsername string
 	// UsernameValidator is a validator for the "username" field. It is called by the builders before save.
@@ -348,6 +355,11 @@ func ByConcurrency(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// ByBillingPreference orders the results by the billing_preference field.
+func ByBillingPreference(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBillingPreference, opts...).ToFunc()
 }
 
 // ByUsername orders the results by the username field.

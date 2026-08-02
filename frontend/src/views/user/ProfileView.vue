@@ -113,6 +113,10 @@
             <ProfilePasskeyCard :enabled="passkeyEnabled" embedded />
           </section>
 
+          <section v-if="user && subscriptionGroupBillingEnabled" class="p-4" data-testid="profile-billing-preference-panel">
+            <ProfileBillingPreferenceSection :value="user.billing_preference" />
+          </section>
+
           <section v-if="user && balanceLowNotifyEnabled" class="p-4">
             <ProfileBalanceNotifyCard
               :enabled="user.balance_notify_enabled ?? true"
@@ -160,6 +164,7 @@ import ProfileIdentityBindingsSection from '@/components/user/profile/ProfileIde
 import ProfilePasswordForm from '@/components/user/profile/ProfilePasswordForm.vue'
 import ProfileTotpCard from '@/components/user/profile/ProfileTotpCard.vue'
 import ProfilePasskeyCard from '@/components/user/profile/ProfilePasskeyCard.vue'
+import ProfileBillingPreferenceSection from '@/components/user/profile/ProfileBillingPreferenceSection.vue'
 import { isWeChatWebOAuthEnabled } from '@/api/auth'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -180,6 +185,7 @@ const wechatOAuthMPEnabled = ref<boolean | undefined>(undefined)
 const oidcOAuthEnabled = ref(false)
 const oidcOAuthProviderName = ref('OIDC')
 const passkeyEnabled = ref(false)
+const subscriptionGroupBillingEnabled = ref(false)
 const passwordFormExpanded = ref(false)
 
 onMounted(async () => {
@@ -207,6 +213,7 @@ onMounted(async () => {
       oidcOAuthEnabled.value = settings.oidc_oauth_enabled ?? false
       oidcOAuthProviderName.value = settings.oidc_oauth_provider_name || 'OIDC'
       passkeyEnabled.value = settings.passkey_enabled === true
+      subscriptionGroupBillingEnabled.value = settings.subscription_group_billing_enabled === true
     })
     .catch((error) => {
       console.error('Failed to load settings:', error)

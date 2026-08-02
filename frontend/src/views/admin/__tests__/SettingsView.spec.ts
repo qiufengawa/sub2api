@@ -274,6 +274,39 @@ const ToggleStub = defineComponent({
   },
 });
 
+const BaseDialogStub = defineComponent({
+  props: {
+    show: {
+      type: Boolean,
+      default: false,
+    },
+    title: {
+      type: String,
+      default: "",
+    },
+  },
+  emits: ["close"],
+  setup(props, { emit, slots }) {
+    return () =>
+      props.show
+        ? h("section", { "data-testid": "base-dialog-stub" }, [
+            h("h3", props.title),
+            slots.default?.(),
+            slots.footer?.(),
+            h(
+              "button",
+              {
+                type: "button",
+                "data-testid": "base-dialog-close-stub",
+                onClick: () => emit("close"),
+              },
+              "close",
+            ),
+          ])
+        : null;
+  },
+});
+
 const SelectStub = defineComponent({
   props: {
     modelValue: {
@@ -460,6 +493,7 @@ const baseSettingsResponse = {
   antigravity_user_agent_version: "",
   openai_codex_user_agent: "",
   payment_enabled: true,
+  subscription_group_billing_enabled: false,
   payment_min_amount: 1,
   payment_max_amount: 10000,
   payment_daily_limit: 50000,
@@ -534,6 +568,7 @@ function mountView() {
         Select: SelectStub,
         Toggle: ToggleStub,
         Icon: true,
+        BaseDialog: BaseDialogStub,
         ConfirmDialog: true,
         PaymentProviderList: true,
         PaymentProviderDialog: true,
@@ -743,6 +778,59 @@ describe("admin SettingsView payment visible method controls", () => {
 
     expect(wrapper.text()).not.toContain("可见方式");
     expect(wrapper.text()).not.toContain("支付来源");
+  });
+
+  it("loads and submits the subscription group billing switch independently of payment", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      payment_enabled: false,
+      subscription_group_billing_enabled: true,
+    });
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openPaymentTab(wrapper);
+
+    const toggle = wrapper.get('[data-testid="subscription-group-billing-toggle"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(true);
+
+    await toggle.setValue(false);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ subscription_group_billing_enabled: false }),
+    );
+  });
+
+  it("explains subscription group billing from the title help button", async () => {
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openPaymentTab(wrapper);
+
+    expect(wrapper.find('[data-testid="subscription-group-billing-help-dialog"]').exists()).toBe(false);
+
+    await wrapper
+      .get('[data-testid="subscription-group-billing-help-button"]')
+      .trigger("click");
+
+    const dialog = wrapper.get('[data-testid="subscription-group-billing-help-dialog"]');
+    expect(dialog.text()).toContain(
+      "admin.settings.payment.subscriptionGroupBillingHelpQuotaText",
+    );
+    expect(dialog.text()).toContain(
+      "admin.settings.payment.subscriptionGroupBillingHelpGroupText",
+    );
+    expect(dialog.text()).toContain(
+      "admin.settings.payment.subscriptionGroupBillingHelpFallbackText",
+    );
+    expect(dialog.text()).toContain(
+      "admin.settings.payment.subscriptionGroupBillingHelpExampleText",
+    );
+
+    await wrapper.get('[data-testid="base-dialog-close-stub"]').trigger("click");
+    expect(wrapper.find('[data-testid="subscription-group-billing-help-dialog"]').exists()).toBe(false);
   });
 
   it("shows valid passkey RP configuration and persists the sign-in toggle", async () => {

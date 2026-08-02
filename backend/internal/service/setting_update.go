@@ -47,6 +47,7 @@ func (s *SettingService) UpdateSettingsOmitting(ctx context.Context, settings *S
 	if err := s.settingRepo.SetMultiple(ctx, updates); err != nil {
 		return err
 	}
+	s.publishSubscriptionGroupBillingUpdate(updates)
 	s.refreshCachedSettingsAfterWrite(ctx, settings, omitted)
 	return nil
 }
@@ -77,6 +78,7 @@ func (s *SettingService) UpdateSettingsWithAuthSourceDefaultsOmitting(ctx contex
 	if err := s.settingRepo.SetMultiple(ctx, updates); err != nil {
 		return err
 	}
+	s.publishSubscriptionGroupBillingUpdate(updates)
 	s.refreshCachedSettingsAfterWrite(ctx, settings, omitted)
 	return nil
 }
@@ -324,6 +326,7 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyHideCcsImportButton] = strconv.FormatBool(settings.HideCcsImportButton)
 	updates[SettingKeyPurchaseSubscriptionEnabled] = strconv.FormatBool(settings.PurchaseSubscriptionEnabled)
 	updates[SettingKeyPurchaseSubscriptionURL] = strings.TrimSpace(settings.PurchaseSubscriptionURL)
+	updates[SettingKeySubscriptionGroupBillingEnabled] = strconv.FormatBool(settings.SubscriptionGroupBillingEnabled)
 	tableDefaultPageSize, tablePageSizeOptions := normalizeTablePreferences(
 		settings.TableDefaultPageSize,
 		settings.TablePageSizeOptions,
@@ -489,6 +492,15 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyAllowUserViewErrorRequests] = strconv.FormatBool(settings.AllowUserViewErrorRequests)
 
 	return updates, nil
+}
+
+func (s *SettingService) publishSubscriptionGroupBillingUpdate(updates map[string]string) {
+	if s == nil || s.cfg == nil {
+		return
+	}
+	if value, ok := updates[SettingKeySubscriptionGroupBillingEnabled]; ok {
+		s.cfg.SetSubscriptionGroupBillingEnabled(value == "true")
+	}
 }
 
 // validateDefaultPlatformQuotaMap 校验 platform quota map 的合法性：

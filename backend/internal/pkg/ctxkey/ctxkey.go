@@ -26,6 +26,10 @@ const (
 	// ClientRequestID 客户端请求的唯一标识，用于追踪请求全生命周期（用于 Ops 监控与排障）。
 	ClientRequestID Key = "ctx_client_request_id"
 
+	// UsageBillingRequestID 是账务预留/结算专用幂等键。它允许 WebSocket
+	// 多轮请求在保留连接级追踪 ID 的同时，为每个 turn 使用独立账务键。
+	UsageBillingRequestID Key = "ctx_usage_billing_request_id"
+
 	// Model 请求模型标识（用于统一请求链路日志字段）。
 	Model Key = "ctx_model"
 

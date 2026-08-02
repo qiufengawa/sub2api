@@ -21,6 +21,7 @@ func UserFromServiceShallow(u *service.User) *User {
 		FrozenBalance:              u.FrozenBalance,
 		Concurrency:                u.Concurrency,
 		Status:                     u.Status,
+		BillingPreference:          service.NormalizeBillingPreference(u.BillingPreference),
 		AllowedGroups:              u.AllowedGroups,
 		LastActiveAt:               u.LastActiveAt,
 		CreatedAt:                  u.CreatedAt,
@@ -652,6 +653,9 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		RateMultiplier:            l.RateMultiplier,
 		LongContextBillingApplied: l.LongContextBillingApplied,
 		BillingType:               l.BillingType,
+		BillingSource:             l.BillingSource,
+		BillingPreference:         l.BillingPreference,
+		BillingFallbackReason:     l.BillingFallbackReason,
 		RequestType:               requestType.String(),
 		Stream:                    stream,
 		OpenAIWSMode:              openAIWSMode,
@@ -787,24 +791,39 @@ func UserSubscriptionFromServiceAdmin(sub *service.UserSubscription) *AdminUserS
 }
 
 func userSubscriptionFromServiceBase(sub *service.UserSubscription) UserSubscription {
+	includedGroups := make([]*Group, 0, len(sub.IncludedGroups))
+	for i := range sub.IncludedGroups {
+		if group := GroupFromServiceShallow(&sub.IncludedGroups[i]); group != nil {
+			includedGroups = append(includedGroups, group)
+		}
+	}
 	return UserSubscription{
-		ID:                 sub.ID,
-		UserID:             sub.UserID,
-		GroupID:            sub.GroupID,
-		StartsAt:           sub.StartsAt,
-		ExpiresAt:          sub.ExpiresAt,
-		Status:             sub.Status,
-		DailyWindowStart:   sub.DailyWindowStart,
-		WeeklyWindowStart:  sub.WeeklyWindowStart,
-		MonthlyWindowStart: sub.MonthlyWindowStart,
-		DailyUsageUSD:      sub.DailyUsageUSD,
-		WeeklyUsageUSD:     sub.WeeklyUsageUSD,
-		MonthlyUsageUSD:    sub.MonthlyUsageUSD,
-		CreatedAt:          sub.CreatedAt,
-		UpdatedAt:          sub.UpdatedAt,
-		RevokedAt:          sub.DeletedAt,
-		User:               UserFromServiceShallow(sub.User),
-		Group:              GroupFromServiceShallow(sub.Group),
+		ID:                    sub.ID,
+		UserID:                sub.UserID,
+		GroupID:               sub.GroupID,
+		PlanID:                sub.PlanID,
+		PlanName:              sub.PlanName,
+		StartsAt:              sub.StartsAt,
+		ExpiresAt:             sub.ExpiresAt,
+		Status:                sub.Status,
+		DailyWindowStart:      sub.DailyWindowStart,
+		WeeklyWindowStart:     sub.WeeklyWindowStart,
+		MonthlyWindowStart:    sub.MonthlyWindowStart,
+		DailyUsageUSD:         sub.DailyUsageUSD,
+		WeeklyUsageUSD:        sub.WeeklyUsageUSD,
+		MonthlyUsageUSD:       sub.MonthlyUsageUSD,
+		CycleQuotaUSD:         sub.CycleQuotaUSD,
+		CycleUsageUSD:         sub.CycleUsageUSD,
+		CycleReservedUSD:      sub.CycleReservedUSD,
+		ResetIntervalSeconds:  sub.ResetIntervalSeconds,
+		CycleStartedAt:        sub.CycleStartedAt,
+		WalletFallbackEnabled: sub.WalletFallbackEnabled,
+		CreatedAt:             sub.CreatedAt,
+		UpdatedAt:             sub.UpdatedAt,
+		RevokedAt:             sub.DeletedAt,
+		User:                  UserFromServiceShallow(sub.User),
+		Group:                 GroupFromServiceShallow(sub.Group),
+		IncludedGroups:        includedGroups,
 	}
 }
 

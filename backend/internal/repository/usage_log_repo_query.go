@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	dbent "github.com/Wei-Shaw/sub2api/ent"
 	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
 	dbapikey "github.com/Wei-Shaw/sub2api/ent/apikey"
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
@@ -19,7 +20,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
-const usageLogSelectColumns = "id, user_id, api_key_id, account_id, request_id, model, requested_model, upstream_model, group_id, subscription_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, cache_creation_5m_tokens, cache_creation_1h_tokens, image_output_tokens, image_output_cost, image_input_tokens, image_input_cost, input_cost, output_cost, cache_creation_cost, cache_read_cost, total_cost, actual_cost, rate_multiplier, account_rate_multiplier, billing_type, request_type, stream, openai_ws_mode, duration_ms, first_token_ms, user_agent, ip_address, image_count, image_size, image_input_size, image_output_size, image_size_source, image_size_breakdown, video_count, video_resolution, video_duration_seconds, service_tier, reasoning_effort, inbound_endpoint, upstream_endpoint, cache_ttl_overridden, long_context_billing_applied, channel_id, model_mapping_chain, billing_tier, billing_mode, account_stats_cost, session_id, created_at"
+const usageLogSelectColumns = "id, user_id, api_key_id, account_id, request_id, model, requested_model, upstream_model, group_id, subscription_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, cache_creation_5m_tokens, cache_creation_1h_tokens, image_output_tokens, image_output_cost, image_input_tokens, image_input_cost, input_cost, output_cost, cache_creation_cost, cache_read_cost, total_cost, actual_cost, rate_multiplier, account_rate_multiplier, billing_type, request_type, stream, openai_ws_mode, duration_ms, first_token_ms, user_agent, ip_address, image_count, image_size, image_input_size, image_output_size, image_size_source, image_size_breakdown, video_count, video_resolution, video_duration_seconds, service_tier, reasoning_effort, inbound_endpoint, upstream_endpoint, cache_ttl_overridden, long_context_billing_applied, channel_id, model_mapping_chain, billing_tier, billing_mode, account_stats_cost, session_id, created_at, billing_source, billing_preference, billing_fallback_reason"
 
 func (r *usageLogRepository) GetByID(ctx context.Context, id int64) (log *service.UsageLog, err error) {
 	query := "SELECT " + usageLogSelectColumns + " FROM usage_logs WHERE id = $1"
@@ -402,7 +403,7 @@ func (r *usageLogRepository) loadGroups(ctx context.Context, ids []int64) (map[i
 	if len(ids) == 0 {
 		return out, nil
 	}
-	models, err := r.client.Group.Query().Where(dbgroup.IDIn(ids...)).All(ctx)
+	models, err := r.client.Group.Query().Where(dbgroup.IDIn(ids...)).All(mixins.SkipSoftDelete(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -417,7 +418,11 @@ func (r *usageLogRepository) loadSubscriptions(ctx context.Context, ids []int64)
 	if len(ids) == 0 {
 		return out, nil
 	}
-	models, err := r.client.UserSubscription.Query().Where(dbusersub.IDIn(ids...)).All(ctx)
+	models, err := r.client.UserSubscription.Query().
+		Where(dbusersub.IDIn(ids...)).
+		WithGroup().
+		WithPlan(func(q *dbent.SubscriptionPlanQuery) { q.WithGroups() }).
+		All(mixins.SkipSoftDelete(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -487,6 +492,9 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 		accountStatsCost          sql.NullFloat64
 		sessionID                 sql.NullString
 		createdAt                 time.Time
+		billingSource             string
+		billingPreference         sql.NullString
+		billingFallbackReason     sql.NullString
 	)
 
 	if err := scanner.Scan(
@@ -548,6 +556,9 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 		&accountStatsCost,
 		&sessionID,
 		&createdAt,
+		&billingSource,
+		&billingPreference,
+		&billingFallbackReason,
 	); err != nil {
 		return nil, err
 	}
@@ -578,6 +589,7 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 		RateMultiplier:            rateMultiplier,
 		AccountRateMultiplier:     nullFloat64Ptr(accountRateMultiplier),
 		BillingType:               int8(billingType),
+		BillingSource:             billingSource,
 		RequestType:               service.RequestTypeFromInt16(requestTypeRaw),
 		ImageCount:                imageCount,
 		VideoCount:                videoCount,
@@ -593,6 +605,12 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 
 	if requestID.Valid {
 		log.RequestID = requestID.String
+	}
+	if billingPreference.Valid {
+		log.BillingPreference = &billingPreference.String
+	}
+	if billingFallbackReason.Valid {
+		log.BillingFallbackReason = &billingFallbackReason.String
 	}
 	if groupID.Valid {
 		value := groupID.Int64

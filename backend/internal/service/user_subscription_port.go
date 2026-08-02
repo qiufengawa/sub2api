@@ -37,3 +37,22 @@ type UserSubscriptionRepository interface {
 
 	BatchUpdateExpiredStatus(ctx context.Context) (int64, error)
 }
+
+// SubscriptionCoverageRepository is an additive capability used by the new
+// plan-to-real-group billing path. Keeping it separate preserves compatibility
+// with legacy repository implementations and test doubles.
+type SubscriptionCoverageRepository interface {
+	GetByUserIDAndPlanID(ctx context.Context, userID, planID int64) (*UserSubscription, error)
+	GetActiveCoveringGroup(ctx context.Context, userID, groupID int64) (*UserSubscription, error)
+	ListActiveCoveringGroup(ctx context.Context, userID, groupID int64) ([]UserSubscription, error)
+	ExistsActiveCoveringGroup(ctx context.Context, userID, groupID int64) (bool, error)
+	UpdateBillingSnapshot(ctx context.Context, subscriptionID int64, snapshot SubscriptionBillingSnapshot, resetCycle bool) error
+}
+
+type SubscriptionBillingSnapshot struct {
+	PlanID                *int64
+	CycleQuotaUSD         *float64
+	ResetIntervalSeconds  int
+	CycleStartedAt        *time.Time
+	WalletFallbackEnabled bool
+}

@@ -69,6 +69,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeySiteLogo:                                  "",
 		SettingKeyPurchaseSubscriptionEnabled:               "false",
 		SettingKeyPurchaseSubscriptionURL:                   "",
+		SettingKeySubscriptionGroupBillingEnabled:           strconv.FormatBool(s.subscriptionGroupBillingEnabled(nil)),
 		SettingKeyTableDefaultPageSize:                      "20",
 		SettingKeyTablePageSizeOptions:                      "[10,20,50,100]",
 		SettingKeyCustomMenuItems:                           "[]",
@@ -334,6 +335,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		HideCcsImportButton:              settings[SettingKeyHideCcsImportButton] == "true",
 		PurchaseSubscriptionEnabled:      settings[SettingKeyPurchaseSubscriptionEnabled] == "true",
 		PurchaseSubscriptionURL:          strings.TrimSpace(settings[SettingKeyPurchaseSubscriptionURL]),
+		SubscriptionGroupBillingEnabled:  s.subscriptionGroupBillingEnabled(settings),
 		CustomMenuItems:                  settings[SettingKeyCustomMenuItems],
 		CustomEndpoints:                  settings[SettingKeyCustomEndpoints],
 		BackendModeEnabled:               settings[SettingKeyBackendModeEnabled] == "true",
@@ -906,6 +908,13 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.AllowUserViewErrorRequests = settings[SettingKeyAllowUserViewErrorRequests] == "true" // default false
 
 	return result
+}
+
+func (s *SettingService) subscriptionGroupBillingEnabled(settings map[string]string) bool {
+	if value, ok := settings[SettingKeySubscriptionGroupBillingEnabled]; ok {
+		return value == "true"
+	}
+	return s != nil && s.cfg != nil && s.cfg.SubscriptionGroupBillingEnabled()
 }
 
 func clampAffiliateRebateRate(value float64) float64 {

@@ -2,13 +2,11 @@ import type { AdminGroup, CompositeModelRoute, GroupPlatform } from '@/types'
 import type { PaymentCatalogImportRequest, PaymentCatalogRoute } from '@/types/payment'
 
 const MAX_ACCOUNT_SOURCES = 100
-const MAX_ROUTES_PER_GROUP = 100
-const MAX_ROUTES_TOTAL = 1000
 
 export type CatalogAccountSourceGroup = Pick<
   AdminGroup,
-  'id' | 'name' | 'status' | 'account_count' | 'platform'
->
+	'id' | 'name' | 'status' | 'account_count' | 'platform'
+> & Partial<Pick<AdminGroup, 'subscription_type'>>
 
 export interface CatalogTemplateSourceSnapshot {
   group: CatalogAccountSourceGroup
@@ -57,7 +55,8 @@ export function isPaymentCatalogTemplate(value: unknown): value is PaymentCatalo
     && Array.isArray(candidate.plans)
     && candidate.plans.every(plan => Boolean(plan)
       && typeof plan === 'object'
-      && typeof plan.group_key === 'string'
+			&& ((typeof plan.group_key === 'string' && plan.group_key.trim() !== '')
+				!== (Number.isSafeInteger(plan.group_id) && Number(plan.group_id) > 0))
       && typeof plan.name === 'string'
       && typeof plan.price === 'number')
 }
@@ -66,7 +65,7 @@ export function isQiuapiFiveTierTemplate(catalog: PaymentCatalogImportRequest): 
   const expectedKeys = ['lite', 'starter', 'standard', 'pro', 'max']
   if (catalog.schema_version !== 1 || catalog.mode !== 'upsert' || catalog.groups.length !== 5 || catalog.plans.length !== 5) return false
   const groupKeys = new Set(catalog.groups.map(group => group.key.trim().toLowerCase()))
-  const planKeys = new Set(catalog.plans.map(plan => plan.group_key.trim().toLowerCase()))
+	const planKeys = new Set(catalog.plans.map(plan => plan.group_key?.trim().toLowerCase() ?? ''))
   return expectedKeys.every(key => groupKeys.has(key) && planKeys.has(key))
     && catalog.groups.every(group => !group.copy_accounts_from?.length)
 }
@@ -74,55 +73,41 @@ export function isQiuapiFiveTierTemplate(catalog: PaymentCatalogImportRequest): 
 export async function personalizeCatalogTemplateForInstallation(
   catalog: PaymentCatalogImportRequest,
   groups: CatalogAccountSourceGroup[],
-  loaders: CatalogTemplateSourceLoaders,
+	_loaders: CatalogTemplateSourceLoaders,
 ): Promise<InstallationCatalogTemplate> {
-  const selection = selectCatalogTemplateSources(catalog, groups)
-  let failedSourceCount = 0
-  const snapshots = await Promise.all(selection.sources.map(async (group): Promise<CatalogTemplateSourceSnapshot> => {
-    try {
-      if (group.platform === 'composite') {
-        return { group, routes: await loaders.loadRoutes(group) }
-      }
-      return { group, models: await loaders.loadModels(group) }
-    } catch {
-      failedSourceCount += 1
-      return { group }
-    }
-  }))
-
-  return {
-    ...personalizeCatalogTemplate(catalog, groups, buildCatalogTemplateRoutes(snapshots)),
-    failedSourceCount,
+	// Group-billing catalogs reference existing real groups by ID. Account,
+	// model, and Composite-route configuration remains owned by those groups.
+	return {
+		...personalizeCatalogTemplate(catalog, groups),
+		failedSourceCount: 0,
   }
 }
 
 export function personalizeCatalogTemplate(
   catalog: PaymentCatalogImportRequest,
   groups: CatalogAccountSourceGroup[],
-  routeBuild: CatalogTemplateRouteBuild = { routes: [], omittedCount: 0 },
+	_routeBuild: CatalogTemplateRouteBuild = { routes: [], omittedCount: 0 },
 ): PersonalizedCatalogTemplate {
   const selection = selectCatalogTemplateSources(catalog, groups)
-  const sourceNames = selection.sources.map(group => group.name.trim())
-  const groupCount = Math.max(1, catalog.groups.length)
-  const sharedRouteLimit = Math.min(MAX_ROUTES_PER_GROUP, Math.floor(MAX_ROUTES_TOTAL / groupCount))
-  const uniqueSharedRoutes = uniqueRoutes(routeBuild.routes)
-  const sharedRoutes = uniqueSharedRoutes.slice(0, sharedRouteLimit)
-  const omittedRouteCount = routeBuild.omittedCount
-    + Math.max(0, uniqueSharedRoutes.length - sharedRoutes.length)
+	const groupIDs = selection.sources.map(group => group.id)
+	const primaryGroupID = groupIDs[0]
 
   return {
     catalog: {
       ...catalog,
-      groups: catalog.groups.map(group => ({
-        ...group,
-        copy_accounts_from: sourceNames,
-        routes: uniqueRoutes([...(group.routes || []), ...sharedRoutes]).slice(0, sharedRouteLimit),
-      })),
+			groups: [],
+			plans: catalog.plans.map((plan) => {
+				const { group_key: _groupKey, included_group_keys: _includedGroupKeys, ...portablePlan } = plan
+				return {
+					...portablePlan,
+					...(primaryGroupID ? { group_id: primaryGroupID, included_group_ids: [...groupIDs] } : {}),
+				}
+			}),
     },
-    sourceCount: sourceNames.length,
-    routeCount: sharedRoutes.length,
+		sourceCount: groupIDs.length,
+		routeCount: 0,
     omittedSourceCount: selection.omittedCount,
-    omittedRouteCount,
+		omittedRouteCount: 0,
   }
 }
 
@@ -136,7 +121,8 @@ export function selectCatalogTemplateSources(
 
   for (const group of groups) {
     const name = group.name.trim()
-    if (group.status !== 'active' || (group.account_count ?? 0) <= 0 || name === '' || targetNames.has(name) || names.has(name)) continue
+		const routable = (group.account_count ?? 0) > 0 || group.platform === 'composite'
+		if (group.status !== 'active' || group.subscription_type === 'subscription' || !routable || name === '' || targetNames.has(name) || names.has(name)) continue
     names.add(name)
     eligible.push({ ...group, name })
   }

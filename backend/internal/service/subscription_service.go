@@ -47,6 +47,7 @@ type SubscriptionService struct {
 	userSubRepo         UserSubscriptionRepository
 	billingCacheService *BillingCacheService
 	entClient           *dbent.Client
+	cfg                 *config.Config
 
 	// L1 缓存：加速中间件热路径的订阅查询
 	subCacheL1     *ristretto.Cache
@@ -65,6 +66,7 @@ func NewSubscriptionService(groupRepo GroupRepository, userSubRepo UserSubscript
 		userSubRepo:         userSubRepo,
 		billingCacheService: billingCacheService,
 		entClient:           entClient,
+		cfg:                 cfg,
 		now:                 time.Now,
 	}
 	svc.initSubCache(cfg)
@@ -191,11 +193,15 @@ func (s *SubscriptionService) invalidateSubscriptionCaches(userID, groupID int64
 
 // AssignSubscriptionInput 分配订阅输入
 type AssignSubscriptionInput struct {
-	UserID       int64
-	GroupID      int64
-	ValidityDays int
-	AssignedBy   int64
-	Notes        string
+	UserID                int64
+	GroupID               int64
+	PlanID                *int64
+	CycleQuotaUSD         *float64
+	ResetIntervalSeconds  int
+	WalletFallbackEnabled *bool
+	ValidityDays          int
+	AssignedBy            int64
+	Notes                 string
 }
 
 // AssignSubscription 分配订阅给用户（不允许重复分配）
@@ -218,17 +224,26 @@ func (s *SubscriptionService) AssignOrExtendSubscription(ctx context.Context, in
 }
 
 func (s *SubscriptionService) assignOrExtendSubscription(ctx context.Context, input *AssignSubscriptionInput, deferCacheInvalidation bool) (*UserSubscription, bool, error) {
-	// 检查分组是否存在且为订阅类型
+	// Legacy assignments still target synthetic subscription groups. A paid
+	// plan in the group-billing model instead anchors the subscription record to
+	// one of its real routing groups, while plan coverage supplies entitlement.
 	group, err := s.groupRepo.GetByID(ctx, input.GroupID)
 	if err != nil {
 		return nil, false, fmt.Errorf("group not found: %w", err)
 	}
-	if !group.IsSubscriptionType() {
+	if !group.IsSubscriptionType() && !s.allowsRealGroupPlanAssignment(input) {
 		return nil, false, ErrGroupNotSubscriptionType
 	}
 
 	// 查询是否已有订阅
-	existingSub, err := s.userSubRepo.GetByUserIDAndGroupID(ctx, input.UserID, input.GroupID)
+	var existingSub *UserSubscription
+	if input.PlanID != nil {
+		if coverageRepo, ok := s.userSubRepo.(SubscriptionCoverageRepository); ok {
+			existingSub, err = coverageRepo.GetByUserIDAndPlanID(ctx, input.UserID, *input.PlanID)
+		}
+	} else {
+		existingSub, err = s.userSubRepo.GetByUserIDAndGroupID(ctx, input.UserID, input.GroupID)
+	}
 	if err != nil {
 		// 不存在记录是正常情况，其他错误需要返回
 		existingSub = nil
@@ -264,6 +279,25 @@ func (s *SubscriptionService) assignOrExtendSubscription(ctx context.Context, in
 		if err := s.updateExistingSubscriptionTerm(ctx, existingSub, input.Notes, now, newExpiresAt, isExpired); err != nil {
 			return nil, false, err
 		}
+		if input.PlanID != nil {
+			if coverageRepo, ok := s.userSubRepo.(SubscriptionCoverageRepository); ok {
+				cycleStart := existingSub.CycleStartedAt
+				if isExpired || cycleStart == nil {
+					cycleStart = &now
+				}
+				walletFallback := true
+				if input.WalletFallbackEnabled != nil {
+					walletFallback = *input.WalletFallbackEnabled
+				}
+				if err := coverageRepo.UpdateBillingSnapshot(ctx, existingSub.ID, SubscriptionBillingSnapshot{
+					PlanID: input.PlanID, CycleQuotaUSD: input.CycleQuotaUSD,
+					ResetIntervalSeconds: input.ResetIntervalSeconds,
+					CycleStartedAt:       cycleStart, WalletFallbackEnabled: walletFallback,
+				}, isExpired); err != nil {
+					return nil, false, err
+				}
+			}
+		}
 
 		// 失效订阅缓存
 		s.maybeInvalidateAssignmentCaches(input.UserID, input.GroupID, deferCacheInvalidation)
@@ -283,6 +317,15 @@ func (s *SubscriptionService) assignOrExtendSubscription(ctx context.Context, in
 	s.maybeInvalidateAssignmentCaches(input.UserID, input.GroupID, deferCacheInvalidation)
 
 	return sub, false, nil // false 表示是新建
+}
+
+func (s *SubscriptionService) allowsRealGroupPlanAssignment(input *AssignSubscriptionInput) bool {
+	return s != nil &&
+		s.cfg != nil &&
+		s.cfg.SubscriptionGroupBillingEnabled() &&
+		input != nil &&
+		input.PlanID != nil &&
+		*input.PlanID > 0
 }
 
 func (s *SubscriptionService) maybeInvalidateAssignmentCaches(userID, groupID int64, deferred bool) {
@@ -411,15 +454,23 @@ func (s *SubscriptionService) createSubscription(ctx context.Context, input *Ass
 	}
 
 	sub := &UserSubscription{
-		UserID:     input.UserID,
-		GroupID:    input.GroupID,
-		StartsAt:   now,
-		ExpiresAt:  expiresAt,
-		Status:     SubscriptionStatusActive,
-		AssignedAt: now,
-		Notes:      input.Notes,
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		UserID:                input.UserID,
+		GroupID:               input.GroupID,
+		PlanID:                input.PlanID,
+		StartsAt:              now,
+		ExpiresAt:             expiresAt,
+		Status:                SubscriptionStatusActive,
+		AssignedAt:            now,
+		Notes:                 input.Notes,
+		CreatedAt:             now,
+		UpdatedAt:             now,
+		CycleQuotaUSD:         input.CycleQuotaUSD,
+		ResetIntervalSeconds:  input.ResetIntervalSeconds,
+		CycleStartedAt:        &now,
+		WalletFallbackEnabled: true,
+	}
+	if input.WalletFallbackEnabled != nil {
+		sub.WalletFallbackEnabled = *input.WalletFallbackEnabled
 	}
 	// 只有当 AssignedBy > 0 时才设置（0 表示系统分配，如兑换码）
 	if input.AssignedBy > 0 {
@@ -757,6 +808,41 @@ func (s *SubscriptionService) GetActiveSubscription(ctx context.Context, userID,
 	return &cp, nil
 }
 
+// GetActiveSubscriptionForGroup resolves entitlement independently from the
+// API key's routing group when the new billing model is enabled. Legacy
+// repositories and disabled rollouts keep the historical direct-group lookup.
+func (s *SubscriptionService) GetActiveSubscriptionForGroup(ctx context.Context, userID, groupID int64) (*UserSubscription, error) {
+	if s == nil {
+		return nil, ErrSubscriptionNotFound
+	}
+	if s.cfg == nil || !s.cfg.SubscriptionGroupBillingEnabled() {
+		return s.GetActiveSubscription(ctx, userID, groupID)
+	}
+	coverageRepo, ok := s.userSubRepo.(SubscriptionCoverageRepository)
+	if !ok {
+		return s.GetActiveSubscription(ctx, userID, groupID)
+	}
+	subscriptions, err := coverageRepo.ListActiveCoveringGroup(ctx, userID, groupID)
+	if err != nil {
+		return nil, err
+	}
+	if len(subscriptions) == 0 {
+		return nil, ErrSubscriptionNotFound
+	}
+	now := s.now()
+	for i := range subscriptions {
+		if subscriptions[i].CheckCycleLimitAt(now, 0) {
+			return &subscriptions[i], nil
+		}
+	}
+	for i := range subscriptions {
+		if subscriptions[i].WalletFallbackEnabled {
+			return &subscriptions[i], nil
+		}
+	}
+	return &subscriptions[0], nil
+}
+
 // ListUserSubscriptions 获取用户的所有订阅
 func (s *SubscriptionService) ListUserSubscriptions(ctx context.Context, userID int64) ([]UserSubscription, error) {
 	subs, err := s.userSubRepo.ListByUserID(ctx, userID)
@@ -961,6 +1047,12 @@ func (s *SubscriptionService) EnsureWindowMaintenance(ctx context.Context, sub *
 // CheckUsageLimits 检查使用限额（返回错误如果超限）
 // 用于中间件的快速预检查，additionalCost 通常为 0
 func (s *SubscriptionService) CheckUsageLimits(ctx context.Context, sub *UserSubscription, group *Group, additionalCost float64) error {
+	if s != nil && s.cfg != nil && s.cfg.SubscriptionGroupBillingEnabled() && sub.HasCycleQuota() {
+		if !sub.CheckCycleLimitAt(s.now(), additionalCost) {
+			return ErrWeeklyLimitExceeded
+		}
+		return nil
+	}
 	if !sub.CheckDailyLimit(group, additionalCost) {
 		return ErrDailyLimitExceeded
 	}
@@ -987,6 +1079,12 @@ func (s *SubscriptionService) ValidateAndCheckLimits(sub *UserSubscription, grou
 	}
 	if !sub.ExpiresAt.After(now) {
 		return false, ErrSubscriptionExpired
+	}
+	if s.cfg != nil && s.cfg.SubscriptionGroupBillingEnabled() && sub.HasCycleQuota() {
+		if !sub.CheckCycleLimitAt(now, 0) {
+			return false, ErrWeeklyLimitExceeded
+		}
+		return false, nil
 	}
 
 	// 2. 内存中修正过期窗口的用量，确保预检查不会误拒绝用户。
@@ -1077,6 +1175,7 @@ type SubscriptionProgress struct {
 	Daily         *UsageWindowProgress `json:"daily,omitempty"`
 	Weekly        *UsageWindowProgress `json:"weekly,omitempty"`
 	Monthly       *UsageWindowProgress `json:"monthly,omitempty"`
+	Cycle         *UsageWindowProgress `json:"cycle,omitempty"`
 }
 
 // UsageWindowProgress 使用窗口进度
@@ -1115,6 +1214,44 @@ func (s *SubscriptionService) calculateProgress(sub *UserSubscription, group *Gr
 		GroupName:     group.Name,
 		ExpiresAt:     sub.ExpiresAt,
 		ExpiresInDays: sub.DaysRemaining(),
+	}
+	if sub.HasCycleQuota() {
+		now := s.now()
+		used := sub.CycleUsageAt(now)
+		start := sub.StartsAt
+		if sub.CycleStartedAt != nil {
+			start = *sub.CycleStartedAt
+			if sub.ResetIntervalSeconds > 0 && !now.Before(start.Add(time.Duration(sub.ResetIntervalSeconds)*time.Second)) {
+				period := time.Duration(sub.ResetIntervalSeconds) * time.Second
+				start = start.Add((now.Sub(start) / period) * period)
+			}
+		}
+		resetsAt := sub.ExpiresAt
+		if reset := sub.CycleResetTimeAt(now); reset != nil {
+			resetsAt = *reset
+		}
+		limit := *sub.CycleQuotaUSD
+		remaining := limit - used
+		if remaining < 0 {
+			remaining = 0
+		}
+		percentage := (used / limit) * 100
+		if percentage > 100 {
+			percentage = 100
+		}
+		resetsInSeconds := int64(time.Until(resetsAt).Seconds())
+		if resetsInSeconds < 0 {
+			resetsInSeconds = 0
+		}
+		progress.Cycle = &UsageWindowProgress{
+			LimitUSD:        limit,
+			UsedUSD:         used,
+			RemainingUSD:    remaining,
+			Percentage:      percentage,
+			WindowStart:     start,
+			ResetsAt:        resetsAt,
+			ResetsInSeconds: resetsInSeconds,
+		}
 	}
 
 	// 日进度

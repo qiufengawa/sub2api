@@ -106,6 +106,23 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 		h.errorResponse(c, status, code, message)
 		return
 	}
+	requestPayloadHash := service.HashUsageRequestPayload(body)
+	billingReservation, err := reserveRequestBilling(c, h.gatewayService, apiKey.User, apiKey, service.RequestBillingEstimate{
+		Kind:           service.RequestBillingEstimateToken,
+		Model:          requestBillingEstimateModel(reqModel, channelMapping),
+		Body:           body,
+		NoOutputTokens: true,
+	}, requestPayloadHash)
+	if err != nil {
+		reqLog.Info("openai_embeddings.billing_reservation_failed", zap.Error(err))
+		status, code, message, retryAfter := billingErrorDetails(err)
+		if retryAfter > 0 {
+			c.Header("Retry-After", strconv.Itoa(retryAfter))
+		}
+		h.errorResponse(c, status, code, message)
+		return
+	}
+	defer billingReservation.Close(c.Request.Context())
 
 	failedAccountIDs := make(map[int64]struct{})
 	var lastFailoverErr *service.UpstreamFailoverError
@@ -245,7 +262,7 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 		sessionID := service.ExtractClientSessionID(c)
 
-		h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
+		if h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
 			if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 				Result:             result,
 				APIKey:             apiKey,
@@ -256,6 +273,7 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 				UpstreamEndpoint:   upstreamEndpoint,
 				UserAgent:          userAgent,
 				IPAddress:          clientIP,
+				RequestPayloadHash: requestPayloadHash,
 				APIKeyService:      h.apiKeyService,
 				QuotaPlatform:      quotaPlatform,
 				SessionID:          sessionID,
@@ -270,7 +288,9 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 					zap.Int64("account_id", account.ID),
 				).Error("openai_embeddings.record_usage_failed", zap.Error(err))
 			}
-		})
+		}) {
+			billingReservation.MarkForSettlement()
+		}
 		reqLog.Debug("openai_embeddings.request_completed",
 			zap.Int64("account_id", account.ID),
 			zap.Int("switch_count", switchCount),

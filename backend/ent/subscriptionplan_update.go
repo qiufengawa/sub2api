@@ -11,8 +11,10 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
+	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 )
 
 // SubscriptionPlanUpdate is the builder for updating SubscriptionPlan entities.
@@ -139,6 +141,68 @@ func (_u *SubscriptionPlanUpdate) SetNillableCurrency(v *string) *SubscriptionPl
 	return _u
 }
 
+// SetCycleQuotaUsd sets the "cycle_quota_usd" field.
+func (_u *SubscriptionPlanUpdate) SetCycleQuotaUsd(v float64) *SubscriptionPlanUpdate {
+	_u.mutation.ResetCycleQuotaUsd()
+	_u.mutation.SetCycleQuotaUsd(v)
+	return _u
+}
+
+// SetNillableCycleQuotaUsd sets the "cycle_quota_usd" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdate) SetNillableCycleQuotaUsd(v *float64) *SubscriptionPlanUpdate {
+	if v != nil {
+		_u.SetCycleQuotaUsd(*v)
+	}
+	return _u
+}
+
+// AddCycleQuotaUsd adds value to the "cycle_quota_usd" field.
+func (_u *SubscriptionPlanUpdate) AddCycleQuotaUsd(v float64) *SubscriptionPlanUpdate {
+	_u.mutation.AddCycleQuotaUsd(v)
+	return _u
+}
+
+// ClearCycleQuotaUsd clears the value of the "cycle_quota_usd" field.
+func (_u *SubscriptionPlanUpdate) ClearCycleQuotaUsd() *SubscriptionPlanUpdate {
+	_u.mutation.ClearCycleQuotaUsd()
+	return _u
+}
+
+// SetResetIntervalSeconds sets the "reset_interval_seconds" field.
+func (_u *SubscriptionPlanUpdate) SetResetIntervalSeconds(v int) *SubscriptionPlanUpdate {
+	_u.mutation.ResetResetIntervalSeconds()
+	_u.mutation.SetResetIntervalSeconds(v)
+	return _u
+}
+
+// SetNillableResetIntervalSeconds sets the "reset_interval_seconds" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdate) SetNillableResetIntervalSeconds(v *int) *SubscriptionPlanUpdate {
+	if v != nil {
+		_u.SetResetIntervalSeconds(*v)
+	}
+	return _u
+}
+
+// AddResetIntervalSeconds adds value to the "reset_interval_seconds" field.
+func (_u *SubscriptionPlanUpdate) AddResetIntervalSeconds(v int) *SubscriptionPlanUpdate {
+	_u.mutation.AddResetIntervalSeconds(v)
+	return _u
+}
+
+// SetWalletFallbackEnabled sets the "wallet_fallback_enabled" field.
+func (_u *SubscriptionPlanUpdate) SetWalletFallbackEnabled(v bool) *SubscriptionPlanUpdate {
+	_u.mutation.SetWalletFallbackEnabled(v)
+	return _u
+}
+
+// SetNillableWalletFallbackEnabled sets the "wallet_fallback_enabled" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdate) SetNillableWalletFallbackEnabled(v *bool) *SubscriptionPlanUpdate {
+	if v != nil {
+		_u.SetWalletFallbackEnabled(*v)
+	}
+	return _u
+}
+
 // SetValidityDays sets the "validity_days" field.
 func (_u *SubscriptionPlanUpdate) SetValidityDays(v int) *SubscriptionPlanUpdate {
 	_u.mutation.ResetValidityDays()
@@ -243,9 +307,81 @@ func (_u *SubscriptionPlanUpdate) SetUpdatedAt(v time.Time) *SubscriptionPlanUpd
 	return _u
 }
 
+// AddGroupIDs adds the "groups" edge to the Group entity by IDs.
+func (_u *SubscriptionPlanUpdate) AddGroupIDs(ids ...int64) *SubscriptionPlanUpdate {
+	_u.mutation.AddGroupIDs(ids...)
+	return _u
+}
+
+// AddGroups adds the "groups" edges to the Group entity.
+func (_u *SubscriptionPlanUpdate) AddGroups(v ...*Group) *SubscriptionPlanUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupIDs(ids...)
+}
+
+// AddUserSubscriptionIDs adds the "user_subscriptions" edge to the UserSubscription entity by IDs.
+func (_u *SubscriptionPlanUpdate) AddUserSubscriptionIDs(ids ...int64) *SubscriptionPlanUpdate {
+	_u.mutation.AddUserSubscriptionIDs(ids...)
+	return _u
+}
+
+// AddUserSubscriptions adds the "user_subscriptions" edges to the UserSubscription entity.
+func (_u *SubscriptionPlanUpdate) AddUserSubscriptions(v ...*UserSubscription) *SubscriptionPlanUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddUserSubscriptionIDs(ids...)
+}
+
 // Mutation returns the SubscriptionPlanMutation object of the builder.
 func (_u *SubscriptionPlanUpdate) Mutation() *SubscriptionPlanMutation {
 	return _u.mutation
+}
+
+// ClearGroups clears all "groups" edges to the Group entity.
+func (_u *SubscriptionPlanUpdate) ClearGroups() *SubscriptionPlanUpdate {
+	_u.mutation.ClearGroups()
+	return _u
+}
+
+// RemoveGroupIDs removes the "groups" edge to Group entities by IDs.
+func (_u *SubscriptionPlanUpdate) RemoveGroupIDs(ids ...int64) *SubscriptionPlanUpdate {
+	_u.mutation.RemoveGroupIDs(ids...)
+	return _u
+}
+
+// RemoveGroups removes "groups" edges to Group entities.
+func (_u *SubscriptionPlanUpdate) RemoveGroups(v ...*Group) *SubscriptionPlanUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupIDs(ids...)
+}
+
+// ClearUserSubscriptions clears all "user_subscriptions" edges to the UserSubscription entity.
+func (_u *SubscriptionPlanUpdate) ClearUserSubscriptions() *SubscriptionPlanUpdate {
+	_u.mutation.ClearUserSubscriptions()
+	return _u
+}
+
+// RemoveUserSubscriptionIDs removes the "user_subscriptions" edge to UserSubscription entities by IDs.
+func (_u *SubscriptionPlanUpdate) RemoveUserSubscriptionIDs(ids ...int64) *SubscriptionPlanUpdate {
+	_u.mutation.RemoveUserSubscriptionIDs(ids...)
+	return _u
+}
+
+// RemoveUserSubscriptions removes "user_subscriptions" edges to UserSubscription entities.
+func (_u *SubscriptionPlanUpdate) RemoveUserSubscriptions(v ...*UserSubscription) *SubscriptionPlanUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveUserSubscriptionIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -351,6 +487,24 @@ func (_u *SubscriptionPlanUpdate) sqlSave(ctx context.Context) (_node int, err e
 	if value, ok := _u.mutation.Currency(); ok {
 		_spec.SetField(subscriptionplan.FieldCurrency, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.CycleQuotaUsd(); ok {
+		_spec.SetField(subscriptionplan.FieldCycleQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedCycleQuotaUsd(); ok {
+		_spec.AddField(subscriptionplan.FieldCycleQuotaUsd, field.TypeFloat64, value)
+	}
+	if _u.mutation.CycleQuotaUsdCleared() {
+		_spec.ClearField(subscriptionplan.FieldCycleQuotaUsd, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.ResetIntervalSeconds(); ok {
+		_spec.SetField(subscriptionplan.FieldResetIntervalSeconds, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedResetIntervalSeconds(); ok {
+		_spec.AddField(subscriptionplan.FieldResetIntervalSeconds, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.WalletFallbackEnabled(); ok {
+		_spec.SetField(subscriptionplan.FieldWalletFallbackEnabled, field.TypeBool, value)
+	}
 	if value, ok := _u.mutation.ValidityDays(); ok {
 		_spec.SetField(subscriptionplan.FieldValidityDays, field.TypeInt, value)
 	}
@@ -377,6 +531,108 @@ func (_u *SubscriptionPlanUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(subscriptionplan.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.GroupsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   subscriptionplan.GroupsTable,
+			Columns: subscriptionplan.GroupsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt64),
+			},
+		}
+		createE := &SubscriptionPlanGroupCreate{config: _u.config, mutation: newSubscriptionPlanGroupMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupsIDs(); len(nodes) > 0 && !_u.mutation.GroupsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   subscriptionplan.GroupsTable,
+			Columns: subscriptionplan.GroupsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &SubscriptionPlanGroupCreate{config: _u.config, mutation: newSubscriptionPlanGroupMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   subscriptionplan.GroupsTable,
+			Columns: subscriptionplan.GroupsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &SubscriptionPlanGroupCreate{config: _u.config, mutation: newSubscriptionPlanGroupMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.UserSubscriptionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   subscriptionplan.UserSubscriptionsTable,
+			Columns: []string{subscriptionplan.UserSubscriptionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedUserSubscriptionsIDs(); len(nodes) > 0 && !_u.mutation.UserSubscriptionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   subscriptionplan.UserSubscriptionsTable,
+			Columns: []string{subscriptionplan.UserSubscriptionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.UserSubscriptionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   subscriptionplan.UserSubscriptionsTable,
+			Columns: []string{subscriptionplan.UserSubscriptionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -509,6 +765,68 @@ func (_u *SubscriptionPlanUpdateOne) SetNillableCurrency(v *string) *Subscriptio
 	return _u
 }
 
+// SetCycleQuotaUsd sets the "cycle_quota_usd" field.
+func (_u *SubscriptionPlanUpdateOne) SetCycleQuotaUsd(v float64) *SubscriptionPlanUpdateOne {
+	_u.mutation.ResetCycleQuotaUsd()
+	_u.mutation.SetCycleQuotaUsd(v)
+	return _u
+}
+
+// SetNillableCycleQuotaUsd sets the "cycle_quota_usd" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdateOne) SetNillableCycleQuotaUsd(v *float64) *SubscriptionPlanUpdateOne {
+	if v != nil {
+		_u.SetCycleQuotaUsd(*v)
+	}
+	return _u
+}
+
+// AddCycleQuotaUsd adds value to the "cycle_quota_usd" field.
+func (_u *SubscriptionPlanUpdateOne) AddCycleQuotaUsd(v float64) *SubscriptionPlanUpdateOne {
+	_u.mutation.AddCycleQuotaUsd(v)
+	return _u
+}
+
+// ClearCycleQuotaUsd clears the value of the "cycle_quota_usd" field.
+func (_u *SubscriptionPlanUpdateOne) ClearCycleQuotaUsd() *SubscriptionPlanUpdateOne {
+	_u.mutation.ClearCycleQuotaUsd()
+	return _u
+}
+
+// SetResetIntervalSeconds sets the "reset_interval_seconds" field.
+func (_u *SubscriptionPlanUpdateOne) SetResetIntervalSeconds(v int) *SubscriptionPlanUpdateOne {
+	_u.mutation.ResetResetIntervalSeconds()
+	_u.mutation.SetResetIntervalSeconds(v)
+	return _u
+}
+
+// SetNillableResetIntervalSeconds sets the "reset_interval_seconds" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdateOne) SetNillableResetIntervalSeconds(v *int) *SubscriptionPlanUpdateOne {
+	if v != nil {
+		_u.SetResetIntervalSeconds(*v)
+	}
+	return _u
+}
+
+// AddResetIntervalSeconds adds value to the "reset_interval_seconds" field.
+func (_u *SubscriptionPlanUpdateOne) AddResetIntervalSeconds(v int) *SubscriptionPlanUpdateOne {
+	_u.mutation.AddResetIntervalSeconds(v)
+	return _u
+}
+
+// SetWalletFallbackEnabled sets the "wallet_fallback_enabled" field.
+func (_u *SubscriptionPlanUpdateOne) SetWalletFallbackEnabled(v bool) *SubscriptionPlanUpdateOne {
+	_u.mutation.SetWalletFallbackEnabled(v)
+	return _u
+}
+
+// SetNillableWalletFallbackEnabled sets the "wallet_fallback_enabled" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdateOne) SetNillableWalletFallbackEnabled(v *bool) *SubscriptionPlanUpdateOne {
+	if v != nil {
+		_u.SetWalletFallbackEnabled(*v)
+	}
+	return _u
+}
+
 // SetValidityDays sets the "validity_days" field.
 func (_u *SubscriptionPlanUpdateOne) SetValidityDays(v int) *SubscriptionPlanUpdateOne {
 	_u.mutation.ResetValidityDays()
@@ -613,9 +931,81 @@ func (_u *SubscriptionPlanUpdateOne) SetUpdatedAt(v time.Time) *SubscriptionPlan
 	return _u
 }
 
+// AddGroupIDs adds the "groups" edge to the Group entity by IDs.
+func (_u *SubscriptionPlanUpdateOne) AddGroupIDs(ids ...int64) *SubscriptionPlanUpdateOne {
+	_u.mutation.AddGroupIDs(ids...)
+	return _u
+}
+
+// AddGroups adds the "groups" edges to the Group entity.
+func (_u *SubscriptionPlanUpdateOne) AddGroups(v ...*Group) *SubscriptionPlanUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupIDs(ids...)
+}
+
+// AddUserSubscriptionIDs adds the "user_subscriptions" edge to the UserSubscription entity by IDs.
+func (_u *SubscriptionPlanUpdateOne) AddUserSubscriptionIDs(ids ...int64) *SubscriptionPlanUpdateOne {
+	_u.mutation.AddUserSubscriptionIDs(ids...)
+	return _u
+}
+
+// AddUserSubscriptions adds the "user_subscriptions" edges to the UserSubscription entity.
+func (_u *SubscriptionPlanUpdateOne) AddUserSubscriptions(v ...*UserSubscription) *SubscriptionPlanUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddUserSubscriptionIDs(ids...)
+}
+
 // Mutation returns the SubscriptionPlanMutation object of the builder.
 func (_u *SubscriptionPlanUpdateOne) Mutation() *SubscriptionPlanMutation {
 	return _u.mutation
+}
+
+// ClearGroups clears all "groups" edges to the Group entity.
+func (_u *SubscriptionPlanUpdateOne) ClearGroups() *SubscriptionPlanUpdateOne {
+	_u.mutation.ClearGroups()
+	return _u
+}
+
+// RemoveGroupIDs removes the "groups" edge to Group entities by IDs.
+func (_u *SubscriptionPlanUpdateOne) RemoveGroupIDs(ids ...int64) *SubscriptionPlanUpdateOne {
+	_u.mutation.RemoveGroupIDs(ids...)
+	return _u
+}
+
+// RemoveGroups removes "groups" edges to Group entities.
+func (_u *SubscriptionPlanUpdateOne) RemoveGroups(v ...*Group) *SubscriptionPlanUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupIDs(ids...)
+}
+
+// ClearUserSubscriptions clears all "user_subscriptions" edges to the UserSubscription entity.
+func (_u *SubscriptionPlanUpdateOne) ClearUserSubscriptions() *SubscriptionPlanUpdateOne {
+	_u.mutation.ClearUserSubscriptions()
+	return _u
+}
+
+// RemoveUserSubscriptionIDs removes the "user_subscriptions" edge to UserSubscription entities by IDs.
+func (_u *SubscriptionPlanUpdateOne) RemoveUserSubscriptionIDs(ids ...int64) *SubscriptionPlanUpdateOne {
+	_u.mutation.RemoveUserSubscriptionIDs(ids...)
+	return _u
+}
+
+// RemoveUserSubscriptions removes "user_subscriptions" edges to UserSubscription entities.
+func (_u *SubscriptionPlanUpdateOne) RemoveUserSubscriptions(v ...*UserSubscription) *SubscriptionPlanUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveUserSubscriptionIDs(ids...)
 }
 
 // Where appends a list predicates to the SubscriptionPlanUpdate builder.
@@ -751,6 +1141,24 @@ func (_u *SubscriptionPlanUpdateOne) sqlSave(ctx context.Context) (_node *Subscr
 	if value, ok := _u.mutation.Currency(); ok {
 		_spec.SetField(subscriptionplan.FieldCurrency, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.CycleQuotaUsd(); ok {
+		_spec.SetField(subscriptionplan.FieldCycleQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedCycleQuotaUsd(); ok {
+		_spec.AddField(subscriptionplan.FieldCycleQuotaUsd, field.TypeFloat64, value)
+	}
+	if _u.mutation.CycleQuotaUsdCleared() {
+		_spec.ClearField(subscriptionplan.FieldCycleQuotaUsd, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.ResetIntervalSeconds(); ok {
+		_spec.SetField(subscriptionplan.FieldResetIntervalSeconds, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedResetIntervalSeconds(); ok {
+		_spec.AddField(subscriptionplan.FieldResetIntervalSeconds, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.WalletFallbackEnabled(); ok {
+		_spec.SetField(subscriptionplan.FieldWalletFallbackEnabled, field.TypeBool, value)
+	}
 	if value, ok := _u.mutation.ValidityDays(); ok {
 		_spec.SetField(subscriptionplan.FieldValidityDays, field.TypeInt, value)
 	}
@@ -777,6 +1185,108 @@ func (_u *SubscriptionPlanUpdateOne) sqlSave(ctx context.Context) (_node *Subscr
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(subscriptionplan.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.GroupsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   subscriptionplan.GroupsTable,
+			Columns: subscriptionplan.GroupsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt64),
+			},
+		}
+		createE := &SubscriptionPlanGroupCreate{config: _u.config, mutation: newSubscriptionPlanGroupMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupsIDs(); len(nodes) > 0 && !_u.mutation.GroupsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   subscriptionplan.GroupsTable,
+			Columns: subscriptionplan.GroupsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &SubscriptionPlanGroupCreate{config: _u.config, mutation: newSubscriptionPlanGroupMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   subscriptionplan.GroupsTable,
+			Columns: subscriptionplan.GroupsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &SubscriptionPlanGroupCreate{config: _u.config, mutation: newSubscriptionPlanGroupMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.UserSubscriptionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   subscriptionplan.UserSubscriptionsTable,
+			Columns: []string{subscriptionplan.UserSubscriptionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedUserSubscriptionsIDs(); len(nodes) > 0 && !_u.mutation.UserSubscriptionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   subscriptionplan.UserSubscriptionsTable,
+			Columns: []string{subscriptionplan.UserSubscriptionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.UserSubscriptionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   subscriptionplan.UserSubscriptionsTable,
+			Columns: []string{subscriptionplan.UserSubscriptionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &SubscriptionPlan{config: _u.config}
 	_spec.Assign = _node.assignValues

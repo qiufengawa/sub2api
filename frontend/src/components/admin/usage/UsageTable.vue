@@ -111,6 +111,31 @@
           </span>
         </template>
 
+        <template #cell-billing_source="{ row }">
+          <div class="min-w-[112px] space-y-0.5 text-xs">
+            <span class="inline-flex items-center rounded px-2 py-0.5 font-medium" :class="getBillingSourceBadgeClass(row.billing_source)">
+              {{ getBillingSourceLabel(row.billing_source) }}
+            </span>
+            <div
+              v-if="getBillingSubscriptionLabel(row)"
+              class="max-w-[180px] truncate font-medium text-violet-700 dark:text-violet-300"
+              :title="getBillingSubscriptionLabel(row)"
+            >
+              {{ getBillingSubscriptionLabel(row) }}
+            </div>
+            <div v-if="row.billing_preference" class="text-gray-500 dark:text-gray-400">
+              {{ getBillingPreferenceLabel(row.billing_preference) }}
+            </div>
+            <div
+              v-if="row.billing_fallback_reason"
+              class="max-w-[180px] truncate text-orange-600 dark:text-orange-400"
+              :title="getBillingFallbackReasonLabel(row.billing_fallback_reason)"
+            >
+              {{ getBillingFallbackReasonLabel(row.billing_fallback_reason) }}
+            </div>
+          </div>
+        </template>
+
         <template #cell-tokens="{ row }">
           <!-- 图片生成请求（仅按次计费时显示图片格式） -->
           <div v-if="isImageUsage(row)" class="flex items-center gap-1.5">
@@ -621,6 +646,42 @@ const getRequestTypeBadgeClass = (row: AdminUsageLog): string => {
   if (requestType === 'stream') return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
   if (requestType === 'sync') return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
   return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+}
+
+const getBillingSourceLabel = (source?: string | null): string => {
+  if (source === 'subscription') return t('usage.billingSourceSubscription')
+  if (source === 'wallet') return t('usage.billingSourceWallet')
+  return t('usage.billingSourceLegacy')
+}
+
+const getBillingSourceBadgeClass = (source?: string | null): string => {
+  if (source === 'subscription') return 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300'
+  if (source === 'wallet') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+  return 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300'
+}
+
+const getBillingSubscriptionLabel = (row: AdminUsageLog): string => {
+  if (row.billing_source !== 'subscription') return ''
+  const planName = row.subscription?.plan_name?.trim()
+  if (planName) return planName
+  const groupName = row.subscription?.group?.name?.trim()
+  if (groupName) return groupName
+  return row.subscription_id ? `#${row.subscription_id}` : ''
+}
+
+const getBillingPreferenceLabel = (preference?: string | null): string => {
+  if (preference === 'wallet_first') return t('usage.billingPreferenceWalletFirst')
+  if (preference === 'subscription_only') return t('usage.billingPreferenceSubscriptionOnly')
+  if (preference === 'wallet_only') return t('usage.billingPreferenceWalletOnly')
+  return t('usage.billingPreferenceSubscriptionFirst')
+}
+
+const getBillingFallbackReasonLabel = (reason?: string | null): string => {
+  if (reason === 'wallet_insufficient') return t('usage.billingFallbackWalletInsufficient')
+  if (reason === 'wallet_insufficient_subscription_unavailable') return t('usage.billingFallbackBothUnavailable')
+  if (reason === 'subscription_quota_exhausted') return t('usage.billingFallbackSubscriptionExhausted')
+  if (reason === 'subscription_unavailable') return t('usage.billingFallbackSubscriptionUnavailable')
+  return reason || ''
 }
 
 

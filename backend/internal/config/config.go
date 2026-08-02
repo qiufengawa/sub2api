@@ -838,6 +838,21 @@ type BillingConfig struct {
 	// Requests in balance mode are rejected when the cached balance is below this
 	// amount, even if it is still positive. Set to 0 to keep the legacy balance > 0 gate.
 	MinimumBalanceReserve float64 `mapstructure:"minimum_balance_reserve"`
+	// SubscriptionGroupBillingEnabled enables the decoupled model where a
+	// subscription supplies quota while the API key's real group controls routing
+	// and pricing. It defaults off for a reversible rollout.
+	SubscriptionGroupBillingEnabled bool                  `mapstructure:"subscription_group_billing_enabled"`
+	subscriptionGroupBillingLive    *atomic.Pointer[bool] `mapstructure:"-" json:"-" yaml:"-"`
+	// RequestReservationLeaseSeconds is the maximum time a request reservation
+	// may remain without a heartbeat before background recovery releases it.
+	RequestReservationLeaseSeconds int `mapstructure:"request_reservation_lease_seconds"`
+	// RequestReservationHeartbeatSeconds controls how often active requests
+	// extend their reservation lease.
+	RequestReservationHeartbeatSeconds int `mapstructure:"request_reservation_heartbeat_seconds"`
+	// RequestReservationCleanupIntervalSeconds controls stale reservation scans.
+	RequestReservationCleanupIntervalSeconds int `mapstructure:"request_reservation_cleanup_interval_seconds"`
+	// RequestReservationCleanupBatchSize bounds one stale reservation scan.
+	RequestReservationCleanupBatchSize int `mapstructure:"request_reservation_cleanup_batch_size"`
 	// UserPlatformQuotaCacheTTLSeconds 用户 × 平台 quota 缓存 TTL（秒），默认 86400=1天，覆盖典型 daily 窗口。
 	// 消费点：
 	//   - billing_cache_service.cacheWriteWorker 异步累加
@@ -847,6 +862,32 @@ type BillingConfig struct {
 	// UserPlatformQuotaSentinelTTLSeconds sentinel(无 limit 占位)entry 的 TTL,
 	// 显著短于 quota cache 默认 86400s 以控 Redis 内存;默认 3600=1h。
 	UserPlatformQuotaSentinelTTLSeconds int `mapstructure:"user_platform_quota_sentinel_ttl_seconds"`
+}
+
+// SubscriptionGroupBillingEnabled reports the live subscription billing mode.
+// The YAML value is used until a DB-backed admin setting is published.
+func (c *Config) SubscriptionGroupBillingEnabled() bool {
+	if c == nil {
+		return false
+	}
+	if live := c.Billing.subscriptionGroupBillingLive; live != nil {
+		if value := live.Load(); value != nil {
+			return *value
+		}
+	}
+	return c.Billing.SubscriptionGroupBillingEnabled
+}
+
+// SetSubscriptionGroupBillingEnabled atomically publishes a runtime setting.
+func (c *Config) SetSubscriptionGroupBillingEnabled(enabled bool) {
+	if c == nil {
+		return
+	}
+	if c.Billing.subscriptionGroupBillingLive == nil {
+		c.Billing.subscriptionGroupBillingLive = &atomic.Pointer[bool]{}
+	}
+	value := enabled
+	c.Billing.subscriptionGroupBillingLive.Store(&value)
 }
 
 type CircuitBreakerConfig struct {
@@ -1751,6 +1792,7 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	}
 	cfg.Security.ForwardedClientIPHeaders = forwardedClientIPHeaders
 	cfg.SetForwardedClientIPSettings(cfg.Security.TrustForwardedIPForAPIKeyACL, forwardedClientIPHeaders)
+	cfg.SetSubscriptionGroupBillingEnabled(cfg.Billing.SubscriptionGroupBillingEnabled)
 	cfg.Log.Level = strings.ToLower(strings.TrimSpace(cfg.Log.Level))
 	cfg.Log.Format = strings.ToLower(strings.TrimSpace(cfg.Log.Format))
 	cfg.Log.ServiceName = strings.TrimSpace(cfg.Log.ServiceName)
@@ -1932,6 +1974,7 @@ func setDefaults() {
 	viper.SetDefault("billing.circuit_breaker.reset_timeout_seconds", 30)
 	viper.SetDefault("billing.circuit_breaker.half_open_requests", 3)
 	viper.SetDefault("billing.minimum_balance_reserve", 0.000001)
+	viper.SetDefault("billing.subscription_group_billing_enabled", false)
 	viper.SetDefault("billing.user_platform_quota_cache_ttl_seconds", 86400)
 	viper.SetDefault("billing.user_platform_quota_sentinel_ttl_seconds", 3600)
 
@@ -2204,6 +2247,12 @@ func setDefaults() {
 	viper.SetDefault("idempotency.max_stored_response_len", 64*1024)
 	viper.SetDefault("idempotency.cleanup_interval_seconds", 60)
 	viper.SetDefault("idempotency.cleanup_batch_size", 500)
+
+	// Ordinary gateway request billing reservations
+	viper.SetDefault("billing.request_reservation_lease_seconds", 900)
+	viper.SetDefault("billing.request_reservation_heartbeat_seconds", 60)
+	viper.SetDefault("billing.request_reservation_cleanup_interval_seconds", 60)
+	viper.SetDefault("billing.request_reservation_cleanup_batch_size", 100)
 
 	// Gateway
 	viper.SetDefault("gateway.response_header_timeout", 600) // 600秒(10分钟)等待上游响应头，LLM高负载时可能排队较久
@@ -2482,6 +2531,7 @@ func (c *Config) Validate() error {
 	}
 	c.Security.ForwardedClientIPHeaders = forwardedClientIPHeaders
 	c.SetForwardedClientIPSettings(c.Security.TrustForwardedIPForAPIKeyACL, forwardedClientIPHeaders)
+	c.SetSubscriptionGroupBillingEnabled(c.Billing.SubscriptionGroupBillingEnabled)
 	if c.Server.ReadHeaderTimeout < 1 || c.Server.ReadHeaderTimeout > 60 {
 		return fmt.Errorf("server.read_header_timeout must be between 1 and 60 seconds")
 	}
@@ -2861,6 +2911,22 @@ func (c *Config) Validate() error {
 	}
 	if c.Billing.MinimumBalanceReserve < 0 {
 		return fmt.Errorf("billing.minimum_balance_reserve must be non-negative")
+	}
+	if c.Billing.RequestReservationLeaseSeconds < 0 {
+		return fmt.Errorf("billing.request_reservation_lease_seconds must be non-negative")
+	}
+	if c.Billing.RequestReservationHeartbeatSeconds < 0 {
+		return fmt.Errorf("billing.request_reservation_heartbeat_seconds must be non-negative")
+	}
+	if c.Billing.RequestReservationCleanupIntervalSeconds < 0 {
+		return fmt.Errorf("billing.request_reservation_cleanup_interval_seconds must be non-negative")
+	}
+	if c.Billing.RequestReservationCleanupBatchSize < 0 {
+		return fmt.Errorf("billing.request_reservation_cleanup_batch_size must be non-negative")
+	}
+	if c.Billing.RequestReservationLeaseSeconds > 0 &&
+		c.Billing.RequestReservationHeartbeatSeconds >= c.Billing.RequestReservationLeaseSeconds {
+		return fmt.Errorf("billing.request_reservation_heartbeat_seconds must be less than request_reservation_lease_seconds")
 	}
 	if c.Database.MaxOpenConns <= 0 {
 		return fmt.Errorf("database.max_open_conns must be positive")
