@@ -247,8 +247,7 @@ type SystemSettings struct {
 	OpenAIAdvancedSchedulerEffectiveWeightSessionSticky    string  `json:"openai_advanced_scheduler_effective_weight_session_sticky"`
 
 	// Payment configuration
-	PaymentEnabled                  bool `json:"payment_enabled"`
-	SubscriptionGroupBillingEnabled bool `json:"subscription_group_billing_enabled"`
+	PaymentEnabled bool `json:"payment_enabled"`
 
 	PaymentMinAmount                 float64  `json:"payment_min_amount"`
 	PaymentMaxAmount                 float64  `json:"payment_max_amount"`
@@ -319,7 +318,7 @@ type SystemSettings struct {
 }
 
 type DefaultSubscriptionSetting struct {
-	GroupID      int64 `json:"group_id"`
+	PlanID       int64 `json:"plan_id"`
 	ValidityDays int   `json:"validity_days"`
 }
 
@@ -368,7 +367,6 @@ type PublicSettings struct {
 	SoraClientEnabled                bool                     `json:"sora_client_enabled"`
 	BackendModeEnabled               bool                     `json:"backend_mode_enabled"`
 	PaymentEnabled                   bool                     `json:"payment_enabled"`
-	SubscriptionGroupBillingEnabled  bool                     `json:"subscription_group_billing_enabled"`
 	Version                          string                   `json:"version"`
 	// 服务器全局时区（IANA 名称与当前 UTC 偏移，如 "Asia/Shanghai" / "+08:00"）。
 	// 高峰时段等按服务器本地时间判定的窗口，前端展示时据此标注，避免用户按浏览器本地时间误读。

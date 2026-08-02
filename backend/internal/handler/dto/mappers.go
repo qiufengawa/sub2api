@@ -588,10 +588,10 @@ func redeemCodeFromServiceBase(rc *service.RedeemCode) RedeemCode {
 		UsedAt:       rc.UsedAt,
 		CreatedAt:    rc.CreatedAt,
 		ExpiresAt:    rc.ExpiresAt,
-		GroupID:      rc.GroupID,
+		PlanID:       rc.PlanID,
+		PlanName:     rc.PlanName,
 		ValidityDays: rc.ValidityDays,
 		User:         UserFromServiceShallow(rc.User),
-		Group:        GroupFromServiceShallow(rc.Group),
 	}
 	if rc.IsExpired() {
 		out.Status = service.StatusExpired
@@ -800,7 +800,6 @@ func userSubscriptionFromServiceBase(sub *service.UserSubscription) UserSubscrip
 	return UserSubscription{
 		ID:                    sub.ID,
 		UserID:                sub.UserID,
-		GroupID:               sub.GroupID,
 		PlanID:                sub.PlanID,
 		PlanName:              sub.PlanName,
 		StartsAt:              sub.StartsAt,
@@ -822,7 +821,6 @@ func userSubscriptionFromServiceBase(sub *service.UserSubscription) UserSubscrip
 		UpdatedAt:             sub.UpdatedAt,
 		RevokedAt:             sub.DeletedAt,
 		User:                  UserFromServiceShallow(sub.User),
-		Group:                 GroupFromServiceShallow(sub.Group),
 		IncludedGroups:        includedGroups,
 	}
 }

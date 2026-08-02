@@ -69,7 +69,6 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeySiteLogo:                                  "",
 		SettingKeyPurchaseSubscriptionEnabled:               "false",
 		SettingKeyPurchaseSubscriptionURL:                   "",
-		SettingKeySubscriptionGroupBillingEnabled:           strconv.FormatBool(s.subscriptionGroupBillingEnabled(nil)),
 		SettingKeyTableDefaultPageSize:                      "20",
 		SettingKeyTablePageSizeOptions:                      "[10,20,50,100]",
 		SettingKeyCustomMenuItems:                           "[]",
@@ -335,7 +334,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		HideCcsImportButton:              settings[SettingKeyHideCcsImportButton] == "true",
 		PurchaseSubscriptionEnabled:      settings[SettingKeyPurchaseSubscriptionEnabled] == "true",
 		PurchaseSubscriptionURL:          strings.TrimSpace(settings[SettingKeyPurchaseSubscriptionURL]),
-		SubscriptionGroupBillingEnabled:  s.subscriptionGroupBillingEnabled(settings),
 		CustomMenuItems:                  settings[SettingKeyCustomMenuItems],
 		CustomEndpoints:                  settings[SettingKeyCustomEndpoints],
 		BackendModeEnabled:               settings[SettingKeyBackendModeEnabled] == "true",
@@ -910,13 +908,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	return result
 }
 
-func (s *SettingService) subscriptionGroupBillingEnabled(settings map[string]string) bool {
-	if value, ok := settings[SettingKeySubscriptionGroupBillingEnabled]; ok {
-		return value == "true"
-	}
-	return s != nil && s.cfg != nil && s.cfg.SubscriptionGroupBillingEnabled()
-}
-
 func clampAffiliateRebateRate(value float64) float64 {
 	if math.IsNaN(value) || math.IsInf(value, 0) {
 		return AffiliateRebateRateDefault
@@ -1101,7 +1092,7 @@ func parseDefaultSubscriptions(raw string) []DefaultSubscriptionSetting {
 
 	normalized := make([]DefaultSubscriptionSetting, 0, len(items))
 	for _, item := range items {
-		if item.GroupID <= 0 || item.ValidityDays <= 0 {
+		if item.PlanID <= 0 || item.ValidityDays <= 0 {
 			continue
 		}
 		if item.ValidityDays > MaxValidityDays {

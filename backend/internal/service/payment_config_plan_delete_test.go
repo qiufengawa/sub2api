@@ -58,7 +58,6 @@ func TestPaymentConfigServiceUpdatePlanRequiresGroupRemovalConfirmation(t *testi
 	removedGroup, err := client.Group.Create().SetName("plan-update-removed").Save(ctx)
 	require.NoError(t, err)
 	plan, err := client.SubscriptionPlan.Create().
-		SetGroupID(primaryGroup.ID).
 		SetName("plan-update-test").
 		SetPrice(10).
 		AddGroupIDs(primaryGroup.ID, removedGroup.ID).
@@ -72,7 +71,6 @@ func TestPaymentConfigServiceUpdatePlanRequiresGroupRemovalConfirmation(t *testi
 	now := time.Now().UTC()
 	_, err = client.UserSubscription.Create().
 		SetUserID(user.ID).
-		SetGroupID(primaryGroup.ID).
 		SetPlanID(plan.ID).
 		SetStartsAt(now).
 		SetExpiresAt(now.Add(24 * time.Hour)).
@@ -118,7 +116,6 @@ func TestPaymentConfigServicePlanGroupsDoNotRequireAPrimarySelection(t *testing.
 		ForSale:          true,
 	})
 	require.NoError(t, err)
-	require.Equal(t, groupOne.ID, created.GroupID)
 	require.ElementsMatch(t, []int64{groupOne.ID, groupTwo.ID}, planIncludedGroupIDs(created))
 
 	includedGroupIDs := []int64{groupTwo.ID}
@@ -127,7 +124,6 @@ func TestPaymentConfigServicePlanGroupsDoNotRequireAPrimarySelection(t *testing.
 		ConfirmGroupRemoval: true,
 	})
 	require.NoError(t, err)
-	require.Equal(t, groupTwo.ID, updated.GroupID)
 	require.Equal(t, []int64{groupTwo.ID}, planIncludedGroupIDs(updated))
 }
 
@@ -141,7 +137,6 @@ func createPlanDeleteFixture(
 	group, err := client.Group.Create().SetName("plan-delete-group").Save(ctx)
 	require.NoError(t, err)
 	plan, err := client.SubscriptionPlan.Create().
-		SetGroupID(group.ID).
 		SetName("plan-delete-test").
 		SetPrice(10).
 		AddGroupIDs(group.ID).
@@ -158,7 +153,6 @@ func createPlanDeleteFixture(
 	now := time.Now().UTC()
 	subscription, err := client.UserSubscription.Create().
 		SetUserID(user.ID).
-		SetGroupID(group.ID).
 		SetPlanID(plan.ID).
 		SetStartsAt(now).
 		SetExpiresAt(now.Add(24 * time.Hour)).

@@ -7,7 +7,7 @@
   },
   "defaults": {
     "platform": "composite",
-    "subscription_type": "subscription",
+    "subscription_type": "standard",
     "rate_multiplier": 1,
     "is_exclusive": true,
     "status": "active",

@@ -168,8 +168,9 @@ const latestSuccess = computed(() => recentUsage.value[0]?.created_at ?? null)
 const highestQuotaPercent = computed(() => {
   const values: number[] = []
   for (const item of subscriptionSummary.value?.subscriptions ?? []) {
-    for (const [used, limit] of [[item.daily_used_usd, item.daily_limit_usd], [item.weekly_used_usd, item.weekly_limit_usd], [item.monthly_used_usd, item.monthly_limit_usd]]) {
-      if (typeof limit === 'number' && limit > 0) values.push(((used ?? 0) / limit) * 100)
+    const limit = item.cycle_limit_usd
+    if (typeof limit === 'number' && limit > 0) {
+      values.push(((item.cycle_used_usd ?? 0) / limit) * 100)
     }
   }
   for (const item of platformQuotas.value) {

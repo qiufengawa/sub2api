@@ -96,11 +96,6 @@ type apiKeyRateLimitLoader interface {
 	GetRateLimitData(ctx context.Context, keyID int64) (*APIKeyRateLimitData, error)
 }
 
-type subscriptionCacheInvalidationPubSub interface {
-	PublishSubscriptionCacheInvalidation(ctx context.Context, cacheKey string) error
-	SubscribeSubscriptionCacheInvalidation(ctx context.Context, handler func(cacheKey string)) error
-}
-
 // BillingCacheService 计费缓存服务
 // 负责余额和订阅数据的缓存管理，提供高性能的计费资格检查
 type BillingCacheService struct {
@@ -464,7 +459,11 @@ func (s *BillingCacheService) convertToPortsData(data *subscriptionCacheData) *S
 
 // getSubscriptionFromDB 从数据库获取订阅数据
 func (s *BillingCacheService) getSubscriptionFromDB(ctx context.Context, userID, groupID int64) (*subscriptionCacheData, error) {
-	sub, err := s.subRepo.GetActiveByUserIDAndGroupID(ctx, userID, groupID)
+	coverageRepo, ok := s.subRepo.(SubscriptionCoverageRepository)
+	if !ok {
+		return nil, fmt.Errorf("subscription repository does not support plan coverage")
+	}
+	sub, err := coverageRepo.GetActiveCoveringGroup(ctx, userID, groupID)
 	if err != nil {
 		return nil, fmt.Errorf("get subscription: %w", err)
 	}
@@ -528,28 +527,6 @@ func (s *BillingCacheService) InvalidateSubscription(ctx context.Context, userID
 		return err
 	}
 	return nil
-}
-
-func (s *BillingCacheService) PublishSubscriptionCacheInvalidation(ctx context.Context, cacheKey string) error {
-	if s.cache == nil {
-		return nil
-	}
-	pubsub, ok := s.cache.(subscriptionCacheInvalidationPubSub)
-	if !ok {
-		return nil
-	}
-	return pubsub.PublishSubscriptionCacheInvalidation(ctx, cacheKey)
-}
-
-func (s *BillingCacheService) SubscribeSubscriptionCacheInvalidation(ctx context.Context, handler func(cacheKey string)) error {
-	if s.cache == nil {
-		return nil
-	}
-	pubsub, ok := s.cache.(subscriptionCacheInvalidationPubSub)
-	if !ok {
-		return nil
-	}
-	return pubsub.SubscribeSubscriptionCacheInvalidation(ctx, handler)
 }
 
 // InvalidateAPIKeyRateLimit invalidates the Redis rate-limit usage cache for an API key.
@@ -730,7 +707,7 @@ func (s *BillingCacheService) IncrementUserPlatformQuotaUsage(userID int64, plat
 
 // CheckBillingEligibility 检查用户是否有资格发起请求
 // 余额模式：检查缓存余额 > 0
-// 订阅模式：检查缓存用量未超过限额（Group限额从参数传入）
+// 订阅模式：检查覆盖当前请求分组的套餐周期额度。
 // platform 为请求的目标平台（如 "anthropic"），传空串 "" 时跳过 user × platform quota 检查。
 func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user *User, apiKey *APIKey, group *Group, subscription *UserSubscription, platform string) error {
 	// 简易模式：跳过所有计费检查
@@ -743,24 +720,9 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 
 	// 判断计费模式。新模式下分组仅负责路由与倍率，资金来源由用户偏好、
 	// 套餐覆盖关系及周期剩余额度共同决定。
-	isSubscriptionMode := false
-	if s.cfg != nil && s.cfg.SubscriptionGroupBillingEnabled() {
-		var err error
-		isSubscriptionMode, err = s.checkSubscriptionGroupBillingEligibility(ctx, user, subscription)
-		if err != nil {
-			return err
-		}
-	} else {
-		isSubscriptionMode = group != nil && group.IsSubscriptionType() && subscription != nil
-		if isSubscriptionMode {
-			if err := s.checkSubscriptionEligibility(ctx, user.ID, group, subscription); err != nil {
-				return err
-			}
-		} else {
-			if err := s.checkBalanceEligibility(ctx, user.ID); err != nil {
-				return err
-			}
-		}
+	isSubscriptionMode, err := s.checkPlanCoverageBillingEligibility(ctx, user, subscription)
+	if err != nil {
+		return err
 	}
 
 	// user × platform quota 仅在 standard（余额）模式生效；订阅模式豁免
@@ -785,7 +747,7 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 	return nil
 }
 
-func (s *BillingCacheService) checkSubscriptionGroupBillingEligibility(
+func (s *BillingCacheService) checkPlanCoverageBillingEligibility(
 	ctx context.Context,
 	user *User,
 	subscription *UserSubscription,

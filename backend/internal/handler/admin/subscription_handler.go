@@ -41,7 +41,7 @@ func NewSubscriptionHandler(subscriptionService *service.SubscriptionService) *S
 // AssignSubscriptionRequest represents assign subscription request
 type AssignSubscriptionRequest struct {
 	UserID       int64  `json:"user_id" binding:"required"`
-	GroupID      int64  `json:"group_id" binding:"required"`
+	PlanID       int64  `json:"plan_id" binding:"required"`
 	ValidityDays int    `json:"validity_days" binding:"omitempty,max=36500"` // max 100 years
 	Notes        string `json:"notes"`
 }
@@ -49,7 +49,7 @@ type AssignSubscriptionRequest struct {
 // BulkAssignSubscriptionRequest represents bulk assign subscription request
 type BulkAssignSubscriptionRequest struct {
 	UserIDs      []int64 `json:"user_ids" binding:"required,min=1"`
-	GroupID      int64   `json:"group_id" binding:"required"`
+	PlanID       int64   `json:"plan_id" binding:"required"`
 	ValidityDays int     `json:"validity_days" binding:"omitempty,max=36500"` // max 100 years
 	Notes        string  `json:"notes"`
 }
@@ -146,7 +146,7 @@ func (h *SubscriptionHandler) Assign(c *gin.Context) {
 
 	subscription, err := h.subscriptionService.AssignSubscription(c.Request.Context(), &service.AssignSubscriptionInput{
 		UserID:       req.UserID,
-		GroupID:      req.GroupID,
+		PlanID:       req.PlanID,
 		ValidityDays: req.ValidityDays,
 		AssignedBy:   adminID,
 		Notes:        req.Notes,
@@ -173,7 +173,7 @@ func (h *SubscriptionHandler) BulkAssign(c *gin.Context) {
 
 	result, err := h.subscriptionService.BulkAssignSubscription(c.Request.Context(), &service.BulkAssignSubscriptionInput{
 		UserIDs:      req.UserIDs,
-		GroupID:      req.GroupID,
+		PlanID:       req.PlanID,
 		ValidityDays: req.ValidityDays,
 		AssignedBy:   adminID,
 		Notes:        req.Notes,

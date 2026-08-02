@@ -15,7 +15,7 @@ func TestUserSubscriptionFromService_PreservesCycleAndIncludedGroups(t *testing.
 	sub := &service.UserSubscription{
 		ID:                    11,
 		UserID:                22,
-		GroupID:               33,
+		PlanID:                44,
 		PlanName:              "Standard",
 		CycleQuotaUSD:         &quota,
 		CycleUsageUSD:         12.5,

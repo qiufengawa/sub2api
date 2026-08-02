@@ -12,7 +12,6 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -678,7 +677,7 @@ func TestExecuteBalanceFulfillmentRecoversAfterRedeemWithoutCreditingAgain(t *te
 	order, err := client.PaymentOrder.UpdateOneID(order.ID).
 		SetOrderType(payment.OrderTypeBalance).
 		ClearPlanID().
-		ClearSubscriptionGroupID().
+		ClearSubscriptionPlanSnapshot().
 		ClearSubscriptionDays().
 		SetUpdatedAt(staleAt).
 		Save(ctx)
@@ -712,7 +711,7 @@ func TestDuplicatePaymentNotificationDoesNotReprocessCompletedBalanceOrder(t *te
 	order, err := client.PaymentOrder.UpdateOneID(order.ID).
 		SetOrderType(payment.OrderTypeBalance).
 		ClearPlanID().
-		ClearSubscriptionGroupID().
+		ClearSubscriptionPlanSnapshot().
 		ClearSubscriptionDays().
 		Save(ctx)
 	require.NoError(t, err)
@@ -752,7 +751,7 @@ func TestPaymentNotificationRejectsAmountMismatchBeforeFulfillment(t *testing.T)
 	order, err := client.PaymentOrder.UpdateOneID(order.ID).
 		SetOrderType(payment.OrderTypeBalance).
 		ClearPlanID().
-		ClearSubscriptionGroupID().
+		ClearSubscriptionPlanSnapshot().
 		ClearSubscriptionDays().
 		Save(ctx)
 	require.NoError(t, err)
@@ -781,13 +780,14 @@ func TestExecuteSubscriptionFulfillmentRecoversCommittedAssignmentWithoutExtendi
 	expiresAt := time.Now().Add(30 * 24 * time.Hour).Truncate(time.Second)
 	subRepo := newSubscriptionUserSubRepoStub()
 	subRepo.seed(&UserSubscription{
-		ID:        99,
-		UserID:    order.UserID,
-		GroupID:   *order.SubscriptionGroupID,
-		StartsAt:  time.Now().Add(-time.Hour),
-		ExpiresAt: expiresAt,
-		Status:    SubscriptionStatusActive,
-		Notes:     "manual note\n" + paymentSubscriptionOrderNote(order.ID) + "\nretained note",
+		ID:             99,
+		UserID:         order.UserID,
+		PlanID:         *order.PlanID,
+		StartsAt:       time.Now().Add(-time.Hour),
+		ExpiresAt:      expiresAt,
+		Status:         SubscriptionStatusActive,
+		Notes:          "manual note\n" + paymentSubscriptionOrderNote(order.ID) + "\nretained note",
+		IncludedGroups: []Group{{ID: 7}},
 	})
 	groupRepo := &subscriptionGroupRepoStub{
 		group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
@@ -844,13 +844,11 @@ func TestExecuteSubscriptionFulfillmentAssignsRealGroupPlanSnapshot(t *testing.T
 	quota := 40.0
 	order, err := client.PaymentOrder.UpdateOneID(order.ID).
 		SetPlanID(planID).
-		SetSubscriptionGroupID(groupID).
 		SetSubscriptionDays(28).
 		SetSubscriptionPlanSnapshot(map[string]any{
 			"schema_version":          subscriptionPlanOrderSnapshotVersion,
 			"plan_id":                 planID,
 			"plan_name":               "Standard",
-			"primary_group_id":        groupID,
 			"included_group_ids":      []int64{groupID},
 			"cycle_quota_usd":         quota,
 			"reset_interval_seconds":  604800,
@@ -863,10 +861,8 @@ func TestExecuteSubscriptionFulfillmentAssignsRealGroupPlanSnapshot(t *testing.T
 	groupRepo := &subscriptionGroupRepoStub{group: &Group{
 		ID: groupID, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeStandard,
 	}}
-	subRepo := &planAssignmentUserSubRepoStub{subscriptionUserSubRepoStub: newSubscriptionUserSubRepoStub()}
-	subscriptionSvc := NewSubscriptionService(groupRepo, subRepo, nil, nil, &config.Config{
-		Billing: config.BillingConfig{SubscriptionGroupBillingEnabled: true},
-	})
+	subRepo := newSubscriptionUserSubRepoStub()
+	subscriptionSvc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
 	svc := &PaymentService{entClient: client, groupRepo: groupRepo, subscriptionSvc: subscriptionSvc}
 
 	require.NoError(t, svc.ExecuteSubscriptionFulfillment(ctx, order.ID))
@@ -876,7 +872,7 @@ func TestExecuteSubscriptionFulfillmentAssignsRealGroupPlanSnapshot(t *testing.T
 
 	subscription, err := subRepo.GetByUserIDAndPlanID(ctx, order.UserID, planID)
 	require.NoError(t, err)
-	require.Equal(t, groupID, subscription.GroupID)
+	require.Equal(t, planID, subscription.PlanID)
 	require.NotNil(t, subscription.CycleQuotaUSD)
 	require.Equal(t, quota, *subscription.CycleQuotaUSD)
 	require.Equal(t, 604800, subscription.ResetIntervalSeconds)
@@ -892,24 +888,24 @@ func TestExecuteSubscriptionFulfillmentAssignsRealGroupPlanSnapshot(t *testing.T
 	require.Equal(t, 1, assignmentAuditCount)
 }
 
-func TestExecuteSubscriptionFulfillmentLegacyModeRejectsRealGroup(t *testing.T) {
+func TestExecuteSubscriptionFulfillmentRejectsInactiveCoveredGroup(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
 	ensurePaymentAuditOrderActionUniqueIndex(t, ctx, client)
 	order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusPaid, time.Now())
 
 	groupRepo := &subscriptionGroupRepoStub{group: &Group{
-		ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeStandard,
+		ID: 7, Status: "inactive", SubscriptionType: SubscriptionTypeStandard,
 	}}
 	subRepo := newSubscriptionUserSubRepoStub()
 	svc := &PaymentService{
 		entClient:       client,
 		groupRepo:       groupRepo,
-		subscriptionSvc: NewSubscriptionService(groupRepo, subRepo, nil, nil, &config.Config{}),
+		subscriptionSvc: NewSubscriptionService(groupRepo, subRepo, nil, nil, nil),
 	}
 
 	err := svc.ExecuteSubscriptionFulfillment(ctx, order.ID)
-	require.ErrorIs(t, err, ErrGroupNotSubscriptionType)
+	require.ErrorContains(t, err, "group 7 no longer exists or inactive")
 	reloaded, getErr := client.PaymentOrder.Get(ctx, order.ID)
 	require.NoError(t, getErr)
 	require.Equal(t, OrderStatusFailed, reloaded.Status)
@@ -951,8 +947,8 @@ func createPaymentFulfillmentSubscriptionOrder(
 		SetPaymentTradeNo("trade-fulfillment").
 		SetOrderType(payment.OrderTypeSubscription).
 		SetPlanID(100).
-		SetSubscriptionGroupID(7).
 		SetSubscriptionDays(30).
+		SetSubscriptionPlanSnapshot(paymentFulfillmentPlanSnapshot(100, 30, 7)).
 		SetStatus(status).
 		SetPaidAt(time.Now().Add(-time.Hour)).
 		SetExpiresAt(time.Now().Add(time.Hour)).
@@ -966,9 +962,21 @@ func createPaymentFulfillmentSubscriptionOrder(
 
 func assertPaymentSubscriptionExpiry(t *testing.T, repo *subscriptionUserSubRepoStub, order *dbent.PaymentOrder, expected time.Time) {
 	t.Helper()
-	sub, err := repo.GetByUserIDAndGroupID(context.Background(), order.UserID, *order.SubscriptionGroupID)
+	sub, err := repo.GetByUserIDAndPlanID(context.Background(), order.UserID, *order.PlanID)
 	require.NoError(t, err)
 	require.True(t, sub.ExpiresAt.Equal(expected), "subscription expiry changed from %s to %s", expected, sub.ExpiresAt)
+}
+
+func paymentFulfillmentPlanSnapshot(planID int64, validityDays int, groupIDs ...int64) map[string]any {
+	return map[string]any{
+		"schema_version":          subscriptionPlanOrderSnapshotVersion,
+		"plan_id":                 planID,
+		"plan_name":               "Test Plan",
+		"included_group_ids":      groupIDs,
+		"reset_interval_seconds":  0,
+		"wallet_fallback_enabled": true,
+		"validity_days":           validityDays,
+	}
 }
 
 func TestExecuteSubscriptionFulfillmentAppliesAffiliateRebate(t *testing.T) {
@@ -996,8 +1004,8 @@ func TestExecuteSubscriptionFulfillmentAppliesAffiliateRebate(t *testing.T) {
 		SetPaymentTradeNo("trade-sub-affiliate").
 		SetOrderType(payment.OrderTypeSubscription).
 		SetPlanID(99).
-		SetSubscriptionGroupID(7).
 		SetSubscriptionDays(30).
+		SetSubscriptionPlanSnapshot(paymentFulfillmentPlanSnapshot(99, 30, 7)).
 		SetStatus(OrderStatusPaid).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -1082,8 +1090,8 @@ func TestExecuteSubscriptionFulfillmentDoesNotDuplicateWorkAfterLegacySuccessAud
 		SetPaymentTradeNo("trade-sub-affiliate-idempotent").
 		SetOrderType(payment.OrderTypeSubscription).
 		SetPlanID(100).
-		SetSubscriptionGroupID(7).
 		SetSubscriptionDays(30).
+		SetSubscriptionPlanSnapshot(paymentFulfillmentPlanSnapshot(100, 30, 7)).
 		SetStatus(OrderStatusPaid).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -1093,7 +1101,7 @@ func TestExecuteSubscriptionFulfillmentDoesNotDuplicateWorkAfterLegacySuccessAud
 	_, err = client.PaymentAuditLog.Create().
 		SetOrderID(strconv.FormatInt(order.ID, 10)).
 		SetAction("SUBSCRIPTION_SUCCESS").
-		SetDetail(`{"groupID":7,"validityDays":30}`).
+		SetDetail(`{"planID":100,"includedGroupIDs":[7],"validityDays":30}`).
 		SetOperator("system").
 		Save(ctx)
 	require.NoError(t, err)

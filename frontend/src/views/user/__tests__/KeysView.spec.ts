@@ -170,15 +170,15 @@ const createApiKey = (): ApiKey => ({
   reset_7d_at: null,
 })
 
-const createSubscriptionGroup = (): Group => ({
+const createCoveredGroup = (): Group => ({
   id: 11,
-  name: 'OpenAI Subscription',
-  description: 'Subscription group',
+  name: 'OpenAI Route',
+  description: 'Route covered by the subscription plan',
   platform: 'openai',
   rate_multiplier: 1,
   is_exclusive: true,
   status: 'active',
-  subscription_type: 'subscription',
+  subscription_type: 'standard',
 } as Group)
 
 const AppLayoutStub = {
@@ -530,7 +530,7 @@ describe('user KeysView column settings', () => {
   })
 
   it('waits for available groups before opening a preselected subscription key form', async () => {
-    const group = createSubscriptionGroup()
+    const group = createCoveredGroup()
     let resolveGroups!: (groups: Group[]) => void
     getAvailableGroups.mockReturnValue(new Promise<Group[]>((resolve) => {
       resolveGroups = resolve
@@ -570,7 +570,7 @@ describe('user KeysView column settings', () => {
       group_id: '999',
       source: 'subscription',
     }
-    getAvailableGroups.mockResolvedValue([createSubscriptionGroup()])
+    getAvailableGroups.mockResolvedValue([createCoveredGroup()])
 
     const wrapper = await mountView()
 
@@ -611,7 +611,7 @@ describe('user KeysView column settings', () => {
   })
 
   it('binds an existing key only after confirmation and only updates group_id', async () => {
-    const group = createSubscriptionGroup()
+    const group = createCoveredGroup()
     getAvailableGroups.mockResolvedValue([group])
     routeState.query = {
       action: 'bind',
@@ -640,7 +640,7 @@ describe('user KeysView column settings', () => {
   })
 
   it('disables binding when a key already uses the target subscription group', async () => {
-    const group = createSubscriptionGroup()
+    const group = createCoveredGroup()
     listKeys.mockResolvedValueOnce({
       items: [{ ...createApiKey(), group_id: group.id, group }],
       total: 1,

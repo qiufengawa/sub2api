@@ -100,7 +100,8 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 		sub := &service.UserSubscription{
 			ID:                 55,
 			UserID:             user.ID,
-			GroupID:            group.ID,
+			PlanID:             501,
+			IncludedGroups:     []service.Group{*group},
 			Status:             service.SubscriptionStatusActive,
 			ExpiresAt:          time.Now().Add(24 * time.Hour),
 			DailyWindowStart:   &past,
@@ -114,7 +115,7 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 				clone := *sub
 				return &clone, nil
 			},
-			getActive: func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
+			getActiveCoveringGroup: func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
 				clone := *sub
 				return &clone, nil
 			},
@@ -154,9 +155,8 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 		}
 	})
 
-	t.Run("subscription_group_billing_maintains_legacy_windows", func(t *testing.T) {
+	t.Run("plan_coverage_maintains_usage_windows", func(t *testing.T) {
 		cfg := &config.Config{RunMode: config.RunModeStandard}
-		cfg.Billing.SubscriptionGroupBillingEnabled = true
 
 		realGroup := *group
 		realGroup.SubscriptionType = service.SubscriptionTypeStandard
@@ -178,7 +178,8 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 		sub := &service.UserSubscription{
 			ID:                 57,
 			UserID:             user.ID,
-			GroupID:            realGroup.ID,
+			PlanID:             502,
+			IncludedGroups:     []service.Group{realGroup},
 			Status:             service.SubscriptionStatusActive,
 			StartsAt:           time.Now().Add(-7 * 24 * time.Hour),
 			ExpiresAt:          time.Now().Add(21 * 24 * time.Hour),
@@ -189,7 +190,7 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 		}
 		maintenanceCalled := make(chan struct{}, 1)
 		subscriptionRepo := &stubUserSubscriptionRepo{
-			getActive: func(context.Context, int64, int64) (*service.UserSubscription, error) {
+			getActiveCoveringGroup: func(context.Context, int64, int64) (*service.UserSubscription, error) {
 				clone := *sub
 				return &clone, nil
 			},
@@ -218,9 +219,9 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 		require.Equal(t, http.StatusOK, w.Code)
 		select {
 		case <-maintenanceCalled:
-			// New billing ignores legacy limits but still advances their windows.
+			// Covered routes still advance the retained group quota windows.
 		case <-time.After(time.Second):
-			t.Fatal("expected new billing mode to maintain legacy usage windows")
+			t.Fatal("expected plan-covered billing to maintain usage windows")
 		}
 	})
 
@@ -233,22 +234,25 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 		stale := &service.UserSubscription{
 			ID:                 56,
 			UserID:             user.ID,
-			GroupID:            group.ID,
+			PlanID:             503,
+			IncludedGroups:     []service.Group{*group},
 			Status:             service.SubscriptionStatusActive,
 			ExpiresAt:          current.Add(24 * time.Hour),
 			DailyWindowStart:   &past,
 			WeeklyWindowStart:  &past,
 			MonthlyWindowStart: &past,
 			DailyUsageUSD:      10,
+			CycleQuotaUSD:      &limit,
 		}
 		fresh := *stale
 		fresh.DailyWindowStart = &current
 		fresh.WeeklyWindowStart = &current
 		fresh.MonthlyWindowStart = &current
 		fresh.DailyUsageUSD = 2
+		fresh.CycleUsageUSD = limit
 
 		subscriptionRepo := &stubUserSubscriptionRepo{
-			getActive: func(context.Context, int64, int64) (*service.UserSubscription, error) {
+			getActiveCoveringGroup: func(context.Context, int64, int64) (*service.UserSubscription, error) {
 				clone := *stale
 				return &clone, nil
 			},
@@ -307,17 +311,24 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 		sub := &service.UserSubscription{
 			ID:               55,
 			UserID:           user.ID,
-			GroupID:          group.ID,
+			PlanID:           504,
+			IncludedGroups:   []service.Group{*group},
 			Status:           service.SubscriptionStatusActive,
 			ExpiresAt:        now.Add(24 * time.Hour),
 			DailyWindowStart: &now,
 			DailyUsageUSD:    10,
+			CycleQuotaUSD:    &limit,
+			CycleUsageUSD:    10,
 		}
 		subscriptionRepo := &stubUserSubscriptionRepo{
-			getActive: func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
-				if userID != sub.UserID || groupID != sub.GroupID {
+			getActiveCoveringGroup: func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
+				if userID != sub.UserID || groupID != group.ID {
 					return nil, service.ErrSubscriptionNotFound
 				}
+				clone := *sub
+				return &clone, nil
+			},
+			getByID: func(context.Context, int64) (*service.UserSubscription, error) {
 				clone := *sub
 				return &clone, nil
 			},
@@ -1332,7 +1343,7 @@ func TestAPIKeyAuthBillingInfoSkipsBillingAndSideEffects(t *testing.T) {
 		},
 	}
 	subscriptionRepo := &stubUserSubscriptionRepo{
-		getActive: func(context.Context, int64, int64) (*service.UserSubscription, error) {
+		getActiveCoveringGroup: func(context.Context, int64, int64) (*service.UserSubscription, error) {
 			subscriptionCalls++
 			return nil, service.ErrSubscriptionNotFound
 		},
@@ -1698,13 +1709,14 @@ func (r *stubApiKeyRepo) GetRateLimitData(ctx context.Context, id int64) (*servi
 }
 
 type stubUserSubscriptionRepo struct {
-	getByID        func(ctx context.Context, id int64) (*service.UserSubscription, error)
-	getActive      func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error)
-	updateStatus   func(ctx context.Context, subscriptionID int64, status string) error
-	activateWindow func(ctx context.Context, id int64, start time.Time) error
-	resetDaily     func(ctx context.Context, id int64, start time.Time) error
-	resetWeekly    func(ctx context.Context, id int64, start time.Time) error
-	resetMonthly   func(ctx context.Context, id int64, start time.Time) error
+	getByID                 func(ctx context.Context, id int64) (*service.UserSubscription, error)
+	getActiveCoveringGroup  func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error)
+	listActiveCoveringGroup func(ctx context.Context, userID, groupID int64) ([]service.UserSubscription, error)
+	updateStatus            func(ctx context.Context, subscriptionID int64, status string) error
+	activateWindow          func(ctx context.Context, id int64, start time.Time) error
+	resetDaily              func(ctx context.Context, id int64, start time.Time) error
+	resetWeekly             func(ctx context.Context, id int64, start time.Time) error
+	resetMonthly            func(ctx context.Context, id int64, start time.Time) error
 }
 
 type fakeSettingRepo struct {
@@ -1757,17 +1769,6 @@ func (r *stubUserSubscriptionRepo) GetByIDIncludeDeleted(ctx context.Context, id
 	return nil, errors.New("not implemented")
 }
 
-func (r *stubUserSubscriptionRepo) GetByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (r *stubUserSubscriptionRepo) GetActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
-	if r.getActive != nil {
-		return r.getActive(ctx, userID, groupID)
-	}
-	return nil, errors.New("not implemented")
-}
-
 func (r *stubUserSubscriptionRepo) Update(ctx context.Context, sub *service.UserSubscription) error {
 	return errors.New("not implemented")
 }
@@ -1794,14 +1795,6 @@ func (r *stubUserSubscriptionRepo) ListByGroupID(ctx context.Context, groupID in
 
 func (r *stubUserSubscriptionRepo) List(ctx context.Context, params pagination.PaginationParams, userID, groupID *int64, status, platform, sortBy, sortOrder string) ([]service.UserSubscription, *pagination.PaginationResult, error) {
 	return nil, nil, errors.New("not implemented")
-}
-
-func (r *stubUserSubscriptionRepo) ExistsByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (bool, error) {
-	return false, errors.New("not implemented")
-}
-
-func (r *stubUserSubscriptionRepo) ExistsActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (bool, error) {
-	return false, errors.New("not implemented")
 }
 
 func (r *stubUserSubscriptionRepo) ExtendExpiry(ctx context.Context, subscriptionID int64, newExpiresAt time.Time) error {
@@ -1857,4 +1850,38 @@ func (r *stubUserSubscriptionRepo) IncrementUsage(ctx context.Context, id int64,
 
 func (r *stubUserSubscriptionRepo) BatchUpdateExpiredStatus(ctx context.Context) (int64, error) {
 	return 0, errors.New("not implemented")
+}
+
+func (r *stubUserSubscriptionRepo) GetByUserIDAndPlanID(context.Context, int64, int64) (*service.UserSubscription, error) {
+	return nil, service.ErrSubscriptionNotFound
+}
+
+func (r *stubUserSubscriptionRepo) GetActiveCoveringGroup(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
+	if r.getActiveCoveringGroup != nil {
+		return r.getActiveCoveringGroup(ctx, userID, groupID)
+	}
+	return nil, service.ErrSubscriptionNotFound
+}
+
+func (r *stubUserSubscriptionRepo) ListActiveCoveringGroup(ctx context.Context, userID, groupID int64) ([]service.UserSubscription, error) {
+	if r.listActiveCoveringGroup != nil {
+		return r.listActiveCoveringGroup(ctx, userID, groupID)
+	}
+	sub, err := r.GetActiveCoveringGroup(ctx, userID, groupID)
+	if errors.Is(err, service.ErrSubscriptionNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return []service.UserSubscription{*sub}, nil
+}
+
+func (r *stubUserSubscriptionRepo) ExistsActiveCoveringGroup(ctx context.Context, userID, groupID int64) (bool, error) {
+	subs, err := r.ListActiveCoveringGroup(ctx, userID, groupID)
+	return len(subs) > 0, err
+}
+
+func (r *stubUserSubscriptionRepo) UpdateBillingSnapshot(context.Context, int64, service.SubscriptionBillingSnapshot, bool) error {
+	return errors.New("not implemented")
 }

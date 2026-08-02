@@ -17,7 +17,7 @@ import type {
  * List all subscriptions with pagination
  * @param page - Page number (default: 1)
  * @param pageSize - Items per page (default: 20)
- * @param filters - Optional filters (status, user_id, group_id, sort_by, sort_order)
+ * @param filters - Optional filters (status, user_id, included group, sort_by, sort_order)
  * @returns Paginated list of subscriptions
  */
 export async function list(

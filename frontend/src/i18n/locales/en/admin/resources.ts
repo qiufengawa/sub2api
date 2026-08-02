@@ -281,10 +281,9 @@ export default {
         status: 'Status',
         expiresAt: 'Expires At',
         notes: 'Notes',
-        group: 'Group'
+        plan: 'Subscription Plan'
       },
       batchNotesPlaceholder: 'Enter the new note, or leave blank to clear it',
-      clearGroup: 'Clear group',
       deleteAllUnused: 'Delete All Unused Codes',
       deleteCode: 'Delete Redeem Code',
       deleteCodeConfirm:
@@ -323,8 +322,9 @@ export default {
         admin_balance: 'Balance (Admin)',
         admin_concurrency: 'Concurrency (Admin)'
       },
-      selectGroup: 'Select Group',
-      selectGroupPlaceholder: 'Choose a subscription group',
+      selectPlan: 'Select Subscription Plan',
+      selectPlanPlaceholder: 'Choose a subscription plan',
+      noIncludedGroups: 'No covered groups',
       validityDays: 'Validity Days',
       codeExpiry: 'Code Expiry',
       neverExpires: 'Never expires',
@@ -332,7 +332,7 @@ export default {
       customExpiry: 'Custom',
       customExpiryDays: 'Custom days',
       expiryDaysRequired: 'Please enter a valid expiry day count',
-      groupRequired: 'Please select a subscription group',
+      planRequired: 'Please select a subscription plan',
       days: ' days',
       status: {
         unused: 'Unused',
@@ -418,11 +418,11 @@ export default {
         addOrGroup: 'Add OR group',
         addAndCondition: 'Add AND condition',
         conditionType: 'Condition type',
-        conditionSubscription: 'Subscription',
+        conditionSubscription: 'Subscription-covered group',
         conditionBalance: 'Balance',
         operator: 'Operator',
         balanceValue: 'Balance threshold',
-        selectPackages: 'Select packages'
+        selectPackages: 'Select covered routing groups'
       },
       operators: {
         gt: '>',

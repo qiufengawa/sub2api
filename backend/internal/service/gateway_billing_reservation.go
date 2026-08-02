@@ -275,7 +275,7 @@ func reserveGatewayRequestBilling(
 	mediaMultiplier float64,
 ) (*RequestBillingReservationHandle, error) {
 	handle := &RequestBillingReservationHandle{}
-	if cfg == nil || !cfg.SubscriptionGroupBillingEnabled() || cfg.RunMode == config.RunModeSimple {
+	if cfg == nil || cfg.RunMode == config.RunModeSimple {
 		return handle, nil
 	}
 	reservationRepo, ok := repo.(UsageBillingReservationRepository)
@@ -342,7 +342,7 @@ func rebindGatewayRequestBilling(
 	tokenMultiplier float64,
 	mediaMultiplier float64,
 ) error {
-	if cfg == nil || !cfg.SubscriptionGroupBillingEnabled() || cfg.RunMode == config.RunModeSimple || !handle.Reserved() {
+	if cfg == nil || cfg.RunMode == config.RunModeSimple || !handle.Reserved() {
 		return nil
 	}
 	if billingService == nil || user == nil || apiKey == nil {

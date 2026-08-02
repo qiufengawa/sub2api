@@ -34,10 +34,10 @@
       <!-- Plans Table -->
       <template #table>
       <DataTable :columns="planColumns" :data="plans" :loading="plansLoading">
-        <template #cell-name="{ value, row }">
-          <span class="block max-w-[16rem] truncate text-sm font-medium" :class="getPlanNameClass(row.group_id)" :title="String(value)">{{ value }}</span>
+        <template #cell-name="{ value }">
+          <span class="block max-w-[16rem] truncate text-sm font-medium text-gray-900 dark:text-white" :title="String(value)">{{ value }}</span>
         </template>
-        <template #cell-included_groups="{ value, row }">
+        <template #cell-included_groups="{ value }">
           <div class="flex max-w-[28rem] flex-wrap gap-1.5">
             <GroupBadge
               v-for="group in value || []"
@@ -46,9 +46,8 @@
               :platform="group.platform"
               :rate-multiplier="group.rate_multiplier"
             />
-            <span v-if="!(value || []).length && isGroupMissing(row.group_id)" class="text-sm">
-              <span class="text-gray-400">#{{ row.group_id }}</span>
-              <span class="ml-1 badge badge-danger">{{ t('payment.admin.groupMissing') }}</span>
+            <span v-if="!(value || []).length" class="badge badge-danger text-sm">
+              {{ t('payment.admin.groupMissing') }}
             </span>
           </div>
         </template>
@@ -134,7 +133,6 @@ import GroupBadge from '@/components/common/GroupBadge.vue'
 import PlanEditDialog from './PlanEditDialog.vue'
 import PlanImportDialog from './PlanImportDialog.vue'
 import { currencySymbol } from '@/components/payment/currency'
-import { platformTextClass } from '@/utils/platformColors'
 import {
   isPaymentCatalogTemplate,
   personalizeCatalogTemplateForInstallation,
@@ -171,20 +169,6 @@ async function loadPaymentConfig() {
     paymentConfig.value = res.data
   } catch { /* preview only */ }
 }
-
-function getGroup(id: number): AdminGroup | undefined {
-  return groups.value.find(g => g.id === id)
-}
-
-function isGroupMissing(id: number): boolean {
-  return id > 0 && !groups.value.find(g => g.id === id)
-}
-
-function getPlanNameClass(groupId: number): string {
-  const group = getGroup(groupId)
-  return group ? platformTextClass(group.platform) : 'text-gray-900 dark:text-white'
-}
-
 
 // ==================== Plans ====================
 

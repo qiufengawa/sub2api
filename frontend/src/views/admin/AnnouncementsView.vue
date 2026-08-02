@@ -221,7 +221,7 @@
 
         <AnnouncementTargetingEditor
           v-model="form.targeting"
-          :groups="subscriptionGroups"
+          :groups="targetGroups"
         />
       </form>
 
@@ -445,12 +445,14 @@ const form = reactive({
   targeting: { any_of: [] } as AnnouncementTargeting
 })
 
-const subscriptionGroups = ref<AdminGroup[]>([])
+const targetGroups = ref<AdminGroup[]>([])
 
-async function loadSubscriptionGroups() {
+async function loadTargetGroups() {
   try {
     const all = await adminAPI.groups.getAll()
-    subscriptionGroups.value = (all || []).filter((g) => g.subscription_type === 'subscription')
+    targetGroups.value = (all || []).filter(
+      (group) => group.status === 'active' && group.subscription_type === 'standard'
+    )
   } catch (error: any) {
     console.error('Error loading groups:', error)
     // not fatal
@@ -622,7 +624,7 @@ function openReadStatus(row: Announcement) {
 }
 
 onMounted(async () => {
-  await loadSubscriptionGroups()
+  await loadTargetGroups()
   await loadAnnouncements()
 })
 

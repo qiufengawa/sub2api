@@ -125,20 +125,7 @@ export interface SubscriptionPlanGroup {
 
 export interface SubscriptionPlan {
   id: number
-  group_id: number
-  group_platform?: string
-  group_name?: string
-  rate_multiplier?: number
-  peak_rate_enabled?: boolean
-  peak_start?: string
-  peak_end?: string
-  peak_rate_multiplier?: number
-  daily_limit_usd?: number | null
-  weekly_limit_usd?: number | null
-  monthly_limit_usd?: number | null
-  supported_model_scopes?: string[]
-  included_groups?: SubscriptionPlanGroup[]
-  included_group_ids?: number[]
+  included_groups: SubscriptionPlanGroup[]
   cycle_quota_usd?: number | null
   reset_interval_seconds?: number
   wallet_fallback_enabled?: boolean
@@ -203,10 +190,8 @@ export interface PaymentCatalogGroup {
 }
 
 export interface PaymentCatalogPlan {
-	group_key?: string
-	group_id?: number
   included_group_keys?: string[]
-	included_group_ids?: number[]
+  included_group_ids?: number[]
   cycle_quota_usd?: number | null
   reset_interval_seconds?: number
   wallet_fallback_enabled?: boolean

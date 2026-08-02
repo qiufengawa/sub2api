@@ -390,15 +390,15 @@ type RedeemCode struct {
 	CreatedAt time.Time  `json:"created_at"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 
-	GroupID      *int64 `json:"group_id"`
+	PlanID       *int64 `json:"plan_id"`
+	PlanName     string `json:"plan_name,omitempty"`
 	ValidityDays int    `json:"validity_days"`
 
 	// Notes is only populated for admin_balance/admin_concurrency types
 	// so users can see why they were charged or credited
 	Notes *string `json:"notes,omitempty"`
 
-	User  *User  `json:"user,omitempty"`
-	Group *Group `json:"group,omitempty"`
+	User *User `json:"user,omitempty"`
 }
 
 // AdminRedeemCode 是管理员接口使用的 redeem code DTO（包含 notes 等字段）。
@@ -451,7 +451,7 @@ type BatchUpdateRedeemCodeFields struct {
 	Status    *string            `json:"status,omitempty"`
 	ExpiresAt NullableTimeField  `json:"expires_at,omitempty"`
 	Notes     *string            `json:"notes,omitempty"`
-	GroupID   NullableInt64Field `json:"group_id,omitempty"`
+	PlanID    NullableInt64Field `json:"plan_id,omitempty"`
 
 	Type  *string  `json:"type,omitempty"`
 	Value *float64 `json:"value,omitempty"`
@@ -617,8 +617,7 @@ type Setting struct {
 type UserSubscription struct {
 	ID       int64  `json:"id"`
 	UserID   int64  `json:"user_id"`
-	GroupID  int64  `json:"group_id"`
-	PlanID   *int64 `json:"plan_id,omitempty"`
+	PlanID   int64  `json:"plan_id"`
 	PlanName string `json:"plan_name,omitempty"`
 
 	StartsAt  time.Time `json:"starts_at"`
@@ -644,7 +643,6 @@ type UserSubscription struct {
 	RevokedAt *time.Time `json:"revoked_at,omitempty"`
 
 	User           *User    `json:"user,omitempty"`
-	Group          *Group   `json:"group,omitempty"`
 	IncludedGroups []*Group `json:"included_groups"`
 }
 

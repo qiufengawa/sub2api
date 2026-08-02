@@ -62,7 +62,7 @@ const catalogJSON = JSON.stringify({
   mode: 'upsert',
   defaults: {},
   groups: [{ key: 'lite', name: 'Lite' }],
-  plans: [{ group_key: 'lite', name: 'Lite', price: 12.9 }],
+	  plans: [{ included_group_keys: ['lite'], name: 'Lite', price: 12.9 }],
 })
 
 function previewFixture(canApply = true): PaymentCatalogImportPreview {
@@ -190,20 +190,35 @@ describe('PlanImportDialog', () => {
         name: `${key} subscription`,
         copy_accounts_from: [],
       })),
-      plans: ['lite', 'starter', 'standard', 'pro', 'max'].map((groupKey, index) => ({
-        group_key: groupKey,
-        name: groupKey,
-        price: index + 1,
-      })),
+	  plans: ['lite', 'starter', 'standard', 'pro', 'max'].map((groupKey, index) => ({
+		included_group_keys: [groupKey],
+		name: groupKey,
+		price: index + 1,
+	  })),
     }
     getModelsListCandidates.mockResolvedValue(['gpt-5.1', 'deepseek-v3'])
     const wrapper = mountDialog([{
       id: 8,
       name: 'OpenAI 主池',
       status: 'active',
-      account_count: 2,
-      platform: 'openai',
-    } as AdminGroup])
+	  account_count: 2,
+	  platform: 'openai',
+	  subscription_type: 'standard',
+	} as AdminGroup, {
+	  id: 9,
+	  name: '旧订阅分组',
+	  status: 'active',
+	  account_count: 2,
+	  platform: 'openai',
+	  subscription_type: 'subscription',
+	} as AdminGroup, {
+	  id: 10,
+	  name: '停用标准分组',
+	  status: 'inactive',
+	  account_count: 2,
+	  platform: 'openai',
+	  subscription_type: 'standard',
+	} as AdminGroup])
 
     const pasteMode = wrapper.findAll('button').find(button => button.text().includes('payment.admin.catalogImport.pasteMode'))
     await pasteMode!.trigger('click')
@@ -218,8 +233,9 @@ describe('PlanImportDialog', () => {
 	expect(submitted.plans[0]).toEqual(expect.objectContaining({
 	  included_group_ids: [8],
 	}))
-	expect(submitted.plans[0].group_key).toBeUndefined()
-	expect(submitted.plans[0].group_id).toBeUndefined()
+	expect(submitted.plans[0]).not.toHaveProperty('group_key')
+	expect(submitted.plans[0]).not.toHaveProperty('group_id')
+	expect(submitted.defaults.subscription_type).toBe('standard')
 	expect(getModelsListCandidates).not.toHaveBeenCalled()
   })
 

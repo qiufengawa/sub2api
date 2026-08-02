@@ -664,8 +664,7 @@ const getBillingSubscriptionLabel = (row: AdminUsageLog): string => {
   if (row.billing_source !== 'subscription') return ''
   const planName = row.subscription?.plan_name?.trim()
   if (planName) return planName
-  const groupName = row.subscription?.group?.name?.trim()
-  if (groupName) return groupName
+  if (row.subscription?.plan_id) return `#${row.subscription.plan_id}`
   return row.subscription_id ? `#${row.subscription_id}` : ''
 }
 

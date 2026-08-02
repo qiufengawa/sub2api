@@ -605,7 +605,7 @@ export default {
     subscriptions: {
       advancedFilters: 'Advanced filters',
       title: 'Subscription Management',
-      description: 'Manage user subscriptions and quota limits',
+      description: 'Manage user plans, cycle quotas, and covered routing groups',
       assignSubscription: 'Assign Subscription',
       adjustSubscription: 'Adjust Subscription',
       revokeSubscription: 'Revoke Subscription',
@@ -616,6 +616,10 @@ export default {
       daily: 'Daily',
       weekly: 'Weekly',
       monthly: 'Monthly',
+      cycle: 'Cycle',
+      resetEveryDays: 'Resets every {days} days',
+      reserved: '${amount} reserved',
+      noIncludedGroups: 'No covered groups',
       noLimits: 'No limits configured',
       unlimited: 'Unlimited',
       resetNow: 'Resetting soon',
@@ -639,7 +643,7 @@ export default {
       },
       columns: {
         user: 'User',
-        group: 'Group',
+        plan: 'Plan',
         usage: 'Usage',
         expires: 'Expires',
         status: 'Status',
@@ -647,13 +651,13 @@ export default {
       },
       form: {
         user: 'User',
-        group: 'Subscription Group',
+        plan: 'Subscription Plan',
         validityDays: 'Validity (Days)',
         adjustDays: 'Adjust by (Days)'
       },
       selectUser: 'Select a user',
-      selectGroup: 'Select a subscription group',
-      groupHint: 'Only groups with subscription billing type are shown',
+      selectPlan: 'Select a subscription plan',
+      planHint: 'The plan defines cycle quota and covered routing groups',
       validityHint: 'Number of days the subscription will be valid',
       adjustingFor: 'Adjusting subscription for',
       currentExpiration: 'Current expiration',
@@ -684,7 +688,7 @@ export default {
       adjustWouldExpire: 'Remaining days after adjustment must be greater than 0',
       adjustOutOfRange: 'Adjustment days must be between -36500 and 36500',
       pleaseSelectUser: 'Please select a user',
-      pleaseSelectGroup: 'Please select a group',
+      pleaseSelectPlan: 'Please select a subscription plan',
       validityDaysRequired: 'Please enter a valid number of days (at least 1)',
       revokeConfirm:
         "Are you sure you want to revoke the subscription for '{user}'? You can restore it later from the revoked list.",
@@ -692,20 +696,20 @@ export default {
         "Restore the subscription for '{user}'? If the original subscription has expired, it will be restored as expired.",
       guide: {
         title: 'Subscription Management Guide',
-        subtitle: 'Subscription mode lets you assign time-based usage quotas to users, with daily/weekly/monthly limits. Follow these steps to get started.',
+        subtitle: 'A subscription plan provides cycle quota and covers one or more routing groups. Requests still use the rate of the group selected by the API key.',
         showGuide: 'Usage Guide',
         step1: {
-          title: 'Create a Subscription Group',
-          line1: 'Go to "Group Management" page, click "Create Group"',
-          line2: 'Set billing type to "Subscription", configure daily/weekly/monthly quota limits',
-          line3: 'Save the group and ensure its status is "Active"',
-          link: 'Go to Group Management'
+          title: 'Create a Subscription Plan',
+          line1: 'Open the "Subscription Plans" page and create a plan',
+          line2: 'Configure cycle quota, reset interval, and validity',
+          line3: 'Select one or more real routing groups covered by the plan',
+          link: 'Go to Subscription Plans'
         },
         step2: {
           title: 'Assign Subscription to User',
           line1: 'Click the "Assign Subscription" button in the top right',
           line2: 'Search for a user by email and select them',
-          line3: 'Choose a subscription group, set validity days, then click "Assign"'
+          line3: 'Choose a subscription plan, set validity days, then click "Assign"'
         },
         step3: {
           title: 'Manage Existing Subscriptions'
@@ -718,7 +722,7 @@ export default {
           revoke: 'Revoke',
           revokeDesc: 'Immediately terminate the subscription (restorable from the revoked list)'
         },
-        tip: 'Tip: Only groups with billing type "Subscription" and status "Active" appear in the group dropdown. If no options are available, create one in Group Management first.'
+        tip: 'A plan must cover at least one active routing group. Requests are billed at the rate of the covered group selected by the user\'s API key.'
       }
     },
 

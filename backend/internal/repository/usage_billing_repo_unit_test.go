@@ -583,7 +583,7 @@ func TestApplySubscriptionGroupBillingDecision_CountsPendingReservations(t *test
 	mock.ExpectRollback()
 
 	groupID := int64(9)
-	err = applySubscriptionGroupBillingDecision(ctx, tx, &service.UsageBillingCommand{
+	err = applyPlanCoverageBillingDecision(ctx, tx, &service.UsageBillingCommand{
 		RequestID: "req-reserved", APIKeyID: 7, UserID: 42, GroupID: &groupID, BillableCost: service.BillingAmountFromFloat(2),
 	}, &service.UsageBillingApplyResult{})
 	require.ErrorIs(t, err, service.ErrSubscriptionQuotaExceeded)
@@ -610,7 +610,7 @@ func TestApplySubscriptionGroupBillingDecision_WalletOnly(t *testing.T) {
 	mock.ExpectCommit()
 
 	result := &service.UsageBillingApplyResult{}
-	err = applySubscriptionGroupBillingDecision(ctx, tx, newBillingDecisionCommand("req-wallet-only", 2), result)
+	err = applyPlanCoverageBillingDecision(ctx, tx, newBillingDecisionCommand("req-wallet-only", 2), result)
 	require.NoError(t, err)
 	require.Equal(t, service.BillingSourceWallet, result.BillingSource)
 	require.True(t, result.NewBalance.Equal(service.BillingAmountFromFloat(3)))
@@ -639,7 +639,7 @@ func TestApplySubscriptionGroupBillingDecision_WalletFirstFallsBackToSubscriptio
 	mock.ExpectCommit()
 
 	result := &service.UsageBillingApplyResult{}
-	err = applySubscriptionGroupBillingDecision(ctx, tx, newBillingDecisionCommand("req-wallet-first", 2), result)
+	err = applyPlanCoverageBillingDecision(ctx, tx, newBillingDecisionCommand("req-wallet-first", 2), result)
 	require.NoError(t, err)
 	require.Equal(t, service.BillingSourceSubscription, result.BillingSource)
 	require.Equal(t, "wallet_insufficient", result.BillingFallbackReason)
@@ -662,7 +662,7 @@ func TestApplySubscriptionGroupBillingDecision_SubscriptionOnlyRejectsExhaustedQ
 		subscriptionBillingCandidateRows().AddRow(int64(71), now.Add(time.Hour), 10.0, 604800, now, 9.0, 1.0, true))
 	mock.ExpectRollback()
 
-	err = applySubscriptionGroupBillingDecision(ctx, tx, newBillingDecisionCommand("req-sub-only", 1), &service.UsageBillingApplyResult{})
+	err = applyPlanCoverageBillingDecision(ctx, tx, newBillingDecisionCommand("req-sub-only", 1), &service.UsageBillingApplyResult{})
 	require.ErrorIs(t, err, service.ErrSubscriptionQuotaExceeded)
 	require.NoError(t, tx.Rollback())
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -691,7 +691,7 @@ func TestApplySubscriptionGroupBillingDecision_SubscriptionFirstSelectsEarliestE
 	mock.ExpectCommit()
 
 	result := &service.UsageBillingApplyResult{}
-	err = applySubscriptionGroupBillingDecision(ctx, tx, newBillingDecisionCommand("req-sub-first", 1), result)
+	err = applyPlanCoverageBillingDecision(ctx, tx, newBillingDecisionCommand("req-sub-first", 1), result)
 	require.NoError(t, err)
 	require.Equal(t, service.BillingSourceSubscription, result.BillingSource)
 	require.Equal(t, int64(72), *result.SubscriptionID)
@@ -718,7 +718,7 @@ func TestApplySubscriptionGroupBillingDecision_SubscriptionFirstWithoutCoverageU
 	mock.ExpectCommit()
 
 	result := &service.UsageBillingApplyResult{}
-	err = applySubscriptionGroupBillingDecision(ctx, tx, newBillingDecisionCommand("req-no-coverage", 2), result)
+	err = applyPlanCoverageBillingDecision(ctx, tx, newBillingDecisionCommand("req-no-coverage", 2), result)
 	require.NoError(t, err)
 	require.Equal(t, service.BillingSourceWallet, result.BillingSource)
 	require.Equal(t, "subscription_unavailable", result.BillingFallbackReason)

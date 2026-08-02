@@ -7,8 +7,7 @@ const subscriptionDayDuration = 24 * time.Hour
 type UserSubscription struct {
 	ID       int64
 	UserID   int64
-	GroupID  int64
-	PlanID   *int64
+	PlanID   int64
 	PlanName string
 
 	StartsAt  time.Time
@@ -39,7 +38,6 @@ type UserSubscription struct {
 	DeletedAt *time.Time
 
 	User           *User
-	Group          *Group
 	AssignedByUser *User
 	IncludedGroups []Group
 }
@@ -53,7 +51,7 @@ func (s *UserSubscription) CoversGroup(groupID int64) bool {
 			return true
 		}
 	}
-	return s.GroupID == groupID
+	return false
 }
 
 func (s *UserSubscription) HasCycleQuota() bool {

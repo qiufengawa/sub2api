@@ -4,6 +4,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -78,9 +79,15 @@ func (s *UserRepoSuite) mustCreateSubscription(userID, groupID int64, mutate fun
 	s.T().Helper()
 
 	now := time.Now()
+	plan, err := s.client.SubscriptionPlan.Create().
+		SetName(fmt.Sprintf("user-repo-plan-%d", time.Now().UnixNano())).
+		SetPrice(0).
+		AddGroupIDs(groupID).
+		Save(s.ctx)
+	s.Require().NoError(err, "create subscription plan")
 	create := s.client.UserSubscription.Create().
 		SetUserID(userID).
-		SetGroupID(groupID).
+		SetPlanID(plan.ID).
 		SetStartsAt(now.Add(-1 * time.Hour)).
 		SetExpiresAt(now.Add(24 * time.Hour)).
 		SetStatus(service.SubscriptionStatusActive).
@@ -352,8 +359,7 @@ func (s *UserRepoSuite) TestListWithFilters_LoadsActiveSubscriptions() {
 	s.Require().NoError(err, "ListWithFilters")
 	s.Require().Len(users, 1, "expected 1 user")
 	s.Require().Len(users[0].Subscriptions, 1, "expected 1 active subscription")
-	s.Require().NotNil(users[0].Subscriptions[0].Group, "expected subscription group preload")
-	s.Require().Equal(groupActive.ID, users[0].Subscriptions[0].Group.ID, "group ID mismatch")
+	s.Require().True(users[0].Subscriptions[0].CoversGroup(groupActive.ID), "expected active plan to cover group")
 }
 
 func (s *UserRepoSuite) TestListWithFilters_CombinedFilters() {

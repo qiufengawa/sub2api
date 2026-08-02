@@ -75,11 +75,6 @@ func UserID(v int64) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldEQ(FieldUserID, v))
 }
 
-// GroupID applies equality check predicate on the "group_id" field. It's identical to GroupIDEQ.
-func GroupID(v int64) predicate.UserSubscription {
-	return predicate.UserSubscription(sql.FieldEQ(FieldGroupID, v))
-}
-
 // PlanID applies equality check predicate on the "plan_id" field. It's identical to PlanIDEQ.
 func PlanID(v int64) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldEQ(FieldPlanID, v))
@@ -325,26 +320,6 @@ func UserIDNotIn(vs ...int64) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldNotIn(FieldUserID, vs...))
 }
 
-// GroupIDEQ applies the EQ predicate on the "group_id" field.
-func GroupIDEQ(v int64) predicate.UserSubscription {
-	return predicate.UserSubscription(sql.FieldEQ(FieldGroupID, v))
-}
-
-// GroupIDNEQ applies the NEQ predicate on the "group_id" field.
-func GroupIDNEQ(v int64) predicate.UserSubscription {
-	return predicate.UserSubscription(sql.FieldNEQ(FieldGroupID, v))
-}
-
-// GroupIDIn applies the In predicate on the "group_id" field.
-func GroupIDIn(vs ...int64) predicate.UserSubscription {
-	return predicate.UserSubscription(sql.FieldIn(FieldGroupID, vs...))
-}
-
-// GroupIDNotIn applies the NotIn predicate on the "group_id" field.
-func GroupIDNotIn(vs ...int64) predicate.UserSubscription {
-	return predicate.UserSubscription(sql.FieldNotIn(FieldGroupID, vs...))
-}
-
 // PlanIDEQ applies the EQ predicate on the "plan_id" field.
 func PlanIDEQ(v int64) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldEQ(FieldPlanID, v))
@@ -363,16 +338,6 @@ func PlanIDIn(vs ...int64) predicate.UserSubscription {
 // PlanIDNotIn applies the NotIn predicate on the "plan_id" field.
 func PlanIDNotIn(vs ...int64) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldNotIn(FieldPlanID, vs...))
-}
-
-// PlanIDIsNil applies the IsNil predicate on the "plan_id" field.
-func PlanIDIsNil() predicate.UserSubscription {
-	return predicate.UserSubscription(sql.FieldIsNull(FieldPlanID))
-}
-
-// PlanIDNotNil applies the NotNil predicate on the "plan_id" field.
-func PlanIDNotNil() predicate.UserSubscription {
-	return predicate.UserSubscription(sql.FieldNotNull(FieldPlanID))
 }
 
 // StartsAtEQ applies the EQ predicate on the "starts_at" field.
@@ -1180,29 +1145,6 @@ func HasUser() predicate.UserSubscription {
 func HasUserWith(preds ...predicate.User) predicate.UserSubscription {
 	return predicate.UserSubscription(func(s *sql.Selector) {
 		step := newUserStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
-// HasGroup applies the HasEdge predicate on the "group" edge.
-func HasGroup() predicate.UserSubscription {
-	return predicate.UserSubscription(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, GroupTable, GroupColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasGroupWith applies the HasEdge predicate on the "group" edge with a given conditions (other predicates).
-func HasGroupWith(preds ...predicate.Group) predicate.UserSubscription {
-	return predicate.UserSubscription(func(s *sql.Selector) {
-		step := newGroupStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

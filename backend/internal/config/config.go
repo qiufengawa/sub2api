@@ -85,7 +85,6 @@ type Config struct {
 	Pricing                 PricingConfig                 `mapstructure:"pricing"`
 	Gateway                 GatewayConfig                 `mapstructure:"gateway"`
 	APIKeyAuth              APIKeyAuthCacheConfig         `mapstructure:"api_key_auth_cache"`
-	SubscriptionCache       SubscriptionCacheConfig       `mapstructure:"subscription_cache"`
 	SubscriptionMaintenance SubscriptionMaintenanceConfig `mapstructure:"subscription_maintenance"`
 	Dashboard               DashboardCacheConfig          `mapstructure:"dashboard_cache"`
 	DashboardAgg            DashboardAggregationConfig    `mapstructure:"dashboard_aggregation"`
@@ -838,11 +837,6 @@ type BillingConfig struct {
 	// Requests in balance mode are rejected when the cached balance is below this
 	// amount, even if it is still positive. Set to 0 to keep the legacy balance > 0 gate.
 	MinimumBalanceReserve float64 `mapstructure:"minimum_balance_reserve"`
-	// SubscriptionGroupBillingEnabled enables the decoupled model where a
-	// subscription supplies quota while the API key's real group controls routing
-	// and pricing. It defaults off for a reversible rollout.
-	SubscriptionGroupBillingEnabled bool                  `mapstructure:"subscription_group_billing_enabled"`
-	subscriptionGroupBillingLive    *atomic.Pointer[bool] `mapstructure:"-" json:"-" yaml:"-"`
 	// RequestReservationLeaseSeconds is the maximum time a request reservation
 	// may remain without a heartbeat before background recovery releases it.
 	RequestReservationLeaseSeconds int `mapstructure:"request_reservation_lease_seconds"`
@@ -862,32 +856,6 @@ type BillingConfig struct {
 	// UserPlatformQuotaSentinelTTLSeconds sentinel(无 limit 占位)entry 的 TTL,
 	// 显著短于 quota cache 默认 86400s 以控 Redis 内存;默认 3600=1h。
 	UserPlatformQuotaSentinelTTLSeconds int `mapstructure:"user_platform_quota_sentinel_ttl_seconds"`
-}
-
-// SubscriptionGroupBillingEnabled reports the live subscription billing mode.
-// The YAML value is used until a DB-backed admin setting is published.
-func (c *Config) SubscriptionGroupBillingEnabled() bool {
-	if c == nil {
-		return false
-	}
-	if live := c.Billing.subscriptionGroupBillingLive; live != nil {
-		if value := live.Load(); value != nil {
-			return *value
-		}
-	}
-	return c.Billing.SubscriptionGroupBillingEnabled
-}
-
-// SetSubscriptionGroupBillingEnabled atomically publishes a runtime setting.
-func (c *Config) SetSubscriptionGroupBillingEnabled(enabled bool) {
-	if c == nil {
-		return
-	}
-	if c.Billing.subscriptionGroupBillingLive == nil {
-		c.Billing.subscriptionGroupBillingLive = &atomic.Pointer[bool]{}
-	}
-	value := enabled
-	c.Billing.subscriptionGroupBillingLive.Store(&value)
 }
 
 type CircuitBreakerConfig struct {
@@ -1601,13 +1569,6 @@ type InvalidAuthAbuseConfig struct {
 	Capacity      int  `mapstructure:"capacity"`
 }
 
-// SubscriptionCacheConfig 订阅认证 L1 缓存配置
-type SubscriptionCacheConfig struct {
-	L1Size        int `mapstructure:"l1_size"`
-	L1TTLSeconds  int `mapstructure:"l1_ttl_seconds"`
-	JitterPercent int `mapstructure:"jitter_percent"`
-}
-
 // SubscriptionMaintenanceConfig 订阅窗口维护后台任务配置。
 // 用于将“请求路径触发的维护动作”有界化，避免高并发下 goroutine 膨胀。
 type SubscriptionMaintenanceConfig struct {
@@ -1792,7 +1753,6 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	}
 	cfg.Security.ForwardedClientIPHeaders = forwardedClientIPHeaders
 	cfg.SetForwardedClientIPSettings(cfg.Security.TrustForwardedIPForAPIKeyACL, forwardedClientIPHeaders)
-	cfg.SetSubscriptionGroupBillingEnabled(cfg.Billing.SubscriptionGroupBillingEnabled)
 	cfg.Log.Level = strings.ToLower(strings.TrimSpace(cfg.Log.Level))
 	cfg.Log.Format = strings.ToLower(strings.TrimSpace(cfg.Log.Format))
 	cfg.Log.ServiceName = strings.TrimSpace(cfg.Log.ServiceName)
@@ -1974,7 +1934,6 @@ func setDefaults() {
 	viper.SetDefault("billing.circuit_breaker.reset_timeout_seconds", 30)
 	viper.SetDefault("billing.circuit_breaker.half_open_requests", 3)
 	viper.SetDefault("billing.minimum_balance_reserve", 0.000001)
-	viper.SetDefault("billing.subscription_group_billing_enabled", false)
 	viper.SetDefault("billing.user_platform_quota_cache_ttl_seconds", 86400)
 	viper.SetDefault("billing.user_platform_quota_sentinel_ttl_seconds", 3600)
 
@@ -2206,11 +2165,6 @@ func setDefaults() {
 	viper.SetDefault("api_key_auth_cache.invalid_abuse.window_seconds", 60)
 	viper.SetDefault("api_key_auth_cache.invalid_abuse.block_seconds", 60)
 	viper.SetDefault("api_key_auth_cache.invalid_abuse.capacity", 16384)
-
-	// Subscription auth L1 cache
-	viper.SetDefault("subscription_cache.l1_size", 16384)
-	viper.SetDefault("subscription_cache.l1_ttl_seconds", 10)
-	viper.SetDefault("subscription_cache.jitter_percent", 10)
 
 	// Dashboard cache
 	viper.SetDefault("dashboard_cache.enabled", true)
@@ -2531,7 +2485,6 @@ func (c *Config) Validate() error {
 	}
 	c.Security.ForwardedClientIPHeaders = forwardedClientIPHeaders
 	c.SetForwardedClientIPSettings(c.Security.TrustForwardedIPForAPIKeyACL, forwardedClientIPHeaders)
-	c.SetSubscriptionGroupBillingEnabled(c.Billing.SubscriptionGroupBillingEnabled)
 	if c.Server.ReadHeaderTimeout < 1 || c.Server.ReadHeaderTimeout > 60 {
 		return fmt.Errorf("server.read_header_timeout must be between 1 and 60 seconds")
 	}

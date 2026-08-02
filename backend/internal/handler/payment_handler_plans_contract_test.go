@@ -23,7 +23,6 @@ import (
 
 type paymentPlanContract struct {
 	ID                    int64                   `json:"id"`
-	GroupID               int64                   `json:"group_id"`
 	IncludedGroups        []service.PlanGroupInfo `json:"included_groups"`
 	CycleQuotaUSD         *float64                `json:"cycle_quota_usd"`
 	ResetIntervalSeconds  int                     `json:"reset_interval_seconds"`
@@ -70,7 +69,6 @@ func TestPaymentHandlerPlanResponsesExposeSubscriptionBillingContract(t *testing
 
 	const cycleQuota = 40.0
 	plan, err := client.SubscriptionPlan.Create().
-		SetGroupID(primary.ID).
 		SetName("Standard").
 		SetPrice(103.9).
 		SetValidityDays(28).

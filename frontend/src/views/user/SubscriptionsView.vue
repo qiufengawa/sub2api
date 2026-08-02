@@ -55,7 +55,7 @@
               {{ nearestExpiration?.label || t('userSubscriptions.noUpcomingExpiration') }}
             </p>
             <p v-if="nearestExpiration" class="mt-0.5 truncate text-[11px] text-gray-400 dark:text-dark-500">
-              {{ nearestExpiration.groupName }} · {{ t('userSubscriptions.expiresOn', { date: nearestExpiration.exactDate }) }}
+              {{ nearestExpiration.planName }} · {{ t('userSubscriptions.expiresOn', { date: nearestExpiration.exactDate }) }}
             </p>
           </div>
 
@@ -68,7 +68,7 @@
                 {{ formatPercentage(highestQuota.percentage) }}
               </strong>
               <span class="truncate text-[11px] text-gray-400 dark:text-dark-500">
-                {{ highestQuota.groupName }} · {{ highestQuota.label }}
+                {{ highestQuota.planName }} · {{ highestQuota.label }}
               </span>
             </div>
             <p v-else class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">
@@ -89,11 +89,11 @@
           >
             <header
               class="border-b border-gray-100 px-4 py-3 dark:border-dark-700"
-              :title="subscription.group?.description || undefined"
+              :title="subscription.plan_name || undefined"
             >
               <div class="flex min-w-0 items-center justify-between gap-3">
                 <h2 class="min-w-0 truncate text-sm font-semibold text-gray-900 dark:text-white">
-                  {{ subscription.plan_name || subscription.group?.name || `Group #${subscription.group_id}` }}
+                  {{ subscription.plan_name || `Plan #${subscription.plan_id}` }}
                 </h2>
                 <span :class="['inline-flex shrink-0 items-center gap-1.5 text-[11px] font-medium', statusTextClass(subscription.status)]">
                   <span :class="['h-1.5 w-1.5 rounded-full', statusDotClass(subscription.status)]"></span>
@@ -103,14 +103,12 @@
 
               <div class="mt-2 flex min-w-0 items-center gap-2">
                 <span
-                  :class="[
-                    'inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium leading-none',
-                    platformBadgeClass(subscription.group?.platform || ''),
-                  ]"
-                  data-testid="platform-badge"
+                  class="inline-flex items-center gap-1 text-[10px] text-gray-500 dark:text-dark-400"
                 >
-                  <PlatformIcon :platform="subscription.group?.platform" size="xs" />
-                  {{ platformLabel(subscription.group?.platform || '') }}
+                  {{ t('userSubscriptions.includedGroups') }}
+                  <strong class="font-semibold tabular-nums text-gray-700 dark:text-gray-300">
+                    {{ subscriptionIncludedGroups(subscription).length }}
+                  </strong>
                 </span>
                 <button
                   v-if="subscription.status === 'active'"
@@ -125,7 +123,7 @@
             </header>
 
             <div class="border-b border-gray-100 px-4 py-3 text-[11px] dark:border-dark-700">
-              <div v-if="subscriptionIncludedGroups(subscription).length" class="grid grid-cols-2 gap-0">
+              <div class="grid grid-cols-2 gap-0">
                 <div class="min-w-0 pr-3">
                   <span class="text-gray-400 dark:text-dark-500">{{ t('userSubscriptions.remainingTime') }}</span>
                   <p :class="['mt-0.5 truncate text-sm font-semibold', expirationTextClass(subscription.expires_at)]" data-testid="expiration-remaining">
@@ -142,65 +140,6 @@
                   </p>
                   <p class="mt-1 truncate text-[10px] leading-3 text-gray-400 dark:text-dark-500">
                     {{ subscriptionIncludedGroups(subscription).map(group => group.name).join(' / ') }}
-                  </p>
-                </div>
-              </div>
-              <div v-else :class="['grid gap-0', subscriptionHasPeakRate(subscription) ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2']">
-                <div
-                  :class="[
-                    'min-w-0 pr-3',
-                    subscriptionHasPeakRate(subscription)
-                      ? 'col-span-2 mb-3 border-b border-gray-100 pb-3 sm:col-span-1 sm:mb-0 sm:border-b-0 sm:pb-0 dark:border-dark-700'
-                      : '',
-                  ]"
-                >
-                  <span class="text-gray-400 dark:text-dark-500">{{ t('userSubscriptions.remainingTime') }}</span>
-                  <p
-                    :class="['mt-0.5 truncate text-sm font-semibold', expirationTextClass(subscription.expires_at)]"
-                    data-testid="expiration-remaining"
-                  >
-                    {{ expirationRemainingLabel(subscription.expires_at) }}
-                  </p>
-                  <p
-                    v-if="subscription.expires_at"
-                    :title="t('userSubscriptions.expiresOn', { date: formatExpirationExactDate(subscription.expires_at) })"
-                    class="mt-1 truncate text-[10px] leading-3 text-gray-400 dark:text-dark-500"
-                    data-testid="expiration-date"
-                  >
-                    {{ formatExpirationExactDate(subscription.expires_at) }}
-                  </p>
-                </div>
-                <div
-                  :class="[
-                    'min-w-0',
-                    subscriptionHasPeakRate(subscription)
-                      ? 'pr-3 sm:border-l sm:border-gray-100 sm:px-3 sm:dark:border-dark-700'
-                      : 'border-l border-gray-100 px-3 dark:border-dark-700',
-                  ]"
-                >
-                  <span class="text-gray-400 dark:text-dark-500">{{ t('userSubscriptions.baseRate') }}</span>
-                  <p
-                    class="mt-0.5 text-sm font-semibold tabular-nums text-gray-800 dark:text-gray-200"
-                    data-testid="base-rate"
-                  >
-                    ×{{ subscription.group?.rate_multiplier ?? 1 }}
-                  </p>
-                </div>
-                <div
-                  v-if="subscriptionHasPeakRate(subscription)"
-                  class="min-w-0 border-l border-gray-100 pl-3 dark:border-dark-700"
-                  data-testid="peak-rate-column"
-                >
-                  <span class="text-gray-400 dark:text-dark-500">{{ t('userSubscriptions.peakRate') }}</span>
-                  <p class="mt-0.5 text-sm font-semibold tabular-nums text-gray-800 dark:text-gray-200" data-testid="peak-rate">
-                    {{ subscriptionPeakMultiplier(subscription) }}
-                  </p>
-                  <p
-                    :title="subscriptionPeakWindow(subscription)"
-                    class="mt-1 truncate text-[10px] leading-3 text-gray-400 dark:text-dark-500"
-                    data-testid="peak-window"
-                  >
-                    {{ subscriptionPeakWindow(subscription) }}
                   </p>
                 </div>
               </div>
@@ -373,12 +312,9 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import { formatDateTimeToMinute } from '@/utils/format'
-import { hasPeakRate, serverTimezoneLabel } from '@/utils/peak-rate'
-import { platformBadgeClass, platformLabel } from '@/utils/platformColors'
+import { platformBadgeClass } from '@/utils/platformColors'
 import {
   getExpirationDateRelation,
-  getRemainingDurationParts,
-  isOneTimeDailyQuota,
   type RemainingDurationParts
 } from '@/utils/subscriptionQuota'
 
@@ -395,7 +331,7 @@ interface QuotaItem {
 }
 
 interface HighestQuota extends QuotaItem {
-  groupName: string
+  planName: string
 }
 
 const { t } = useI18n()
@@ -448,7 +384,7 @@ const nearestExpiration = computed(() => {
   return {
     label: expirationRemainingLabel(nearest.expires_at),
     exactDate: formatExpirationExactDate(nearest.expires_at),
-    groupName: nearest.plan_name || nearest.group?.name || `Group #${nearest.group_id}`,
+    planName: nearest.plan_name || `Plan #${nearest.plan_id}`,
   }
 })
 
@@ -456,36 +392,19 @@ const highestQuota = computed<HighestQuota | null>(() => {
   const items = activeSubscriptions.value.flatMap((subscription) =>
     quotaItems(subscription).map((quota) => ({
       ...quota,
-      groupName: subscription.plan_name || subscription.group?.name || `Group #${subscription.group_id}`,
+      planName: subscription.plan_name || `Plan #${subscription.plan_id}`,
     })),
   )
 
   return items.sort((a, b) => b.percentage - a.percentage)[0] || null
 })
 
-function subscriptionHasPeakRate(subscription: UserSubscription): boolean {
-  return hasPeakRate(subscription.group)
-}
-
 function subscriptionIncludedGroups(subscription: UserSubscription): Group[] {
-  return subscription.included_groups || []
+  return subscription.included_groups ?? []
 }
 
 function normalizedGroupRate(rate: number): number {
   return Number((rate ?? 1).toPrecision(10))
-}
-
-function subscriptionPeakMultiplier(subscription: UserSubscription): string {
-  return `×${subscription.group?.peak_rate_multiplier ?? 1}`
-}
-
-function subscriptionPeakWindow(subscription: UserSubscription): string {
-  const group = subscription.group
-  if (!group?.peak_start || !group.peak_end) return ''
-
-  const window = `${group.peak_start}-${group.peak_end}`
-  const timezone = serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset)
-  return timezone ? `${window} · ${timezone}` : window
 }
 
 async function loadSubscriptions() {
@@ -503,16 +422,12 @@ async function loadSubscriptions() {
 function renewSubscription(subscription: UserSubscription) {
   router.push({
     path: '/purchase',
-    query: { tab: 'subscription', group: String(subscription.group_id) },
+    query: { tab: 'subscription', plan_id: String(subscription.plan_id) },
   })
 }
 
 function subscriptionKeyGroups(subscription: UserSubscription): Group[] {
-  const candidates = subscriptionIncludedGroups(subscription).length
-    ? subscriptionIncludedGroups(subscription)
-    : subscription.group
-      ? [subscription.group]
-      : []
+  const candidates = subscriptionIncludedGroups(subscription)
   const unique = new Map<number, Group>()
   for (const group of candidates) {
     if (group.id > 0 && (!group.status || group.status === 'active')) unique.set(group.id, group)
@@ -594,59 +509,7 @@ function quotaItems(subscription: UserSubscription): QuotaItem[] {
 	  }]
 	}
 
-  const group = subscription.group
-  if (!group) return []
-
-  const definitions: Array<{
-    period: QuotaPeriod
-    label: string
-    used: number
-    limit: number | null
-    windowStart: string | null
-    hours: number
-  }> = [
-    {
-      period: 'daily',
-      label: t('userSubscriptions.daily'),
-      used: subscription.daily_usage_usd || 0,
-      limit: group.daily_limit_usd,
-      windowStart: subscription.daily_window_start,
-      hours: 24,
-    },
-    {
-      period: 'weekly',
-      label: t('userSubscriptions.weekly'),
-      used: subscription.weekly_usage_usd || 0,
-      limit: group.weekly_limit_usd,
-      windowStart: subscription.weekly_window_start,
-      hours: 168,
-    },
-    {
-      period: 'monthly',
-      label: t('userSubscriptions.monthly'),
-      used: subscription.monthly_usage_usd || 0,
-      limit: group.monthly_limit_usd,
-      windowStart: subscription.monthly_window_start,
-      hours: 720,
-    },
-  ]
-
-  return definitions
-    .filter((definition): definition is typeof definition & { limit: number } => Boolean(definition.limit))
-    .map((definition) => ({
-      period: definition.period,
-      label: definition.label,
-      used: definition.used,
-      reserved: 0,
-      limit: definition.limit,
-      percentage: (definition.used / definition.limit) * 100,
-      resetLabel: definition.period === 'daily'
-        ? formatDailyUsageWindow(subscription)
-        : t('userSubscriptions.resetIn', {
-            time: formatResetTime(definition.windowStart, definition.hours),
-          }),
-    }))
-    .sort((a, b) => b.percentage - a.percentage)
+  return []
 }
 
 function formatCycleReset(subscription: UserSubscription): string {
@@ -722,27 +585,6 @@ function formatDurationParts(parts: RemainingDurationParts): string {
   if (parts.days > 0) return `${parts.days}d ${parts.hours}h`
   if (parts.hours > 0) return `${parts.hours}h ${parts.minutes}m`
   return `${parts.minutes}m`
-}
-
-function formatDailyUsageWindow(subscription: UserSubscription): string {
-  if (isOneTimeDailyQuota(subscription) && subscription.expires_at) {
-    const parts = getRemainingDurationParts(subscription.expires_at)
-    if (!parts) return t('userSubscriptions.windowNotActive')
-    return t('userSubscriptions.quotaEndsIn', { time: formatDurationParts(parts) })
-  }
-
-  return t('userSubscriptions.resetIn', {
-    time: formatResetTime(subscription.daily_window_start, 24),
-  })
-}
-
-function formatResetTime(windowStart: string | null, windowHours: number): string {
-  if (!windowStart) return t('userSubscriptions.windowNotActive')
-
-  const start = new Date(windowStart)
-  const end = new Date(start.getTime() + windowHours * 60 * 60 * 1000)
-  const parts = getRemainingDurationParts(end)
-  return parts ? formatDurationParts(parts) : t('userSubscriptions.windowNotActive')
 }
 
 onMounted(loadSubscriptions)

@@ -31,7 +31,6 @@ func (SubscriptionPlan) Annotations() []schema.Annotation {
 
 func (SubscriptionPlan) Fields() []ent.Field {
 	return []ent.Field{
-		field.Int64("group_id"),
 		field.String("name").
 			MaxLen(100).
 			NotEmpty(),
@@ -86,12 +85,12 @@ func (SubscriptionPlan) Edges() []ent.Edge {
 		edge.To("groups", Group.Type).
 			Through("plan_groups", SubscriptionPlanGroup.Type),
 		edge.To("user_subscriptions", UserSubscription.Type),
+		edge.To("redeem_codes", RedeemCode.Type),
 	}
 }
 
 func (SubscriptionPlan) Indexes() []ent.Index {
 	return []ent.Index{
-		index.Fields("group_id"),
 		index.Fields("for_sale"),
 	}
 }

@@ -351,8 +351,8 @@ func mustCreateRedeemCode(t *testing.T, client *dbent.Client, c *service.RedeemC
 	if c.UsedAt != nil {
 		create.SetUsedAt(*c.UsedAt)
 	}
-	if c.GroupID != nil {
-		create.SetGroupID(*c.GroupID)
+	if c.PlanID != nil {
+		create.SetPlanID(*c.PlanID)
 	}
 	if !c.CreatedAt.IsZero() {
 		create.SetCreatedAt(c.CreatedAt)
@@ -392,7 +392,7 @@ func mustCreateSubscription(t *testing.T, client *dbent.Client, s *service.UserS
 
 	create := client.UserSubscription.Create().
 		SetUserID(s.UserID).
-		SetGroupID(s.GroupID).
+		SetPlanID(s.PlanID).
 		SetStartsAt(s.StartsAt).
 		SetExpiresAt(s.ExpiresAt).
 		SetStatus(s.Status).

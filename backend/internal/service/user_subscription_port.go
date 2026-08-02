@@ -11,8 +11,6 @@ type UserSubscriptionRepository interface {
 	Create(ctx context.Context, sub *UserSubscription) error
 	GetByID(ctx context.Context, id int64) (*UserSubscription, error)
 	GetByIDIncludeDeleted(ctx context.Context, id int64) (*UserSubscription, error)
-	GetByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*UserSubscription, error)
-	GetActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*UserSubscription, error)
 	Update(ctx context.Context, sub *UserSubscription) error
 	Delete(ctx context.Context, id int64) error
 	Restore(ctx context.Context, subscriptionID int64, restoredStatus string) (*UserSubscription, error)
@@ -22,8 +20,6 @@ type UserSubscriptionRepository interface {
 	ListByGroupID(ctx context.Context, groupID int64, params pagination.PaginationParams) ([]UserSubscription, *pagination.PaginationResult, error)
 	List(ctx context.Context, params pagination.PaginationParams, userID, groupID *int64, status, platform, sortBy, sortOrder string) ([]UserSubscription, *pagination.PaginationResult, error)
 
-	ExistsByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (bool, error)
-	ExistsActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (bool, error)
 	ExtendExpiry(ctx context.Context, subscriptionID int64, newExpiresAt time.Time) error
 	UpdateStatus(ctx context.Context, subscriptionID int64, status string) error
 	UpdateNotes(ctx context.Context, subscriptionID int64, notes string) error
@@ -38,9 +34,8 @@ type UserSubscriptionRepository interface {
 	BatchUpdateExpiredStatus(ctx context.Context) (int64, error)
 }
 
-// SubscriptionCoverageRepository is an additive capability used by the new
-// plan-to-real-group billing path. Keeping it separate preserves compatibility
-// with legacy repository implementations and test doubles.
+// SubscriptionCoverageRepository resolves plan entitlements against real
+// routing groups. The group is a request route, never a subscription identity.
 type SubscriptionCoverageRepository interface {
 	GetByUserIDAndPlanID(ctx context.Context, userID, planID int64) (*UserSubscription, error)
 	GetActiveCoveringGroup(ctx context.Context, userID, groupID int64) (*UserSubscription, error)
@@ -50,7 +45,7 @@ type SubscriptionCoverageRepository interface {
 }
 
 type SubscriptionBillingSnapshot struct {
-	PlanID                *int64
+	PlanID                int64
 	CycleQuotaUSD         *float64
 	ResetIntervalSeconds  int
 	CycleStartedAt        *time.Time

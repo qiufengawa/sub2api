@@ -322,8 +322,8 @@ export default {
         defaultSubscriptionsHint: '新用户创建或注册时自动分配这些订阅',
         addDefaultSubscription: '添加默认订阅',
         defaultSubscriptionsEmpty: '未配置默认订阅。新用户不会自动获得订阅套餐。',
-        defaultSubscriptionsDuplicate: '默认订阅存在重复分组：{groupId}。每个分组只能出现一次。',
-        subscriptionGroup: '订阅分组',
+        defaultSubscriptionsDuplicate: '默认订阅存在重复套餐：{planId}。每个套餐只能出现一次。',
+        subscriptionPlan: '订阅套餐',
         subscriptionValidityDays: '有效期（天）',
         defaultPlatformQuotas: '默认平台限额（注册时分配）',
         defaultPlatformQuotasHint: '新用户注册时自动写入平台限额记录；已有用户不受影响。留空 = 该平台该窗口不限制。',
@@ -595,29 +595,6 @@ export default {
         configGuide: '支付配置指南',
         enabled: '启用支付',
         enabledHint: '启用或禁用支付系统',
-        subscriptionGroupBillingEnabled: '订阅按真实分组计费',
-        subscriptionGroupBillingEnabledHint:
-          '启用后，订阅只提供周期额度；API Key 选择的真实分组决定请求路由与计费倍率。',
-        subscriptionGroupBillingEnabledWarning:
-          '启用前请确认在售套餐已配置周期额度、重置周期和至少一个可用分组。',
-        subscriptionGroupBillingHelpAria: '查看订阅真实分组计费说明',
-        subscriptionGroupBillingHelpTitle: '订阅按真实分组计费说明',
-        subscriptionGroupBillingHelpIntro:
-          '开启后，订阅负责提供可消费额度，API Key 实际选择的分组继续决定请求路由和计费倍率。订阅不会把套餐内的分组统一按 1 倍计费。',
-        subscriptionGroupBillingHelpQuotaTitle: '订阅负责额度',
-        subscriptionGroupBillingHelpQuotaText:
-          '只有订阅处于有效期内、套餐包含当前分组且本周期剩余额度足够时，请求才能使用订阅额度。',
-        subscriptionGroupBillingHelpGroupTitle: '分组负责计费',
-        subscriptionGroupBillingHelpGroupText:
-          '请求仍通过 API Key 选择的真实分组路由，最终费用按模型价格、该分组倍率及现有计价规则计算。',
-        subscriptionGroupBillingHelpFallbackTitle: '额度不可用时',
-        subscriptionGroupBillingHelpFallbackText:
-          '套餐未包含所选分组或周期额度不足时，系统会根据用户计费偏好和套餐的余额回退设置，改扣余额或拒绝请求。',
-        subscriptionGroupBillingHelpExampleTitle: '计费示例',
-        subscriptionGroupBillingHelpExampleText:
-          '某套餐同时包含 GPT 一分组（0.1 倍）和 GPT 二分组（0.2 倍）。API Key 选择 GPT 一时按 0.1 倍计费，选择 GPT 二时按 0.2 倍计费；订阅只是承担这笔费用的额度来源。',
-        subscriptionGroupBillingHelpBeforeEnable:
-          '启用前请检查所有在售套餐的周期额度、重置周期、允许分组和余额回退策略。该开关保存后会立即影响后续请求。',
         enabledPaymentTypes: '启用的服务商',
         enabledPaymentTypesHint: '禁用服务商将同时禁用对应的实例。',
         findProvider: '正在寻找合适的易支付服务商？',

@@ -163,7 +163,6 @@ type UpdateProviderInstanceRequest struct {
 	AllowUserRefund *bool             `json:"allow_user_refund"`
 }
 type CreatePlanRequest struct {
-	GroupID               int64    `json:"group_id"`
 	IncludedGroupIDs      []int64  `json:"included_group_ids"`
 	CycleQuotaUSD         *float64 `json:"cycle_quota_usd"`
 	ResetIntervalSeconds  int      `json:"reset_interval_seconds"`
@@ -182,7 +181,6 @@ type CreatePlanRequest struct {
 }
 
 type UpdatePlanRequest struct {
-	GroupID               *int64   `json:"group_id"`
 	IncludedGroupIDs      *[]int64 `json:"included_group_ids"`
 	CycleQuotaUSD         *float64 `json:"cycle_quota_usd"`
 	CycleQuotaUSDSet      bool     `json:"-"`

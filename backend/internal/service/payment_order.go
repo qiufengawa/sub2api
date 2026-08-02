@@ -22,13 +22,12 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-const subscriptionPlanOrderSnapshotVersion = 1
+const subscriptionPlanOrderSnapshotVersion = 2
 
 type SubscriptionPlanOrderSnapshot struct {
 	SchemaVersion         int      `json:"schema_version"`
 	PlanID                int64    `json:"plan_id"`
 	PlanName              string   `json:"plan_name"`
-	PrimaryGroupID        int64    `json:"primary_group_id"`
 	IncludedGroupIDs      []int64  `json:"included_group_ids"`
 	IncludedGroupNames    []string `json:"included_group_names,omitempty"`
 	CycleQuotaUSD         *float64 `json:"cycle_quota_usd,omitempty"`
@@ -156,16 +155,6 @@ func (s *PaymentService) validateSubOrder(ctx context.Context, req CreateOrderRe
 	if err != nil || !plan.ForSale {
 		return nil, infraerrors.NotFound("PLAN_NOT_AVAILABLE", "plan not found or not for sale")
 	}
-	if !s.subscriptionGroupBillingEnabled() {
-		group, err := s.groupRepo.GetByID(ctx, plan.GroupID)
-		if err != nil || group.Status != payment.EntityStatusActive {
-			return nil, infraerrors.NotFound("GROUP_NOT_FOUND", "subscription group is no longer available")
-		}
-		if !group.IsSubscriptionType() {
-			return nil, infraerrors.BadRequest("GROUP_TYPE_MISMATCH", "group is not a subscription type")
-		}
-		return plan, nil
-	}
 	if plan.CycleQuotaUsd == nil || *plan.CycleQuotaUsd <= 0 || plan.ResetIntervalSeconds <= 0 {
 		return nil, infraerrors.BadRequest("PLAN_BILLING_INCOMPLETE", "subscription plan quota and reset interval are required")
 	}
@@ -180,17 +169,13 @@ func (s *PaymentService) validateSubOrder(ctx context.Context, req CreateOrderRe
 	return plan, nil
 }
 
-func (s *PaymentService) subscriptionGroupBillingEnabled() bool {
-	return s != nil && s.subscriptionSvc != nil && s.subscriptionSvc.cfg != nil && s.subscriptionSvc.cfg.SubscriptionGroupBillingEnabled()
-}
-
 func buildSubscriptionPlanOrderSnapshot(plan *dbent.SubscriptionPlan) (map[string]any, error) {
 	if plan == nil {
 		return nil, nil
 	}
-	groupIDs := make([]int64, 0, len(plan.Edges.Groups)+1)
+	groupIDs := make([]int64, 0, len(plan.Edges.Groups))
 	groupNamesByID := make(map[int64]string, len(plan.Edges.Groups))
-	seen := make(map[int64]struct{}, len(plan.Edges.Groups)+1)
+	seen := make(map[int64]struct{}, len(plan.Edges.Groups))
 	for _, includedGroup := range plan.Edges.Groups {
 		if includedGroup == nil || includedGroup.ID <= 0 {
 			continue
@@ -202,8 +187,8 @@ func buildSubscriptionPlanOrderSnapshot(plan *dbent.SubscriptionPlan) (map[strin
 		groupIDs = append(groupIDs, includedGroup.ID)
 		groupNamesByID[includedGroup.ID] = includedGroup.Name
 	}
-	if _, exists := seen[plan.GroupID]; !exists && plan.GroupID > 0 {
-		groupIDs = append(groupIDs, plan.GroupID)
+	if len(groupIDs) == 0 {
+		return nil, infraerrors.BadRequest("PLAN_GROUP_REQUIRED", "subscription plan must include at least one group")
 	}
 	sort.Slice(groupIDs, func(i, j int) bool { return groupIDs[i] < groupIDs[j] })
 	groupNames := make([]string, 0, len(groupIDs))
@@ -216,7 +201,6 @@ func buildSubscriptionPlanOrderSnapshot(plan *dbent.SubscriptionPlan) (map[strin
 		SchemaVersion:         subscriptionPlanOrderSnapshotVersion,
 		PlanID:                plan.ID,
 		PlanName:              plan.Name,
-		PrimaryGroupID:        plan.GroupID,
 		IncludedGroupIDs:      groupIDs,
 		IncludedGroupNames:    groupNames,
 		CycleQuotaUSD:         plan.CycleQuotaUsd,
@@ -247,11 +231,13 @@ func subscriptionPlanOrderSnapshotFromOrder(order *dbent.PaymentOrder) (Subscrip
 	if err := json.Unmarshal(raw, &snapshot); err != nil {
 		return SubscriptionPlanOrderSnapshot{}, false, err
 	}
-	if snapshot.SchemaVersion != subscriptionPlanOrderSnapshotVersion || snapshot.PlanID <= 0 || snapshot.PrimaryGroupID <= 0 || snapshot.ValidityDays <= 0 {
+	if snapshot.SchemaVersion != subscriptionPlanOrderSnapshotVersion || snapshot.PlanID <= 0 || len(snapshot.IncludedGroupIDs) == 0 || snapshot.ValidityDays <= 0 {
 		return SubscriptionPlanOrderSnapshot{}, false, infraerrors.BadRequest("INVALID_STATUS", "invalid subscription plan snapshot")
 	}
-	if len(snapshot.IncludedGroupIDs) == 0 {
-		snapshot.IncludedGroupIDs = []int64{snapshot.PrimaryGroupID}
+	for _, groupID := range snapshot.IncludedGroupIDs {
+		if groupID <= 0 {
+			return SubscriptionPlanOrderSnapshot{}, false, infraerrors.BadRequest("INVALID_STATUS", "invalid subscription plan snapshot")
+		}
 	}
 	return snapshot, true, nil
 }
@@ -319,7 +305,6 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 			return nil, fmt.Errorf("build subscription plan snapshot: %w", err)
 		}
 		b.SetPlanID(plan.ID).
-			SetSubscriptionGroupID(plan.GroupID).
 			SetSubscriptionDays(psComputeValidityDays(plan.ValidityDays, plan.ValidityUnit)).
 			SetSubscriptionPlanSnapshot(subscriptionSnapshot)
 	}

@@ -425,16 +425,24 @@
               v-if="row.subscriptions && row.subscriptions.length > 0"
               class="flex flex-wrap gap-1.5"
             >
-              <GroupBadge
+              <span
                 v-for="sub in row.subscriptions"
                 :key="sub.id"
-                :name="sub.group?.name || ''"
-                :platform="sub.group?.platform"
-                :subscription-type="sub.group?.subscription_type"
-                :rate-multiplier="sub.group?.rate_multiplier"
-                :days-remaining="sub.expires_at ? getDaysRemaining(sub.expires_at) : null"
-                :title="sub.expires_at ? formatDateTime(sub.expires_at) : ''"
-              />
+                class="inline-flex min-w-0 max-w-56 items-center gap-1.5 rounded-[3px] bg-violet-50 px-2 py-1 text-xs text-violet-700 dark:bg-violet-900/20 dark:text-violet-300"
+                :title="[
+                  getSubscriptionIncludedGroupNames(sub),
+                  sub.expires_at ? formatDateTime(sub.expires_at) : '',
+                ].filter(Boolean).join(' · ')"
+              >
+                <span class="truncate font-medium">{{ sub.plan_name || `#${sub.plan_id}` }}</span>
+                <span v-if="sub.expires_at" class="shrink-0 text-[10px] opacity-75">
+                  {{
+                    getDaysRemaining(sub.expires_at) <= 0
+                      ? t('admin.users.expired')
+                      : t('admin.users.daysRemaining', { days: getDaysRemaining(sub.expires_at) })
+                  }}
+                </span>
+              </span>
             </div>
             <span
               v-else
@@ -806,7 +814,7 @@ import Icon from '@/components/icons/Icon.vue'
 
 const { t } = useI18n()
 import { adminAPI } from '@/api/admin'
-import type { AdminUser, AdminGroup, UserAttributeDefinition } from '@/types'
+import type { AdminUser, AdminGroup, UserAttributeDefinition, UserSubscription } from '@/types'
 import type { BatchUserUsageStats } from '@/api/admin/dashboard'
 import type { PlatformQuotaItem } from '@/api/admin/users'
 import type { Column } from '@/components/common/types'
@@ -817,7 +825,6 @@ import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
-import GroupBadge from '@/components/common/GroupBadge.vue'
 import Select from '@/components/common/Select.vue'
 import { buildApiKeyGroupFilterOptions } from './apiKeyGroupFilterOptions'
 import UserAttributesConfigModal from '@/components/user/UserAttributesConfigModal.vue'
@@ -1124,7 +1131,6 @@ const apiKeyGroupFilterOptions = computed(() =>
     all: t('admin.users.allApiKeyGroups'),
     exclusive: t('admin.users.apiKeyGroupExclusive'),
     public: t('admin.users.apiKeyGroupPublic'),
-    subscription: t('admin.users.apiKeyGroupSubscription'),
     disabled: t('admin.users.apiKeyGroupDisabled'),
   }) as SelectOption[]
 )
@@ -1573,6 +1579,9 @@ const getDaysRemaining = (expiresAt: string): number => {
   const diffMs = expires.getTime() - now.getTime()
   return Math.ceil(diffMs / (1000 * 60 * 60 * 24))
 }
+
+const getSubscriptionIncludedGroupNames = (subscription: UserSubscription): string =>
+  subscription.included_groups?.map((group) => group.name).join(' / ') || ''
 
 const loadAttributeDefinitions = async () => {
   try {

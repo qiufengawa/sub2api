@@ -52,12 +52,6 @@
           <Icon name="shield" size="xs" class="h-3 w-3" />
           {{ t('modelPlaza.badges.exclusive') }}
         </span>
-        <span
-          v-if="group.subscription_type === 'subscription'"
-          class="group-flag text-violet-600 dark:text-violet-400"
-        >
-          {{ t('modelPlaza.badges.subscription') }}
-        </span>
       </div>
     </header>
 

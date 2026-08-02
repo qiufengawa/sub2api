@@ -859,7 +859,7 @@ func TestAdminService_UpdateGroup_ClearsReasoningPolicyForUnsupportedPlatform(t 
 	require.Empty(t, repo.updated.ReasoningEffortMappings)
 }
 
-func TestAdminService_UpdateGroup_ClearsPeakRateWhenChangingToStandard(t *testing.T) {
+func TestAdminService_UpdateGroup_PreservesPeakRateWhenNormalizingToStandard(t *testing.T) {
 	existingGroup := &Group{
 		ID:                 1,
 		Name:               "existing-group",
@@ -881,10 +881,10 @@ func TestAdminService_UpdateGroup_ClearsPeakRateWhenChangingToStandard(t *testin
 	require.NotNil(t, group)
 	require.NotNil(t, repo.updated)
 	require.Equal(t, SubscriptionTypeStandard, repo.updated.SubscriptionType)
-	require.False(t, repo.updated.PeakRateEnabled)
-	require.Equal(t, "", repo.updated.PeakStart)
-	require.Equal(t, "", repo.updated.PeakEnd)
-	require.Equal(t, 1.0, repo.updated.PeakRateMultiplier)
+	require.True(t, repo.updated.PeakRateEnabled)
+	require.Equal(t, "14:00", repo.updated.PeakStart)
+	require.Equal(t, "18:00", repo.updated.PeakEnd)
+	require.Equal(t, 3.0, repo.updated.PeakRateMultiplier)
 }
 
 func TestAdminService_CreateGroup_NormalizesMessagesDispatchModelConfig(t *testing.T) {
@@ -1272,7 +1272,8 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackRejectsSubscription(t *t
 		FallbackGroupIDOnInvalidRequest: &fallbackID,
 	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "subscription groups cannot set invalid request fallback")
+	require.Contains(t, err.Error(), "LEGACY_SUBSCRIPTION_GROUP_UNSUPPORTED")
+	require.Contains(t, err.Error(), "subscription groups are no longer supported")
 	require.Nil(t, repo.created)
 }
 
@@ -1291,11 +1292,6 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackRejectsFallbackGroup(t *
 			name:        "antigravity_target",
 			fallback:    &Group{ID: 10, Platform: PlatformAntigravity, SubscriptionType: SubscriptionTypeStandard},
 			wantMessage: "fallback group must be anthropic platform",
-		},
-		{
-			name:        "subscription_group",
-			fallback:    &Group{ID: 10, Platform: PlatformAnthropic, SubscriptionType: SubscriptionTypeSubscription},
-			wantMessage: "fallback group cannot be subscription type",
 		},
 		{
 			name: "nested_fallback",
@@ -1438,7 +1434,8 @@ func TestAdminService_UpdateGroup_InvalidRequestFallbackSubscriptionMismatch(t *
 		SubscriptionType: SubscriptionTypeSubscription,
 	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "subscription groups cannot set invalid request fallback")
+	require.Contains(t, err.Error(), "LEGACY_SUBSCRIPTION_GROUP_UNSUPPORTED")
+	require.Contains(t, err.Error(), "subscription groups are no longer supported")
 	require.Nil(t, repo.updated)
 }
 
@@ -1471,7 +1468,7 @@ func TestAdminService_UpdateGroup_InvalidRequestFallbackClearsOnZero(t *testing.
 	require.Nil(t, repo.updated.FallbackGroupIDOnInvalidRequest)
 }
 
-func TestAdminService_UpdateGroup_InvalidRequestFallbackRejectsFallbackGroup(t *testing.T) {
+func TestAdminService_UpdateGroup_InvalidRequestFallbackIgnoresLegacyFallbackType(t *testing.T) {
 	fallbackID := int64(10)
 	existing := &Group{
 		ID:               1,
@@ -1488,12 +1485,13 @@ func TestAdminService_UpdateGroup_InvalidRequestFallbackRejectsFallbackGroup(t *
 	}
 	svc := &adminServiceImpl{groupRepo: repo}
 
-	_, err := svc.UpdateGroup(context.Background(), existing.ID, &UpdateGroupInput{
+	group, err := svc.UpdateGroup(context.Background(), existing.ID, &UpdateGroupInput{
 		FallbackGroupIDOnInvalidRequest: &fallbackID,
 	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "fallback group cannot be subscription type")
-	require.Nil(t, repo.updated)
+	require.NoError(t, err)
+	require.NotNil(t, group)
+	require.NotNil(t, repo.updated)
+	require.Equal(t, fallbackID, *repo.updated.FallbackGroupIDOnInvalidRequest)
 }
 
 func TestAdminService_UpdateGroup_InvalidRequestFallbackSetSuccess(t *testing.T) {

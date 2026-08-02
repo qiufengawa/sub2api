@@ -44,8 +44,13 @@ WHERE notes = 'SUB2API_UI_DEMO';
 DELETE FROM proxies
 WHERE name LIKE '[DEMO] %';
 
-DELETE FROM groups
-WHERE name LIKE '[DEMO] %';
+DELETE FROM groups g
+WHERE g.name LIKE '[DEMO] %'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM subscription_plan_groups spg
+      WHERE spg.group_id = g.id
+  );
 
 DELETE FROM users
 WHERE notes = 'SUB2API_UI_DEMO'
@@ -105,8 +110,9 @@ SELECT
 FROM demo_users d
 CROSS JOIN admin_password a;
 
--- Routing and billing groups cover every supported provider plus subscription,
--- image, batch image, video, live and fallback configurations.
+-- Routing groups cover every supported provider plus image, batch image,
+-- video, live and fallback configurations. Subscription entitlement remains
+-- attached to plans rather than a special group type.
 INSERT INTO groups (
     name, description, platform, rate_multiplier, is_exclusive, status,
     subscription_type, daily_limit_usd, weekly_limit_usd, monthly_limit_usd,
@@ -127,7 +133,8 @@ VALUES
     ('[DEMO] Gemini 视觉生成', 'Gemini 文本、图片与批量图片线路', 'gemini', 0.88, false, 'active', 'standard', NULL, NULL, NULL, 30, 0.025, 0.050, 0.090, false, false, '["gemini_text","gemini_image"]', 30, false, '', '{}', 150, true, true, 1.25, '{"include":["gemini-2.5-pro","gemini-2.5-flash"]}', false, '', '', 1.00, 0.45, 0.55, true, false, 1.00, NULL, NULL, NULL, NULL, '', '[]', false),
     ('[DEMO] Grok 实时与视频', 'Grok 实时请求、图片及视频生成线路', 'grok', 1.08, false, 'active', 'standard', NULL, NULL, NULL, 30, 0.030, 0.060, 0.100, false, false, '["grok"]', 40, false, '', '{}', 120, true, true, 1.10, '{"include":["grok-4"]}', false, '', '', 1.00, 0.50, 0.60, false, true, 1.18, 0.08, 0.15, 0.28, 0.012, 'high', '[{"from":"xhigh","to":"high"}]', true),
     ('[DEMO] Antigravity 备用池', '用于验证停用分组和备用供应商样式', 'antigravity', 0.75, true, 'disabled', 'standard', NULL, NULL, NULL, 30, NULL, NULL, NULL, false, false, '["gemini_text"]', 50, false, '', '{}', 60, false, false, 1.00, '{}', false, '', '', 1.00, 0.50, 0.60, false, false, 1.00, NULL, NULL, NULL, NULL, '', '[]', false),
-    ('[DEMO] Claude 团队订阅', '按日、周、月额度控制的团队订阅套餐', 'anthropic', 1.00, true, 'active', 'subscription', 8.00, 35.00, 120.00, 30, NULL, NULL, NULL, true, true, '["claude"]', 5, false, '', '{}', 100, false, false, 1.00, '{"include":["claude-sonnet-4-5","claude-opus-4-6"]}', false, '', '', 1.00, 0.50, 0.60, false, false, 1.00, NULL, NULL, NULL, 0.008, '', '[]', false);
+    ('[DEMO] Anthropic 备用线路', '用于验证 Anthropic 备用路由和专属分组样式', 'anthropic', 1.00, true, 'active', 'standard', NULL, NULL, NULL, 30, NULL, NULL, NULL, true, true, '["claude"]', 5, false, '', '{}', 100, false, false, 1.00, '{"include":["claude-sonnet-4-5","claude-opus-4-6"]}', false, '', '', 1.00, 0.50, 0.60, false, false, 1.00, NULL, NULL, NULL, 0.008, '', '[]', false)
+ON CONFLICT (name) WHERE deleted_at IS NULL DO NOTHING;
 
 UPDATE groups g
 SET fallback_group_id = f.id,
@@ -136,7 +143,7 @@ SET fallback_group_id = f.id,
     model_routing = jsonb_build_object('claude-opus-4-6', jsonb_build_array(f.id, o.id))
 FROM groups f, groups o
 WHERE g.name = '[DEMO] Anthropic 企业标准'
-  AND f.name = '[DEMO] Claude 团队订阅'
+  AND f.name = '[DEMO] Anthropic 备用线路'
   AND o.name = '[DEMO] OpenAI 企业标准';
 
 INSERT INTO proxies (
@@ -236,7 +243,7 @@ CROSS JOIN groups g
 WHERE a.notes = 'SUB2API_UI_DEMO'
   AND a.platform = 'anthropic'
   AND a.status = 'active'
-  AND g.name = '[DEMO] Claude 团队订阅';
+  AND g.name = '[DEMO] Anthropic 备用线路';
 
 -- Standard user/group access and per-user pricing overrides populate related
 -- dialogs and make entitlement filtering visible.
@@ -317,9 +324,7 @@ FROM (VALUES
     ('demo.xu@example.com',   'sk-demo-subscription', '团队订阅', 'active',          120::numeric, 45::numeric, now() + interval '120 days', now() - interval '3 minutes', 4::numeric)
 ) v(email, key, name, status, quota, quota_used, expires_at, last_used_at, used)
 JOIN users u ON u.email = v.email
-JOIN groups g ON g.name = CASE WHEN v.key = 'sk-demo-subscription'
-                               THEN '[DEMO] Claude 团队订阅'
-                               ELSE '[DEMO] Anthropic 企业标准' END;
+JOIN groups g ON g.name = '[DEMO] Anthropic 企业标准';
 
 INSERT INTO channels (
     name, description, status, model_mapping, billing_model_source,
@@ -386,46 +391,64 @@ CROSS JOIN LATERAL (
 ) a;
 
 INSERT INTO subscription_plans (
-    group_id, name, description, price, original_price, validity_days,
+    name, description, price, original_price, validity_days,
     validity_unit, features, product_name, for_sale, sort_order, currency,
+    cycle_quota_usd, reset_interval_seconds, wallet_fallback_enabled,
     created_at, updated_at
 )
-SELECT g.id, v.name, v.description, v.price, v.original_price,
+SELECT v.name, v.description, v.price, v.original_price,
        v.validity_days, v.validity_unit, v.features, v.product_name,
-       v.for_sale, v.sort_order, v.currency, now() - interval '20 days', now()
+       v.for_sale, v.sort_order, v.currency, v.cycle_quota_usd,
+       v.reset_interval_seconds, v.wallet_fallback_enabled,
+       now() - interval '20 days', now()
 FROM (VALUES
-    ('团队月付', '适合小团队的月度 Claude 订阅', 199.00::numeric, 239.00::numeric, 30, 'day', '每日 $8；每周 $35；专属并发', 'SUB2API_UI_DEMO_TEAM_MONTHLY', true, 10, 'CNY'),
-    ('团队季付', '三个月订阅与更高并发额度',      529.00::numeric, 597.00::numeric,  3, 'month', '包含月付权益；优先调度；额度提醒', 'SUB2API_UI_DEMO_TEAM_QUARTERLY', true, 20, 'CNY'),
-    ('内部测试计划', '用于预览下架套餐状态',       29.00::numeric,  39.00::numeric,  7, 'day', '仅供内部预览', 'SUB2API_UI_DEMO_INTERNAL', false, 90, 'USD')
+    ('团队月付', '适合小团队的月度 Claude 订阅', 199.00::numeric, 239.00::numeric, 30, 'day', '每 7 天 $35；专属并发', 'SUB2API_UI_DEMO_TEAM_MONTHLY', true, 10, 'CNY', 35.00::numeric, 604800, true),
+    ('团队季付', '三个月订阅与更高并发额度',      529.00::numeric, 597.00::numeric,  3, 'month', '每 7 天 $60；优先调度；额度提醒', 'SUB2API_UI_DEMO_TEAM_QUARTERLY', true, 20, 'CNY', 60.00::numeric, 604800, true),
+    ('内部测试计划', '用于预览下架套餐状态',       29.00::numeric,  39.00::numeric,  7, 'day', '每 7 天 $10；仅供内部预览', 'SUB2API_UI_DEMO_INTERNAL', false, 90, 'USD', 10.00::numeric, 604800, false)
 ) v(name, description, price, original_price, validity_days, validity_unit,
-    features, product_name, for_sale, sort_order, currency)
-JOIN groups g ON g.name = '[DEMO] Claude 团队订阅';
+    features, product_name, for_sale, sort_order, currency, cycle_quota_usd,
+    reset_interval_seconds, wallet_fallback_enabled);
+
+INSERT INTO subscription_plan_groups (plan_id, group_id)
+SELECT p.id, g.id
+FROM (VALUES
+    ('SUB2API_UI_DEMO_TEAM_MONTHLY',   '[DEMO] Anthropic 企业标准'),
+    ('SUB2API_UI_DEMO_TEAM_QUARTERLY', '[DEMO] Anthropic 企业标准'),
+    ('SUB2API_UI_DEMO_TEAM_QUARTERLY', '[DEMO] OpenAI 企业标准'),
+    ('SUB2API_UI_DEMO_INTERNAL',       '[DEMO] Gemini 视觉生成')
+) v(product_name, group_name)
+JOIN subscription_plans p ON p.product_name = v.product_name
+JOIN groups g ON g.name = v.group_name;
 
 INSERT INTO user_subscriptions (
-    user_id, group_id, starts_at, expires_at, status, daily_window_start,
+    user_id, plan_id, starts_at, expires_at, status, daily_window_start,
     weekly_window_start, monthly_window_start, daily_usage_usd,
-    weekly_usage_usd, monthly_usage_usd, assigned_by, assigned_at,
-    notes, created_at, updated_at
+    weekly_usage_usd, monthly_usage_usd, cycle_quota_usd,
+    reset_interval_seconds, cycle_started_at, cycle_usage_usd,
+    wallet_fallback_enabled, assigned_by, assigned_at, notes, created_at,
+    updated_at
 )
-SELECT u.id, g.id,
+SELECT u.id, p.id,
        now() - make_interval(days => v.started_days),
        CASE WHEN v.status = 'expired' THEN now() - interval '2 days'
             ELSE now() + make_interval(days => v.remaining_days) END,
        v.status,
        date_trunc('day', now()), date_trunc('week', now()), date_trunc('month', now()),
        v.daily_usage, v.weekly_usage, v.monthly_usage,
+       p.cycle_quota_usd, p.reset_interval_seconds, date_trunc('week', now()),
+       v.weekly_usage, p.wallet_fallback_enabled,
        a.id, now() - make_interval(days => v.started_days),
        'SUB2API_UI_DEMO', now() - make_interval(days => v.started_days), now()
 FROM (VALUES
-    ('demo.lin@example.com',  5, 25, 'active',    2.35::numeric, 11.80::numeric, 28.40::numeric),
-    ('demo.zhou@example.com', 9, 21, 'active',    5.72::numeric, 19.20::numeric, 47.60::numeric),
-    ('demo.chen@example.com', 2, 28, 'active',    1.08::numeric,  7.45::numeric, 13.90::numeric),
-    ('demo.xu@example.com',  18, 72, 'active',    6.48::numeric, 31.50::numeric, 88.20::numeric),
-    ('demo.tang@example.com',45,  0, 'expired',   0.00::numeric,  0.00::numeric, 94.10::numeric),
-    ('demo.gu@example.com',   7, 14, 'suspended', 3.20::numeric, 14.80::numeric, 39.00::numeric)
-) v(email, started_days, remaining_days, status, daily_usage, weekly_usage, monthly_usage)
+    ('demo.lin@example.com',  'SUB2API_UI_DEMO_TEAM_MONTHLY',    5, 25, 'active',    2.35::numeric, 11.80::numeric, 28.40::numeric),
+    ('demo.zhou@example.com', 'SUB2API_UI_DEMO_TEAM_QUARTERLY',  9, 21, 'active',    5.72::numeric, 19.20::numeric, 47.60::numeric),
+    ('demo.chen@example.com', 'SUB2API_UI_DEMO_TEAM_MONTHLY',    2, 28, 'active',    1.08::numeric,  7.45::numeric, 13.90::numeric),
+    ('demo.xu@example.com',   'SUB2API_UI_DEMO_TEAM_QUARTERLY', 18, 72, 'active',    6.48::numeric, 31.50::numeric, 88.20::numeric),
+    ('demo.tang@example.com', 'SUB2API_UI_DEMO_TEAM_MONTHLY',   45,  0, 'expired',   0.00::numeric,  0.00::numeric, 94.10::numeric),
+    ('demo.gu@example.com',   'SUB2API_UI_DEMO_INTERNAL',        7, 14, 'suspended', 3.20::numeric,  9.80::numeric, 39.00::numeric)
+) v(email, product_name, started_days, remaining_days, status, daily_usage, weekly_usage, monthly_usage)
 JOIN users u ON u.email = v.email
-JOIN groups g ON g.name = '[DEMO] Claude 团队订阅'
+JOIN subscription_plans p ON p.product_name = v.product_name
 CROSS JOIN LATERAL (SELECT id FROM users WHERE email = 'admin@admin.com' LIMIT 1) a;
 
 -- Orders exercise the complete status palette and both balance/subscription
@@ -433,7 +456,7 @@ CROSS JOIN LATERAL (SELECT id FROM users WHERE email = 'admin@admin.com' LIMIT 1
 INSERT INTO payment_orders (
     user_id, user_email, user_name, user_notes, amount, pay_amount, fee_rate,
     recharge_code, payment_type, payment_trade_no, order_type, plan_id,
-    subscription_group_id, subscription_days, status, refund_amount,
+    subscription_plan_snapshot, subscription_days, status, refund_amount,
     refund_reason, refund_at, refund_requested_at, refund_request_reason,
     refund_requested_by, expires_at, paid_at, completed_at, failed_at,
     failed_reason, client_ip, src_host, src_url, out_trade_no,
@@ -447,8 +470,18 @@ SELECT
     CASE WHEN v.status IN ('PAID','COMPLETED','REFUND_REQUESTED','REFUND_PENDING','PARTIALLY_REFUNDED','REFUNDED') THEN 'DEMO-PAY-' || v.seq::text ELSE '' END,
     v.order_type,
     CASE WHEN v.order_type = 'subscription' THEN sp.id END,
-    CASE WHEN v.order_type = 'subscription' THEN g.id END,
-    CASE WHEN v.order_type = 'subscription' THEN 30 END,
+    CASE WHEN v.order_type = 'subscription' THEN jsonb_build_object(
+        'schema_version', 2,
+        'plan_id', sp.id,
+        'plan_name', sp.name,
+        'included_group_ids', sp.included_group_ids,
+        'included_group_names', sp.included_group_names,
+        'cycle_quota_usd', sp.cycle_quota_usd,
+        'reset_interval_seconds', sp.reset_interval_seconds,
+        'wallet_fallback_enabled', sp.wallet_fallback_enabled,
+        'validity_days', sp.validity_days
+    ) END,
+    CASE WHEN v.order_type = 'subscription' THEN sp.validity_days END,
     v.status,
     v.refund_amount,
     CASE WHEN v.status IN ('PARTIALLY_REFUNDED','REFUNDED') THEN '用户申请退款' END,
@@ -481,16 +514,39 @@ FROM (VALUES
     (10, 'demo.lu@example.com',   'CANCELLED',          'subscription', 'airwallex',529.00::numeric, 529.00::numeric, 0.025::numeric, 0.00::numeric, 12)
 ) v(seq, email, status, order_type, payment_type, amount, pay_amount, fee_rate, refund_amount, age_days)
 JOIN users u ON u.email = v.email
-JOIN groups g ON g.name = '[DEMO] Claude 团队订阅'
 JOIN LATERAL (
-    SELECT id FROM subscription_plans
-    WHERE product_name = CASE WHEN v.amount > 500 THEN 'SUB2API_UI_DEMO_TEAM_QUARTERLY'
-                              ELSE 'SUB2API_UI_DEMO_TEAM_MONTHLY' END
+    SELECT
+        p.id,
+        p.name,
+        p.cycle_quota_usd,
+        p.reset_interval_seconds,
+        p.wallet_fallback_enabled,
+        CASE lower(p.validity_unit)
+            WHEN 'month' THEN p.validity_days * 30
+            WHEN 'months' THEN p.validity_days * 30
+            WHEN 'year' THEN p.validity_days * 365
+            WHEN 'years' THEN p.validity_days * 365
+            ELSE p.validity_days
+        END AS validity_days,
+        COALESCE((
+            SELECT jsonb_agg(spg.group_id ORDER BY spg.group_id)
+            FROM subscription_plan_groups spg
+            WHERE spg.plan_id = p.id
+        ), '[]'::jsonb) AS included_group_ids,
+        COALESCE((
+            SELECT jsonb_agg(g.name ORDER BY spg.group_id)
+            FROM subscription_plan_groups spg
+            JOIN groups g ON g.id = spg.group_id
+            WHERE spg.plan_id = p.id
+        ), '[]'::jsonb) AS included_group_names
+    FROM subscription_plans p
+    WHERE p.product_name = CASE WHEN v.amount > 500 THEN 'SUB2API_UI_DEMO_TEAM_QUARTERLY'
+                                ELSE 'SUB2API_UI_DEMO_TEAM_MONTHLY' END
     LIMIT 1
 ) sp ON true;
 
 INSERT INTO redeem_codes (
-    code, type, value, status, used_by, used_at, notes, group_id,
+    code, type, value, status, used_by, used_at, notes, plan_id,
     validity_days, expires_at, created_at
 )
 SELECT
@@ -501,7 +557,7 @@ SELECT
     CASE WHEN v.status = 'used' THEN u.id END,
     CASE WHEN v.status = 'used' THEN now() - interval '2 days' END,
     'SUB2API_UI_DEMO - ' || v.notes,
-    CASE WHEN v.type = 'subscription' THEN g.id END,
+    CASE WHEN v.type = 'subscription' THEN p.id END,
     v.validity_days,
     v.expires_at,
     now() - make_interval(days => v.age_days)
@@ -516,7 +572,15 @@ FROM (VALUES
     ('INVITE-001',    'invitation',       1.00::numeric, 'unused',  '邀请注册码',   14, now() + interval '20 days', 1,  'demo.tang@example.com')
 ) v(code, type, value, status, notes, validity_days, expires_at, age_days, user_email)
 JOIN users u ON u.email = v.user_email
-JOIN groups g ON g.name = '[DEMO] Claude 团队订阅';
+LEFT JOIN LATERAL (
+    SELECT id
+    FROM subscription_plans
+    WHERE v.type = 'subscription'
+      AND product_name = CASE WHEN v.validity_days > 30
+                              THEN 'SUB2API_UI_DEMO_TEAM_QUARTERLY'
+                              ELSE 'SUB2API_UI_DEMO_TEAM_MONTHLY' END
+    LIMIT 1
+) p ON true;
 
 -- Generate 30 days of hourly usage plus a dense recent five-minute window.
 -- The data spans seven models, all request types, both billing types, multiple
@@ -577,7 +641,6 @@ WITH demo_user_ids AS (
         a.id AS account_id,
         std_group.id AS standard_group_id,
         sub.id AS subscription_id,
-        sub.group_id AS subscription_group_id,
         CASE WHEN sub.id IS NOT NULL AND x.n % 5 = 0 THEN 1 ELSE 0 END::smallint AS billing_type
     FROM assigned x
     JOIN LATERAL (
@@ -606,19 +669,25 @@ WITH demo_user_ids AS (
         LIMIT 1
     ) std_group ON true
     LEFT JOIN LATERAL (
-        SELECT id, group_id
-        FROM user_subscriptions
-        WHERE user_id = x.user_id
-          AND notes = 'SUB2API_UI_DEMO'
-          AND status = 'active'
-          AND expires_at > x.occurred_at
-        ORDER BY id
+        SELECT us.id
+        FROM user_subscriptions us
+        WHERE us.user_id = x.user_id
+          AND us.notes = 'SUB2API_UI_DEMO'
+          AND us.status = 'active'
+          AND us.expires_at > x.occurred_at
+          AND EXISTS (
+              SELECT 1
+              FROM subscription_plan_groups spg
+              WHERE spg.plan_id = us.plan_id
+                AND spg.group_id = std_group.id
+          )
+        ORDER BY us.id
         LIMIT 1
     ) sub ON true
 ), enriched AS (
     SELECT
         r.*,
-        CASE WHEN r.billing_type = 1 THEN r.subscription_group_id ELSE r.standard_group_id END AS group_id,
+        r.standard_group_id AS group_id,
         CASE WHEN r.billing_mode IN ('image', 'video') THEN 1 + (r.n % 3) ELSE 0 END AS image_count,
         CASE WHEN r.billing_mode = 'video' THEN 1 + (r.n % 2) ELSE 0 END AS video_count,
         ROUND((r.input_tokens::numeric / 1000000) * (1.4 + (r.n % 7) * 0.42), 8) AS input_cost,

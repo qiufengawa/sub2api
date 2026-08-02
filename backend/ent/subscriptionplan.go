@@ -17,8 +17,6 @@ type SubscriptionPlan struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID int64 `json:"id,omitempty"`
-	// GroupID holds the value of the "group_id" field.
-	GroupID int64 `json:"group_id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// Description holds the value of the "description" field.
@@ -63,11 +61,13 @@ type SubscriptionPlanEdges struct {
 	Groups []*Group `json:"groups,omitempty"`
 	// UserSubscriptions holds the value of the user_subscriptions edge.
 	UserSubscriptions []*UserSubscription `json:"user_subscriptions,omitempty"`
+	// RedeemCodes holds the value of the redeem_codes edge.
+	RedeemCodes []*RedeemCode `json:"redeem_codes,omitempty"`
 	// PlanGroups holds the value of the plan_groups edge.
 	PlanGroups []*SubscriptionPlanGroup `json:"plan_groups,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // GroupsOrErr returns the Groups value or an error if the edge
@@ -88,10 +88,19 @@ func (e SubscriptionPlanEdges) UserSubscriptionsOrErr() ([]*UserSubscription, er
 	return nil, &NotLoadedError{edge: "user_subscriptions"}
 }
 
+// RedeemCodesOrErr returns the RedeemCodes value or an error if the edge
+// was not loaded in eager-loading.
+func (e SubscriptionPlanEdges) RedeemCodesOrErr() ([]*RedeemCode, error) {
+	if e.loadedTypes[2] {
+		return e.RedeemCodes, nil
+	}
+	return nil, &NotLoadedError{edge: "redeem_codes"}
+}
+
 // PlanGroupsOrErr returns the PlanGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e SubscriptionPlanEdges) PlanGroupsOrErr() ([]*SubscriptionPlanGroup, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		return e.PlanGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "plan_groups"}
@@ -106,7 +115,7 @@ func (*SubscriptionPlan) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case subscriptionplan.FieldPrice, subscriptionplan.FieldOriginalPrice, subscriptionplan.FieldCycleQuotaUsd:
 			values[i] = new(sql.NullFloat64)
-		case subscriptionplan.FieldID, subscriptionplan.FieldGroupID, subscriptionplan.FieldResetIntervalSeconds, subscriptionplan.FieldValidityDays, subscriptionplan.FieldSortOrder:
+		case subscriptionplan.FieldID, subscriptionplan.FieldResetIntervalSeconds, subscriptionplan.FieldValidityDays, subscriptionplan.FieldSortOrder:
 			values[i] = new(sql.NullInt64)
 		case subscriptionplan.FieldName, subscriptionplan.FieldDescription, subscriptionplan.FieldCurrency, subscriptionplan.FieldValidityUnit, subscriptionplan.FieldFeatures, subscriptionplan.FieldProductName:
 			values[i] = new(sql.NullString)
@@ -133,12 +142,6 @@ func (_m *SubscriptionPlan) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field id", value)
 			}
 			_m.ID = int64(value.Int64)
-		case subscriptionplan.FieldGroupID:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field group_id", values[i])
-			} else if value.Valid {
-				_m.GroupID = value.Int64
-			}
 		case subscriptionplan.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field name", values[i])
@@ -260,6 +263,11 @@ func (_m *SubscriptionPlan) QueryUserSubscriptions() *UserSubscriptionQuery {
 	return NewSubscriptionPlanClient(_m.config).QueryUserSubscriptions(_m)
 }
 
+// QueryRedeemCodes queries the "redeem_codes" edge of the SubscriptionPlan entity.
+func (_m *SubscriptionPlan) QueryRedeemCodes() *RedeemCodeQuery {
+	return NewSubscriptionPlanClient(_m.config).QueryRedeemCodes(_m)
+}
+
 // QueryPlanGroups queries the "plan_groups" edge of the SubscriptionPlan entity.
 func (_m *SubscriptionPlan) QueryPlanGroups() *SubscriptionPlanGroupQuery {
 	return NewSubscriptionPlanClient(_m.config).QueryPlanGroups(_m)
@@ -288,9 +296,6 @@ func (_m *SubscriptionPlan) String() string {
 	var builder strings.Builder
 	builder.WriteString("SubscriptionPlan(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
-	builder.WriteString("group_id=")
-	builder.WriteString(fmt.Sprintf("%v", _m.GroupID))
-	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)
 	builder.WriteString(", ")

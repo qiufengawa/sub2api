@@ -79,13 +79,14 @@ type fakeAPIKeyRepo struct {
 }
 
 type fakeGoogleSubscriptionRepo struct {
-	getByID        func(ctx context.Context, id int64) (*service.UserSubscription, error)
-	getActive      func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error)
-	updateStatus   func(ctx context.Context, subscriptionID int64, status string) error
-	activateWindow func(ctx context.Context, id int64, start time.Time) error
-	resetDaily     func(ctx context.Context, id int64, start time.Time) error
-	resetWeekly    func(ctx context.Context, id int64, start time.Time) error
-	resetMonthly   func(ctx context.Context, id int64, start time.Time) error
+	getByID                 func(ctx context.Context, id int64) (*service.UserSubscription, error)
+	getActiveCoveringGroup  func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error)
+	listActiveCoveringGroup func(ctx context.Context, userID, groupID int64) ([]service.UserSubscription, error)
+	updateStatus            func(ctx context.Context, subscriptionID int64, status string) error
+	activateWindow          func(ctx context.Context, id int64, start time.Time) error
+	resetDaily              func(ctx context.Context, id int64, start time.Time) error
+	resetWeekly             func(ctx context.Context, id int64, start time.Time) error
+	resetMonthly            func(ctx context.Context, id int64, start time.Time) error
 }
 
 func (f fakeAPIKeyRepo) Create(ctx context.Context, key *service.APIKey) error {
@@ -179,15 +180,6 @@ func (f fakeGoogleSubscriptionRepo) GetByID(ctx context.Context, id int64) (*ser
 func (f fakeGoogleSubscriptionRepo) GetByIDIncludeDeleted(ctx context.Context, id int64) (*service.UserSubscription, error) {
 	return nil, errors.New("not implemented")
 }
-func (f fakeGoogleSubscriptionRepo) GetByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
-	return nil, errors.New("not implemented")
-}
-func (f fakeGoogleSubscriptionRepo) GetActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
-	if f.getActive != nil {
-		return f.getActive(ctx, userID, groupID)
-	}
-	return nil, errors.New("not implemented")
-}
 func (f fakeGoogleSubscriptionRepo) Update(ctx context.Context, sub *service.UserSubscription) error {
 	return errors.New("not implemented")
 }
@@ -208,12 +200,6 @@ func (f fakeGoogleSubscriptionRepo) ListByGroupID(ctx context.Context, groupID i
 }
 func (f fakeGoogleSubscriptionRepo) List(ctx context.Context, params pagination.PaginationParams, userID, groupID *int64, status, platform, sortBy, sortOrder string) ([]service.UserSubscription, *pagination.PaginationResult, error) {
 	return nil, nil, errors.New("not implemented")
-}
-func (f fakeGoogleSubscriptionRepo) ExistsByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (bool, error) {
-	return false, errors.New("not implemented")
-}
-func (f fakeGoogleSubscriptionRepo) ExistsActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (bool, error) {
-	return false, errors.New("not implemented")
 }
 func (f fakeGoogleSubscriptionRepo) ExtendExpiry(ctx context.Context, subscriptionID int64, newExpiresAt time.Time) error {
 	return errors.New("not implemented")
@@ -259,6 +245,40 @@ func (f fakeGoogleSubscriptionRepo) IncrementUsage(ctx context.Context, id int64
 }
 func (f fakeGoogleSubscriptionRepo) BatchUpdateExpiredStatus(ctx context.Context) (int64, error) {
 	return 0, errors.New("not implemented")
+}
+
+func (f fakeGoogleSubscriptionRepo) GetByUserIDAndPlanID(context.Context, int64, int64) (*service.UserSubscription, error) {
+	return nil, service.ErrSubscriptionNotFound
+}
+
+func (f fakeGoogleSubscriptionRepo) GetActiveCoveringGroup(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
+	if f.getActiveCoveringGroup != nil {
+		return f.getActiveCoveringGroup(ctx, userID, groupID)
+	}
+	return nil, service.ErrSubscriptionNotFound
+}
+
+func (f fakeGoogleSubscriptionRepo) ListActiveCoveringGroup(ctx context.Context, userID, groupID int64) ([]service.UserSubscription, error) {
+	if f.listActiveCoveringGroup != nil {
+		return f.listActiveCoveringGroup(ctx, userID, groupID)
+	}
+	sub, err := f.GetActiveCoveringGroup(ctx, userID, groupID)
+	if errors.Is(err, service.ErrSubscriptionNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return []service.UserSubscription{*sub}, nil
+}
+
+func (f fakeGoogleSubscriptionRepo) ExistsActiveCoveringGroup(ctx context.Context, userID, groupID int64) (bool, error) {
+	subs, err := f.ListActiveCoveringGroup(ctx, userID, groupID)
+	return len(subs) > 0, err
+}
+
+func (f fakeGoogleSubscriptionRepo) UpdateBillingSnapshot(context.Context, int64, service.SubscriptionBillingSnapshot, bool) error {
+	return errors.New("not implemented")
 }
 
 type googleErrorResponse struct {
@@ -867,17 +887,24 @@ func TestApiKeyAuthWithSubscriptionGoogle_SubscriptionLimitExceededReturns429(t 
 	sub := &service.UserSubscription{
 		ID:               601,
 		UserID:           user.ID,
-		GroupID:          group.ID,
+		PlanID:           701,
+		IncludedGroups:   []service.Group{*group},
 		Status:           service.SubscriptionStatusActive,
 		ExpiresAt:        now.Add(24 * time.Hour),
 		DailyWindowStart: &now,
 		DailyUsageUSD:    10,
+		CycleQuotaUSD:    &limit,
+		CycleUsageUSD:    10,
 	}
 	subscriptionService := service.NewSubscriptionService(nil, fakeGoogleSubscriptionRepo{
-		getActive: func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
+		getActiveCoveringGroup: func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
 			if userID != user.ID || groupID != group.ID {
 				return nil, service.ErrSubscriptionNotFound
 			}
+			clone := *sub
+			return &clone, nil
+		},
+		getByID: func(context.Context, int64) (*service.UserSubscription, error) {
 			clone := *sub
 			return &clone, nil
 		},
@@ -902,5 +929,5 @@ func TestApiKeyAuthWithSubscriptionGoogle_SubscriptionLimitExceededReturns429(t 
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	require.Equal(t, http.StatusTooManyRequests, resp.Error.Code)
 	require.Equal(t, "RESOURCE_EXHAUSTED", resp.Error.Status)
-	require.Contains(t, resp.Error.Message, "daily usage limit exceeded")
+	require.Contains(t, resp.Error.Message, "usage limit exceeded")
 }

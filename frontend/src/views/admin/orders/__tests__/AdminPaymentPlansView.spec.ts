@@ -62,7 +62,7 @@ describe('AdminPaymentPlansView', () => {
         {
           id: 1,
           name: 'CNY plan',
-          group_id: 1,
+		  included_groups: [],
           price: 499,
           original_price: 599,
           currency: 'CNY',
@@ -75,7 +75,7 @@ describe('AdminPaymentPlansView', () => {
         {
           id: 2,
           name: 'Legacy plan',
-          group_id: 1,
+		  included_groups: [],
           price: 10,
           original_price: 0,
           currency: '',
@@ -122,16 +122,17 @@ describe('AdminPaymentPlansView', () => {
         { key: 'lite', name: 'Lite 全模型订阅', copy_accounts_from: ['stale source'] },
         { key: 'pro', name: 'Pro 全模型订阅', copy_accounts_from: ['stale source'] },
       ],
-      plans: [{ group_key: 'lite', name: 'Lite', price: 12.9 }],
+	  plans: [{ included_group_keys: ['lite'], name: 'Lite', price: 12.9 }],
     }
 
     const result = personalizeCatalogTemplate(catalog, [
-      { id: 1, name: 'OpenAI 主池', status: 'active', account_count: 2, platform: 'openai' },
-      { id: 2, name: 'Anthropic 主池', status: 'active', account_count: 1, platform: 'anthropic' },
-      { id: 3, name: '停用分组', status: 'inactive', account_count: 3, platform: 'openai' },
-      { id: 4, name: '空分组', status: 'active', account_count: 0, platform: 'openai' },
-      { id: 5, name: 'Lite 全模型订阅', status: 'active', account_count: 4, platform: 'composite' },
-      { id: 6, name: 'OpenAI 主池', status: 'active', account_count: 2, platform: 'openai' },
+	  { id: 1, name: 'OpenAI 主池', status: 'active', account_count: 2, platform: 'openai', subscription_type: 'standard' },
+	  { id: 2, name: 'Anthropic 主池', status: 'active', account_count: 1, platform: 'anthropic', subscription_type: 'standard' },
+	  { id: 3, name: '停用分组', status: 'inactive', account_count: 3, platform: 'openai', subscription_type: 'standard' },
+	  { id: 4, name: '空分组', status: 'active', account_count: 0, platform: 'openai', subscription_type: 'standard' },
+	  { id: 5, name: 'Lite 全模型订阅', status: 'active', account_count: 4, platform: 'composite', subscription_type: 'standard' },
+	  { id: 6, name: 'OpenAI 主池', status: 'active', account_count: 2, platform: 'openai', subscription_type: 'standard' },
+	  { id: 7, name: '旧订阅分组', status: 'active', account_count: 2, platform: 'openai', subscription_type: 'subscription' },
     ])
 
     expect(result.sourceCount).toBe(2)
@@ -139,8 +140,9 @@ describe('AdminPaymentPlansView', () => {
 	expect(result.catalog.plans[0]).toEqual(expect.objectContaining({
 	  included_group_ids: [1, 2],
 	}))
-	expect(result.catalog.plans[0].group_key).toBeUndefined()
-	expect(result.catalog.plans[0].group_id).toBeUndefined()
+	expect(result.catalog.plans[0]).not.toHaveProperty('group_key')
+	expect(result.catalog.plans[0]).not.toHaveProperty('group_id')
+	expect(result.catalog.defaults.subscription_type).toBe('standard')
     expect(catalog.groups[0].copy_accounts_from).toEqual(['stale source'])
   })
 
@@ -191,7 +193,7 @@ describe('AdminPaymentPlansView', () => {
 			mode: 'upsert',
 			defaults: {},
 			groups: [],
-			plans: [{ group_id: 8, included_group_ids: [8], name: 'ID plan', price: 12.9 }],
+			plans: [{ included_group_ids: [8], name: 'ID plan', price: 12.9 }],
 		})).toBe(true)
 		expect(isPaymentCatalogTemplate({
 			schema_version: 1,
@@ -205,14 +207,14 @@ describe('AdminPaymentPlansView', () => {
 			mode: 'upsert',
 			defaults: {},
 			groups: [],
-			plans: [{ group_key: 'lite', group_id: 8, name: 'Ambiguous plan', price: 12.9 }],
+			plans: [{ group_key: 'lite', name: 'Legacy key plan', price: 12.9 }],
 		})).toBe(false)
 		expect(isPaymentCatalogTemplate({
 			schema_version: 1,
 			mode: 'upsert',
 			defaults: {},
 			groups: [],
-			plans: [{ group_id: 0, name: 'Invalid ID plan', price: 12.9 }],
+			plans: [{ group_id: 8, name: 'Legacy ID plan', price: 12.9 }],
 		})).toBe(false)
     expect(isPaymentCatalogTemplate({ schema_version: 1, mode: 'upsert', defaults: {}, groups: [{}], plans: [] })).toBe(false)
     expect(isPaymentCatalogTemplate({ schema_version: 2, mode: 'upsert', defaults: {}, groups: [], plans: [] })).toBe(false)

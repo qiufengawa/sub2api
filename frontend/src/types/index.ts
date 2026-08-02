@@ -216,7 +216,6 @@ export interface PublicSettings {
   compact_home_enabled: boolean
   hide_ccs_import_button: boolean
   payment_enabled: boolean
-  subscription_group_billing_enabled?: boolean
   risk_control_enabled: boolean
   table_default_page_size: number
   table_page_size_options: number[]
@@ -1663,17 +1662,17 @@ export interface RedeemCode {
   expires_at?: string | null
   updated_at?: string
   notes?: string
-  group_id?: number | null // 订阅类型专用
+  plan_id?: number | null // 订阅类型专用
+  plan_name?: string
   validity_days?: number // 订阅类型专用
   user?: User
-  group?: Group // 关联的分组
 }
 
 export interface GenerateRedeemCodesRequest {
   count: number
   type: RedeemCodeType
   value: number
-  group_id?: number | null // 订阅类型专用
+  plan_id?: number | null // 订阅类型专用
   validity_days?: number // 订阅类型专用
   expires_at?: string | null
   expires_in_days?: number
@@ -1683,7 +1682,7 @@ export interface BatchUpdateRedeemCodeFields {
   status?: 'unused' | 'disabled'
   expires_at?: string | null
   notes?: string
-  group_id?: number | null
+  plan_id?: number | null
 }
 
 export interface BatchUpdateRedeemCodesRequest {
@@ -1888,8 +1887,7 @@ export interface ChangePasswordRequest {
 export interface UserSubscription {
   id: number
   user_id: number
-  group_id: number
-  plan_id?: number | null
+  plan_id: number
   plan_name?: string
   status: 'active' | 'expired' | 'revoked' | 'suspended'
   starts_at: string
@@ -1910,43 +1908,36 @@ export interface UserSubscription {
   revoked_at?: string | null
   expires_at: string | null
   user?: User
-  group?: Group
-  included_groups?: Group[]
+  included_groups: Group[]
 }
 
 export interface SubscriptionProgress {
-  subscription_id: number
-  daily: {
-    used: number
-    limit: number | null
-    percentage: number
-    reset_in_seconds: number | null
-  } | null
-  weekly: {
-    used: number
-    limit: number | null
-    percentage: number
-    reset_in_seconds: number | null
-  } | null
-  monthly: {
-    used: number
-    limit: number | null
-    percentage: number
-    reset_in_seconds: number | null
-  } | null
-  expires_at: string | null
-  days_remaining: number | null
+  id: number
+  plan_name: string
+  expires_at: string
+  expires_in_days: number
+  cycle?: UsageWindowProgress
+}
+
+export interface UsageWindowProgress {
+  limit_usd: number
+  used_usd: number
+  remaining_usd: number
+  percentage: number
+  window_start: string
+  resets_at: string
+  resets_in_seconds: number
 }
 
 export interface AssignSubscriptionRequest {
   user_id: number
-  group_id: number
+  plan_id: number
   validity_days?: number
 }
 
 export interface BulkAssignSubscriptionRequest {
   user_ids: number[]
-  group_id: number
+  plan_id: number
   validity_days?: number
 }
 

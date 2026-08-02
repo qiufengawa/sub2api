@@ -64,7 +64,6 @@ describe('ProfileView', () => {
       contact_info: '',
       balance_low_notify_enabled: false,
       balance_low_notify_threshold: 0,
-      subscription_group_billing_enabled: true,
       linuxdo_oauth_enabled: true,
       wechat_oauth_enabled: true,
       wechat_oauth_open_enabled: true,

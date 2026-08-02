@@ -33,7 +33,6 @@ const {
   appStoreState: {
     cachedPublicSettings: {
       allow_user_view_error_requests: false,
-      subscription_group_billing_enabled: false,
     },
     showError: vi.fn(),
     showWarning: vi.fn(),
@@ -196,7 +195,6 @@ describe('user UsageView', () => {
     listMyErrorRequests.mockReset()
     routeState.query = {}
     appStoreState.cachedPublicSettings.allow_user_view_error_requests = false
-    appStoreState.cachedPublicSettings.subscription_group_billing_enabled = false
     appStoreState.showError = showError
     appStoreState.showWarning = showWarning
     appStoreState.showSuccess = showSuccess
@@ -297,15 +295,14 @@ describe('user UsageView', () => {
       'cost',
       'latency',
       'billing_mode',
+      'billing_source',
       'created_at',
     ])
     expect(wrapper.getComponent({ name: 'UsageTable' }).props('embedLatencyInCost')).toBe(false)
     expect(wrapper.getComponent({ name: 'UsageTable' }).props('mobileTable')).toBe(true)
   })
 
-  it('shows the billing source column when subscription group billing is enabled', async () => {
-    appStoreState.cachedPublicSettings.subscription_group_billing_enabled = true
-
+  it('keeps the billing source column available without a legacy feature switch', async () => {
     const wrapper = mountUsageView()
     await flushPromises()
 

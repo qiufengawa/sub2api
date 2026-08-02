@@ -264,18 +264,14 @@ func (s *PaymentService) prepDeduct(ctx context.Context, o *dbent.PaymentOrder, 
 			}
 			return nil
 		}
-		if snapshot.PrimaryGroupID > 0 && snapshot.ValidityDays > 0 {
+		if snapshot.PlanID > 0 && snapshot.ValidityDays > 0 {
 			p.SubDaysToDeduct = snapshot.ValidityDays
 			var sub *UserSubscription
 			var err error
-			if s.subscriptionGroupBillingEnabled() && snapshot.PlanID > 0 {
-				if coverageRepo, ok := s.subscriptionSvc.userSubRepo.(SubscriptionCoverageRepository); ok {
-					sub, err = coverageRepo.GetByUserIDAndPlanID(ctx, o.UserID, snapshot.PlanID)
-				} else {
-					err = ErrSubscriptionNotFound
-				}
+			if coverageRepo, ok := s.subscriptionSvc.userSubRepo.(SubscriptionCoverageRepository); ok {
+				sub, err = coverageRepo.GetByUserIDAndPlanID(ctx, o.UserID, snapshot.PlanID)
 			} else {
-				sub, err = s.subscriptionSvc.GetActiveSubscription(ctx, o.UserID, snapshot.PrimaryGroupID)
+				err = ErrSubscriptionNotFound
 			}
 			if err == nil && sub != nil {
 				p.SubscriptionID = sub.ID

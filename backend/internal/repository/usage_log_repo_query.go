@@ -420,7 +420,6 @@ func (r *usageLogRepository) loadSubscriptions(ctx context.Context, ids []int64)
 	}
 	models, err := r.client.UserSubscription.Query().
 		Where(dbusersub.IDIn(ids...)).
-		WithGroup().
 		WithPlan(func(q *dbent.SubscriptionPlanQuery) { q.WithGroups() }).
 		All(mixins.SkipSoftDelete(ctx))
 	if err != nil {

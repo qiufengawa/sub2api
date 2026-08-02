@@ -57,13 +57,10 @@ vi.mock('@/utils/platformColors', () => ({
 
 const baseGroup = {
   id: 11,
-  name: 'TEST-UI-SUB-企业版',
-  description: '接近日额度上限',
+  name: 'TEST-ROUTE-OpenAI',
+  description: '套餐覆盖的 OpenAI 路由分组',
   platform: 'openai',
   rate_multiplier: 1,
-  daily_limit_usd: 10,
-  weekly_limit_usd: 45,
-  monthly_limit_usd: 160,
   peak_rate_enabled: true,
   peak_start: '09:00',
   peak_end: '18:00',
@@ -74,46 +71,62 @@ const subscriptionFixtures = [
   {
     id: 1,
     user_id: 13,
-    group_id: 11,
+    plan_id: 101,
+    plan_name: 'TEST-UI-SUB-企业版',
     status: 'active',
     starts_at: '2026-07-01T00:00:00Z',
     expires_at: '2099-08-05T00:00:00Z',
-    daily_usage_usd: 9.25,
-    weekly_usage_usd: 31.8,
-    monthly_usage_usd: 86.4,
-    daily_window_start: '2099-08-04T16:00:00Z',
-    weekly_window_start: '2099-08-01T00:00:00Z',
-    monthly_window_start: '2099-07-15T00:00:00Z',
-    group: baseGroup,
+    daily_usage_usd: 0,
+    weekly_usage_usd: 0,
+    monthly_usage_usd: 0,
+    cycle_quota_usd: 10,
+    cycle_usage_usd: 9.25,
+    cycle_reserved_usd: 0,
+    reset_interval_seconds: 604800,
+    cycle_started_at: '2099-08-01T00:00:00Z',
+    wallet_fallback_enabled: false,
+    daily_window_start: null,
+    weekly_window_start: null,
+    monthly_window_start: null,
+    created_at: '2026-07-01T00:00:00Z',
+    updated_at: '2026-07-01T00:00:00Z',
+    included_groups: [baseGroup],
   },
   {
     id: 2,
     user_id: 13,
-    group_id: 12,
+    plan_id: 102,
+    plan_name: 'TEST-UI-SUB-稳定版',
     status: 'active',
     starts_at: '2026-07-01T00:00:00Z',
     expires_at: '2099-08-25T00:00:00Z',
-    daily_usage_usd: 6.2,
-    weekly_usage_usd: 24.5,
-    monthly_usage_usd: 112,
+    daily_usage_usd: 0,
+    weekly_usage_usd: 0,
+    monthly_usage_usd: 0,
+    cycle_quota_usd: 20,
+    cycle_usage_usd: 6.2,
+    cycle_reserved_usd: 0,
+    reset_interval_seconds: 604800,
+    cycle_started_at: '2099-08-01T00:00:00Z',
+    wallet_fallback_enabled: false,
     daily_window_start: null,
     weekly_window_start: null,
     monthly_window_start: null,
-    group: {
+    created_at: '2026-07-01T00:00:00Z',
+    updated_at: '2026-07-01T00:00:00Z',
+    included_groups: [{
       ...baseGroup,
       id: 12,
-      name: 'TEST-UI-SUB-稳定版',
+      name: 'TEST-ROUTE-Anthropic',
       platform: 'anthropic',
-      daily_limit_usd: 20,
-      weekly_limit_usd: 80,
-      monthly_limit_usd: 300,
       peak_rate_enabled: false,
-    },
+    }],
   },
   {
     id: 3,
     user_id: 13,
-    group_id: 13,
+    plan_id: 103,
+    plan_name: 'TEST-UI-SUB-无限版',
     status: 'active',
     starts_at: '2026-07-01T00:00:00Z',
     expires_at: '2099-09-23T00:00:00Z',
@@ -123,16 +136,21 @@ const subscriptionFixtures = [
     daily_window_start: null,
     weekly_window_start: null,
     monthly_window_start: null,
-    group: {
+    cycle_quota_usd: null,
+    cycle_usage_usd: 0,
+    cycle_reserved_usd: 0,
+    reset_interval_seconds: 0,
+    cycle_started_at: null,
+    wallet_fallback_enabled: false,
+    created_at: '2026-07-01T00:00:00Z',
+    updated_at: '2026-07-01T00:00:00Z',
+    included_groups: [{
       ...baseGroup,
       id: 13,
-      name: 'TEST-UI-SUB-无限版',
+      name: 'TEST-ROUTE-Gemini',
       platform: 'gemini',
-      daily_limit_usd: null,
-      weekly_limit_usd: null,
-      monthly_limit_usd: null,
       peak_rate_enabled: false,
-    },
+    }],
   },
 ] as unknown as UserSubscription[]
 
@@ -180,7 +198,7 @@ describe('user SubscriptionsView', () => {
     expect(wrapper.findAll('[data-testid="unlimited-quota"]')).toHaveLength(1)
     const firstCard = wrapper.findAll('[data-testid="subscription-card"]')[0]
     expect(firstCard.text()).toContain('TEST-UI-SUB-企业版')
-    expect(firstCard.get('[data-testid="platform-badge"]').classes()).toContain('badge-openai')
+    expect(firstCard.get('.badge-openai').exists()).toBe(true)
     expect(firstCard.get('[data-platform-icon]').attributes('data-platform')).toBe('openai')
   })
 
@@ -190,20 +208,19 @@ describe('user SubscriptionsView', () => {
 
     const firstCard = wrapper.findAll('[data-testid="subscription-card"]')[0]
     const quotaRows = firstCard.findAll('[data-testid="quota-row"]')
-    expect(quotaRows[0].text()).toContain('userSubscriptions.daily')
+    expect(quotaRows).toHaveLength(1)
+    expect(quotaRows[0].text()).toContain('userSubscriptions.cycleQuota')
     expect(quotaRows[0].text()).toContain('93%')
-    expect(quotaRows[1].text()).toContain('userSubscriptions.weekly')
-    expect(firstCard.get('[data-testid="base-rate"]').text()).toBe('×1')
-    expect(firstCard.get('[data-testid="peak-rate"]').text()).toBe('×1.15')
-    expect(firstCard.get('[data-testid="peak-window"]').text()).toContain('09:00-18:00 · UTC+08:00')
-    expect(firstCard.get('[data-testid="peak-window"]').text()).not.toContain('×1.15')
+    expect(firstCard.text()).toContain('TEST-ROUTE-OpenAI')
+    expect(firstCard.text()).toContain('×1')
+    expect(firstCard.text()).toContain('userSubscriptions.peakRateCompact:{"rate":1.15}')
     expect(firstCard.get('[data-testid="expiration-remaining"]').text()).toContain('userSubscriptions.daysCompact')
     expect(firstCard.get('[data-testid="expiration-date"]').text()).toContain('2099-08-05')
 
     await firstCard.get('button').trigger('click')
     expect(routerPush).toHaveBeenCalledWith({
       path: '/purchase',
-      query: { tab: 'subscription', group: '11' },
+      query: { tab: 'subscription', plan_id: '101' },
     })
   })
 

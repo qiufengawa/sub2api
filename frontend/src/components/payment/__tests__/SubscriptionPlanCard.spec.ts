@@ -31,27 +31,40 @@ const i18n = createI18n({
   },
 });
 
-const mountPlanCard = (groupPlatform: string, overrides: Partial<SubscriptionPlan> = {}) =>
-  mount(SubscriptionPlanCard, {
+const mountPlanCard = (groupPlatform: string, overrides: Partial<SubscriptionPlan> = {}) => {
+  const includedGroups = groupPlatform === "composite"
+    ? [
+        { id: 10, name: "OpenAI", platform: "openai", rate_multiplier: 1 },
+        { id: 11, name: "Claude", platform: "anthropic", rate_multiplier: 1 },
+      ]
+    : [{
+        id: 10,
+        name: "Primary",
+        platform: groupPlatform,
+        rate_multiplier: 1,
+        supported_model_scopes: ["claude", "gemini_text", "gemini_image"],
+      }]
+
+  return mount(SubscriptionPlanCard, {
     props: {
       plan: {
         id: 1,
-        group_id: 10,
-        group_platform: groupPlatform,
+        included_groups: includedGroups,
         name: "Pro",
         price: 10,
-        amount: 1000,
+        description: "",
         features: [],
-        rate_multiplier: 1,
         validity_days: 30,
         validity_unit: "day",
-        supported_model_scopes: ["claude", "gemini_text", "gemini_image"],
+        for_sale: true,
+        sort_order: 1,
         is_active: true,
         ...overrides,
       },
     },
     global: { plugins: [i18n, createPinia()] },
   });
+}
 
 describe("SubscriptionPlanCard", () => {
   it("does not show Antigravity model scopes for OpenAI plans", () => {
@@ -177,17 +190,13 @@ describe("SubscriptionPlanCard", () => {
     expect(wrapper.get(".plan-card-price-line").text()).not.toContain("-%");
   });
 
-  it("keeps the legacy single-group rate visible", () => {
+  it("handles a malformed response without included groups without reviving legacy rate fields", () => {
     const wrapper = mountPlanCard("openai", {
-      included_groups: undefined,
-      rate_multiplier: 1.5,
-      peak_rate_enabled: true,
-      peak_rate_multiplier: 2,
+      included_groups: undefined as unknown as SubscriptionPlan["included_groups"],
     });
 
-    expect(wrapper.text()).toContain("Rate");
-    expect(wrapper.text()).toContain("×1.5");
-    expect(wrapper.text()).toContain("payment.planCard.peakRateShort");
+    expect(wrapper.get("button").exists()).toBe(true);
+    expect(wrapper.text()).not.toContain("×");
   });
 
   it("shows real included-group rates and uses cycle quota as the canonical quota", () => {

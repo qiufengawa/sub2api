@@ -58,15 +58,6 @@
           </div>
         </dd>
       </div>
-      <div v-else-if="plan.rate_multiplier != null" class="flex min-w-0 items-center justify-between gap-3 py-2.5">
-        <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.rate') }}</dt>
-        <dd class="flex min-w-0 items-center justify-end gap-2 text-right">
-          <span class="shrink-0 font-medium tabular-nums text-gray-800 dark:text-gray-200">×{{ normalizedRate(plan.rate_multiplier) }}</span>
-          <span v-if="plan.peak_rate_enabled" class="shrink-0 rounded-[3px] bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
-            {{ t('payment.planCard.peakRateShort', { rate: normalizedRate(plan.peak_rate_multiplier ?? 1) }) }}
-          </span>
-        </dd>
-      </div>
       <div v-if="plan.cycle_quota_usd != null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
         <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.cycleQuota') }}</dt>
         <dd class="min-w-0 text-right font-medium text-gray-800 dark:text-gray-200">
@@ -74,19 +65,7 @@
           <p class="mt-0.5 text-[10px] font-normal text-gray-400 dark:text-gray-500">{{ resetIntervalLabel }}</p>
         </dd>
       </div>
-      <div v-else-if="plan.daily_limit_usd != null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
-        <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.dailyLimit') }}</dt>
-        <dd class="shrink-0 font-medium tabular-nums text-gray-800 dark:text-gray-200">${{ plan.daily_limit_usd }}</dd>
-      </div>
-      <div v-if="plan.cycle_quota_usd == null && plan.weekly_limit_usd != null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
-        <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.weeklyLimit') }}</dt>
-        <dd class="shrink-0 font-medium tabular-nums text-gray-800 dark:text-gray-200">${{ plan.weekly_limit_usd }}</dd>
-      </div>
-      <div v-if="plan.cycle_quota_usd == null && plan.monthly_limit_usd != null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
-        <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.monthlyLimit') }}</dt>
-        <dd class="shrink-0 font-medium tabular-nums text-gray-800 dark:text-gray-200">${{ plan.monthly_limit_usd }}</dd>
-      </div>
-      <div v-if="plan.cycle_quota_usd == null && plan.daily_limit_usd == null && plan.weekly_limit_usd == null && plan.monthly_limit_usd == null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
+      <div v-else class="flex min-w-0 items-start justify-between gap-3 py-2.5">
         <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.quota') }}</dt>
         <dd class="min-w-0 break-words text-right font-medium text-gray-800 dark:text-gray-200">{{ t('payment.planCard.unlimited') }}</dd>
       </div>
@@ -139,15 +118,15 @@ const props = defineProps<{ plan: SubscriptionPlan; activeSubscriptions?: UserSu
 const emit = defineEmits<{ select: [plan: SubscriptionPlan] }>()
 const { t } = useI18n()
 
-const includedGroups = computed(() => props.plan.included_groups || [])
+const includedGroups = computed(() => props.plan.included_groups ?? [])
 const platform = computed(() => {
   const platforms = [...new Set(includedGroups.value.map(group => group.platform).filter(Boolean))]
   if (platforms.length === 1) return platforms[0]
   if (platforms.length > 1) return 'composite'
-  return props.plan.group_platform || ''
+  return ''
 })
 const isRenewal = computed(() =>
-  props.activeSubscriptions?.some(s => (s.plan_id === props.plan.id || s.group_id === props.plan.group_id) && s.status === 'active') ?? false
+  props.activeSubscriptions?.some(s => s.plan_id === props.plan.id && s.status === 'active') ?? false
 )
 
 const pLabel = computed(() => platformLabel(platform.value))
@@ -190,7 +169,9 @@ const MODEL_SCOPE_BADGES: Record<string, { label: string; className: string }> =
 
 const modelScopeLabels = computed(() => {
   if (platform.value !== 'antigravity') return []
-  const scopes = props.plan.supported_model_scopes
+  const scopes = [...new Set(
+    includedGroups.value.flatMap(group => group.supported_model_scopes || [])
+  )]
   if (!scopes || scopes.length === 0) return []
   return scopes.map(s => MODEL_SCOPE_BADGES[s] || {
     key: s,

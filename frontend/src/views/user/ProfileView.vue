@@ -113,7 +113,7 @@
             <ProfilePasskeyCard :enabled="passkeyEnabled" embedded />
           </section>
 
-          <section v-if="user && subscriptionGroupBillingEnabled" class="p-4" data-testid="profile-billing-preference-panel">
+          <section v-if="user" class="p-4" data-testid="profile-billing-preference-panel">
             <ProfileBillingPreferenceSection :value="user.billing_preference" />
           </section>
 
@@ -185,7 +185,6 @@ const wechatOAuthMPEnabled = ref<boolean | undefined>(undefined)
 const oidcOAuthEnabled = ref(false)
 const oidcOAuthProviderName = ref('OIDC')
 const passkeyEnabled = ref(false)
-const subscriptionGroupBillingEnabled = ref(false)
 const passwordFormExpanded = ref(false)
 
 onMounted(async () => {
@@ -213,7 +212,6 @@ onMounted(async () => {
       oidcOAuthEnabled.value = settings.oidc_oauth_enabled ?? false
       oidcOAuthProviderName.value = settings.oidc_oauth_provider_name || 'OIDC'
       passkeyEnabled.value = settings.passkey_enabled === true
-      subscriptionGroupBillingEnabled.value = settings.subscription_group_billing_enabled === true
     })
     .catch((error) => {
       console.error('Failed to load settings:', error)

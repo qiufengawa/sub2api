@@ -93,7 +93,7 @@ const groupFixture = (overrides: Partial<AdminGroup>): AdminGroup => ({
   rpm_limit: 0,
   is_exclusive: false,
   status: 'active',
-  subscription_type: 'subscription',
+	  subscription_type: 'standard',
   daily_limit_usd: null,
   weekly_limit_usd: null,
   monthly_limit_usd: null,
@@ -187,7 +187,7 @@ describe('PlanEditDialog', () => {
     expect(wrapper.text()).not.toContain('¥71.43')
   })
 
-  it('shows active routing groups as equal selectable choices', () => {
+	  it('only shows active standard routing groups as selectable choices', () => {
     const wrapper = mountDialog({
       groups: [
         groupFixture({
@@ -197,17 +197,24 @@ describe('PlanEditDialog', () => {
           rate_multiplier: 1.2,
           subscription_type: 'subscription',
         }),
-        groupFixture({
-          id: 11,
-          name: 'Standard OpenAI',
-          platform: 'openai',
-          subscription_type: 'standard',
-        }),
-      ],
-    })
+		  groupFixture({
+			id: 11,
+			name: 'Standard OpenAI',
+			platform: 'openai',
+			subscription_type: 'standard',
+		  }),
+		  groupFixture({
+			id: 12,
+			name: 'Inactive OpenAI',
+			platform: 'openai',
+			subscription_type: 'standard',
+			status: 'inactive',
+		  }),
+		],
+	  })
 
-    const groupInputs = wrapper.findAll('[data-testid="plan-included-groups"] input[type="checkbox"]')
-    expect(groupInputs).toHaveLength(2)
+	  const groupInputs = wrapper.findAll('[data-testid="plan-included-groups"] input[type="checkbox"]')
+	  expect(groupInputs).toHaveLength(1)
     expect(groupInputs.every(input => input.attributes('disabled') === undefined)).toBe(true)
   })
 
@@ -254,8 +261,8 @@ describe('PlanEditDialog', () => {
 
     await wrapper.get('form').trigger('submit')
 
-    expect(createPlan).toHaveBeenCalledWith(expect.objectContaining({
-      included_group_ids: [10, 11],
+	  expect(createPlan).toHaveBeenCalledWith(expect.objectContaining({
+		included_group_ids: [11],
       cycle_quota_usd: 40,
       reset_interval_seconds: 604800,
       wallet_fallback_enabled: false,
@@ -273,14 +280,13 @@ describe('PlanEditDialog', () => {
 		metadata: { affected_subscriptions: '23' },
 	  })
 	  .mockResolvedValueOnce({})
-    const groups = [
-      groupFixture({ id: 10, name: 'Subscription', subscription_type: 'subscription' }),
-      groupFixture({ id: 11, name: 'GPT-1', subscription_type: 'standard' }),
-    ]
-    const plan: SubscriptionPlan = {
-      id: 99,
-      group_id: 10,
-      name: 'Standard',
+	  const groups = [
+		groupFixture({ id: 10, name: 'GPT-1', subscription_type: 'standard' }),
+		groupFixture({ id: 11, name: 'GPT-2', subscription_type: 'standard' }),
+	  ]
+	  const plan: SubscriptionPlan = {
+		id: 99,
+		name: 'Standard',
       description: 'Weekly credits',
       price: 103.9,
       currency: 'CNY',
@@ -289,9 +295,9 @@ describe('PlanEditDialog', () => {
       features: [],
       for_sale: true,
       sort_order: 0,
-      included_groups: [
-        { id: 10, name: 'Subscription', platform: 'openai', rate_multiplier: 1 },
-        { id: 11, name: 'GPT-1', platform: 'openai', rate_multiplier: 0.1 },
+		included_groups: [
+		  { id: 10, name: 'GPT-1', platform: 'openai', rate_multiplier: 0.1 },
+		  { id: 11, name: 'GPT-2', platform: 'openai', rate_multiplier: 0.2 },
       ],
     }
     const wrapper = mountDialog({ groups, plan })

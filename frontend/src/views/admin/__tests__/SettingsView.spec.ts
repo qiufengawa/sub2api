@@ -22,7 +22,7 @@ const {
   updateUpstreamBillingProbeSettings,
   getOllamaCloudUsageSettings,
   updateOllamaCloudUsageSettings,
-  getGroups,
+  getPlans,
   listProxies,
   getProviders,
   updateProvider,
@@ -63,7 +63,7 @@ const {
     debounce_minutes: 1,
   }),
   updateOllamaCloudUsageSettings: vi.fn().mockImplementation(async (payload) => payload),
-  getGroups: vi.fn(),
+  getPlans: vi.fn(),
   listProxies: vi.fn(),
   getProviders: vi.fn(),
   updateProvider: vi.fn(),
@@ -100,13 +100,11 @@ vi.mock("@/api", () => ({
       getOllamaCloudUsageSettings,
       updateOllamaCloudUsageSettings,
     },
-    groups: {
-      getAll: getGroups,
-    },
     proxies: {
       list: listProxies,
     },
     payment: {
+      getPlans,
       getProviders,
       updateProvider,
       createProvider,
@@ -493,7 +491,6 @@ const baseSettingsResponse = {
   antigravity_user_agent_version: "",
   openai_codex_user_agent: "",
   payment_enabled: true,
-  subscription_group_billing_enabled: false,
   payment_min_amount: 1,
   payment_max_amount: 10000,
   payment_daily_limit: 50000,
@@ -639,7 +636,7 @@ describe("admin SettingsView payment visible method controls", () => {
     updateUpstreamBillingProbeSettings.mockReset();
     getOllamaCloudUsageSettings.mockReset();
     updateOllamaCloudUsageSettings.mockReset();
-    getGroups.mockReset();
+    getPlans.mockReset();
     listProxies.mockReset();
     getProviders.mockReset();
     updateProvider.mockReset();
@@ -705,7 +702,7 @@ describe("admin SettingsView payment visible method controls", () => {
       debounce_minutes: 1,
     });
     updateOllamaCloudUsageSettings.mockImplementation(async (payload) => payload);
-    getGroups.mockResolvedValue([]);
+    getPlans.mockResolvedValue({ data: [] });
     listProxies.mockResolvedValue({
       items: [],
     });
@@ -778,59 +775,6 @@ describe("admin SettingsView payment visible method controls", () => {
 
     expect(wrapper.text()).not.toContain("可见方式");
     expect(wrapper.text()).not.toContain("支付来源");
-  });
-
-  it("loads and submits the subscription group billing switch independently of payment", async () => {
-    getSettings.mockResolvedValueOnce({
-      ...baseSettingsResponse,
-      payment_enabled: false,
-      subscription_group_billing_enabled: true,
-    });
-    const wrapper = mountView();
-
-    await flushPromises();
-    await openPaymentTab(wrapper);
-
-    const toggle = wrapper.get('[data-testid="subscription-group-billing-toggle"]');
-    expect((toggle.element as HTMLInputElement).checked).toBe(true);
-
-    await toggle.setValue(false);
-    await wrapper.find("form").trigger("submit.prevent");
-    await flushPromises();
-
-    expect(updateSettings).toHaveBeenCalledWith(
-      expect.objectContaining({ subscription_group_billing_enabled: false }),
-    );
-  });
-
-  it("explains subscription group billing from the title help button", async () => {
-    const wrapper = mountView();
-
-    await flushPromises();
-    await openPaymentTab(wrapper);
-
-    expect(wrapper.find('[data-testid="subscription-group-billing-help-dialog"]').exists()).toBe(false);
-
-    await wrapper
-      .get('[data-testid="subscription-group-billing-help-button"]')
-      .trigger("click");
-
-    const dialog = wrapper.get('[data-testid="subscription-group-billing-help-dialog"]');
-    expect(dialog.text()).toContain(
-      "admin.settings.payment.subscriptionGroupBillingHelpQuotaText",
-    );
-    expect(dialog.text()).toContain(
-      "admin.settings.payment.subscriptionGroupBillingHelpGroupText",
-    );
-    expect(dialog.text()).toContain(
-      "admin.settings.payment.subscriptionGroupBillingHelpFallbackText",
-    );
-    expect(dialog.text()).toContain(
-      "admin.settings.payment.subscriptionGroupBillingHelpExampleText",
-    );
-
-    await wrapper.get('[data-testid="base-dialog-close-stub"]').trigger("click");
-    expect(wrapper.find('[data-testid="subscription-group-billing-help-dialog"]').exists()).toBe(false);
   });
 
   it("shows valid passkey RP configuration and persists the sign-in toggle", async () => {
@@ -1385,7 +1329,7 @@ describe("admin SettingsView wechat connect controls", () => {
     getStreamTimeoutSettings.mockReset();
     getRectifierSettings.mockReset();
     getBetaPolicySettings.mockReset();
-    getGroups.mockReset();
+    getPlans.mockReset();
     listProxies.mockReset();
     getProviders.mockReset();
     updateProvider.mockReset();
@@ -1443,7 +1387,7 @@ describe("admin SettingsView wechat connect controls", () => {
     getBetaPolicySettings.mockResolvedValue({
       rules: [],
     });
-    getGroups.mockResolvedValue([]);
+    getPlans.mockResolvedValue({ data: [] });
     listProxies.mockResolvedValue({
       items: [],
     });
@@ -1631,7 +1575,7 @@ describe("admin SettingsView platform quota matrix", () => {
     getStreamTimeoutSettings.mockReset();
     getRectifierSettings.mockReset();
     getBetaPolicySettings.mockReset();
-    getGroups.mockReset();
+    getPlans.mockReset();
     listProxies.mockReset();
     getProviders.mockReset();
     updateProvider.mockReset();
@@ -1657,7 +1601,7 @@ describe("admin SettingsView platform quota matrix", () => {
     getStreamTimeoutSettings.mockResolvedValue({});
     getRectifierSettings.mockResolvedValue({});
     getBetaPolicySettings.mockResolvedValue({});
-    getGroups.mockResolvedValue([]);
+    getPlans.mockResolvedValue({ data: [] });
     listProxies.mockResolvedValue({ items: [] });
     getProviders.mockResolvedValue({ data: [] });
   });

@@ -30,12 +30,9 @@ func normalizePlanCurrency(raw string) (string, error) {
 }
 
 // validatePlanRequired checks that all required fields for a plan are provided.
-func validatePlanRequired(name string, groupID int64, price float64, validityDays int, validityUnit string, originalPrice *float64) error {
+func validatePlanRequired(name string, price float64, validityDays int, validityUnit string, originalPrice *float64) error {
 	if strings.TrimSpace(name) == "" {
 		return infraerrors.BadRequest("PLAN_NAME_REQUIRED", "plan name is required")
-	}
-	if groupID <= 0 {
-		return infraerrors.BadRequest("PLAN_GROUP_REQUIRED", "group is required")
 	}
 	if price <= 0 {
 		return infraerrors.BadRequest("PLAN_PRICE_INVALID", "price must be > 0")
@@ -69,9 +66,6 @@ func validatePlanCycle(cycleQuotaUSD *float64, resetIntervalSeconds int) error {
 func validatePlanPatch(req UpdatePlanRequest) error {
 	if req.Name != nil && strings.TrimSpace(*req.Name) == "" {
 		return infraerrors.BadRequest("PLAN_NAME_REQUIRED", "plan name is required")
-	}
-	if req.GroupID != nil && *req.GroupID <= 0 {
-		return infraerrors.BadRequest("PLAN_GROUP_REQUIRED", "group is required")
 	}
 	if req.Price != nil && *req.Price <= 0 {
 		return infraerrors.BadRequest("PLAN_PRICE_INVALID", "price must be > 0")
@@ -116,7 +110,7 @@ func IncludedPlanGroupInfo(plan *dbent.SubscriptionPlan, groupInfo map[int64]Pla
 	if plan == nil {
 		return []PlanGroupInfo{}
 	}
-	ids := normalizePlanGroupIDs(plan.GroupID, planIncludedGroupIDs(plan))
+	ids := planIncludedGroupIDs(plan)
 	out := make([]PlanGroupInfo, 0, len(ids))
 	for _, id := range ids {
 		if info, ok := groupInfo[id]; ok {
@@ -136,10 +130,6 @@ func (s *PaymentConfigService) GetGroupInfoMap(ctx context.Context, plans []*dbe
 				seen[includedGroup.ID] = true
 				ids = append(ids, includedGroup.ID)
 			}
-		}
-		if !seen[p.GroupID] {
-			seen[p.GroupID] = true
-			ids = append(ids, p.GroupID)
 		}
 	}
 	if len(ids) == 0 {
@@ -178,9 +168,8 @@ func (s *PaymentConfigService) ListPlansForSale(ctx context.Context) ([]*dbent.S
 }
 
 func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanRequest) (*dbent.SubscriptionPlan, error) {
-	includedGroupIDs := normalizePlanGroupIDs(req.GroupID, req.IncludedGroupIDs)
-	compatibilityGroupID := compatiblePlanGroupID(req.GroupID, includedGroupIDs)
-	if err := validatePlanRequired(req.Name, compatibilityGroupID, req.Price, req.ValidityDays, req.ValidityUnit, req.OriginalPrice); err != nil {
+	includedGroupIDs := normalizePlanGroupIDs(req.IncludedGroupIDs)
+	if err := validatePlanRequired(req.Name, req.Price, req.ValidityDays, req.ValidityUnit, req.OriginalPrice); err != nil {
 		return nil, err
 	}
 	if err := validatePlanCycle(req.CycleQuotaUSD, req.ResetIntervalSeconds); err != nil {
@@ -194,7 +183,7 @@ func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanReq
 		return nil, err
 	}
 	b := s.entClient.SubscriptionPlan.Create().
-		SetGroupID(compatibilityGroupID).SetName(req.Name).SetDescription(req.Description).
+		SetName(req.Name).SetDescription(req.Description).
 		SetPrice(req.Price).SetCurrency(currency).SetValidityDays(req.ValidityDays).SetValidityUnit(req.ValidityUnit).
 		SetFeatures(req.Features).SetProductName(req.ProductName).
 		SetForSale(req.ForSale).SetSortOrder(req.SortOrder).
@@ -291,29 +280,15 @@ func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req Upd
 	if req.SortOrder != nil {
 		u.SetSortOrder(*req.SortOrder)
 	}
-	if req.IncludedGroupIDs != nil || req.GroupID != nil {
-		values := planIncludedGroupIDs(current)
-		if req.IncludedGroupIDs != nil {
-			values = *req.IncludedGroupIDs
-		}
-		explicitGroupID := int64(0)
-		if req.GroupID != nil {
-			explicitGroupID = *req.GroupID
-		}
-		ids := normalizePlanGroupIDs(explicitGroupID, values)
+	if req.IncludedGroupIDs != nil {
+		ids := normalizePlanGroupIDs(*req.IncludedGroupIDs)
 		if err := s.validatePlanIncludedGroups(ctx, ids); err != nil {
 			return nil, err
 		}
-		if req.IncludedGroupIDs != nil {
-			if err := s.requirePlanGroupRemovalConfirmation(ctx, id, ids, req.ConfirmGroupRemoval); err != nil {
-				return nil, err
-			}
+		if err := s.requirePlanGroupRemovalConfirmation(ctx, id, ids, req.ConfirmGroupRemoval); err != nil {
+			return nil, err
 		}
-		compatibilityGroupID := compatiblePlanGroupID(current.GroupID, ids)
-		if req.GroupID != nil {
-			compatibilityGroupID = compatiblePlanGroupID(*req.GroupID, ids)
-		}
-		u.SetGroupID(compatibilityGroupID).ClearGroups().AddGroupIDs(ids...)
+		u.ClearGroups().AddGroupIDs(ids...)
 	}
 	if _, err := u.Save(ctx); err != nil {
 		return nil, err
@@ -335,19 +310,20 @@ func planIncludedGroupIDs(plan *dbent.SubscriptionPlan) []int64 {
 }
 
 func (s *PaymentConfigService) validatePlanIncludedGroups(ctx context.Context, ids []int64) error {
-	ids = normalizePlanGroupIDs(0, ids)
+	ids = normalizePlanGroupIDs(ids)
 	if len(ids) == 0 {
 		return infraerrors.BadRequest("PLAN_GROUP_REQUIRED", "at least one included group is required")
 	}
 	count, err := s.entClient.Group.Query().Where(
 		group.IDIn(ids...),
 		group.StatusEQ(payment.EntityStatusActive),
+		group.SubscriptionTypeEQ(SubscriptionTypeStandard),
 	).Count(ctx)
 	if err != nil {
 		return fmt.Errorf("validate included groups: %w", err)
 	}
 	if count != len(ids) {
-		return infraerrors.BadRequest("PLAN_GROUP_INVALID", "all included groups must exist and be active")
+		return infraerrors.BadRequest("PLAN_GROUP_INVALID", "all included groups must exist, be active, and use standard routing type")
 	}
 	return nil
 }
@@ -399,13 +375,9 @@ func (s *PaymentConfigService) GetPlan(ctx context.Context, id int64) (*dbent.Su
 	return plan, nil
 }
 
-func normalizePlanGroupIDs(primary int64, values []int64) []int64 {
-	seen := make(map[int64]struct{}, len(values)+1)
-	out := make([]int64, 0, len(values)+1)
-	if primary > 0 {
-		seen[primary] = struct{}{}
-		out = append(out, primary)
-	}
+func normalizePlanGroupIDs(values []int64) []int64 {
+	seen := make(map[int64]struct{}, len(values))
+	out := make([]int64, 0, len(values))
 	for _, id := range values {
 		if id <= 0 {
 			continue
@@ -417,20 +389,6 @@ func normalizePlanGroupIDs(primary int64, values []int64) []int64 {
 		out = append(out, id)
 	}
 	return out
-}
-
-// compatiblePlanGroupID keeps the legacy non-null group_id stable while it is
-// still selected. Routing and billing eligibility use the full group relation.
-func compatiblePlanGroupID(current int64, included []int64) int64 {
-	for _, id := range included {
-		if id == current {
-			return current
-		}
-	}
-	if len(included) > 0 {
-		return included[0]
-	}
-	return 0
 }
 
 func (s *PaymentConfigService) requirePlanGroupRemovalConfirmation(ctx context.Context, planID int64, next []int64, confirmed bool) error {

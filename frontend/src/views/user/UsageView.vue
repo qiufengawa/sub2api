@@ -401,9 +401,6 @@ const modelDistributionMetric = ref<DistributionMetric>('tokens')
 const groupDistributionMetric = ref<DistributionMetric>('tokens')
 const endpointDistributionMetric = ref<DistributionMetric>('tokens')
 const errorViewEnabled = computed(() => appStore.cachedPublicSettings?.allow_user_view_error_requests ?? false)
-const subscriptionGroupBillingEnabled = computed(
-  () => appStore.cachedPublicSettings?.subscription_group_billing_enabled === true
-)
 const activeTab = ref<'usage' | 'errors'>(route.query.tab === 'errors' && errorViewEnabled.value ? 'errors' : 'usage')
 
 const filters = ref<UsageQueryParams>({
@@ -756,7 +753,7 @@ const exportToCSV = async () => {
       getRequestTypeExportText(log),
       getBillingModeLabel(getDisplayBillingMode(log), t),
       log.billing_source || 'legacy',
-      log.subscription?.plan_name || log.subscription?.group?.name || (log.subscription_id ? `#${log.subscription_id}` : ''),
+      log.subscription?.plan_name || (log.subscription?.plan_id ? `#${log.subscription.plan_id}` : '') || (log.subscription_id ? `#${log.subscription_id}` : ''),
       log.billing_preference || '',
       log.billing_fallback_reason || '',
       log.input_tokens,
@@ -801,9 +798,7 @@ const allColumns = computed<Column[]>(() => [
   { key: 'cost', label: t('usage.cost'), sortable: false },
   { key: 'latency', label: t('usage.latency'), sortable: false },
   { key: 'billing_mode', label: t('admin.usage.billingMode'), sortable: false },
-  ...(subscriptionGroupBillingEnabled.value
-    ? [{ key: 'billing_source', label: t('usage.billingSource'), sortable: false }]
-    : []),
+  { key: 'billing_source', label: t('usage.billingSource'), sortable: false },
   { key: 'created_at', label: t('usage.time'), sortable: true },
   { key: 'stream', label: t('usage.type'), sortable: false },
   { key: 'group', label: t('admin.usage.group'), sortable: false },

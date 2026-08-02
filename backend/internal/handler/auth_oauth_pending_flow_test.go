@@ -1981,7 +1981,7 @@ func TestBindOIDCOAuthLoginAppliesFirstBindGrantOnce(t *testing.T) {
 		settingValues: map[string]string{
 			service.SettingKeyAuthSourceDefaultOIDCBalance:          "12.5",
 			service.SettingKeyAuthSourceDefaultOIDCConcurrency:      "3",
-			service.SettingKeyAuthSourceDefaultOIDCSubscriptions:    `[{"group_id":101,"validity_days":30}]`,
+			service.SettingKeyAuthSourceDefaultOIDCSubscriptions:    `[{"plan_id":101,"validity_days":30}]`,
 			service.SettingKeyAuthSourceDefaultOIDCGrantOnFirstBind: "true",
 		},
 		defaultSubAssigner: defaultSubAssigner,
@@ -2040,7 +2040,7 @@ func TestBindOIDCOAuthLoginAppliesFirstBindGrantOnce(t *testing.T) {
 	require.Zero(t, storedUser.TotalRecharged)
 	require.Len(t, defaultSubAssigner.calls, 1)
 	require.Equal(t, int64(existingUser.ID), defaultSubAssigner.calls[0].UserID)
-	require.Equal(t, int64(101), defaultSubAssigner.calls[0].GroupID)
+	require.Equal(t, int64(101), defaultSubAssigner.calls[0].PlanID)
 	require.Equal(t, 30, defaultSubAssigner.calls[0].ValidityDays)
 	require.Equal(t, 1, countProviderGrantRecords(t, client, existingUser.ID, "oidc", "first_bind"))
 
@@ -2790,7 +2790,7 @@ func (r *oauthPendingFlowRedeemCodeRepo) GetByCode(ctx context.Context, code str
 		UsedAt:       entity.UsedAt,
 		Notes:        notes,
 		CreatedAt:    entity.CreatedAt,
-		GroupID:      entity.GroupID,
+		PlanID:       entity.PlanID,
 		ValidityDays: entity.ValidityDays,
 	}, nil
 }
@@ -2816,10 +2816,10 @@ func (r *oauthPendingFlowRedeemCodeRepo) Update(ctx context.Context, code *servi
 	} else {
 		update = update.ClearUsedAt()
 	}
-	if code.GroupID != nil {
-		update = update.SetGroupID(*code.GroupID)
+	if code.PlanID != nil {
+		update = update.SetPlanID(*code.PlanID)
 	} else {
-		update = update.ClearGroupID()
+		update = update.ClearPlanID()
 	}
 	_, err := update.Save(ctx)
 	return err

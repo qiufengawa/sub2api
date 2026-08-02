@@ -413,16 +413,13 @@ func (s *APIKeyService) incrementAPIKeyErrorCount(ctx context.Context, userID in
 	_ = s.cache.IncrementCreateAttemptCount(ctx, userID)
 }
 
-// canUserBindGroup 检查用户是否可以绑定指定分组
-// 对于订阅类型分组：检查用户是否有有效订阅
-// 对于标准类型分组：使用原有的 AllowedGroups 和 IsExclusive 逻辑
+// canUserBindGroup checks plan coverage first, then normal group visibility.
 func (s *APIKeyService) canUserBindGroup(ctx context.Context, user *User, group *Group) bool {
-	// 订阅类型分组：需要有效订阅
-	if group.IsSubscriptionType() {
-		_, err := s.userSubRepo.GetActiveByUserIDAndGroupID(ctx, user.ID, group.ID)
-		return err == nil // 有有效订阅则允许
+	if coverageRepo, ok := s.userSubRepo.(SubscriptionCoverageRepository); ok {
+		if exists, err := coverageRepo.ExistsActiveCoveringGroup(ctx, user.ID, group.ID); err == nil && exists {
+			return true
+		}
 	}
-	// 标准类型分组：使用原有逻辑
 	return user.CanBindGroup(group.ID, group.IsExclusive)
 }
 
@@ -978,8 +975,8 @@ func (s *APIKeyService) IncrementUsage(ctx context.Context, keyID int64) error {
 
 // GetAvailableGroups 获取用户有权限绑定的分组列表
 // 返回用户可以选择的分组：
-// - 标准类型分组：公开的（非专属）或用户被明确允许的
-// - 订阅类型分组：用户有有效订阅的
+// - 公开分组或用户被明确允许的专属分组
+// - 用户有效订阅套餐覆盖的真实路由分组
 func (s *APIKeyService) GetAvailableGroups(ctx context.Context, userID int64) ([]Group, error) {
 	// 获取用户信息
 	user, err := s.userRepo.GetByID(ctx, userID)
@@ -999,18 +996,11 @@ func (s *APIKeyService) GetAvailableGroups(ctx context.Context, userID int64) ([
 		return nil, fmt.Errorf("list active subscriptions: %w", err)
 	}
 
-	// 构建订阅分组 ID 集合
+// 构建有效套餐覆盖的路由分组 ID 集合
 	subscribedGroupIDs := make(map[int64]bool)
 	for _, sub := range activeSubscriptions {
-		if s.cfg != nil && s.cfg.SubscriptionGroupBillingEnabled() {
-			for _, includedGroup := range sub.IncludedGroups {
-				subscribedGroupIDs[includedGroup.ID] = true
-			}
-			if len(sub.IncludedGroups) == 0 {
-				subscribedGroupIDs[sub.GroupID] = true
-			}
-		} else {
-			subscribedGroupIDs[sub.GroupID] = true
+		for _, includedGroup := range sub.IncludedGroups {
+			subscribedGroupIDs[includedGroup.ID] = true
 		}
 	}
 
@@ -1027,16 +1017,10 @@ func (s *APIKeyService) GetAvailableGroups(ctx context.Context, userID int64) ([
 
 // canUserBindGroupInternal 内部方法，检查用户是否可以绑定分组（使用预加载的订阅数据）
 func (s *APIKeyService) canUserBindGroupInternal(user *User, group *Group, subscribedGroupIDs map[int64]bool) bool {
-	// In points billing mode a plan may include any real routing group. Plan
-	// coverage therefore grants bind permission before legacy group-type rules.
-	if s.cfg != nil && s.cfg.SubscriptionGroupBillingEnabled() && subscribedGroupIDs[group.ID] {
+	// A plan may cover any real routing group.
+	if subscribedGroupIDs[group.ID] {
 		return true
 	}
-	// 订阅类型分组：需要有效订阅
-	if group.IsSubscriptionType() {
-		return subscribedGroupIDs[group.ID]
-	}
-	// 标准类型分组：使用原有逻辑
 	return user.CanBindGroup(group.ID, group.IsExclusive)
 }
 

@@ -26,14 +26,6 @@ func (r *subscriptionExpiryRepoStub) GetByIDIncludeDeleted(context.Context, int6
 	return nil, ErrSubscriptionNotFound
 }
 
-func (r *subscriptionExpiryRepoStub) GetByUserIDAndGroupID(context.Context, int64, int64) (*UserSubscription, error) {
-	return nil, ErrSubscriptionNotFound
-}
-
-func (r *subscriptionExpiryRepoStub) GetActiveByUserIDAndGroupID(context.Context, int64, int64) (*UserSubscription, error) {
-	return nil, ErrSubscriptionNotFound
-}
-
 func (r *subscriptionExpiryRepoStub) Update(context.Context, *UserSubscription) error {
 	return nil
 }
@@ -61,14 +53,6 @@ func (r *subscriptionExpiryRepoStub) ListByGroupID(context.Context, int64, pagin
 func (r *subscriptionExpiryRepoStub) List(context.Context, pagination.PaginationParams, *int64, *int64, string, string, string, string) ([]UserSubscription, *pagination.PaginationResult, error) {
 	r.listCalls++
 	return nil, &pagination.PaginationResult{Page: 1, Pages: 1}, nil
-}
-
-func (r *subscriptionExpiryRepoStub) ExistsByUserIDAndGroupID(context.Context, int64, int64) (bool, error) {
-	return false, nil
-}
-
-func (r *subscriptionExpiryRepoStub) ExistsActiveByUserIDAndGroupID(context.Context, int64, int64) (bool, error) {
-	return false, nil
 }
 
 func (r *subscriptionExpiryRepoStub) ExtendExpiry(context.Context, int64, time.Time) error {

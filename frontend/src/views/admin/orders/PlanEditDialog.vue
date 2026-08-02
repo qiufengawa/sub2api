@@ -183,14 +183,15 @@ const validityUnitOptions = computed(() => [
 ])
 
 const includedGroupOptions = computed(() =>
-  props.groups.filter(group => group.status === 'active'),
+  props.groups.filter(group => group.status === 'active' && group.subscription_type === 'standard'),
 )
 
 const normalizedIncludedGroupIDs = computed(() => {
+	const eligibleIDs = new Set(includedGroupOptions.value.map(group => group.id))
   const seen = new Set<number>()
   const result: number[] = []
   for (const id of planForm.included_group_ids) {
-    if (!id || seen.has(id)) continue
+	if (!id || seen.has(id) || !eligibleIDs.has(id)) continue
     seen.add(id)
     result.push(id)
   }
@@ -244,7 +245,7 @@ const subscriptionCnyPreview = computed(() => {
 watch(() => props.show, (visible) => {
   if (!visible) return
   if (props.plan) {
-    const includedGroupIDs = props.plan.included_groups?.map(group => group.id) || [props.plan.group_id]
+    const includedGroupIDs = props.plan.included_groups.map(group => group.id)
     Object.assign(planForm, {
       name: props.plan.name,
       included_group_ids: [...includedGroupIDs],

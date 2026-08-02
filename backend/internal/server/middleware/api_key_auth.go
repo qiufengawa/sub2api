@@ -17,6 +17,8 @@ import (
 
 const maxAPIKeyAuthorizationHeaderBytes = service.MaxAPIKeyCredentialBytes + 128
 
+var errAPIKeyInsufficientBalance = errors.New("insufficient account balance")
+
 // NewAPIKeyAuthMiddleware 创建 API Key 认证中间件
 func NewAPIKeyAuthMiddleware(apiKeyService *service.APIKeyService, subscriptionService *service.SubscriptionService, cfg *config.Config) APIKeyAuthMiddleware {
 	return APIKeyAuthMiddleware(apiKeyAuthWithSubscription(apiKeyService, subscriptionService, cfg))
@@ -191,26 +193,15 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 		// ── 5. 按端点需要加载订阅 ───────────────────────────────────
 
 		var subscription *service.UserSubscription
-		isSubscriptionType := apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
-		useSubscriptionGroupBilling := cfg.SubscriptionGroupBillingEnabled()
 
 		// 倍率自省不需要订阅数据；/v1/usage 仍保留原有订阅读取行为。
-		if apiKey.Group != nil && subscriptionService != nil && !billingInfoRequest && (isSubscriptionType || useSubscriptionGroupBilling) {
-			var sub *service.UserSubscription
-			var subErr error
-			if useSubscriptionGroupBilling {
-				sub, subErr = subscriptionService.GetActiveSubscriptionForGroup(c.Request.Context(), apiKey.User.ID, apiKey.Group.ID)
-			} else {
-				sub, subErr = subscriptionService.GetActiveSubscription(c.Request.Context(), apiKey.User.ID, apiKey.Group.ID)
-			}
-			if subErr != nil {
-				if isSubscriptionType && !skipBilling {
-					AbortWithError(c, 403, "SUBSCRIPTION_NOT_FOUND", "No active subscription found for this group")
-					return
-				}
-				// skipBilling: 订阅不存在也放行，handler 会返回可用的数据
-			} else {
+		if apiKey.Group != nil && subscriptionService != nil && !billingInfoRequest {
+			sub, subErr := subscriptionService.GetActiveSubscriptionForGroup(c.Request.Context(), apiKey.User.ID, apiKey.Group.ID)
+			if subErr == nil {
 				subscription = sub
+			} else if !errors.Is(subErr, service.ErrSubscriptionNotFound) {
+				AbortWithError(c, 500, "SUBSCRIPTION_LOOKUP_FAILED", "Failed to resolve subscription coverage")
+				return
 			}
 		}
 
@@ -237,44 +228,23 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 				return
 			}
 
-			// 新计费模式仍维护旧窗口统计，保证管理端展示和灰度回退数据不会
-			// 跨窗口累计；额度资格只由 cycle 配额判断，不再校验旧分组限额。
-			if useSubscriptionGroupBilling && subscription != nil {
+			// 套餐额度资格由周期配额判断；覆盖分组只负责路由与倍率。
+			if subscription != nil {
 				refreshed, maintenanceErr := subscriptionService.EnsureWindowMaintenance(c.Request.Context(), subscription)
 				if maintenanceErr != nil {
 					AbortWithError(c, 500, "SUBSCRIPTION_MAINTENANCE_FAILED", "Failed to maintain subscription usage windows")
 					return
 				}
 				subscription = refreshed
-			} else if subscription != nil {
-				needsMaintenance, validateErr := subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
-				if needsMaintenance {
-					refreshed, maintenanceErr := subscriptionService.EnsureWindowMaintenance(c.Request.Context(), subscription)
-					if maintenanceErr != nil {
-						AbortWithError(c, 500, "SUBSCRIPTION_MAINTENANCE_FAILED", "Failed to maintain subscription usage windows")
-						return
-					}
-					subscription = refreshed
-					_, validateErr = subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
-				}
-				if validateErr != nil {
-					code := "SUBSCRIPTION_INVALID"
-					status := 403
-					if errors.Is(validateErr, service.ErrDailyLimitExceeded) ||
-						errors.Is(validateErr, service.ErrWeeklyLimitExceeded) ||
-						errors.Is(validateErr, service.ErrMonthlyLimitExceeded) {
-						code = "USAGE_LIMIT_EXCEEDED"
-						status = 429
-					}
-					AbortWithError(c, status, code, validateErr.Error())
-					return
-				}
-			} else if !useSubscriptionGroupBilling {
-				// 非订阅模式 或 订阅模式但 subscriptionService 未注入：回退到余额检查
-				if apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) {
+			}
+
+			if fundingErr := validateAPIKeyFunding(c.Request.Context(), apiKey, subscription, subscriptionService, cfg); fundingErr != nil {
+				if errors.Is(fundingErr, errAPIKeyInsufficientBalance) {
 					AbortWithError(c, 403, "INSUFFICIENT_BALANCE", "Insufficient account balance")
 					return
 				}
+				AbortWithError(c, 429, "USAGE_LIMIT_EXCEEDED", fundingErr.Error())
+				return
 			}
 		}
 
@@ -409,6 +379,41 @@ func apiKeyBalanceBelowAuthThreshold(balance float64, _ *config.Config) bool {
 	return balance <= 0
 }
 
+// validateAPIKeyFunding closes the entitlement decision for a routed request:
+// an eligible plan pays first, an exhausted plan may fall back to wallet only
+// when the plan allows it, and an uncovered route always requires wallet funds.
+func validateAPIKeyFunding(
+	ctx context.Context,
+	apiKey *service.APIKey,
+	subscription *service.UserSubscription,
+	subscriptionService *service.SubscriptionService,
+	cfg *config.Config,
+) error {
+	if apiKey == nil || apiKey.User == nil {
+		return errAPIKeyInsufficientBalance
+	}
+	if subscription == nil {
+		if apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) {
+			return errAPIKeyInsufficientBalance
+		}
+		return nil
+	}
+
+	if !subscription.HasCycleQuota() || subscriptionService == nil {
+		return nil
+	}
+	if err := subscriptionService.CheckUsageLimits(ctx, subscription, apiKey.Group, 0); err == nil {
+		return nil
+	} else if !subscription.WalletFallbackEnabled {
+		return err
+	}
+
+	if apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) {
+		return errAPIKeyInsufficientBalance
+	}
+	return nil
+}
+
 func abortIfAPIKeyGroupUnavailable(c *gin.Context, apiKey *service.APIKey) bool {
 	code, message, ok := validateAPIKeyGroupAvailable(apiKey)
 	if ok {
@@ -438,11 +443,7 @@ func validateAPIKeyGroupAllowed(apiKey *service.APIKey) bool {
 	if apiKey == nil || apiKey.GroupID == nil || apiKey.User == nil || apiKey.Group == nil {
 		return true
 	}
-	group := apiKey.Group
-	if group.IsSubscriptionType() {
-		return true
-	}
-	return apiKey.User.CanBindGroup(group.ID, group.IsExclusive)
+	return apiKey.User.CanBindGroup(apiKey.Group.ID, apiKey.Group.IsExclusive)
 }
 
 func validateAPIKeyGroupAvailable(apiKey *service.APIKey) (string, string, bool) {

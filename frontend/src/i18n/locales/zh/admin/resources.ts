@@ -288,10 +288,9 @@ export default {
         status: '状态',
         expiresAt: '过期时间',
         notes: '备注',
-        group: '分组'
+        plan: '订阅套餐'
       },
       batchNotesPlaceholder: '输入新的备注，留空可清空备注',
-      clearGroup: '清空分组',
       deleteAllUnused: '删除全部未使用',
       deleteCodeConfirm: '确定要删除此兑换码吗？此操作无法撤销。',
       deleteAllUnusedConfirm: '确定要删除全部未使用的兑换码吗？此操作无法撤销。',
@@ -314,8 +313,9 @@ export default {
       failedToExport: '导出兑换码失败',
       failedToDeleteUnused: '删除未使用的兑换码失败',
       failedToCopy: '复制失败',
-      selectGroup: '选择分组',
-      selectGroupPlaceholder: '选择订阅分组',
+      selectPlan: '选择订阅套餐',
+      selectPlanPlaceholder: '选择订阅套餐',
+      noIncludedGroups: '未配置覆盖分组',
       validityDays: '有效天数',
       codeExpiry: '兑换码过期',
       neverExpires: '永不过期',
@@ -323,7 +323,7 @@ export default {
       customExpiry: '自定义',
       customExpiryDays: '自定义天数',
       expiryDaysRequired: '请输入有效的过期天数',
-      groupRequired: '请选择订阅分组',
+      planRequired: '请选择订阅套餐',
       days: '天',
       status: {
         unused: '未使用',
@@ -415,11 +415,11 @@ export default {
         addOrGroup: '添加 OR 条件组',
         addAndCondition: '添加 AND 条件',
         conditionType: '条件类型',
-        conditionSubscription: '订阅套餐',
+        conditionSubscription: '订阅覆盖分组',
         conditionBalance: '余额',
         operator: '运算符',
         balanceValue: '余额阈值',
-        selectPackages: '选择套餐'
+        selectPackages: '选择订阅覆盖的路由分组'
       },
       operators: {
         gt: '>',

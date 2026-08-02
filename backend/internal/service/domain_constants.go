@@ -98,10 +98,11 @@ const (
 	AdjustmentTypeAdminConcurrency = domain.AdjustmentTypeAdminConcurrency // 管理员调整并发数
 )
 
-// Group subscription type constants
+// Group type compatibility constants. New runtime groups are always standard;
+// the legacy value is accepted only by catalog migration code.
 const (
-	SubscriptionTypeStandard     = domain.SubscriptionTypeStandard     // 标准计费模式（按余额扣费）
-	SubscriptionTypeSubscription = domain.SubscriptionTypeSubscription // 订阅模式（按限额控制）
+	SubscriptionTypeStandard     = domain.SubscriptionTypeStandard
+	SubscriptionTypeSubscription = domain.SubscriptionTypeSubscription
 )
 
 // Subscription status constants
@@ -264,22 +265,21 @@ const (
 	SettingKeyGoogleOAuthFrontendRedirectURL = "google_oauth_frontend_redirect_url"
 
 	// OEM设置
-	SettingKeySiteName                        = "site_name"                          // 网站名称
-	SettingKeySiteLogo                        = "site_logo"                          // 网站Logo (base64)
-	SettingKeySiteSubtitle                    = "site_subtitle"                      // 网站副标题
-	SettingKeyAPIBaseURL                      = "api_base_url"                       // API端点地址（用于客户端配置和导入）
-	SettingKeyContactInfo                     = "contact_info"                       // 客服联系方式
-	SettingKeyDocURL                          = "doc_url"                            // 文档链接
-	SettingKeyHomeContent                     = "home_content"                       // 首页内容（支持 Markdown/HTML，或 URL 作为 iframe src）
-	SettingKeyCompactHomeEnabled              = "compact_home_enabled"               // 是否启用内置简洁首页
-	SettingKeyHideCcsImportButton             = "hide_ccs_import_button"             // 是否隐藏 API Keys 页面的导入 CCS 按钮
-	SettingKeyPurchaseSubscriptionEnabled     = "purchase_subscription_enabled"      // 是否展示"购买订阅"页面入口
-	SettingKeyPurchaseSubscriptionURL         = "purchase_subscription_url"          // "购买订阅"页面 URL（作为 iframe src）
-	SettingKeySubscriptionGroupBillingEnabled = "subscription_group_billing_enabled" // 订阅提供额度，真实分组决定路由与倍率
-	SettingKeyTableDefaultPageSize            = "table_default_page_size"            // 表格默认每页条数
-	SettingKeyTablePageSizeOptions            = "table_page_size_options"            // 表格可选每页条数（JSON 数组）
-	SettingKeyCustomMenuItems                 = "custom_menu_items"                  // 自定义菜单项（JSON 数组）
-	SettingKeyCustomEndpoints                 = "custom_endpoints"                   // 自定义端点列表（JSON 数组）
+	SettingKeySiteName                    = "site_name"                     // 网站名称
+	SettingKeySiteLogo                    = "site_logo"                     // 网站Logo (base64)
+	SettingKeySiteSubtitle                = "site_subtitle"                 // 网站副标题
+	SettingKeyAPIBaseURL                  = "api_base_url"                  // API端点地址（用于客户端配置和导入）
+	SettingKeyContactInfo                 = "contact_info"                  // 客服联系方式
+	SettingKeyDocURL                      = "doc_url"                       // 文档链接
+	SettingKeyHomeContent                 = "home_content"                  // 首页内容（支持 Markdown/HTML，或 URL 作为 iframe src）
+	SettingKeyCompactHomeEnabled          = "compact_home_enabled"          // 是否启用内置简洁首页
+	SettingKeyHideCcsImportButton         = "hide_ccs_import_button"        // 是否隐藏 API Keys 页面的导入 CCS 按钮
+	SettingKeyPurchaseSubscriptionEnabled = "purchase_subscription_enabled" // 是否展示"购买订阅"页面入口
+	SettingKeyPurchaseSubscriptionURL     = "purchase_subscription_url"     // "购买订阅"页面 URL（作为 iframe src）
+	SettingKeyTableDefaultPageSize        = "table_default_page_size"       // 表格默认每页条数
+	SettingKeyTablePageSizeOptions        = "table_page_size_options"       // 表格可选每页条数（JSON 数组）
+	SettingKeyCustomMenuItems             = "custom_menu_items"             // 自定义菜单项（JSON 数组）
+	SettingKeyCustomEndpoints             = "custom_endpoints"              // 自定义端点列表（JSON 数组）
 
 	// 默认配置
 	SettingKeyDefaultConcurrency   = "default_concurrency"    // 新用户默认并发量

@@ -131,17 +131,14 @@ const props = withDefaults(defineProps<{
 const { t, locale } = useI18n()
 
 const subscriptionAllowances = computed(() => {
-  const rows: Array<{ remaining: number; groupName: string }> = []
+  const rows: Array<{ remaining: number; planName: string }> = []
   for (const subscription of props.subscriptionSummary?.subscriptions ?? []) {
-    const windows = [
-      [subscription.daily_used_usd, subscription.daily_limit_usd],
-      [subscription.weekly_used_usd, subscription.weekly_limit_usd],
-      [subscription.monthly_used_usd, subscription.monthly_limit_usd],
-    ] as const
-    for (const [used, limit] of windows) {
-      if (typeof limit === 'number' && limit > 0) {
-        rows.push({ remaining: Math.max(0, limit - (used ?? 0)), groupName: subscription.group_name })
-      }
+    const limit = subscription.cycle_limit_usd
+    if (typeof limit === 'number' && limit > 0) {
+      rows.push({
+        remaining: Math.max(0, limit - (subscription.cycle_used_usd ?? 0)),
+        planName: subscription.plan_name || `#${subscription.plan_id}`,
+      })
     }
   }
   return rows.sort((a, b) => a.remaining - b.remaining)
@@ -152,7 +149,7 @@ const allowanceUsesSubscription = computed(() =>
   subscriptionAllowances.value.length > 0 && (latestUsage.value?.billing_type === 1 || props.balance <= 0)
 )
 const primaryAllowance = computed(() => allowanceUsesSubscription.value ? subscriptionAllowances.value[0].remaining : props.balance)
-const activeSubscriptionLabel = computed(() => subscriptionAllowances.value[0]?.groupName || t('dashboard.overview.subscriptionBilling'))
+const activeSubscriptionLabel = computed(() => subscriptionAllowances.value[0]?.planName || t('dashboard.overview.subscriptionBilling'))
 const allowanceUnavailable = computed(() => props.accountDisabled
   || (!props.isSimple && primaryAllowance.value <= 0)
   || (props.isSimple && allowanceUsesSubscription.value && primaryAllowance.value <= 0))

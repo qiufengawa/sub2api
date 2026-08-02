@@ -36,10 +36,7 @@ func (UserSubscription) Mixin() []ent.Mixin {
 func (UserSubscription) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int64("user_id"),
-		field.Int64("group_id"),
-		field.Int64("plan_id").
-			Optional().
-			Nillable(),
+		field.Int64("plan_id"),
 
 		field.Time("starts_at").
 			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
@@ -110,11 +107,6 @@ func (UserSubscription) Edges() []ent.Edge {
 			Field("user_id").
 			Unique().
 			Required(),
-		edge.From("group", Group.Type).
-			Ref("subscriptions").
-			Field("group_id").
-			Unique().
-			Required(),
 		edge.From("assigned_by_user", User.Type).
 			Ref("assigned_subscriptions").
 			Field("assigned_by").
@@ -122,7 +114,8 @@ func (UserSubscription) Edges() []ent.Edge {
 		edge.From("plan", SubscriptionPlan.Type).
 			Ref("user_subscriptions").
 			Field("plan_id").
-			Unique(),
+			Unique().
+			Required(),
 		edge.To("usage_logs", UsageLog.Type),
 	}
 }
@@ -130,7 +123,6 @@ func (UserSubscription) Edges() []ent.Edge {
 func (UserSubscription) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("user_id"),
-		index.Fields("group_id"),
 		index.Fields("plan_id"),
 		index.Fields("status"),
 		index.Fields("expires_at"),
@@ -139,7 +131,7 @@ func (UserSubscription) Indexes() []ent.Index {
 		index.Fields("assigned_by"),
 		// 唯一约束通过部分索引实现（WHERE deleted_at IS NULL），支持软删除后重新订阅
 		// 见迁移文件 016_soft_delete_partial_unique_indexes.sql
-		index.Fields("user_id", "group_id"),
+		index.Fields("user_id", "plan_id"),
 		index.Fields("deleted_at"),
 	}
 }

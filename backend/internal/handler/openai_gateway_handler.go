@@ -2356,9 +2356,6 @@ func (h *OpenAIGatewayHandler) submitUsageRecordTask(parent context.Context, tas
 		if mode := h.usageRecordWorkerPool.Submit(task); mode != service.UsageRecordSubmitModeDropped {
 			return true
 		}
-		if h.cfg == nil || !h.cfg.SubscriptionGroupBillingEnabled() {
-			return false
-		}
 		logger.L().With(
 			zap.String("component", "handler.openai_gateway.usage"),
 		).Warn("openai.usage_record_task_billing_sync_fallback")

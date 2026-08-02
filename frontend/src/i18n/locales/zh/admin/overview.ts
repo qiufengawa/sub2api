@@ -499,7 +499,7 @@ export default {
         notes: '备注',
         role: '角色',
         groups: '分组',
-        subscriptions: '订阅分组',
+        subscriptions: '订阅套餐',
         balance: '余额',
         balancePlatformQuota: '余额(平台配额)',
         usage: '用量',

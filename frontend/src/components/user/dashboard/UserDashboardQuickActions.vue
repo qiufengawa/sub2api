@@ -103,15 +103,15 @@ const rows = computed<QuotaRow[]>(() => {
   const windowLabels = { daily: t('dashboard.overview.daily'), weekly: t('dashboard.overview.weekly'), monthly: t('dashboard.overview.monthly') }
 
   for (const subscription of props.subscriptionSummary?.subscriptions ?? []) {
-    const windows = [
-      ['daily', subscription.daily_used_usd, subscription.daily_limit_usd],
-      ['weekly', subscription.weekly_used_usd, subscription.weekly_limit_usd],
-      ['monthly', subscription.monthly_used_usd, subscription.monthly_limit_usd],
-    ] as const
-    for (const [window, used, limit] of windows) {
-      if (typeof limit === 'number' && limit >= 0) {
-        result.push(makeRow(`subscription-${subscription.id}-${window}`, `${subscription.group_name} · ${windowLabels[window]}`, subscription.expires_at ? t('dashboard.overview.expiresAt', { date: formatDate(subscription.expires_at) }) : '', used ?? 0, limit))
-      }
+    const limit = subscription.cycle_limit_usd
+    if (typeof limit === 'number' && limit >= 0) {
+      result.push(makeRow(
+        `subscription-${subscription.id}-cycle`,
+        subscription.plan_name || `#${subscription.plan_id}`,
+        subscription.expires_at ? t('dashboard.overview.expiresAt', { date: formatDate(subscription.expires_at) }) : '',
+        subscription.cycle_used_usd ?? 0,
+        limit,
+      ))
     }
   }
 

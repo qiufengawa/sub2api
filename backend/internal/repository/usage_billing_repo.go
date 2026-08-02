@@ -191,7 +191,7 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 			return err
 		}
 		if !settledReservation {
-			if err := applySubscriptionGroupBillingDecision(ctx, tx, cmd, result); err != nil {
+			if err := applyPlanCoverageBillingDecision(ctx, tx, cmd, result); err != nil {
 				return err
 			}
 		}
@@ -248,7 +248,7 @@ type subscriptionBillingCandidate struct {
 	walletFallbackEnabled bool
 }
 
-func applySubscriptionGroupBillingDecision(
+func applyPlanCoverageBillingDecision(
 	ctx context.Context,
 	tx *sql.Tx,
 	cmd *service.UsageBillingCommand,
@@ -394,16 +394,10 @@ func listSubscriptionBillingCandidates(
 			AND us.deleted_at IS NULL
 			AND us.status = 'active'
 			AND us.expires_at > $3
-			AND (
-				(us.plan_id IS NULL AND us.group_id = $2)
-				OR (
-					us.plan_id IS NOT NULL
-					AND EXISTS (
-						SELECT 1
-						FROM subscription_plan_groups spg
-						WHERE spg.plan_id = us.plan_id AND spg.group_id = $2
-					)
-				)
+			AND EXISTS (
+				SELECT 1
+				FROM subscription_plan_groups spg
+				WHERE spg.plan_id = us.plan_id AND spg.group_id = $2
 			)
 		ORDER BY us.expires_at ASC, us.id ASC
 		FOR UPDATE OF us

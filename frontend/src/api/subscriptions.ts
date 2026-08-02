@@ -14,15 +14,17 @@ export interface SubscriptionSummary {
   total_used_usd: number
   subscriptions: Array<{
     id: number
-    group_id: number
-    group_name: string
+    plan_id: number
+    plan_name: string
+    included_groups: Array<{
+      id: number
+      name: string
+      platform: string
+      rate_multiplier: number
+    }>
     status: string
-    daily_used_usd?: number
-    daily_limit_usd?: number
-    weekly_used_usd?: number
-    weekly_limit_usd?: number
-    monthly_used_usd?: number
-    monthly_limit_usd?: number
+    cycle_used_usd?: number
+    cycle_limit_usd?: number
     expires_at: string | null
   }>
 }

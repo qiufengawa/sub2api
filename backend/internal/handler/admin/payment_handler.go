@@ -141,7 +141,6 @@ type AdminPaymentOrderResult struct {
 	QRCodeImg           *string    `json:"qr_code_img,omitempty"`
 	OrderType           string     `json:"order_type"`
 	PlanID              *int64     `json:"plan_id,omitempty"`
-	SubscriptionGroupID *int64     `json:"subscription_group_id,omitempty"`
 	SubscriptionDays    *int       `json:"subscription_days,omitempty"`
 	ProviderInstanceID  *string    `json:"provider_instance_id,omitempty"`
 	ProviderKey         *string    `json:"provider_key,omitempty"`
@@ -198,7 +197,6 @@ func sanitizeAdminPaymentOrderForResponse(order *dbent.PaymentOrder) *AdminPayme
 		QRCodeImg:           order.QrCodeImg,
 		OrderType:           order.OrderType,
 		PlanID:              order.PlanID,
-		SubscriptionGroupID: order.SubscriptionGroupID,
 		SubscriptionDays:    order.SubscriptionDays,
 		ProviderInstanceID:  order.ProviderInstanceID,
 		ProviderKey:         order.ProviderKey,
@@ -360,14 +358,6 @@ func (h *PaymentHandler) ListPlans(c *gin.Context) {
 
 type AdminSubscriptionPlanResult struct {
 	ID                    int64                   `json:"id"`
-	GroupID               int64                   `json:"group_id"`
-	GroupPlatform         string                  `json:"group_platform,omitempty"`
-	GroupName             string                  `json:"group_name,omitempty"`
-	RateMultiplier        float64                 `json:"rate_multiplier,omitempty"`
-	DailyLimitUSD         *float64                `json:"daily_limit_usd,omitempty"`
-	WeeklyLimitUSD        *float64                `json:"weekly_limit_usd,omitempty"`
-	MonthlyLimitUSD       *float64                `json:"monthly_limit_usd,omitempty"`
-	ModelScopes           []string                `json:"supported_model_scopes,omitempty"`
 	IncludedGroups        []service.PlanGroupInfo `json:"included_groups"`
 	CycleQuotaUSD         *float64                `json:"cycle_quota_usd,omitempty"`
 	ResetIntervalSeconds  int                     `json:"reset_interval_seconds"`
@@ -393,18 +383,9 @@ func adminSubscriptionPlansForResponse(plans []*dbent.SubscriptionPlan, groupInf
 		if p == nil {
 			continue
 		}
-		gi := groupInfo[p.GroupID]
 		includedGroups := service.IncludedPlanGroupInfo(p, groupInfo)
 		result = append(result, AdminSubscriptionPlanResult{
 			ID:                    int64(p.ID),
-			GroupID:               p.GroupID,
-			GroupPlatform:         gi.Platform,
-			GroupName:             gi.Name,
-			RateMultiplier:        gi.RateMultiplier,
-			DailyLimitUSD:         gi.DailyLimitUSD,
-			WeeklyLimitUSD:        gi.WeeklyLimitUSD,
-			MonthlyLimitUSD:       gi.MonthlyLimitUSD,
-			ModelScopes:           gi.ModelScopes,
 			IncludedGroups:        includedGroups,
 			CycleQuotaUSD:         p.CycleQuotaUsd,
 			ResetIntervalSeconds:  p.ResetIntervalSeconds,

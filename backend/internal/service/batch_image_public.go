@@ -287,8 +287,7 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 	if err != nil {
 		return nil, err
 	}
-	resolveBillingSource := s.Config != nil && s.Config.SubscriptionGroupBillingEnabled()
-	if err := reserveBatchImageBalanceHold(ctx, s.BillingRepo, job, owner.GroupID, resolveBillingSource, requestHash); err != nil {
+	if err := reserveBatchImageBalanceHold(ctx, s.BillingRepo, job, owner.GroupID, true, requestHash); err != nil {
 		code := "BILLING_HOLD_FAILED"
 		if errors.Is(err, ErrBatchImageInsufficientBalance) {
 			code = "INSUFFICIENT_BALANCE"

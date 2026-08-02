@@ -87,8 +87,8 @@ SET balance = 82.36,
     updated_at = now()
 WHERE email = 'test@test.com';
 
--- Three provider subscriptions cover near-limit, healthy and unlimited states.
--- The Gemini group also unlocks the local batch-image preview key.
+-- Three real routing groups back near-limit, healthy and unlimited plans.
+-- The Gemini route also unlocks the local batch-image preview key.
 INSERT INTO groups (
     name, description, platform, rate_multiplier, is_exclusive, status,
     subscription_type, daily_limit_usd, weekly_limit_usd, monthly_limit_usd,
@@ -99,24 +99,24 @@ INSERT INTO groups (
 )
 VALUES
     (
-        'TEST-UI-SUB-企业版', '接近日额度上限，用于验证风险提示和紧凑进度行',
-        'openai', 1.00, true, 'active', 'subscription',
-        10.00, 45.00, 160.00, 30, true, '09:00', '18:00', 1.15,
+        'TEST-UI-SUB-企业版', 'OpenAI 生产路由，用于验证套餐覆盖和高峰倍率',
+        'openai', 1.00, false, 'active', 'standard',
+        NULL, NULL, NULL, 30, true, '09:00', '18:00', 1.15,
         false, false, 0.50, 0.60,
         '{"include":["gpt-5.4","gpt-4.1","o4-mini"]}',
         now() - interval '40 days', now()
     ),
     (
-        'TEST-UI-SUB-稳定版', '用量健康，用于验证常规订阅状态和多周期额度',
-        'anthropic', 0.90, true, 'active', 'subscription',
-        20.00, 80.00, 300.00, 30, false, '', '', 1.00,
+        'TEST-UI-SUB-稳定版', 'Anthropic 长文本路由，用于验证套餐覆盖和真实倍率',
+        'anthropic', 0.90, false, 'active', 'standard',
+        NULL, NULL, NULL, 30, false, '', '', 1.00,
         false, false, 0.50, 0.60,
         '{"include":["claude-sonnet-4-5","claude-opus-4-1"]}',
         now() - interval '20 days', now()
     ),
     (
-        'TEST-UI-SUB-无限版', '无限额度与批量图片，用于验证无上限订阅和任务工作台',
-        'gemini', 1.05, true, 'active', 'subscription',
+        'TEST-UI-SUB-无限版', 'Gemini 图片路由，用于验证无上限套餐和任务工作台',
+        'gemini', 1.05, false, 'active', 'standard',
         NULL, NULL, NULL, 90, false, '', '', 1.00,
         true, true, 0.45, 0.55,
         '{"include":["gemini-2.5-pro","gemini-2.5-flash"]}',
@@ -135,47 +135,63 @@ WHERE a.notes = 'SUB2API_UI_DEMO'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO subscription_plans (
-    group_id, name, description, price, original_price, validity_days,
+    name, description, price, original_price, validity_days,
     validity_unit, features, product_name, for_sale, sort_order, currency,
+    cycle_quota_usd, reset_interval_seconds, wallet_fallback_enabled,
     created_at, updated_at
 )
-SELECT g.id, v.name, v.description, v.price, v.original_price, v.validity_days,
+SELECT v.name, v.description, v.price, v.original_price, v.validity_days,
        v.validity_unit, v.features, v.product_name, true, v.sort_order, 'CNY',
+       v.cycle_quota_usd, v.reset_interval_seconds, v.wallet_fallback_enabled,
        now() - interval '20 days', now()
 FROM (VALUES
     ('企业月付', '适合稳定生产调用', 168.00::numeric, 198.00::numeric, 30, 'day',
-     '每日 $10；每周 $45；高峰倍率 1.15x', 'TEST-UI-PLAN-OPENAI', 10, 'TEST-UI-SUB-企业版'),
+     '每 7 天 $45；高峰倍率 1.15x', 'TEST-UI-PLAN-OPENAI', 10, 45.00::numeric, 604800, true),
     ('稳定月付', '适合长文本与数据分析', 228.00::numeric, 268.00::numeric, 30, 'day',
-     '每日 $20；每周 $80；月度 $300', 'TEST-UI-PLAN-ANTHROPIC', 20, 'TEST-UI-SUB-稳定版'),
+     '每 7 天 $80；按路由倍率计量', 'TEST-UI-PLAN-ANTHROPIC', 20, 80.00::numeric, 604800, true),
     ('视觉季付', '包含批量图片能力', 498.00::numeric, 568.00::numeric, 90, 'day',
-     '无周期额度上限；批量图片折扣', 'TEST-UI-PLAN-GEMINI', 30, 'TEST-UI-SUB-无限版')
+     '无周期额度上限；批量图片折扣', 'TEST-UI-PLAN-GEMINI', 30, NULL::numeric, 0, true)
 ) v(name, description, price, original_price, validity_days, validity_unit,
-    features, product_name, sort_order, group_name)
+    features, product_name, sort_order, cycle_quota_usd,
+    reset_interval_seconds, wallet_fallback_enabled);
+
+INSERT INTO subscription_plan_groups (plan_id, group_id)
+SELECT p.id, g.id
+FROM (VALUES
+    ('TEST-UI-PLAN-OPENAI',    'TEST-UI-SUB-企业版'),
+    ('TEST-UI-PLAN-ANTHROPIC', 'TEST-UI-SUB-稳定版'),
+    ('TEST-UI-PLAN-GEMINI',    'TEST-UI-SUB-无限版')
+) v(product_name, group_name)
+JOIN subscription_plans p ON p.product_name = v.product_name
 JOIN groups g ON g.name = v.group_name;
 
 INSERT INTO user_subscriptions (
-    user_id, group_id, starts_at, expires_at, status,
+    user_id, plan_id, starts_at, expires_at, status,
     daily_window_start, weekly_window_start, monthly_window_start,
     daily_usage_usd, weekly_usage_usd, monthly_usage_usd,
-    assigned_by, assigned_at, notes, created_at, updated_at
+    cycle_quota_usd, reset_interval_seconds, cycle_started_at,
+    cycle_usage_usd, wallet_fallback_enabled, assigned_by, assigned_at,
+    notes, created_at, updated_at
 )
 SELECT
-    u.id, g.id,
+    u.id, p.id,
     now() - make_interval(days => v.started_days),
     now() + make_interval(days => v.remaining_days),
     'active',
     date_trunc('day', now()), date_trunc('week', now()), date_trunc('month', now()),
     v.daily_usage, v.weekly_usage, v.monthly_usage,
+    p.cycle_quota_usd, p.reset_interval_seconds, date_trunc('week', now()),
+    v.cycle_usage, p.wallet_fallback_enabled,
     (SELECT id FROM users WHERE email = 'admin@admin.com' LIMIT 1),
     now() - make_interval(days => v.started_days),
     'SUB2API_TEST_UI_PREVIEW',
     now() - make_interval(days => v.started_days), now()
 FROM (VALUES
-    ('TEST-UI-SUB-企业版',  24,  6, 9.25::numeric, 31.80::numeric,  86.40::numeric),
-    ('TEST-UI-SUB-稳定版',  11, 26, 6.20::numeric, 24.50::numeric, 112.00::numeric),
-    ('TEST-UI-SUB-无限版',   5, 55, 0.00::numeric,  0.00::numeric,   0.00::numeric)
-) v(group_name, started_days, remaining_days, daily_usage, weekly_usage, monthly_usage)
-JOIN groups g ON g.name = v.group_name
+    ('TEST-UI-PLAN-OPENAI',    24,  6, 9.25::numeric, 31.80::numeric,  86.40::numeric, 42.50::numeric),
+    ('TEST-UI-PLAN-ANTHROPIC', 11, 26, 6.20::numeric, 24.50::numeric, 112.00::numeric, 24.50::numeric),
+    ('TEST-UI-PLAN-GEMINI',     5, 55, 0.00::numeric,  0.00::numeric,   0.00::numeric,  0.00::numeric)
+) v(product_name, started_days, remaining_days, daily_usage, weekly_usage, monthly_usage, cycle_usage)
+JOIN subscription_plans p ON p.product_name = v.product_name
 CROSS JOIN users u
 WHERE u.email = 'test@test.com';
 
@@ -243,10 +259,16 @@ WITH generated AS (
         LIMIT 1
     ) a ON true
     LEFT JOIN LATERAL (
-        SELECT id FROM user_subscriptions
-        WHERE user_id = (SELECT id FROM users WHERE email = 'test@test.com')
-          AND group_id = k.group_id
-          AND notes = 'SUB2API_TEST_UI_PREVIEW'
+        SELECT us.id
+        FROM user_subscriptions us
+        WHERE us.user_id = (SELECT id FROM users WHERE email = 'test@test.com')
+          AND us.notes = 'SUB2API_TEST_UI_PREVIEW'
+          AND EXISTS (
+              SELECT 1
+              FROM subscription_plan_groups spg
+              WHERE spg.plan_id = us.plan_id
+                AND spg.group_id = k.group_id
+          )
         LIMIT 1
     ) us ON true
 )
@@ -361,31 +383,31 @@ JOIN LATERAL (
 WHERE u.email = 'test@test.com';
 
 INSERT INTO redeem_codes (
-    code, type, value, status, used_by, used_at, notes, group_id,
+    code, type, value, status, used_by, used_at, notes, plan_id,
     validity_days, expires_at, created_at
 )
 SELECT v.code, v.type, v.value, 'used', u.id,
        now() - make_interval(hours => v.age_hours),
        'SUB2API_TEST_UI_PREVIEW - ' || v.notes,
-       CASE WHEN v.group_name <> '' THEN g.id END,
+       CASE WHEN v.product_name <> '' THEN p.id END,
        v.validity_days, now() + interval '90 days',
        now() - make_interval(hours => v.age_hours + 2)
 FROM (VALUES
     ('TEST-UI-BALANCE-50', 'balance', 50::numeric, '余额兑换成功', '', 30, 4),
     ('TEST-UI-CONCURRENCY', 'concurrency', 3::numeric, '并发额度兑换成功', '', 30, 26),
-    ('TEST-UI-SUB-30D', 'subscription', 1::numeric, 'Claude 团队订阅', 'TEST-UI-SUB-稳定版', 30, 74),
+    ('TEST-UI-SUB-30D', 'subscription', 1::numeric, 'Claude 团队订阅', 'TEST-UI-PLAN-ANTHROPIC', 30, 74),
     ('TEST-UI-ADMIN-BAL', 'admin_balance', -5::numeric, '管理员账务校正', '', 30, 122),
     ('TEST-UI-ADMIN-CONC', 'admin_concurrency', 1::numeric, '管理员并发调整', '', 30, 194)
-) v(code, type, value, notes, group_name, validity_days, age_hours)
+) v(code, type, value, notes, product_name, validity_days, age_hours)
 CROSS JOIN users u
-LEFT JOIN groups g ON g.name = v.group_name
+LEFT JOIN subscription_plans p ON p.product_name = v.product_name
 WHERE u.email = 'test@test.com';
 
 -- Complete order status palette for the user's order history and result pages.
 INSERT INTO payment_orders (
     user_id, user_email, user_name, user_notes, amount, pay_amount, fee_rate,
     recharge_code, payment_type, payment_trade_no, order_type, plan_id,
-    subscription_group_id, subscription_days, status, refund_amount,
+    subscription_plan_snapshot, subscription_days, status, refund_amount,
     refund_reason, refund_at, refund_requested_at, refund_request_reason,
     refund_requested_by, expires_at, paid_at, completed_at, failed_at,
     failed_reason, client_ip, src_host, src_url, out_trade_no,
@@ -399,8 +421,18 @@ SELECT
     CASE WHEN v.status IN ('PAID','COMPLETED','REFUND_REQUESTED','PARTIALLY_REFUNDED','REFUNDED') THEN 'TEST-UI-PAY-' || v.seq::text ELSE '' END,
     v.order_type,
     CASE WHEN v.order_type = 'subscription' THEN sp.id END,
-    CASE WHEN v.order_type = 'subscription' THEN sp.group_id END,
-    CASE WHEN v.order_type = 'subscription' THEN 30 END,
+    CASE WHEN v.order_type = 'subscription' THEN jsonb_build_object(
+        'schema_version', 2,
+        'plan_id', sp.id,
+        'plan_name', sp.name,
+        'included_group_ids', sp.included_group_ids,
+        'included_group_names', sp.included_group_names,
+        'cycle_quota_usd', sp.cycle_quota_usd,
+        'reset_interval_seconds', sp.reset_interval_seconds,
+        'wallet_fallback_enabled', sp.wallet_fallback_enabled,
+        'validity_days', sp.validity_days
+    ) END,
+    CASE WHEN v.order_type = 'subscription' THEN sp.validity_days END,
     v.status, v.refund_amount,
     CASE WHEN v.status IN ('PARTIALLY_REFUNDED','REFUNDED') THEN '套餐调整' END,
     CASE WHEN v.status IN ('PARTIALLY_REFUNDED','REFUNDED') THEN now() - interval '1 day' END,
@@ -429,10 +461,34 @@ FROM (VALUES
 ) v(seq, status, order_type, payment_type, amount, pay_amount, fee_rate, refund_amount, age_days)
 CROSS JOIN users u
 JOIN LATERAL (
-    SELECT id, group_id FROM subscription_plans
-    WHERE product_name = CASE WHEN v.seq = 8 THEN 'TEST-UI-PLAN-GEMINI'
-                              WHEN v.seq = 5 THEN 'TEST-UI-PLAN-ANTHROPIC'
-                              ELSE 'TEST-UI-PLAN-OPENAI' END
+    SELECT
+        p.id,
+        p.name,
+        p.cycle_quota_usd,
+        p.reset_interval_seconds,
+        p.wallet_fallback_enabled,
+        CASE lower(p.validity_unit)
+            WHEN 'month' THEN p.validity_days * 30
+            WHEN 'months' THEN p.validity_days * 30
+            WHEN 'year' THEN p.validity_days * 365
+            WHEN 'years' THEN p.validity_days * 365
+            ELSE p.validity_days
+        END AS validity_days,
+        COALESCE((
+            SELECT jsonb_agg(spg.group_id ORDER BY spg.group_id)
+            FROM subscription_plan_groups spg
+            WHERE spg.plan_id = p.id
+        ), '[]'::jsonb) AS included_group_ids,
+        COALESCE((
+            SELECT jsonb_agg(g.name ORDER BY spg.group_id)
+            FROM subscription_plan_groups spg
+            JOIN groups g ON g.id = spg.group_id
+            WHERE spg.plan_id = p.id
+        ), '[]'::jsonb) AS included_group_names
+    FROM subscription_plans p
+    WHERE p.product_name = CASE WHEN v.seq = 8 THEN 'TEST-UI-PLAN-GEMINI'
+                                WHEN v.seq = 5 THEN 'TEST-UI-PLAN-ANTHROPIC'
+                                ELSE 'TEST-UI-PLAN-OPENAI' END
     LIMIT 1
 ) sp ON true
 WHERE u.email = 'test@test.com';

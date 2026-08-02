@@ -7,16 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
 type revokeCacheUserSubRepoStub struct {
 	userSubRepoNoop
 
-	sub            *UserSubscription
-	deleted        bool
-	getActiveCalls int
+	sub     *UserSubscription
+	deleted bool
 }
 
 func (r *revokeCacheUserSubRepoStub) GetByID(_ context.Context, id int64) (*UserSubscription, error) {
@@ -35,44 +33,34 @@ func (r *revokeCacheUserSubRepoStub) Delete(_ context.Context, id int64) error {
 	return nil
 }
 
-func (r *revokeCacheUserSubRepoStub) GetActiveByUserIDAndGroupID(_ context.Context, userID, groupID int64) (*UserSubscription, error) {
-	r.getActiveCalls++
-	if r.deleted || r.sub == nil || r.sub.UserID != userID || r.sub.GroupID != groupID {
-		return nil, ErrSubscriptionNotFound
-	}
-	cp := *r.sub
-	return &cp, nil
+type revokeCacheSpy struct {
+	billingCacheWorkerStub
+	invalidated [][2]int64
 }
 
-func TestRevokeSubscription_InvalidatesL1CacheSynchronously(t *testing.T) {
+func (s *revokeCacheSpy) InvalidateSubscriptionCache(_ context.Context, userID, groupID int64) error {
+	s.invalidated = append(s.invalidated, [2]int64{userID, groupID})
+	return nil
+}
+
+func TestRevokeSubscription_InvalidatesEveryCoveredGroupSynchronously(t *testing.T) {
 	repo := &revokeCacheUserSubRepoStub{
 		sub: &UserSubscription{
-			ID:        1,
-			UserID:    10,
-			GroupID:   20,
-			Status:    SubscriptionStatusActive,
-			ExpiresAt: time.Now().Add(time.Hour),
+			ID:             1,
+			UserID:         10,
+			PlanID:         30,
+			Status:         SubscriptionStatusActive,
+			ExpiresAt:      time.Now().Add(time.Hour),
+			IncludedGroups: []Group{{ID: 20}, {ID: 21}},
 		},
 	}
-	svc := NewSubscriptionService(groupRepoNoop{}, repo, nil, nil, &config.Config{
-		SubscriptionCache: config.SubscriptionCacheConfig{
-			L1Size:       16,
-			L1TTLSeconds: 60,
-		},
-	})
-	t.Cleanup(svc.Stop)
+	cache := &revokeCacheSpy{}
+	svc := NewSubscriptionService(groupRepoNoop{}, repo, &BillingCacheService{cache: cache}, nil, nil)
 
-	_, err := svc.GetActiveSubscription(context.Background(), 10, 20)
+	err := svc.RevokeSubscription(context.Background(), 1)
 	require.NoError(t, err)
-	svc.subCacheL1.Wait()
-	require.Equal(t, 1, repo.getActiveCalls)
-
-	err = svc.RevokeSubscription(context.Background(), 1)
-	require.NoError(t, err)
-
-	_, err = svc.GetActiveSubscription(context.Background(), 10, 20)
-	require.ErrorIs(t, err, ErrSubscriptionNotFound)
-	require.Equal(t, 2, repo.getActiveCalls, "撤销后应回源确认订阅已不存在，不能命中旧 L1")
+	require.True(t, repo.deleted)
+	require.Equal(t, [][2]int64{{10, 20}, {10, 21}}, cache.invalidated)
 }
 
 type restoreUserSubRepoStub struct {
@@ -92,8 +80,30 @@ func (r *restoreUserSubRepoStub) GetByIDIncludeDeleted(_ context.Context, id int
 	return &cp, nil
 }
 
-func (r *restoreUserSubRepoStub) ExistsActiveByUserIDAndGroupID(context.Context, int64, int64) (bool, error) {
-	return r.existsActive, nil
+func (r *restoreUserSubRepoStub) GetByUserIDAndPlanID(_ context.Context, userID, planID int64) (*UserSubscription, error) {
+	if !r.existsActive || r.sub == nil || r.sub.UserID != userID || r.sub.PlanID != planID {
+		return nil, ErrSubscriptionNotFound
+	}
+	cp := *r.sub
+	cp.ID++
+	cp.DeletedAt = nil
+	return &cp, nil
+}
+
+func (r *restoreUserSubRepoStub) GetActiveCoveringGroup(context.Context, int64, int64) (*UserSubscription, error) {
+	panic("unexpected GetActiveCoveringGroup call")
+}
+
+func (r *restoreUserSubRepoStub) ListActiveCoveringGroup(context.Context, int64, int64) ([]UserSubscription, error) {
+	panic("unexpected ListActiveCoveringGroup call")
+}
+
+func (r *restoreUserSubRepoStub) ExistsActiveCoveringGroup(context.Context, int64, int64) (bool, error) {
+	panic("unexpected ExistsActiveCoveringGroup call")
+}
+
+func (r *restoreUserSubRepoStub) UpdateBillingSnapshot(context.Context, int64, SubscriptionBillingSnapshot, bool) error {
+	panic("unexpected UpdateBillingSnapshot call")
 }
 
 func (r *restoreUserSubRepoStub) Restore(_ context.Context, id int64, restoredStatus string) (*UserSubscription, error) {
@@ -115,7 +125,7 @@ func TestRestoreSubscription_ExpiredActiveRestoresAsExpired(t *testing.T) {
 		sub: &UserSubscription{
 			ID:        1,
 			UserID:    10,
-			GroupID:   20,
+			PlanID:    20,
 			Status:    SubscriptionStatusActive,
 			ExpiresAt: time.Now().Add(-time.Minute),
 			DeletedAt: &deletedAt,
@@ -137,7 +147,7 @@ func TestRestoreSubscription_NotRevokedReturnsConflict(t *testing.T) {
 		sub: &UserSubscription{
 			ID:        1,
 			UserID:    10,
-			GroupID:   20,
+			PlanID:    20,
 			Status:    SubscriptionStatusActive,
 			ExpiresAt: time.Now().Add(time.Hour),
 		},
@@ -157,7 +167,7 @@ func TestRestoreSubscription_LiveSubscriptionConflict(t *testing.T) {
 		sub: &UserSubscription{
 			ID:        1,
 			UserID:    10,
-			GroupID:   20,
+			PlanID:    20,
 			Status:    SubscriptionStatusExpired,
 			ExpiresAt: time.Now().Add(-time.Hour),
 			DeletedAt: &deletedAt,

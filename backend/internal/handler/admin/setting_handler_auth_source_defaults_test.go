@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -19,6 +20,17 @@ import (
 type settingHandlerRepoStub struct {
 	values      map[string]string
 	lastUpdates map[string]string
+}
+
+type settingHandlerPlanReaderStub struct {
+	byID map[int64]*dbent.SubscriptionPlan
+}
+
+func (s *settingHandlerPlanReaderStub) GetPlan(_ context.Context, id int64) (*dbent.SubscriptionPlan, error) {
+	if plan := s.byID[id]; plan != nil {
+		return plan, nil
+	}
+	return nil, errors.New("plan not found")
 }
 
 func (s *settingHandlerRepoStub) Get(ctx context.Context, key string) (*service.Setting, error) {
@@ -132,11 +144,14 @@ func TestSettingHandler_GetSettings_InjectsAuthSourceDefaults(t *testing.T) {
 			service.SettingKeyPromoCodeEnabled:                    "true",
 			service.SettingKeyAuthSourceDefaultEmailBalance:       "9.5",
 			service.SettingKeyAuthSourceDefaultEmailConcurrency:   "8",
-			service.SettingKeyAuthSourceDefaultEmailSubscriptions: `[{"group_id":31,"validity_days":15}]`,
+			service.SettingKeyAuthSourceDefaultEmailSubscriptions: `[{"plan_id":31,"validity_days":15}]`,
 			service.SettingKeyForceEmailOnThirdPartySignup:        "true",
 		},
 	}
 	svc := service.NewSettingService(repo, &config.Config{Default: config.DefaultConfig{UserConcurrency: 5}})
+	svc.SetDefaultSubscriptionPlanReader(&settingHandlerPlanReaderStub{byID: map[int64]*dbent.SubscriptionPlan{
+		31: {ID: 31, Edges: dbent.SubscriptionPlanEdges{Groups: []*dbent.Group{{ID: 301}}}},
+	}})
 	handler := NewSettingHandler(svc, nil, nil, nil, nil, nil, nil)
 
 	rec := httptest.NewRecorder()
@@ -167,13 +182,16 @@ func TestSettingHandler_UpdateSettings_PreservesOmittedAuthSourceDefaults(t *tes
 			service.SettingKeyPromoCodeEnabled:                       "true",
 			service.SettingKeyAuthSourceDefaultEmailBalance:          "9.5",
 			service.SettingKeyAuthSourceDefaultEmailConcurrency:      "8",
-			service.SettingKeyAuthSourceDefaultEmailSubscriptions:    `[{"group_id":31,"validity_days":15}]`,
+			service.SettingKeyAuthSourceDefaultEmailSubscriptions:    `[{"plan_id":31,"validity_days":15}]`,
 			service.SettingKeyAuthSourceDefaultEmailGrantOnSignup:    "true",
 			service.SettingKeyAuthSourceDefaultEmailGrantOnFirstBind: "false",
 			service.SettingKeyForceEmailOnThirdPartySignup:           "true",
 		},
 	}
 	svc := service.NewSettingService(repo, &config.Config{Default: config.DefaultConfig{UserConcurrency: 5}})
+	svc.SetDefaultSubscriptionPlanReader(&settingHandlerPlanReaderStub{byID: map[int64]*dbent.SubscriptionPlan{
+		31: {ID: 31, Edges: dbent.SubscriptionPlanEdges{Groups: []*dbent.Group{{ID: 301}}}},
+	}})
 	handler := NewSettingHandler(svc, nil, nil, nil, nil, nil, nil)
 
 	body := map[string]any{
@@ -194,7 +212,7 @@ func TestSettingHandler_UpdateSettings_PreservesOmittedAuthSourceDefaults(t *tes
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, "12.75000000", repo.values[service.SettingKeyAuthSourceDefaultEmailBalance])
 	require.Equal(t, "8", repo.values[service.SettingKeyAuthSourceDefaultEmailConcurrency])
-	require.Equal(t, `[{"group_id":31,"validity_days":15}]`, repo.values[service.SettingKeyAuthSourceDefaultEmailSubscriptions])
+	require.Equal(t, `[{"plan_id":31,"validity_days":15}]`, repo.values[service.SettingKeyAuthSourceDefaultEmailSubscriptions])
 	require.Equal(t, "true", repo.values[service.SettingKeyForceEmailOnThirdPartySignup])
 
 	var resp response.Response
@@ -451,7 +469,7 @@ func TestSettingHandler_UpdateSettings_DoesNotPersistPartialSystemSettingsWhenAu
 			service.SettingKeyPromoCodeEnabled:                    "true",
 			service.SettingKeyAuthSourceDefaultEmailBalance:       "9.5",
 			service.SettingKeyAuthSourceDefaultEmailConcurrency:   "8",
-			service.SettingKeyAuthSourceDefaultEmailSubscriptions: `[{"group_id":31,"validity_days":15}]`,
+			service.SettingKeyAuthSourceDefaultEmailSubscriptions: `[{"plan_id":31,"validity_days":15}]`,
 		},
 		err: errors.New("write auth source defaults failed"),
 	}
@@ -496,7 +514,7 @@ func TestDiffSettings_IncludesAuthSourceDefaultsAndForceEmail(t *testing.T) {
 			Email: service.ProviderDefaultGrantSettings{
 				Balance:          12.5,
 				Concurrency:      7,
-				Subscriptions:    []service.DefaultSubscriptionSetting{{GroupID: 21, ValidityDays: 30}},
+				Subscriptions:    []service.DefaultSubscriptionSetting{{PlanID: 21, ValidityDays: 30}},
 				GrantOnSignup:    false,
 				GrantOnFirstBind: true,
 			},

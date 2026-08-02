@@ -17,12 +17,9 @@ export interface RedeemHistoryItem {
   // Notes from admin for admin_balance/admin_concurrency types
   notes?: string
   // Subscription-specific fields
-  group_id?: number
+  plan_id?: number
+  plan_name?: string
   validity_days?: number
-  group?: {
-    id: number
-    name: string
-  }
 }
 
 /**
@@ -36,6 +33,9 @@ export async function redeem(code: string): Promise<{
   value: number
   new_balance?: number
   new_concurrency?: number
+  plan_id?: number
+  plan_name?: string
+  validity_days?: number
 }> {
   const payload: RedeemCodeRequest = { code }
 
@@ -45,6 +45,9 @@ export async function redeem(code: string): Promise<{
     value: number
     new_balance?: number
     new_concurrency?: number
+    plan_id?: number
+    plan_name?: string
+    validity_days?: number
   }>('/redeem', payload)
 
   return data

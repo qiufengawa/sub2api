@@ -126,22 +126,24 @@ function checkoutInfoWithPlansFixture(options: {
   const base = checkoutInfoFixture(options.checkout).data
   const plan: SubscriptionPlan = {
     id: 7,
-    group_id: 3,
+    included_groups: [{
+      id: 3,
+      name: 'OpenAI',
+      platform: 'openai',
+      rate_multiplier: 1,
+    }],
+    cycle_quota_usd: null,
+    reset_interval_seconds: 0,
+    wallet_fallback_enabled: false,
     name: 'Starter',
     description: '',
     price: 128,
     original_price: 0,
     validity_days: 30,
     validity_unit: 'day',
-    rate_multiplier: 1,
-    daily_limit_usd: null,
-    weekly_limit_usd: null,
-    monthly_limit_usd: null,
     features: [],
-    group_platform: 'openai',
     sort_order: 1,
     for_sale: true,
-    group_name: 'OpenAI',
     ...options.plan,
   }
 
@@ -205,7 +207,7 @@ async function mountSubscriptionConfirm(options: Parameters<typeof checkoutInfoW
   routeState.path = '/purchase'
   routeState.query = {
     tab: 'subscription',
-    group: '3',
+    plan_id: '7',
   }
   routerReplace.mockReset().mockResolvedValue(undefined)
   routerPush.mockReset().mockResolvedValue(undefined)

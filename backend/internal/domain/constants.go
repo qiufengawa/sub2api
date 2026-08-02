@@ -56,10 +56,11 @@ const (
 	AdjustmentTypeAdminConcurrency = "admin_concurrency" // 管理员调整并发数
 )
 
-// Group subscription type constants
+// Group subscription type constants. "subscription" is accepted only by
+// legacy import/migration paths; runtime groups are always standard routes.
 const (
-	SubscriptionTypeStandard     = "standard"     // 标准计费模式（按余额扣费）
-	SubscriptionTypeSubscription = "subscription" // 订阅模式（按限额控制）
+	SubscriptionTypeStandard     = "standard"
+	SubscriptionTypeSubscription = "subscription"
 )
 
 // Subscription status constants

@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -47,7 +46,6 @@ func (s *SettingService) UpdateSettingsOmitting(ctx context.Context, settings *S
 	if err := s.settingRepo.SetMultiple(ctx, updates); err != nil {
 		return err
 	}
-	s.publishSubscriptionGroupBillingUpdate(updates)
 	s.refreshCachedSettingsAfterWrite(ctx, settings, omitted)
 	return nil
 }
@@ -78,7 +76,6 @@ func (s *SettingService) UpdateSettingsWithAuthSourceDefaultsOmitting(ctx contex
 	if err := s.settingRepo.SetMultiple(ctx, updates); err != nil {
 		return err
 	}
-	s.publishSubscriptionGroupBillingUpdate(updates)
 	s.refreshCachedSettingsAfterWrite(ctx, settings, omitted)
 	return nil
 }
@@ -101,7 +98,7 @@ func (s *SettingService) refreshCachedSettingsAfterWrite(ctx context.Context, se
 }
 
 func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, settings *SystemSettings) (map[string]string, error) {
-	if err := s.validateDefaultSubscriptionGroups(ctx, settings.DefaultSubscriptions); err != nil {
+	if err := s.validateDefaultSubscriptionPlans(ctx, settings.DefaultSubscriptions); err != nil {
 		return nil, err
 	}
 	normalizedWhitelist, err := NormalizeRegistrationEmailSuffixWhitelist(settings.RegistrationEmailSuffixWhitelist)
@@ -326,7 +323,6 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyHideCcsImportButton] = strconv.FormatBool(settings.HideCcsImportButton)
 	updates[SettingKeyPurchaseSubscriptionEnabled] = strconv.FormatBool(settings.PurchaseSubscriptionEnabled)
 	updates[SettingKeyPurchaseSubscriptionURL] = strings.TrimSpace(settings.PurchaseSubscriptionURL)
-	updates[SettingKeySubscriptionGroupBillingEnabled] = strconv.FormatBool(settings.SubscriptionGroupBillingEnabled)
 	tableDefaultPageSize, tablePageSizeOptions := normalizeTablePreferences(
 		settings.TableDefaultPageSize,
 		settings.TablePageSizeOptions,
@@ -494,15 +490,6 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	return updates, nil
 }
 
-func (s *SettingService) publishSubscriptionGroupBillingUpdate(updates map[string]string) {
-	if s == nil || s.cfg == nil {
-		return
-	}
-	if value, ok := updates[SettingKeySubscriptionGroupBillingEnabled]; ok {
-		s.cfg.SetSubscriptionGroupBillingEnabled(value == "true")
-	}
-}
-
 // validateDefaultPlatformQuotaMap 校验 platform quota map 的合法性：
 // 平台名须在 AllowedQuotaPlatforms 白名单内，每个非 nil 上限须 finite 且 >= 0。
 // 系统层和 auth-source 层共用此 helper。
@@ -537,7 +524,7 @@ func (s *SettingService) buildAuthSourceDefaultUpdates(ctx context.Context, sett
 		settings.Google.Subscriptions,
 		settings.DingTalk.Subscriptions,
 	} {
-		if err := s.validateDefaultSubscriptionGroups(ctx, subscriptions); err != nil {
+		if err := s.validateDefaultSubscriptionPlans(ctx, subscriptions); err != nil {
 			return nil, err
 		}
 	}
@@ -670,40 +657,33 @@ func (s *SettingService) defaultRewriteMessageCacheControl() bool {
 	return false
 }
 
-func (s *SettingService) validateDefaultSubscriptionGroups(ctx context.Context, items []DefaultSubscriptionSetting) error {
+func (s *SettingService) validateDefaultSubscriptionPlans(ctx context.Context, items []DefaultSubscriptionSetting) error {
 	if len(items) == 0 {
 		return nil
 	}
 
 	checked := make(map[int64]struct{}, len(items))
 	for _, item := range items {
-		if item.GroupID <= 0 {
-			continue
-		}
-		if _, ok := checked[item.GroupID]; ok {
-			return ErrDefaultSubGroupDuplicate.WithMetadata(map[string]string{
-				"group_id": strconv.FormatInt(item.GroupID, 10),
+		if item.PlanID <= 0 || item.ValidityDays <= 0 || item.ValidityDays > MaxValidityDays {
+			return ErrDefaultSubscriptionPlanInvalid.WithMetadata(map[string]string{
+				"plan_id": strconv.FormatInt(item.PlanID, 10),
 			})
 		}
-		checked[item.GroupID] = struct{}{}
-		if s.defaultSubGroupReader == nil {
-			continue
-		}
-
-		group, err := s.defaultSubGroupReader.GetByID(ctx, item.GroupID)
-		if err != nil {
-			if errors.Is(err, ErrGroupNotFound) {
-				return ErrDefaultSubGroupInvalid.WithMetadata(map[string]string{
-					"group_id": strconv.FormatInt(item.GroupID, 10),
-				})
-			}
-			return fmt.Errorf("get default subscription group %d: %w", item.GroupID, err)
-		}
-		if !group.IsSubscriptionType() {
-			return ErrDefaultSubGroupInvalid.WithMetadata(map[string]string{
-				"group_id": strconv.FormatInt(item.GroupID, 10),
+		if _, ok := checked[item.PlanID]; ok {
+			return ErrDefaultSubscriptionPlanDuplicate.WithMetadata(map[string]string{
+				"plan_id": strconv.FormatInt(item.PlanID, 10),
 			})
 		}
+		if s == nil || s.defaultSubPlanReader == nil {
+			return infraerrors.InternalServer("DEFAULT_SUBSCRIPTION_PLAN_READER_UNAVAILABLE", "subscription plan validation is unavailable")
+		}
+		plan, err := s.defaultSubPlanReader.GetPlan(ctx, item.PlanID)
+		if err != nil || plan == nil || len(plan.Edges.Groups) == 0 {
+			return ErrDefaultSubscriptionPlanInvalid.WithMetadata(map[string]string{
+				"plan_id": strconv.FormatInt(item.PlanID, 10),
+			})
+		}
+		checked[item.PlanID] = struct{}{}
 	}
 
 	return nil

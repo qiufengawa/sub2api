@@ -10,7 +10,7 @@ export interface UserAvailableGroup {
   id: number
   name: string
   platform: string
-  /** 'standard' | 'subscription' — 订阅分组视觉加深，和 API 密钥页保持一致。 */
+  /** 旧客户端协议兼容字段；新运行时分组固定为 standard。 */
   subscription_type: string
   /** 分组默认倍率。用户专属倍率（若有）通过 /groups/rates 获取后在前端 join。 */
   rate_multiplier: number

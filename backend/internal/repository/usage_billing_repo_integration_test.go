@@ -54,7 +54,6 @@ func newIntegrationSubscriptionBillingFixture(t *testing.T, quota float64) integ
 		Name:    "reservation-sub",
 	})
 	plan, err := client.SubscriptionPlan.Create().
-		SetGroupID(group.ID).
 		AddGroupIDs(group.ID).
 		SetName("reservation-plan-" + uuid.NewString()).
 		SetPrice(1).
@@ -68,7 +67,6 @@ func newIntegrationSubscriptionBillingFixture(t *testing.T, quota float64) integ
 	now := time.Now().UTC()
 	subscription, err := client.UserSubscription.Create().
 		SetUserID(user.ID).
-		SetGroupID(group.ID).
 		SetPlanID(plan.ID).
 		SetStartsAt(now).
 		SetExpiresAt(now.Add(28 * 24 * time.Hour)).
@@ -169,9 +167,15 @@ func TestUsageBillingRepositoryApply_DeduplicatesSubscriptionBilling(t *testing.
 		Key:     "sk-usage-billing-sub-" + uuid.NewString(),
 		Name:    "billing-sub",
 	})
+	plan, err := client.SubscriptionPlan.Create().
+		SetName("usage-billing-plan-" + uuid.NewString()).
+		SetPrice(0).
+		AddGroupIDs(group.ID).
+		Save(ctx)
+	require.NoError(t, err)
 	subscription := mustCreateSubscription(t, client, &service.UserSubscription{
-		UserID:  user.ID,
-		GroupID: group.ID,
+		UserID: user.ID,
+		PlanID: plan.ID,
 	})
 
 	requestID := uuid.NewString()

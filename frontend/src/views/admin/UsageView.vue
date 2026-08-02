@@ -607,7 +607,7 @@ const exportToExcel = async () => {
         log.upstream_model || '', formatReasoningEffort(log.reasoning_effort), log.group?.name || '',
         log.inbound_endpoint || '', log.upstream_endpoint || '', getRequestTypeLabel(log),
         log.billing_source || 'legacy',
-        log.subscription?.plan_name || log.subscription?.group?.name || (log.subscription_id ? `#${log.subscription_id}` : ''),
+        log.subscription?.plan_name || (log.subscription?.plan_id ? `#${log.subscription.plan_id}` : '') || (log.subscription_id ? `#${log.subscription_id}` : ''),
         log.billing_preference || '', log.billing_fallback_reason || '',
         log.input_tokens, log.output_tokens, log.cache_read_tokens, log.cache_creation_tokens,
         log.input_cost?.toFixed(6) || '0.000000', log.output_cost?.toFixed(6) || '0.000000',

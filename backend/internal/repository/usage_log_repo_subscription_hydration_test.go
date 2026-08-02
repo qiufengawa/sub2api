@@ -24,7 +24,6 @@ func TestUsageLogHydrationPreservesDeletedSubscriptionHistory(t *testing.T) {
 	group, err := client.Group.Create().SetName("historical-gpt-group").Save(ctx)
 	require.NoError(t, err)
 	plan, err := client.SubscriptionPlan.Create().
-		SetGroupID(group.ID).
 		SetName("Historical Standard").
 		SetPrice(10).
 		AddGroupIDs(group.ID).
@@ -38,7 +37,6 @@ func TestUsageLogHydrationPreservesDeletedSubscriptionHistory(t *testing.T) {
 	now := time.Now().UTC()
 	subscription, err := client.UserSubscription.Create().
 		SetUserID(user.ID).
-		SetGroupID(group.ID).
 		SetPlanID(plan.ID).
 		SetStartsAt(now.Add(-time.Hour)).
 		SetExpiresAt(now.Add(time.Hour)).
@@ -61,8 +59,6 @@ func TestUsageLogHydrationPreservesDeletedSubscriptionHistory(t *testing.T) {
 	require.NotNil(t, logs[0].Subscription)
 	require.Equal(t, service.SubscriptionStatusRevoked, logs[0].Subscription.Status)
 	require.Equal(t, "Historical Standard", logs[0].Subscription.PlanName)
-	require.NotNil(t, logs[0].Subscription.Group)
-	require.Equal(t, "historical-gpt-group", logs[0].Subscription.Group.Name)
 	require.Len(t, logs[0].Subscription.IncludedGroups, 1)
 	require.Equal(t, group.ID, logs[0].Subscription.IncludedGroups[0].ID)
 }

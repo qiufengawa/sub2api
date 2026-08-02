@@ -27,7 +27,7 @@ func catalogTestRequest() PaymentCatalogImportRequest {
 		},
 		Defaults: PaymentCatalogImportDefaults{
 			Platform:         PlatformComposite,
-			SubscriptionType: SubscriptionTypeSubscription,
+			SubscriptionType: SubscriptionTypeStandard,
 			RateMultiplier:   floatPtr(1),
 			IsExclusive:      catalogBoolPtr(true),
 			Status:           StatusActive,
@@ -38,7 +38,7 @@ func catalogTestRequest() PaymentCatalogImportRequest {
 		},
 		Groups: []PaymentCatalogImportGroup{{
 			Key:                 "lite",
-			Name:                "Lite subscription",
+			Name:                "Lite routing group",
 			Description:         "Weekly quota",
 			WeeklyLimitUSD:      &weekly,
 			MonthlyLimitUSD:     &monthly,
@@ -46,7 +46,7 @@ func catalogTestRequest() PaymentCatalogImportRequest {
 			SortOrder:           &sortOrder,
 		}},
 		Plans: []PaymentCatalogImportPlan{{
-			GroupKey:              "lite",
+			IncludedGroupKeys:     []string{"lite"},
 			CycleQuotaUSD:         &cycleQuota,
 			ResetIntervalSeconds:  604800,
 			WalletFallbackEnabled: catalogBoolPtr(false),
@@ -88,7 +88,7 @@ func newCatalogImportTestService(t *testing.T) (*PaymentConfigService, *dbent.Cl
 func TestPaymentCatalogImportValidationRejectsDuplicatesAndSelfSource(t *testing.T) {
 	svc := &PaymentConfigService{}
 	req := catalogTestRequest()
-	req.Groups[0].CopyAccountsFrom = []string{"Lite subscription"}
+	req.Groups[0].CopyAccountsFrom = []string{"Lite routing group"}
 	req.Groups = append(req.Groups, req.Groups[0])
 	req.Groups[1].Key = "lite-copy"
 	req.Plans = append(req.Plans, req.Plans[0])
@@ -111,22 +111,56 @@ func TestPaymentCatalogImportValidationRejectsDuplicatesAndSelfSource(t *testing
 	}
 }
 
-func TestPaymentCatalogImportKeepsLegacySingleGroupPlansCompatible(t *testing.T) {
-	req := catalogTestRequest()
-	req.Plans[0].IncludedGroupKeys = nil
-	req.Plans[0].CycleQuotaUSD = nil
-	req.Plans[0].ResetIntervalSeconds = 0
-	req.Plans[0].WalletFallbackEnabled = nil
+func TestPaymentCatalogImportMigratesLegacySubscriptionGroupType(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*PaymentCatalogImportRequest)
+	}{
+		{
+			name: "defaults layer",
+			mutate: func(req *PaymentCatalogImportRequest) {
+				req.Defaults.SubscriptionType = SubscriptionTypeSubscription
+			},
+		},
+		{
+			name: "explicit group field",
+			mutate: func(req *PaymentCatalogImportRequest) {
+				req.Groups[0].SubscriptionType = SubscriptionTypeSubscription
+			},
+		},
+	}
 
-	normalized := (&PaymentConfigService{}).normalizeCatalogImport(req)
-	if hasCatalogErrors(normalized.issues) {
-		t.Fatalf("legacy plan should remain valid: %#v", normalized.issues)
-	}
-	if len(normalized.plans) != 1 || len(normalized.plans[0].includedGroupKeys) != 1 || normalized.plans[0].includedGroupKeys[0] != "lite" {
-		t.Fatalf("legacy group_key was not normalized as the included group: %#v", normalized.plans)
-	}
-	if normalized.plans[0].cycleQuotaUSD != nil || normalized.plans[0].resetIntervalSeconds != 0 || !normalized.plans[0].walletFallbackEnabled {
-		t.Fatalf("legacy plan defaults changed: %#v", normalized.plans[0])
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, client := newCatalogImportTestService(t)
+			ctx := context.Background()
+			req := catalogTestRequest()
+			tt.mutate(&req)
+
+			preview, err := svc.PreviewCatalogImport(ctx, req)
+			if err != nil || !preview.CanApply {
+				t.Fatalf("preview legacy catalog: preview=%#v err=%v", preview, err)
+			}
+			foundWarning := false
+			for _, issue := range preview.Issues {
+				if issue.Code == "LEGACY_SUBSCRIPTION_TYPE_MIGRATED" && issue.Severity == "warning" {
+					foundWarning = true
+				}
+			}
+			if !foundWarning {
+				t.Fatalf("legacy type migration warning is missing: %#v", preview.Issues)
+			}
+			if _, err := svc.ApplyCatalogImport(ctx, PaymentCatalogImportApplyRequest{Catalog: req, PreviewToken: preview.PreviewToken}); err != nil {
+				t.Fatalf("apply legacy catalog: %v", err)
+			}
+			stored, err := client.Group.Query().Where(group.NameEQ("Lite routing group")).Only(ctx)
+			if err != nil {
+				t.Fatalf("load migrated routing group: %v", err)
+			}
+			if stored.SubscriptionType != SubscriptionTypeStandard {
+				t.Fatalf("legacy catalog created %q group, want %q", stored.SubscriptionType, SubscriptionTypeStandard)
+			}
+		})
 	}
 }
 
@@ -169,6 +203,12 @@ func TestPaymentCatalogImportValidationRejectsOversizedFieldsAndArrays(t *testin
 		{name: "included group", code: "PLAN_INCLUDED_GROUP_UNKNOWN", mutate: func(req *PaymentCatalogImportRequest) {
 			req.Plans[0].IncludedGroupKeys = []string{"missing"}
 		}},
+		{name: "inactive included group", code: "PLAN_INCLUDED_GROUP_INACTIVE", mutate: func(req *PaymentCatalogImportRequest) {
+			req.Groups[0].Status = StatusDisabled
+		}},
+		{name: "group subscription type", code: "SUBSCRIPTION_TYPE_INVALID", mutate: func(req *PaymentCatalogImportRequest) {
+			req.Groups[0].SubscriptionType = "wallet"
+		}},
 		{name: "cycle quota", code: "PLAN_CYCLE_QUOTA_INVALID", mutate: func(req *PaymentCatalogImportRequest) {
 			req.Plans[0].CycleQuotaUSD = floatPtr(0)
 		}},
@@ -208,7 +248,7 @@ func TestPaymentCatalogImportFirstAndRepeatedImport(t *testing.T) {
 		t.Fatalf("apply first import: %v", err)
 	}
 
-	groupCount, err := client.Group.Query().Where(group.NameEQ("Lite subscription")).Count(ctx)
+	groupCount, err := client.Group.Query().Where(group.NameEQ("Lite routing group")).Count(ctx)
 	if err != nil || groupCount != 1 {
 		t.Fatalf("group count = %d, err = %v", groupCount, err)
 	}
@@ -223,8 +263,8 @@ func TestPaymentCatalogImportFirstAndRepeatedImport(t *testing.T) {
 	if storedPlan.CycleQuotaUsd == nil || *storedPlan.CycleQuotaUsd != 5 || storedPlan.ResetIntervalSeconds != 604800 || storedPlan.WalletFallbackEnabled {
 		t.Fatalf("plan cycle settings were not imported: %#v", storedPlan)
 	}
-	if len(storedPlan.Edges.Groups) != 1 || storedPlan.Edges.Groups[0].ID != storedPlan.GroupID {
-		t.Fatalf("legacy group_key must remain an included group: %#v", storedPlan.Edges.Groups)
+	if len(storedPlan.Edges.Groups) != 1 || storedPlan.Edges.Groups[0].Name != "Lite routing group" {
+		t.Fatalf("included group was not attached to the plan: %#v", storedPlan.Edges.Groups)
 	}
 
 	repeatPreview, err := svc.PreviewCatalogImport(ctx, req)
@@ -240,7 +280,7 @@ func TestPaymentCatalogImportFirstAndRepeatedImport(t *testing.T) {
 	if _, err := svc.ApplyCatalogImport(ctx, PaymentCatalogImportApplyRequest{Catalog: req, PreviewToken: repeatPreview.PreviewToken}); err != nil {
 		t.Fatalf("apply repeated import: %v", err)
 	}
-	groupCount, _ = client.Group.Query().Where(group.NameEQ("Lite subscription")).Count(ctx)
+	groupCount, _ = client.Group.Query().Where(group.NameEQ("Lite routing group")).Count(ctx)
 	planCount, _ = client.SubscriptionPlan.Query().Where(subscriptionplan.NameEQ("Lite")).Count(ctx)
 	if groupCount != 1 || planCount != 1 {
 		t.Fatalf("repeated import duplicated data: groups=%d plans=%d", groupCount, planCount)
@@ -253,10 +293,9 @@ func TestPaymentCatalogImportRoundTripsIncludedGroupsAndCycleSettings(t *testing
 	req := catalogTestRequest()
 	secondGroup := req.Groups[0]
 	secondGroup.Key = "gpt-two"
-	secondGroup.Name = "GPT two subscription"
+	secondGroup.Name = "GPT two routing group"
 	secondGroup.SortOrder = catalogIntPtr(20)
 	req.Groups = append(req.Groups, secondGroup)
-	req.Plans[0].GroupKey = ""
 	req.Plans[0].IncludedGroupKeys = []string{"lite", "gpt-two", "gpt-two"}
 
 	preview, err := svc.PreviewCatalogImport(ctx, req)
@@ -280,9 +319,6 @@ func TestPaymentCatalogImportRoundTripsIncludedGroupsAndCycleSettings(t *testing
 	}
 	if len(exported.Plans) != 1 || len(exported.Plans[0].IncludedGroupKeys) != 2 {
 		t.Fatalf("included groups were not exported: %#v", exported.Plans)
-	}
-	if exported.Plans[0].GroupKey != "" || exported.Plans[0].GroupID != nil {
-		t.Fatalf("export exposed a legacy primary-group field: %#v", exported.Plans[0])
 	}
 	if exported.Plans[0].CycleQuotaUSD == nil || *exported.Plans[0].CycleQuotaUSD != 5 || exported.Plans[0].ResetIntervalSeconds != 604800 || exported.Plans[0].WalletFallbackEnabled == nil || *exported.Plans[0].WalletFallbackEnabled {
 		t.Fatalf("cycle settings were not exported: %#v", exported.Plans[0])
@@ -312,7 +348,7 @@ func TestPaymentCatalogImportRoundTripsIncludedGroupsAndCycleSettings(t *testing
 		t.Fatalf("apply included-group removal: %v", err)
 	}
 	stored, err = client.SubscriptionPlan.Query().Where(subscriptionplan.NameEQ("Lite")).WithGroups().Only(ctx)
-	if err != nil || len(stored.Edges.Groups) != 1 || stored.Edges.Groups[0].ID != stored.GroupID {
+	if err != nil || len(stored.Edges.Groups) != 1 || stored.Edges.Groups[0].Name != "Lite routing group" {
 		t.Fatalf("included-group removal was not applied: plan=%#v err=%v", stored, err)
 	}
 }
@@ -345,8 +381,6 @@ func TestPaymentCatalogImportReferencesExistingRealGroupsWithoutMutatingThem(t *
 
 	req := catalogTestRequest()
 	req.Groups = nil
-	req.Plans[0].GroupKey = ""
-	req.Plans[0].GroupID = nil
 	req.Plans[0].IncludedGroupKeys = nil
 	req.Plans[0].IncludedGroupIDs = []int64{firstGroup.ID, secondGroup.ID, secondGroup.ID}
 
@@ -365,7 +399,7 @@ func TestPaymentCatalogImportReferencesExistingRealGroupsWithoutMutatingThem(t *
 	if err != nil {
 		t.Fatalf("load real-group plan: %v", err)
 	}
-	if storedPlan.GroupID != firstGroup.ID || len(storedPlan.Edges.Groups) != 2 {
+	if len(storedPlan.Edges.Groups) != 2 {
 		t.Fatalf("real groups were not attached to plan: %#v", storedPlan)
 	}
 	storedFirst, err := client.Group.Get(ctx, firstGroup.ID)
@@ -388,15 +422,42 @@ func TestPaymentCatalogImportReferencesExistingRealGroupsWithoutMutatingThem(t *
 	if err != nil {
 		t.Fatalf("export real-group catalog: %v", err)
 	}
-	if len(exported.Plans) != 1 || exported.Plans[0].GroupID != nil || exported.Plans[0].GroupKey != "" {
-		t.Fatalf("legacy primary-group fields were exported: %#v", exported.Plans)
-	}
-	if len(exported.Plans[0].IncludedGroupIDs) != 2 || len(exported.Plans[0].IncludedGroupKeys) != 0 {
-		t.Fatalf("real included group IDs were not exported: %#v", exported.Plans[0])
+	if len(exported.Plans) != 1 || len(exported.Plans[0].IncludedGroupKeys) != 2 || len(exported.Plans[0].IncludedGroupIDs) != 0 {
+		t.Fatalf("real included groups were not exported: %#v", exported.Plans[0])
 	}
 }
 
-func TestPaymentCatalogImportRejectsMissingAndInactiveRealGroupReferences(t *testing.T) {
+func TestValidatePlanIncludedGroupsRequiresActiveStandardRoutingGroups(t *testing.T) {
+	svc, client := newCatalogImportTestService(t)
+	ctx := context.Background()
+	standard, err := client.Group.Create().
+		SetName("Active standard group").
+		SetPlatform(PlatformOpenAI).
+		SetSubscriptionType(SubscriptionTypeStandard).
+		SetStatus(StatusActive).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create standard group: %v", err)
+	}
+	legacy, err := client.Group.Create().
+		SetName("Active legacy group").
+		SetPlatform(PlatformOpenAI).
+		SetSubscriptionType(SubscriptionTypeSubscription).
+		SetStatus(StatusActive).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create legacy group: %v", err)
+	}
+
+	if err := svc.validatePlanIncludedGroups(ctx, []int64{standard.ID}); err != nil {
+		t.Fatalf("active standard group was rejected: %v", err)
+	}
+	if err := svc.validatePlanIncludedGroups(ctx, []int64{legacy.ID}); err == nil {
+		t.Fatal("legacy subscription group must not be accepted by a plan")
+	}
+}
+
+func TestPaymentCatalogImportRejectsMissingInactiveAndLegacyGroupReferences(t *testing.T) {
 	svc, client := newCatalogImportTestService(t)
 	ctx := context.Background()
 	inactive, err := client.Group.Create().
@@ -408,13 +469,21 @@ func TestPaymentCatalogImportRejectsMissingAndInactiveRealGroupReferences(t *tes
 	if err != nil {
 		t.Fatalf("create inactive real group: %v", err)
 	}
+	legacy, err := client.Group.Create().
+		SetName("Legacy subscription group").
+		SetPlatform(PlatformOpenAI).
+		SetSubscriptionType(SubscriptionTypeSubscription).
+		SetStatus(StatusActive).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create legacy subscription group: %v", err)
+	}
 
 	req := catalogTestRequest()
 	req.Groups = nil
-	req.Plans[0].GroupKey = ""
 	missingID := int64(999999)
-	req.Plans[0].GroupID = &missingID
-	req.Plans[0].IncludedGroupIDs = []int64{inactive.ID}
+	req.Plans[0].IncludedGroupKeys = nil
+	req.Plans[0].IncludedGroupIDs = []int64{missingID, inactive.ID, legacy.ID}
 	preview, err := svc.PreviewCatalogImport(ctx, req)
 	if err != nil {
 		t.Fatalf("preview invalid real-group references: %v", err)
@@ -426,12 +495,12 @@ func TestPaymentCatalogImportRejectsMissingAndInactiveRealGroupReferences(t *tes
 	for _, issue := range preview.Issues {
 		codes[issue.Code] = true
 	}
-	if !codes["GROUP_ID_NOT_FOUND"] || !codes["GROUP_ID_INACTIVE"] {
+	if !codes["GROUP_ID_NOT_FOUND"] || !codes["GROUP_ID_INACTIVE"] || !codes["GROUP_ID_TYPE_INVALID"] {
 		t.Fatalf("missing reference issues: %#v", preview.Issues)
 	}
 }
 
-func TestPaymentCatalogImportAllowsMixedLegacyKeysAndRealGroupIDs(t *testing.T) {
+func TestPaymentCatalogImportAllowsMixedImportedKeysAndRealGroupIDs(t *testing.T) {
 	svc, client := newCatalogImportTestService(t)
 	ctx := context.Background()
 	realGroup, err := client.Group.Create().
@@ -499,10 +568,10 @@ func TestPaymentCatalogImportRejectsStalePreview(t *testing.T) {
 		t.Fatalf("preview: %v", err)
 	}
 	if _, err := client.Group.Create().
-		SetName("Lite subscription").
+		SetName("Lite routing group").
 		SetDescription("concurrent change").
 		SetPlatform(PlatformComposite).
-		SetSubscriptionType(SubscriptionTypeSubscription).
+		SetSubscriptionType(SubscriptionTypeStandard).
 		Save(ctx); err != nil {
 		t.Fatalf("create concurrent group: %v", err)
 	}
@@ -534,7 +603,7 @@ func TestPaymentCatalogImportClearsNullableFields(t *testing.T) {
 		t.Fatalf("apply clearing fields: %v", err)
 	}
 
-	storedGroup, err := client.Group.Query().Where(group.NameEQ("Lite subscription")).Only(ctx)
+	storedGroup, err := client.Group.Query().Where(group.NameEQ("Lite routing group")).Only(ctx)
 	if err != nil {
 		t.Fatalf("load group: %v", err)
 	}
@@ -612,7 +681,7 @@ func TestPaymentCatalogImportRollsBackOnFailure(t *testing.T) {
 	if _, err := svc.ApplyCatalogImport(ctx, PaymentCatalogImportApplyRequest{Catalog: req, PreviewToken: preview.PreviewToken}); err == nil {
 		t.Fatal("expected import failure")
 	}
-	groupCount, _ := client.Group.Query().Where(group.NameEQ("Lite subscription")).Count(ctx)
+	groupCount, _ := client.Group.Query().Where(group.NameEQ("Lite routing group")).Count(ctx)
 	planCount, _ := client.SubscriptionPlan.Query().Where(subscriptionplan.NameEQ("Lite")).Count(ctx)
 	if groupCount != 0 || planCount != 0 {
 		t.Fatalf("failed import was not rolled back: groups=%d plans=%d", groupCount, planCount)

@@ -283,7 +283,7 @@ type userSubRepoStubForGroupUpdate struct {
 	calledGroupID int64
 }
 
-func (s *userSubRepoStubForGroupUpdate) GetActiveByUserIDAndGroupID(_ context.Context, userID, groupID int64) (*UserSubscription, error) {
+func (s *userSubRepoStubForGroupUpdate) GetActiveCoveringGroup(_ context.Context, userID, groupID int64) (*UserSubscription, error) {
 	s.called = true
 	s.calledUserID = userID
 	s.calledGroupID = groupID
@@ -295,6 +295,26 @@ func (s *userSubRepoStubForGroupUpdate) GetActiveByUserIDAndGroupID(_ context.Co
 	}
 	clone := *s.getActiveSub
 	return &clone, nil
+}
+
+func (s *userSubRepoStubForGroupUpdate) GetByUserIDAndPlanID(context.Context, int64, int64) (*UserSubscription, error) {
+	panic("unexpected GetByUserIDAndPlanID call")
+}
+
+func (s *userSubRepoStubForGroupUpdate) ListActiveCoveringGroup(context.Context, int64, int64) ([]UserSubscription, error) {
+	panic("unexpected ListActiveCoveringGroup call")
+}
+
+func (s *userSubRepoStubForGroupUpdate) ExistsActiveCoveringGroup(context.Context, int64, int64) (bool, error) {
+	s.called = true
+	if s.getActiveErr != nil {
+		return false, s.getActiveErr
+	}
+	return s.getActiveSub != nil, nil
+}
+
+func (s *userSubRepoStubForGroupUpdate) UpdateBillingSnapshot(context.Context, int64, SubscriptionBillingSnapshot, bool) error {
+	panic("unexpected UpdateBillingSnapshot call")
 }
 
 // ---------------------------------------------------------------------------
@@ -486,44 +506,41 @@ func TestAdminService_AdminUpdateAPIKeyGroupID_NonExclusiveGroup_NoAllowedGroupU
 	require.False(t, got.AutoGrantedGroupAccess)
 }
 
-func TestAdminService_AdminUpdateAPIKeyGroupID_SubscriptionGroup_Blocked(t *testing.T) {
+func TestAdminService_AdminUpdateAPIKeyGroupID_LegacyTypeDoesNotControlBinding(t *testing.T) {
 	existing := &APIKey{ID: 1, UserID: 42, Key: "sk-test", GroupID: nil}
 	apiKeyRepo := &apiKeyRepoStubForGroupUpdate{key: existing}
 	groupRepo := &groupRepoStubForGroupUpdate{group: &Group{ID: 10, Name: "Sub", Status: StatusActive, IsExclusive: false, SubscriptionType: SubscriptionTypeSubscription}}
 	userRepo := &userRepoStubForGroupUpdate{}
-	userSubRepo := &userSubRepoStubForGroupUpdate{getActiveErr: ErrSubscriptionNotFound}
+	userSubRepo := &userSubRepoStubForGroupUpdate{}
 	svc := &adminServiceImpl{apiKeyRepo: apiKeyRepo, groupRepo: groupRepo, userRepo: userRepo, userSubRepo: userSubRepo}
 
-	// 无有效订阅时应拒绝绑定
-	_, err := svc.AdminUpdateAPIKeyGroupID(context.Background(), 1, int64Ptr(10))
-	require.Error(t, err)
-	require.Equal(t, "SUBSCRIPTION_REQUIRED", infraerrors.Reason(err))
+	got, err := svc.AdminUpdateAPIKeyGroupID(context.Background(), 1, int64Ptr(10))
+	require.NoError(t, err)
+	require.Equal(t, int64(10), *got.APIKey.GroupID)
 	require.True(t, userSubRepo.called)
-	require.Equal(t, int64(42), userSubRepo.calledUserID)
-	require.Equal(t, int64(10), userSubRepo.calledGroupID)
 	require.False(t, userRepo.addGroupCalled)
 }
 
-func TestAdminService_AdminUpdateAPIKeyGroupID_SubscriptionGroup_RequiresRepo(t *testing.T) {
+func TestAdminService_AdminUpdateAPIKeyGroupID_DoesNotRequireSubscriptionRepository(t *testing.T) {
 	existing := &APIKey{ID: 1, UserID: 42, Key: "sk-test", GroupID: nil}
 	apiKeyRepo := &apiKeyRepoStubForGroupUpdate{key: existing}
 	groupRepo := &groupRepoStubForGroupUpdate{group: &Group{ID: 10, Name: "Sub", Status: StatusActive, IsExclusive: false, SubscriptionType: SubscriptionTypeSubscription}}
 	userRepo := &userRepoStubForGroupUpdate{}
 	svc := &adminServiceImpl{apiKeyRepo: apiKeyRepo, groupRepo: groupRepo, userRepo: userRepo}
 
-	_, err := svc.AdminUpdateAPIKeyGroupID(context.Background(), 1, int64Ptr(10))
-	require.Error(t, err)
-	require.Equal(t, "SUBSCRIPTION_REPOSITORY_UNAVAILABLE", infraerrors.Reason(err))
+	got, err := svc.AdminUpdateAPIKeyGroupID(context.Background(), 1, int64Ptr(10))
+	require.NoError(t, err)
+	require.Equal(t, int64(10), *got.APIKey.GroupID)
 	require.False(t, userRepo.addGroupCalled)
 }
 
-func TestAdminService_AdminUpdateAPIKeyGroupID_SubscriptionGroup_AllowsActiveSubscription(t *testing.T) {
+func TestAdminService_AdminUpdateAPIKeyGroupID_PlanCoveredExclusiveGroupDoesNotGrantPermanentAccess(t *testing.T) {
 	existing := &APIKey{ID: 1, UserID: 42, Key: "sk-test", GroupID: nil}
 	apiKeyRepo := &apiKeyRepoStubForGroupUpdate{key: existing}
 	groupRepo := &groupRepoStubForGroupUpdate{group: &Group{ID: 10, Name: "Sub", Status: StatusActive, IsExclusive: true, SubscriptionType: SubscriptionTypeSubscription}}
 	userRepo := &userRepoStubForGroupUpdate{}
 	userSubRepo := &userSubRepoStubForGroupUpdate{
-		getActiveSub: &UserSubscription{ID: 99, UserID: 42, GroupID: 10},
+		getActiveSub: &UserSubscription{ID: 99, UserID: 42, PlanID: 88, IncludedGroups: []Group{{ID: 10}}},
 	}
 	svc := &adminServiceImpl{apiKeyRepo: apiKeyRepo, groupRepo: groupRepo, userRepo: userRepo, userSubRepo: userSubRepo}
 

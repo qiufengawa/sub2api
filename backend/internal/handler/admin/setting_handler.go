@@ -110,7 +110,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 	defaultSubscriptions := make([]dto.DefaultSubscriptionSetting, 0, len(settings.DefaultSubscriptions))
 	for _, sub := range settings.DefaultSubscriptions {
 		defaultSubscriptions = append(defaultSubscriptions, dto.DefaultSubscriptionSetting{
-			GroupID:      sub.GroupID,
+			PlanID:       sub.PlanID,
 			ValidityDays: sub.ValidityDays,
 		})
 	}
@@ -324,7 +324,6 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		AccountQuotaNotifyEnabled:                              settings.AccountQuotaNotifyEnabled,
 		AccountQuotaNotifyEmails:                               dto.NotifyEmailEntriesFromService(settings.AccountQuotaNotifyEmails),
 		PaymentEnabled:                                         paymentCfg.Enabled,
-		SubscriptionGroupBillingEnabled:                        settings.SubscriptionGroupBillingEnabled,
 		PaymentMinAmount:                                       paymentCfg.MinAmount,
 		PaymentMaxAmount:                                       paymentCfg.MaxAmount,
 		PaymentDailyLimit:                                      paymentCfg.DailyLimit,

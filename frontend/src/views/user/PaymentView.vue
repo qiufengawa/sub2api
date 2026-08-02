@@ -176,19 +176,12 @@
                 <div class="mt-4 border-y border-gray-100 py-3 dark:border-dark-700">
                   <p class="mb-2 text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.includedGroups') }}</p>
                   <div class="grid gap-2 sm:grid-cols-2">
-                    <div v-for="group in selectedPlan.included_groups || []" :key="group.id" class="flex min-w-0 items-center gap-2 text-xs">
+                    <div v-for="group in selectedPlan.included_groups" :key="group.id" class="flex min-w-0 items-center gap-2 text-xs">
                       <PlatformIcon :platform="group.platform as GroupPlatform" size="sm" class="shrink-0" />
                       <span class="min-w-0 flex-1 truncate font-medium text-gray-700 dark:text-gray-300" :title="group.name">{{ group.name }}</span>
                       <span class="shrink-0 tabular-nums text-gray-600 dark:text-gray-300">×{{ normalizedPlanRate(group.rate_multiplier) }}</span>
                       <span v-if="group.peak_rate_enabled" class="shrink-0 rounded-[3px] bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
                         {{ t('payment.planCard.peakRateShort', { rate: normalizedPlanRate(group.peak_rate_multiplier ?? 1) }) }}
-                      </span>
-                    </div>
-                    <div v-if="(selectedPlan.included_groups || []).length === 0 && selectedPlan.rate_multiplier != null" class="flex min-w-0 items-center gap-2 text-xs">
-                      <span class="text-gray-400 dark:text-gray-500">{{ t('payment.planCard.rate') }}</span>
-                      <span class="font-medium tabular-nums text-gray-700 dark:text-gray-300">×{{ normalizedPlanRate(selectedPlan.rate_multiplier) }}</span>
-                      <span v-if="selectedPlan.peak_rate_enabled" class="shrink-0 rounded-[3px] bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
-                        {{ t('payment.planCard.peakRateShort', { rate: normalizedPlanRate(selectedPlan.peak_rate_multiplier ?? 1) }) }}
                       </span>
                     </div>
                   </div>
@@ -199,19 +192,7 @@
                     <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">${{ Number(selectedPlan.cycle_quota_usd).toFixed(2) }}</div>
                     <p class="text-[10px] text-gray-400 dark:text-gray-500">{{ selectedPlanResetLabel }}</p>
                   </div>
-                  <div v-else-if="selectedPlan.daily_limit_usd != null">
-                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.dailyLimit') }}</span>
-                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">${{ selectedPlan.daily_limit_usd }}</div>
-                  </div>
-                  <div v-if="selectedPlan.cycle_quota_usd == null && selectedPlan.weekly_limit_usd != null">
-                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.weeklyLimit') }}</span>
-                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">${{ selectedPlan.weekly_limit_usd }}</div>
-                  </div>
-                  <div v-if="selectedPlan.cycle_quota_usd == null && selectedPlan.monthly_limit_usd != null">
-                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.monthlyLimit') }}</span>
-                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">${{ selectedPlan.monthly_limit_usd }}</div>
-                  </div>
-                  <div v-if="selectedPlan.cycle_quota_usd == null && selectedPlan.daily_limit_usd == null && selectedPlan.weekly_limit_usd == null && selectedPlan.monthly_limit_usd == null">
+                  <div v-else>
                     <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.quota') }}</span>
                     <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ t('payment.planCard.unlimited') }}</div>
                   </div>
@@ -274,18 +255,24 @@
                     :key="sub.id"
                     class="flex items-start gap-3 px-3 py-2.5"
                   >
-                    <div :class="['mt-0.5 h-8 w-1 shrink-0 rounded-[2px]', platformAccentBarClass(sub.group?.platform || '')]" />
+                    <div :class="['mt-0.5 h-8 w-1 shrink-0 rounded-[2px]', platformAccentBarClass(subscriptionPlatform(sub))]" />
                     <div class="min-w-0 flex-1">
                       <div class="flex items-center gap-1.5">
-                        <span class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ sub.group?.name || t('payment.groupFallback', { id: sub.group_id }) }}</span>
-                        <span :class="['inline-flex shrink-0 items-center gap-1 rounded-[3px] px-1.5 py-0.5 text-[9px] font-medium', platformBadgeLightClass(sub.group?.platform || '')]">
-                          <PlatformIcon :platform="sub.group?.platform" size="xs" />
-                          {{ platformLabel(sub.group?.platform || '') }}
+                        <span class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ sub.plan_name || `Plan #${sub.plan_id}` }}</span>
+                        <span :class="['inline-flex shrink-0 items-center gap-1 rounded-[3px] px-1.5 py-0.5 text-[9px] font-medium', platformBadgeLightClass(subscriptionPlatform(sub))]">
+                          <PlatformIcon :platform="subscriptionPlatform(sub)" size="xs" />
+                          {{ platformLabel(subscriptionPlatform(sub)) }}
                         </span>
                       </div>
-                      <div class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-gray-500 dark:text-gray-400">
-                        <span>{{ t('payment.planCard.rate') }} ×{{ sub.group?.rate_multiplier ?? 1 }}</span>
-                        <span v-if="subscriptionHasPeakRate(sub)">{{ t('payment.planCard.peakRate') }} {{ subscriptionPeakRateLabel(sub) }}</span>
+                      <div class="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+                        <span
+                          v-for="group in sub.included_groups"
+                          :key="group.id"
+                          :title="subscriptionGroupTitle(group)"
+                          class="max-w-full truncate"
+                        >
+                          {{ group.name }} ×{{ normalizedPlanRate(group.rate_multiplier) }}
+                        </span>
                         <span v-if="sub.expires_at">{{ t('userSubscriptions.daysRemaining', { days: getDaysRemaining(sub.expires_at) }) }}</span>
                         <span v-else>{{ t('userSubscriptions.noExpiration') }}</span>
                       </div>
@@ -325,24 +312,6 @@
       </template>
     </div>
     <BaseDialog
-      :show="showRenewalModal"
-      :title="t('payment.selectPlan')"
-      width="wide"
-      :z-index="50"
-      @close="closeRenewalModal"
-    >
-      <div class="grid gap-3 sm:grid-cols-2" data-testid="renewal-plan-list">
-        <SubscriptionPlanCard
-          v-for="plan in renewalPlans"
-          :key="plan.id"
-          :plan="plan"
-          :active-subscriptions="activeSubscriptions"
-          @select="selectPlanFromModal"
-        />
-      </div>
-    </BaseDialog>
-
-    <BaseDialog
       :show="Boolean(previewImage)"
       :title="t('payment.helpImageTitle')"
       width="full"
@@ -372,7 +341,7 @@ import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/api/payment'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
-import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel, type PeakRateFields } from '@/utils/peak-rate'
+import { formatPeakRateWindow, serverTimezoneLabel, type PeakRateFields } from '@/utils/peak-rate'
 import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
 import type { GroupPlatform } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -420,12 +389,19 @@ function getDaysRemaining(expiresAt: string): number {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
 }
 
-function subscriptionHasPeakRate(sub: { group?: PeakRateFields | null }): boolean {
-  return hasPeakRate(sub.group)
+function subscriptionPlatform(sub: { included_groups: Array<{ platform?: string }> }): GroupPlatform {
+  const platforms = [...new Set(
+    sub.included_groups
+      .map(group => group.platform)
+      .filter((platform): platform is GroupPlatform => Boolean(platform))
+  )]
+  if (platforms.length === 1) return platforms[0] || ''
+  return 'composite'
 }
 
-function subscriptionPeakRateLabel(sub: { group?: PeakRateFields | null }): string {
-  return formatPeakRateWindow(sub.group, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
+function subscriptionGroupTitle(group: PeakRateFields & { name: string; rate_multiplier: number }): string {
+  const peak = formatPeakRateWindow(group, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
+  return peak ? `${group.name} · ×${normalizedPlanRate(group.rate_multiplier)} · ${peak}` : `${group.name} · ×${normalizedPlanRate(group.rate_multiplier)}`
 }
 
 const loading = ref(true)
@@ -825,10 +801,10 @@ const paymentButtonClass = computed(() => {
 const selectedPlanPlatform = computed(() => {
   const plan = selectedPlan.value
   if (!plan) return ''
-  const platforms = [...new Set((plan.included_groups || []).map(group => group.platform).filter(Boolean))]
+  const platforms = [...new Set((plan.included_groups ?? []).map(group => group.platform).filter(Boolean))]
   if (platforms.length === 1) return platforms[0]
   if (platforms.length > 1) return 'composite'
-  return plan.group_platform || ''
+  return ''
 })
 const planBadgeClass = computed(() => platformBadgeClass(selectedPlanPlatform.value))
 const planTextClass = computed(() => platformTextClass(selectedPlanPlatform.value))
@@ -843,14 +819,6 @@ const selectedPlanResetLabel = computed(() => {
   return t('payment.planCard.resetEveryDays', { days: Number((seconds / 86400).toFixed(2)) })
 })
 
-// Renewal modal state
-const showRenewalModal = ref(false)
-const renewGroupId = ref<number | null>(null)
-const renewalPlans = computed(() => {
-  if (renewGroupId.value == null) return []
-  return checkout.value.plans.filter(p => p.group_id === renewGroupId.value)
-})
-
 const planValiditySuffix = computed(() => {
   if (!selectedPlan.value) return ''
   return validitySuffixOf(selectedPlan.value, t)
@@ -859,18 +827,6 @@ const planValiditySuffix = computed(() => {
 function selectPlan(plan: SubscriptionPlan) {
   selectedPlan.value = plan
   errorMessage.value = ''
-}
-
-function selectPlanFromModal(plan: SubscriptionPlan) {
-  showRenewalModal.value = false
-  renewGroupId.value = null
-  selectedPlan.value = plan
-  errorMessage.value = ''
-}
-
-function closeRenewalModal() {
-  showRenewalModal.value = false
-  renewGroupId.value = null
 }
 
 async function handleSubmitRecharge() {
@@ -1257,18 +1213,12 @@ onMounted(async () => {
     if (checkout.value.balance_disabled) {
       activeTab.value = 'subscription'
     }
-    // Handle renewal navigation: ?tab=subscription&group=123
+    // Handle renewal navigation: ?tab=subscription&plan_id=123
     if (route.query.tab === 'subscription') {
       activeTab.value = 'subscription'
-      if (route.query.group) {
-        const groupId = Number(route.query.group)
-        const groupPlans = checkout.value.plans.filter(p => p.group_id === groupId)
-        if (groupPlans.length === 1) {
-          selectedPlan.value = groupPlans[0]
-        } else if (groupPlans.length > 1) {
-          renewGroupId.value = groupId
-          showRenewalModal.value = true
-        }
+      if (route.query.plan_id) {
+        const planId = Number(route.query.plan_id)
+        selectedPlan.value = checkout.value.plans.find(plan => plan.id === planId) || null
       }
     }
   } catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }

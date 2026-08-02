@@ -55,7 +55,7 @@ func TestAdminSubscriptionPlansForResponseIncludesCompositeGroupInfo(t *testing.
 	plans := []*dbent.SubscriptionPlan{
 		{
 			ID:                    11,
-			GroupID:               7,
+			Edges:                 dbent.SubscriptionPlanEdges{Groups: []*dbent.Group{{ID: 7}}},
 			Name:                  "All models",
 			Description:           "Composite access",
 			Price:                 19.99,
@@ -89,20 +89,17 @@ func TestAdminSubscriptionPlansForResponseIncludesCompositeGroupInfo(t *testing.
 	if len(got) != 1 {
 		t.Fatalf("expected one plan, got %d", len(got))
 	}
-	if got[0].GroupPlatform != service.PlatformComposite {
-		t.Fatalf("expected composite group platform, got %q", got[0].GroupPlatform)
-	}
-	if got[0].GroupName != "Bucket 2 composite" {
-		t.Fatalf("expected group name to be included, got %q", got[0].GroupName)
-	}
-	if got[0].WeeklyLimitUSD == nil || *got[0].WeeklyLimitUSD != weekly {
-		t.Fatalf("expected weekly limit to be included, got %#v", got[0].WeeklyLimitUSD)
-	}
-	if strings.Join(got[0].ModelScopes, ",") != "openai,claude,gemini,grok" {
-		t.Fatalf("expected model scopes to be preserved, got %#v", got[0].ModelScopes)
-	}
 	if len(got[0].IncludedGroups) != 1 || got[0].IncludedGroups[0].ID != 7 {
 		t.Fatalf("expected included group contract to be preserved, got %#v", got[0].IncludedGroups)
+	}
+	if got[0].IncludedGroups[0].Platform != service.PlatformComposite || got[0].IncludedGroups[0].Name != "Bucket 2 composite" {
+		t.Fatalf("expected composite group metadata, got %#v", got[0].IncludedGroups[0])
+	}
+	if got[0].IncludedGroups[0].WeeklyLimitUSD == nil || *got[0].IncludedGroups[0].WeeklyLimitUSD != weekly {
+		t.Fatalf("expected weekly limit to be included, got %#v", got[0].IncludedGroups[0].WeeklyLimitUSD)
+	}
+	if strings.Join(got[0].IncludedGroups[0].ModelScopes, ",") != "openai,claude,gemini,grok" {
+		t.Fatalf("expected model scopes to be preserved, got %#v", got[0].IncludedGroups[0].ModelScopes)
 	}
 	if got[0].CycleQuotaUSD == nil || *got[0].CycleQuotaUSD != cycleQuota {
 		t.Fatalf("expected cycle quota to be preserved, got %#v", got[0].CycleQuotaUSD)
