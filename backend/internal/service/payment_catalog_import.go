@@ -516,23 +516,20 @@ func (s *PaymentConfigService) normalizeCatalogImport(req PaymentCatalogImportRe
 	planKeys := make(map[string]struct{}, len(plans))
 	for i, raw := range plans {
 		path := fmt.Sprintf("plans[%d]", i)
-		groupKey := strings.TrimSpace(raw.GroupKey)
-		groupID := cloneInt64(raw.GroupID)
-		if groupKey != "" && groupID != nil {
-			add("error", "PLAN_GROUP_REFERENCE_AMBIGUOUS", path, "use either group_key or group_id for the primary group, not both")
+		legacyGroupKey := strings.TrimSpace(raw.GroupKey)
+		legacyGroupID := cloneInt64(raw.GroupID)
+		if legacyGroupKey != "" && legacyGroupID != nil {
+			add("error", "PLAN_GROUP_REFERENCE_AMBIGUOUS", path, "legacy group_key and group_id cannot both be set")
 		}
-		if groupKey == "" && groupID == nil {
-			add("error", "PLAN_GROUP_REQUIRED", path, "group_key or group_id is required")
-		}
-		if groupKey != "" {
-			if _, ok := groupKeys[groupKey]; !ok {
+		if legacyGroupKey != "" {
+			if _, ok := groupKeys[legacyGroupKey]; !ok {
 				add("error", "PLAN_GROUP_UNKNOWN", path+".group_key", "group_key does not reference an imported group")
 			}
 		}
-		if groupID != nil && *groupID <= 0 {
+		if legacyGroupID != nil && *legacyGroupID <= 0 {
 			add("error", "PLAN_GROUP_ID_INVALID", path+".group_id", "group_id must be a positive integer")
 		}
-		includedGroupKeys := normalizeCatalogPlanGroupKeys(groupKey, raw.IncludedGroupKeys)
+		includedGroupKeys := normalizeCatalogPlanGroupKeys(legacyGroupKey, raw.IncludedGroupKeys)
 		for j, includedGroupKey := range includedGroupKeys {
 			if _, ok := groupKeys[includedGroupKey]; !ok {
 				add("error", "PLAN_INCLUDED_GROUP_UNKNOWN", fmt.Sprintf("%s.included_group_keys[%d]", path, j), "included_group_keys contains a key that does not reference an imported group")
@@ -543,8 +540,21 @@ func (s *PaymentConfigService) normalizeCatalogImport(req PaymentCatalogImportRe
 				add("error", "PLAN_INCLUDED_GROUP_ID_INVALID", fmt.Sprintf("%s.included_group_ids[%d]", path, j), "included_group_ids must contain positive integers")
 			}
 		}
-		includedGroupIDs := normalizeCatalogPlanGroupIDs(groupID, raw.IncludedGroupIDs)
-		groupRefs := normalizeCatalogPlanGroupRefs(groupKey, groupID, raw.IncludedGroupKeys, raw.IncludedGroupIDs)
+		includedGroupIDs := normalizeCatalogPlanGroupIDs(legacyGroupID, raw.IncludedGroupIDs)
+		if len(includedGroupKeys) == 0 && len(includedGroupIDs) == 0 {
+			add("error", "PLAN_GROUP_REQUIRED", path, "at least one included group is required")
+		}
+		groupKey := legacyGroupKey
+		groupID := cloneInt64(legacyGroupID)
+		if groupKey == "" && groupID == nil {
+			if len(includedGroupKeys) > 0 {
+				groupKey = includedGroupKeys[0]
+			} else if len(includedGroupIDs) > 0 {
+				value := includedGroupIDs[0]
+				groupID = &value
+			}
+		}
+		groupRefs := normalizeCatalogPlanGroupRefs("", nil, includedGroupKeys, includedGroupIDs)
 		name := strings.TrimSpace(raw.Name)
 		if name == "" || len([]rune(name)) > 100 {
 			add("error", "PLAN_NAME_INVALID", path+".name", "plan name is required and must be at most 100 characters")
@@ -556,8 +566,8 @@ func (s *PaymentConfigService) normalizeCatalogImport(req PaymentCatalogImportRe
 		if planKey != "" && name != "" {
 			planKeys[planKey] = struct{}{}
 		}
-		raw.GroupKey = groupKey
-		raw.GroupID = cloneInt64(groupID)
+		raw.GroupKey = legacyGroupKey
+		raw.GroupID = cloneInt64(legacyGroupID)
 		raw.IncludedGroupKeys = includedGroupKeys
 		raw.IncludedGroupIDs = append([]int64(nil), includedGroupIDs...)
 		raw.Name = name
@@ -786,18 +796,8 @@ func (s *PaymentConfigService) ExportCatalog(ctx context.Context) (*PaymentCatal
 				includedGroupIDs = append(includedGroupIDs, includedGroupID)
 			}
 		}
-		var groupKey string
-		var groupID *int64
-		if key, ok := groupIDs[p.GroupID]; ok {
-			groupKey = key
-		} else {
-			value := p.GroupID
-			groupID = &value
-		}
 		features := splitCatalogFeatures(p.Features)
 		req.Plans = append(req.Plans, PaymentCatalogImportPlan{
-			GroupKey:              groupKey,
-			GroupID:               groupID,
 			IncludedGroupKeys:     includedGroupKeys,
 			IncludedGroupIDs:      includedGroupIDs,
 			CycleQuotaUSD:         cloneFloat(p.CycleQuotaUsd),
@@ -972,15 +972,15 @@ func (s *PaymentConfigService) buildCatalogPreview(ctx context.Context, client *
 	}
 
 	for _, p := range n.plans {
-		primaryRef := p.primaryGroupRef()
-		groupID, ok := resolveCatalogGroupRef(primaryRef, groupIDByKey)
-		if primaryRef.id > 0 {
-			referenced := referencedGroups[primaryRef.id]
+		compatibilityRef := p.compatibilityGroupRef()
+		groupID, ok := resolveCatalogGroupRef(compatibilityRef, groupIDByKey)
+		if compatibilityRef.id > 0 {
+			referenced := referencedGroups[compatibilityRef.id]
 			ok = referenced != nil && referenced.Status == StatusActive
 		}
 		changeKey := p.displayKey()
 		if !ok {
-			if primaryRef.key != "" {
+			if compatibilityRef.key != "" {
 				preview.Changes = append(preview.Changes, PaymentCatalogImportChange{Kind: "plan", Action: "create", Key: changeKey, Name: p.Name})
 			}
 			continue
@@ -1251,7 +1251,7 @@ func catalogReferencedGroupIDs(n *normalizedCatalog) []int64 {
 	return result
 }
 
-func (p catalogPlan) primaryGroupRef() catalogGroupRef {
+func (p catalogPlan) compatibilityGroupRef() catalogGroupRef {
 	if p.groupKey != "" {
 		return catalogGroupRef{key: p.groupKey}
 	}
@@ -1262,7 +1262,7 @@ func (p catalogPlan) primaryGroupRef() catalogGroupRef {
 }
 
 func (p catalogPlan) displayKey() string {
-	return catalogGroupRefLabel(p.primaryGroupRef()) + ":" + p.Name
+	return catalogGroupRefLabel(p.compatibilityGroupRef()) + ":" + p.Name
 }
 
 func resolveCatalogGroupRef(ref catalogGroupRef, groupIDByKey map[string]int64) (int64, bool) {
@@ -1719,9 +1719,9 @@ func (s *PaymentConfigService) applyCatalogWithinTx(ctx context.Context, client 
 	}
 
 	for _, desired := range n.plans {
-		groupID, ok := resolveCatalogGroupRef(desired.primaryGroupRef(), groupIDs)
+		groupID, ok := resolveCatalogGroupRef(desired.compatibilityGroupRef(), groupIDs)
 		if !ok {
-			return nil, infraerrors.BadRequest("PLAN_GROUP_REFERENCE_UNRESOLVED", "plan primary group could not be resolved")
+			return nil, infraerrors.BadRequest("PLAN_GROUP_REFERENCE_UNRESOLVED", "plan group could not be resolved")
 		}
 		rows, err := client.SubscriptionPlan.Query().Where(subscriptionplan.GroupIDEQ(groupID), subscriptionplan.NameEQ(strings.TrimSpace(desired.Name))).WithGroups().All(ctx)
 		if err != nil {

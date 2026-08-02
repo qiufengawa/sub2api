@@ -98,6 +98,39 @@ func TestPaymentConfigServiceUpdatePlanRequiresGroupRemovalConfirmation(t *testi
 	require.Equal(t, []int64{primaryGroup.ID}, planIncludedGroupIDs(updated))
 }
 
+func TestPaymentConfigServicePlanGroupsDoNotRequireAPrimarySelection(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	svc := &PaymentConfigService{entClient: client}
+
+	groupOne, err := client.Group.Create().SetName("plan-group-one").Save(ctx)
+	require.NoError(t, err)
+	groupTwo, err := client.Group.Create().SetName("plan-group-two").Save(ctx)
+	require.NoError(t, err)
+
+	created, err := svc.CreatePlan(ctx, CreatePlanRequest{
+		IncludedGroupIDs: []int64{groupOne.ID, groupTwo.ID},
+		Name:             "equal-groups-plan",
+		Description:      "both groups use the same subscription quota",
+		Price:            10,
+		ValidityDays:     28,
+		ValidityUnit:     "days",
+		ForSale:          true,
+	})
+	require.NoError(t, err)
+	require.Equal(t, groupOne.ID, created.GroupID)
+	require.ElementsMatch(t, []int64{groupOne.ID, groupTwo.ID}, planIncludedGroupIDs(created))
+
+	includedGroupIDs := []int64{groupTwo.ID}
+	updated, err := svc.UpdatePlan(ctx, created.ID, UpdatePlanRequest{
+		IncludedGroupIDs:    &includedGroupIDs,
+		ConfirmGroupRemoval: true,
+	})
+	require.NoError(t, err)
+	require.Equal(t, groupTwo.ID, updated.GroupID)
+	require.Equal(t, []int64{groupTwo.ID}, planIncludedGroupIDs(updated))
+}
+
 func createPlanDeleteFixture(
 	t *testing.T,
 	ctx context.Context,

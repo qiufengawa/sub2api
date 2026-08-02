@@ -150,13 +150,11 @@ function mountDialog({
 }
 
 describe('PlanEditDialog', () => {
-  it('uses single-column fields until the small-screen breakpoint', () => {
+  it('does not expose a separate primary-group field', () => {
     const wrapper = mountDialog()
 
-    expect(wrapper.get('[data-testid="plan-primary-fields"]').classes()).toEqual(expect.arrayContaining([
-      'grid-cols-1',
-      'sm:grid-cols-2',
-    ]))
+    expect(wrapper.get('[data-testid="plan-primary-fields"]').text()).toContain('payment.admin.planName')
+    expect(wrapper.text()).not.toContain('payment.admin.primaryGroup')
   })
 
   it('shows CNY channel charge using the configured subscription rate and fee', async () => {
@@ -189,7 +187,7 @@ describe('PlanEditDialog', () => {
     expect(wrapper.text()).not.toContain('¥71.43')
   })
 
-  it('allows any active real routing group to anchor a payment plan', () => {
+  it('shows active routing groups as equal selectable choices', () => {
     const wrapper = mountDialog({
       groups: [
         groupFixture({
@@ -208,10 +206,28 @@ describe('PlanEditDialog', () => {
       ],
     })
 
-    const options = wrapper.findAll('option').map(option => option.text())
+    const groupInputs = wrapper.findAll('[data-testid="plan-included-groups"] input[type="checkbox"]')
+    expect(groupInputs).toHaveLength(2)
+    expect(groupInputs.every(input => input.attributes('disabled') === undefined)).toBe(true)
+  })
 
-    expect(options).toContain('OpenAI + Claude + Gemini + Grok — composite (1.2x)')
-    expect(options).toContain('Standard OpenAI — openai (1x)')
+  it('requires at least one applicable group', async () => {
+    createPlan.mockClear()
+    showError.mockClear()
+    const wrapper = mountDialog()
+    const vm = wrapper.vm as any
+    Object.assign(vm.planForm, {
+      name: 'Standard',
+      description: 'Weekly credits',
+      price: 103.9,
+      validity_days: 28,
+      validity_unit: 'days',
+    })
+
+    await wrapper.get('form').trigger('submit')
+
+    expect(createPlan).not.toHaveBeenCalled()
+    expect(showError).toHaveBeenCalledWith('payment.admin.groupRequired')
   })
 
   it('sends real included groups, cycle seconds, and wallet fallback in the create payload', async () => {
@@ -224,7 +240,6 @@ describe('PlanEditDialog', () => {
     const vm = wrapper.vm as any
     Object.assign(vm.planForm, {
       name: 'Standard',
-      group_id: 10,
       included_group_ids: [10, 11],
       cycle_quota_usd: 40,
       reset_interval_days: 7,
@@ -240,7 +255,6 @@ describe('PlanEditDialog', () => {
     await wrapper.get('form').trigger('submit')
 
     expect(createPlan).toHaveBeenCalledWith(expect.objectContaining({
-      group_id: 10,
       included_group_ids: [10, 11],
       cycle_quota_usd: 40,
       reset_interval_seconds: 604800,
@@ -248,6 +262,7 @@ describe('PlanEditDialog', () => {
       currency: 'CNY',
       features: 'First\nSecond',
     }))
+    expect(createPlan.mock.calls[0][0]).not.toHaveProperty('group_id')
   })
 
   it('preflights a covered-group removal and confirms with the affected subscription count', async () => {
@@ -284,10 +299,10 @@ describe('PlanEditDialog', () => {
     await wrapper.setProps({ show: true })
 
     const includedInputs = wrapper.findAll('[data-testid="plan-included-groups"] input[type="checkbox"]')
-    await includedInputs[1].setValue(false)
+    await includedInputs[0].setValue(false)
     await wrapper.get('form').trigger('submit')
 	expect(updatePlan).toHaveBeenNthCalledWith(1, 99, expect.objectContaining({
-	  included_group_ids: [10],
+	  included_group_ids: [11],
 	  confirm_group_removal: false,
 	}))
 	expect(showError).toHaveBeenCalledWith('affected 23')
@@ -300,9 +315,9 @@ describe('PlanEditDialog', () => {
     const confirmation = wrapper.findAll('input[type="checkbox"]').at(-1)
     expect(confirmation).toBeDefined()
     await confirmation!.setValue(true)
-    await wrapper.get('form').trigger('submit')
+	await wrapper.get('form').trigger('submit')
 	expect(updatePlan).toHaveBeenNthCalledWith(2, 99, expect.objectContaining({
-      included_group_ids: [10],
+      included_group_ids: [11],
       confirm_group_removal: true,
     }))
   })

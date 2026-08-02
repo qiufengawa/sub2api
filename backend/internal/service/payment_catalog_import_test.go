@@ -256,6 +256,7 @@ func TestPaymentCatalogImportRoundTripsIncludedGroupsAndCycleSettings(t *testing
 	secondGroup.Name = "GPT two subscription"
 	secondGroup.SortOrder = catalogIntPtr(20)
 	req.Groups = append(req.Groups, secondGroup)
+	req.Plans[0].GroupKey = ""
 	req.Plans[0].IncludedGroupKeys = []string{"lite", "gpt-two", "gpt-two"}
 
 	preview, err := svc.PreviewCatalogImport(ctx, req)
@@ -279,6 +280,9 @@ func TestPaymentCatalogImportRoundTripsIncludedGroupsAndCycleSettings(t *testing
 	}
 	if len(exported.Plans) != 1 || len(exported.Plans[0].IncludedGroupKeys) != 2 {
 		t.Fatalf("included groups were not exported: %#v", exported.Plans)
+	}
+	if exported.Plans[0].GroupKey != "" || exported.Plans[0].GroupID != nil {
+		t.Fatalf("export exposed a legacy primary-group field: %#v", exported.Plans[0])
 	}
 	if exported.Plans[0].CycleQuotaUSD == nil || *exported.Plans[0].CycleQuotaUSD != 5 || exported.Plans[0].ResetIntervalSeconds != 604800 || exported.Plans[0].WalletFallbackEnabled == nil || *exported.Plans[0].WalletFallbackEnabled {
 		t.Fatalf("cycle settings were not exported: %#v", exported.Plans[0])
@@ -316,9 +320,9 @@ func TestPaymentCatalogImportRoundTripsIncludedGroupsAndCycleSettings(t *testing
 func TestPaymentCatalogImportReferencesExistingRealGroupsWithoutMutatingThem(t *testing.T) {
 	svc, client := newCatalogImportTestService(t)
 	ctx := context.Background()
-	primary, err := client.Group.Create().
+	firstGroup, err := client.Group.Create().
 		SetName("GPT one real group").
-		SetDescription("primary routing group").
+		SetDescription("first routing group").
 		SetPlatform(PlatformOpenAI).
 		SetSubscriptionType(SubscriptionTypeStandard).
 		SetStatus(StatusActive).
@@ -327,7 +331,7 @@ func TestPaymentCatalogImportReferencesExistingRealGroupsWithoutMutatingThem(t *
 	if err != nil {
 		t.Fatalf("create primary real group: %v", err)
 	}
-	included, err := client.Group.Create().
+	secondGroup, err := client.Group.Create().
 		SetName("GPT two real group").
 		SetDescription("secondary routing group").
 		SetPlatform(PlatformOpenAI).
@@ -342,10 +346,9 @@ func TestPaymentCatalogImportReferencesExistingRealGroupsWithoutMutatingThem(t *
 	req := catalogTestRequest()
 	req.Groups = nil
 	req.Plans[0].GroupKey = ""
-	primaryID := int64(primary.ID)
-	req.Plans[0].GroupID = &primaryID
+	req.Plans[0].GroupID = nil
 	req.Plans[0].IncludedGroupKeys = nil
-	req.Plans[0].IncludedGroupIDs = []int64{primary.ID, included.ID, included.ID}
+	req.Plans[0].IncludedGroupIDs = []int64{firstGroup.ID, secondGroup.ID, secondGroup.ID}
 
 	preview, err := svc.PreviewCatalogImport(ctx, req)
 	if err != nil || !preview.CanApply {
@@ -362,19 +365,19 @@ func TestPaymentCatalogImportReferencesExistingRealGroupsWithoutMutatingThem(t *
 	if err != nil {
 		t.Fatalf("load real-group plan: %v", err)
 	}
-	if storedPlan.GroupID != primary.ID || len(storedPlan.Edges.Groups) != 2 {
+	if storedPlan.GroupID != firstGroup.ID || len(storedPlan.Edges.Groups) != 2 {
 		t.Fatalf("real groups were not attached to plan: %#v", storedPlan)
 	}
-	storedPrimary, err := client.Group.Get(ctx, primary.ID)
+	storedFirst, err := client.Group.Get(ctx, firstGroup.ID)
 	if err != nil {
-		t.Fatalf("reload primary real group: %v", err)
+		t.Fatalf("reload first real group: %v", err)
 	}
-	storedIncluded, err := client.Group.Get(ctx, included.ID)
+	storedSecond, err := client.Group.Get(ctx, secondGroup.ID)
 	if err != nil {
-		t.Fatalf("reload included real group: %v", err)
+		t.Fatalf("reload second real group: %v", err)
 	}
-	if storedPrimary.RateMultiplier != 0.1 || storedPrimary.Description == nil || *storedPrimary.Description != "primary routing group" || storedIncluded.RateMultiplier != 0.2 {
-		t.Fatalf("referenced real groups were mutated: primary=%#v included=%#v", storedPrimary, storedIncluded)
+	if storedFirst.RateMultiplier != 0.1 || storedFirst.Description == nil || *storedFirst.Description != "first routing group" || storedSecond.RateMultiplier != 0.2 {
+		t.Fatalf("referenced real groups were mutated: first=%#v second=%#v", storedFirst, storedSecond)
 	}
 
 	repeat, err := svc.PreviewCatalogImport(ctx, req)
@@ -385,8 +388,8 @@ func TestPaymentCatalogImportReferencesExistingRealGroupsWithoutMutatingThem(t *
 	if err != nil {
 		t.Fatalf("export real-group catalog: %v", err)
 	}
-	if len(exported.Plans) != 1 || exported.Plans[0].GroupID == nil || *exported.Plans[0].GroupID != primary.ID {
-		t.Fatalf("real primary group ID was not exported: %#v", exported.Plans)
+	if len(exported.Plans) != 1 || exported.Plans[0].GroupID != nil || exported.Plans[0].GroupKey != "" {
+		t.Fatalf("legacy primary-group fields were exported: %#v", exported.Plans)
 	}
 	if len(exported.Plans[0].IncludedGroupIDs) != 2 || len(exported.Plans[0].IncludedGroupKeys) != 0 {
 		t.Fatalf("real included group IDs were not exported: %#v", exported.Plans[0])

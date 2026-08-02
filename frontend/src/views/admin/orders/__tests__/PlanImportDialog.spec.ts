@@ -216,10 +216,10 @@ describe('PlanImportDialog', () => {
 	expect(submitted.groups).toEqual([])
 	expect(submitted.plans).toHaveLength(5)
 	expect(submitted.plans[0]).toEqual(expect.objectContaining({
-	  group_id: 8,
 	  included_group_ids: [8],
 	}))
 	expect(submitted.plans[0].group_key).toBeUndefined()
+	expect(submitted.plans[0].group_id).toBeUndefined()
 	expect(getModelsListCandidates).not.toHaveBeenCalled()
   })
 

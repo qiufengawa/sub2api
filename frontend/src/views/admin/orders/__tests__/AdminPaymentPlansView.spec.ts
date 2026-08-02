@@ -137,10 +137,10 @@ describe('AdminPaymentPlansView', () => {
     expect(result.sourceCount).toBe(2)
 	expect(result.catalog.groups).toEqual([])
 	expect(result.catalog.plans[0]).toEqual(expect.objectContaining({
-	  group_id: 1,
 	  included_group_ids: [1, 2],
 	}))
 	expect(result.catalog.plans[0].group_key).toBeUndefined()
+	expect(result.catalog.plans[0].group_id).toBeUndefined()
     expect(catalog.groups[0].copy_accounts_from).toEqual(['stale source'])
   })
 
@@ -192,6 +192,13 @@ describe('AdminPaymentPlansView', () => {
 			defaults: {},
 			groups: [],
 			plans: [{ group_id: 8, included_group_ids: [8], name: 'ID plan', price: 12.9 }],
+		})).toBe(true)
+		expect(isPaymentCatalogTemplate({
+			schema_version: 1,
+			mode: 'upsert',
+			defaults: {},
+			groups: [],
+			plans: [{ included_group_ids: [8], name: 'Included-only plan', price: 12.9 }],
 		})).toBe(true)
 		expect(isPaymentCatalogTemplate({
 			schema_version: 1,

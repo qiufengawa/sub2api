@@ -178,7 +178,9 @@ func (s *PaymentConfigService) ListPlansForSale(ctx context.Context) ([]*dbent.S
 }
 
 func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanRequest) (*dbent.SubscriptionPlan, error) {
-	if err := validatePlanRequired(req.Name, req.GroupID, req.Price, req.ValidityDays, req.ValidityUnit, req.OriginalPrice); err != nil {
+	includedGroupIDs := normalizePlanGroupIDs(req.GroupID, req.IncludedGroupIDs)
+	compatibilityGroupID := compatiblePlanGroupID(req.GroupID, includedGroupIDs)
+	if err := validatePlanRequired(req.Name, compatibilityGroupID, req.Price, req.ValidityDays, req.ValidityUnit, req.OriginalPrice); err != nil {
 		return nil, err
 	}
 	if err := validatePlanCycle(req.CycleQuotaUSD, req.ResetIntervalSeconds); err != nil {
@@ -188,12 +190,11 @@ func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanReq
 	if err != nil {
 		return nil, err
 	}
-	includedGroupIDs := normalizePlanGroupIDs(req.GroupID, req.IncludedGroupIDs)
 	if err := s.validatePlanIncludedGroups(ctx, includedGroupIDs); err != nil {
 		return nil, err
 	}
 	b := s.entClient.SubscriptionPlan.Create().
-		SetGroupID(req.GroupID).SetName(req.Name).SetDescription(req.Description).
+		SetGroupID(compatibilityGroupID).SetName(req.Name).SetDescription(req.Description).
 		SetPrice(req.Price).SetCurrency(currency).SetValidityDays(req.ValidityDays).SetValidityUnit(req.ValidityUnit).
 		SetFeatures(req.Features).SetProductName(req.ProductName).
 		SetForSale(req.ForSale).SetSortOrder(req.SortOrder).
@@ -240,9 +241,6 @@ func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req Upd
 		return nil, err
 	}
 	u := s.entClient.SubscriptionPlan.UpdateOneID(id)
-	if req.GroupID != nil {
-		u.SetGroupID(*req.GroupID)
-	}
 	if req.Name != nil {
 		u.SetName(*req.Name)
 	}
@@ -294,15 +292,15 @@ func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req Upd
 		u.SetSortOrder(*req.SortOrder)
 	}
 	if req.IncludedGroupIDs != nil || req.GroupID != nil {
-		primaryGroupID := current.GroupID
-		if req.GroupID != nil {
-			primaryGroupID = *req.GroupID
-		}
 		values := planIncludedGroupIDs(current)
 		if req.IncludedGroupIDs != nil {
 			values = *req.IncludedGroupIDs
 		}
-		ids := normalizePlanGroupIDs(primaryGroupID, values)
+		explicitGroupID := int64(0)
+		if req.GroupID != nil {
+			explicitGroupID = *req.GroupID
+		}
+		ids := normalizePlanGroupIDs(explicitGroupID, values)
 		if err := s.validatePlanIncludedGroups(ctx, ids); err != nil {
 			return nil, err
 		}
@@ -311,7 +309,11 @@ func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req Upd
 				return nil, err
 			}
 		}
-		u.ClearGroups().AddGroupIDs(ids...)
+		compatibilityGroupID := compatiblePlanGroupID(current.GroupID, ids)
+		if req.GroupID != nil {
+			compatibilityGroupID = compatiblePlanGroupID(*req.GroupID, ids)
+		}
+		u.SetGroupID(compatibilityGroupID).ClearGroups().AddGroupIDs(ids...)
 	}
 	if _, err := u.Save(ctx); err != nil {
 		return nil, err
@@ -415,6 +417,20 @@ func normalizePlanGroupIDs(primary int64, values []int64) []int64 {
 		out = append(out, id)
 	}
 	return out
+}
+
+// compatiblePlanGroupID keeps the legacy non-null group_id stable while it is
+// still selected. Routing and billing eligibility use the full group relation.
+func compatiblePlanGroupID(current int64, included []int64) int64 {
+	for _, id := range included {
+		if id == current {
+			return current
+		}
+	}
+	if len(included) > 0 {
+		return included[0]
+	}
+	return 0
 }
 
 func (s *PaymentConfigService) requirePlanGroupRemovalConfirmation(ctx context.Context, planID int64, next []int64, confirmed bool) error {

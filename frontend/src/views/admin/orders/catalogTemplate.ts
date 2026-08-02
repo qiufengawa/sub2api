@@ -55,8 +55,12 @@ export function isPaymentCatalogTemplate(value: unknown): value is PaymentCatalo
     && Array.isArray(candidate.plans)
     && candidate.plans.every(plan => Boolean(plan)
       && typeof plan === 'object'
+			&& !((typeof plan.group_key === 'string' && plan.group_key.trim() !== '')
+				&& (Number.isSafeInteger(plan.group_id) && Number(plan.group_id) > 0))
 			&& ((typeof plan.group_key === 'string' && plan.group_key.trim() !== '')
-				!== (Number.isSafeInteger(plan.group_id) && Number(plan.group_id) > 0))
+				|| (Number.isSafeInteger(plan.group_id) && Number(plan.group_id) > 0)
+				|| plan.included_group_keys?.some(key => typeof key === 'string' && key.trim() !== '')
+				|| plan.included_group_ids?.some(id => Number.isSafeInteger(id) && id > 0))
       && typeof plan.name === 'string'
       && typeof plan.price === 'number')
 }
@@ -65,7 +69,9 @@ export function isQiuapiFiveTierTemplate(catalog: PaymentCatalogImportRequest): 
   const expectedKeys = ['lite', 'starter', 'standard', 'pro', 'max']
   if (catalog.schema_version !== 1 || catalog.mode !== 'upsert' || catalog.groups.length !== 5 || catalog.plans.length !== 5) return false
   const groupKeys = new Set(catalog.groups.map(group => group.key.trim().toLowerCase()))
-	const planKeys = new Set(catalog.plans.map(plan => plan.group_key?.trim().toLowerCase() ?? ''))
+	const planKeys = new Set(catalog.plans.map(plan => (
+		plan.group_key || plan.included_group_keys?.[0] || ''
+	).trim().toLowerCase()))
   return expectedKeys.every(key => groupKeys.has(key) && planKeys.has(key))
     && catalog.groups.every(group => !group.copy_accounts_from?.length)
 }
@@ -90,17 +96,22 @@ export function personalizeCatalogTemplate(
 ): PersonalizedCatalogTemplate {
   const selection = selectCatalogTemplateSources(catalog, groups)
 	const groupIDs = selection.sources.map(group => group.id)
-	const primaryGroupID = groupIDs[0]
 
   return {
     catalog: {
       ...catalog,
 			groups: [],
 			plans: catalog.plans.map((plan) => {
-				const { group_key: _groupKey, included_group_keys: _includedGroupKeys, ...portablePlan } = plan
+				const {
+					group_key: _groupKey,
+					group_id: _groupID,
+					included_group_keys: _includedGroupKeys,
+					included_group_ids: _includedGroupIDs,
+					...portablePlan
+				} = plan
 				return {
 					...portablePlan,
-					...(primaryGroupID ? { group_id: primaryGroupID, included_group_ids: [...groupIDs] } : {}),
+					...(groupIDs.length > 0 ? { included_group_ids: [...groupIDs] } : {}),
 				}
 			}),
     },

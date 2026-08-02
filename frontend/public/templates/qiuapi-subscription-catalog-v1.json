@@ -70,7 +70,6 @@
   ],
   "plans": [
     {
-      "group_key": "lite",
       "included_group_keys": ["lite"],
       "cycle_quota_usd": 5,
       "reset_interval_seconds": 604800,
@@ -93,7 +92,6 @@
       "for_sale": true
     },
     {
-      "group_key": "starter",
       "included_group_keys": ["starter"],
       "cycle_quota_usd": 15,
       "reset_interval_seconds": 604800,
@@ -116,7 +114,6 @@
       "for_sale": true
     },
     {
-      "group_key": "standard",
       "included_group_keys": ["standard"],
       "cycle_quota_usd": 40,
       "reset_interval_seconds": 604800,
@@ -139,7 +136,6 @@
       "for_sale": true
     },
     {
-      "group_key": "pro",
       "included_group_keys": ["pro"],
       "cycle_quota_usd": 100,
       "reset_interval_seconds": 604800,
@@ -162,7 +158,6 @@
       "for_sale": true
     },
     {
-      "group_key": "max",
       "included_group_keys": ["max"],
       "cycle_quota_usd": 250,
       "reset_interval_seconds": 604800,

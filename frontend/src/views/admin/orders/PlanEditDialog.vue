@@ -1,41 +1,16 @@
 <template>
   <BaseDialog :show="show" :title="plan ? t('payment.admin.editPlan') : t('payment.admin.createPlan')" width="wide" @close="emit('close')">
     <form id="plan-form" @submit.prevent="handleSavePlan" class="space-y-4">
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2" data-testid="plan-primary-fields">
+      <div data-testid="plan-primary-fields">
         <div>
           <label class="input-label">{{ t('payment.admin.planName') }} <span class="text-red-500">*</span></label>
           <input v-model="planForm.name" type="text" class="input" required />
-        </div>
-        <div>
-          <label class="input-label">{{ t('payment.admin.group') }} <span class="text-red-500">*</span></label>
-          <Select v-model="planForm.group_id" :options="groupOptions" :placeholder="t('payment.admin.selectGroup')" class="w-full">
-            <template #selected="{ option }">
-              <span v-if="option?.platform" :class="platformTextClass(String(option.platform))">{{ option.label }}</span>
-              <span v-else>{{ option?.label || t('payment.admin.selectGroup') }}</span>
-            </template>
-            <template #option="{ option, selected }">
-              <span class="flex-1 truncate text-left" :class="option.platform ? platformTextClass(String(option.platform)) : ''">{{ option.label }}</span>
-              <Icon v-if="selected" name="check" size="sm" class="text-primary-500" :stroke-width="2" />
-            </template>
-          </Select>
-        </div>
-      </div>
-
-      <!-- Group Info Preview -->
-      <div v-if="selectedGroupInfo" class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-dark-600 dark:bg-dark-800">
-        <div class="mb-2 flex items-center gap-2">
-          <GroupBadge :name="selectedGroupInfo.name" :platform="selectedGroupInfo.platform" :rate-multiplier="selectedGroupInfo.rate_multiplier" />
-        </div>
-        <div class="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
-          <div><span class="text-gray-500">{{ t('payment.admin.dailyLimit') }}:</span> <span class="ml-1 font-medium text-gray-700 dark:text-gray-300">{{ selectedGroupInfo.daily_limit_usd != null ? '$' + selectedGroupInfo.daily_limit_usd : t('payment.admin.unlimited') }}</span></div>
-          <div><span class="text-gray-500">{{ t('payment.admin.weeklyLimit') }}:</span> <span class="ml-1 font-medium text-gray-700 dark:text-gray-300">{{ selectedGroupInfo.weekly_limit_usd != null ? '$' + selectedGroupInfo.weekly_limit_usd : t('payment.admin.unlimited') }}</span></div>
-          <div><span class="text-gray-500">{{ t('payment.admin.monthlyLimit') }}:</span> <span class="ml-1 font-medium text-gray-700 dark:text-gray-300">{{ selectedGroupInfo.monthly_limit_usd != null ? '$' + selectedGroupInfo.monthly_limit_usd : t('payment.admin.unlimited') }}</span></div>
         </div>
       </div>
 
 	  <section class="border-y border-gray-100 py-4 dark:border-dark-700" data-testid="plan-included-groups">
 		<div class="mb-3">
-		  <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('payment.admin.includedGroups') }}</h3>
+		  <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('payment.admin.includedGroups') }} <span class="text-red-500">*</span></h3>
 		  <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.includedGroupsHint') }}</p>
 		</div>
 		<div class="max-h-52 divide-y divide-gray-100 overflow-y-auto border-y border-gray-100 dark:divide-dark-700 dark:border-dark-700">
@@ -43,18 +18,16 @@
 			v-for="group in includedGroupOptions"
 			:key="group.id"
 			class="flex cursor-pointer items-center gap-3 py-2.5"
-			:class="group.id === planForm.group_id ? 'cursor-default' : ''"
 		  >
 			<input
 			  type="checkbox"
 			  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
 			  :checked="isIncludedGroup(group.id)"
-			  :disabled="group.id === planForm.group_id"
 			  @change="toggleIncludedGroup(group.id)"
 			/>
 			<GroupBadge :name="group.name" :platform="group.platform" :rate-multiplier="group.rate_multiplier" />
-			<span v-if="group.id === planForm.group_id" class="ml-auto shrink-0 text-xs text-gray-400">{{ t('payment.admin.primaryGroup') }}</span>
 		  </label>
+		  <p v-if="includedGroupOptions.length === 0" class="py-3 text-sm text-gray-500 dark:text-gray-400">{{ t('common.noGroupsAvailable') }}</p>
 		</div>
 	  </section>
 
@@ -165,9 +138,7 @@ import type { SubscriptionPlan } from '@/types/payment'
 import type { AdminGroup } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
-import Icon from '@/components/icons/Icon.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
-import { platformTextClass } from '@/utils/platformColors'
 
 const props = defineProps<{
   show: boolean
@@ -187,7 +158,6 @@ const appStore = useAppStore()
 const saving = ref(false)
 const planForm = reactive({
   name: '',
-  group_id: null as number | null,
   included_group_ids: [] as number[],
   cycle_quota_usd: null as number | null,
   reset_interval_days: 7,
@@ -212,30 +182,14 @@ const validityUnitOptions = computed(() => [
   { value: 'months', label: t('payment.admin.months') },
 ])
 
-const groupOptions = computed(() =>
-  props.groups
-    .filter(g => g.status === 'active')
-    .map(g => ({
-      value: g.id,
-      label: `${g.name} — ${g.platform} (${g.rate_multiplier}x)`,
-      platform: g.platform,
-    })),
-)
-
 const includedGroupOptions = computed(() =>
   props.groups.filter(group => group.status === 'active'),
 )
 
-const selectedGroupInfo = computed(() => {
-  if (!planForm.group_id) return null
-  return props.groups.find(g => g.id === planForm.group_id) || null
-})
-
 const normalizedIncludedGroupIDs = computed(() => {
-  const primary = planForm.group_id
   const seen = new Set<number>()
   const result: number[] = []
-  for (const id of [primary, ...planForm.included_group_ids]) {
+  for (const id of planForm.included_group_ids) {
     if (!id || seen.has(id)) continue
     seen.add(id)
     result.push(id)
@@ -254,7 +208,6 @@ function isIncludedGroup(groupID: number): boolean {
 }
 
 function toggleIncludedGroup(groupID: number) {
-  if (groupID === planForm.group_id) return
   const index = planForm.included_group_ids.indexOf(groupID)
   if (index >= 0) planForm.included_group_ids.splice(index, 1)
   else planForm.included_group_ids.push(groupID)
@@ -294,7 +247,6 @@ watch(() => props.show, (visible) => {
     const includedGroupIDs = props.plan.included_groups?.map(group => group.id) || [props.plan.group_id]
     Object.assign(planForm, {
       name: props.plan.name,
-      group_id: props.plan.group_id,
       included_group_ids: [...includedGroupIDs],
       cycle_quota_usd: props.plan.cycle_quota_usd ?? null,
       reset_interval_days: props.plan.reset_interval_seconds ? props.plan.reset_interval_seconds / 86400 : 7,
@@ -311,20 +263,12 @@ watch(() => props.show, (visible) => {
     initialIncludedGroupIDs.value = [...new Set(includedGroupIDs)]
     planFeaturesText.value = (props.plan.features || []).join('\n')
   } else {
-    Object.assign(planForm, { name: '', group_id: null, included_group_ids: [], cycle_quota_usd: null, reset_interval_days: 7, wallet_fallback_enabled: true, description: '', price: 0, original_price: 0, currency: '', validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true })
+    Object.assign(planForm, { name: '', included_group_ids: [], cycle_quota_usd: null, reset_interval_days: 7, wallet_fallback_enabled: true, description: '', price: 0, original_price: 0, currency: '', validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true })
     initialIncludedGroupIDs.value = []
     planFeaturesText.value = ''
   }
   confirmGroupRemoval.value = false
   affectedSubscriptions.value = null
-})
-
-watch(() => planForm.group_id, (groupID) => {
-  confirmGroupRemoval.value = false
-  affectedSubscriptions.value = null
-  if (groupID && !planForm.included_group_ids.includes(groupID)) {
-    planForm.included_group_ids.unshift(groupID)
-  }
 })
 
 /** Build request payload with snake_case keys matching backend JSON tags */
@@ -333,7 +277,6 @@ function buildPlanPayload() {
   const cycleQuota = Number(planForm.cycle_quota_usd) > 0 ? Number(planForm.cycle_quota_usd) : null
   return {
     name: planForm.name,
-    group_id: planForm.group_id,
     included_group_ids: normalizedIncludedGroupIDs.value,
     cycle_quota_usd: cycleQuota,
     reset_interval_seconds: cycleQuota ? Math.round(Number(planForm.reset_interval_days) * 86400) : 0,
@@ -352,7 +295,7 @@ function buildPlanPayload() {
 }
 
 async function handleSavePlan() {
-  if (!planForm.group_id) {
+  if (normalizedIncludedGroupIDs.value.length === 0) {
     appStore.showError(t('payment.admin.groupRequired'))
     return
   }
