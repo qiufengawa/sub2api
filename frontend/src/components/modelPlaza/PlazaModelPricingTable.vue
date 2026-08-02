@@ -216,14 +216,22 @@ const accentStyle = computed(() => ({ '--plaza-accent': platformAccentColor(prop
 const PER_MILLION = 1_000_000
 const MIN_DECIMALS = 2
 
+/**
+ * Token-priced models stay ahead of per-image/per-request models because their
+ * prices use different units. Within each billing mode, keep the newest and
+ * highest official output price first so the order remains stable on refresh.
+ */
 const sortedModels = computed(() => {
   return [...props.models].sort((a, b) => {
+    const aIsToken = billingMode(a) === BILLING_MODE_TOKEN
+    const bIsToken = billingMode(b) === BILLING_MODE_TOKEN
+    if (aIsToken !== bIsToken) return aIsToken ? -1 : 1
     const aPrice = a.official_pricing?.output_price ?? null
     const bPrice = b.official_pricing?.output_price ?? null
     if (aPrice != null && bPrice != null && aPrice !== bPrice) return bPrice - aPrice
     if (aPrice != null && bPrice == null) return -1
     if (aPrice == null && bPrice != null) return 1
-    return a.name.localeCompare(b.name)
+    return b.name.localeCompare(a.name)
   })
 })
 

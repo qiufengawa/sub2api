@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to release (e.g., v0.1.169-qiu.6)'
+        description: 'Tag to release (e.g., v0.1.170-qiu.1)'
         required: true
         type: string
       simple_release:
@@ -41,7 +41,7 @@ jobs:
           # Keep this gate aligned with docs/RELEASE_VERSION_POLICY.md.
           if ! printf '%s\n' "$RELEASE_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+-qiu\.[1-9][0-9]*$'; then
             echo "Invalid release tag: $RELEASE_TAG" >&2
-            echo "Expected: v<upstream-version>-qiu.<revision>, for example v0.1.169-qiu.6" >&2
+            echo "Expected: v<upstream-version>-qiu.<revision>, for example v0.1.170-qiu.1" >&2
             exit 1
           fi
           VERSION=${RELEASE_TAG#v}
@@ -171,13 +171,15 @@ jobs:
           echo "$TAG_MESSAGE" | head -10
 
           # 使用 EOF 分隔符处理多行内容
-          echo "message<<EOF" >> $GITHUB_OUTPUT
-          echo "$TAG_MESSAGE" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "message<<EOF"
+            echo "$TAG_MESSAGE"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set lowercase owner for GHCR
         id: lowercase
-        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
@@ -228,6 +230,8 @@ jobs:
 
           # 获取 tag message 内容并转义 Markdown 特殊字符
           TAG_MESSAGE='${{ steps.tag_message.outputs.message }}'
+          # sed handles the Markdown character class in one pass.
+          # shellcheck disable=SC2001
           TAG_MESSAGE=$(echo "$TAG_MESSAGE" | sed 's/\([_*`\[]\)/\\\1/g')
 
           # 限制消息长度（Telegram 消息限制 4096 字符，预留空间给头尾固定内容）
