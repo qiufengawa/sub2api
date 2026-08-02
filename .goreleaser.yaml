@@ -173,7 +173,7 @@ release:
     owner: "{{ .Env.GITHUB_REPO_OWNER }}"
     name: "{{ .Env.GITHUB_REPO_NAME }}"
   draft: false
-  # Fork revisions use a SemVer prerelease-shaped suffix (e.g. 0.1.169-qiu.5)
+  # Fork revisions use a SemVer prerelease-shaped suffix (e.g. 0.1.169-qiu.6)
   # but are stable releases of this distribution.
   prerelease: false
   name_template: "Sub2API UI {{.Version}}"

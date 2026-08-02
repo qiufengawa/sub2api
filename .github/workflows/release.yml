@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to release (e.g., v0.1.169-qiu.5)'
+        description: 'Tag to release (e.g., v0.1.169-qiu.6)'
         required: true
         type: string
       simple_release:
@@ -41,7 +41,7 @@ jobs:
           # Keep this gate aligned with docs/RELEASE_VERSION_POLICY.md.
           if ! printf '%s\n' "$RELEASE_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+-qiu\.[1-9][0-9]*$'; then
             echo "Invalid release tag: $RELEASE_TAG" >&2
-            echo "Expected: v<upstream-version>-qiu.<revision>, for example v0.1.169-qiu.5" >&2
+            echo "Expected: v<upstream-version>-qiu.<revision>, for example v0.1.169-qiu.6" >&2
             exit 1
           fi
           VERSION=${RELEASE_TAG#v}

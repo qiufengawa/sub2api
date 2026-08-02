@@ -121,7 +121,7 @@ type GitHubRelease struct {
 
 // RollbackVersion describes a release version the system can roll back to
 type RollbackVersion struct {
-	Version     string `json:"version"` // without "v" prefix, e.g. "0.1.169-qiu.5"
+	Version     string `json:"version"` // without "v" prefix, e.g. "0.1.169-qiu.6"
 	PublishedAt string `json:"published_at"`
 	HTMLURL     string `json:"html_url"`
 }
@@ -695,7 +695,7 @@ func (s *UpdateService) saveToCache(ctx context.Context, info *UpdateInfo) {
 }
 
 // compareVersions compares distribution versions. The current format is
-// <upstream semver>-qiu.<revision>, for example 0.1.169-qiu.5.
+// <upstream semver>-qiu.<revision>, for example 0.1.169-qiu.6.
 // The upstream version is compared first, then the qiu revision. The parser
 // also accepts the historical qiu.N.P form so existing releases remain
 // comparable in update and rollback lists.
