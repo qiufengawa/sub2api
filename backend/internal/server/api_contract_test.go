@@ -442,6 +442,8 @@ func TestAPIContracts(t *testing.T) {
 						"monthly_usage_usd": 3.45,
 						"cycle_usage_usd": 0,
 						"cycle_reserved_usd": 0,
+						"total_usage_usd": 0,
+						"total_reserved_usd": 0,
 						"reset_interval_seconds": 0,
 						"wallet_fallback_enabled": false,
 						"included_groups": [],
