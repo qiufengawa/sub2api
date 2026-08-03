@@ -1211,15 +1211,6 @@ func resolveCatalogPlanGroupIDs(plan catalogPlan, groupIDByKey map[string]int64)
 	return result, nil
 }
 
-func (n *normalizedCatalog) groupNameForKey(key string) string {
-	for _, g := range n.groups {
-		if g.Key == key {
-			return g.Name
-		}
-	}
-	return ""
-}
-
 func catalogPreviewToken(preview *PaymentCatalogImportPreview) string {
 	copyPreview := *preview
 	copyPreview.PreviewToken = ""

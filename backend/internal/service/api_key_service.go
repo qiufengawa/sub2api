@@ -996,7 +996,7 @@ func (s *APIKeyService) GetAvailableGroups(ctx context.Context, userID int64) ([
 		return nil, fmt.Errorf("list active subscriptions: %w", err)
 	}
 
-// 构建有效套餐覆盖的路由分组 ID 集合
+	// 构建有效套餐覆盖的路由分组 ID 集合
 	subscribedGroupIDs := make(map[int64]bool)
 	for _, sub := range activeSubscriptions {
 		for _, includedGroup := range sub.IncludedGroups {

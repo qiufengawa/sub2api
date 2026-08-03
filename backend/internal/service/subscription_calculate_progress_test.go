@@ -20,9 +20,9 @@ func TestCalculateProgress_UsesPlanFieldsWithoutChoosingIncludedGroup(t *testing
 		PlanName:             "Standard",
 		StartsAt:             now.Add(-7 * 24 * time.Hour),
 		ExpiresAt:            now.Add(21 * 24 * time.Hour),
-		CycleQuotaUSD:         &limit,
-		CycleUsageUSD:         7.5,
-		CycleStartedAt:        &cycleStart,
+		CycleQuotaUSD:        &limit,
+		CycleUsageUSD:        7.5,
+		CycleStartedAt:       &cycleStart,
 		ResetIntervalSeconds: 7 * 24 * 60 * 60,
 		IncludedGroups: []Group{
 			{ID: 10, Name: "GPT 1", DailyLimitUSD: progressFloat64Ptr(1)},
@@ -66,9 +66,9 @@ func TestCalculateProgress_CycleValuesAreClamped(t *testing.T) {
 		ID:                   1,
 		StartsAt:             cycleStart,
 		ExpiresAt:            now.Add(24 * time.Hour),
-		CycleQuotaUSD:         &limit,
-		CycleUsageUSD:         15,
-		CycleStartedAt:        &cycleStart,
+		CycleQuotaUSD:        &limit,
+		CycleUsageUSD:        15,
+		CycleStartedAt:       &cycleStart,
 		ResetIntervalSeconds: 24 * 60 * 60,
 	}
 

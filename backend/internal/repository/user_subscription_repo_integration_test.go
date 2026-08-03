@@ -727,7 +727,7 @@ func (s *UserSubscriptionRepoSuite) TestActiveExpiredBoundaries_UsageAndReset_Ba
 	s.Require().Equal(service.SubscriptionStatusExpired, updated.Status, "expected status expired")
 }
 
-// --- 软删除过滤测试 ---
+// --- 软删除路由分组兼容测试 ---
 
 func (s *UserSubscriptionRepoSuite) TestIncrementUsage_SoftDeletedGroup() {
 	user := s.mustCreateUser("softdeleted@test.com", service.RoleUser)
@@ -738,10 +738,13 @@ func (s *UserSubscriptionRepoSuite) TestIncrementUsage_SoftDeletedGroup() {
 	_, err := s.client.Group.UpdateOneID(group.ID).SetDeletedAt(time.Now()).Save(s.ctx)
 	s.Require().NoError(err, "soft delete group")
 
-	// IncrementUsage 应该失败，因为分组已软删除
+	// 订阅用量属于套餐。即使套餐覆盖的路由分组后来被软删除，已经完成的
+	// 请求仍需按订阅 ID 可靠入账；请求路由层负责阻止后续流量进入该分组。
 	err = s.repo.IncrementUsage(s.ctx, sub.ID, 1.0)
-	s.Require().Error(err, "should fail for soft-deleted group")
-	s.Require().ErrorIs(err, service.ErrSubscriptionNotFound)
+	s.Require().NoError(err, "record usage for an existing plan subscription")
+	updated, err := s.repo.GetByID(s.ctx, sub.ID)
+	s.Require().NoError(err)
+	s.Require().InDelta(1.0, updated.DailyUsageUSD, 1e-6)
 }
 
 func (s *UserSubscriptionRepoSuite) TestIncrementUsage_NotFound() {
