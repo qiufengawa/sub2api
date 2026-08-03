@@ -723,3 +723,52 @@ func TestPaymentCatalogExportIsSafeAndReimportable(t *testing.T) {
 		}
 	}
 }
+
+func TestPaymentCatalogHidesLegacyMigrationArtifacts(t *testing.T) {
+	svc, client := newCatalogImportTestService(t)
+	ctx := context.Background()
+
+	for _, plan := range []struct {
+		name        string
+		description string
+		productName string
+		price       float64
+		forSale     bool
+	}{
+		{name: "Visible plan", description: "normal product", productName: "qiu-visible-plan", price: 12.9, forSale: true},
+		{name: "Reserved prefix product", description: "administrator managed product", productName: "legacy-group-custom", price: 19.9, forSale: true},
+		{name: "[Migrated] Starter", description: legacyMigratedPlanDescription, productName: "legacy-group-12", price: 0, forSale: false},
+		{name: "[Migrated] Unresolved subscription codes", description: legacyUnresolvedPlanDescription, productName: legacyUnresolvedPlanProductName, price: 0, forSale: false},
+	} {
+		_, err := client.SubscriptionPlan.Create().
+			SetName(plan.name).
+			SetDescription(plan.description).
+			SetPrice(plan.price).
+			SetProductName(plan.productName).
+			SetForSale(plan.forSale).
+			SetValidityDays(28).
+			SetValidityUnit("days").
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("create %s: %v", plan.name, err)
+		}
+	}
+
+	storedCount, err := client.SubscriptionPlan.Query().Count(ctx)
+	if err != nil || storedCount != 4 {
+		t.Fatalf("expected compatibility rows to remain stored: count=%d err=%v", storedCount, err)
+	}
+
+	plans, err := svc.ListPlans(ctx)
+	if err != nil || len(plans) != 2 {
+		t.Fatalf("admin catalog leaked compatibility plans: plans=%#v err=%v", plans, err)
+	}
+	forSale, err := svc.ListPlansForSale(ctx)
+	if err != nil || len(forSale) != 2 {
+		t.Fatalf("sale catalog leaked compatibility plans: plans=%#v err=%v", forSale, err)
+	}
+	exported, err := svc.ExportCatalog(ctx)
+	if err != nil || len(exported.Plans) != 2 {
+		t.Fatalf("catalog export leaked compatibility plans: catalog=%#v err=%v", exported, err)
+	}
+}

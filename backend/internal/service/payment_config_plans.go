@@ -90,6 +90,33 @@ func validatePlanPatch(req UpdatePlanRequest) error {
 
 // --- Plan CRUD ---
 
+const (
+	legacyMigratedPlanProductPrefix = "legacy-group-"
+	legacyMigratedPlanDescription   = "Automatically migrated from a legacy group-bound subscription."
+	legacyUnresolvedPlanProductName = "legacy-unresolved-subscription-codes"
+	legacyUnresolvedPlanDescription = "Historical subscription codes whose deleted group could not be reconstructed."
+)
+
+// visibleCatalogPlanQuery excludes internal compatibility rows created while
+// migrating legacy group-bound entitlements. They must remain addressable by
+// historical subscriptions, but they are not administrator-managed products.
+func visibleCatalogPlanQuery(query *dbent.SubscriptionPlanQuery) *dbent.SubscriptionPlanQuery {
+	return query.Where(subscriptionplan.Not(subscriptionplan.Or(
+		subscriptionplan.And(
+			subscriptionplan.ProductNameHasPrefix(legacyMigratedPlanProductPrefix),
+			subscriptionplan.DescriptionEQ(legacyMigratedPlanDescription),
+			subscriptionplan.PriceEQ(0),
+			subscriptionplan.ForSaleEQ(false),
+		),
+		subscriptionplan.And(
+			subscriptionplan.ProductNameEQ(legacyUnresolvedPlanProductName),
+			subscriptionplan.DescriptionEQ(legacyUnresolvedPlanDescription),
+			subscriptionplan.PriceEQ(0),
+			subscriptionplan.ForSaleEQ(false),
+		),
+	)))
+}
+
 // PlanGroupInfo holds the group details needed for subscription plan display.
 type PlanGroupInfo struct {
 	ID                 int64    `json:"id"`
@@ -160,11 +187,15 @@ func (s *PaymentConfigService) GetGroupInfoMap(ctx context.Context, plans []*dbe
 }
 
 func (s *PaymentConfigService) ListPlans(ctx context.Context) ([]*dbent.SubscriptionPlan, error) {
-	return s.entClient.SubscriptionPlan.Query().WithGroups().Order(subscriptionplan.BySortOrder()).All(ctx)
+	return visibleCatalogPlanQuery(s.entClient.SubscriptionPlan.Query()).WithGroups().Order(subscriptionplan.BySortOrder()).All(ctx)
 }
 
 func (s *PaymentConfigService) ListPlansForSale(ctx context.Context) ([]*dbent.SubscriptionPlan, error) {
-	return s.entClient.SubscriptionPlan.Query().Where(subscriptionplan.ForSaleEQ(true)).WithGroups().Order(subscriptionplan.BySortOrder()).All(ctx)
+	return visibleCatalogPlanQuery(s.entClient.SubscriptionPlan.Query()).
+		Where(subscriptionplan.ForSaleEQ(true)).
+		WithGroups().
+		Order(subscriptionplan.BySortOrder()).
+		All(ctx)
 }
 
 func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanRequest) (*dbent.SubscriptionPlan, error) {

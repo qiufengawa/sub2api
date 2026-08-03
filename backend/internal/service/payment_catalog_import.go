@@ -724,7 +724,7 @@ func (s *PaymentConfigService) ExportCatalog(ctx context.Context) (*PaymentCatal
 	if s == nil || s.entClient == nil {
 		return nil, infraerrors.InternalServer("CATALOG_DB_UNAVAILABLE", "catalog database is unavailable")
 	}
-	plans, err := s.entClient.SubscriptionPlan.Query().WithGroups().Order(subscriptionplan.BySortOrder()).All(ctx)
+	plans, err := visibleCatalogPlanQuery(s.entClient.SubscriptionPlan.Query()).WithGroups().Order(subscriptionplan.BySortOrder()).All(ctx)
 	if err != nil {
 		return nil, err
 	}
