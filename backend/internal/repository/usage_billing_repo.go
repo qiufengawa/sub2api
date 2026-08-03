@@ -550,11 +550,8 @@ func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscrip
 				ELSE us.cycle_usage_usd + $1
 			END,
 			updated_at = NOW()
-		FROM groups g
 		WHERE us.id = $2
 			AND us.deleted_at IS NULL
-			AND us.group_id = g.id
-			AND g.deleted_at IS NULL
 	`
 	res, err := tx.ExecContext(ctx, updateSQL, costUSD, subscriptionID)
 	if err != nil {
