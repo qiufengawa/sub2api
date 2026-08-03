@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
@@ -43,6 +44,10 @@ func (r *userSubscriptionRepository) Create(ctx context.Context, sub *service.Us
 		SetResetIntervalSeconds(sub.ResetIntervalSeconds).
 		SetNillableCycleStartedAt(sub.CycleStartedAt).
 		SetCycleUsageUsd(sub.CycleUsageUSD).
+		SetCycleReservedUsd(sub.CycleReservedUSD).
+		SetNillableTotalQuotaUsd(sub.TotalQuotaUSD).
+		SetTotalUsageUsd(sub.TotalUsageUSD).
+		SetTotalReservedUsd(sub.TotalReservedUSD).
 		SetWalletFallbackEnabled(sub.WalletFallbackEnabled).
 		SetNillableAssignedBy(sub.AssignedBy)
 
@@ -161,17 +166,78 @@ func (r *userSubscriptionRepository) ExistsActiveCoveringGroup(ctx context.Conte
 
 func (r *userSubscriptionRepository) UpdateBillingSnapshot(ctx context.Context, subscriptionID int64, snapshot service.SubscriptionBillingSnapshot, resetCycle bool) error {
 	client := clientFromContext(ctx, r.client)
-	update := client.UserSubscription.UpdateOneID(subscriptionID).
-		SetPlanID(snapshot.PlanID).
-		SetNillableCycleQuotaUsd(snapshot.CycleQuotaUSD).
-		SetResetIntervalSeconds(snapshot.ResetIntervalSeconds).
-		SetNillableCycleStartedAt(snapshot.CycleStartedAt).
-		SetWalletFallbackEnabled(snapshot.WalletFallbackEnabled)
+	var result sql.Result
+	var err error
 	if resetCycle {
-		update.SetCycleUsageUsd(0)
+		result, err = client.ExecContext(ctx, `
+			UPDATE user_subscriptions
+			SET plan_id = $1,
+				cycle_quota_usd = $2,
+				reset_interval_seconds = $3,
+				cycle_started_at = $4,
+				cycle_usage_usd = 0,
+				total_quota_usd = CASE
+					WHEN $8 THEN total_quota_usd
+					ELSE $5
+				END,
+				total_usage_usd = 0,
+				wallet_fallback_enabled = $6,
+				updated_at = NOW()
+			WHERE id = $7 AND deleted_at IS NULL
+		`, snapshot.PlanID, snapshot.CycleQuotaUSD, snapshot.ResetIntervalSeconds, snapshot.CycleStartedAt, snapshot.TotalQuotaUSD, snapshot.WalletFallbackEnabled, subscriptionID, snapshot.PreserveExistingTotalQuota)
+	} else if snapshot.PreserveExistingTotalQuota {
+		result, err = client.ExecContext(ctx, `
+			UPDATE user_subscriptions
+			SET plan_id = $1,
+				cycle_quota_usd = $2,
+				reset_interval_seconds = $3,
+				cycle_started_at = $4,
+				wallet_fallback_enabled = $5,
+				updated_at = NOW()
+			WHERE id = $6 AND deleted_at IS NULL
+		`, snapshot.PlanID, snapshot.CycleQuotaUSD, snapshot.ResetIntervalSeconds, snapshot.CycleStartedAt, snapshot.WalletFallbackEnabled, subscriptionID)
+	} else if snapshot.TotalQuotaUSD == nil {
+		result, err = client.ExecContext(ctx, `
+			UPDATE user_subscriptions
+			SET plan_id = $1,
+				cycle_quota_usd = $2,
+				reset_interval_seconds = $3,
+				cycle_started_at = $4,
+				total_quota_usd = NULL,
+				wallet_fallback_enabled = $5,
+				updated_at = NOW()
+			WHERE id = $6 AND deleted_at IS NULL
+		`, snapshot.PlanID, snapshot.CycleQuotaUSD, snapshot.ResetIntervalSeconds, snapshot.CycleStartedAt, snapshot.WalletFallbackEnabled, subscriptionID)
+	} else {
+		// An early renewal extends the same entitlement term. Preserve existing
+		// consumption and add the newly purchased allowance. Historical unlimited
+		// rows start enforcing the cap only after receiving a full fresh allowance.
+		result, err = client.ExecContext(ctx, `
+			UPDATE user_subscriptions
+			SET plan_id = $1,
+				cycle_quota_usd = $2,
+				reset_interval_seconds = $3,
+				cycle_started_at = $4,
+				total_quota_usd = CASE
+					WHEN total_quota_usd IS NULL THEN total_usage_usd + total_reserved_usd + $5
+					ELSE total_quota_usd + $5
+				END,
+				wallet_fallback_enabled = $6,
+				updated_at = NOW()
+			WHERE id = $7 AND deleted_at IS NULL
+		`, snapshot.PlanID, snapshot.CycleQuotaUSD, snapshot.ResetIntervalSeconds, snapshot.CycleStartedAt, *snapshot.TotalQuotaUSD, snapshot.WalletFallbackEnabled, subscriptionID)
 	}
-	_, err := update.Save(ctx)
-	return translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
+	if err != nil {
+		return translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrSubscriptionNotFound
+	}
+	return nil
 }
 
 func (r *userSubscriptionRepository) Update(ctx context.Context, sub *service.UserSubscription) error {
@@ -196,6 +262,10 @@ func (r *userSubscriptionRepository) Update(ctx context.Context, sub *service.Us
 		SetResetIntervalSeconds(sub.ResetIntervalSeconds).
 		SetNillableCycleStartedAt(sub.CycleStartedAt).
 		SetCycleUsageUsd(sub.CycleUsageUSD).
+		SetCycleReservedUsd(sub.CycleReservedUSD).
+		SetNillableTotalQuotaUsd(sub.TotalQuotaUSD).
+		SetTotalUsageUsd(sub.TotalUsageUSD).
+		SetTotalReservedUsd(sub.TotalReservedUSD).
 		SetWalletFallbackEnabled(sub.WalletFallbackEnabled).
 		SetNillableAssignedBy(sub.AssignedBy).
 		SetAssignedAt(sub.AssignedAt).
@@ -512,6 +582,21 @@ func (r *userSubscriptionRepository) IncrementUsage(ctx context.Context, id int6
 				daily_usage_usd = daily_usage_usd + $1,
 				weekly_usage_usd = weekly_usage_usd + $1,
 				monthly_usage_usd = monthly_usage_usd + $1,
+				cycle_started_at = CASE
+					WHEN reset_interval_seconds > 0 AND (
+						cycle_started_at IS NULL OR
+						NOW() >= cycle_started_at + reset_interval_seconds * INTERVAL '1 second'
+					) THEN NOW()
+					ELSE cycle_started_at
+				END,
+				cycle_usage_usd = CASE
+					WHEN reset_interval_seconds > 0 AND (
+						cycle_started_at IS NULL OR
+						NOW() >= cycle_started_at + reset_interval_seconds * INTERVAL '1 second'
+					) THEN $1
+					ELSE cycle_usage_usd + $1
+				END,
+				total_usage_usd = total_usage_usd + $1,
 				updated_at = NOW()
 			WHERE id = $2
 				AND deleted_at IS NULL
@@ -675,6 +760,9 @@ func userSubscriptionEntityToServiceWithStatusMapping(m *dbent.UserSubscription,
 		CycleStartedAt:        m.CycleStartedAt,
 		CycleUsageUSD:         m.CycleUsageUsd,
 		CycleReservedUSD:      m.CycleReservedUsd,
+		TotalQuotaUSD:         m.TotalQuotaUsd,
+		TotalUsageUSD:         m.TotalUsageUsd,
+		TotalReservedUSD:      m.TotalReservedUsd,
 		WalletFallbackEnabled: m.WalletFallbackEnabled,
 		AssignedBy:            m.AssignedBy,
 		AssignedAt:            m.AssignedAt,
@@ -721,6 +809,9 @@ func applyUserSubscriptionEntityToService(dst *service.UserSubscription, src *db
 	dst.CycleStartedAt = src.CycleStartedAt
 	dst.CycleUsageUSD = src.CycleUsageUsd
 	dst.CycleReservedUSD = src.CycleReservedUsd
+	dst.TotalQuotaUSD = src.TotalQuotaUsd
+	dst.TotalUsageUSD = src.TotalUsageUsd
+	dst.TotalReservedUSD = src.TotalReservedUsd
 	dst.WalletFallbackEnabled = src.WalletFallbackEnabled
 	dst.CreatedAt = src.CreatedAt
 	dst.UpdatedAt = src.UpdatedAt

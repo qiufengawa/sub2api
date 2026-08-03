@@ -760,7 +760,7 @@ func (s *BillingCacheService) checkPlanCoverageBillingEligibility(
 	subscriptionAvailable := subscription != nil &&
 		subscription.Status == SubscriptionStatusActive &&
 		subscription.ExpiresAt.After(now) &&
-		subscription.CheckCycleLimitAt(now, 0)
+		subscription.CheckQuotaLimitsAt(now, 0)
 
 	switch NormalizeBillingPreference(user.BillingPreference) {
 	case BillingPreferenceWalletOnly:

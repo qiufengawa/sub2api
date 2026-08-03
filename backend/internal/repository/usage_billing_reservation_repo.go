@@ -124,7 +124,7 @@ func reserveUsageBillingFunding(
 	chooseSubscription := func() *subscriptionBillingCandidate {
 		for i := range candidates {
 			candidate := &candidates[i]
-			if candidate.cycleQuotaUSD == nil || !candidate.cycleQuotaUSD.IsPositive() || candidate.cycleUsageUSD.Add(candidate.cycleReservedUSD).Add(amount).LessThanOrEqual(*candidate.cycleQuotaUSD) {
+			if candidate.canFund(amount) {
 				return candidate
 			}
 		}
@@ -783,7 +783,9 @@ func settleSelectedUsageBillingSubscription(ctx context.Context, tx *sql.Tx, sub
 	res, err := tx.ExecContext(ctx, `
 		UPDATE user_subscriptions
 		SET cycle_reserved_usd = cycle_reserved_usd - $1,
+			total_reserved_usd = total_reserved_usd - $1,
 			cycle_usage_usd = cycle_usage_usd + $2,
+			total_usage_usd = total_usage_usd + $2,
 			daily_usage_usd = daily_usage_usd + $2,
 			weekly_usage_usd = weekly_usage_usd + $2,
 			monthly_usage_usd = monthly_usage_usd + $2,
@@ -791,6 +793,7 @@ func settleSelectedUsageBillingSubscription(ctx context.Context, tx *sql.Tx, sub
 		WHERE id = $3
 			AND deleted_at IS NULL
 			AND cycle_reserved_usd >= $1
+			AND total_reserved_usd >= $1
 	`, reservedAmount, actualAmount, subscriptionID)
 	if err != nil {
 		return err

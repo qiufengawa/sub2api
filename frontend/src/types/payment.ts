@@ -127,6 +127,7 @@ export interface SubscriptionPlan {
   id: number
   included_groups: SubscriptionPlanGroup[]
   cycle_quota_usd?: number | null
+  total_quota_usd?: number | null
   reset_interval_seconds?: number
   wallet_fallback_enabled?: boolean
   name: string
@@ -193,6 +194,7 @@ export interface PaymentCatalogPlan {
   included_group_keys?: string[]
   included_group_ids?: number[]
   cycle_quota_usd?: number | null
+  total_quota_usd?: number | null
   reset_interval_seconds?: number
   wallet_fallback_enabled?: boolean
   name: string

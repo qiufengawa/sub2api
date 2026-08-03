@@ -617,6 +617,8 @@ export default {
       weekly: 'Weekly',
       monthly: 'Monthly',
       cycle: 'Cycle',
+      total: 'Term total',
+      validUntil: 'Valid until {date}',
       resetEveryDays: 'Resets every {days} days',
       reserved: '${amount} reserved',
       noIncludedGroups: 'No covered groups',

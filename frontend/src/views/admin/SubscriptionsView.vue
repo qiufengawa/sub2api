@@ -248,6 +248,7 @@
 
           <template #cell-usage="{ row }">
             <div class="min-w-[250px]">
+              <div v-if="hasAnySubscriptionQuota(row)" class="space-y-3">
               <div v-if="row.cycle_quota_usd != null && row.cycle_quota_usd > 0" class="usage-row">
                 <div class="flex items-center gap-2">
                   <span class="usage-label">{{ t('admin.subscriptions.cycle') }}</span>
@@ -273,6 +274,31 @@
                     · {{ t('admin.subscriptions.reserved', { amount: Number(row.cycle_reserved_usd).toFixed(2) }) }}
                   </span>
                 </div>
+              </div>
+              <div v-if="row.total_quota_usd != null && row.total_quota_usd > 0" class="usage-row">
+                <div class="flex items-center gap-2">
+                  <span class="usage-label">{{ t('admin.subscriptions.total') }}</span>
+                  <div class="h-1.5 flex-1 rounded-full bg-gray-200 dark:bg-dark-600">
+                    <div
+                      class="h-1.5 rounded-full transition-all"
+                      :class="getProgressClass(getTotalCommitted(row), row.total_quota_usd)"
+                      :style="{ width: getProgressWidth(getTotalCommitted(row), row.total_quota_usd) }"
+                    ></div>
+                  </div>
+                  <span class="usage-amount">
+                    ${{ getTotalCommitted(row).toFixed(2) }}
+                    <span class="text-gray-400">/</span>
+                    ${{ row.total_quota_usd.toFixed(2) }}
+                  </span>
+                </div>
+                <div class="reset-info">
+                  <Icon name="calendar" size="xs" />
+                  <span>{{ t('admin.subscriptions.validUntil', { date: row.expires_at ? formatDateTimeToMinute(row.expires_at) : '-' }) }}</span>
+                  <span v-if="!(row.cycle_quota_usd != null && row.cycle_quota_usd > 0) && (row.total_reserved_usd || 0) > 0">
+                    · {{ t('admin.subscriptions.reserved', { amount: Number(row.total_reserved_usd).toFixed(2) }) }}
+                  </span>
+                </div>
+              </div>
               </div>
               <div
                 v-else
@@ -1323,6 +1349,12 @@ const getProgressClass = (used: number | null | undefined, limit: number | null)
 
 const getCycleCommitted = (subscription: UserSubscription): number =>
   Math.max(0, Number(subscription.cycle_usage_usd || 0) + Number(subscription.cycle_reserved_usd || 0))
+
+const getTotalCommitted = (subscription: UserSubscription): number =>
+  Math.max(0, Number(subscription.total_usage_usd || 0) + Number(subscription.total_reserved_usd || 0))
+
+const hasAnySubscriptionQuota = (subscription: UserSubscription): boolean =>
+  Number(subscription.cycle_quota_usd || 0) > 0 || Number(subscription.total_quota_usd || 0) > 0
 
 const formatCycleInterval = (seconds: number): string => {
   const days = Number((seconds / 86400).toFixed(2))

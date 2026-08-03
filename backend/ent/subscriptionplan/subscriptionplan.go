@@ -26,6 +26,8 @@ const (
 	FieldCurrency = "currency"
 	// FieldCycleQuotaUsd holds the string denoting the cycle_quota_usd field in the database.
 	FieldCycleQuotaUsd = "cycle_quota_usd"
+	// FieldTotalQuotaUsd holds the string denoting the total_quota_usd field in the database.
+	FieldTotalQuotaUsd = "total_quota_usd"
 	// FieldResetIntervalSeconds holds the string denoting the reset_interval_seconds field in the database.
 	FieldResetIntervalSeconds = "reset_interval_seconds"
 	// FieldWalletFallbackEnabled holds the string denoting the wallet_fallback_enabled field in the database.
@@ -93,6 +95,7 @@ var Columns = []string{
 	FieldOriginalPrice,
 	FieldCurrency,
 	FieldCycleQuotaUsd,
+	FieldTotalQuotaUsd,
 	FieldResetIntervalSeconds,
 	FieldWalletFallbackEnabled,
 	FieldValidityDays,
@@ -194,6 +197,11 @@ func ByCurrency(opts ...sql.OrderTermOption) OrderOption {
 // ByCycleQuotaUsd orders the results by the cycle_quota_usd field.
 func ByCycleQuotaUsd(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCycleQuotaUsd, opts...).ToFunc()
+}
+
+// ByTotalQuotaUsd orders the results by the total_quota_usd field.
+func ByTotalQuotaUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTotalQuotaUsd, opts...).ToFunc()
 }
 
 // ByResetIntervalSeconds orders the results by the reset_interval_seconds field.

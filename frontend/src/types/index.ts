@@ -1917,6 +1917,9 @@ export interface UserSubscription {
   cycle_quota_usd?: number | null
   cycle_usage_usd?: number
   cycle_reserved_usd?: number
+  total_quota_usd?: number | null
+  total_usage_usd?: number
+  total_reserved_usd?: number
   reset_interval_seconds?: number
   cycle_started_at?: string | null
   wallet_fallback_enabled?: boolean
@@ -1937,6 +1940,7 @@ export interface SubscriptionProgress {
   expires_at: string
   expires_in_days: number
   cycle?: UsageWindowProgress
+  total?: UsageWindowProgress
 }
 
 export interface UsageWindowProgress {

@@ -20,6 +20,7 @@
   "plans": [
     {
       "cycle_quota_usd": 5,
+      "total_quota_usd": 20,
       "reset_interval_seconds": 604800,
       "wallet_fallback_enabled": true,
       "name": "Lite",
@@ -41,6 +42,7 @@
     },
     {
       "cycle_quota_usd": 15,
+      "total_quota_usd": 60,
       "reset_interval_seconds": 604800,
       "wallet_fallback_enabled": true,
       "name": "Starter",
@@ -62,6 +64,7 @@
     },
     {
       "cycle_quota_usd": 40,
+      "total_quota_usd": 160,
       "reset_interval_seconds": 604800,
       "wallet_fallback_enabled": true,
       "name": "Standard",
@@ -83,6 +86,7 @@
     },
     {
       "cycle_quota_usd": 100,
+      "total_quota_usd": 400,
       "reset_interval_seconds": 604800,
       "wallet_fallback_enabled": true,
       "name": "Pro",
@@ -104,6 +108,7 @@
     },
     {
       "cycle_quota_usd": 250,
+      "total_quota_usd": 1000,
       "reset_interval_seconds": 604800,
       "wallet_fallback_enabled": true,
       "name": "Max",

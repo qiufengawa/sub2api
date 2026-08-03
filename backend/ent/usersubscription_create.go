@@ -259,6 +259,48 @@ func (_c *UserSubscriptionCreate) SetNillableCycleReservedUsd(v *float64) *UserS
 	return _c
 }
 
+// SetTotalQuotaUsd sets the "total_quota_usd" field.
+func (_c *UserSubscriptionCreate) SetTotalQuotaUsd(v float64) *UserSubscriptionCreate {
+	_c.mutation.SetTotalQuotaUsd(v)
+	return _c
+}
+
+// SetNillableTotalQuotaUsd sets the "total_quota_usd" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableTotalQuotaUsd(v *float64) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetTotalQuotaUsd(*v)
+	}
+	return _c
+}
+
+// SetTotalUsageUsd sets the "total_usage_usd" field.
+func (_c *UserSubscriptionCreate) SetTotalUsageUsd(v float64) *UserSubscriptionCreate {
+	_c.mutation.SetTotalUsageUsd(v)
+	return _c
+}
+
+// SetNillableTotalUsageUsd sets the "total_usage_usd" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableTotalUsageUsd(v *float64) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetTotalUsageUsd(*v)
+	}
+	return _c
+}
+
+// SetTotalReservedUsd sets the "total_reserved_usd" field.
+func (_c *UserSubscriptionCreate) SetTotalReservedUsd(v float64) *UserSubscriptionCreate {
+	_c.mutation.SetTotalReservedUsd(v)
+	return _c
+}
+
+// SetNillableTotalReservedUsd sets the "total_reserved_usd" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableTotalReservedUsd(v *float64) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetTotalReservedUsd(*v)
+	}
+	return _c
+}
+
 // SetWalletFallbackEnabled sets the "wallet_fallback_enabled" field.
 func (_c *UserSubscriptionCreate) SetWalletFallbackEnabled(v bool) *UserSubscriptionCreate {
 	_c.mutation.SetWalletFallbackEnabled(v)
@@ -438,6 +480,14 @@ func (_c *UserSubscriptionCreate) defaults() error {
 		v := usersubscription.DefaultCycleReservedUsd
 		_c.mutation.SetCycleReservedUsd(v)
 	}
+	if _, ok := _c.mutation.TotalUsageUsd(); !ok {
+		v := usersubscription.DefaultTotalUsageUsd
+		_c.mutation.SetTotalUsageUsd(v)
+	}
+	if _, ok := _c.mutation.TotalReservedUsd(); !ok {
+		v := usersubscription.DefaultTotalReservedUsd
+		_c.mutation.SetTotalReservedUsd(v)
+	}
 	if _, ok := _c.mutation.WalletFallbackEnabled(); !ok {
 		v := usersubscription.DefaultWalletFallbackEnabled
 		_c.mutation.SetWalletFallbackEnabled(v)
@@ -497,6 +547,12 @@ func (_c *UserSubscriptionCreate) check() error {
 	}
 	if _, ok := _c.mutation.CycleReservedUsd(); !ok {
 		return &ValidationError{Name: "cycle_reserved_usd", err: errors.New(`ent: missing required field "UserSubscription.cycle_reserved_usd"`)}
+	}
+	if _, ok := _c.mutation.TotalUsageUsd(); !ok {
+		return &ValidationError{Name: "total_usage_usd", err: errors.New(`ent: missing required field "UserSubscription.total_usage_usd"`)}
+	}
+	if _, ok := _c.mutation.TotalReservedUsd(); !ok {
+		return &ValidationError{Name: "total_reserved_usd", err: errors.New(`ent: missing required field "UserSubscription.total_reserved_usd"`)}
 	}
 	if _, ok := _c.mutation.WalletFallbackEnabled(); !ok {
 		return &ValidationError{Name: "wallet_fallback_enabled", err: errors.New(`ent: missing required field "UserSubscription.wallet_fallback_enabled"`)}
@@ -604,6 +660,18 @@ func (_c *UserSubscriptionCreate) createSpec() (*UserSubscription, *sqlgraph.Cre
 	if value, ok := _c.mutation.CycleReservedUsd(); ok {
 		_spec.SetField(usersubscription.FieldCycleReservedUsd, field.TypeFloat64, value)
 		_node.CycleReservedUsd = value
+	}
+	if value, ok := _c.mutation.TotalQuotaUsd(); ok {
+		_spec.SetField(usersubscription.FieldTotalQuotaUsd, field.TypeFloat64, value)
+		_node.TotalQuotaUsd = &value
+	}
+	if value, ok := _c.mutation.TotalUsageUsd(); ok {
+		_spec.SetField(usersubscription.FieldTotalUsageUsd, field.TypeFloat64, value)
+		_node.TotalUsageUsd = value
+	}
+	if value, ok := _c.mutation.TotalReservedUsd(); ok {
+		_spec.SetField(usersubscription.FieldTotalReservedUsd, field.TypeFloat64, value)
+		_node.TotalReservedUsd = value
 	}
 	if value, ok := _c.mutation.WalletFallbackEnabled(); ok {
 		_spec.SetField(usersubscription.FieldWalletFallbackEnabled, field.TypeBool, value)
@@ -1027,6 +1095,66 @@ func (u *UserSubscriptionUpsert) UpdateCycleReservedUsd() *UserSubscriptionUpser
 // AddCycleReservedUsd adds v to the "cycle_reserved_usd" field.
 func (u *UserSubscriptionUpsert) AddCycleReservedUsd(v float64) *UserSubscriptionUpsert {
 	u.Add(usersubscription.FieldCycleReservedUsd, v)
+	return u
+}
+
+// SetTotalQuotaUsd sets the "total_quota_usd" field.
+func (u *UserSubscriptionUpsert) SetTotalQuotaUsd(v float64) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldTotalQuotaUsd, v)
+	return u
+}
+
+// UpdateTotalQuotaUsd sets the "total_quota_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateTotalQuotaUsd() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldTotalQuotaUsd)
+	return u
+}
+
+// AddTotalQuotaUsd adds v to the "total_quota_usd" field.
+func (u *UserSubscriptionUpsert) AddTotalQuotaUsd(v float64) *UserSubscriptionUpsert {
+	u.Add(usersubscription.FieldTotalQuotaUsd, v)
+	return u
+}
+
+// ClearTotalQuotaUsd clears the value of the "total_quota_usd" field.
+func (u *UserSubscriptionUpsert) ClearTotalQuotaUsd() *UserSubscriptionUpsert {
+	u.SetNull(usersubscription.FieldTotalQuotaUsd)
+	return u
+}
+
+// SetTotalUsageUsd sets the "total_usage_usd" field.
+func (u *UserSubscriptionUpsert) SetTotalUsageUsd(v float64) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldTotalUsageUsd, v)
+	return u
+}
+
+// UpdateTotalUsageUsd sets the "total_usage_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateTotalUsageUsd() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldTotalUsageUsd)
+	return u
+}
+
+// AddTotalUsageUsd adds v to the "total_usage_usd" field.
+func (u *UserSubscriptionUpsert) AddTotalUsageUsd(v float64) *UserSubscriptionUpsert {
+	u.Add(usersubscription.FieldTotalUsageUsd, v)
+	return u
+}
+
+// SetTotalReservedUsd sets the "total_reserved_usd" field.
+func (u *UserSubscriptionUpsert) SetTotalReservedUsd(v float64) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldTotalReservedUsd, v)
+	return u
+}
+
+// UpdateTotalReservedUsd sets the "total_reserved_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateTotalReservedUsd() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldTotalReservedUsd)
+	return u
+}
+
+// AddTotalReservedUsd adds v to the "total_reserved_usd" field.
+func (u *UserSubscriptionUpsert) AddTotalReservedUsd(v float64) *UserSubscriptionUpsert {
+	u.Add(usersubscription.FieldTotalReservedUsd, v)
 	return u
 }
 
@@ -1475,6 +1603,76 @@ func (u *UserSubscriptionUpsertOne) AddCycleReservedUsd(v float64) *UserSubscrip
 func (u *UserSubscriptionUpsertOne) UpdateCycleReservedUsd() *UserSubscriptionUpsertOne {
 	return u.Update(func(s *UserSubscriptionUpsert) {
 		s.UpdateCycleReservedUsd()
+	})
+}
+
+// SetTotalQuotaUsd sets the "total_quota_usd" field.
+func (u *UserSubscriptionUpsertOne) SetTotalQuotaUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetTotalQuotaUsd(v)
+	})
+}
+
+// AddTotalQuotaUsd adds v to the "total_quota_usd" field.
+func (u *UserSubscriptionUpsertOne) AddTotalQuotaUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddTotalQuotaUsd(v)
+	})
+}
+
+// UpdateTotalQuotaUsd sets the "total_quota_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateTotalQuotaUsd() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateTotalQuotaUsd()
+	})
+}
+
+// ClearTotalQuotaUsd clears the value of the "total_quota_usd" field.
+func (u *UserSubscriptionUpsertOne) ClearTotalQuotaUsd() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.ClearTotalQuotaUsd()
+	})
+}
+
+// SetTotalUsageUsd sets the "total_usage_usd" field.
+func (u *UserSubscriptionUpsertOne) SetTotalUsageUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetTotalUsageUsd(v)
+	})
+}
+
+// AddTotalUsageUsd adds v to the "total_usage_usd" field.
+func (u *UserSubscriptionUpsertOne) AddTotalUsageUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddTotalUsageUsd(v)
+	})
+}
+
+// UpdateTotalUsageUsd sets the "total_usage_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateTotalUsageUsd() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateTotalUsageUsd()
+	})
+}
+
+// SetTotalReservedUsd sets the "total_reserved_usd" field.
+func (u *UserSubscriptionUpsertOne) SetTotalReservedUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetTotalReservedUsd(v)
+	})
+}
+
+// AddTotalReservedUsd adds v to the "total_reserved_usd" field.
+func (u *UserSubscriptionUpsertOne) AddTotalReservedUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddTotalReservedUsd(v)
+	})
+}
+
+// UpdateTotalReservedUsd sets the "total_reserved_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateTotalReservedUsd() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateTotalReservedUsd()
 	})
 }
 
@@ -2099,6 +2297,76 @@ func (u *UserSubscriptionUpsertBulk) AddCycleReservedUsd(v float64) *UserSubscri
 func (u *UserSubscriptionUpsertBulk) UpdateCycleReservedUsd() *UserSubscriptionUpsertBulk {
 	return u.Update(func(s *UserSubscriptionUpsert) {
 		s.UpdateCycleReservedUsd()
+	})
+}
+
+// SetTotalQuotaUsd sets the "total_quota_usd" field.
+func (u *UserSubscriptionUpsertBulk) SetTotalQuotaUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetTotalQuotaUsd(v)
+	})
+}
+
+// AddTotalQuotaUsd adds v to the "total_quota_usd" field.
+func (u *UserSubscriptionUpsertBulk) AddTotalQuotaUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddTotalQuotaUsd(v)
+	})
+}
+
+// UpdateTotalQuotaUsd sets the "total_quota_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateTotalQuotaUsd() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateTotalQuotaUsd()
+	})
+}
+
+// ClearTotalQuotaUsd clears the value of the "total_quota_usd" field.
+func (u *UserSubscriptionUpsertBulk) ClearTotalQuotaUsd() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.ClearTotalQuotaUsd()
+	})
+}
+
+// SetTotalUsageUsd sets the "total_usage_usd" field.
+func (u *UserSubscriptionUpsertBulk) SetTotalUsageUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetTotalUsageUsd(v)
+	})
+}
+
+// AddTotalUsageUsd adds v to the "total_usage_usd" field.
+func (u *UserSubscriptionUpsertBulk) AddTotalUsageUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddTotalUsageUsd(v)
+	})
+}
+
+// UpdateTotalUsageUsd sets the "total_usage_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateTotalUsageUsd() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateTotalUsageUsd()
+	})
+}
+
+// SetTotalReservedUsd sets the "total_reserved_usd" field.
+func (u *UserSubscriptionUpsertBulk) SetTotalReservedUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetTotalReservedUsd(v)
+	})
+}
+
+// AddTotalReservedUsd adds v to the "total_reserved_usd" field.
+func (u *UserSubscriptionUpsertBulk) AddTotalReservedUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddTotalReservedUsd(v)
+	})
+}
+
+// UpdateTotalReservedUsd sets the "total_reserved_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateTotalReservedUsd() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateTotalReservedUsd()
 	})
 }
 

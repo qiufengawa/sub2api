@@ -45,9 +45,14 @@ type SubscriptionCoverageRepository interface {
 }
 
 type SubscriptionBillingSnapshot struct {
-	PlanID                int64
-	CycleQuotaUSD         *float64
-	ResetIntervalSeconds  int
-	CycleStartedAt        *time.Time
-	WalletFallbackEnabled bool
+	PlanID        int64
+	CycleQuotaUSD *float64
+	TotalQuotaUSD *float64
+	// PreserveExistingTotalQuota distinguishes legacy order snapshots that
+	// predate the term-wide quota field from an explicit unlimited plan. A
+	// legacy renewal must not erase a cap already attached to the subscription.
+	PreserveExistingTotalQuota bool
+	ResetIntervalSeconds       int
+	CycleStartedAt             *time.Time
+	WalletFallbackEnabled      bool
 }

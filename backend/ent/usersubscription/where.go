@@ -150,6 +150,21 @@ func CycleReservedUsd(v float64) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldEQ(FieldCycleReservedUsd, v))
 }
 
+// TotalQuotaUsd applies equality check predicate on the "total_quota_usd" field. It's identical to TotalQuotaUsdEQ.
+func TotalQuotaUsd(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldTotalQuotaUsd, v))
+}
+
+// TotalUsageUsd applies equality check predicate on the "total_usage_usd" field. It's identical to TotalUsageUsdEQ.
+func TotalUsageUsd(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldTotalUsageUsd, v))
+}
+
+// TotalReservedUsd applies equality check predicate on the "total_reserved_usd" field. It's identical to TotalReservedUsdEQ.
+func TotalReservedUsd(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldTotalReservedUsd, v))
+}
+
 // WalletFallbackEnabled applies equality check predicate on the "wallet_fallback_enabled" field. It's identical to WalletFallbackEnabledEQ.
 func WalletFallbackEnabled(v bool) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldEQ(FieldWalletFallbackEnabled, v))
@@ -973,6 +988,136 @@ func CycleReservedUsdLT(v float64) predicate.UserSubscription {
 // CycleReservedUsdLTE applies the LTE predicate on the "cycle_reserved_usd" field.
 func CycleReservedUsdLTE(v float64) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldLTE(FieldCycleReservedUsd, v))
+}
+
+// TotalQuotaUsdEQ applies the EQ predicate on the "total_quota_usd" field.
+func TotalQuotaUsdEQ(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldTotalQuotaUsd, v))
+}
+
+// TotalQuotaUsdNEQ applies the NEQ predicate on the "total_quota_usd" field.
+func TotalQuotaUsdNEQ(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNEQ(FieldTotalQuotaUsd, v))
+}
+
+// TotalQuotaUsdIn applies the In predicate on the "total_quota_usd" field.
+func TotalQuotaUsdIn(vs ...float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldIn(FieldTotalQuotaUsd, vs...))
+}
+
+// TotalQuotaUsdNotIn applies the NotIn predicate on the "total_quota_usd" field.
+func TotalQuotaUsdNotIn(vs ...float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNotIn(FieldTotalQuotaUsd, vs...))
+}
+
+// TotalQuotaUsdGT applies the GT predicate on the "total_quota_usd" field.
+func TotalQuotaUsdGT(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGT(FieldTotalQuotaUsd, v))
+}
+
+// TotalQuotaUsdGTE applies the GTE predicate on the "total_quota_usd" field.
+func TotalQuotaUsdGTE(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGTE(FieldTotalQuotaUsd, v))
+}
+
+// TotalQuotaUsdLT applies the LT predicate on the "total_quota_usd" field.
+func TotalQuotaUsdLT(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLT(FieldTotalQuotaUsd, v))
+}
+
+// TotalQuotaUsdLTE applies the LTE predicate on the "total_quota_usd" field.
+func TotalQuotaUsdLTE(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLTE(FieldTotalQuotaUsd, v))
+}
+
+// TotalQuotaUsdIsNil applies the IsNil predicate on the "total_quota_usd" field.
+func TotalQuotaUsdIsNil() predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldIsNull(FieldTotalQuotaUsd))
+}
+
+// TotalQuotaUsdNotNil applies the NotNil predicate on the "total_quota_usd" field.
+func TotalQuotaUsdNotNil() predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNotNull(FieldTotalQuotaUsd))
+}
+
+// TotalUsageUsdEQ applies the EQ predicate on the "total_usage_usd" field.
+func TotalUsageUsdEQ(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldTotalUsageUsd, v))
+}
+
+// TotalUsageUsdNEQ applies the NEQ predicate on the "total_usage_usd" field.
+func TotalUsageUsdNEQ(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNEQ(FieldTotalUsageUsd, v))
+}
+
+// TotalUsageUsdIn applies the In predicate on the "total_usage_usd" field.
+func TotalUsageUsdIn(vs ...float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldIn(FieldTotalUsageUsd, vs...))
+}
+
+// TotalUsageUsdNotIn applies the NotIn predicate on the "total_usage_usd" field.
+func TotalUsageUsdNotIn(vs ...float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNotIn(FieldTotalUsageUsd, vs...))
+}
+
+// TotalUsageUsdGT applies the GT predicate on the "total_usage_usd" field.
+func TotalUsageUsdGT(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGT(FieldTotalUsageUsd, v))
+}
+
+// TotalUsageUsdGTE applies the GTE predicate on the "total_usage_usd" field.
+func TotalUsageUsdGTE(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGTE(FieldTotalUsageUsd, v))
+}
+
+// TotalUsageUsdLT applies the LT predicate on the "total_usage_usd" field.
+func TotalUsageUsdLT(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLT(FieldTotalUsageUsd, v))
+}
+
+// TotalUsageUsdLTE applies the LTE predicate on the "total_usage_usd" field.
+func TotalUsageUsdLTE(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLTE(FieldTotalUsageUsd, v))
+}
+
+// TotalReservedUsdEQ applies the EQ predicate on the "total_reserved_usd" field.
+func TotalReservedUsdEQ(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldTotalReservedUsd, v))
+}
+
+// TotalReservedUsdNEQ applies the NEQ predicate on the "total_reserved_usd" field.
+func TotalReservedUsdNEQ(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNEQ(FieldTotalReservedUsd, v))
+}
+
+// TotalReservedUsdIn applies the In predicate on the "total_reserved_usd" field.
+func TotalReservedUsdIn(vs ...float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldIn(FieldTotalReservedUsd, vs...))
+}
+
+// TotalReservedUsdNotIn applies the NotIn predicate on the "total_reserved_usd" field.
+func TotalReservedUsdNotIn(vs ...float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNotIn(FieldTotalReservedUsd, vs...))
+}
+
+// TotalReservedUsdGT applies the GT predicate on the "total_reserved_usd" field.
+func TotalReservedUsdGT(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGT(FieldTotalReservedUsd, v))
+}
+
+// TotalReservedUsdGTE applies the GTE predicate on the "total_reserved_usd" field.
+func TotalReservedUsdGTE(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGTE(FieldTotalReservedUsd, v))
+}
+
+// TotalReservedUsdLT applies the LT predicate on the "total_reserved_usd" field.
+func TotalReservedUsdLT(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLT(FieldTotalReservedUsd, v))
+}
+
+// TotalReservedUsdLTE applies the LTE predicate on the "total_reserved_usd" field.
+func TotalReservedUsdLTE(v float64) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLTE(FieldTotalReservedUsd, v))
 }
 
 // WalletFallbackEnabledEQ applies the EQ predicate on the "wallet_fallback_enabled" field.

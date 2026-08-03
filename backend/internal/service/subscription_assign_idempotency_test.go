@@ -223,12 +223,15 @@ func (s *subscriptionUserSubRepoStub) UpdateBillingSnapshot(_ context.Context, s
 	oldKey := s.key(sub.UserID, sub.PlanID)
 	sub.PlanID = snapshot.PlanID
 	sub.CycleQuotaUSD = snapshot.CycleQuotaUSD
+	if !snapshot.PreserveExistingTotalQuota {
+		sub.TotalQuotaUSD = snapshot.TotalQuotaUSD
+	}
 	sub.ResetIntervalSeconds = snapshot.ResetIntervalSeconds
 	sub.CycleStartedAt = snapshot.CycleStartedAt
 	sub.WalletFallbackEnabled = snapshot.WalletFallbackEnabled
 	if resetCycle {
 		sub.CycleUsageUSD = 0
-		sub.CycleReservedUSD = 0
+		sub.TotalUsageUSD = 0
 	}
 	delete(s.byUserPlan, oldKey)
 	s.byUserPlan[s.key(sub.UserID, sub.PlanID)] = sub
@@ -258,6 +261,33 @@ func (s *subscriptionUserSubRepoStub) GetByID(_ context.Context, id int64) (*Use
 	}
 	cp := *sub
 	return &cp, nil
+}
+
+func (s *subscriptionUserSubRepoStub) ExtendExpiry(_ context.Context, id int64, expiresAt time.Time) error {
+	sub := s.byID[id]
+	if sub == nil {
+		return ErrSubscriptionNotFound
+	}
+	sub.ExpiresAt = expiresAt
+	return nil
+}
+
+func (s *subscriptionUserSubRepoStub) UpdateStatus(_ context.Context, id int64, status string) error {
+	sub := s.byID[id]
+	if sub == nil {
+		return ErrSubscriptionNotFound
+	}
+	sub.Status = status
+	return nil
+}
+
+func (s *subscriptionUserSubRepoStub) UpdateNotes(_ context.Context, id int64, notes string) error {
+	sub := s.byID[id]
+	if sub == nil {
+		return ErrSubscriptionNotFound
+	}
+	sub.Notes = notes
+	return nil
 }
 
 func (s *subscriptionUserSubRepoStub) Update(_ context.Context, sub *UserSubscription) error {
@@ -463,6 +493,114 @@ func TestAssignSubscriptionRenewsExpiredAndAppendsDifferentNotes(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, "old assignment\nnew assignment", sub.Notes)
+}
+
+func TestAssignSubscriptionExpiredRenewalReplacesTermQuota(t *testing.T) {
+	groupRepo := &subscriptionGroupRepoStub{
+		group: &Group{ID: 1, SubscriptionType: SubscriptionTypeSubscription},
+	}
+	subRepo := newSubscriptionUserSubRepoStub()
+	oldStart := time.Now().AddDate(0, 0, -31)
+	cycleQuota := 40.0
+	totalQuota := 160.0
+	subRepo.seed(&UserSubscription{
+		ID:               16,
+		UserID:           1006,
+		PlanID:           1,
+		StartsAt:         oldStart,
+		ExpiresAt:        oldStart.AddDate(0, 0, 28),
+		Status:           SubscriptionStatusExpired,
+		CycleQuotaUSD:    &cycleQuota,
+		TotalQuotaUSD:    &totalQuota,
+		CycleUsageUSD:    12,
+		CycleReservedUSD: 3,
+		TotalUsageUSD:    80,
+		TotalReservedUSD: 5,
+	})
+
+	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	newCycleQuota := 15.0
+	newTotalQuota := 60.0
+	sub, err := svc.AssignSubscription(context.Background(), &AssignSubscriptionInput{
+		UserID:        1006,
+		PlanID:        1,
+		CycleQuotaUSD: &newCycleQuota,
+		TotalQuotaUSD: &newTotalQuota,
+		ValidityDays:  28,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, sub)
+	require.Equal(t, newCycleQuota, *sub.CycleQuotaUSD)
+	require.Equal(t, newTotalQuota, *sub.TotalQuotaUSD)
+	require.Zero(t, sub.CycleUsageUSD)
+	require.Zero(t, sub.TotalUsageUSD)
+	require.Equal(t, 3.0, sub.CycleReservedUSD)
+	require.Equal(t, 5.0, sub.TotalReservedUSD)
+}
+
+func TestAssignSubscriptionLegacyRenewalPreservesExistingTermQuota(t *testing.T) {
+	groupRepo := &subscriptionGroupRepoStub{
+		group: &Group{ID: 1, SubscriptionType: SubscriptionTypeSubscription},
+	}
+	subRepo := newSubscriptionUserSubRepoStub()
+	oldStart := time.Now().Add(-time.Hour)
+	totalQuota := 160.0
+	subRepo.seed(&UserSubscription{
+		ID:            17,
+		UserID:        1007,
+		PlanID:        1,
+		StartsAt:      oldStart,
+		ExpiresAt:     oldStart.AddDate(0, 0, 28),
+		Status:        SubscriptionStatusActive,
+		TotalQuotaUSD: &totalQuota,
+		TotalUsageUSD: 80,
+	})
+
+	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	sub, _, err := svc.AssignOrExtendSubscription(context.Background(), &AssignSubscriptionInput{
+		UserID:                     1007,
+		PlanID:                     1,
+		ValidityDays:               28,
+		PreserveExistingTotalQuota: true,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, sub)
+	require.Equal(t, totalQuota, *sub.TotalQuotaUSD)
+	require.Equal(t, 80.0, sub.TotalUsageUSD)
+}
+
+func TestAssignSubscriptionLegacyExpiredRenewalPreservesExistingTermQuota(t *testing.T) {
+	groupRepo := &subscriptionGroupRepoStub{
+		group: &Group{ID: 1, SubscriptionType: SubscriptionTypeSubscription},
+	}
+	subRepo := newSubscriptionUserSubRepoStub()
+	oldStart := time.Now().AddDate(0, 0, -31)
+	totalQuota := 160.0
+	subRepo.seed(&UserSubscription{
+		ID:            18,
+		UserID:        1008,
+		PlanID:        1,
+		StartsAt:      oldStart,
+		ExpiresAt:     oldStart.AddDate(0, 0, 28),
+		Status:        SubscriptionStatusExpired,
+		TotalQuotaUSD: &totalQuota,
+		TotalUsageUSD: 80,
+	})
+
+	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	sub, _, err := svc.AssignOrExtendSubscription(context.Background(), &AssignSubscriptionInput{
+		UserID:                     1008,
+		PlanID:                     1,
+		ValidityDays:               28,
+		PreserveExistingTotalQuota: true,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, sub)
+	require.Equal(t, totalQuota, *sub.TotalQuotaUSD)
+	require.Zero(t, sub.TotalUsageUSD)
 }
 
 func TestAssignSubscriptionConflictWhenSemanticsMismatch(t *testing.T) {

@@ -71,7 +71,7 @@
         </div>
         <div><label class="input-label">{{ t('payment.admin.originalPrice') }}</label><input v-model.number="planForm.original_price" type="number" step="0.01" min="0" class="input" /></div>
       </div>
-	  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2" data-testid="plan-cycle-fields">
+	  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="plan-cycle-fields">
 		<div>
 		  <label class="input-label">{{ t('payment.admin.cycleQuota') }}</label>
 		  <input v-model.number="planForm.cycle_quota_usd" type="number" step="0.0001" min="0.0001" class="input" />
@@ -81,6 +81,11 @@
 		  <label class="input-label">{{ t('payment.admin.resetIntervalDays') }}</label>
 		  <input v-model.number="planForm.reset_interval_days" type="number" step="0.01" min="0.01" class="input" />
 		  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.resetIntervalHint') }}</p>
+		</div>
+		<div>
+		  <label class="input-label">{{ t('payment.admin.totalQuota') }}</label>
+		  <input v-model.number="planForm.total_quota_usd" type="number" step="0.0001" min="0.0001" class="input" />
+		  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.totalQuotaHint') }}</p>
 		</div>
 	  </div>
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -160,6 +165,7 @@ const planForm = reactive({
   name: '',
   included_group_ids: [] as number[],
   cycle_quota_usd: null as number | null,
+  total_quota_usd: null as number | null,
   reset_interval_days: 7,
   wallet_fallback_enabled: true,
   description: '',
@@ -250,6 +256,7 @@ watch(() => props.show, (visible) => {
       name: props.plan.name,
       included_group_ids: [...includedGroupIDs],
       cycle_quota_usd: props.plan.cycle_quota_usd ?? null,
+      total_quota_usd: props.plan.total_quota_usd ?? null,
       reset_interval_days: props.plan.reset_interval_seconds ? props.plan.reset_interval_seconds / 86400 : 7,
       wallet_fallback_enabled: props.plan.wallet_fallback_enabled ?? true,
       description: props.plan.description,
@@ -264,7 +271,7 @@ watch(() => props.show, (visible) => {
     initialIncludedGroupIDs.value = [...new Set(includedGroupIDs)]
     planFeaturesText.value = (props.plan.features || []).join('\n')
   } else {
-    Object.assign(planForm, { name: '', included_group_ids: [], cycle_quota_usd: null, reset_interval_days: 7, wallet_fallback_enabled: true, description: '', price: 0, original_price: 0, currency: '', validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true })
+    Object.assign(planForm, { name: '', included_group_ids: [], cycle_quota_usd: null, total_quota_usd: null, reset_interval_days: 7, wallet_fallback_enabled: true, description: '', price: 0, original_price: 0, currency: '', validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true })
     initialIncludedGroupIDs.value = []
     planFeaturesText.value = ''
   }
@@ -276,10 +283,12 @@ watch(() => props.show, (visible) => {
 function buildPlanPayload() {
   const features = planFeaturesText.value.split('\n').map(f => f.trim()).filter(Boolean).join('\n')
   const cycleQuota = Number(planForm.cycle_quota_usd) > 0 ? Number(planForm.cycle_quota_usd) : null
+  const totalQuota = Number(planForm.total_quota_usd) > 0 ? Number(planForm.total_quota_usd) : null
   return {
     name: planForm.name,
     included_group_ids: normalizedIncludedGroupIDs.value,
     cycle_quota_usd: cycleQuota,
+    total_quota_usd: totalQuota,
     reset_interval_seconds: cycleQuota ? Math.round(Number(planForm.reset_interval_days) * 86400) : 0,
     wallet_fallback_enabled: planForm.wallet_fallback_enabled,
     confirm_group_removal: confirmGroupRemoval.value,
@@ -310,6 +319,10 @@ async function handleSavePlan() {
   }
   if (planForm.cycle_quota_usd != null && Number(planForm.cycle_quota_usd) <= 0) {
     appStore.showError(t('payment.admin.cycleQuotaRequired'))
+    return
+  }
+  if (planForm.total_quota_usd != null && Number(planForm.total_quota_usd) <= 0) {
+    appStore.showError(t('payment.admin.totalQuotaRequired'))
     return
   }
   if (Number(planForm.cycle_quota_usd) > 0 && Number(planForm.reset_interval_days) <= 0) {

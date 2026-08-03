@@ -21,6 +21,14 @@ func newUsageBillingReservationRows() *sqlmock.Rows {
 	})
 }
 
+func reservationSubscriptionBillingCandidateRows() *sqlmock.Rows {
+	return sqlmock.NewRows([]string{
+		"id", "expires_at", "cycle_quota_usd", "reset_interval_seconds", "cycle_started_at",
+		"cycle_usage_usd", "cycle_reserved_usd", "total_quota_usd", "total_usage_usd",
+		"total_reserved_usd", "wallet_fallback_enabled",
+	})
+}
+
 func TestReserveRequestBilling_WalletOnlyMovesBalanceToFrozen(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -37,10 +45,7 @@ func TestReserveRequestBilling_WalletOnlyMovesBalanceToFrozen(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"billing_preference", "balance"}).AddRow(service.BillingPreferenceWalletOnly, 10))
 	mock.ExpectQuery(`(?s)SELECT.*FROM user_subscriptions us.*FOR UPDATE OF us`).
 		WithArgs(int64(42), groupID, sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "expires_at", "cycle_quota_usd", "reset_interval_seconds", "cycle_started_at",
-			"cycle_usage_usd", "cycle_reserved_usd", "wallet_fallback_enabled",
-		}))
+		WillReturnRows(reservationSubscriptionBillingCandidateRows())
 	mock.ExpectQuery(`(?s)UPDATE users.*frozen_balance = COALESCE\(frozen_balance, 0\) \+ \$1.*RETURNING balance, frozen_balance`).
 		WithArgs(amount, int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{"balance", "frozen_balance"}).AddRow(8, 2))
@@ -93,10 +98,8 @@ func TestRebindRequestBilling_ReleasesOldWalletAndReservesDestinationSubscriptio
 		WillReturnRows(sqlmock.NewRows([]string{"balance", "frozen_balance"}).AddRow(7, 0))
 	mock.ExpectQuery(`(?s)SELECT.*FROM user_subscriptions us.*FOR UPDATE OF us`).
 		WithArgs(int64(42), newGroupID, sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "expires_at", "cycle_quota_usd", "reset_interval_seconds", "cycle_started_at",
-			"cycle_usage_usd", "cycle_reserved_usd", "wallet_fallback_enabled",
-		}).AddRow(int64(91), time.Now().Add(24*time.Hour), 10, 604800, time.Now(), 1, 0, true))
+		WillReturnRows(reservationSubscriptionBillingCandidateRows().
+			AddRow(int64(91), time.Now().Add(24*time.Hour), 10, 604800, time.Now(), 1, 0, 12, 9, 0, true))
 	mock.ExpectExec(`(?s)UPDATE user_subscriptions.*cycle_reserved_usd = cycle_reserved_usd \+ \$1`).
 		WithArgs(newAmount, int64(91)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
@@ -252,7 +255,7 @@ func TestApply_SettlesPendingSubscriptionAboveReservedQuota(t *testing.T) {
 			subscriptionID, service.BillingSourceSubscription, service.BillingPreferenceSubscriptionOnly, nil,
 			reserved, decimal.Zero, usageBillingReservationPending, "owner-settle",
 		))
-	mock.ExpectExec(`(?s)^\s*UPDATE user_subscriptions\s+SET cycle_reserved_usd = cycle_reserved_usd - \$1,\s+cycle_usage_usd = cycle_usage_usd \+ \$2,\s+daily_usage_usd = daily_usage_usd \+ \$2,\s+weekly_usage_usd = weekly_usage_usd \+ \$2,\s+monthly_usage_usd = monthly_usage_usd \+ \$2,\s+updated_at = NOW\(\)\s+WHERE id = \$3\s+AND deleted_at IS NULL\s+AND cycle_reserved_usd >= \$1\s*$`).
+	mock.ExpectExec(`(?s)^\s*UPDATE user_subscriptions\s+SET cycle_reserved_usd = cycle_reserved_usd - \$1,\s+total_reserved_usd = total_reserved_usd - \$1,\s+cycle_usage_usd = cycle_usage_usd \+ \$2,\s+total_usage_usd = total_usage_usd \+ \$2,\s+daily_usage_usd = daily_usage_usd \+ \$2,\s+weekly_usage_usd = weekly_usage_usd \+ \$2,\s+monthly_usage_usd = monthly_usage_usd \+ \$2,\s+updated_at = NOW\(\)\s+WHERE id = \$3\s+AND deleted_at IS NULL\s+AND cycle_reserved_usd >= \$1\s+AND total_reserved_usd >= \$1\s*$`).
 		WithArgs(reserved, actual, subscriptionID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(`(?s)UPDATE billing_reservations.*final_amount = \$1.*status = 'settled'.*lease_expires_at = NULL`).

@@ -27,6 +27,9 @@ type UserSubscription struct {
 	CycleStartedAt        *time.Time
 	CycleUsageUSD         float64
 	CycleReservedUSD      float64
+	TotalQuotaUSD         *float64
+	TotalUsageUSD         float64
+	TotalReservedUSD      float64
 	WalletFallbackEnabled bool
 
 	AssignedBy *int64
@@ -56,6 +59,10 @@ func (s *UserSubscription) CoversGroup(groupID int64) bool {
 
 func (s *UserSubscription) HasCycleQuota() bool {
 	return s != nil && s.CycleQuotaUSD != nil && *s.CycleQuotaUSD > 0
+}
+
+func (s *UserSubscription) HasTotalQuota() bool {
+	return s != nil && s.TotalQuotaUSD != nil && *s.TotalQuotaUSD > 0
 }
 
 func (s *UserSubscription) CycleResetTimeAt(now time.Time) *time.Time {
@@ -98,6 +105,25 @@ func (s *UserSubscription) CheckCycleLimitAt(now time.Time, additionalCost float
 		return committed < *s.CycleQuotaUSD
 	}
 	return committed+additionalCost <= *s.CycleQuotaUSD
+}
+
+func (s *UserSubscription) CheckTotalLimit(additionalCost float64) bool {
+	if !s.HasTotalQuota() {
+		return true
+	}
+	reserved := s.TotalReservedUSD
+	if reserved < 0 {
+		reserved = 0
+	}
+	committed := s.TotalUsageUSD + reserved
+	if additionalCost <= 0 {
+		return committed < *s.TotalQuotaUSD
+	}
+	return committed+additionalCost <= *s.TotalQuotaUSD
+}
+
+func (s *UserSubscription) CheckQuotaLimitsAt(now time.Time, additionalCost float64) bool {
+	return s.CheckCycleLimitAt(now, additionalCost) && s.CheckTotalLimit(additionalCost)
 }
 
 func (s *UserSubscription) IsActive() bool {

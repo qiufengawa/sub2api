@@ -276,13 +276,12 @@ func TestReserveBatchImageFunding_SubscriptionFirstCreatesPendingReservation(t *
 		WillReturnRows(sqlmock.NewRows([]string{"billing_preference", "balance"}).AddRow(service.BillingPreferenceSubscriptionFirst, 20.0))
 	mock.ExpectQuery(`(?s)SELECT\s+us.id,.*us.cycle_reserved_usd.*FROM user_subscriptions us.*FOR UPDATE OF us`).
 		WithArgs(int64(42), int64(9), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "expires_at", "cycle_quota_usd", "reset_interval_seconds", "cycle_started_at", "cycle_usage_usd", "cycle_reserved_usd", "wallet_fallback_enabled",
-		}).AddRow(int64(71), now.Add(24*time.Hour), 10.0, 604800, now, 2.0, 1.0, true))
+		WillReturnRows(subscriptionBillingCandidateRows().
+			AddRow(int64(71), now.Add(24*time.Hour), 10.0, 604800, now, 2.0, 1.0, 20.0, 5.0, 1.0, true))
 	mock.ExpectExec(`(?s)UPDATE user_subscriptions.*SET cycle_reserved_usd = cycle_reserved_usd \+ \$1.*cycle_usage_usd \+ cycle_reserved_usd \+ \$1 <= cycle_quota_usd`).
 		WithArgs(service.BillingAmountFromFloat(3), int64(71)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec(`(?s)INSERT INTO billing_reservations.*status.*pending`).
+	mock.ExpectExec(`(?s)INSERT INTO billing_reservations.*status.*last_heartbeat_at.*lease_expires_at.*pending`).
 		WithArgs(service.BatchImageHoldRequestID("batch-1"), int64(7), int64(42), int64(9), int64(71), service.BillingSourceSubscription, service.BillingPreferenceSubscriptionFirst, "", service.BillingAmountFromFloat(3)).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
@@ -315,9 +314,8 @@ func TestReserveBatchImageFunding_SubscriptionOnlyDoesNotSplitAcrossWallet(t *te
 		WillReturnRows(sqlmock.NewRows([]string{"billing_preference", "balance"}).AddRow(service.BillingPreferenceSubscriptionOnly, 100.0))
 	mock.ExpectQuery(`(?s)SELECT\s+us.id,.*us.cycle_reserved_usd.*FROM user_subscriptions us.*FOR UPDATE OF us`).
 		WithArgs(int64(42), int64(9), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "expires_at", "cycle_quota_usd", "reset_interval_seconds", "cycle_started_at", "cycle_usage_usd", "cycle_reserved_usd", "wallet_fallback_enabled",
-		}).AddRow(int64(71), now.Add(24*time.Hour), 10.0, 604800, now, 8.0, 0.0, true))
+		WillReturnRows(subscriptionBillingCandidateRows().
+			AddRow(int64(71), now.Add(24*time.Hour), 10.0, 604800, now, 8.0, 0.0, 20.0, 0.0, 0.0, true))
 	mock.ExpectRollback()
 
 	groupID := int64(9)
@@ -490,7 +488,7 @@ func TestReserveBatchImageFunding_WalletFirstFallsBackToSubscription(t *testing.
 		WillReturnRows(sqlmock.NewRows([]string{"billing_preference", "balance"}).AddRow(service.BillingPreferenceWalletFirst, 1.0))
 	mock.ExpectQuery(`(?s)SELECT\s+us.id,.*us.cycle_reserved_usd.*FROM user_subscriptions us.*FOR UPDATE OF us`).
 		WithArgs(int64(42), int64(9), sqlmock.AnyArg()).
-		WillReturnRows(subscriptionBillingCandidateRows().AddRow(int64(71), now.Add(24*time.Hour), 10.0, 604800, now, 2.0, 1.0, true))
+		WillReturnRows(subscriptionBillingCandidateRows().AddRow(int64(71), now.Add(24*time.Hour), 10.0, 604800, now, 2.0, 1.0, nil, 0.0, 0.0, true))
 	mock.ExpectExec(`(?s)UPDATE user_subscriptions.*SET cycle_reserved_usd = cycle_reserved_usd \+ \$1`).
 		WithArgs(service.BillingAmountFromFloat(3), int64(71)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
@@ -534,7 +532,7 @@ func TestReserveBatchImageFunding_SubscriptionFirstHonorsWalletFallbackFlag(t *t
 				WillReturnRows(sqlmock.NewRows([]string{"billing_preference", "balance"}).AddRow(service.BillingPreferenceSubscriptionFirst, 20.0))
 			mock.ExpectQuery(`(?s)SELECT\s+us.id,.*us.cycle_reserved_usd.*FROM user_subscriptions us.*FOR UPDATE OF us`).
 				WithArgs(int64(42), int64(9), sqlmock.AnyArg()).
-				WillReturnRows(subscriptionBillingCandidateRows().AddRow(int64(71), now.Add(24*time.Hour), 10.0, 604800, now, 8.0, 1.0, tt.fallbackEnabled))
+				WillReturnRows(subscriptionBillingCandidateRows().AddRow(int64(71), now.Add(24*time.Hour), 10.0, 604800, now, 8.0, 1.0, nil, 0.0, 0.0, tt.fallbackEnabled))
 
 			groupID := int64(9)
 			cmd := &service.BatchImageBalanceHoldCommand{
@@ -579,7 +577,7 @@ func TestApplySubscriptionGroupBillingDecision_CountsPendingReservations(t *test
 		WillReturnRows(sqlmock.NewRows([]string{"billing_preference", "balance"}).AddRow(service.BillingPreferenceSubscriptionFirst, 20.0))
 	mock.ExpectQuery(`(?s)SELECT\s+us.id,.*us.cycle_reserved_usd.*FROM user_subscriptions us.*FOR UPDATE OF us`).
 		WithArgs(int64(42), int64(9), sqlmock.AnyArg()).
-		WillReturnRows(subscriptionBillingCandidateRows().AddRow(int64(71), now.Add(24*time.Hour), 10.0, 604800, now, 7.0, 2.0, false))
+		WillReturnRows(subscriptionBillingCandidateRows().AddRow(int64(71), now.Add(24*time.Hour), 10.0, 604800, now, 7.0, 2.0, nil, 0.0, 0.0, false))
 	mock.ExpectRollback()
 
 	groupID := int64(9)
@@ -629,7 +627,7 @@ func TestApplySubscriptionGroupBillingDecision_WalletFirstFallsBackToSubscriptio
 	tx, err := db.BeginTx(ctx, nil)
 	require.NoError(t, err)
 	expectBillingDecisionUserAndCandidates(mock, service.BillingPreferenceWalletFirst, 1,
-		subscriptionBillingCandidateRows().AddRow(int64(71), now.Add(time.Hour), 10.0, 604800, now, 3.0, 0.0, true))
+		subscriptionBillingCandidateRows().AddRow(int64(71), now.Add(time.Hour), 10.0, 604800, now, 3.0, 0.0, nil, 0.0, 0.0, true))
 	mock.ExpectExec(`(?s)UPDATE user_subscriptions.*SET cycle_usage_usd = cycle_usage_usd \+ \$1`).
 		WithArgs(service.BillingAmountFromFloat(2), int64(71)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
@@ -659,10 +657,32 @@ func TestApplySubscriptionGroupBillingDecision_SubscriptionOnlyRejectsExhaustedQ
 	tx, err := db.BeginTx(ctx, nil)
 	require.NoError(t, err)
 	expectBillingDecisionUserAndCandidates(mock, service.BillingPreferenceSubscriptionOnly, 20,
-		subscriptionBillingCandidateRows().AddRow(int64(71), now.Add(time.Hour), 10.0, 604800, now, 9.0, 1.0, true))
+		subscriptionBillingCandidateRows().AddRow(int64(71), now.Add(time.Hour), 10.0, 604800, now, 9.0, 1.0, nil, 0.0, 0.0, true))
 	mock.ExpectRollback()
 
 	err = applyPlanCoverageBillingDecision(ctx, tx, newBillingDecisionCommand("req-sub-only", 1), &service.UsageBillingApplyResult{})
+	require.ErrorIs(t, err, service.ErrSubscriptionQuotaExceeded)
+	require.NoError(t, tx.Rollback())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestApplySubscriptionGroupBillingDecision_RejectsWhenTermQuotaIsExhausted(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	now := time.Now().UTC()
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	// The weekly window still has room, but the complete subscription term
+	// has no remaining allowance. The term limit must win.
+	expectBillingDecisionUserAndCandidates(mock, service.BillingPreferenceSubscriptionOnly, 20,
+		subscriptionBillingCandidateRows().AddRow(int64(72), now.Add(time.Hour), 10.0, 604800, now, 2.0, 0.0, 20.0, 20.0, 0.0, true))
+	mock.ExpectRollback()
+
+	err = applyPlanCoverageBillingDecision(ctx, tx, newBillingDecisionCommand("req-term-exhausted", 1), &service.UsageBillingApplyResult{})
 	require.ErrorIs(t, err, service.ErrSubscriptionQuotaExceeded)
 	require.NoError(t, tx.Rollback())
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -680,8 +700,8 @@ func TestApplySubscriptionGroupBillingDecision_SubscriptionFirstSelectsEarliestE
 	require.NoError(t, err)
 	expectBillingDecisionUserAndCandidates(mock, service.BillingPreferenceSubscriptionFirst, 20,
 		subscriptionBillingCandidateRows().
-			AddRow(int64(71), now.Add(time.Hour), 10.0, 604800, now, 9.0, 1.0, false).
-			AddRow(int64(72), now.Add(2*time.Hour), 10.0, 604800, now, 8.0, 1.0, false))
+			AddRow(int64(71), now.Add(time.Hour), 10.0, 604800, now, 9.0, 1.0, nil, 0.0, 0.0, false).
+			AddRow(int64(72), now.Add(2*time.Hour), 10.0, 604800, now, 8.0, 1.0, nil, 0.0, 0.0, false))
 	mock.ExpectExec(`(?s)UPDATE user_subscriptions.*SET cycle_usage_usd = cycle_usage_usd \+ \$1`).
 		WithArgs(service.BillingAmountFromFloat(1), int64(72)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
@@ -752,6 +772,7 @@ func emptySubscriptionBillingCandidateRows() *sqlmock.Rows {
 
 func subscriptionBillingCandidateRows() *sqlmock.Rows {
 	return sqlmock.NewRows([]string{
-		"id", "expires_at", "cycle_quota_usd", "reset_interval_seconds", "cycle_started_at", "cycle_usage_usd", "cycle_reserved_usd", "wallet_fallback_enabled",
+		"id", "expires_at", "cycle_quota_usd", "reset_interval_seconds", "cycle_started_at", "cycle_usage_usd", "cycle_reserved_usd",
+		"total_quota_usd", "total_usage_usd", "total_reserved_usd", "wallet_fallback_enabled",
 	})
 }

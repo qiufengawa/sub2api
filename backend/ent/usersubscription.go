@@ -57,6 +57,12 @@ type UserSubscription struct {
 	CycleUsageUsd float64 `json:"cycle_usage_usd,omitempty"`
 	// CycleReservedUsd holds the value of the "cycle_reserved_usd" field.
 	CycleReservedUsd float64 `json:"cycle_reserved_usd,omitempty"`
+	// TotalQuotaUsd holds the value of the "total_quota_usd" field.
+	TotalQuotaUsd *float64 `json:"total_quota_usd,omitempty"`
+	// TotalUsageUsd holds the value of the "total_usage_usd" field.
+	TotalUsageUsd float64 `json:"total_usage_usd,omitempty"`
+	// TotalReservedUsd holds the value of the "total_reserved_usd" field.
+	TotalReservedUsd float64 `json:"total_reserved_usd,omitempty"`
 	// WalletFallbackEnabled holds the value of the "wallet_fallback_enabled" field.
 	WalletFallbackEnabled bool `json:"wallet_fallback_enabled,omitempty"`
 	// AssignedBy holds the value of the "assigned_by" field.
@@ -135,7 +141,7 @@ func (*UserSubscription) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case usersubscription.FieldWalletFallbackEnabled:
 			values[i] = new(sql.NullBool)
-		case usersubscription.FieldDailyUsageUsd, usersubscription.FieldWeeklyUsageUsd, usersubscription.FieldMonthlyUsageUsd, usersubscription.FieldCycleQuotaUsd, usersubscription.FieldCycleUsageUsd, usersubscription.FieldCycleReservedUsd:
+		case usersubscription.FieldDailyUsageUsd, usersubscription.FieldWeeklyUsageUsd, usersubscription.FieldMonthlyUsageUsd, usersubscription.FieldCycleQuotaUsd, usersubscription.FieldCycleUsageUsd, usersubscription.FieldCycleReservedUsd, usersubscription.FieldTotalQuotaUsd, usersubscription.FieldTotalUsageUsd, usersubscription.FieldTotalReservedUsd:
 			values[i] = new(sql.NullFloat64)
 		case usersubscription.FieldID, usersubscription.FieldUserID, usersubscription.FieldPlanID, usersubscription.FieldResetIntervalSeconds, usersubscription.FieldAssignedBy:
 			values[i] = new(sql.NullInt64)
@@ -283,6 +289,25 @@ func (_m *UserSubscription) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field cycle_reserved_usd", values[i])
 			} else if value.Valid {
 				_m.CycleReservedUsd = value.Float64
+			}
+		case usersubscription.FieldTotalQuotaUsd:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field total_quota_usd", values[i])
+			} else if value.Valid {
+				_m.TotalQuotaUsd = new(float64)
+				*_m.TotalQuotaUsd = value.Float64
+			}
+		case usersubscription.FieldTotalUsageUsd:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field total_usage_usd", values[i])
+			} else if value.Valid {
+				_m.TotalUsageUsd = value.Float64
+			}
+		case usersubscription.FieldTotalReservedUsd:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field total_reserved_usd", values[i])
+			} else if value.Valid {
+				_m.TotalReservedUsd = value.Float64
 			}
 		case usersubscription.FieldWalletFallbackEnabled:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -434,6 +459,17 @@ func (_m *UserSubscription) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("cycle_reserved_usd=")
 	builder.WriteString(fmt.Sprintf("%v", _m.CycleReservedUsd))
+	builder.WriteString(", ")
+	if v := _m.TotalQuotaUsd; v != nil {
+		builder.WriteString("total_quota_usd=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("total_usage_usd=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TotalUsageUsd))
+	builder.WriteString(", ")
+	builder.WriteString("total_reserved_usd=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TotalReservedUsd))
 	builder.WriteString(", ")
 	builder.WriteString("wallet_fallback_enabled=")
 	builder.WriteString(fmt.Sprintf("%v", _m.WalletFallbackEnabled))

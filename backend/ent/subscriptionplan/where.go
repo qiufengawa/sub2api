@@ -85,6 +85,11 @@ func CycleQuotaUsd(v float64) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldEQ(FieldCycleQuotaUsd, v))
 }
 
+// TotalQuotaUsd applies equality check predicate on the "total_quota_usd" field. It's identical to TotalQuotaUsdEQ.
+func TotalQuotaUsd(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldTotalQuotaUsd, v))
+}
+
 // ResetIntervalSeconds applies equality check predicate on the "reset_interval_seconds" field. It's identical to ResetIntervalSecondsEQ.
 func ResetIntervalSeconds(v int) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldEQ(FieldResetIntervalSeconds, v))
@@ -468,6 +473,56 @@ func CycleQuotaUsdIsNil() predicate.SubscriptionPlan {
 // CycleQuotaUsdNotNil applies the NotNil predicate on the "cycle_quota_usd" field.
 func CycleQuotaUsdNotNil() predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldNotNull(FieldCycleQuotaUsd))
+}
+
+// TotalQuotaUsdEQ applies the EQ predicate on the "total_quota_usd" field.
+func TotalQuotaUsdEQ(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldTotalQuotaUsd, v))
+}
+
+// TotalQuotaUsdNEQ applies the NEQ predicate on the "total_quota_usd" field.
+func TotalQuotaUsdNEQ(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNEQ(FieldTotalQuotaUsd, v))
+}
+
+// TotalQuotaUsdIn applies the In predicate on the "total_quota_usd" field.
+func TotalQuotaUsdIn(vs ...float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIn(FieldTotalQuotaUsd, vs...))
+}
+
+// TotalQuotaUsdNotIn applies the NotIn predicate on the "total_quota_usd" field.
+func TotalQuotaUsdNotIn(vs ...float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotIn(FieldTotalQuotaUsd, vs...))
+}
+
+// TotalQuotaUsdGT applies the GT predicate on the "total_quota_usd" field.
+func TotalQuotaUsdGT(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGT(FieldTotalQuotaUsd, v))
+}
+
+// TotalQuotaUsdGTE applies the GTE predicate on the "total_quota_usd" field.
+func TotalQuotaUsdGTE(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGTE(FieldTotalQuotaUsd, v))
+}
+
+// TotalQuotaUsdLT applies the LT predicate on the "total_quota_usd" field.
+func TotalQuotaUsdLT(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLT(FieldTotalQuotaUsd, v))
+}
+
+// TotalQuotaUsdLTE applies the LTE predicate on the "total_quota_usd" field.
+func TotalQuotaUsdLTE(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLTE(FieldTotalQuotaUsd, v))
+}
+
+// TotalQuotaUsdIsNil applies the IsNil predicate on the "total_quota_usd" field.
+func TotalQuotaUsdIsNil() predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIsNull(FieldTotalQuotaUsd))
+}
+
+// TotalQuotaUsdNotNil applies the NotNil predicate on the "total_quota_usd" field.
+func TotalQuotaUsdNotNil() predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotNull(FieldTotalQuotaUsd))
 }
 
 // ResetIntervalSecondsEQ applies the EQ predicate on the "reset_interval_seconds" field.

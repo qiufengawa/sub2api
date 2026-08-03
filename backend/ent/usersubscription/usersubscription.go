@@ -53,6 +53,12 @@ const (
 	FieldCycleUsageUsd = "cycle_usage_usd"
 	// FieldCycleReservedUsd holds the string denoting the cycle_reserved_usd field in the database.
 	FieldCycleReservedUsd = "cycle_reserved_usd"
+	// FieldTotalQuotaUsd holds the string denoting the total_quota_usd field in the database.
+	FieldTotalQuotaUsd = "total_quota_usd"
+	// FieldTotalUsageUsd holds the string denoting the total_usage_usd field in the database.
+	FieldTotalUsageUsd = "total_usage_usd"
+	// FieldTotalReservedUsd holds the string denoting the total_reserved_usd field in the database.
+	FieldTotalReservedUsd = "total_reserved_usd"
 	// FieldWalletFallbackEnabled holds the string denoting the wallet_fallback_enabled field in the database.
 	FieldWalletFallbackEnabled = "wallet_fallback_enabled"
 	// FieldAssignedBy holds the string denoting the assigned_by field in the database.
@@ -123,6 +129,9 @@ var Columns = []string{
 	FieldCycleStartedAt,
 	FieldCycleUsageUsd,
 	FieldCycleReservedUsd,
+	FieldTotalQuotaUsd,
+	FieldTotalUsageUsd,
+	FieldTotalReservedUsd,
 	FieldWalletFallbackEnabled,
 	FieldAssignedBy,
 	FieldAssignedAt,
@@ -169,6 +178,10 @@ var (
 	DefaultCycleUsageUsd float64
 	// DefaultCycleReservedUsd holds the default value on creation for the "cycle_reserved_usd" field.
 	DefaultCycleReservedUsd float64
+	// DefaultTotalUsageUsd holds the default value on creation for the "total_usage_usd" field.
+	DefaultTotalUsageUsd float64
+	// DefaultTotalReservedUsd holds the default value on creation for the "total_reserved_usd" field.
+	DefaultTotalReservedUsd float64
 	// DefaultWalletFallbackEnabled holds the default value on creation for the "wallet_fallback_enabled" field.
 	DefaultWalletFallbackEnabled bool
 	// DefaultAssignedAt holds the default value on creation for the "assigned_at" field.
@@ -276,6 +289,21 @@ func ByCycleUsageUsd(opts ...sql.OrderTermOption) OrderOption {
 // ByCycleReservedUsd orders the results by the cycle_reserved_usd field.
 func ByCycleReservedUsd(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCycleReservedUsd, opts...).ToFunc()
+}
+
+// ByTotalQuotaUsd orders the results by the total_quota_usd field.
+func ByTotalQuotaUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTotalQuotaUsd, opts...).ToFunc()
+}
+
+// ByTotalUsageUsd orders the results by the total_usage_usd field.
+func ByTotalUsageUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTotalUsageUsd, opts...).ToFunc()
+}
+
+// ByTotalReservedUsd orders the results by the total_reserved_usd field.
+func ByTotalReservedUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTotalReservedUsd, opts...).ToFunc()
 }
 
 // ByWalletFallbackEnabled orders the results by the wallet_fallback_enabled field.

@@ -165,6 +165,7 @@ type UpdateProviderInstanceRequest struct {
 type CreatePlanRequest struct {
 	IncludedGroupIDs      []int64  `json:"included_group_ids"`
 	CycleQuotaUSD         *float64 `json:"cycle_quota_usd"`
+	TotalQuotaUSD         *float64 `json:"total_quota_usd"`
 	ResetIntervalSeconds  int      `json:"reset_interval_seconds"`
 	WalletFallbackEnabled *bool    `json:"wallet_fallback_enabled"`
 	Name                  string   `json:"name"`
@@ -184,6 +185,8 @@ type UpdatePlanRequest struct {
 	IncludedGroupIDs      *[]int64 `json:"included_group_ids"`
 	CycleQuotaUSD         *float64 `json:"cycle_quota_usd"`
 	CycleQuotaUSDSet      bool     `json:"-"`
+	TotalQuotaUSD         *float64 `json:"total_quota_usd"`
+	TotalQuotaUSDSet      bool     `json:"-"`
 	ResetIntervalSeconds  *int     `json:"reset_interval_seconds"`
 	WalletFallbackEnabled *bool    `json:"wallet_fallback_enabled"`
 	ConfirmGroupRemoval   bool     `json:"confirm_group_removal"`

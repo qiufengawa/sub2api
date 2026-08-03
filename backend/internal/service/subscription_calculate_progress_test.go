@@ -80,6 +80,30 @@ func TestCalculateProgress_CycleValuesAreClamped(t *testing.T) {
 	assert.GreaterOrEqual(t, progress.Cycle.ResetsInSeconds, int64(0))
 }
 
+func TestCalculateProgress_IncludesTermTotalWithoutCountingReservationAsUsed(t *testing.T) {
+	now := time.Now()
+	totalLimit := 1000.0
+	svc := &SubscriptionService{now: func() time.Time { return now }}
+	sub := &UserSubscription{
+		ID:               1,
+		StartsAt:         now.Add(-7 * 24 * time.Hour),
+		ExpiresAt:        now.Add(21 * 24 * time.Hour),
+		TotalQuotaUSD:    &totalLimit,
+		TotalUsageUSD:    125,
+		TotalReservedUSD: 25,
+	}
+
+	progress := svc.calculateProgress(sub)
+
+	require.NotNil(t, progress.Total)
+	assert.Equal(t, totalLimit, progress.Total.LimitUSD)
+	assert.Equal(t, 125.0, progress.Total.UsedUSD)
+	assert.Equal(t, 875.0, progress.Total.RemainingUSD)
+	assert.Equal(t, 12.5, progress.Total.Percentage)
+	assert.Equal(t, sub.StartsAt, progress.Total.WindowStart)
+	assert.Equal(t, sub.ExpiresAt, progress.Total.ResetsAt)
+}
+
 func TestCalculateProgress_ExpiredSubscriptionHasNoRemainingDays(t *testing.T) {
 	now := time.Now()
 	svc := &SubscriptionService{now: func() time.Time { return now }}

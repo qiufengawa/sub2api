@@ -50,6 +50,10 @@ func (SubscriptionPlan) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}).
 			Optional().
 			Nillable(),
+		field.Float("total_quota_usd").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}).
+			Optional().
+			Nillable(),
 		field.Int("reset_interval_seconds").
 			Default(0),
 		field.Bool("wallet_fallback_enabled").

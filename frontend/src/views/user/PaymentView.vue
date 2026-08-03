@@ -186,7 +186,7 @@
                     </div>
                   </div>
                 </div>
-                <div class="mt-3 grid grid-cols-2 gap-3">
+                <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div v-if="selectedPlan.cycle_quota_usd != null">
                     <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.cycleQuota') }}</span>
                     <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">${{ Number(selectedPlan.cycle_quota_usd).toFixed(2) }}</div>
@@ -195,6 +195,11 @@
                   <div v-else>
                     <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.quota') }}</span>
                     <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ t('payment.planCard.unlimited') }}</div>
+                  </div>
+                  <div v-if="selectedPlan.total_quota_usd != null">
+                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.totalQuota') }}</span>
+                    <div class="text-lg font-semibold tabular-nums text-gray-800 dark:text-gray-200">${{ Number(selectedPlan.total_quota_usd).toFixed(2) }}</div>
+                    <p class="text-[10px] text-gray-400 dark:text-gray-500">{{ t('payment.planCard.validForPlanTerm') }}</p>
                   </div>
                 </div>
                   </div>

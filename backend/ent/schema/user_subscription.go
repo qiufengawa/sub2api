@@ -84,6 +84,16 @@ func (UserSubscription) Fields() []ent.Field {
 		field.Float("cycle_reserved_usd").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}).
 			Default(0),
+		field.Float("total_quota_usd").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}).
+			Optional().
+			Nillable(),
+		field.Float("total_usage_usd").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}).
+			Default(0),
+		field.Float("total_reserved_usd").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}).
+			Default(0),
 		field.Bool("wallet_fallback_enabled").
 			Default(true),
 

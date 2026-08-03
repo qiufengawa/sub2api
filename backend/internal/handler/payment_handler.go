@@ -54,6 +54,7 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 		ID                    int64                   `json:"id"`
 		IncludedGroups        []service.PlanGroupInfo `json:"included_groups"`
 		CycleQuotaUSD         *float64                `json:"cycle_quota_usd,omitempty"`
+		TotalQuotaUSD         *float64                `json:"total_quota_usd,omitempty"`
 		ResetIntervalSeconds  int                     `json:"reset_interval_seconds"`
 		WalletFallbackEnabled bool                    `json:"wallet_fallback_enabled"`
 		Name                  string                  `json:"name"`
@@ -74,7 +75,7 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 		includedGroups := service.IncludedPlanGroupInfo(p, groupInfo)
 		result = append(result, planWithPlatform{
 			ID:             int64(p.ID),
-			IncludedGroups: includedGroups, CycleQuotaUSD: p.CycleQuotaUsd,
+			IncludedGroups: includedGroups, CycleQuotaUSD: p.CycleQuotaUsd, TotalQuotaUSD: p.TotalQuotaUsd,
 			ResetIntervalSeconds: p.ResetIntervalSeconds, WalletFallbackEnabled: p.WalletFallbackEnabled,
 			Name: p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
 			Currency:     p.Currency,
@@ -125,7 +126,7 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 		includedGroups := service.IncludedPlanGroupInfo(p, groupInfo)
 		planList = append(planList, checkoutPlan{
 			ID:             int64(p.ID),
-			IncludedGroups: includedGroups, CycleQuotaUSD: p.CycleQuotaUsd,
+			IncludedGroups: includedGroups, CycleQuotaUSD: p.CycleQuotaUsd, TotalQuotaUSD: p.TotalQuotaUsd,
 			ResetIntervalSeconds: p.ResetIntervalSeconds, WalletFallbackEnabled: p.WalletFallbackEnabled,
 			Name: p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
 			Currency:     p.Currency,
@@ -171,6 +172,7 @@ type checkoutPlan struct {
 	ID                    int64                   `json:"id"`
 	IncludedGroups        []service.PlanGroupInfo `json:"included_groups"`
 	CycleQuotaUSD         *float64                `json:"cycle_quota_usd,omitempty"`
+	TotalQuotaUSD         *float64                `json:"total_quota_usd,omitempty"`
 	ResetIntervalSeconds  int                     `json:"reset_interval_seconds"`
 	WalletFallbackEnabled bool                    `json:"wallet_fallback_enabled"`
 	Name                  string                  `json:"name"`

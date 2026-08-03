@@ -148,6 +148,33 @@ func (_u *SubscriptionPlanUpdate) ClearCycleQuotaUsd() *SubscriptionPlanUpdate {
 	return _u
 }
 
+// SetTotalQuotaUsd sets the "total_quota_usd" field.
+func (_u *SubscriptionPlanUpdate) SetTotalQuotaUsd(v float64) *SubscriptionPlanUpdate {
+	_u.mutation.ResetTotalQuotaUsd()
+	_u.mutation.SetTotalQuotaUsd(v)
+	return _u
+}
+
+// SetNillableTotalQuotaUsd sets the "total_quota_usd" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdate) SetNillableTotalQuotaUsd(v *float64) *SubscriptionPlanUpdate {
+	if v != nil {
+		_u.SetTotalQuotaUsd(*v)
+	}
+	return _u
+}
+
+// AddTotalQuotaUsd adds value to the "total_quota_usd" field.
+func (_u *SubscriptionPlanUpdate) AddTotalQuotaUsd(v float64) *SubscriptionPlanUpdate {
+	_u.mutation.AddTotalQuotaUsd(v)
+	return _u
+}
+
+// ClearTotalQuotaUsd clears the value of the "total_quota_usd" field.
+func (_u *SubscriptionPlanUpdate) ClearTotalQuotaUsd() *SubscriptionPlanUpdate {
+	_u.mutation.ClearTotalQuotaUsd()
+	return _u
+}
+
 // SetResetIntervalSeconds sets the "reset_interval_seconds" field.
 func (_u *SubscriptionPlanUpdate) SetResetIntervalSeconds(v int) *SubscriptionPlanUpdate {
 	_u.mutation.ResetResetIntervalSeconds()
@@ -506,6 +533,15 @@ func (_u *SubscriptionPlanUpdate) sqlSave(ctx context.Context) (_node int, err e
 	if _u.mutation.CycleQuotaUsdCleared() {
 		_spec.ClearField(subscriptionplan.FieldCycleQuotaUsd, field.TypeFloat64)
 	}
+	if value, ok := _u.mutation.TotalQuotaUsd(); ok {
+		_spec.SetField(subscriptionplan.FieldTotalQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedTotalQuotaUsd(); ok {
+		_spec.AddField(subscriptionplan.FieldTotalQuotaUsd, field.TypeFloat64, value)
+	}
+	if _u.mutation.TotalQuotaUsdCleared() {
+		_spec.ClearField(subscriptionplan.FieldTotalQuotaUsd, field.TypeFloat64)
+	}
 	if value, ok := _u.mutation.ResetIntervalSeconds(); ok {
 		_spec.SetField(subscriptionplan.FieldResetIntervalSeconds, field.TypeInt, value)
 	}
@@ -823,6 +859,33 @@ func (_u *SubscriptionPlanUpdateOne) AddCycleQuotaUsd(v float64) *SubscriptionPl
 // ClearCycleQuotaUsd clears the value of the "cycle_quota_usd" field.
 func (_u *SubscriptionPlanUpdateOne) ClearCycleQuotaUsd() *SubscriptionPlanUpdateOne {
 	_u.mutation.ClearCycleQuotaUsd()
+	return _u
+}
+
+// SetTotalQuotaUsd sets the "total_quota_usd" field.
+func (_u *SubscriptionPlanUpdateOne) SetTotalQuotaUsd(v float64) *SubscriptionPlanUpdateOne {
+	_u.mutation.ResetTotalQuotaUsd()
+	_u.mutation.SetTotalQuotaUsd(v)
+	return _u
+}
+
+// SetNillableTotalQuotaUsd sets the "total_quota_usd" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdateOne) SetNillableTotalQuotaUsd(v *float64) *SubscriptionPlanUpdateOne {
+	if v != nil {
+		_u.SetTotalQuotaUsd(*v)
+	}
+	return _u
+}
+
+// AddTotalQuotaUsd adds value to the "total_quota_usd" field.
+func (_u *SubscriptionPlanUpdateOne) AddTotalQuotaUsd(v float64) *SubscriptionPlanUpdateOne {
+	_u.mutation.AddTotalQuotaUsd(v)
+	return _u
+}
+
+// ClearTotalQuotaUsd clears the value of the "total_quota_usd" field.
+func (_u *SubscriptionPlanUpdateOne) ClearTotalQuotaUsd() *SubscriptionPlanUpdateOne {
+	_u.mutation.ClearTotalQuotaUsd()
 	return _u
 }
 
@@ -1213,6 +1276,15 @@ func (_u *SubscriptionPlanUpdateOne) sqlSave(ctx context.Context) (_node *Subscr
 	}
 	if _u.mutation.CycleQuotaUsdCleared() {
 		_spec.ClearField(subscriptionplan.FieldCycleQuotaUsd, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.TotalQuotaUsd(); ok {
+		_spec.SetField(subscriptionplan.FieldTotalQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedTotalQuotaUsd(); ok {
+		_spec.AddField(subscriptionplan.FieldTotalQuotaUsd, field.TypeFloat64, value)
+	}
+	if _u.mutation.TotalQuotaUsdCleared() {
+		_spec.ClearField(subscriptionplan.FieldTotalQuotaUsd, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.ResetIntervalSeconds(); ok {
 		_spec.SetField(subscriptionplan.FieldResetIntervalSeconds, field.TypeInt, value)

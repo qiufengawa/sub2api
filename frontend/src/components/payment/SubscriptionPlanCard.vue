@@ -69,6 +69,12 @@
         <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.quota') }}</dt>
         <dd class="min-w-0 break-words text-right font-medium text-gray-800 dark:text-gray-200">{{ t('payment.planCard.unlimited') }}</dd>
       </div>
+      <div v-if="plan.total_quota_usd != null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
+        <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.totalQuota') }}</dt>
+        <dd class="min-w-0 text-right font-medium tabular-nums text-gray-800 dark:text-gray-200">
+          ${{ normalizedTotalQuota }}
+        </dd>
+      </div>
       <div v-if="modelScopeLabels.length > 0" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
         <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.models') }}</dt>
         <dd class="flex min-w-0 flex-wrap justify-end gap-1">
@@ -145,6 +151,7 @@ function normalizedRate(rate: number): number {
 }
 
 const normalizedQuota = computed(() => Number(props.plan.cycle_quota_usd || 0).toFixed(2))
+const normalizedTotalQuota = computed(() => Number(props.plan.total_quota_usd || 0).toFixed(2))
 const resetIntervalLabel = computed(() => {
   const seconds = Number(props.plan.reset_interval_seconds) || 0
   if (seconds <= 0) return t('payment.planCard.noReset')

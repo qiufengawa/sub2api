@@ -22,7 +22,7 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-const subscriptionPlanOrderSnapshotVersion = 2
+const subscriptionPlanOrderSnapshotVersion = 3
 
 type SubscriptionPlanOrderSnapshot struct {
 	SchemaVersion         int      `json:"schema_version"`
@@ -31,6 +31,7 @@ type SubscriptionPlanOrderSnapshot struct {
 	IncludedGroupIDs      []int64  `json:"included_group_ids"`
 	IncludedGroupNames    []string `json:"included_group_names,omitempty"`
 	CycleQuotaUSD         *float64 `json:"cycle_quota_usd,omitempty"`
+	TotalQuotaUSD         *float64 `json:"total_quota_usd,omitempty"`
 	ResetIntervalSeconds  int      `json:"reset_interval_seconds"`
 	WalletFallbackEnabled bool     `json:"wallet_fallback_enabled"`
 	ValidityDays          int      `json:"validity_days"`
@@ -204,6 +205,7 @@ func buildSubscriptionPlanOrderSnapshot(plan *dbent.SubscriptionPlan) (map[strin
 		IncludedGroupIDs:      groupIDs,
 		IncludedGroupNames:    groupNames,
 		CycleQuotaUSD:         plan.CycleQuotaUsd,
+		TotalQuotaUSD:         plan.TotalQuotaUsd,
 		ResetIntervalSeconds:  plan.ResetIntervalSeconds,
 		WalletFallbackEnabled: plan.WalletFallbackEnabled,
 		ValidityDays:          psComputeValidityDays(plan.ValidityDays, plan.ValidityUnit),
@@ -231,7 +233,7 @@ func subscriptionPlanOrderSnapshotFromOrder(order *dbent.PaymentOrder) (Subscrip
 	if err := json.Unmarshal(raw, &snapshot); err != nil {
 		return SubscriptionPlanOrderSnapshot{}, false, err
 	}
-	if snapshot.SchemaVersion != subscriptionPlanOrderSnapshotVersion || snapshot.PlanID <= 0 || len(snapshot.IncludedGroupIDs) == 0 || snapshot.ValidityDays <= 0 {
+	if (snapshot.SchemaVersion != 2 && snapshot.SchemaVersion != subscriptionPlanOrderSnapshotVersion) || snapshot.PlanID <= 0 || len(snapshot.IncludedGroupIDs) == 0 || snapshot.ValidityDays <= 0 {
 		return SubscriptionPlanOrderSnapshot{}, false, infraerrors.BadRequest("INVALID_STATUS", "invalid subscription plan snapshot")
 	}
 	for _, groupID := range snapshot.IncludedGroupIDs {

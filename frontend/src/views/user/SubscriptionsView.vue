@@ -189,7 +189,7 @@
                     {{ quota.resetLabel }}
                   </p>
                   <p
-                    v-if="quota.reserved > 0"
+                    v-if="quota.showReserved && quota.reserved > 0"
                     class="truncate text-[10px] leading-3 text-amber-600 dark:text-amber-300"
                     data-testid="quota-reserved"
                   >
@@ -318,7 +318,7 @@ import {
   type RemainingDurationParts
 } from '@/utils/subscriptionQuota'
 
-type QuotaPeriod = 'cycle' | 'daily' | 'weekly' | 'monthly'
+type QuotaPeriod = 'cycle' | 'total' | 'daily' | 'weekly' | 'monthly'
 
 interface QuotaItem {
   period: QuotaPeriod
@@ -328,6 +328,7 @@ interface QuotaItem {
   limit: number
   percentage: number
   resetLabel: string
+  showReserved: boolean
 }
 
 interface HighestQuota extends QuotaItem {
@@ -494,22 +495,43 @@ function statusDotClass(status: UserSubscription['status']): string {
 }
 
 function quotaItems(subscription: UserSubscription): QuotaItem[] {
-	if (subscription.cycle_quota_usd != null && subscription.cycle_quota_usd > 0) {
-	  const used = Number(subscription.cycle_usage_usd) || 0
-	  const reserved = Math.max(Number(subscription.cycle_reserved_usd) || 0, 0)
-	  const limit = Number(subscription.cycle_quota_usd)
-	  return [{
-		period: 'cycle',
-		label: t('userSubscriptions.cycleQuota'),
-		used,
-		reserved,
-		limit,
-		percentage: ((used + reserved) / limit) * 100,
-		resetLabel: formatCycleReset(subscription),
-	  }]
-	}
+  const items: QuotaItem[] = []
+  const hasCycleQuota = subscription.cycle_quota_usd != null && subscription.cycle_quota_usd > 0
+  if (hasCycleQuota) {
+    const used = Number(subscription.cycle_usage_usd) || 0
+    const reserved = Math.max(Number(subscription.cycle_reserved_usd) || 0, 0)
+    const limit = Number(subscription.cycle_quota_usd)
+    items.push({
+      period: 'cycle',
+      label: t('userSubscriptions.cycleQuota'),
+      used,
+      reserved,
+      limit,
+      percentage: ((used + reserved) / limit) * 100,
+      resetLabel: formatCycleReset(subscription),
+      showReserved: true,
+    })
+  }
 
-  return []
+  if (subscription.total_quota_usd != null && subscription.total_quota_usd > 0) {
+    const used = Number(subscription.total_usage_usd) || 0
+    const reserved = Math.max(Number(subscription.total_reserved_usd) || 0, 0)
+    const limit = Number(subscription.total_quota_usd)
+    items.push({
+      period: 'total',
+      label: t('userSubscriptions.totalQuota'),
+      used,
+      reserved,
+      limit,
+      percentage: ((used + reserved) / limit) * 100,
+      resetLabel: subscription.expires_at
+        ? t('userSubscriptions.expiresOn', { date: formatExpirationExactDate(subscription.expires_at) })
+        : t('userSubscriptions.noExpiration'),
+      showReserved: !hasCycleQuota,
+    })
+  }
+
+  return items
 }
 
 function formatCycleReset(subscription: UserSubscription): string {

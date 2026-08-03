@@ -245,7 +245,21 @@ type subscriptionBillingCandidate struct {
 	cycleStartedAt        *time.Time
 	cycleUsageUSD         decimal.Decimal
 	cycleReservedUSD      decimal.Decimal
+	totalQuotaUSD         *decimal.Decimal
+	totalUsageUSD         decimal.Decimal
+	totalReservedUSD      decimal.Decimal
 	walletFallbackEnabled bool
+}
+
+func (c *subscriptionBillingCandidate) canFund(amount decimal.Decimal) bool {
+	if c == nil {
+		return false
+	}
+	cycleAvailable := c.cycleQuotaUSD == nil || !c.cycleQuotaUSD.IsPositive() ||
+		c.cycleUsageUSD.Add(c.cycleReservedUSD).Add(amount).LessThanOrEqual(*c.cycleQuotaUSD)
+	totalAvailable := c.totalQuotaUSD == nil || !c.totalQuotaUSD.IsPositive() ||
+		c.totalUsageUSD.Add(c.totalReservedUSD).Add(amount).LessThanOrEqual(*c.totalQuotaUSD)
+	return cycleAvailable && totalAvailable
 }
 
 func applyPlanCoverageBillingDecision(
@@ -278,7 +292,7 @@ func applyPlanCoverageBillingDecision(
 	chooseSubscription := func() *subscriptionBillingCandidate {
 		for i := range candidates {
 			candidate := &candidates[i]
-			if candidate.cycleQuotaUSD == nil || !candidate.cycleQuotaUSD.IsPositive() || candidate.cycleUsageUSD.Add(candidate.cycleReservedUSD).Add(amount).LessThanOrEqual(*candidate.cycleQuotaUSD) {
+			if candidate.canFund(amount) {
 				return candidate
 			}
 		}
@@ -386,9 +400,12 @@ func listSubscriptionBillingCandidates(
 			us.cycle_quota_usd,
 			us.reset_interval_seconds,
 			us.cycle_started_at,
-			us.cycle_usage_usd,
-			us.cycle_reserved_usd,
-			us.wallet_fallback_enabled
+				us.cycle_usage_usd,
+				us.cycle_reserved_usd,
+				us.total_quota_usd,
+				us.total_usage_usd,
+				us.total_reserved_usd,
+				us.wallet_fallback_enabled
 		FROM user_subscriptions us
 		WHERE us.user_id = $1
 			AND us.deleted_at IS NULL
@@ -409,23 +426,30 @@ func listSubscriptionBillingCandidates(
 	resetIndexes := make([]int, 0)
 	for rows.Next() {
 		var candidate subscriptionBillingCandidate
-		var quota decimal.NullDecimal
+		var cycleQuota, totalQuota decimal.NullDecimal
 		var cycleStart sql.NullTime
 		if err := rows.Scan(
 			&candidate.id,
 			&candidate.expiresAt,
-			&quota,
+			&cycleQuota,
 			&candidate.resetIntervalSeconds,
 			&cycleStart,
 			&candidate.cycleUsageUSD,
 			&candidate.cycleReservedUSD,
+			&totalQuota,
+			&candidate.totalUsageUSD,
+			&candidate.totalReservedUSD,
 			&candidate.walletFallbackEnabled,
 		); err != nil {
 			return nil, err
 		}
-		if quota.Valid {
-			value := quota.Decimal
+		if cycleQuota.Valid {
+			value := cycleQuota.Decimal
 			candidate.cycleQuotaUSD = &value
+		}
+		if totalQuota.Valid {
+			value := totalQuota.Decimal
+			candidate.totalQuotaUSD = &value
 		}
 		if cycleStart.Valid {
 			value := cycleStart.Time
@@ -481,7 +505,8 @@ func resetSubscriptionBillingCycle(candidate *subscriptionBillingCandidate, now 
 func incrementSelectedUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, amount decimal.Decimal) error {
 	res, err := tx.ExecContext(ctx, `
 		UPDATE user_subscriptions
-		SET cycle_usage_usd = cycle_usage_usd + $1,
+			SET cycle_usage_usd = cycle_usage_usd + $1,
+				total_usage_usd = total_usage_usd + $1,
 			daily_usage_usd = daily_usage_usd + $1,
 			weekly_usage_usd = weekly_usage_usd + $1,
 			monthly_usage_usd = monthly_usage_usd + $1,
@@ -542,14 +567,15 @@ func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscrip
 				) THEN NOW()
 				ELSE us.cycle_started_at
 			END,
-			cycle_usage_usd = CASE
+				cycle_usage_usd = CASE
 				WHEN us.reset_interval_seconds > 0 AND (
 					us.cycle_started_at IS NULL OR
 					NOW() >= us.cycle_started_at + us.reset_interval_seconds * INTERVAL '1 second'
 				) THEN $1
 				ELSE us.cycle_usage_usd + $1
-			END,
-			updated_at = NOW()
+				END,
+				total_usage_usd = us.total_usage_usd + $1,
+				updated_at = NOW()
 		WHERE us.id = $2
 			AND us.deleted_at IS NULL
 	`
@@ -629,7 +655,7 @@ func reserveUsageBillingBatchImageFunding(ctx context.Context, tx *sql.Tx, cmd *
 	chooseSubscription := func() *subscriptionBillingCandidate {
 		for i := range candidates {
 			candidate := &candidates[i]
-			if candidate.cycleQuotaUSD == nil || !candidate.cycleQuotaUSD.IsPositive() || candidate.cycleUsageUSD.Add(candidate.cycleReservedUSD).Add(cmd.HoldAmount).LessThanOrEqual(*candidate.cycleQuotaUSD) {
+			if candidate.canFund(cmd.HoldAmount) {
 				return candidate
 			}
 		}
@@ -712,15 +738,21 @@ func reserveUsageBillingBatchImageFunding(ctx context.Context, tx *sql.Tx, cmd *
 func reserveSelectedUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, amount decimal.Decimal) error {
 	res, err := tx.ExecContext(ctx, `
 		UPDATE user_subscriptions
-		SET cycle_reserved_usd = cycle_reserved_usd + $1,
+			SET cycle_reserved_usd = cycle_reserved_usd + $1,
+				total_reserved_usd = total_reserved_usd + $1,
 			updated_at = NOW()
 		WHERE id = $2
 			AND deleted_at IS NULL
 			AND (
 				cycle_quota_usd IS NULL
 				OR cycle_quota_usd <= 0
-				OR cycle_usage_usd + cycle_reserved_usd + $1 <= cycle_quota_usd
-			)
+					OR cycle_usage_usd + cycle_reserved_usd + $1 <= cycle_quota_usd
+				)
+				AND (
+					total_quota_usd IS NULL
+					OR total_quota_usd <= 0
+					OR total_usage_usd + total_reserved_usd + $1 <= total_quota_usd
+				)
 	`, amount, subscriptionID)
 	if err != nil {
 		return err
@@ -740,8 +772,12 @@ func insertPendingBatchImageBillingReservation(ctx context.Context, tx *sql.Tx, 
 		INSERT INTO billing_reservations (
 			request_id, api_key_id, user_id, group_id, subscription_id,
 			billing_source, billing_preference, fallback_reason,
-			reserved_amount, final_amount, status
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9, 0, 'pending')
+			reserved_amount, final_amount, status,
+			last_heartbeat_at, lease_expires_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9, 0, 'pending',
+			NOW(), NOW() + INTERVAL '24 hours'
+		)
 	`,
 		cmd.RequestID,
 		cmd.APIKeyID,
@@ -813,13 +849,17 @@ func captureUsageBillingBatchImageFunding(ctx context.Context, tx *sql.Tx, cmd *
 func captureSelectedUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, reservedAmount, actualAmount decimal.Decimal) error {
 	res, err := tx.ExecContext(ctx, `
 		UPDATE user_subscriptions
-		SET cycle_reserved_usd = cycle_reserved_usd - $1,
-			cycle_usage_usd = cycle_usage_usd + $2,
+			SET cycle_reserved_usd = cycle_reserved_usd - $1,
+				total_reserved_usd = total_reserved_usd - $1,
+				cycle_usage_usd = cycle_usage_usd + $2,
+				total_usage_usd = total_usage_usd + $2,
 			daily_usage_usd = daily_usage_usd + $2,
 			weekly_usage_usd = weekly_usage_usd + $2,
 			monthly_usage_usd = monthly_usage_usd + $2,
 			updated_at = NOW()
-		WHERE id = $3 AND cycle_reserved_usd >= $1
+			WHERE id = $3
+				AND cycle_reserved_usd >= $1
+				AND total_reserved_usd >= $1
 	`, reservedAmount, actualAmount, subscriptionID)
 	if err != nil {
 		return err
@@ -887,9 +927,12 @@ func releaseUsageBillingBatchImageFunding(ctx context.Context, tx *sql.Tx, cmd *
 func releaseSelectedUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, reservedAmount decimal.Decimal) error {
 	res, err := tx.ExecContext(ctx, `
 		UPDATE user_subscriptions
-		SET cycle_reserved_usd = cycle_reserved_usd - $1,
-			updated_at = NOW()
-		WHERE id = $2 AND cycle_reserved_usd >= $1
+			SET cycle_reserved_usd = cycle_reserved_usd - $1,
+				total_reserved_usd = total_reserved_usd - $1,
+				updated_at = NOW()
+			WHERE id = $2
+				AND cycle_reserved_usd >= $1
+				AND total_reserved_usd >= $1
 	`, reservedAmount, subscriptionID)
 	if err != nil {
 		return err
@@ -963,7 +1006,8 @@ func batchImageReservationResult(reservation *batchImageBillingReservation, appl
 func settleBatchImageBillingReservation(ctx context.Context, tx *sql.Tx, id int64, finalAmount decimal.Decimal) error {
 	res, err := tx.ExecContext(ctx, `
 		UPDATE billing_reservations
-		SET final_amount = $1, status = 'settled', settled_at = NOW()
+		SET final_amount = $1, status = 'settled', settled_at = NOW(),
+			lease_owner = NULL, lease_expires_at = NULL
 		WHERE id = $2 AND status = 'pending'
 	`, finalAmount, id)
 	if err != nil {
@@ -982,7 +1026,8 @@ func settleBatchImageBillingReservation(ctx context.Context, tx *sql.Tx, id int6
 func releaseBatchImageBillingReservation(ctx context.Context, tx *sql.Tx, id int64) error {
 	res, err := tx.ExecContext(ctx, `
 		UPDATE billing_reservations
-		SET status = 'released', released_at = NOW()
+		SET status = 'released', released_at = NOW(),
+			lease_owner = NULL, lease_expires_at = NULL
 		WHERE id = $1 AND status = 'pending'
 	`, id)
 	if err != nil {

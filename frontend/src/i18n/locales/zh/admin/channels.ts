@@ -617,6 +617,8 @@ export default {
       weekly: '每周',
       monthly: '每月',
       cycle: '本期',
+      total: '有效期总额',
+      validUntil: '有效至 {date}',
       resetEveryDays: '每 {days} 天重置',
       reserved: '预留 ${amount}',
       noIncludedGroups: '未配置覆盖分组',

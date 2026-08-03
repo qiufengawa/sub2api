@@ -1826,47 +1826,47 @@ func init() {
 	// subscriptionplan.CurrencyValidator is a validator for the "currency" field. It is called by the builders before save.
 	subscriptionplan.CurrencyValidator = subscriptionplanDescCurrency.Validators[0].(func(string) error)
 	// subscriptionplanDescResetIntervalSeconds is the schema descriptor for reset_interval_seconds field.
-	subscriptionplanDescResetIntervalSeconds := subscriptionplanFields[6].Descriptor()
+	subscriptionplanDescResetIntervalSeconds := subscriptionplanFields[7].Descriptor()
 	// subscriptionplan.DefaultResetIntervalSeconds holds the default value on creation for the reset_interval_seconds field.
 	subscriptionplan.DefaultResetIntervalSeconds = subscriptionplanDescResetIntervalSeconds.Default.(int)
 	// subscriptionplanDescWalletFallbackEnabled is the schema descriptor for wallet_fallback_enabled field.
-	subscriptionplanDescWalletFallbackEnabled := subscriptionplanFields[7].Descriptor()
+	subscriptionplanDescWalletFallbackEnabled := subscriptionplanFields[8].Descriptor()
 	// subscriptionplan.DefaultWalletFallbackEnabled holds the default value on creation for the wallet_fallback_enabled field.
 	subscriptionplan.DefaultWalletFallbackEnabled = subscriptionplanDescWalletFallbackEnabled.Default.(bool)
 	// subscriptionplanDescValidityDays is the schema descriptor for validity_days field.
-	subscriptionplanDescValidityDays := subscriptionplanFields[8].Descriptor()
+	subscriptionplanDescValidityDays := subscriptionplanFields[9].Descriptor()
 	// subscriptionplan.DefaultValidityDays holds the default value on creation for the validity_days field.
 	subscriptionplan.DefaultValidityDays = subscriptionplanDescValidityDays.Default.(int)
 	// subscriptionplanDescValidityUnit is the schema descriptor for validity_unit field.
-	subscriptionplanDescValidityUnit := subscriptionplanFields[9].Descriptor()
+	subscriptionplanDescValidityUnit := subscriptionplanFields[10].Descriptor()
 	// subscriptionplan.DefaultValidityUnit holds the default value on creation for the validity_unit field.
 	subscriptionplan.DefaultValidityUnit = subscriptionplanDescValidityUnit.Default.(string)
 	// subscriptionplan.ValidityUnitValidator is a validator for the "validity_unit" field. It is called by the builders before save.
 	subscriptionplan.ValidityUnitValidator = subscriptionplanDescValidityUnit.Validators[0].(func(string) error)
 	// subscriptionplanDescFeatures is the schema descriptor for features field.
-	subscriptionplanDescFeatures := subscriptionplanFields[10].Descriptor()
+	subscriptionplanDescFeatures := subscriptionplanFields[11].Descriptor()
 	// subscriptionplan.DefaultFeatures holds the default value on creation for the features field.
 	subscriptionplan.DefaultFeatures = subscriptionplanDescFeatures.Default.(string)
 	// subscriptionplanDescProductName is the schema descriptor for product_name field.
-	subscriptionplanDescProductName := subscriptionplanFields[11].Descriptor()
+	subscriptionplanDescProductName := subscriptionplanFields[12].Descriptor()
 	// subscriptionplan.DefaultProductName holds the default value on creation for the product_name field.
 	subscriptionplan.DefaultProductName = subscriptionplanDescProductName.Default.(string)
 	// subscriptionplan.ProductNameValidator is a validator for the "product_name" field. It is called by the builders before save.
 	subscriptionplan.ProductNameValidator = subscriptionplanDescProductName.Validators[0].(func(string) error)
 	// subscriptionplanDescForSale is the schema descriptor for for_sale field.
-	subscriptionplanDescForSale := subscriptionplanFields[12].Descriptor()
+	subscriptionplanDescForSale := subscriptionplanFields[13].Descriptor()
 	// subscriptionplan.DefaultForSale holds the default value on creation for the for_sale field.
 	subscriptionplan.DefaultForSale = subscriptionplanDescForSale.Default.(bool)
 	// subscriptionplanDescSortOrder is the schema descriptor for sort_order field.
-	subscriptionplanDescSortOrder := subscriptionplanFields[13].Descriptor()
+	subscriptionplanDescSortOrder := subscriptionplanFields[14].Descriptor()
 	// subscriptionplan.DefaultSortOrder holds the default value on creation for the sort_order field.
 	subscriptionplan.DefaultSortOrder = subscriptionplanDescSortOrder.Default.(int)
 	// subscriptionplanDescCreatedAt is the schema descriptor for created_at field.
-	subscriptionplanDescCreatedAt := subscriptionplanFields[14].Descriptor()
+	subscriptionplanDescCreatedAt := subscriptionplanFields[15].Descriptor()
 	// subscriptionplan.DefaultCreatedAt holds the default value on creation for the created_at field.
 	subscriptionplan.DefaultCreatedAt = subscriptionplanDescCreatedAt.Default.(func() time.Time)
 	// subscriptionplanDescUpdatedAt is the schema descriptor for updated_at field.
-	subscriptionplanDescUpdatedAt := subscriptionplanFields[15].Descriptor()
+	subscriptionplanDescUpdatedAt := subscriptionplanFields[16].Descriptor()
 	// subscriptionplan.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	subscriptionplan.DefaultUpdatedAt = subscriptionplanDescUpdatedAt.Default.(func() time.Time)
 	// subscriptionplan.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -2483,12 +2483,20 @@ func init() {
 	usersubscriptionDescCycleReservedUsd := usersubscriptionFields[15].Descriptor()
 	// usersubscription.DefaultCycleReservedUsd holds the default value on creation for the cycle_reserved_usd field.
 	usersubscription.DefaultCycleReservedUsd = usersubscriptionDescCycleReservedUsd.Default.(float64)
+	// usersubscriptionDescTotalUsageUsd is the schema descriptor for total_usage_usd field.
+	usersubscriptionDescTotalUsageUsd := usersubscriptionFields[17].Descriptor()
+	// usersubscription.DefaultTotalUsageUsd holds the default value on creation for the total_usage_usd field.
+	usersubscription.DefaultTotalUsageUsd = usersubscriptionDescTotalUsageUsd.Default.(float64)
+	// usersubscriptionDescTotalReservedUsd is the schema descriptor for total_reserved_usd field.
+	usersubscriptionDescTotalReservedUsd := usersubscriptionFields[18].Descriptor()
+	// usersubscription.DefaultTotalReservedUsd holds the default value on creation for the total_reserved_usd field.
+	usersubscription.DefaultTotalReservedUsd = usersubscriptionDescTotalReservedUsd.Default.(float64)
 	// usersubscriptionDescWalletFallbackEnabled is the schema descriptor for wallet_fallback_enabled field.
-	usersubscriptionDescWalletFallbackEnabled := usersubscriptionFields[16].Descriptor()
+	usersubscriptionDescWalletFallbackEnabled := usersubscriptionFields[19].Descriptor()
 	// usersubscription.DefaultWalletFallbackEnabled holds the default value on creation for the wallet_fallback_enabled field.
 	usersubscription.DefaultWalletFallbackEnabled = usersubscriptionDescWalletFallbackEnabled.Default.(bool)
 	// usersubscriptionDescAssignedAt is the schema descriptor for assigned_at field.
-	usersubscriptionDescAssignedAt := usersubscriptionFields[18].Descriptor()
+	usersubscriptionDescAssignedAt := usersubscriptionFields[21].Descriptor()
 	// usersubscription.DefaultAssignedAt holds the default value on creation for the assigned_at field.
 	usersubscription.DefaultAssignedAt = usersubscriptionDescAssignedAt.Default.(func() time.Time)
 }

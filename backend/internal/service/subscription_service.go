@@ -98,14 +98,17 @@ func (s *SubscriptionService) invalidateSubscriptionCaches(userID, groupID int64
 
 // AssignSubscriptionInput 分配订阅输入
 type AssignSubscriptionInput struct {
-	UserID                int64
-	PlanID                int64
-	CycleQuotaUSD         *float64
-	ResetIntervalSeconds  int
-	WalletFallbackEnabled *bool
-	ValidityDays          int
-	AssignedBy            int64
-	Notes                 string
+	UserID                     int64
+	PlanID                     int64
+	CycleQuotaUSD              *float64
+	TotalQuotaUSD              *float64
+	PreserveExistingTotalQuota bool
+	TotalQuotaSnapshotProvided bool
+	ResetIntervalSeconds       int
+	WalletFallbackEnabled      *bool
+	ValidityDays               int
+	AssignedBy                 int64
+	Notes                      string
 }
 
 // AssignSubscription 分配订阅给用户（不允许重复分配）
@@ -183,9 +186,10 @@ func (s *SubscriptionService) assignOrExtendSubscription(ctx context.Context, in
 			walletFallback = *input.WalletFallbackEnabled
 		}
 		if err := coverageRepo.UpdateBillingSnapshot(ctx, existingSub.ID, SubscriptionBillingSnapshot{
-			PlanID: input.PlanID, CycleQuotaUSD: input.CycleQuotaUSD,
-			ResetIntervalSeconds: input.ResetIntervalSeconds,
-			CycleStartedAt:       cycleStart, WalletFallbackEnabled: walletFallback,
+			PlanID: input.PlanID, CycleQuotaUSD: input.CycleQuotaUSD, TotalQuotaUSD: input.TotalQuotaUSD,
+			PreserveExistingTotalQuota: input.PreserveExistingTotalQuota,
+			ResetIntervalSeconds:       input.ResetIntervalSeconds,
+			CycleStartedAt:             cycleStart, WalletFallbackEnabled: walletFallback,
 		}, isExpired); err != nil {
 			return nil, false, err
 		}
@@ -230,6 +234,9 @@ func (s *SubscriptionService) prepareSubscriptionAssignment(ctx context.Context,
 	}
 	if input.CycleQuotaUSD == nil {
 		input.CycleQuotaUSD = plan.CycleQuotaUsd
+	}
+	if input.TotalQuotaUSD == nil && !input.PreserveExistingTotalQuota && !input.TotalQuotaSnapshotProvided {
+		input.TotalQuotaUSD = plan.TotalQuotaUsd
 	}
 	if input.ResetIntervalSeconds <= 0 {
 		input.ResetIntervalSeconds = plan.ResetIntervalSeconds
@@ -404,6 +411,7 @@ func (s *SubscriptionService) createSubscription(ctx context.Context, input *Ass
 		CreatedAt:             now,
 		UpdatedAt:             now,
 		CycleQuotaUSD:         input.CycleQuotaUSD,
+		TotalQuotaUSD:         input.TotalQuotaUSD,
 		ResetIntervalSeconds:  input.ResetIntervalSeconds,
 		CycleStartedAt:        &now,
 		WalletFallbackEnabled: true,
@@ -505,6 +513,17 @@ func (s *SubscriptionService) assignSubscriptionWithReuse(ctx context.Context, i
 				renewalNotes = ""
 			}
 			if err := s.updateExistingSubscriptionTerm(ctx, sub, renewalNotes, now, newExpiresAt, true); err != nil {
+				return nil, false, err
+			}
+			walletFallback := true
+			if input.WalletFallbackEnabled != nil {
+				walletFallback = *input.WalletFallbackEnabled
+			}
+			if err := coverageRepo.UpdateBillingSnapshot(ctx, sub.ID, SubscriptionBillingSnapshot{
+				PlanID: input.PlanID, CycleQuotaUSD: input.CycleQuotaUSD, TotalQuotaUSD: input.TotalQuotaUSD,
+				ResetIntervalSeconds: input.ResetIntervalSeconds, CycleStartedAt: &now,
+				WalletFallbackEnabled: walletFallback,
+			}, true); err != nil {
 				return nil, false, err
 			}
 			s.maybeInvalidateAssignmentCaches(input.UserID, groupIDs, false)
@@ -704,7 +723,7 @@ func (s *SubscriptionService) GetActiveSubscriptionForGroup(ctx context.Context,
 	}
 	now := s.now()
 	for i := range subscriptions {
-		if subscriptions[i].CheckCycleLimitAt(now, 0) {
+		if subscriptions[i].CheckQuotaLimitsAt(now, 0) {
 			return &subscriptions[i], nil
 		}
 	}
@@ -923,8 +942,8 @@ func (s *SubscriptionService) EnsureWindowMaintenance(ctx context.Context, sub *
 // CheckUsageLimits 检查使用限额（返回错误如果超限）
 // 用于中间件的快速预检查，additionalCost 通常为 0
 func (s *SubscriptionService) CheckUsageLimits(ctx context.Context, sub *UserSubscription, group *Group, additionalCost float64) error {
-	if sub.HasCycleQuota() {
-		if !sub.CheckCycleLimitAt(s.now(), additionalCost) {
+	if sub.HasCycleQuota() || sub.HasTotalQuota() {
+		if !sub.CheckQuotaLimitsAt(s.now(), additionalCost) {
 			return ErrWeeklyLimitExceeded
 		}
 		return nil
@@ -956,8 +975,8 @@ func (s *SubscriptionService) ValidateAndCheckLimits(sub *UserSubscription, grou
 	if !sub.ExpiresAt.After(now) {
 		return false, ErrSubscriptionExpired
 	}
-	if sub.HasCycleQuota() {
-		if !sub.CheckCycleLimitAt(now, 0) {
+	if sub.HasCycleQuota() || sub.HasTotalQuota() {
+		if !sub.CheckQuotaLimitsAt(now, 0) {
 			return false, ErrWeeklyLimitExceeded
 		}
 		return false, nil
@@ -1054,6 +1073,7 @@ type SubscriptionProgress struct {
 	ExpiresAt     time.Time            `json:"expires_at"`
 	ExpiresInDays int                  `json:"expires_in_days"`
 	Cycle         *UsageWindowProgress `json:"cycle,omitempty"`
+	Total         *UsageWindowProgress `json:"total,omitempty"`
 }
 
 // UsageWindowProgress 使用窗口进度
@@ -1121,6 +1141,31 @@ func (s *SubscriptionService) calculateProgress(sub *UserSubscription) *Subscrip
 			Percentage:      percentage,
 			WindowStart:     start,
 			ResetsAt:        resetsAt,
+			ResetsInSeconds: resetsInSeconds,
+		}
+	}
+	if sub.HasTotalQuota() {
+		limit := *sub.TotalQuotaUSD
+		used := sub.TotalUsageUSD
+		remaining := limit - used
+		if remaining < 0 {
+			remaining = 0
+		}
+		percentage := (used / limit) * 100
+		if percentage > 100 {
+			percentage = 100
+		}
+		resetsInSeconds := int64(time.Until(sub.ExpiresAt).Seconds())
+		if resetsInSeconds < 0 {
+			resetsInSeconds = 0
+		}
+		progress.Total = &UsageWindowProgress{
+			LimitUSD:        limit,
+			UsedUSD:         used,
+			RemainingUSD:    remaining,
+			Percentage:      percentage,
+			WindowStart:     sub.StartsAt,
+			ResetsAt:        sub.ExpiresAt,
 			ResetsInSeconds: resetsInSeconds,
 		}
 	}

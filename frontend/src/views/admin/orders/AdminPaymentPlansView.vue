@@ -58,6 +58,12 @@
           </div>
           <span v-else class="text-xs text-gray-400">{{ t('payment.admin.legacyQuota') }}</span>
         </template>
+        <template #cell-total_quota_usd="{ value }">
+          <span v-if="value != null" class="whitespace-nowrap text-sm font-medium tabular-nums text-gray-900 dark:text-white">
+            ${{ Number(value).toFixed(2) }}
+          </span>
+          <span v-else class="text-xs text-gray-400">{{ t('payment.admin.unlimitedTotalQuota') }}</span>
+        </template>
         <template #cell-price="{ value, row }">
           <div class="whitespace-nowrap text-sm">
             <span class="font-medium text-gray-900 dark:text-white">{{ planCurrencySymbol(row.currency) }}{{ (value ?? 0).toFixed(2) }}</span>
@@ -183,6 +189,7 @@ const planColumns = computed((): Column[] => [
   { key: 'name', label: t('payment.admin.planName') },
   { key: 'included_groups', label: t('payment.admin.includedGroups') },
   { key: 'cycle_quota_usd', label: t('payment.admin.cycleQuota') },
+  { key: 'total_quota_usd', label: t('payment.admin.totalQuota') },
   { key: 'price', label: t('payment.admin.price') },
   { key: 'validity_days', label: t('payment.admin.validity') },
   { key: 'for_sale', label: t('payment.admin.forSale') },

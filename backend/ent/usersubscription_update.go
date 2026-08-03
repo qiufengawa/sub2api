@@ -360,6 +360,75 @@ func (_u *UserSubscriptionUpdate) AddCycleReservedUsd(v float64) *UserSubscripti
 	return _u
 }
 
+// SetTotalQuotaUsd sets the "total_quota_usd" field.
+func (_u *UserSubscriptionUpdate) SetTotalQuotaUsd(v float64) *UserSubscriptionUpdate {
+	_u.mutation.ResetTotalQuotaUsd()
+	_u.mutation.SetTotalQuotaUsd(v)
+	return _u
+}
+
+// SetNillableTotalQuotaUsd sets the "total_quota_usd" field if the given value is not nil.
+func (_u *UserSubscriptionUpdate) SetNillableTotalQuotaUsd(v *float64) *UserSubscriptionUpdate {
+	if v != nil {
+		_u.SetTotalQuotaUsd(*v)
+	}
+	return _u
+}
+
+// AddTotalQuotaUsd adds value to the "total_quota_usd" field.
+func (_u *UserSubscriptionUpdate) AddTotalQuotaUsd(v float64) *UserSubscriptionUpdate {
+	_u.mutation.AddTotalQuotaUsd(v)
+	return _u
+}
+
+// ClearTotalQuotaUsd clears the value of the "total_quota_usd" field.
+func (_u *UserSubscriptionUpdate) ClearTotalQuotaUsd() *UserSubscriptionUpdate {
+	_u.mutation.ClearTotalQuotaUsd()
+	return _u
+}
+
+// SetTotalUsageUsd sets the "total_usage_usd" field.
+func (_u *UserSubscriptionUpdate) SetTotalUsageUsd(v float64) *UserSubscriptionUpdate {
+	_u.mutation.ResetTotalUsageUsd()
+	_u.mutation.SetTotalUsageUsd(v)
+	return _u
+}
+
+// SetNillableTotalUsageUsd sets the "total_usage_usd" field if the given value is not nil.
+func (_u *UserSubscriptionUpdate) SetNillableTotalUsageUsd(v *float64) *UserSubscriptionUpdate {
+	if v != nil {
+		_u.SetTotalUsageUsd(*v)
+	}
+	return _u
+}
+
+// AddTotalUsageUsd adds value to the "total_usage_usd" field.
+func (_u *UserSubscriptionUpdate) AddTotalUsageUsd(v float64) *UserSubscriptionUpdate {
+	_u.mutation.AddTotalUsageUsd(v)
+	return _u
+}
+
+// SetTotalReservedUsd sets the "total_reserved_usd" field.
+func (_u *UserSubscriptionUpdate) SetTotalReservedUsd(v float64) *UserSubscriptionUpdate {
+	_u.mutation.ResetTotalReservedUsd()
+	_u.mutation.SetTotalReservedUsd(v)
+	return _u
+}
+
+// SetNillableTotalReservedUsd sets the "total_reserved_usd" field if the given value is not nil.
+func (_u *UserSubscriptionUpdate) SetNillableTotalReservedUsd(v *float64) *UserSubscriptionUpdate {
+	if v != nil {
+		_u.SetTotalReservedUsd(*v)
+	}
+	return _u
+}
+
+// AddTotalReservedUsd adds value to the "total_reserved_usd" field.
+func (_u *UserSubscriptionUpdate) AddTotalReservedUsd(v float64) *UserSubscriptionUpdate {
+	_u.mutation.AddTotalReservedUsd(v)
+	return _u
+}
+
 // SetWalletFallbackEnabled sets the "wallet_fallback_enabled" field.
 func (_u *UserSubscriptionUpdate) SetWalletFallbackEnabled(v bool) *UserSubscriptionUpdate {
 	_u.mutation.SetWalletFallbackEnabled(v)
@@ -672,6 +741,27 @@ func (_u *UserSubscriptionUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if value, ok := _u.mutation.AddedCycleReservedUsd(); ok {
 		_spec.AddField(usersubscription.FieldCycleReservedUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.TotalQuotaUsd(); ok {
+		_spec.SetField(usersubscription.FieldTotalQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedTotalQuotaUsd(); ok {
+		_spec.AddField(usersubscription.FieldTotalQuotaUsd, field.TypeFloat64, value)
+	}
+	if _u.mutation.TotalQuotaUsdCleared() {
+		_spec.ClearField(usersubscription.FieldTotalQuotaUsd, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.TotalUsageUsd(); ok {
+		_spec.SetField(usersubscription.FieldTotalUsageUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedTotalUsageUsd(); ok {
+		_spec.AddField(usersubscription.FieldTotalUsageUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.TotalReservedUsd(); ok {
+		_spec.SetField(usersubscription.FieldTotalReservedUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedTotalReservedUsd(); ok {
+		_spec.AddField(usersubscription.FieldTotalReservedUsd, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.WalletFallbackEnabled(); ok {
 		_spec.SetField(usersubscription.FieldWalletFallbackEnabled, field.TypeBool, value)
@@ -1166,6 +1256,75 @@ func (_u *UserSubscriptionUpdateOne) AddCycleReservedUsd(v float64) *UserSubscri
 	return _u
 }
 
+// SetTotalQuotaUsd sets the "total_quota_usd" field.
+func (_u *UserSubscriptionUpdateOne) SetTotalQuotaUsd(v float64) *UserSubscriptionUpdateOne {
+	_u.mutation.ResetTotalQuotaUsd()
+	_u.mutation.SetTotalQuotaUsd(v)
+	return _u
+}
+
+// SetNillableTotalQuotaUsd sets the "total_quota_usd" field if the given value is not nil.
+func (_u *UserSubscriptionUpdateOne) SetNillableTotalQuotaUsd(v *float64) *UserSubscriptionUpdateOne {
+	if v != nil {
+		_u.SetTotalQuotaUsd(*v)
+	}
+	return _u
+}
+
+// AddTotalQuotaUsd adds value to the "total_quota_usd" field.
+func (_u *UserSubscriptionUpdateOne) AddTotalQuotaUsd(v float64) *UserSubscriptionUpdateOne {
+	_u.mutation.AddTotalQuotaUsd(v)
+	return _u
+}
+
+// ClearTotalQuotaUsd clears the value of the "total_quota_usd" field.
+func (_u *UserSubscriptionUpdateOne) ClearTotalQuotaUsd() *UserSubscriptionUpdateOne {
+	_u.mutation.ClearTotalQuotaUsd()
+	return _u
+}
+
+// SetTotalUsageUsd sets the "total_usage_usd" field.
+func (_u *UserSubscriptionUpdateOne) SetTotalUsageUsd(v float64) *UserSubscriptionUpdateOne {
+	_u.mutation.ResetTotalUsageUsd()
+	_u.mutation.SetTotalUsageUsd(v)
+	return _u
+}
+
+// SetNillableTotalUsageUsd sets the "total_usage_usd" field if the given value is not nil.
+func (_u *UserSubscriptionUpdateOne) SetNillableTotalUsageUsd(v *float64) *UserSubscriptionUpdateOne {
+	if v != nil {
+		_u.SetTotalUsageUsd(*v)
+	}
+	return _u
+}
+
+// AddTotalUsageUsd adds value to the "total_usage_usd" field.
+func (_u *UserSubscriptionUpdateOne) AddTotalUsageUsd(v float64) *UserSubscriptionUpdateOne {
+	_u.mutation.AddTotalUsageUsd(v)
+	return _u
+}
+
+// SetTotalReservedUsd sets the "total_reserved_usd" field.
+func (_u *UserSubscriptionUpdateOne) SetTotalReservedUsd(v float64) *UserSubscriptionUpdateOne {
+	_u.mutation.ResetTotalReservedUsd()
+	_u.mutation.SetTotalReservedUsd(v)
+	return _u
+}
+
+// SetNillableTotalReservedUsd sets the "total_reserved_usd" field if the given value is not nil.
+func (_u *UserSubscriptionUpdateOne) SetNillableTotalReservedUsd(v *float64) *UserSubscriptionUpdateOne {
+	if v != nil {
+		_u.SetTotalReservedUsd(*v)
+	}
+	return _u
+}
+
+// AddTotalReservedUsd adds value to the "total_reserved_usd" field.
+func (_u *UserSubscriptionUpdateOne) AddTotalReservedUsd(v float64) *UserSubscriptionUpdateOne {
+	_u.mutation.AddTotalReservedUsd(v)
+	return _u
+}
+
 // SetWalletFallbackEnabled sets the "wallet_fallback_enabled" field.
 func (_u *UserSubscriptionUpdateOne) SetWalletFallbackEnabled(v bool) *UserSubscriptionUpdateOne {
 	_u.mutation.SetWalletFallbackEnabled(v)
@@ -1508,6 +1667,27 @@ func (_u *UserSubscriptionUpdateOne) sqlSave(ctx context.Context) (_node *UserSu
 	}
 	if value, ok := _u.mutation.AddedCycleReservedUsd(); ok {
 		_spec.AddField(usersubscription.FieldCycleReservedUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.TotalQuotaUsd(); ok {
+		_spec.SetField(usersubscription.FieldTotalQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedTotalQuotaUsd(); ok {
+		_spec.AddField(usersubscription.FieldTotalQuotaUsd, field.TypeFloat64, value)
+	}
+	if _u.mutation.TotalQuotaUsdCleared() {
+		_spec.ClearField(usersubscription.FieldTotalQuotaUsd, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.TotalUsageUsd(); ok {
+		_spec.SetField(usersubscription.FieldTotalUsageUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedTotalUsageUsd(); ok {
+		_spec.AddField(usersubscription.FieldTotalUsageUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.TotalReservedUsd(); ok {
+		_spec.SetField(usersubscription.FieldTotalReservedUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedTotalReservedUsd(); ok {
+		_spec.AddField(usersubscription.FieldTotalReservedUsd, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.WalletFallbackEnabled(); ok {
 		_spec.SetField(usersubscription.FieldWalletFallbackEnabled, field.TypeBool, value)

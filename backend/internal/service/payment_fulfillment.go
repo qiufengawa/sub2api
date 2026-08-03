@@ -567,6 +567,9 @@ func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, 
 			}
 			input.PlanID = snapshot.PlanID
 			input.CycleQuotaUSD = snapshot.CycleQuotaUSD
+			input.TotalQuotaUSD = snapshot.TotalQuotaUSD
+			input.PreserveExistingTotalQuota = snapshot.SchemaVersion < subscriptionPlanOrderSnapshotVersion
+			input.TotalQuotaSnapshotProvided = snapshot.SchemaVersion >= subscriptionPlanOrderSnapshotVersion
 			input.ResetIntervalSeconds = snapshot.ResetIntervalSeconds
 			walletFallback := snapshot.WalletFallbackEnabled
 			input.WalletFallbackEnabled = &walletFallback
@@ -579,6 +582,7 @@ func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, 
 			"planID":            snapshot.PlanID,
 			"includedGroupIDs":  snapshot.IncludedGroupIDs,
 			"cycleQuotaUSD":     snapshot.CycleQuotaUSD,
+			"totalQuotaUSD":     snapshot.TotalQuotaUSD,
 			"resetInterval":     snapshot.ResetIntervalSeconds,
 			"validityDays":      snapshot.ValidityDays,
 			"recoveredFromNote": recoveredFromNote,

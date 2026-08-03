@@ -180,6 +180,24 @@ describe('user SubscriptionsView', () => {
     showError.mockReset()
   })
 
+  it('renders cycle and complete-term quota progress together', async () => {
+    getMySubscriptions.mockResolvedValue([{
+      ...subscriptionFixtures[0],
+      total_quota_usd: 160,
+      total_usage_usd: 124,
+      total_reserved_usd: 6,
+    }])
+
+    const wrapper = mountSubscriptionsView()
+    await flushPromises()
+
+    const quotaRows = wrapper.get('[data-testid="subscription-card"]').findAll('[data-testid="quota-row"]')
+    expect(quotaRows).toHaveLength(2)
+    expect(quotaRows[0].text()).toContain('userSubscriptions.cycleQuota')
+    expect(quotaRows[1].text()).toContain('userSubscriptions.totalQuota')
+    expect(quotaRows[1].text()).toContain('userSubscriptions.expiresOn')
+  })
+
   it('shows a compact summary and caps subscription records at two columns', async () => {
     const wrapper = mountSubscriptionsView()
     await flushPromises()

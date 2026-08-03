@@ -249,6 +249,7 @@ describe('PlanEditDialog', () => {
       name: 'Standard',
       included_group_ids: [10, 11],
       cycle_quota_usd: 40,
+      total_quota_usd: 160,
       reset_interval_days: 7,
       wallet_fallback_enabled: false,
       description: 'Weekly credits',
@@ -264,6 +265,7 @@ describe('PlanEditDialog', () => {
 	  expect(createPlan).toHaveBeenCalledWith(expect.objectContaining({
 		included_group_ids: [11],
       cycle_quota_usd: 40,
+      total_quota_usd: 160,
       reset_interval_seconds: 604800,
       wallet_fallback_enabled: false,
       currency: 'CNY',

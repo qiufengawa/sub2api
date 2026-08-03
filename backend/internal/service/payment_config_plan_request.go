@@ -26,6 +26,12 @@ func (r *UpdatePlanRequest) UnmarshalJSON(data []byte) error {
 			r.CycleQuotaUSD = nil
 		}
 	}
+	if value, ok := fields["total_quota_usd"]; ok {
+		r.TotalQuotaUSDSet = true
+		if isJSONNull(value) {
+			r.TotalQuotaUSD = nil
+		}
+	}
 	if value, ok := fields["reset_interval_seconds"]; ok && isJSONNull(value) {
 		return fmt.Errorf("reset_interval_seconds cannot be null")
 	}

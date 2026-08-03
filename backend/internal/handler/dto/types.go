@@ -641,6 +641,9 @@ type UserSubscription struct {
 	CycleQuotaUSD         *float64   `json:"cycle_quota_usd,omitempty"`
 	CycleUsageUSD         float64    `json:"cycle_usage_usd"`
 	CycleReservedUSD      float64    `json:"cycle_reserved_usd"`
+	TotalQuotaUSD         *float64   `json:"total_quota_usd,omitempty"`
+	TotalUsageUSD         float64    `json:"total_usage_usd"`
+	TotalReservedUSD      float64    `json:"total_reserved_usd"`
 	ResetIntervalSeconds  int        `json:"reset_interval_seconds"`
 	CycleStartedAt        *time.Time `json:"cycle_started_at,omitempty"`
 	WalletFallbackEnabled bool       `json:"wallet_fallback_enabled"`

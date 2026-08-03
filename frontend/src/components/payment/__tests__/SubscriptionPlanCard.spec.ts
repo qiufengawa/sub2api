@@ -22,6 +22,8 @@ const i18n = createI18n({
           price: "Price",
           validity: "Validity",
           quota: "Quota",
+          totalQuota: "Term quota",
+          validForPlanTerm: "for the full plan term",
           rate: "Rate",
           unlimited: "Unlimited",
         },
@@ -218,5 +220,17 @@ describe("SubscriptionPlanCard", () => {
     expect(wrapper.text()).toContain("$40.00");
     expect(wrapper.text()).not.toContain("$99");
     expect(wrapper.text()).not.toContain("$199");
+  });
+
+  it("shows the complete-term quota alongside the cycle quota", () => {
+    const wrapper = mountPlanCard("openai", {
+      cycle_quota_usd: 40,
+      total_quota_usd: 160,
+      reset_interval_seconds: 604800,
+    });
+
+    expect(wrapper.text()).toContain("$40.00");
+    expect(wrapper.text()).toContain("$160.00");
+    expect(wrapper.text()).toContain("payment.planCard.totalQuota");
   });
 });

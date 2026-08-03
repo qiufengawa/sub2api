@@ -39570,6 +39570,8 @@ type SubscriptionPlanMutation struct {
 	currency                  *string
 	cycle_quota_usd           *float64
 	addcycle_quota_usd        *float64
+	total_quota_usd           *float64
+	addtotal_quota_usd        *float64
 	reset_interval_seconds    *int
 	addreset_interval_seconds *int
 	wallet_fallback_enabled   *bool
@@ -39998,6 +40000,76 @@ func (m *SubscriptionPlanMutation) ResetCycleQuotaUsd() {
 	m.cycle_quota_usd = nil
 	m.addcycle_quota_usd = nil
 	delete(m.clearedFields, subscriptionplan.FieldCycleQuotaUsd)
+}
+
+// SetTotalQuotaUsd sets the "total_quota_usd" field.
+func (m *SubscriptionPlanMutation) SetTotalQuotaUsd(f float64) {
+	m.total_quota_usd = &f
+	m.addtotal_quota_usd = nil
+}
+
+// TotalQuotaUsd returns the value of the "total_quota_usd" field in the mutation.
+func (m *SubscriptionPlanMutation) TotalQuotaUsd() (r float64, exists bool) {
+	v := m.total_quota_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTotalQuotaUsd returns the old "total_quota_usd" field's value of the SubscriptionPlan entity.
+// If the SubscriptionPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionPlanMutation) OldTotalQuotaUsd(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTotalQuotaUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTotalQuotaUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTotalQuotaUsd: %w", err)
+	}
+	return oldValue.TotalQuotaUsd, nil
+}
+
+// AddTotalQuotaUsd adds f to the "total_quota_usd" field.
+func (m *SubscriptionPlanMutation) AddTotalQuotaUsd(f float64) {
+	if m.addtotal_quota_usd != nil {
+		*m.addtotal_quota_usd += f
+	} else {
+		m.addtotal_quota_usd = &f
+	}
+}
+
+// AddedTotalQuotaUsd returns the value that was added to the "total_quota_usd" field in this mutation.
+func (m *SubscriptionPlanMutation) AddedTotalQuotaUsd() (r float64, exists bool) {
+	v := m.addtotal_quota_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearTotalQuotaUsd clears the value of the "total_quota_usd" field.
+func (m *SubscriptionPlanMutation) ClearTotalQuotaUsd() {
+	m.total_quota_usd = nil
+	m.addtotal_quota_usd = nil
+	m.clearedFields[subscriptionplan.FieldTotalQuotaUsd] = struct{}{}
+}
+
+// TotalQuotaUsdCleared returns if the "total_quota_usd" field was cleared in this mutation.
+func (m *SubscriptionPlanMutation) TotalQuotaUsdCleared() bool {
+	_, ok := m.clearedFields[subscriptionplan.FieldTotalQuotaUsd]
+	return ok
+}
+
+// ResetTotalQuotaUsd resets all changes to the "total_quota_usd" field.
+func (m *SubscriptionPlanMutation) ResetTotalQuotaUsd() {
+	m.total_quota_usd = nil
+	m.addtotal_quota_usd = nil
+	delete(m.clearedFields, subscriptionplan.FieldTotalQuotaUsd)
 }
 
 // SetResetIntervalSeconds sets the "reset_interval_seconds" field.
@@ -40616,7 +40688,7 @@ func (m *SubscriptionPlanMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SubscriptionPlanMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 17)
 	if m.name != nil {
 		fields = append(fields, subscriptionplan.FieldName)
 	}
@@ -40634,6 +40706,9 @@ func (m *SubscriptionPlanMutation) Fields() []string {
 	}
 	if m.cycle_quota_usd != nil {
 		fields = append(fields, subscriptionplan.FieldCycleQuotaUsd)
+	}
+	if m.total_quota_usd != nil {
+		fields = append(fields, subscriptionplan.FieldTotalQuotaUsd)
 	}
 	if m.reset_interval_seconds != nil {
 		fields = append(fields, subscriptionplan.FieldResetIntervalSeconds)
@@ -40685,6 +40760,8 @@ func (m *SubscriptionPlanMutation) Field(name string) (ent.Value, bool) {
 		return m.Currency()
 	case subscriptionplan.FieldCycleQuotaUsd:
 		return m.CycleQuotaUsd()
+	case subscriptionplan.FieldTotalQuotaUsd:
+		return m.TotalQuotaUsd()
 	case subscriptionplan.FieldResetIntervalSeconds:
 		return m.ResetIntervalSeconds()
 	case subscriptionplan.FieldWalletFallbackEnabled:
@@ -40726,6 +40803,8 @@ func (m *SubscriptionPlanMutation) OldField(ctx context.Context, name string) (e
 		return m.OldCurrency(ctx)
 	case subscriptionplan.FieldCycleQuotaUsd:
 		return m.OldCycleQuotaUsd(ctx)
+	case subscriptionplan.FieldTotalQuotaUsd:
+		return m.OldTotalQuotaUsd(ctx)
 	case subscriptionplan.FieldResetIntervalSeconds:
 		return m.OldResetIntervalSeconds(ctx)
 	case subscriptionplan.FieldWalletFallbackEnabled:
@@ -40796,6 +40875,13 @@ func (m *SubscriptionPlanMutation) SetField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCycleQuotaUsd(v)
+		return nil
+	case subscriptionplan.FieldTotalQuotaUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTotalQuotaUsd(v)
 		return nil
 	case subscriptionplan.FieldResetIntervalSeconds:
 		v, ok := value.(int)
@@ -40884,6 +40970,9 @@ func (m *SubscriptionPlanMutation) AddedFields() []string {
 	if m.addcycle_quota_usd != nil {
 		fields = append(fields, subscriptionplan.FieldCycleQuotaUsd)
 	}
+	if m.addtotal_quota_usd != nil {
+		fields = append(fields, subscriptionplan.FieldTotalQuotaUsd)
+	}
 	if m.addreset_interval_seconds != nil {
 		fields = append(fields, subscriptionplan.FieldResetIntervalSeconds)
 	}
@@ -40907,6 +40996,8 @@ func (m *SubscriptionPlanMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedOriginalPrice()
 	case subscriptionplan.FieldCycleQuotaUsd:
 		return m.AddedCycleQuotaUsd()
+	case subscriptionplan.FieldTotalQuotaUsd:
+		return m.AddedTotalQuotaUsd()
 	case subscriptionplan.FieldResetIntervalSeconds:
 		return m.AddedResetIntervalSeconds()
 	case subscriptionplan.FieldValidityDays:
@@ -40943,6 +41034,13 @@ func (m *SubscriptionPlanMutation) AddField(name string, value ent.Value) error 
 		}
 		m.AddCycleQuotaUsd(v)
 		return nil
+	case subscriptionplan.FieldTotalQuotaUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTotalQuotaUsd(v)
+		return nil
 	case subscriptionplan.FieldResetIntervalSeconds:
 		v, ok := value.(int)
 		if !ok {
@@ -40978,6 +41076,9 @@ func (m *SubscriptionPlanMutation) ClearedFields() []string {
 	if m.FieldCleared(subscriptionplan.FieldCycleQuotaUsd) {
 		fields = append(fields, subscriptionplan.FieldCycleQuotaUsd)
 	}
+	if m.FieldCleared(subscriptionplan.FieldTotalQuotaUsd) {
+		fields = append(fields, subscriptionplan.FieldTotalQuotaUsd)
+	}
 	return fields
 }
 
@@ -40997,6 +41098,9 @@ func (m *SubscriptionPlanMutation) ClearField(name string) error {
 		return nil
 	case subscriptionplan.FieldCycleQuotaUsd:
 		m.ClearCycleQuotaUsd()
+		return nil
+	case subscriptionplan.FieldTotalQuotaUsd:
+		m.ClearTotalQuotaUsd()
 		return nil
 	}
 	return fmt.Errorf("unknown SubscriptionPlan nullable field %s", name)
@@ -41023,6 +41127,9 @@ func (m *SubscriptionPlanMutation) ResetField(name string) error {
 		return nil
 	case subscriptionplan.FieldCycleQuotaUsd:
 		m.ResetCycleQuotaUsd()
+		return nil
+	case subscriptionplan.FieldTotalQuotaUsd:
+		m.ResetTotalQuotaUsd()
 		return nil
 	case subscriptionplan.FieldResetIntervalSeconds:
 		m.ResetResetIntervalSeconds()
@@ -54990,6 +55097,12 @@ type UserSubscriptionMutation struct {
 	addcycle_usage_usd        *float64
 	cycle_reserved_usd        *float64
 	addcycle_reserved_usd     *float64
+	total_quota_usd           *float64
+	addtotal_quota_usd        *float64
+	total_usage_usd           *float64
+	addtotal_usage_usd        *float64
+	total_reserved_usd        *float64
+	addtotal_reserved_usd     *float64
 	wallet_fallback_enabled   *bool
 	assigned_at               *time.Time
 	notes                     *string
@@ -56009,6 +56122,188 @@ func (m *UserSubscriptionMutation) ResetCycleReservedUsd() {
 	m.addcycle_reserved_usd = nil
 }
 
+// SetTotalQuotaUsd sets the "total_quota_usd" field.
+func (m *UserSubscriptionMutation) SetTotalQuotaUsd(f float64) {
+	m.total_quota_usd = &f
+	m.addtotal_quota_usd = nil
+}
+
+// TotalQuotaUsd returns the value of the "total_quota_usd" field in the mutation.
+func (m *UserSubscriptionMutation) TotalQuotaUsd() (r float64, exists bool) {
+	v := m.total_quota_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTotalQuotaUsd returns the old "total_quota_usd" field's value of the UserSubscription entity.
+// If the UserSubscription object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserSubscriptionMutation) OldTotalQuotaUsd(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTotalQuotaUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTotalQuotaUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTotalQuotaUsd: %w", err)
+	}
+	return oldValue.TotalQuotaUsd, nil
+}
+
+// AddTotalQuotaUsd adds f to the "total_quota_usd" field.
+func (m *UserSubscriptionMutation) AddTotalQuotaUsd(f float64) {
+	if m.addtotal_quota_usd != nil {
+		*m.addtotal_quota_usd += f
+	} else {
+		m.addtotal_quota_usd = &f
+	}
+}
+
+// AddedTotalQuotaUsd returns the value that was added to the "total_quota_usd" field in this mutation.
+func (m *UserSubscriptionMutation) AddedTotalQuotaUsd() (r float64, exists bool) {
+	v := m.addtotal_quota_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearTotalQuotaUsd clears the value of the "total_quota_usd" field.
+func (m *UserSubscriptionMutation) ClearTotalQuotaUsd() {
+	m.total_quota_usd = nil
+	m.addtotal_quota_usd = nil
+	m.clearedFields[usersubscription.FieldTotalQuotaUsd] = struct{}{}
+}
+
+// TotalQuotaUsdCleared returns if the "total_quota_usd" field was cleared in this mutation.
+func (m *UserSubscriptionMutation) TotalQuotaUsdCleared() bool {
+	_, ok := m.clearedFields[usersubscription.FieldTotalQuotaUsd]
+	return ok
+}
+
+// ResetTotalQuotaUsd resets all changes to the "total_quota_usd" field.
+func (m *UserSubscriptionMutation) ResetTotalQuotaUsd() {
+	m.total_quota_usd = nil
+	m.addtotal_quota_usd = nil
+	delete(m.clearedFields, usersubscription.FieldTotalQuotaUsd)
+}
+
+// SetTotalUsageUsd sets the "total_usage_usd" field.
+func (m *UserSubscriptionMutation) SetTotalUsageUsd(f float64) {
+	m.total_usage_usd = &f
+	m.addtotal_usage_usd = nil
+}
+
+// TotalUsageUsd returns the value of the "total_usage_usd" field in the mutation.
+func (m *UserSubscriptionMutation) TotalUsageUsd() (r float64, exists bool) {
+	v := m.total_usage_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTotalUsageUsd returns the old "total_usage_usd" field's value of the UserSubscription entity.
+// If the UserSubscription object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserSubscriptionMutation) OldTotalUsageUsd(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTotalUsageUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTotalUsageUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTotalUsageUsd: %w", err)
+	}
+	return oldValue.TotalUsageUsd, nil
+}
+
+// AddTotalUsageUsd adds f to the "total_usage_usd" field.
+func (m *UserSubscriptionMutation) AddTotalUsageUsd(f float64) {
+	if m.addtotal_usage_usd != nil {
+		*m.addtotal_usage_usd += f
+	} else {
+		m.addtotal_usage_usd = &f
+	}
+}
+
+// AddedTotalUsageUsd returns the value that was added to the "total_usage_usd" field in this mutation.
+func (m *UserSubscriptionMutation) AddedTotalUsageUsd() (r float64, exists bool) {
+	v := m.addtotal_usage_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTotalUsageUsd resets all changes to the "total_usage_usd" field.
+func (m *UserSubscriptionMutation) ResetTotalUsageUsd() {
+	m.total_usage_usd = nil
+	m.addtotal_usage_usd = nil
+}
+
+// SetTotalReservedUsd sets the "total_reserved_usd" field.
+func (m *UserSubscriptionMutation) SetTotalReservedUsd(f float64) {
+	m.total_reserved_usd = &f
+	m.addtotal_reserved_usd = nil
+}
+
+// TotalReservedUsd returns the value of the "total_reserved_usd" field in the mutation.
+func (m *UserSubscriptionMutation) TotalReservedUsd() (r float64, exists bool) {
+	v := m.total_reserved_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTotalReservedUsd returns the old "total_reserved_usd" field's value of the UserSubscription entity.
+// If the UserSubscription object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserSubscriptionMutation) OldTotalReservedUsd(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTotalReservedUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTotalReservedUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTotalReservedUsd: %w", err)
+	}
+	return oldValue.TotalReservedUsd, nil
+}
+
+// AddTotalReservedUsd adds f to the "total_reserved_usd" field.
+func (m *UserSubscriptionMutation) AddTotalReservedUsd(f float64) {
+	if m.addtotal_reserved_usd != nil {
+		*m.addtotal_reserved_usd += f
+	} else {
+		m.addtotal_reserved_usd = &f
+	}
+}
+
+// AddedTotalReservedUsd returns the value that was added to the "total_reserved_usd" field in this mutation.
+func (m *UserSubscriptionMutation) AddedTotalReservedUsd() (r float64, exists bool) {
+	v := m.addtotal_reserved_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTotalReservedUsd resets all changes to the "total_reserved_usd" field.
+func (m *UserSubscriptionMutation) ResetTotalReservedUsd() {
+	m.total_reserved_usd = nil
+	m.addtotal_reserved_usd = nil
+}
+
 // SetWalletFallbackEnabled sets the "wallet_fallback_enabled" field.
 func (m *UserSubscriptionMutation) SetWalletFallbackEnabled(b bool) {
 	m.wallet_fallback_enabled = &b
@@ -56361,7 +56656,7 @@ func (m *UserSubscriptionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserSubscriptionMutation) Fields() []string {
-	fields := make([]string, 0, 23)
+	fields := make([]string, 0, 26)
 	if m.created_at != nil {
 		fields = append(fields, usersubscription.FieldCreatedAt)
 	}
@@ -56418,6 +56713,15 @@ func (m *UserSubscriptionMutation) Fields() []string {
 	}
 	if m.cycle_reserved_usd != nil {
 		fields = append(fields, usersubscription.FieldCycleReservedUsd)
+	}
+	if m.total_quota_usd != nil {
+		fields = append(fields, usersubscription.FieldTotalQuotaUsd)
+	}
+	if m.total_usage_usd != nil {
+		fields = append(fields, usersubscription.FieldTotalUsageUsd)
+	}
+	if m.total_reserved_usd != nil {
+		fields = append(fields, usersubscription.FieldTotalReservedUsd)
 	}
 	if m.wallet_fallback_enabled != nil {
 		fields = append(fields, usersubscription.FieldWalletFallbackEnabled)
@@ -56477,6 +56781,12 @@ func (m *UserSubscriptionMutation) Field(name string) (ent.Value, bool) {
 		return m.CycleUsageUsd()
 	case usersubscription.FieldCycleReservedUsd:
 		return m.CycleReservedUsd()
+	case usersubscription.FieldTotalQuotaUsd:
+		return m.TotalQuotaUsd()
+	case usersubscription.FieldTotalUsageUsd:
+		return m.TotalUsageUsd()
+	case usersubscription.FieldTotalReservedUsd:
+		return m.TotalReservedUsd()
 	case usersubscription.FieldWalletFallbackEnabled:
 		return m.WalletFallbackEnabled()
 	case usersubscription.FieldAssignedBy:
@@ -56532,6 +56842,12 @@ func (m *UserSubscriptionMutation) OldField(ctx context.Context, name string) (e
 		return m.OldCycleUsageUsd(ctx)
 	case usersubscription.FieldCycleReservedUsd:
 		return m.OldCycleReservedUsd(ctx)
+	case usersubscription.FieldTotalQuotaUsd:
+		return m.OldTotalQuotaUsd(ctx)
+	case usersubscription.FieldTotalUsageUsd:
+		return m.OldTotalUsageUsd(ctx)
+	case usersubscription.FieldTotalReservedUsd:
+		return m.OldTotalReservedUsd(ctx)
 	case usersubscription.FieldWalletFallbackEnabled:
 		return m.OldWalletFallbackEnabled(ctx)
 	case usersubscription.FieldAssignedBy:
@@ -56682,6 +56998,27 @@ func (m *UserSubscriptionMutation) SetField(name string, value ent.Value) error 
 		}
 		m.SetCycleReservedUsd(v)
 		return nil
+	case usersubscription.FieldTotalQuotaUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTotalQuotaUsd(v)
+		return nil
+	case usersubscription.FieldTotalUsageUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTotalUsageUsd(v)
+		return nil
+	case usersubscription.FieldTotalReservedUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTotalReservedUsd(v)
+		return nil
 	case usersubscription.FieldWalletFallbackEnabled:
 		v, ok := value.(bool)
 		if !ok {
@@ -56739,6 +57076,15 @@ func (m *UserSubscriptionMutation) AddedFields() []string {
 	if m.addcycle_reserved_usd != nil {
 		fields = append(fields, usersubscription.FieldCycleReservedUsd)
 	}
+	if m.addtotal_quota_usd != nil {
+		fields = append(fields, usersubscription.FieldTotalQuotaUsd)
+	}
+	if m.addtotal_usage_usd != nil {
+		fields = append(fields, usersubscription.FieldTotalUsageUsd)
+	}
+	if m.addtotal_reserved_usd != nil {
+		fields = append(fields, usersubscription.FieldTotalReservedUsd)
+	}
 	return fields
 }
 
@@ -56761,6 +57107,12 @@ func (m *UserSubscriptionMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedCycleUsageUsd()
 	case usersubscription.FieldCycleReservedUsd:
 		return m.AddedCycleReservedUsd()
+	case usersubscription.FieldTotalQuotaUsd:
+		return m.AddedTotalQuotaUsd()
+	case usersubscription.FieldTotalUsageUsd:
+		return m.AddedTotalUsageUsd()
+	case usersubscription.FieldTotalReservedUsd:
+		return m.AddedTotalReservedUsd()
 	}
 	return nil, false
 }
@@ -56819,6 +57171,27 @@ func (m *UserSubscriptionMutation) AddField(name string, value ent.Value) error 
 		}
 		m.AddCycleReservedUsd(v)
 		return nil
+	case usersubscription.FieldTotalQuotaUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTotalQuotaUsd(v)
+		return nil
+	case usersubscription.FieldTotalUsageUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTotalUsageUsd(v)
+		return nil
+	case usersubscription.FieldTotalReservedUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTotalReservedUsd(v)
+		return nil
 	}
 	return fmt.Errorf("unknown UserSubscription numeric field %s", name)
 }
@@ -56844,6 +57217,9 @@ func (m *UserSubscriptionMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(usersubscription.FieldCycleStartedAt) {
 		fields = append(fields, usersubscription.FieldCycleStartedAt)
+	}
+	if m.FieldCleared(usersubscription.FieldTotalQuotaUsd) {
+		fields = append(fields, usersubscription.FieldTotalQuotaUsd)
 	}
 	if m.FieldCleared(usersubscription.FieldAssignedBy) {
 		fields = append(fields, usersubscription.FieldAssignedBy)
@@ -56882,6 +57258,9 @@ func (m *UserSubscriptionMutation) ClearField(name string) error {
 		return nil
 	case usersubscription.FieldCycleStartedAt:
 		m.ClearCycleStartedAt()
+		return nil
+	case usersubscription.FieldTotalQuotaUsd:
+		m.ClearTotalQuotaUsd()
 		return nil
 	case usersubscription.FieldAssignedBy:
 		m.ClearAssignedBy()
@@ -56953,6 +57332,15 @@ func (m *UserSubscriptionMutation) ResetField(name string) error {
 		return nil
 	case usersubscription.FieldCycleReservedUsd:
 		m.ResetCycleReservedUsd()
+		return nil
+	case usersubscription.FieldTotalQuotaUsd:
+		m.ResetTotalQuotaUsd()
+		return nil
+	case usersubscription.FieldTotalUsageUsd:
+		m.ResetTotalUsageUsd()
+		return nil
+	case usersubscription.FieldTotalReservedUsd:
+		m.ResetTotalReservedUsd()
 		return nil
 	case usersubscription.FieldWalletFallbackEnabled:
 		m.ResetWalletFallbackEnabled()

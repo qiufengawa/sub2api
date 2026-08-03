@@ -29,6 +29,8 @@ type SubscriptionPlan struct {
 	Currency string `json:"currency,omitempty"`
 	// CycleQuotaUsd holds the value of the "cycle_quota_usd" field.
 	CycleQuotaUsd *float64 `json:"cycle_quota_usd,omitempty"`
+	// TotalQuotaUsd holds the value of the "total_quota_usd" field.
+	TotalQuotaUsd *float64 `json:"total_quota_usd,omitempty"`
 	// ResetIntervalSeconds holds the value of the "reset_interval_seconds" field.
 	ResetIntervalSeconds int `json:"reset_interval_seconds,omitempty"`
 	// WalletFallbackEnabled holds the value of the "wallet_fallback_enabled" field.
@@ -113,7 +115,7 @@ func (*SubscriptionPlan) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case subscriptionplan.FieldWalletFallbackEnabled, subscriptionplan.FieldForSale:
 			values[i] = new(sql.NullBool)
-		case subscriptionplan.FieldPrice, subscriptionplan.FieldOriginalPrice, subscriptionplan.FieldCycleQuotaUsd:
+		case subscriptionplan.FieldPrice, subscriptionplan.FieldOriginalPrice, subscriptionplan.FieldCycleQuotaUsd, subscriptionplan.FieldTotalQuotaUsd:
 			values[i] = new(sql.NullFloat64)
 		case subscriptionplan.FieldID, subscriptionplan.FieldResetIntervalSeconds, subscriptionplan.FieldValidityDays, subscriptionplan.FieldSortOrder:
 			values[i] = new(sql.NullInt64)
@@ -179,6 +181,13 @@ func (_m *SubscriptionPlan) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.CycleQuotaUsd = new(float64)
 				*_m.CycleQuotaUsd = value.Float64
+			}
+		case subscriptionplan.FieldTotalQuotaUsd:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field total_quota_usd", values[i])
+			} else if value.Valid {
+				_m.TotalQuotaUsd = new(float64)
+				*_m.TotalQuotaUsd = value.Float64
 			}
 		case subscriptionplan.FieldResetIntervalSeconds:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -315,6 +324,11 @@ func (_m *SubscriptionPlan) String() string {
 	builder.WriteString(", ")
 	if v := _m.CycleQuotaUsd; v != nil {
 		builder.WriteString("cycle_quota_usd=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.TotalQuotaUsd; v != nil {
+		builder.WriteString("total_quota_usd=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

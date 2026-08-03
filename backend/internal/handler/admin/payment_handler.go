@@ -360,6 +360,7 @@ type AdminSubscriptionPlanResult struct {
 	ID                    int64                   `json:"id"`
 	IncludedGroups        []service.PlanGroupInfo `json:"included_groups"`
 	CycleQuotaUSD         *float64                `json:"cycle_quota_usd,omitempty"`
+	TotalQuotaUSD         *float64                `json:"total_quota_usd,omitempty"`
 	ResetIntervalSeconds  int                     `json:"reset_interval_seconds"`
 	WalletFallbackEnabled bool                    `json:"wallet_fallback_enabled"`
 	Name                  string                  `json:"name"`
@@ -388,6 +389,7 @@ func adminSubscriptionPlansForResponse(plans []*dbent.SubscriptionPlan, groupInf
 			ID:                    int64(p.ID),
 			IncludedGroups:        includedGroups,
 			CycleQuotaUSD:         p.CycleQuotaUsd,
+			TotalQuotaUSD:         p.TotalQuotaUsd,
 			ResetIntervalSeconds:  p.ResetIntervalSeconds,
 			WalletFallbackEnabled: p.WalletFallbackEnabled,
 			Name:                  p.Name,

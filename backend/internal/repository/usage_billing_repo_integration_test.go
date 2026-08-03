@@ -31,6 +31,10 @@ type integrationSubscriptionBillingFixture struct {
 }
 
 func newIntegrationSubscriptionBillingFixture(t *testing.T, quota float64) integrationSubscriptionBillingFixture {
+	return newIntegrationSubscriptionBillingFixtureWithQuotas(t, quota, quota*4)
+}
+
+func newIntegrationSubscriptionBillingFixtureWithQuotas(t *testing.T, cycleQuota, totalQuota float64) integrationSubscriptionBillingFixture {
 	t.Helper()
 	ctx := context.Background()
 	client := testEntClient(t)
@@ -57,7 +61,8 @@ func newIntegrationSubscriptionBillingFixture(t *testing.T, quota float64) integ
 		AddGroupIDs(group.ID).
 		SetName("reservation-plan-" + uuid.NewString()).
 		SetPrice(1).
-		SetCycleQuotaUsd(quota).
+		SetCycleQuotaUsd(cycleQuota).
+		SetTotalQuotaUsd(totalQuota).
 		SetResetIntervalSeconds(604800).
 		SetWalletFallbackEnabled(false).
 		SetValidityDays(28).
@@ -71,7 +76,10 @@ func newIntegrationSubscriptionBillingFixture(t *testing.T, quota float64) integ
 		SetStartsAt(now).
 		SetExpiresAt(now.Add(28 * 24 * time.Hour)).
 		SetStatus(service.SubscriptionStatusActive).
-		SetCycleQuotaUsd(quota).
+		SetCycleQuotaUsd(cycleQuota).
+		SetTotalQuotaUsd(totalQuota).
+		SetTotalUsageUsd(0).
+		SetTotalReservedUsd(0).
 		SetResetIntervalSeconds(604800).
 		SetCycleStartedAt(now).
 		SetWalletFallbackEnabled(false).
@@ -259,6 +267,66 @@ func TestUsageBillingReservation_ConcurrentRequestsDoNotExceedCycleQuota(t *test
 		})
 		require.NoError(t, err)
 	}
+}
+
+func TestUsageBillingReservation_ConcurrentRequestsDoNotExceedTermQuota(t *testing.T) {
+	ctx := context.Background()
+	fixture := newIntegrationSubscriptionBillingFixtureWithQuotas(t, 100, 10)
+	const workers = 10
+	estimated := service.BillingAmountFromFloat(3)
+	start := make(chan struct{})
+	results := make(chan error, workers)
+	requestIDs := make(chan string, workers)
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			requestID := uuid.NewString()
+			_, err := fixture.repo.ReserveRequestBilling(ctx, &service.UsageBillingReservationCommand{
+				RequestID: requestID, APIKeyID: fixture.apiKeyID, UserID: fixture.userID,
+				GroupID: &fixture.groupID, EstimatedAmount: estimated,
+			})
+			if err == nil {
+				requestIDs <- requestID
+			}
+			results <- err
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+	close(requestIDs)
+
+	successes := 0
+	quotaErrors := 0
+	for err := range results {
+		switch {
+		case err == nil:
+			successes++
+		case errors.Is(err, service.ErrSubscriptionQuotaExceeded):
+			quotaErrors++
+		default:
+			t.Fatalf("unexpected reservation error: %v", err)
+		}
+	}
+	require.Equal(t, 3, successes)
+	require.Equal(t, workers-successes, quotaErrors)
+
+	var totalReserved float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT total_reserved_usd FROM user_subscriptions WHERE id = $1", fixture.subscriptionID).Scan(&totalReserved))
+	require.InDelta(t, 9, totalReserved, 0.000001)
+
+	for requestID := range requestIDs {
+		_, err := fixture.repo.ReleaseRequestBilling(ctx, &service.UsageBillingReservationReleaseCommand{
+			RequestID: requestID, APIKeyID: fixture.apiKeyID, UserID: fixture.userID,
+		})
+		require.NoError(t, err)
+	}
+	var releasedTotal float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT total_reserved_usd FROM user_subscriptions WHERE id = $1", fixture.subscriptionID).Scan(&releasedTotal))
+	require.InDelta(t, 0, releasedTotal, 0.000001)
 }
 
 func TestUsageBillingReservation_SettlesActualCostAboveSubscriptionEstimate(t *testing.T) {

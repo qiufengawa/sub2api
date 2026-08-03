@@ -114,6 +114,7 @@ type PaymentCatalogImportPlan struct {
 	IncludedGroupKeys     []string `json:"included_group_keys,omitempty"`
 	IncludedGroupIDs      []int64  `json:"included_group_ids,omitempty"`
 	CycleQuotaUSD         *float64 `json:"cycle_quota_usd"`
+	TotalQuotaUSD         *float64 `json:"total_quota_usd"`
 	ResetIntervalSeconds  int      `json:"reset_interval_seconds,omitempty"`
 	WalletFallbackEnabled *bool    `json:"wallet_fallback_enabled,omitempty"`
 	Name                  string   `json:"name"`
@@ -217,6 +218,7 @@ type catalogPlan struct {
 	includedGroupIDs      []int64
 	groupRefs             []catalogGroupRef
 	cycleQuotaUSD         *float64
+	totalQuotaUSD         *float64
 	resetIntervalSeconds  int
 	walletFallbackEnabled bool
 	currency              string
@@ -571,6 +573,10 @@ func (s *PaymentConfigService) normalizeCatalogImport(req PaymentCatalogImportRe
 		if cycleQuotaUSD != nil && !finitePositive(*cycleQuotaUSD) {
 			add("error", "PLAN_CYCLE_QUOTA_INVALID", path+".cycle_quota_usd", "cycle_quota_usd must be null or a finite number greater than zero")
 		}
+		totalQuotaUSD := cloneFloat(raw.TotalQuotaUSD)
+		if totalQuotaUSD != nil && !finitePositive(*totalQuotaUSD) {
+			add("error", "PLAN_TOTAL_QUOTA_INVALID", path+".total_quota_usd", "total_quota_usd must be null or a finite number greater than zero")
+		}
 		if raw.ResetIntervalSeconds < 0 {
 			add("error", "PLAN_RESET_INTERVAL_INVALID", path+".reset_interval_seconds", "reset_interval_seconds must be greater than or equal to zero")
 		}
@@ -635,6 +641,7 @@ func (s *PaymentConfigService) normalizeCatalogImport(req PaymentCatalogImportRe
 			includedGroupIDs:         includedGroupIDs,
 			groupRefs:                groupRefs,
 			cycleQuotaUSD:            cycleQuotaUSD,
+			totalQuotaUSD:            totalQuotaUSD,
 			resetIntervalSeconds:     raw.ResetIntervalSeconds,
 			walletFallbackEnabled:    walletFallbackEnabled,
 			currency:                 currency,
@@ -777,6 +784,7 @@ func (s *PaymentConfigService) ExportCatalog(ctx context.Context) (*PaymentCatal
 			IncludedGroupKeys:     includedGroupKeys,
 			IncludedGroupIDs:      includedGroupIDs,
 			CycleQuotaUSD:         cloneFloat(p.CycleQuotaUsd),
+			TotalQuotaUSD:         cloneFloat(p.TotalQuotaUsd),
 			ResetIntervalSeconds:  p.ResetIntervalSeconds,
 			WalletFallbackEnabled: catalogBoolPtr(p.WalletFallbackEnabled),
 			Name:                  p.Name,
@@ -1317,6 +1325,7 @@ func catalogPlanDiff(existing *dbent.SubscriptionPlan, desired catalogPlan, grou
 	}
 	appendCatalogDiff(&diffs, "included_group_keys", existingGroupKeys, desiredGroupLabels)
 	appendCatalogDiff(&diffs, "cycle_quota_usd", optionalFloat(existing.CycleQuotaUsd), optionalFloat(desired.cycleQuotaUSD))
+	appendCatalogDiff(&diffs, "total_quota_usd", optionalFloat(existing.TotalQuotaUsd), optionalFloat(desired.totalQuotaUSD))
 	appendCatalogDiff(&diffs, "reset_interval_seconds", existing.ResetIntervalSeconds, desired.resetIntervalSeconds)
 	appendCatalogDiff(&diffs, "wallet_fallback_enabled", existing.WalletFallbackEnabled, desired.walletFallbackEnabled)
 	appendCatalogDiff(&diffs, "description", existing.Description, desired.Description)
@@ -1654,6 +1663,7 @@ func (s *PaymentConfigService) applyCatalogWithinTx(ctx context.Context, client 
 				SetPrice(desired.Price).
 				SetNillableOriginalPrice(desired.OriginalPrice).
 				SetNillableCycleQuotaUsd(desired.cycleQuotaUSD).
+				SetNillableTotalQuotaUsd(desired.totalQuotaUSD).
 				SetResetIntervalSeconds(desired.resetIntervalSeconds).
 				SetWalletFallbackEnabled(desired.walletFallbackEnabled).
 				SetCurrency(desired.currency).
@@ -1690,6 +1700,11 @@ func (s *PaymentConfigService) applyCatalogWithinTx(ctx context.Context, client 
 				update.ClearCycleQuotaUsd()
 			} else {
 				update.SetCycleQuotaUsd(*desired.cycleQuotaUSD)
+			}
+			if desired.totalQuotaUSD == nil {
+				update.ClearTotalQuotaUsd()
+			} else {
+				update.SetTotalQuotaUsd(*desired.totalQuotaUSD)
 			}
 			if _, err := update.Save(ctx); err != nil {
 				return nil, err

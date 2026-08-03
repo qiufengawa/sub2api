@@ -93,6 +93,20 @@ func (_c *SubscriptionPlanCreate) SetNillableCycleQuotaUsd(v *float64) *Subscrip
 	return _c
 }
 
+// SetTotalQuotaUsd sets the "total_quota_usd" field.
+func (_c *SubscriptionPlanCreate) SetTotalQuotaUsd(v float64) *SubscriptionPlanCreate {
+	_c.mutation.SetTotalQuotaUsd(v)
+	return _c
+}
+
+// SetNillableTotalQuotaUsd sets the "total_quota_usd" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillableTotalQuotaUsd(v *float64) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetTotalQuotaUsd(*v)
+	}
+	return _c
+}
+
 // SetResetIntervalSeconds sets the "reset_interval_seconds" field.
 func (_c *SubscriptionPlanCreate) SetResetIntervalSeconds(v int) *SubscriptionPlanCreate {
 	_c.mutation.SetResetIntervalSeconds(v)
@@ -478,6 +492,10 @@ func (_c *SubscriptionPlanCreate) createSpec() (*SubscriptionPlan, *sqlgraph.Cre
 		_spec.SetField(subscriptionplan.FieldCycleQuotaUsd, field.TypeFloat64, value)
 		_node.CycleQuotaUsd = &value
 	}
+	if value, ok := _c.mutation.TotalQuotaUsd(); ok {
+		_spec.SetField(subscriptionplan.FieldTotalQuotaUsd, field.TypeFloat64, value)
+		_node.TotalQuotaUsd = &value
+	}
 	if value, ok := _c.mutation.ResetIntervalSeconds(); ok {
 		_spec.SetField(subscriptionplan.FieldResetIntervalSeconds, field.TypeInt, value)
 		_node.ResetIntervalSeconds = value
@@ -721,6 +739,30 @@ func (u *SubscriptionPlanUpsert) AddCycleQuotaUsd(v float64) *SubscriptionPlanUp
 // ClearCycleQuotaUsd clears the value of the "cycle_quota_usd" field.
 func (u *SubscriptionPlanUpsert) ClearCycleQuotaUsd() *SubscriptionPlanUpsert {
 	u.SetNull(subscriptionplan.FieldCycleQuotaUsd)
+	return u
+}
+
+// SetTotalQuotaUsd sets the "total_quota_usd" field.
+func (u *SubscriptionPlanUpsert) SetTotalQuotaUsd(v float64) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldTotalQuotaUsd, v)
+	return u
+}
+
+// UpdateTotalQuotaUsd sets the "total_quota_usd" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdateTotalQuotaUsd() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldTotalQuotaUsd)
+	return u
+}
+
+// AddTotalQuotaUsd adds v to the "total_quota_usd" field.
+func (u *SubscriptionPlanUpsert) AddTotalQuotaUsd(v float64) *SubscriptionPlanUpsert {
+	u.Add(subscriptionplan.FieldTotalQuotaUsd, v)
+	return u
+}
+
+// ClearTotalQuotaUsd clears the value of the "total_quota_usd" field.
+func (u *SubscriptionPlanUpsert) ClearTotalQuotaUsd() *SubscriptionPlanUpsert {
+	u.SetNull(subscriptionplan.FieldTotalQuotaUsd)
 	return u
 }
 
@@ -1011,6 +1053,34 @@ func (u *SubscriptionPlanUpsertOne) UpdateCycleQuotaUsd() *SubscriptionPlanUpser
 func (u *SubscriptionPlanUpsertOne) ClearCycleQuotaUsd() *SubscriptionPlanUpsertOne {
 	return u.Update(func(s *SubscriptionPlanUpsert) {
 		s.ClearCycleQuotaUsd()
+	})
+}
+
+// SetTotalQuotaUsd sets the "total_quota_usd" field.
+func (u *SubscriptionPlanUpsertOne) SetTotalQuotaUsd(v float64) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetTotalQuotaUsd(v)
+	})
+}
+
+// AddTotalQuotaUsd adds v to the "total_quota_usd" field.
+func (u *SubscriptionPlanUpsertOne) AddTotalQuotaUsd(v float64) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddTotalQuotaUsd(v)
+	})
+}
+
+// UpdateTotalQuotaUsd sets the "total_quota_usd" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdateTotalQuotaUsd() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateTotalQuotaUsd()
+	})
+}
+
+// ClearTotalQuotaUsd clears the value of the "total_quota_usd" field.
+func (u *SubscriptionPlanUpsertOne) ClearTotalQuotaUsd() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.ClearTotalQuotaUsd()
 	})
 }
 
@@ -1488,6 +1558,34 @@ func (u *SubscriptionPlanUpsertBulk) UpdateCycleQuotaUsd() *SubscriptionPlanUpse
 func (u *SubscriptionPlanUpsertBulk) ClearCycleQuotaUsd() *SubscriptionPlanUpsertBulk {
 	return u.Update(func(s *SubscriptionPlanUpsert) {
 		s.ClearCycleQuotaUsd()
+	})
+}
+
+// SetTotalQuotaUsd sets the "total_quota_usd" field.
+func (u *SubscriptionPlanUpsertBulk) SetTotalQuotaUsd(v float64) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetTotalQuotaUsd(v)
+	})
+}
+
+// AddTotalQuotaUsd adds v to the "total_quota_usd" field.
+func (u *SubscriptionPlanUpsertBulk) AddTotalQuotaUsd(v float64) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddTotalQuotaUsd(v)
+	})
+}
+
+// UpdateTotalQuotaUsd sets the "total_quota_usd" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdateTotalQuotaUsd() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateTotalQuotaUsd()
+	})
+}
+
+// ClearTotalQuotaUsd clears the value of the "total_quota_usd" field.
+func (u *SubscriptionPlanUpsertBulk) ClearTotalQuotaUsd() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.ClearTotalQuotaUsd()
 	})
 }
 
