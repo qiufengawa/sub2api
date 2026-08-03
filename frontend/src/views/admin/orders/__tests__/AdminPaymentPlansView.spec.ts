@@ -1,5 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AdminPaymentPlansView from '../AdminPaymentPlansView.vue'
@@ -146,6 +148,39 @@ describe('AdminPaymentPlansView', () => {
     expect(catalog.groups[0].copy_accounts_from).toEqual(['stale source'])
   })
 
+	it('ships a portable v2 template that cannot create virtual subscription groups', () => {
+		const rawTemplate: unknown = JSON.parse(readFileSync(
+			resolve(process.cwd(), 'public/templates/qiuapi-subscription-catalog-v1.json'),
+			'utf8',
+		))
+		expect(isPaymentCatalogTemplate(rawTemplate)).toBe(true)
+		if (!isPaymentCatalogTemplate(rawTemplate)) throw new Error('invalid template fixture')
+
+		expect(rawTemplate.template).toEqual({
+			kind: 'qiuapi-five-tier-subscription',
+			version: 2,
+			group_binding: 'select_on_import',
+		})
+		expect(rawTemplate.groups).toEqual([])
+		expect(rawTemplate.plans.every(plan => (
+			plan.included_group_keys === undefined && plan.included_group_ids === undefined
+		))).toBe(true)
+
+		const result = personalizeCatalogTemplate(rawTemplate, [{
+			id: 21,
+			name: 'OpenAI 主池',
+			status: 'active',
+			account_count: 2,
+			platform: 'openai',
+			subscription_type: 'standard',
+		}], {
+			groupIDsByPlan: rawTemplate.plans.map(() => [21]),
+		})
+		expect(result.catalog).not.toHaveProperty('template')
+		expect(result.catalog.groups).toEqual([])
+		expect(result.catalog.plans.every(plan => plan.included_group_ids?.[0] === 21)).toBe(true)
+	})
+
   it('adds explicit routes for aliases that the composite detector cannot safely infer', () => {
     const result = buildCatalogTemplateRoutes([
       {
@@ -186,8 +221,15 @@ describe('AdminPaymentPlansView', () => {
     ])
   })
 
-  it('rejects malformed template payloads before download', () => {
+	it('rejects malformed template payloads before download', () => {
     expect(isPaymentCatalogTemplate({ schema_version: 1, mode: 'upsert', defaults: {}, groups: [], plans: [] })).toBe(true)
+		expect(isPaymentCatalogTemplate({
+			schema_version: 1,
+			mode: 'upsert',
+			defaults: {},
+			groups: [],
+			plans: [{ name: 'Unbound plan', price: 12.9 }],
+		})).toBe(true)
 		expect(isPaymentCatalogTemplate({
 			schema_version: 1,
 			mode: 'upsert',
@@ -215,6 +257,30 @@ describe('AdminPaymentPlansView', () => {
 			defaults: {},
 			groups: [],
 			plans: [{ group_id: 8, name: 'Legacy ID plan', price: 12.9 }],
+		})).toBe(false)
+		expect(isPaymentCatalogTemplate({
+			schema_version: 1,
+			mode: 'upsert',
+			template: {
+				kind: 'qiuapi-five-tier-subscription',
+				version: 2,
+				group_binding: 'select_on_import',
+			},
+			defaults: {},
+			groups: [],
+			plans: ['Lite', 'Starter', 'Standard', 'Pro', 'Max'].map((name, index) => ({ name, price: index + 1 })),
+		})).toBe(true)
+		expect(isPaymentCatalogTemplate({
+			schema_version: 1,
+			mode: 'upsert',
+			template: {
+				kind: 'unknown-template',
+				version: 2,
+				group_binding: 'select_on_import',
+			},
+			defaults: {},
+			groups: [],
+			plans: [{ included_group_ids: [8], name: 'Unknown template', price: 12.9 }],
 		})).toBe(false)
     expect(isPaymentCatalogTemplate({ schema_version: 1, mode: 'upsert', defaults: {}, groups: [{}], plans: [] })).toBe(false)
     expect(isPaymentCatalogTemplate({ schema_version: 2, mode: 'upsert', defaults: {}, groups: [], plans: [] })).toBe(false)

@@ -2,11 +2,26 @@ import type { AdminGroup, CompositeModelRoute, GroupPlatform } from '@/types'
 import type { PaymentCatalogImportRequest, PaymentCatalogRoute } from '@/types/payment'
 
 const MAX_ACCOUNT_SOURCES = 100
+const QIUAPI_FIVE_TIER_TEMPLATE_KIND = 'qiuapi-five-tier-subscription'
+
+export interface QiuapiCatalogTemplateMetadata {
+  kind: typeof QIUAPI_FIVE_TIER_TEMPLATE_KIND
+  version: 2
+  group_binding: 'select_on_import'
+}
+
+export type PaymentCatalogTemplateDocument = PaymentCatalogImportRequest & {
+  template?: QiuapiCatalogTemplateMetadata
+}
+
+export interface CatalogTemplateBindingSelection {
+  groupIDsByPlan?: number[][]
+}
 
 export type CatalogAccountSourceGroup = Pick<
   AdminGroup,
 	'id' | 'name' | 'status' | 'account_count' | 'platform'
-> & Partial<Pick<AdminGroup, 'subscription_type'>>
+> & Partial<Pick<AdminGroup, 'subscription_type' | 'rate_multiplier'>>
 
 export interface CatalogTemplateSourceSnapshot {
   group: CatalogAccountSourceGroup
@@ -41,9 +56,12 @@ export interface PersonalizedCatalogTemplate {
   omittedRouteCount: number
 }
 
-export function isPaymentCatalogTemplate(value: unknown): value is PaymentCatalogImportRequest {
+export function isPaymentCatalogTemplate(value: unknown): value is PaymentCatalogTemplateDocument {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
-  const candidate = value as Partial<PaymentCatalogImportRequest>
+  const candidate = value as Partial<PaymentCatalogTemplateDocument>
+  const allowsDeferredGroupBinding = isQiuapiTemplateMetadata(candidate.template)
+  const hasTemplateMetadata = Object.prototype.hasOwnProperty.call(candidate, 'template')
+  if (hasTemplateMetadata && !allowsDeferredGroupBinding) return false
   return candidate.schema_version === 1
     && candidate.mode === 'upsert'
     && Boolean(candidate.defaults && typeof candidate.defaults === 'object')
@@ -55,73 +73,90 @@ export function isPaymentCatalogTemplate(value: unknown): value is PaymentCatalo
     && Array.isArray(candidate.plans)
     && candidate.plans.every(plan => Boolean(plan)
       && typeof plan === 'object'
-			&& (plan.included_group_keys?.some(key => typeof key === 'string' && key.trim() !== '')
-				|| plan.included_group_ids?.some(id => Number.isSafeInteger(id) && id > 0))
+      && !Object.prototype.hasOwnProperty.call(plan, 'group_key')
+      && !Object.prototype.hasOwnProperty.call(plan, 'group_id')
       && typeof plan.name === 'string'
       && typeof plan.price === 'number')
 }
 
-export function isQiuapiFiveTierTemplate(catalog: PaymentCatalogImportRequest): boolean {
+export function isQiuapiFiveTierTemplate(catalog: PaymentCatalogTemplateDocument): boolean {
   const expectedKeys = ['lite', 'starter', 'standard', 'pro', 'max']
-  if (catalog.schema_version !== 1 || catalog.mode !== 'upsert' || catalog.groups.length !== 5 || catalog.plans.length !== 5) return false
+	if (catalog.schema_version !== 1 || catalog.mode !== 'upsert') return false
+	if (isQiuapiTemplateMetadata(catalog.template)) return true
+	if (catalog.plans.length !== 5) return false
+	const planNames = new Set(catalog.plans.map(plan => plan.name.trim().toLowerCase()))
+	if (!expectedKeys.every(key => planNames.has(key))) return false
+	if (catalog.groups.length !== 5) return false
   const groupKeys = new Set(catalog.groups.map(group => group.key.trim().toLowerCase()))
 	const planKeys = new Set(catalog.plans.map(plan => (
-		plan.included_group_keys?.[0] || ''
+			plan.included_group_keys?.[0] || ''
 	).trim().toLowerCase()))
   return expectedKeys.every(key => groupKeys.has(key) && planKeys.has(key))
     && catalog.groups.every(group => !group.copy_accounts_from?.length)
 }
 
 export async function personalizeCatalogTemplateForInstallation(
-  catalog: PaymentCatalogImportRequest,
+  catalog: PaymentCatalogTemplateDocument,
   groups: CatalogAccountSourceGroup[],
 	_loaders: CatalogTemplateSourceLoaders,
+	binding: CatalogTemplateBindingSelection = {},
 ): Promise<InstallationCatalogTemplate> {
 	// Group-billing catalogs reference existing real groups by ID. Account,
 	// model, and Composite-route configuration remains owned by those groups.
 	return {
-		...personalizeCatalogTemplate(catalog, groups),
-		failedSourceCount: 0,
+			...personalizeCatalogTemplate(catalog, groups, binding),
+			failedSourceCount: 0,
   }
 }
 
 export function personalizeCatalogTemplate(
-  catalog: PaymentCatalogImportRequest,
+  catalog: PaymentCatalogTemplateDocument,
   groups: CatalogAccountSourceGroup[],
-	_routeBuild: CatalogTemplateRouteBuild = { routes: [], omittedCount: 0 },
+	binding: CatalogTemplateBindingSelection = {},
 ): PersonalizedCatalogTemplate {
   const selection = selectCatalogTemplateSources(catalog, groups)
-	const groupIDs = selection.sources.map(group => group.id)
+	const eligibleGroupIDs = selection.sources.map(group => group.id)
+	const eligibleGroupIDSet = new Set(eligibleGroupIDs)
+	const selectedGroupIDs = new Set<number>()
+	const groupIDsByPlan = catalog.plans.map((_, index) => {
+		const requested = binding.groupIDsByPlan?.[index] ?? eligibleGroupIDs
+		const resolved = [...new Set(requested)].filter(id => eligibleGroupIDSet.has(id))
+		resolved.forEach(id => selectedGroupIDs.add(id))
+		return resolved
+	})
+	const { template: _template, ...portableCatalog } = catalog
 
-	  return {
-	    catalog: {
-	      ...catalog,
-			defaults: {
-				...catalog.defaults,
-				subscription_type: 'standard',
-			},
-			groups: [],
-			plans: catalog.plans.map((plan) => {
-				const {
-					included_group_keys: _includedGroupKeys,
-					included_group_ids: _includedGroupIDs,
+	return {
+		catalog: {
+			...portableCatalog,
+				defaults: {
+					...catalog.defaults,
+					subscription_type: 'standard',
+				},
+				groups: [],
+				plans: catalog.plans.map((plan, index) => {
+					const {
+						included_group_keys: _includedGroupKeys,
+						included_group_ids: _includedGroupIDs,
 					...portablePlan
 				} = plan
-				return {
-					...portablePlan,
-					...(groupIDs.length > 0 ? { included_group_ids: [...groupIDs] } : {}),
-				}
-			}),
-    },
-		sourceCount: groupIDs.length,
-		routeCount: 0,
+					return {
+						...portablePlan,
+						...(groupIDsByPlan[index]?.length
+							? { included_group_ids: [...groupIDsByPlan[index]] }
+							: {}),
+					}
+				}),
+		},
+		sourceCount: selectedGroupIDs.size,
+			routeCount: 0,
     omittedSourceCount: selection.omittedCount,
-		omittedRouteCount: 0,
+			omittedRouteCount: 0,
   }
 }
 
 export function selectCatalogTemplateSources(
-  catalog: PaymentCatalogImportRequest,
+  catalog: PaymentCatalogTemplateDocument,
   groups: CatalogAccountSourceGroup[],
 ): CatalogTemplateSourceSelection {
   const targetNames = new Set(catalog.groups.map(group => group.name.trim()).filter(Boolean))
@@ -140,6 +175,14 @@ export function selectCatalogTemplateSources(
     sources: eligible.slice(0, MAX_ACCOUNT_SOURCES),
     omittedCount: Math.max(0, eligible.length - MAX_ACCOUNT_SOURCES),
   }
+}
+
+function isQiuapiTemplateMetadata(value: unknown): value is QiuapiCatalogTemplateMetadata {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+	const candidate = value as Partial<QiuapiCatalogTemplateMetadata>
+	return candidate.kind === QIUAPI_FIVE_TIER_TEMPLATE_KIND
+		&& candidate.version === 2
+		&& candidate.group_binding === 'select_on_import'
 }
 
 export function buildCatalogTemplateRoutes(

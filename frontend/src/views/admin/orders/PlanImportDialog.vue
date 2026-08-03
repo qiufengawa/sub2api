@@ -122,20 +122,164 @@
         <span>{{ t('payment.admin.catalogImport.previewing') }}</span>
       </div>
 
+      <section
+        v-else-if="templateMappingVisible"
+        class="border-y border-gray-200 py-4 dark:border-dark-700"
+        aria-labelledby="catalog-template-groups"
+        data-testid="catalog-template-mapping"
+      >
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div class="min-w-0">
+            <h4 id="catalog-template-groups" class="text-sm font-semibold text-gray-900 dark:text-white">
+              {{ t('payment.admin.catalogImport.mappingTitle') }}
+            </h4>
+            <p class="mt-1 max-w-3xl text-xs leading-5 text-gray-500 dark:text-gray-400">
+              {{ t('payment.admin.catalogImport.mappingDescription') }}
+            </p>
+          </div>
+          <div class="flex shrink-0 items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <span>{{ t('payment.admin.catalogImport.templatePlanCount', { count: templatePlans.length }) }}</span>
+            <span aria-hidden="true">·</span>
+            <span>{{ t('payment.admin.catalogImport.eligibleGroupCount', { count: eligibleTemplateGroups.length }) }}</span>
+          </div>
+        </div>
+
+        <div class="mt-4 flex flex-col gap-3 border-t border-gray-100 pt-3 dark:border-dark-700 sm:flex-row sm:items-center sm:justify-between">
+          <div class="inline-flex w-fit rounded-[4px] border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              class="min-h-8 rounded-[3px] px-3 text-xs font-medium transition-colors"
+              :class="templateBindingMode === 'shared' ? 'bg-white text-blue-700 shadow-sm dark:bg-dark-700 dark:text-blue-300' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'"
+              :aria-selected="templateBindingMode === 'shared'"
+              @click="setTemplateBindingMode('shared')"
+            >
+              {{ t('payment.admin.catalogImport.bindingShared') }}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="min-h-8 rounded-[3px] px-3 text-xs font-medium transition-colors"
+              :class="templateBindingMode === 'per_plan' ? 'bg-white text-blue-700 shadow-sm dark:bg-dark-700 dark:text-blue-300' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'"
+              :aria-selected="templateBindingMode === 'per_plan'"
+              @click="setTemplateBindingMode('per_plan')"
+            >
+              {{ t('payment.admin.catalogImport.bindingPerPlan') }}
+            </button>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400">
+            {{ templateBindingMode === 'shared'
+              ? t('payment.admin.catalogImport.bindingSharedHint')
+              : t('payment.admin.catalogImport.bindingPerPlanHint') }}
+          </p>
+        </div>
+
+        <div
+          v-if="eligibleTemplateGroups.length === 0"
+          class="mt-4 flex items-start gap-2 border-l-2 border-amber-400 bg-amber-50/70 px-3 py-2.5 text-sm text-amber-800 dark:bg-amber-900/10 dark:text-amber-200"
+          role="alert"
+        >
+          <Icon name="exclamationTriangle" size="sm" class="mt-0.5 shrink-0" />
+          <span>{{ t('payment.admin.catalogImport.templateNoSources') }}</span>
+        </div>
+
+        <template v-else-if="templateBindingMode === 'shared'">
+          <div class="mt-4 flex items-center justify-between gap-3">
+            <span class="text-xs font-medium text-gray-700 dark:text-gray-300">
+              {{ t('payment.admin.catalogImport.selectedGroupCount', { count: sharedTemplateGroupIDs.length }) }}
+            </span>
+            <div class="flex items-center gap-3 text-xs">
+              <button type="button" class="text-blue-600 hover:text-blue-700 dark:text-blue-400" @click="selectAllTemplateGroups()">
+                {{ t('payment.admin.catalogImport.selectAllGroups') }}
+              </button>
+              <button type="button" class="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200" @click="clearTemplateGroups()">
+                {{ t('payment.admin.catalogImport.clearGroups') }}
+              </button>
+            </div>
+          </div>
+          <div class="mt-2 grid max-h-60 grid-cols-1 overflow-y-auto border-y border-gray-100 dark:border-dark-700 sm:grid-cols-2">
+            <label
+              v-for="group in eligibleTemplateGroups"
+              :key="group.id"
+              class="flex min-w-0 cursor-pointer items-center gap-2 border-b border-gray-100 px-2 py-2 last:border-b-0 dark:border-dark-700"
+              :title="group.name"
+            >
+              <input
+                type="checkbox"
+                class="h-4 w-4 shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                :checked="templateGroupSelected(group.id)"
+                @change="toggleTemplateGroup(group.id)"
+              />
+              <GroupBadge class="min-w-0 max-w-full" :name="group.name" :platform="group.platform" :rate-multiplier="group.rate_multiplier" />
+            </label>
+          </div>
+        </template>
+
+        <div v-else class="mt-4 max-h-[30rem] divide-y divide-gray-100 overflow-y-auto border-y border-gray-100 dark:divide-dark-700 dark:border-dark-700">
+          <section v-for="(plan, planIndex) in templatePlans" :key="`${plan.name}-${planIndex}`" class="py-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 px-2">
+              <div class="min-w-0">
+                <h5 class="truncate text-sm font-medium text-gray-900 dark:text-white" :title="plan.name">{{ plan.name }}</h5>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('payment.admin.catalogImport.selectedGroupCount', { count: selectedTemplateGroupIDs(planIndex).length }) }}
+                </p>
+              </div>
+              <div class="flex items-center gap-3 text-xs">
+                <button type="button" class="text-blue-600 hover:text-blue-700 dark:text-blue-400" @click="selectAllTemplateGroups(planIndex)">
+                  {{ t('payment.admin.catalogImport.selectAllGroups') }}
+                </button>
+                <button type="button" class="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200" @click="clearTemplateGroups(planIndex)">
+                  {{ t('payment.admin.catalogImport.clearGroups') }}
+                </button>
+              </div>
+            </div>
+            <div class="mt-2 grid grid-cols-1 sm:grid-cols-2">
+              <label
+                v-for="group in eligibleTemplateGroups"
+                :key="group.id"
+                class="flex min-w-0 cursor-pointer items-center gap-2 px-2 py-1.5"
+                :title="group.name"
+              >
+                <input
+                  type="checkbox"
+                  class="h-4 w-4 shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  :checked="templateGroupSelected(group.id, planIndex)"
+                  @change="toggleTemplateGroup(group.id, planIndex)"
+                />
+                <GroupBadge class="min-w-0 max-w-full" :name="group.name" :platform="group.platform" :rate-multiplier="group.rate_multiplier" />
+              </label>
+            </div>
+          </section>
+        </div>
+
+        <p v-if="templateSourceSelection.omittedCount > 0" class="mt-3 text-xs text-amber-700 dark:text-amber-300">
+          {{ t('payment.admin.catalogImport.templateGroupsOmitted', { count: templateSourceSelection.omittedCount }) }}
+        </p>
+        <p v-if="eligibleTemplateGroups.length > 0 && !templateMappingValid" class="mt-3 text-xs text-red-600 dark:text-red-300" role="alert">
+          {{ t('payment.admin.catalogImport.mappingRequired') }}
+        </p>
+      </section>
+
       <template v-else-if="preview">
         <section aria-labelledby="catalog-import-summary">
           <div class="mb-2 flex items-center justify-between gap-3">
             <h4 id="catalog-import-summary" class="text-sm font-semibold text-gray-900 dark:text-white">
               {{ t('payment.admin.catalogImport.previewTitle') }}
             </h4>
-            <span
-              class="badge"
-              :class="preview.can_apply ? 'badge-success' : 'badge-danger'"
-            >
-              {{ preview.can_apply
-                ? t('payment.admin.catalogImport.ready')
-                : t('payment.admin.catalogImport.blocked') }}
-            </span>
+            <div class="flex items-center gap-2">
+              <button v-if="templateDocument" type="button" class="btn btn-ghost min-h-8 px-2 text-xs" @click="editTemplateMapping">
+                <Icon name="edit" size="xs" class="mr-1" />
+                {{ t('payment.admin.catalogImport.editMapping') }}
+              </button>
+              <span
+                class="badge"
+                :class="preview.can_apply ? 'badge-success' : 'badge-danger'"
+              >
+                {{ preview.can_apply
+                  ? t('payment.admin.catalogImport.ready')
+                  : t('payment.admin.catalogImport.blocked') }}
+              </span>
+            </div>
           </div>
           <dl class="grid grid-cols-2 divide-x divide-y divide-gray-200 border border-gray-200 bg-white dark:divide-dark-700 dark:border-dark-700 dark:bg-dark-800 sm:grid-cols-3 lg:grid-cols-5">
             <div v-for="item in summaryItems" :key="item.key" class="min-w-0 px-3 py-3">
@@ -212,13 +356,26 @@
 
     <template #footer>
       <div class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p v-if="preview" class="text-xs text-gray-500 dark:text-gray-400">
+        <p v-if="templateMappingVisible" class="text-xs text-gray-500 dark:text-gray-400">
+          {{ t('payment.admin.catalogImport.mappingFooter') }}
+        </p>
+        <p v-else-if="preview" class="text-xs text-gray-500 dark:text-gray-400">
           {{ t('payment.admin.catalogImport.atomicNotice') }}
         </p>
         <span v-else class="hidden sm:block" />
         <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" class="btn btn-secondary w-full sm:w-auto" :disabled="applying" @click="handleClose">
             {{ t('common.cancel') }}
+          </button>
+          <button
+            v-if="templateMappingVisible"
+            type="button"
+            class="btn btn-primary w-full whitespace-nowrap sm:w-auto"
+            :disabled="!templateMappingValid || busy"
+            @click="previewMappedTemplate"
+          >
+            <Icon name="search" size="sm" class="mr-1.5" />
+            {{ t('payment.admin.catalogImport.previewMapped') }}
           </button>
           <button
             v-if="preview"
@@ -242,15 +399,18 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import GroupBadge from '@/components/common/GroupBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
-import adminAPI from '@/api/admin'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import { useAppStore } from '@/stores/app'
 import { extractI18nErrorMessage } from '@/utils/apiError'
 import {
+  isPaymentCatalogTemplate,
   isQiuapiFiveTierTemplate,
-  personalizeCatalogTemplateForInstallation,
+  personalizeCatalogTemplate,
+  selectCatalogTemplateSources,
 } from './catalogTemplate'
+import type { PaymentCatalogTemplateDocument } from './catalogTemplate'
 import type { AdminGroup } from '@/types'
 import type {
   PaymentCatalogImportChange,
@@ -262,6 +422,7 @@ import type {
 const MAX_FILE_BYTES = 1024 * 1024
 const FORBIDDEN_KEYS = new Set(['__proto__', 'prototype', 'constructor'])
 type CatalogInputMode = 'file' | 'paste'
+type TemplateBindingMode = 'shared' | 'per_plan'
 
 const props = withDefaults(defineProps<{
   show: boolean
@@ -281,6 +442,10 @@ const inputMode = ref<CatalogInputMode>('file')
 const selectedFile = ref<File | null>(null)
 const pastedJSON = ref('')
 const catalog = ref<PaymentCatalogImportRequest | null>(null)
+const templateDocument = ref<PaymentCatalogTemplateDocument | null>(null)
+const templateBindingMode = ref<TemplateBindingMode>('shared')
+const sharedTemplateGroupIDs = ref<number[]>([])
+const perPlanTemplateGroupIDs = ref<number[][]>([])
 const preview = ref<PaymentCatalogImportPreview | null>(null)
 const clientError = ref('')
 const fileProcessing = ref(false)
@@ -292,6 +457,17 @@ let previewSequence = 0
 const busy = computed(() => fileProcessing.value || previewing.value || applying.value)
 const canPreviewPaste = computed(() => pastedJSON.value.trim().length > 0)
 const dragActive = computed(() => dragDepth.value > 0)
+const templatePlans = computed(() => templateDocument.value?.plans ?? [])
+const templateSourceSelection = computed(() => templateDocument.value
+  ? selectCatalogTemplateSources(templateDocument.value, props.groups)
+  : { sources: [], omittedCount: 0 })
+const eligibleTemplateGroups = computed(() => templateSourceSelection.value.sources)
+const templateMappingVisible = computed(() => Boolean(templateDocument.value && !catalog.value))
+const templateMappingValid = computed(() => {
+  if (!templateDocument.value || eligibleTemplateGroups.value.length === 0) return false
+  if (templateBindingMode.value === 'shared') return sharedTemplateGroupIDs.value.length > 0
+  return templatePlans.value.every((_, index) => (perPlanTemplateGroupIDs.value[index]?.length ?? 0) > 0)
+})
 const dropZoneClass = computed(() => {
   if (busy.value) return 'cursor-wait border-gray-200 bg-gray-50 opacity-70 dark:border-dark-700 dark:bg-dark-800'
   if (dragActive.value) return 'border-blue-400 bg-blue-50/70 dark:border-blue-500 dark:bg-blue-900/15'
@@ -355,6 +531,7 @@ function resetDialog() {
   selectedFile.value = null
   pastedJSON.value = ''
   catalog.value = null
+  resetTemplateMapping()
   preview.value = null
   clientError.value = ''
   fileProcessing.value = false
@@ -364,12 +541,100 @@ function resetDialog() {
   if (fileInput.value) fileInput.value.value = ''
 }
 
+function resetTemplateMapping() {
+  templateDocument.value = null
+  templateBindingMode.value = 'shared'
+  sharedTemplateGroupIDs.value = []
+  perPlanTemplateGroupIDs.value = []
+}
+
+function initializeTemplateMapping(document: PaymentCatalogTemplateDocument) {
+  templateDocument.value = document
+  templateBindingMode.value = 'shared'
+  const groupIDs = selectCatalogTemplateSources(document, props.groups).sources.map(group => group.id)
+  sharedTemplateGroupIDs.value = [...groupIDs]
+  perPlanTemplateGroupIDs.value = document.plans.map(() => [...groupIDs])
+  catalog.value = null
+  preview.value = null
+  clientError.value = ''
+}
+
+function setTemplateBindingMode(mode: TemplateBindingMode) {
+  if (busy.value || templateBindingMode.value === mode) return
+  templateBindingMode.value = mode
+}
+
+function selectedTemplateGroupIDs(planIndex?: number): number[] {
+  if (planIndex === undefined) return sharedTemplateGroupIDs.value
+  return perPlanTemplateGroupIDs.value[planIndex] ?? []
+}
+
+function templateGroupSelected(groupID: number, planIndex?: number): boolean {
+  return selectedTemplateGroupIDs(planIndex).includes(groupID)
+}
+
+function setTemplateGroupSelection(groupIDs: number[], planIndex?: number) {
+  const next = [...new Set(groupIDs)]
+  if (planIndex === undefined) {
+    sharedTemplateGroupIDs.value = next
+    return
+  }
+  perPlanTemplateGroupIDs.value = perPlanTemplateGroupIDs.value.map((current, index) => (
+    index === planIndex ? next : current
+  ))
+}
+
+function toggleTemplateGroup(groupID: number, planIndex?: number) {
+  const selected = selectedTemplateGroupIDs(planIndex)
+  setTemplateGroupSelection(
+    selected.includes(groupID)
+      ? selected.filter(id => id !== groupID)
+      : [...selected, groupID],
+    planIndex,
+  )
+}
+
+function selectAllTemplateGroups(planIndex?: number) {
+  setTemplateGroupSelection(eligibleTemplateGroups.value.map(group => group.id), planIndex)
+}
+
+function clearTemplateGroups(planIndex?: number) {
+  setTemplateGroupSelection([], planIndex)
+}
+
+async function previewMappedTemplate() {
+  if (!templateDocument.value || !templateMappingValid.value || busy.value) return
+  const shared = [...sharedTemplateGroupIDs.value]
+  const groupIDsByPlan = templateDocument.value.plans.map((_, index) => (
+    templateBindingMode.value === 'shared'
+      ? shared
+      : [...(perPlanTemplateGroupIDs.value[index] ?? [])]
+  ))
+  catalog.value = personalizeCatalogTemplate(
+    templateDocument.value,
+    props.groups,
+    { groupIDsByPlan },
+  ).catalog
+  preview.value = null
+  await requestPreview()
+}
+
+function editTemplateMapping() {
+  if (!templateDocument.value || applying.value) return
+  previewSequence += 1
+  catalog.value = null
+  preview.value = null
+  clientError.value = ''
+  previewing.value = false
+}
+
 function setInputMode(mode: CatalogInputMode) {
   if (busy.value || inputMode.value === mode) return
   previewSequence += 1
   inputMode.value = mode
   selectedFile.value = null
   catalog.value = null
+  resetTemplateMapping()
   preview.value = null
   clientError.value = ''
   fileProcessing.value = false
@@ -381,6 +646,7 @@ function handlePastedJSONInput() {
   previewSequence += 1
   selectedFile.value = null
   catalog.value = null
+  resetTemplateMapping()
   preview.value = null
   clientError.value = ''
   fileProcessing.value = false
@@ -453,18 +719,6 @@ function dangerousJSONPath(value: unknown): string | null {
   return null
 }
 
-function isCatalogShape(value: unknown): value is PaymentCatalogImportRequest {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
-  const candidate = value as Record<string, unknown>
-  return typeof candidate.schema_version === 'number'
-    && typeof candidate.mode === 'string'
-    && Boolean(candidate.defaults)
-    && typeof candidate.defaults === 'object'
-    && !Array.isArray(candidate.defaults)
-    && Array.isArray(candidate.groups)
-    && Array.isArray(candidate.plans)
-}
-
 async function parseAndPreviewCatalogText(text: string, selection: number, file: File | null) {
   let parsed: unknown
   try {
@@ -479,37 +733,21 @@ async function parseAndPreviewCatalogText(text: string, selection: number, file:
     clientError.value = t('payment.admin.catalogImport.dangerousField', { path: dangerousPath })
     return
   }
-  if (!isCatalogShape(parsed)) {
+  if (!isPaymentCatalogTemplate(parsed)) {
     clientError.value = t('payment.admin.catalogImport.invalidStructure')
     return
   }
 
-  let preparedCatalog = parsed
   if (isQiuapiFiveTierTemplate(parsed)) {
-    const result = await personalizeCatalogTemplateForInstallation(
-      parsed,
-      props.groups,
-      {
-        loadModels: group => adminAPI.groups.getModelsListCandidates(group.id, group.platform),
-        loadRoutes: group => adminAPI.groups.listCompositeRoutes(group.id),
-      },
-    )
-    if (selection !== previewSequence) return
-    preparedCatalog = result.catalog
-    if (result.sourceCount === 0) {
-      appStore.showWarning(t('payment.admin.catalogImport.templateNoSources'))
-    } else if (result.failedSourceCount > 0 || result.omittedSourceCount > 0 || result.omittedRouteCount > 0) {
-      appStore.showWarning(t('payment.admin.catalogImport.templatePartial', {
-        count: result.sourceCount,
-        routes: result.routeCount,
-        failed: result.failedSourceCount,
-        omitted: result.omittedSourceCount + result.omittedRouteCount,
-      }))
-    }
+    selectedFile.value = file
+    initializeTemplateMapping(parsed)
+    fileProcessing.value = false
+    return
   }
 
   selectedFile.value = file
-  catalog.value = preparedCatalog
+  resetTemplateMapping()
+  catalog.value = parsed
   fileProcessing.value = false
   await requestPreview()
 }
@@ -584,6 +822,7 @@ async function requestPreview() {
   } catch (error: unknown) {
     if (sequence === previewSequence) {
       preview.value = null
+      if (templateDocument.value) catalog.value = null
       clientError.value = extractI18nErrorMessage(
         error,
         t,

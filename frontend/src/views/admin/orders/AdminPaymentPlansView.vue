@@ -133,10 +133,7 @@ import GroupBadge from '@/components/common/GroupBadge.vue'
 import PlanEditDialog from './PlanEditDialog.vue'
 import PlanImportDialog from './PlanImportDialog.vue'
 import { currencySymbol } from '@/components/payment/currency'
-import {
-  isPaymentCatalogTemplate,
-  personalizeCatalogTemplateForInstallation,
-} from './catalogTemplate'
+import { isPaymentCatalogTemplate } from './catalogTemplate'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -255,38 +252,13 @@ async function downloadCatalogTemplate() {
   catalogTemplateDownloading.value = true
   try {
     const base = String(import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')
-    const [response] = await Promise.all([
-      fetch(`${base}templates/qiuapi-subscription-catalog-v1.json`, { credentials: 'same-origin' }),
-      loadGroups(),
-    ])
+    const response = await fetch(`${base}templates/qiuapi-subscription-catalog-v1.json`, { credentials: 'same-origin' })
     if (!response.ok) throw new Error(`template request failed with status ${response.status}`)
     const rawTemplate: unknown = await response.json()
     if (!isPaymentCatalogTemplate(rawTemplate)) throw new Error('invalid catalog template')
 
-    const result = await personalizeCatalogTemplateForInstallation(
-      rawTemplate,
-      groups.value,
-      {
-        loadModels: group => adminAPI.groups.getModelsListCandidates(group.id, group.platform),
-        loadRoutes: group => adminAPI.groups.listCompositeRoutes(group.id),
-      },
-    )
-    saveCatalogFile(result.catalog, 'qiuapi-subscription-catalog-v1.json')
-    if (result.sourceCount === 0) {
-      appStore.showWarning(t('payment.admin.catalogImport.templateNoSources'))
-    } else if (result.failedSourceCount > 0 || result.omittedSourceCount > 0 || result.omittedRouteCount > 0) {
-      appStore.showWarning(t('payment.admin.catalogImport.templatePartial', {
-        count: result.sourceCount,
-        routes: result.routeCount,
-        failed: result.failedSourceCount,
-        omitted: result.omittedSourceCount + result.omittedRouteCount,
-      }))
-    } else {
-      appStore.showSuccess(t('payment.admin.catalogImport.templateSuccess', {
-        count: result.sourceCount,
-        routes: result.routeCount,
-      }))
-    }
+    saveCatalogFile(rawTemplate, 'qiuapi-subscription-template-v2.json')
+    appStore.showSuccess(t('payment.admin.catalogImport.templateDownloadSuccess'))
   } catch {
     appStore.showError(t('payment.admin.catalogImport.templateFailed'))
   } finally {

@@ -93,6 +93,7 @@ function mountDialog(groups: AdminGroup[] = []) {
     global: {
       stubs: {
         BaseDialog: BaseDialogStub,
+        GroupBadge: true,
         Icon: true,
       },
     },
@@ -143,6 +144,22 @@ describe('PlanImportDialog', () => {
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
 
+	it('lets the backend preview a valid exported plan that is not bound to a group yet', async () => {
+		const wrapper = mountDialog()
+		const unboundCatalog = {
+			schema_version: 1,
+			mode: 'upsert',
+			defaults: {},
+			groups: [],
+			plans: [{ name: 'Unbound plan', price: 12.9 }],
+		}
+
+		await dropFile(wrapper, new File([JSON.stringify(unboundCatalog)], 'export.json', { type: 'application/json' }))
+
+		expect(previewCatalogImport).toHaveBeenCalledWith(unboundCatalog)
+		expect(wrapper.text()).toContain('payment.admin.catalogImport.previewTitle')
+	})
+
   it('normalizes null preview collections returned by an older backend', async () => {
     previewCatalogImport.mockResolvedValue({
       data: {
@@ -180,7 +197,7 @@ describe('PlanImportDialog', () => {
     expect(wrapper.text()).not.toContain('payment.admin.catalogImport.confirmApply')
   })
 
-  it('personalizes the pasted five-tier template with local account groups before preview', async () => {
+  it('requires a visible real-group mapping before previewing the legacy five-tier template', async () => {
     const fiveTierCatalog = {
       schema_version: 1,
       mode: 'upsert',
@@ -227,17 +244,75 @@ describe('PlanImportDialog', () => {
     await previewButton!.trigger('click')
     await flushPromises()
 
-	const submitted = previewCatalogImport.mock.calls[0][0]
-	expect(submitted.groups).toEqual([])
+		expect(previewCatalogImport).not.toHaveBeenCalled()
+		expect(wrapper.get('[data-testid="catalog-template-mapping"]').exists()).toBe(true)
+		const mappedPreviewButton = wrapper.findAll('button').find(button => button.text().includes('payment.admin.catalogImport.previewMapped'))
+		expect(mappedPreviewButton).toBeTruthy()
+		await mappedPreviewButton!.trigger('click')
+		await flushPromises()
+
+		const submitted = previewCatalogImport.mock.calls[0][0]
+		expect(submitted.groups).toEqual([])
 	expect(submitted.plans).toHaveLength(5)
 	expect(submitted.plans[0]).toEqual(expect.objectContaining({
 	  included_group_ids: [8],
 	}))
 	expect(submitted.plans[0]).not.toHaveProperty('group_key')
 	expect(submitted.plans[0]).not.toHaveProperty('group_id')
-	expect(submitted.defaults.subscription_type).toBe('standard')
-	expect(getModelsListCandidates).not.toHaveBeenCalled()
+		expect(submitted.defaults.subscription_type).toBe('standard')
+		expect(getModelsListCandidates).not.toHaveBeenCalled()
   })
+
+	it('maps a renamed portable template to different real groups per plan', async () => {
+		const portableTemplate = {
+			schema_version: 1,
+			mode: 'upsert',
+			template: {
+				kind: 'qiuapi-five-tier-subscription',
+				version: 2,
+				group_binding: 'select_on_import',
+			},
+			defaults: {},
+			groups: [],
+			plans: ['Developer', 'Team'].map((name, index) => ({
+				name,
+				price: index + 1,
+			})),
+		}
+		const wrapper = mountDialog([{
+			id: 8,
+			name: 'OpenAI 主池',
+			status: 'active',
+			account_count: 2,
+			platform: 'openai',
+			subscription_type: 'standard',
+		} as AdminGroup, {
+			id: 11,
+			name: 'Claude 主池',
+			status: 'active',
+			account_count: 1,
+			platform: 'anthropic',
+			subscription_type: 'standard',
+		} as AdminGroup])
+
+		await dropFile(wrapper, new File([JSON.stringify(portableTemplate)], 'template.json', { type: 'application/json' }))
+		const perPlanButton = wrapper.findAll('button').find(button => button.text().includes('payment.admin.catalogImport.bindingPerPlan'))
+		expect(perPlanButton).toBeTruthy()
+		await perPlanButton!.trigger('click')
+
+		const groupCheckboxes = wrapper.findAll('input[type="checkbox"]')
+		expect(groupCheckboxes).toHaveLength(4)
+		await groupCheckboxes[1]!.setValue(false)
+		const mappedPreviewButton = wrapper.findAll('button').find(button => button.text().includes('payment.admin.catalogImport.previewMapped'))
+		await mappedPreviewButton!.trigger('click')
+		await flushPromises()
+
+		const submitted = previewCatalogImport.mock.calls[0][0]
+		expect(submitted).not.toHaveProperty('template')
+		expect(submitted.groups).toEqual([])
+		expect(submitted.plans[0].included_group_ids).toEqual([8])
+		expect(submitted.plans[1].included_group_ids).toEqual([8, 11])
+	})
 
   it('keeps apply disabled when the backend preview contains a blocking error', async () => {
     previewCatalogImport.mockResolvedValue({ data: previewFixture(false) })
