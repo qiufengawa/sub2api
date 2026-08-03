@@ -113,6 +113,8 @@ type PaymentCatalogImportRoute struct {
 type PaymentCatalogImportPlan struct {
 	IncludedGroupKeys     []string `json:"included_group_keys,omitempty"`
 	IncludedGroupIDs      []int64  `json:"included_group_ids,omitempty"`
+	FiveHourQuotaUSD      *float64 `json:"five_hour_quota_usd,omitempty"`
+	FiveHourQuotaUSDSet   bool     `json:"-"`
 	CycleQuotaUSD         *float64 `json:"cycle_quota_usd"`
 	TotalQuotaUSD         *float64 `json:"total_quota_usd"`
 	ResetIntervalSeconds  int      `json:"reset_interval_seconds,omitempty"`
@@ -128,6 +130,27 @@ type PaymentCatalogImportPlan struct {
 	ProductName           string   `json:"product_name,omitempty"`
 	ForSale               *bool    `json:"for_sale,omitempty"`
 	SortOrder             *int     `json:"sort_order,omitempty"`
+}
+
+type paymentCatalogImportPlanAlias PaymentCatalogImportPlan
+
+func (p *PaymentCatalogImportPlan) UnmarshalJSON(data []byte) error {
+	var decoded paymentCatalogImportPlanAlias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	*p = PaymentCatalogImportPlan(decoded)
+	if value, ok := fields["five_hour_quota_usd"]; ok {
+		p.FiveHourQuotaUSDSet = true
+		if isJSONNull(value) {
+			p.FiveHourQuotaUSD = nil
+		}
+	}
+	return nil
 }
 
 type PaymentCatalogImportApplyRequest struct {
@@ -217,6 +240,8 @@ type catalogPlan struct {
 	includedGroupKeys     []string
 	includedGroupIDs      []int64
 	groupRefs             []catalogGroupRef
+	fiveHourQuotaUSD      *float64
+	fiveHourQuotaUSDSet   bool
 	cycleQuotaUSD         *float64
 	totalQuotaUSD         *float64
 	resetIntervalSeconds  int
@@ -569,18 +594,39 @@ func (s *PaymentConfigService) normalizeCatalogImport(req PaymentCatalogImportRe
 		if original != nil && finiteNumber(*original) && *original < raw.Price {
 			add("warning", "ORIGINAL_PRICE_BELOW_PRICE", path+".original_price", "original_price is below price")
 		}
+		fiveHourQuotaUSDSet := raw.FiveHourQuotaUSDSet || raw.FiveHourQuotaUSD != nil
+		fiveHourQuotaUSD := cloneFloat(raw.FiveHourQuotaUSD)
+		if fiveHourQuotaUSD != nil {
+			if !finiteNumber(*fiveHourQuotaUSD) || *fiveHourQuotaUSD < 0 {
+				add("error", "PLAN_FIVE_HOUR_QUOTA_INVALID", path+".five_hour_quota_usd", "five_hour_quota_usd must be null or a finite number greater than or equal to zero")
+			} else if *fiveHourQuotaUSD == 0 {
+				fiveHourQuotaUSD = nil
+			}
+		}
 		cycleQuotaUSD := cloneFloat(raw.CycleQuotaUSD)
-		if cycleQuotaUSD != nil && !finitePositive(*cycleQuotaUSD) {
-			add("error", "PLAN_CYCLE_QUOTA_INVALID", path+".cycle_quota_usd", "cycle_quota_usd must be null or a finite number greater than zero")
+		if cycleQuotaUSD != nil {
+			if !finiteNumber(*cycleQuotaUSD) || *cycleQuotaUSD < 0 {
+				add("error", "PLAN_CYCLE_QUOTA_INVALID", path+".cycle_quota_usd", "cycle_quota_usd must be null or a finite number greater than or equal to zero")
+			} else if *cycleQuotaUSD == 0 {
+				cycleQuotaUSD = nil
+			}
 		}
 		totalQuotaUSD := cloneFloat(raw.TotalQuotaUSD)
-		if totalQuotaUSD != nil && !finitePositive(*totalQuotaUSD) {
-			add("error", "PLAN_TOTAL_QUOTA_INVALID", path+".total_quota_usd", "total_quota_usd must be null or a finite number greater than zero")
+		if totalQuotaUSD != nil {
+			if !finiteNumber(*totalQuotaUSD) || *totalQuotaUSD < 0 {
+				add("error", "PLAN_TOTAL_QUOTA_INVALID", path+".total_quota_usd", "total_quota_usd must be null or a finite number greater than or equal to zero")
+			} else if *totalQuotaUSD == 0 {
+				totalQuotaUSD = nil
+			}
 		}
+		resetIntervalSeconds := raw.ResetIntervalSeconds
 		if raw.ResetIntervalSeconds < 0 {
 			add("error", "PLAN_RESET_INTERVAL_INVALID", path+".reset_interval_seconds", "reset_interval_seconds must be greater than or equal to zero")
 		}
-		if cycleQuotaUSD != nil && raw.ResetIntervalSeconds <= 0 {
+		if cycleQuotaUSD == nil {
+			resetIntervalSeconds = 0
+		}
+		if cycleQuotaUSD != nil && resetIntervalSeconds <= 0 {
 			add("error", "PLAN_RESET_INTERVAL_REQUIRED", path+".reset_interval_seconds", "reset_interval_seconds must be greater than zero when cycle_quota_usd is set")
 		}
 		walletFallbackEnabled := true
@@ -640,9 +686,11 @@ func (s *PaymentConfigService) normalizeCatalogImport(req PaymentCatalogImportRe
 			includedGroupKeys:        includedGroupKeys,
 			includedGroupIDs:         includedGroupIDs,
 			groupRefs:                groupRefs,
+			fiveHourQuotaUSD:         fiveHourQuotaUSD,
+			fiveHourQuotaUSDSet:      fiveHourQuotaUSDSet,
 			cycleQuotaUSD:            cycleQuotaUSD,
 			totalQuotaUSD:            totalQuotaUSD,
-			resetIntervalSeconds:     raw.ResetIntervalSeconds,
+			resetIntervalSeconds:     resetIntervalSeconds,
 			walletFallbackEnabled:    walletFallbackEnabled,
 			currency:                 currency,
 			validityDays:             validityDays,
@@ -783,6 +831,8 @@ func (s *PaymentConfigService) ExportCatalog(ctx context.Context) (*PaymentCatal
 		req.Plans = append(req.Plans, PaymentCatalogImportPlan{
 			IncludedGroupKeys:     includedGroupKeys,
 			IncludedGroupIDs:      includedGroupIDs,
+			FiveHourQuotaUSD:      cloneFloat(p.FiveHourQuotaUsd),
+			FiveHourQuotaUSDSet:   true,
 			CycleQuotaUSD:         cloneFloat(p.CycleQuotaUsd),
 			TotalQuotaUSD:         cloneFloat(p.TotalQuotaUsd),
 			ResetIntervalSeconds:  p.ResetIntervalSeconds,
@@ -1324,6 +1374,9 @@ func catalogPlanDiff(existing *dbent.SubscriptionPlan, desired catalogPlan, grou
 		existingGroupKeys = append(existingGroupKeys, key)
 	}
 	appendCatalogDiff(&diffs, "included_group_keys", existingGroupKeys, desiredGroupLabels)
+	if desired.fiveHourQuotaUSDSet {
+		appendCatalogDiff(&diffs, "five_hour_quota_usd", optionalFloat(existing.FiveHourQuotaUsd), optionalFloat(desired.fiveHourQuotaUSD))
+	}
 	appendCatalogDiff(&diffs, "cycle_quota_usd", optionalFloat(existing.CycleQuotaUsd), optionalFloat(desired.cycleQuotaUSD))
 	appendCatalogDiff(&diffs, "total_quota_usd", optionalFloat(existing.TotalQuotaUsd), optionalFloat(desired.totalQuotaUSD))
 	appendCatalogDiff(&diffs, "reset_interval_seconds", existing.ResetIntervalSeconds, desired.resetIntervalSeconds)
@@ -1662,6 +1715,7 @@ func (s *PaymentConfigService) applyCatalogWithinTx(ctx context.Context, client 
 				SetDescription(desired.Description).
 				SetPrice(desired.Price).
 				SetNillableOriginalPrice(desired.OriginalPrice).
+				SetNillableFiveHourQuotaUsd(desired.fiveHourQuotaUSD).
 				SetNillableCycleQuotaUsd(desired.cycleQuotaUSD).
 				SetNillableTotalQuotaUsd(desired.totalQuotaUSD).
 				SetResetIntervalSeconds(desired.resetIntervalSeconds).
@@ -1695,6 +1749,13 @@ func (s *PaymentConfigService) applyCatalogWithinTx(ctx context.Context, client 
 				update.ClearOriginalPrice()
 			} else {
 				update.SetOriginalPrice(*desired.OriginalPrice)
+			}
+			if desired.fiveHourQuotaUSDSet {
+				if desired.fiveHourQuotaUSD == nil {
+					update.ClearFiveHourQuotaUsd()
+				} else {
+					update.SetFiveHourQuotaUsd(*desired.fiveHourQuotaUSD)
+				}
 			}
 			if desired.cycleQuotaUSD == nil {
 				update.ClearCycleQuotaUsd()

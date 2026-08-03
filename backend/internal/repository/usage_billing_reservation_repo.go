@@ -184,10 +184,7 @@ func reserveUsageBillingFunding(
 			if !fallbackAllowed {
 				return nil, service.ErrSubscriptionQuotaExceeded
 			}
-			reason := "subscription_unavailable"
-			if len(candidates) > 0 {
-				reason = "subscription_quota_exhausted"
-			}
+			reason := subscriptionQuotaFallbackReason(candidates, amount)
 			err = useWallet(reason)
 		}
 	}
@@ -780,29 +777,11 @@ func settleSelectedUsageBillingSubscription(ctx context.Context, tx *sql.Tx, sub
 	// upstream request succeeds, always record its actual cost even when the
 	// estimate was low; otherwise a failed settlement could later release the
 	// reservation and turn a successful request into an unbilled request.
-	res, err := tx.ExecContext(ctx, `
-		UPDATE user_subscriptions
-		SET cycle_reserved_usd = cycle_reserved_usd - $1,
-			total_reserved_usd = total_reserved_usd - $1,
-			cycle_usage_usd = cycle_usage_usd + $2,
-			total_usage_usd = total_usage_usd + $2,
-			daily_usage_usd = daily_usage_usd + $2,
-			weekly_usage_usd = weekly_usage_usd + $2,
-			monthly_usage_usd = monthly_usage_usd + $2,
-			updated_at = NOW()
-		WHERE id = $3
-			AND deleted_at IS NULL
-			AND cycle_reserved_usd >= $1
-			AND total_reserved_usd >= $1
-	`, reservedAmount, actualAmount, subscriptionID)
+	affected, err := settleSelectedUsageBillingSubscriptionCounters(ctx, tx, subscriptionID, reservedAmount, actualAmount)
 	if err != nil {
 		return err
 	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if affected == 0 {
+	if !affected {
 		return service.ErrSubscriptionQuotaExceeded
 	}
 	return nil

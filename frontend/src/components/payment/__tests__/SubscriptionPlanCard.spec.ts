@@ -22,7 +22,10 @@ const i18n = createI18n({
           price: "Price",
           validity: "Validity",
           quota: "Quota",
+		  fiveHourQuota: "5-hour quota",
+		  cycleQuota: "Cycle quota",
           totalQuota: "Term quota",
+		  resetEveryDays: "Every {days} days",
           validForPlanTerm: "for the full plan term",
           rate: "Rate",
           unlimited: "Unlimited",
@@ -233,4 +236,45 @@ describe("SubscriptionPlanCard", () => {
     expect(wrapper.text()).toContain("$160.00");
     expect(wrapper.text()).toContain("payment.planCard.totalQuota");
   });
+
+	it("shows only enabled quota dimensions when zero and null mean unlimited", () => {
+		const wrapper = mountPlanCard("openai", {
+			five_hour_quota_usd: 0,
+			cycle_quota_usd: 5,
+			total_quota_usd: 20,
+			reset_interval_seconds: 604800,
+		});
+
+		expect(wrapper.text()).not.toContain("payment.planCard.fiveHourQuota");
+		expect(wrapper.text()).toContain("payment.planCard.cycleQuota");
+		expect(wrapper.text()).toContain("payment.planCard.totalQuota");
+		expect(wrapper.text()).not.toContain("payment.planCard.unlimited");
+	});
+
+	it("shows a single unlimited state when every quota dimension is disabled", () => {
+		const wrapper = mountPlanCard("openai", {
+			five_hour_quota_usd: null,
+			cycle_quota_usd: null,
+			total_quota_usd: 0,
+			reset_interval_seconds: 0,
+		});
+
+		expect(wrapper.text()).toContain("payment.planCard.unlimited");
+		expect(wrapper.text()).not.toContain("payment.planCard.fiveHourQuota");
+		expect(wrapper.text()).not.toContain("payment.planCard.cycleQuota");
+		expect(wrapper.text()).not.toContain("payment.planCard.totalQuota");
+	});
+
+	it("keeps five-hour and term quota visible when the cycle cap is disabled", () => {
+		const wrapper = mountPlanCard("openai", {
+			five_hour_quota_usd: 5,
+			cycle_quota_usd: 0,
+			total_quota_usd: 20,
+			reset_interval_seconds: 0,
+		});
+
+		expect(wrapper.text()).toContain("payment.planCard.fiveHourQuota");
+		expect(wrapper.text()).not.toContain("payment.planCard.cycleQuota");
+		expect(wrapper.text()).toContain("payment.planCard.totalQuota");
+	});
 });

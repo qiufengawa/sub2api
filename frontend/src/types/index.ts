@@ -1914,6 +1914,10 @@ export interface UserSubscription {
   daily_usage_usd: number
   weekly_usage_usd: number
   monthly_usage_usd: number
+  five_hour_quota_usd?: number | null
+  five_hour_usage_usd?: number
+  five_hour_reserved_usd?: number
+  five_hour_started_at?: string | null
   cycle_quota_usd?: number | null
   cycle_usage_usd?: number
   cycle_reserved_usd?: number
@@ -1939,6 +1943,7 @@ export interface SubscriptionProgress {
   plan_name: string
   expires_at: string
   expires_in_days: number
+  five_hour?: UsageWindowProgress
   cycle?: UsageWindowProgress
   total?: UsageWindowProgress
 }
@@ -1946,6 +1951,7 @@ export interface SubscriptionProgress {
 export interface UsageWindowProgress {
   limit_usd: number
   used_usd: number
+  reserved_usd: number
   remaining_usd: number
   percentage: number
   window_start: string

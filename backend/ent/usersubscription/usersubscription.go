@@ -43,6 +43,14 @@ const (
 	FieldWeeklyUsageUsd = "weekly_usage_usd"
 	// FieldMonthlyUsageUsd holds the string denoting the monthly_usage_usd field in the database.
 	FieldMonthlyUsageUsd = "monthly_usage_usd"
+	// FieldFiveHourQuotaUsd holds the string denoting the five_hour_quota_usd field in the database.
+	FieldFiveHourQuotaUsd = "five_hour_quota_usd"
+	// FieldFiveHourStartedAt holds the string denoting the five_hour_started_at field in the database.
+	FieldFiveHourStartedAt = "five_hour_started_at"
+	// FieldFiveHourUsageUsd holds the string denoting the five_hour_usage_usd field in the database.
+	FieldFiveHourUsageUsd = "five_hour_usage_usd"
+	// FieldFiveHourReservedUsd holds the string denoting the five_hour_reserved_usd field in the database.
+	FieldFiveHourReservedUsd = "five_hour_reserved_usd"
 	// FieldCycleQuotaUsd holds the string denoting the cycle_quota_usd field in the database.
 	FieldCycleQuotaUsd = "cycle_quota_usd"
 	// FieldResetIntervalSeconds holds the string denoting the reset_interval_seconds field in the database.
@@ -124,6 +132,10 @@ var Columns = []string{
 	FieldDailyUsageUsd,
 	FieldWeeklyUsageUsd,
 	FieldMonthlyUsageUsd,
+	FieldFiveHourQuotaUsd,
+	FieldFiveHourStartedAt,
+	FieldFiveHourUsageUsd,
+	FieldFiveHourReservedUsd,
 	FieldCycleQuotaUsd,
 	FieldResetIntervalSeconds,
 	FieldCycleStartedAt,
@@ -172,6 +184,10 @@ var (
 	DefaultWeeklyUsageUsd float64
 	// DefaultMonthlyUsageUsd holds the default value on creation for the "monthly_usage_usd" field.
 	DefaultMonthlyUsageUsd float64
+	// DefaultFiveHourUsageUsd holds the default value on creation for the "five_hour_usage_usd" field.
+	DefaultFiveHourUsageUsd float64
+	// DefaultFiveHourReservedUsd holds the default value on creation for the "five_hour_reserved_usd" field.
+	DefaultFiveHourReservedUsd float64
 	// DefaultResetIntervalSeconds holds the default value on creation for the "reset_interval_seconds" field.
 	DefaultResetIntervalSeconds int
 	// DefaultCycleUsageUsd holds the default value on creation for the "cycle_usage_usd" field.
@@ -264,6 +280,26 @@ func ByWeeklyUsageUsd(opts ...sql.OrderTermOption) OrderOption {
 // ByMonthlyUsageUsd orders the results by the monthly_usage_usd field.
 func ByMonthlyUsageUsd(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldMonthlyUsageUsd, opts...).ToFunc()
+}
+
+// ByFiveHourQuotaUsd orders the results by the five_hour_quota_usd field.
+func ByFiveHourQuotaUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFiveHourQuotaUsd, opts...).ToFunc()
+}
+
+// ByFiveHourStartedAt orders the results by the five_hour_started_at field.
+func ByFiveHourStartedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFiveHourStartedAt, opts...).ToFunc()
+}
+
+// ByFiveHourUsageUsd orders the results by the five_hour_usage_usd field.
+func ByFiveHourUsageUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFiveHourUsageUsd, opts...).ToFunc()
+}
+
+// ByFiveHourReservedUsd orders the results by the five_hour_reserved_usd field.
+func ByFiveHourReservedUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFiveHourReservedUsd, opts...).ToFunc()
 }
 
 // ByCycleQuotaUsd orders the results by the cycle_quota_usd field.

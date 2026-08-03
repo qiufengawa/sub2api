@@ -79,6 +79,20 @@ func (_c *SubscriptionPlanCreate) SetNillableCurrency(v *string) *SubscriptionPl
 	return _c
 }
 
+// SetFiveHourQuotaUsd sets the "five_hour_quota_usd" field.
+func (_c *SubscriptionPlanCreate) SetFiveHourQuotaUsd(v float64) *SubscriptionPlanCreate {
+	_c.mutation.SetFiveHourQuotaUsd(v)
+	return _c
+}
+
+// SetNillableFiveHourQuotaUsd sets the "five_hour_quota_usd" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillableFiveHourQuotaUsd(v *float64) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetFiveHourQuotaUsd(*v)
+	}
+	return _c
+}
+
 // SetCycleQuotaUsd sets the "cycle_quota_usd" field.
 func (_c *SubscriptionPlanCreate) SetCycleQuotaUsd(v float64) *SubscriptionPlanCreate {
 	_c.mutation.SetCycleQuotaUsd(v)
@@ -488,6 +502,10 @@ func (_c *SubscriptionPlanCreate) createSpec() (*SubscriptionPlan, *sqlgraph.Cre
 		_spec.SetField(subscriptionplan.FieldCurrency, field.TypeString, value)
 		_node.Currency = value
 	}
+	if value, ok := _c.mutation.FiveHourQuotaUsd(); ok {
+		_spec.SetField(subscriptionplan.FieldFiveHourQuotaUsd, field.TypeFloat64, value)
+		_node.FiveHourQuotaUsd = &value
+	}
 	if value, ok := _c.mutation.CycleQuotaUsd(); ok {
 		_spec.SetField(subscriptionplan.FieldCycleQuotaUsd, field.TypeFloat64, value)
 		_node.CycleQuotaUsd = &value
@@ -715,6 +733,30 @@ func (u *SubscriptionPlanUpsert) SetCurrency(v string) *SubscriptionPlanUpsert {
 // UpdateCurrency sets the "currency" field to the value that was provided on create.
 func (u *SubscriptionPlanUpsert) UpdateCurrency() *SubscriptionPlanUpsert {
 	u.SetExcluded(subscriptionplan.FieldCurrency)
+	return u
+}
+
+// SetFiveHourQuotaUsd sets the "five_hour_quota_usd" field.
+func (u *SubscriptionPlanUpsert) SetFiveHourQuotaUsd(v float64) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldFiveHourQuotaUsd, v)
+	return u
+}
+
+// UpdateFiveHourQuotaUsd sets the "five_hour_quota_usd" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdateFiveHourQuotaUsd() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldFiveHourQuotaUsd)
+	return u
+}
+
+// AddFiveHourQuotaUsd adds v to the "five_hour_quota_usd" field.
+func (u *SubscriptionPlanUpsert) AddFiveHourQuotaUsd(v float64) *SubscriptionPlanUpsert {
+	u.Add(subscriptionplan.FieldFiveHourQuotaUsd, v)
+	return u
+}
+
+// ClearFiveHourQuotaUsd clears the value of the "five_hour_quota_usd" field.
+func (u *SubscriptionPlanUpsert) ClearFiveHourQuotaUsd() *SubscriptionPlanUpsert {
+	u.SetNull(subscriptionplan.FieldFiveHourQuotaUsd)
 	return u
 }
 
@@ -1025,6 +1067,34 @@ func (u *SubscriptionPlanUpsertOne) SetCurrency(v string) *SubscriptionPlanUpser
 func (u *SubscriptionPlanUpsertOne) UpdateCurrency() *SubscriptionPlanUpsertOne {
 	return u.Update(func(s *SubscriptionPlanUpsert) {
 		s.UpdateCurrency()
+	})
+}
+
+// SetFiveHourQuotaUsd sets the "five_hour_quota_usd" field.
+func (u *SubscriptionPlanUpsertOne) SetFiveHourQuotaUsd(v float64) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetFiveHourQuotaUsd(v)
+	})
+}
+
+// AddFiveHourQuotaUsd adds v to the "five_hour_quota_usd" field.
+func (u *SubscriptionPlanUpsertOne) AddFiveHourQuotaUsd(v float64) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddFiveHourQuotaUsd(v)
+	})
+}
+
+// UpdateFiveHourQuotaUsd sets the "five_hour_quota_usd" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdateFiveHourQuotaUsd() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateFiveHourQuotaUsd()
+	})
+}
+
+// ClearFiveHourQuotaUsd clears the value of the "five_hour_quota_usd" field.
+func (u *SubscriptionPlanUpsertOne) ClearFiveHourQuotaUsd() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.ClearFiveHourQuotaUsd()
 	})
 }
 
@@ -1530,6 +1600,34 @@ func (u *SubscriptionPlanUpsertBulk) SetCurrency(v string) *SubscriptionPlanUpse
 func (u *SubscriptionPlanUpsertBulk) UpdateCurrency() *SubscriptionPlanUpsertBulk {
 	return u.Update(func(s *SubscriptionPlanUpsert) {
 		s.UpdateCurrency()
+	})
+}
+
+// SetFiveHourQuotaUsd sets the "five_hour_quota_usd" field.
+func (u *SubscriptionPlanUpsertBulk) SetFiveHourQuotaUsd(v float64) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetFiveHourQuotaUsd(v)
+	})
+}
+
+// AddFiveHourQuotaUsd adds v to the "five_hour_quota_usd" field.
+func (u *SubscriptionPlanUpsertBulk) AddFiveHourQuotaUsd(v float64) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddFiveHourQuotaUsd(v)
+	})
+}
+
+// UpdateFiveHourQuotaUsd sets the "five_hour_quota_usd" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdateFiveHourQuotaUsd() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateFiveHourQuotaUsd()
+	})
+}
+
+// ClearFiveHourQuotaUsd clears the value of the "five_hour_quota_usd" field.
+func (u *SubscriptionPlanUpsertBulk) ClearFiveHourQuotaUsd() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.ClearFiveHourQuotaUsd()
 	})
 }
 

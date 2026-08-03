@@ -240,6 +240,10 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 type subscriptionBillingCandidate struct {
 	id                    int64
 	expiresAt             time.Time
+	fiveHourQuotaUSD      *decimal.Decimal
+	fiveHourStartedAt     *time.Time
+	fiveHourUsageUSD      decimal.Decimal
+	fiveHourReservedUSD   decimal.Decimal
 	cycleQuotaUSD         *decimal.Decimal
 	resetIntervalSeconds  int
 	cycleStartedAt        *time.Time
@@ -255,11 +259,50 @@ func (c *subscriptionBillingCandidate) canFund(amount decimal.Decimal) bool {
 	if c == nil {
 		return false
 	}
+	fiveHourAvailable := c.fiveHourQuotaUSD == nil || !c.fiveHourQuotaUSD.IsPositive() ||
+		c.fiveHourUsageUSD.Add(c.fiveHourReservedUSD).Add(amount).LessThanOrEqual(*c.fiveHourQuotaUSD)
 	cycleAvailable := c.cycleQuotaUSD == nil || !c.cycleQuotaUSD.IsPositive() ||
 		c.cycleUsageUSD.Add(c.cycleReservedUSD).Add(amount).LessThanOrEqual(*c.cycleQuotaUSD)
 	totalAvailable := c.totalQuotaUSD == nil || !c.totalQuotaUSD.IsPositive() ||
 		c.totalUsageUSD.Add(c.totalReservedUSD).Add(amount).LessThanOrEqual(*c.totalQuotaUSD)
-	return cycleAvailable && totalAvailable
+	return fiveHourAvailable && cycleAvailable && totalAvailable
+}
+
+func (c *subscriptionBillingCandidate) quotaExhaustionReason(amount decimal.Decimal) string {
+	if c == nil {
+		return ""
+	}
+	if c.fiveHourQuotaUSD != nil && c.fiveHourQuotaUSD.IsPositive() &&
+		c.fiveHourUsageUSD.Add(c.fiveHourReservedUSD).Add(amount).GreaterThan(*c.fiveHourQuotaUSD) {
+		return "subscription_five_hour_quota_exhausted"
+	}
+	if c.cycleQuotaUSD != nil && c.cycleQuotaUSD.IsPositive() &&
+		c.cycleUsageUSD.Add(c.cycleReservedUSD).Add(amount).GreaterThan(*c.cycleQuotaUSD) {
+		return "subscription_cycle_quota_exhausted"
+	}
+	if c.totalQuotaUSD != nil && c.totalQuotaUSD.IsPositive() &&
+		c.totalUsageUSD.Add(c.totalReservedUSD).Add(amount).GreaterThan(*c.totalQuotaUSD) {
+		return "subscription_total_quota_exhausted"
+	}
+	return ""
+}
+
+func subscriptionQuotaFallbackReason(candidates []subscriptionBillingCandidate, amount decimal.Decimal) string {
+	if len(candidates) == 0 {
+		return "subscription_unavailable"
+	}
+	reason := ""
+	for i := range candidates {
+		candidateReason := candidates[i].quotaExhaustionReason(amount)
+		if candidateReason == "" || (reason != "" && candidateReason != reason) {
+			return "subscription_quota_exhausted"
+		}
+		reason = candidateReason
+	}
+	if reason == "" {
+		return "subscription_quota_exhausted"
+	}
+	return reason
 }
 
 func applyPlanCoverageBillingDecision(
@@ -354,10 +397,7 @@ func applyPlanCoverageBillingDecision(
 			if !fallbackAllowed {
 				return service.ErrSubscriptionQuotaExceeded
 			}
-			reason := "subscription_unavailable"
-			if len(candidates) > 0 {
-				reason = "subscription_quota_exhausted"
-			}
+			reason := subscriptionQuotaFallbackReason(candidates, amount)
 			err = useWallet(reason)
 		}
 	}
@@ -397,6 +437,10 @@ func listSubscriptionBillingCandidates(
 		SELECT
 			us.id,
 			us.expires_at,
+			us.five_hour_quota_usd,
+			us.five_hour_started_at,
+			us.five_hour_usage_usd,
+			us.five_hour_reserved_usd,
 			us.cycle_quota_usd,
 			us.reset_interval_seconds,
 			us.cycle_started_at,
@@ -423,14 +467,23 @@ func listSubscriptionBillingCandidates(
 		return nil, err
 	}
 	candidates := make([]subscriptionBillingCandidate, 0)
-	resetIndexes := make([]int, 0)
+	type pendingWindowReset struct {
+		index         int
+		resetFiveHour bool
+		resetCycle    bool
+	}
+	resetWindows := make([]pendingWindowReset, 0)
 	for rows.Next() {
 		var candidate subscriptionBillingCandidate
-		var cycleQuota, totalQuota decimal.NullDecimal
-		var cycleStart sql.NullTime
+		var fiveHourQuota, cycleQuota, totalQuota decimal.NullDecimal
+		var fiveHourStart, cycleStart sql.NullTime
 		if err := rows.Scan(
 			&candidate.id,
 			&candidate.expiresAt,
+			&fiveHourQuota,
+			&fiveHourStart,
+			&candidate.fiveHourUsageUSD,
+			&candidate.fiveHourReservedUSD,
 			&cycleQuota,
 			&candidate.resetIntervalSeconds,
 			&cycleStart,
@@ -442,6 +495,14 @@ func listSubscriptionBillingCandidates(
 			&candidate.walletFallbackEnabled,
 		); err != nil {
 			return nil, err
+		}
+		if fiveHourQuota.Valid {
+			value := fiveHourQuota.Decimal
+			candidate.fiveHourQuotaUSD = &value
+		}
+		if fiveHourStart.Valid {
+			value := fiveHourStart.Time
+			candidate.fiveHourStartedAt = &value
 		}
 		if cycleQuota.Valid {
 			value := cycleQuota.Decimal
@@ -455,10 +516,15 @@ func listSubscriptionBillingCandidates(
 			value := cycleStart.Time
 			candidate.cycleStartedAt = &value
 		}
-		needsReset := resetSubscriptionBillingCycle(&candidate, now)
+		resetFiveHour := resetSubscriptionBillingFiveHour(&candidate, now)
+		resetCycle := resetSubscriptionBillingCycle(&candidate, now)
 		candidates = append(candidates, candidate)
-		if needsReset {
-			resetIndexes = append(resetIndexes, len(candidates)-1)
+		if resetFiveHour || resetCycle {
+			resetWindows = append(resetWindows, pendingWindowReset{
+				index:         len(candidates) - 1,
+				resetFiveHour: resetFiveHour,
+				resetCycle:    resetCycle,
+			})
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -468,17 +534,42 @@ func listSubscriptionBillingCandidates(
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
-	for _, index := range resetIndexes {
-		candidate := &candidates[index]
+	for _, reset := range resetWindows {
+		candidate := &candidates[reset.index]
 		if _, err := tx.ExecContext(ctx, `
 			UPDATE user_subscriptions
-			SET cycle_started_at = $1, cycle_usage_usd = 0, updated_at = NOW()
-			WHERE id = $2 AND deleted_at IS NULL
-		`, *candidate.cycleStartedAt, candidate.id); err != nil {
+			SET five_hour_started_at = CASE WHEN $1 THEN $2 ELSE five_hour_started_at END,
+				five_hour_usage_usd = CASE WHEN $1 THEN 0 ELSE five_hour_usage_usd END,
+				cycle_started_at = CASE WHEN $3 THEN $4 ELSE cycle_started_at END,
+				cycle_usage_usd = CASE WHEN $3 THEN 0 ELSE cycle_usage_usd END,
+				updated_at = NOW()
+			WHERE id = $5 AND deleted_at IS NULL
+		`, reset.resetFiveHour, candidate.fiveHourStartedAt, reset.resetCycle, candidate.cycleStartedAt, candidate.id); err != nil {
 			return nil, err
 		}
 	}
 	return candidates, nil
+}
+
+func resetSubscriptionBillingFiveHour(candidate *subscriptionBillingCandidate, now time.Time) bool {
+	if candidate == nil {
+		return false
+	}
+	const period = 5 * time.Hour
+	if candidate.fiveHourStartedAt == nil {
+		candidate.fiveHourStartedAt = &now
+		candidate.fiveHourUsageUSD = decimal.Zero
+		return true
+	}
+	start := *candidate.fiveHourStartedAt
+	if now.Before(start.Add(period)) {
+		return false
+	}
+	periods := now.Sub(start) / period
+	start = start.Add(periods * period)
+	candidate.fiveHourStartedAt = &start
+	candidate.fiveHourUsageUSD = decimal.Zero
+	return true
 }
 
 func resetSubscriptionBillingCycle(candidate *subscriptionBillingCandidate, now time.Time) bool {
@@ -505,7 +596,8 @@ func resetSubscriptionBillingCycle(candidate *subscriptionBillingCandidate, now 
 func incrementSelectedUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, amount decimal.Decimal) error {
 	res, err := tx.ExecContext(ctx, `
 		UPDATE user_subscriptions
-			SET cycle_usage_usd = cycle_usage_usd + $1,
+			SET five_hour_usage_usd = five_hour_usage_usd + $1,
+				cycle_usage_usd = cycle_usage_usd + $1,
 				total_usage_usd = total_usage_usd + $1,
 			daily_usage_usd = daily_usage_usd + $1,
 			weekly_usage_usd = weekly_usage_usd + $1,
@@ -560,11 +652,24 @@ func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscrip
 			daily_usage_usd = us.daily_usage_usd + $1,
 			weekly_usage_usd = us.weekly_usage_usd + $1,
 			monthly_usage_usd = us.monthly_usage_usd + $1,
+			five_hour_started_at = CASE
+				WHEN us.five_hour_started_at IS NULL THEN NOW()
+				WHEN NOW() >= us.five_hour_started_at + INTERVAL '5 hours' THEN
+					us.five_hour_started_at + FLOOR(EXTRACT(EPOCH FROM (NOW() - us.five_hour_started_at)) / 18000) * INTERVAL '5 hours'
+				ELSE us.five_hour_started_at
+			END,
+			five_hour_usage_usd = CASE
+				WHEN us.five_hour_started_at IS NULL OR NOW() >= us.five_hour_started_at + INTERVAL '5 hours' THEN $1
+				ELSE us.five_hour_usage_usd + $1
+			END,
 			cycle_started_at = CASE
 				WHEN us.reset_interval_seconds > 0 AND (
 					us.cycle_started_at IS NULL OR
 					NOW() >= us.cycle_started_at + us.reset_interval_seconds * INTERVAL '1 second'
-				) THEN NOW()
+				) THEN CASE
+					WHEN us.cycle_started_at IS NULL THEN NOW()
+					ELSE us.cycle_started_at + FLOOR(EXTRACT(EPOCH FROM (NOW() - us.cycle_started_at)) / us.reset_interval_seconds) * us.reset_interval_seconds * INTERVAL '1 second'
+				END
 				ELSE us.cycle_started_at
 			END,
 				cycle_usage_usd = CASE
@@ -719,10 +824,7 @@ func reserveUsageBillingBatchImageFunding(ctx context.Context, tx *sql.Tx, cmd *
 			if !fallbackAllowed {
 				return nil, service.ErrSubscriptionQuotaExceeded
 			}
-			reason := "subscription_unavailable"
-			if len(candidates) > 0 {
-				reason = "subscription_quota_exhausted"
-			}
+			reason := subscriptionQuotaFallbackReason(candidates, cmd.HoldAmount)
 			err = useWallet(reason)
 		}
 	}
@@ -738,11 +840,17 @@ func reserveUsageBillingBatchImageFunding(ctx context.Context, tx *sql.Tx, cmd *
 func reserveSelectedUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, amount decimal.Decimal) error {
 	res, err := tx.ExecContext(ctx, `
 		UPDATE user_subscriptions
-			SET cycle_reserved_usd = cycle_reserved_usd + $1,
+			SET five_hour_reserved_usd = five_hour_reserved_usd + $1,
+				cycle_reserved_usd = cycle_reserved_usd + $1,
 				total_reserved_usd = total_reserved_usd + $1,
 			updated_at = NOW()
 		WHERE id = $2
 			AND deleted_at IS NULL
+			AND (
+				five_hour_quota_usd IS NULL
+				OR five_hour_quota_usd <= 0
+				OR five_hour_usage_usd + five_hour_reserved_usd + $1 <= five_hour_quota_usd
+			)
 			AND (
 				cycle_quota_usd IS NULL
 				OR cycle_quota_usd <= 0
@@ -847,31 +955,61 @@ func captureUsageBillingBatchImageFunding(ctx context.Context, tx *sql.Tx, cmd *
 }
 
 func captureSelectedUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, reservedAmount, actualAmount decimal.Decimal) error {
+	affected, err := settleSelectedUsageBillingSubscriptionCounters(ctx, tx, subscriptionID, reservedAmount, actualAmount)
+	if err != nil {
+		return err
+	}
+	if !affected {
+		return errors.New("batch image subscription reservation is insufficient")
+	}
+	return nil
+}
+
+func settleSelectedUsageBillingSubscriptionCounters(ctx context.Context, tx *sql.Tx, subscriptionID int64, reservedAmount, actualAmount decimal.Decimal) (bool, error) {
 	res, err := tx.ExecContext(ctx, `
 		UPDATE user_subscriptions
-			SET cycle_reserved_usd = cycle_reserved_usd - $1,
+			SET five_hour_started_at = CASE
+					WHEN five_hour_started_at IS NULL THEN NOW()
+					WHEN NOW() >= five_hour_started_at + INTERVAL '5 hours' THEN
+						five_hour_started_at + FLOOR(EXTRACT(EPOCH FROM (NOW() - five_hour_started_at)) / 18000) * INTERVAL '5 hours'
+					ELSE five_hour_started_at
+				END,
+				five_hour_reserved_usd = five_hour_reserved_usd - $1,
+				five_hour_usage_usd = CASE
+					WHEN five_hour_started_at IS NULL OR NOW() >= five_hour_started_at + INTERVAL '5 hours' THEN $2
+					ELSE five_hour_usage_usd + $2
+				END,
+				cycle_started_at = CASE
+					WHEN reset_interval_seconds > 0 AND cycle_started_at IS NULL THEN NOW()
+					WHEN reset_interval_seconds > 0 AND NOW() >= cycle_started_at + reset_interval_seconds * INTERVAL '1 second' THEN
+						cycle_started_at + FLOOR(EXTRACT(EPOCH FROM (NOW() - cycle_started_at)) / reset_interval_seconds) * reset_interval_seconds * INTERVAL '1 second'
+					ELSE cycle_started_at
+				END,
+				cycle_reserved_usd = cycle_reserved_usd - $1,
+				cycle_usage_usd = CASE
+					WHEN reset_interval_seconds > 0 AND (cycle_started_at IS NULL OR NOW() >= cycle_started_at + reset_interval_seconds * INTERVAL '1 second') THEN $2
+					ELSE cycle_usage_usd + $2
+				END,
 				total_reserved_usd = total_reserved_usd - $1,
-				cycle_usage_usd = cycle_usage_usd + $2,
 				total_usage_usd = total_usage_usd + $2,
 			daily_usage_usd = daily_usage_usd + $2,
 			weekly_usage_usd = weekly_usage_usd + $2,
 			monthly_usage_usd = monthly_usage_usd + $2,
 			updated_at = NOW()
 			WHERE id = $3
+				AND deleted_at IS NULL
+				AND five_hour_reserved_usd >= $1
 				AND cycle_reserved_usd >= $1
 				AND total_reserved_usd >= $1
 	`, reservedAmount, actualAmount, subscriptionID)
 	if err != nil {
-		return err
+		return false, err
 	}
 	affected, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return false, err
 	}
-	if affected == 0 {
-		return errors.New("batch image subscription reservation is insufficient")
-	}
-	return nil
+	return affected > 0, nil
 }
 
 func releaseUsageBillingBatchImageFunding(ctx context.Context, tx *sql.Tx, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
@@ -927,10 +1065,13 @@ func releaseUsageBillingBatchImageFunding(ctx context.Context, tx *sql.Tx, cmd *
 func releaseSelectedUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, reservedAmount decimal.Decimal) error {
 	res, err := tx.ExecContext(ctx, `
 		UPDATE user_subscriptions
-			SET cycle_reserved_usd = cycle_reserved_usd - $1,
+			SET five_hour_reserved_usd = five_hour_reserved_usd - $1,
+				cycle_reserved_usd = cycle_reserved_usd - $1,
 				total_reserved_usd = total_reserved_usd - $1,
 				updated_at = NOW()
 			WHERE id = $2
+				AND deleted_at IS NULL
+				AND five_hour_reserved_usd >= $1
 				AND cycle_reserved_usd >= $1
 				AND total_reserved_usd >= $1
 	`, reservedAmount, subscriptionID)

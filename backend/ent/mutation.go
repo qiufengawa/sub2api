@@ -39568,6 +39568,8 @@ type SubscriptionPlanMutation struct {
 	original_price            *float64
 	addoriginal_price         *float64
 	currency                  *string
+	five_hour_quota_usd       *float64
+	addfive_hour_quota_usd    *float64
 	cycle_quota_usd           *float64
 	addcycle_quota_usd        *float64
 	total_quota_usd           *float64
@@ -39930,6 +39932,76 @@ func (m *SubscriptionPlanMutation) OldCurrency(ctx context.Context) (v string, e
 // ResetCurrency resets all changes to the "currency" field.
 func (m *SubscriptionPlanMutation) ResetCurrency() {
 	m.currency = nil
+}
+
+// SetFiveHourQuotaUsd sets the "five_hour_quota_usd" field.
+func (m *SubscriptionPlanMutation) SetFiveHourQuotaUsd(f float64) {
+	m.five_hour_quota_usd = &f
+	m.addfive_hour_quota_usd = nil
+}
+
+// FiveHourQuotaUsd returns the value of the "five_hour_quota_usd" field in the mutation.
+func (m *SubscriptionPlanMutation) FiveHourQuotaUsd() (r float64, exists bool) {
+	v := m.five_hour_quota_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFiveHourQuotaUsd returns the old "five_hour_quota_usd" field's value of the SubscriptionPlan entity.
+// If the SubscriptionPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionPlanMutation) OldFiveHourQuotaUsd(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFiveHourQuotaUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFiveHourQuotaUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFiveHourQuotaUsd: %w", err)
+	}
+	return oldValue.FiveHourQuotaUsd, nil
+}
+
+// AddFiveHourQuotaUsd adds f to the "five_hour_quota_usd" field.
+func (m *SubscriptionPlanMutation) AddFiveHourQuotaUsd(f float64) {
+	if m.addfive_hour_quota_usd != nil {
+		*m.addfive_hour_quota_usd += f
+	} else {
+		m.addfive_hour_quota_usd = &f
+	}
+}
+
+// AddedFiveHourQuotaUsd returns the value that was added to the "five_hour_quota_usd" field in this mutation.
+func (m *SubscriptionPlanMutation) AddedFiveHourQuotaUsd() (r float64, exists bool) {
+	v := m.addfive_hour_quota_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearFiveHourQuotaUsd clears the value of the "five_hour_quota_usd" field.
+func (m *SubscriptionPlanMutation) ClearFiveHourQuotaUsd() {
+	m.five_hour_quota_usd = nil
+	m.addfive_hour_quota_usd = nil
+	m.clearedFields[subscriptionplan.FieldFiveHourQuotaUsd] = struct{}{}
+}
+
+// FiveHourQuotaUsdCleared returns if the "five_hour_quota_usd" field was cleared in this mutation.
+func (m *SubscriptionPlanMutation) FiveHourQuotaUsdCleared() bool {
+	_, ok := m.clearedFields[subscriptionplan.FieldFiveHourQuotaUsd]
+	return ok
+}
+
+// ResetFiveHourQuotaUsd resets all changes to the "five_hour_quota_usd" field.
+func (m *SubscriptionPlanMutation) ResetFiveHourQuotaUsd() {
+	m.five_hour_quota_usd = nil
+	m.addfive_hour_quota_usd = nil
+	delete(m.clearedFields, subscriptionplan.FieldFiveHourQuotaUsd)
 }
 
 // SetCycleQuotaUsd sets the "cycle_quota_usd" field.
@@ -40688,7 +40760,7 @@ func (m *SubscriptionPlanMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SubscriptionPlanMutation) Fields() []string {
-	fields := make([]string, 0, 17)
+	fields := make([]string, 0, 18)
 	if m.name != nil {
 		fields = append(fields, subscriptionplan.FieldName)
 	}
@@ -40703,6 +40775,9 @@ func (m *SubscriptionPlanMutation) Fields() []string {
 	}
 	if m.currency != nil {
 		fields = append(fields, subscriptionplan.FieldCurrency)
+	}
+	if m.five_hour_quota_usd != nil {
+		fields = append(fields, subscriptionplan.FieldFiveHourQuotaUsd)
 	}
 	if m.cycle_quota_usd != nil {
 		fields = append(fields, subscriptionplan.FieldCycleQuotaUsd)
@@ -40758,6 +40833,8 @@ func (m *SubscriptionPlanMutation) Field(name string) (ent.Value, bool) {
 		return m.OriginalPrice()
 	case subscriptionplan.FieldCurrency:
 		return m.Currency()
+	case subscriptionplan.FieldFiveHourQuotaUsd:
+		return m.FiveHourQuotaUsd()
 	case subscriptionplan.FieldCycleQuotaUsd:
 		return m.CycleQuotaUsd()
 	case subscriptionplan.FieldTotalQuotaUsd:
@@ -40801,6 +40878,8 @@ func (m *SubscriptionPlanMutation) OldField(ctx context.Context, name string) (e
 		return m.OldOriginalPrice(ctx)
 	case subscriptionplan.FieldCurrency:
 		return m.OldCurrency(ctx)
+	case subscriptionplan.FieldFiveHourQuotaUsd:
+		return m.OldFiveHourQuotaUsd(ctx)
 	case subscriptionplan.FieldCycleQuotaUsd:
 		return m.OldCycleQuotaUsd(ctx)
 	case subscriptionplan.FieldTotalQuotaUsd:
@@ -40868,6 +40947,13 @@ func (m *SubscriptionPlanMutation) SetField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCurrency(v)
+		return nil
+	case subscriptionplan.FieldFiveHourQuotaUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFiveHourQuotaUsd(v)
 		return nil
 	case subscriptionplan.FieldCycleQuotaUsd:
 		v, ok := value.(float64)
@@ -40967,6 +41053,9 @@ func (m *SubscriptionPlanMutation) AddedFields() []string {
 	if m.addoriginal_price != nil {
 		fields = append(fields, subscriptionplan.FieldOriginalPrice)
 	}
+	if m.addfive_hour_quota_usd != nil {
+		fields = append(fields, subscriptionplan.FieldFiveHourQuotaUsd)
+	}
 	if m.addcycle_quota_usd != nil {
 		fields = append(fields, subscriptionplan.FieldCycleQuotaUsd)
 	}
@@ -40994,6 +41083,8 @@ func (m *SubscriptionPlanMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedPrice()
 	case subscriptionplan.FieldOriginalPrice:
 		return m.AddedOriginalPrice()
+	case subscriptionplan.FieldFiveHourQuotaUsd:
+		return m.AddedFiveHourQuotaUsd()
 	case subscriptionplan.FieldCycleQuotaUsd:
 		return m.AddedCycleQuotaUsd()
 	case subscriptionplan.FieldTotalQuotaUsd:
@@ -41026,6 +41117,13 @@ func (m *SubscriptionPlanMutation) AddField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddOriginalPrice(v)
+		return nil
+	case subscriptionplan.FieldFiveHourQuotaUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFiveHourQuotaUsd(v)
 		return nil
 	case subscriptionplan.FieldCycleQuotaUsd:
 		v, ok := value.(float64)
@@ -41073,6 +41171,9 @@ func (m *SubscriptionPlanMutation) ClearedFields() []string {
 	if m.FieldCleared(subscriptionplan.FieldOriginalPrice) {
 		fields = append(fields, subscriptionplan.FieldOriginalPrice)
 	}
+	if m.FieldCleared(subscriptionplan.FieldFiveHourQuotaUsd) {
+		fields = append(fields, subscriptionplan.FieldFiveHourQuotaUsd)
+	}
 	if m.FieldCleared(subscriptionplan.FieldCycleQuotaUsd) {
 		fields = append(fields, subscriptionplan.FieldCycleQuotaUsd)
 	}
@@ -41095,6 +41196,9 @@ func (m *SubscriptionPlanMutation) ClearField(name string) error {
 	switch name {
 	case subscriptionplan.FieldOriginalPrice:
 		m.ClearOriginalPrice()
+		return nil
+	case subscriptionplan.FieldFiveHourQuotaUsd:
+		m.ClearFiveHourQuotaUsd()
 		return nil
 	case subscriptionplan.FieldCycleQuotaUsd:
 		m.ClearCycleQuotaUsd()
@@ -41124,6 +41228,9 @@ func (m *SubscriptionPlanMutation) ResetField(name string) error {
 		return nil
 	case subscriptionplan.FieldCurrency:
 		m.ResetCurrency()
+		return nil
+	case subscriptionplan.FieldFiveHourQuotaUsd:
+		m.ResetFiveHourQuotaUsd()
 		return nil
 	case subscriptionplan.FieldCycleQuotaUsd:
 		m.ResetCycleQuotaUsd()
@@ -55088,6 +55195,13 @@ type UserSubscriptionMutation struct {
 	addweekly_usage_usd       *float64
 	monthly_usage_usd         *float64
 	addmonthly_usage_usd      *float64
+	five_hour_quota_usd       *float64
+	addfive_hour_quota_usd    *float64
+	five_hour_started_at      *time.Time
+	five_hour_usage_usd       *float64
+	addfive_hour_usage_usd    *float64
+	five_hour_reserved_usd    *float64
+	addfive_hour_reserved_usd *float64
 	cycle_quota_usd           *float64
 	addcycle_quota_usd        *float64
 	reset_interval_seconds    *int
@@ -55833,6 +55947,237 @@ func (m *UserSubscriptionMutation) AddedMonthlyUsageUsd() (r float64, exists boo
 func (m *UserSubscriptionMutation) ResetMonthlyUsageUsd() {
 	m.monthly_usage_usd = nil
 	m.addmonthly_usage_usd = nil
+}
+
+// SetFiveHourQuotaUsd sets the "five_hour_quota_usd" field.
+func (m *UserSubscriptionMutation) SetFiveHourQuotaUsd(f float64) {
+	m.five_hour_quota_usd = &f
+	m.addfive_hour_quota_usd = nil
+}
+
+// FiveHourQuotaUsd returns the value of the "five_hour_quota_usd" field in the mutation.
+func (m *UserSubscriptionMutation) FiveHourQuotaUsd() (r float64, exists bool) {
+	v := m.five_hour_quota_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFiveHourQuotaUsd returns the old "five_hour_quota_usd" field's value of the UserSubscription entity.
+// If the UserSubscription object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserSubscriptionMutation) OldFiveHourQuotaUsd(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFiveHourQuotaUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFiveHourQuotaUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFiveHourQuotaUsd: %w", err)
+	}
+	return oldValue.FiveHourQuotaUsd, nil
+}
+
+// AddFiveHourQuotaUsd adds f to the "five_hour_quota_usd" field.
+func (m *UserSubscriptionMutation) AddFiveHourQuotaUsd(f float64) {
+	if m.addfive_hour_quota_usd != nil {
+		*m.addfive_hour_quota_usd += f
+	} else {
+		m.addfive_hour_quota_usd = &f
+	}
+}
+
+// AddedFiveHourQuotaUsd returns the value that was added to the "five_hour_quota_usd" field in this mutation.
+func (m *UserSubscriptionMutation) AddedFiveHourQuotaUsd() (r float64, exists bool) {
+	v := m.addfive_hour_quota_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearFiveHourQuotaUsd clears the value of the "five_hour_quota_usd" field.
+func (m *UserSubscriptionMutation) ClearFiveHourQuotaUsd() {
+	m.five_hour_quota_usd = nil
+	m.addfive_hour_quota_usd = nil
+	m.clearedFields[usersubscription.FieldFiveHourQuotaUsd] = struct{}{}
+}
+
+// FiveHourQuotaUsdCleared returns if the "five_hour_quota_usd" field was cleared in this mutation.
+func (m *UserSubscriptionMutation) FiveHourQuotaUsdCleared() bool {
+	_, ok := m.clearedFields[usersubscription.FieldFiveHourQuotaUsd]
+	return ok
+}
+
+// ResetFiveHourQuotaUsd resets all changes to the "five_hour_quota_usd" field.
+func (m *UserSubscriptionMutation) ResetFiveHourQuotaUsd() {
+	m.five_hour_quota_usd = nil
+	m.addfive_hour_quota_usd = nil
+	delete(m.clearedFields, usersubscription.FieldFiveHourQuotaUsd)
+}
+
+// SetFiveHourStartedAt sets the "five_hour_started_at" field.
+func (m *UserSubscriptionMutation) SetFiveHourStartedAt(t time.Time) {
+	m.five_hour_started_at = &t
+}
+
+// FiveHourStartedAt returns the value of the "five_hour_started_at" field in the mutation.
+func (m *UserSubscriptionMutation) FiveHourStartedAt() (r time.Time, exists bool) {
+	v := m.five_hour_started_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFiveHourStartedAt returns the old "five_hour_started_at" field's value of the UserSubscription entity.
+// If the UserSubscription object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserSubscriptionMutation) OldFiveHourStartedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFiveHourStartedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFiveHourStartedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFiveHourStartedAt: %w", err)
+	}
+	return oldValue.FiveHourStartedAt, nil
+}
+
+// ClearFiveHourStartedAt clears the value of the "five_hour_started_at" field.
+func (m *UserSubscriptionMutation) ClearFiveHourStartedAt() {
+	m.five_hour_started_at = nil
+	m.clearedFields[usersubscription.FieldFiveHourStartedAt] = struct{}{}
+}
+
+// FiveHourStartedAtCleared returns if the "five_hour_started_at" field was cleared in this mutation.
+func (m *UserSubscriptionMutation) FiveHourStartedAtCleared() bool {
+	_, ok := m.clearedFields[usersubscription.FieldFiveHourStartedAt]
+	return ok
+}
+
+// ResetFiveHourStartedAt resets all changes to the "five_hour_started_at" field.
+func (m *UserSubscriptionMutation) ResetFiveHourStartedAt() {
+	m.five_hour_started_at = nil
+	delete(m.clearedFields, usersubscription.FieldFiveHourStartedAt)
+}
+
+// SetFiveHourUsageUsd sets the "five_hour_usage_usd" field.
+func (m *UserSubscriptionMutation) SetFiveHourUsageUsd(f float64) {
+	m.five_hour_usage_usd = &f
+	m.addfive_hour_usage_usd = nil
+}
+
+// FiveHourUsageUsd returns the value of the "five_hour_usage_usd" field in the mutation.
+func (m *UserSubscriptionMutation) FiveHourUsageUsd() (r float64, exists bool) {
+	v := m.five_hour_usage_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFiveHourUsageUsd returns the old "five_hour_usage_usd" field's value of the UserSubscription entity.
+// If the UserSubscription object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserSubscriptionMutation) OldFiveHourUsageUsd(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFiveHourUsageUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFiveHourUsageUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFiveHourUsageUsd: %w", err)
+	}
+	return oldValue.FiveHourUsageUsd, nil
+}
+
+// AddFiveHourUsageUsd adds f to the "five_hour_usage_usd" field.
+func (m *UserSubscriptionMutation) AddFiveHourUsageUsd(f float64) {
+	if m.addfive_hour_usage_usd != nil {
+		*m.addfive_hour_usage_usd += f
+	} else {
+		m.addfive_hour_usage_usd = &f
+	}
+}
+
+// AddedFiveHourUsageUsd returns the value that was added to the "five_hour_usage_usd" field in this mutation.
+func (m *UserSubscriptionMutation) AddedFiveHourUsageUsd() (r float64, exists bool) {
+	v := m.addfive_hour_usage_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetFiveHourUsageUsd resets all changes to the "five_hour_usage_usd" field.
+func (m *UserSubscriptionMutation) ResetFiveHourUsageUsd() {
+	m.five_hour_usage_usd = nil
+	m.addfive_hour_usage_usd = nil
+}
+
+// SetFiveHourReservedUsd sets the "five_hour_reserved_usd" field.
+func (m *UserSubscriptionMutation) SetFiveHourReservedUsd(f float64) {
+	m.five_hour_reserved_usd = &f
+	m.addfive_hour_reserved_usd = nil
+}
+
+// FiveHourReservedUsd returns the value of the "five_hour_reserved_usd" field in the mutation.
+func (m *UserSubscriptionMutation) FiveHourReservedUsd() (r float64, exists bool) {
+	v := m.five_hour_reserved_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFiveHourReservedUsd returns the old "five_hour_reserved_usd" field's value of the UserSubscription entity.
+// If the UserSubscription object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserSubscriptionMutation) OldFiveHourReservedUsd(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFiveHourReservedUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFiveHourReservedUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFiveHourReservedUsd: %w", err)
+	}
+	return oldValue.FiveHourReservedUsd, nil
+}
+
+// AddFiveHourReservedUsd adds f to the "five_hour_reserved_usd" field.
+func (m *UserSubscriptionMutation) AddFiveHourReservedUsd(f float64) {
+	if m.addfive_hour_reserved_usd != nil {
+		*m.addfive_hour_reserved_usd += f
+	} else {
+		m.addfive_hour_reserved_usd = &f
+	}
+}
+
+// AddedFiveHourReservedUsd returns the value that was added to the "five_hour_reserved_usd" field in this mutation.
+func (m *UserSubscriptionMutation) AddedFiveHourReservedUsd() (r float64, exists bool) {
+	v := m.addfive_hour_reserved_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetFiveHourReservedUsd resets all changes to the "five_hour_reserved_usd" field.
+func (m *UserSubscriptionMutation) ResetFiveHourReservedUsd() {
+	m.five_hour_reserved_usd = nil
+	m.addfive_hour_reserved_usd = nil
 }
 
 // SetCycleQuotaUsd sets the "cycle_quota_usd" field.
@@ -56656,7 +57001,7 @@ func (m *UserSubscriptionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserSubscriptionMutation) Fields() []string {
-	fields := make([]string, 0, 26)
+	fields := make([]string, 0, 30)
 	if m.created_at != nil {
 		fields = append(fields, usersubscription.FieldCreatedAt)
 	}
@@ -56698,6 +57043,18 @@ func (m *UserSubscriptionMutation) Fields() []string {
 	}
 	if m.monthly_usage_usd != nil {
 		fields = append(fields, usersubscription.FieldMonthlyUsageUsd)
+	}
+	if m.five_hour_quota_usd != nil {
+		fields = append(fields, usersubscription.FieldFiveHourQuotaUsd)
+	}
+	if m.five_hour_started_at != nil {
+		fields = append(fields, usersubscription.FieldFiveHourStartedAt)
+	}
+	if m.five_hour_usage_usd != nil {
+		fields = append(fields, usersubscription.FieldFiveHourUsageUsd)
+	}
+	if m.five_hour_reserved_usd != nil {
+		fields = append(fields, usersubscription.FieldFiveHourReservedUsd)
 	}
 	if m.cycle_quota_usd != nil {
 		fields = append(fields, usersubscription.FieldCycleQuotaUsd)
@@ -56771,6 +57128,14 @@ func (m *UserSubscriptionMutation) Field(name string) (ent.Value, bool) {
 		return m.WeeklyUsageUsd()
 	case usersubscription.FieldMonthlyUsageUsd:
 		return m.MonthlyUsageUsd()
+	case usersubscription.FieldFiveHourQuotaUsd:
+		return m.FiveHourQuotaUsd()
+	case usersubscription.FieldFiveHourStartedAt:
+		return m.FiveHourStartedAt()
+	case usersubscription.FieldFiveHourUsageUsd:
+		return m.FiveHourUsageUsd()
+	case usersubscription.FieldFiveHourReservedUsd:
+		return m.FiveHourReservedUsd()
 	case usersubscription.FieldCycleQuotaUsd:
 		return m.CycleQuotaUsd()
 	case usersubscription.FieldResetIntervalSeconds:
@@ -56832,6 +57197,14 @@ func (m *UserSubscriptionMutation) OldField(ctx context.Context, name string) (e
 		return m.OldWeeklyUsageUsd(ctx)
 	case usersubscription.FieldMonthlyUsageUsd:
 		return m.OldMonthlyUsageUsd(ctx)
+	case usersubscription.FieldFiveHourQuotaUsd:
+		return m.OldFiveHourQuotaUsd(ctx)
+	case usersubscription.FieldFiveHourStartedAt:
+		return m.OldFiveHourStartedAt(ctx)
+	case usersubscription.FieldFiveHourUsageUsd:
+		return m.OldFiveHourUsageUsd(ctx)
+	case usersubscription.FieldFiveHourReservedUsd:
+		return m.OldFiveHourReservedUsd(ctx)
 	case usersubscription.FieldCycleQuotaUsd:
 		return m.OldCycleQuotaUsd(ctx)
 	case usersubscription.FieldResetIntervalSeconds:
@@ -56963,6 +57336,34 @@ func (m *UserSubscriptionMutation) SetField(name string, value ent.Value) error 
 		}
 		m.SetMonthlyUsageUsd(v)
 		return nil
+	case usersubscription.FieldFiveHourQuotaUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFiveHourQuotaUsd(v)
+		return nil
+	case usersubscription.FieldFiveHourStartedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFiveHourStartedAt(v)
+		return nil
+	case usersubscription.FieldFiveHourUsageUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFiveHourUsageUsd(v)
+		return nil
+	case usersubscription.FieldFiveHourReservedUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFiveHourReservedUsd(v)
+		return nil
 	case usersubscription.FieldCycleQuotaUsd:
 		v, ok := value.(float64)
 		if !ok {
@@ -57064,6 +57465,15 @@ func (m *UserSubscriptionMutation) AddedFields() []string {
 	if m.addmonthly_usage_usd != nil {
 		fields = append(fields, usersubscription.FieldMonthlyUsageUsd)
 	}
+	if m.addfive_hour_quota_usd != nil {
+		fields = append(fields, usersubscription.FieldFiveHourQuotaUsd)
+	}
+	if m.addfive_hour_usage_usd != nil {
+		fields = append(fields, usersubscription.FieldFiveHourUsageUsd)
+	}
+	if m.addfive_hour_reserved_usd != nil {
+		fields = append(fields, usersubscription.FieldFiveHourReservedUsd)
+	}
 	if m.addcycle_quota_usd != nil {
 		fields = append(fields, usersubscription.FieldCycleQuotaUsd)
 	}
@@ -57099,6 +57509,12 @@ func (m *UserSubscriptionMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedWeeklyUsageUsd()
 	case usersubscription.FieldMonthlyUsageUsd:
 		return m.AddedMonthlyUsageUsd()
+	case usersubscription.FieldFiveHourQuotaUsd:
+		return m.AddedFiveHourQuotaUsd()
+	case usersubscription.FieldFiveHourUsageUsd:
+		return m.AddedFiveHourUsageUsd()
+	case usersubscription.FieldFiveHourReservedUsd:
+		return m.AddedFiveHourReservedUsd()
 	case usersubscription.FieldCycleQuotaUsd:
 		return m.AddedCycleQuotaUsd()
 	case usersubscription.FieldResetIntervalSeconds:
@@ -57142,6 +57558,27 @@ func (m *UserSubscriptionMutation) AddField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddMonthlyUsageUsd(v)
+		return nil
+	case usersubscription.FieldFiveHourQuotaUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFiveHourQuotaUsd(v)
+		return nil
+	case usersubscription.FieldFiveHourUsageUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFiveHourUsageUsd(v)
+		return nil
+	case usersubscription.FieldFiveHourReservedUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFiveHourReservedUsd(v)
 		return nil
 	case usersubscription.FieldCycleQuotaUsd:
 		v, ok := value.(float64)
@@ -57212,6 +57649,12 @@ func (m *UserSubscriptionMutation) ClearedFields() []string {
 	if m.FieldCleared(usersubscription.FieldMonthlyWindowStart) {
 		fields = append(fields, usersubscription.FieldMonthlyWindowStart)
 	}
+	if m.FieldCleared(usersubscription.FieldFiveHourQuotaUsd) {
+		fields = append(fields, usersubscription.FieldFiveHourQuotaUsd)
+	}
+	if m.FieldCleared(usersubscription.FieldFiveHourStartedAt) {
+		fields = append(fields, usersubscription.FieldFiveHourStartedAt)
+	}
 	if m.FieldCleared(usersubscription.FieldCycleQuotaUsd) {
 		fields = append(fields, usersubscription.FieldCycleQuotaUsd)
 	}
@@ -57252,6 +57695,12 @@ func (m *UserSubscriptionMutation) ClearField(name string) error {
 		return nil
 	case usersubscription.FieldMonthlyWindowStart:
 		m.ClearMonthlyWindowStart()
+		return nil
+	case usersubscription.FieldFiveHourQuotaUsd:
+		m.ClearFiveHourQuotaUsd()
+		return nil
+	case usersubscription.FieldFiveHourStartedAt:
+		m.ClearFiveHourStartedAt()
 		return nil
 	case usersubscription.FieldCycleQuotaUsd:
 		m.ClearCycleQuotaUsd()
@@ -57317,6 +57766,18 @@ func (m *UserSubscriptionMutation) ResetField(name string) error {
 		return nil
 	case usersubscription.FieldMonthlyUsageUsd:
 		m.ResetMonthlyUsageUsd()
+		return nil
+	case usersubscription.FieldFiveHourQuotaUsd:
+		m.ResetFiveHourQuotaUsd()
+		return nil
+	case usersubscription.FieldFiveHourStartedAt:
+		m.ResetFiveHourStartedAt()
+		return nil
+	case usersubscription.FieldFiveHourUsageUsd:
+		m.ResetFiveHourUsageUsd()
+		return nil
+	case usersubscription.FieldFiveHourReservedUsd:
+		m.ResetFiveHourReservedUsd()
 		return nil
 	case usersubscription.FieldCycleQuotaUsd:
 		m.ResetCycleQuotaUsd()

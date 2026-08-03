@@ -318,7 +318,7 @@ import {
   type RemainingDurationParts
 } from '@/utils/subscriptionQuota'
 
-type QuotaPeriod = 'cycle' | 'total' | 'daily' | 'weekly' | 'monthly'
+type QuotaPeriod = 'fiveHour' | 'cycle' | 'total' | 'daily' | 'weekly' | 'monthly'
 
 interface QuotaItem {
   period: QuotaPeriod
@@ -496,6 +496,22 @@ function statusDotClass(status: UserSubscription['status']): string {
 
 function quotaItems(subscription: UserSubscription): QuotaItem[] {
   const items: QuotaItem[] = []
+  const hasFiveHourQuota = subscription.five_hour_quota_usd != null && subscription.five_hour_quota_usd > 0
+  if (hasFiveHourQuota) {
+	const used = Number(subscription.five_hour_usage_usd) || 0
+	const reserved = Math.max(Number(subscription.five_hour_reserved_usd) || 0, 0)
+	const limit = Number(subscription.five_hour_quota_usd)
+	items.push({
+	  period: 'fiveHour',
+	  label: t('userSubscriptions.fiveHourQuota'),
+	  used,
+	  reserved,
+	  limit,
+	  percentage: ((used + reserved) / limit) * 100,
+	  resetLabel: formatWindowReset(subscription.five_hour_started_at, 18000, subscription.expires_at),
+	  showReserved: true,
+	})
+  }
   const hasCycleQuota = subscription.cycle_quota_usd != null && subscription.cycle_quota_usd > 0
   if (hasCycleQuota) {
     const used = Number(subscription.cycle_usage_usd) || 0
@@ -509,7 +525,7 @@ function quotaItems(subscription: UserSubscription): QuotaItem[] {
       limit,
       percentage: ((used + reserved) / limit) * 100,
       resetLabel: formatCycleReset(subscription),
-      showReserved: true,
+	  showReserved: !hasFiveHourQuota,
     })
   }
 
@@ -527,7 +543,7 @@ function quotaItems(subscription: UserSubscription): QuotaItem[] {
       resetLabel: subscription.expires_at
         ? t('userSubscriptions.expiresOn', { date: formatExpirationExactDate(subscription.expires_at) })
         : t('userSubscriptions.noExpiration'),
-      showReserved: !hasCycleQuota,
+	  showReserved: !hasFiveHourQuota && !hasCycleQuota,
     })
   }
 
@@ -535,11 +551,23 @@ function quotaItems(subscription: UserSubscription): QuotaItem[] {
 }
 
 function formatCycleReset(subscription: UserSubscription): string {
-  const startedAt = subscription.cycle_started_at
   const intervalSeconds = Number(subscription.reset_interval_seconds) || 0
-  if (!startedAt || intervalSeconds <= 0) return t('userSubscriptions.windowNotActive')
-  const resetAt = new Date(startedAt).getTime() + intervalSeconds * 1000
-  const remainingSeconds = Math.max(0, Math.ceil((resetAt - Date.now()) / 1000))
+	return formatWindowReset(subscription.cycle_started_at, intervalSeconds, subscription.expires_at)
+}
+
+function formatWindowReset(startedAt: string | null | undefined, intervalSeconds: number, expiresAt: string | null): string {
+	if (!startedAt || intervalSeconds <= 0) return t('userSubscriptions.windowNotActive')
+	const start = new Date(startedAt).getTime()
+	if (!Number.isFinite(start)) return t('userSubscriptions.windowNotActive')
+	const now = Date.now()
+	const intervalMilliseconds = intervalSeconds * 1000
+	const completedWindows = Math.max(0, Math.floor((now - start) / intervalMilliseconds))
+	let resetAt = start + (completedWindows + 1) * intervalMilliseconds
+	if (expiresAt) {
+	  const expiry = new Date(expiresAt).getTime()
+	  if (Number.isFinite(expiry)) resetAt = Math.min(resetAt, expiry)
+	}
+	const remainingSeconds = Math.max(0, Math.ceil((resetAt - now) / 1000))
   const days = Math.floor(remainingSeconds / 86400)
   const hours = Math.floor((remainingSeconds % 86400) / 3600)
   const minutes = Math.floor((remainingSeconds % 3600) / 60)

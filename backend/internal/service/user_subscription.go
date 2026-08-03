@@ -2,7 +2,10 @@ package service
 
 import "time"
 
-const subscriptionDayDuration = 24 * time.Hour
+const (
+	subscriptionDayDuration      = 24 * time.Hour
+	subscriptionFiveHourDuration = 5 * time.Hour
+)
 
 type UserSubscription struct {
 	ID       int64
@@ -22,6 +25,10 @@ type UserSubscription struct {
 	WeeklyUsageUSD  float64
 	MonthlyUsageUSD float64
 
+	FiveHourQuotaUSD      *float64
+	FiveHourStartedAt     *time.Time
+	FiveHourUsageUSD      float64
+	FiveHourReservedUSD   float64
 	CycleQuotaUSD         *float64
 	ResetIntervalSeconds  int
 	CycleStartedAt        *time.Time
@@ -59,6 +66,51 @@ func (s *UserSubscription) CoversGroup(groupID int64) bool {
 
 func (s *UserSubscription) HasCycleQuota() bool {
 	return s != nil && s.CycleQuotaUSD != nil && *s.CycleQuotaUSD > 0
+}
+
+func (s *UserSubscription) HasFiveHourQuota() bool {
+	return s != nil && s.FiveHourQuotaUSD != nil && *s.FiveHourQuotaUSD > 0
+}
+
+func (s *UserSubscription) FiveHourResetTimeAt(now time.Time) *time.Time {
+	if s == nil || s.FiveHourStartedAt == nil {
+		return nil
+	}
+	start := *s.FiveHourStartedAt
+	if !now.Before(start.Add(subscriptionFiveHourDuration)) {
+		periods := now.Sub(start) / subscriptionFiveHourDuration
+		start = start.Add(periods * subscriptionFiveHourDuration)
+	}
+	reset := start.Add(subscriptionFiveHourDuration)
+	if reset.After(s.ExpiresAt) {
+		reset = s.ExpiresAt
+	}
+	return &reset
+}
+
+func (s *UserSubscription) FiveHourUsageAt(now time.Time) float64 {
+	if s == nil || s.FiveHourStartedAt == nil {
+		return s.FiveHourUsageUSD
+	}
+	if !now.Before(s.FiveHourStartedAt.Add(subscriptionFiveHourDuration)) {
+		return 0
+	}
+	return s.FiveHourUsageUSD
+}
+
+func (s *UserSubscription) CheckFiveHourLimitAt(now time.Time, additionalCost float64) bool {
+	if !s.HasFiveHourQuota() {
+		return true
+	}
+	reserved := s.FiveHourReservedUSD
+	if reserved < 0 {
+		reserved = 0
+	}
+	committed := s.FiveHourUsageAt(now) + reserved
+	if additionalCost <= 0 {
+		return committed < *s.FiveHourQuotaUSD
+	}
+	return committed+additionalCost <= *s.FiveHourQuotaUSD
 }
 
 func (s *UserSubscription) HasTotalQuota() bool {
@@ -123,7 +175,9 @@ func (s *UserSubscription) CheckTotalLimit(additionalCost float64) bool {
 }
 
 func (s *UserSubscription) CheckQuotaLimitsAt(now time.Time, additionalCost float64) bool {
-	return s.CheckCycleLimitAt(now, additionalCost) && s.CheckTotalLimit(additionalCost)
+	return s.CheckFiveHourLimitAt(now, additionalCost) &&
+		s.CheckCycleLimitAt(now, additionalCost) &&
+		s.CheckTotalLimit(additionalCost)
 }
 
 func (s *UserSubscription) IsActive() bool {

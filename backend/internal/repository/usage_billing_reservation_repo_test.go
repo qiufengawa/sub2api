@@ -23,7 +23,8 @@ func newUsageBillingReservationRows() *sqlmock.Rows {
 
 func reservationSubscriptionBillingCandidateRows() *sqlmock.Rows {
 	return sqlmock.NewRows([]string{
-		"id", "expires_at", "cycle_quota_usd", "reset_interval_seconds", "cycle_started_at",
+		"id", "expires_at", "five_hour_quota_usd", "five_hour_started_at", "five_hour_usage_usd", "five_hour_reserved_usd",
+		"cycle_quota_usd", "reset_interval_seconds", "cycle_started_at",
 		"cycle_usage_usd", "cycle_reserved_usd", "total_quota_usd", "total_usage_usd",
 		"total_reserved_usd", "wallet_fallback_enabled",
 	})
@@ -99,8 +100,8 @@ func TestRebindRequestBilling_ReleasesOldWalletAndReservesDestinationSubscriptio
 	mock.ExpectQuery(`(?s)SELECT.*FROM user_subscriptions us.*FOR UPDATE OF us`).
 		WithArgs(int64(42), newGroupID, sqlmock.AnyArg()).
 		WillReturnRows(reservationSubscriptionBillingCandidateRows().
-			AddRow(int64(91), time.Now().Add(24*time.Hour), 10, 604800, time.Now(), 1, 0, 12, 9, 0, true))
-	mock.ExpectExec(`(?s)UPDATE user_subscriptions.*cycle_reserved_usd = cycle_reserved_usd \+ \$1`).
+			AddRow(int64(91), time.Now().Add(24*time.Hour), nil, time.Now(), 0, 0, 10, 604800, time.Now(), 1, 0, 12, 9, 0, true))
+	mock.ExpectExec(`(?s)UPDATE user_subscriptions.*five_hour_reserved_usd = five_hour_reserved_usd \+ \$1.*cycle_reserved_usd = cycle_reserved_usd \+ \$1`).
 		WithArgs(newAmount, int64(91)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(`(?s)UPDATE billing_reservations.*request_fingerprint = \$1.*group_id = \$3.*lease_expires_at`).
@@ -255,7 +256,7 @@ func TestApply_SettlesPendingSubscriptionAboveReservedQuota(t *testing.T) {
 			subscriptionID, service.BillingSourceSubscription, service.BillingPreferenceSubscriptionOnly, nil,
 			reserved, decimal.Zero, usageBillingReservationPending, "owner-settle",
 		))
-	mock.ExpectExec(`(?s)^\s*UPDATE user_subscriptions\s+SET cycle_reserved_usd = cycle_reserved_usd - \$1,\s+total_reserved_usd = total_reserved_usd - \$1,\s+cycle_usage_usd = cycle_usage_usd \+ \$2,\s+total_usage_usd = total_usage_usd \+ \$2,\s+daily_usage_usd = daily_usage_usd \+ \$2,\s+weekly_usage_usd = weekly_usage_usd \+ \$2,\s+monthly_usage_usd = monthly_usage_usd \+ \$2,\s+updated_at = NOW\(\)\s+WHERE id = \$3\s+AND deleted_at IS NULL\s+AND cycle_reserved_usd >= \$1\s+AND total_reserved_usd >= \$1\s*$`).
+	mock.ExpectExec(`(?s)^\s*UPDATE user_subscriptions\s+SET five_hour_started_at = CASE.*five_hour_reserved_usd = five_hour_reserved_usd - \$1.*five_hour_usage_usd = CASE.*cycle_started_at = CASE.*cycle_reserved_usd = cycle_reserved_usd - \$1.*total_reserved_usd = total_reserved_usd - \$1.*total_usage_usd = total_usage_usd \+ \$2.*WHERE id = \$3.*AND five_hour_reserved_usd >= \$1.*AND cycle_reserved_usd >= \$1.*AND total_reserved_usd >= \$1\s*$`).
 		WithArgs(reserved, actual, subscriptionID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(`(?s)UPDATE billing_reservations.*final_amount = \$1.*status = 'settled'.*lease_expires_at = NULL`).

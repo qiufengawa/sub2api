@@ -250,6 +250,95 @@ func (_u *UserSubscriptionUpdate) AddMonthlyUsageUsd(v float64) *UserSubscriptio
 	return _u
 }
 
+// SetFiveHourQuotaUsd sets the "five_hour_quota_usd" field.
+func (_u *UserSubscriptionUpdate) SetFiveHourQuotaUsd(v float64) *UserSubscriptionUpdate {
+	_u.mutation.ResetFiveHourQuotaUsd()
+	_u.mutation.SetFiveHourQuotaUsd(v)
+	return _u
+}
+
+// SetNillableFiveHourQuotaUsd sets the "five_hour_quota_usd" field if the given value is not nil.
+func (_u *UserSubscriptionUpdate) SetNillableFiveHourQuotaUsd(v *float64) *UserSubscriptionUpdate {
+	if v != nil {
+		_u.SetFiveHourQuotaUsd(*v)
+	}
+	return _u
+}
+
+// AddFiveHourQuotaUsd adds value to the "five_hour_quota_usd" field.
+func (_u *UserSubscriptionUpdate) AddFiveHourQuotaUsd(v float64) *UserSubscriptionUpdate {
+	_u.mutation.AddFiveHourQuotaUsd(v)
+	return _u
+}
+
+// ClearFiveHourQuotaUsd clears the value of the "five_hour_quota_usd" field.
+func (_u *UserSubscriptionUpdate) ClearFiveHourQuotaUsd() *UserSubscriptionUpdate {
+	_u.mutation.ClearFiveHourQuotaUsd()
+	return _u
+}
+
+// SetFiveHourStartedAt sets the "five_hour_started_at" field.
+func (_u *UserSubscriptionUpdate) SetFiveHourStartedAt(v time.Time) *UserSubscriptionUpdate {
+	_u.mutation.SetFiveHourStartedAt(v)
+	return _u
+}
+
+// SetNillableFiveHourStartedAt sets the "five_hour_started_at" field if the given value is not nil.
+func (_u *UserSubscriptionUpdate) SetNillableFiveHourStartedAt(v *time.Time) *UserSubscriptionUpdate {
+	if v != nil {
+		_u.SetFiveHourStartedAt(*v)
+	}
+	return _u
+}
+
+// ClearFiveHourStartedAt clears the value of the "five_hour_started_at" field.
+func (_u *UserSubscriptionUpdate) ClearFiveHourStartedAt() *UserSubscriptionUpdate {
+	_u.mutation.ClearFiveHourStartedAt()
+	return _u
+}
+
+// SetFiveHourUsageUsd sets the "five_hour_usage_usd" field.
+func (_u *UserSubscriptionUpdate) SetFiveHourUsageUsd(v float64) *UserSubscriptionUpdate {
+	_u.mutation.ResetFiveHourUsageUsd()
+	_u.mutation.SetFiveHourUsageUsd(v)
+	return _u
+}
+
+// SetNillableFiveHourUsageUsd sets the "five_hour_usage_usd" field if the given value is not nil.
+func (_u *UserSubscriptionUpdate) SetNillableFiveHourUsageUsd(v *float64) *UserSubscriptionUpdate {
+	if v != nil {
+		_u.SetFiveHourUsageUsd(*v)
+	}
+	return _u
+}
+
+// AddFiveHourUsageUsd adds value to the "five_hour_usage_usd" field.
+func (_u *UserSubscriptionUpdate) AddFiveHourUsageUsd(v float64) *UserSubscriptionUpdate {
+	_u.mutation.AddFiveHourUsageUsd(v)
+	return _u
+}
+
+// SetFiveHourReservedUsd sets the "five_hour_reserved_usd" field.
+func (_u *UserSubscriptionUpdate) SetFiveHourReservedUsd(v float64) *UserSubscriptionUpdate {
+	_u.mutation.ResetFiveHourReservedUsd()
+	_u.mutation.SetFiveHourReservedUsd(v)
+	return _u
+}
+
+// SetNillableFiveHourReservedUsd sets the "five_hour_reserved_usd" field if the given value is not nil.
+func (_u *UserSubscriptionUpdate) SetNillableFiveHourReservedUsd(v *float64) *UserSubscriptionUpdate {
+	if v != nil {
+		_u.SetFiveHourReservedUsd(*v)
+	}
+	return _u
+}
+
+// AddFiveHourReservedUsd adds value to the "five_hour_reserved_usd" field.
+func (_u *UserSubscriptionUpdate) AddFiveHourReservedUsd(v float64) *UserSubscriptionUpdate {
+	_u.mutation.AddFiveHourReservedUsd(v)
+	return _u
+}
+
 // SetCycleQuotaUsd sets the "cycle_quota_usd" field.
 func (_u *UserSubscriptionUpdate) SetCycleQuotaUsd(v float64) *UserSubscriptionUpdate {
 	_u.mutation.ResetCycleQuotaUsd()
@@ -709,6 +798,33 @@ func (_u *UserSubscriptionUpdate) sqlSave(ctx context.Context) (_node int, err e
 	if value, ok := _u.mutation.AddedMonthlyUsageUsd(); ok {
 		_spec.AddField(usersubscription.FieldMonthlyUsageUsd, field.TypeFloat64, value)
 	}
+	if value, ok := _u.mutation.FiveHourQuotaUsd(); ok {
+		_spec.SetField(usersubscription.FieldFiveHourQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedFiveHourQuotaUsd(); ok {
+		_spec.AddField(usersubscription.FieldFiveHourQuotaUsd, field.TypeFloat64, value)
+	}
+	if _u.mutation.FiveHourQuotaUsdCleared() {
+		_spec.ClearField(usersubscription.FieldFiveHourQuotaUsd, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.FiveHourStartedAt(); ok {
+		_spec.SetField(usersubscription.FieldFiveHourStartedAt, field.TypeTime, value)
+	}
+	if _u.mutation.FiveHourStartedAtCleared() {
+		_spec.ClearField(usersubscription.FieldFiveHourStartedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.FiveHourUsageUsd(); ok {
+		_spec.SetField(usersubscription.FieldFiveHourUsageUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedFiveHourUsageUsd(); ok {
+		_spec.AddField(usersubscription.FieldFiveHourUsageUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.FiveHourReservedUsd(); ok {
+		_spec.SetField(usersubscription.FieldFiveHourReservedUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedFiveHourReservedUsd(); ok {
+		_spec.AddField(usersubscription.FieldFiveHourReservedUsd, field.TypeFloat64, value)
+	}
 	if value, ok := _u.mutation.CycleQuotaUsd(); ok {
 		_spec.SetField(usersubscription.FieldCycleQuotaUsd, field.TypeFloat64, value)
 	}
@@ -1143,6 +1259,95 @@ func (_u *UserSubscriptionUpdateOne) SetNillableMonthlyUsageUsd(v *float64) *Use
 // AddMonthlyUsageUsd adds value to the "monthly_usage_usd" field.
 func (_u *UserSubscriptionUpdateOne) AddMonthlyUsageUsd(v float64) *UserSubscriptionUpdateOne {
 	_u.mutation.AddMonthlyUsageUsd(v)
+	return _u
+}
+
+// SetFiveHourQuotaUsd sets the "five_hour_quota_usd" field.
+func (_u *UserSubscriptionUpdateOne) SetFiveHourQuotaUsd(v float64) *UserSubscriptionUpdateOne {
+	_u.mutation.ResetFiveHourQuotaUsd()
+	_u.mutation.SetFiveHourQuotaUsd(v)
+	return _u
+}
+
+// SetNillableFiveHourQuotaUsd sets the "five_hour_quota_usd" field if the given value is not nil.
+func (_u *UserSubscriptionUpdateOne) SetNillableFiveHourQuotaUsd(v *float64) *UserSubscriptionUpdateOne {
+	if v != nil {
+		_u.SetFiveHourQuotaUsd(*v)
+	}
+	return _u
+}
+
+// AddFiveHourQuotaUsd adds value to the "five_hour_quota_usd" field.
+func (_u *UserSubscriptionUpdateOne) AddFiveHourQuotaUsd(v float64) *UserSubscriptionUpdateOne {
+	_u.mutation.AddFiveHourQuotaUsd(v)
+	return _u
+}
+
+// ClearFiveHourQuotaUsd clears the value of the "five_hour_quota_usd" field.
+func (_u *UserSubscriptionUpdateOne) ClearFiveHourQuotaUsd() *UserSubscriptionUpdateOne {
+	_u.mutation.ClearFiveHourQuotaUsd()
+	return _u
+}
+
+// SetFiveHourStartedAt sets the "five_hour_started_at" field.
+func (_u *UserSubscriptionUpdateOne) SetFiveHourStartedAt(v time.Time) *UserSubscriptionUpdateOne {
+	_u.mutation.SetFiveHourStartedAt(v)
+	return _u
+}
+
+// SetNillableFiveHourStartedAt sets the "five_hour_started_at" field if the given value is not nil.
+func (_u *UserSubscriptionUpdateOne) SetNillableFiveHourStartedAt(v *time.Time) *UserSubscriptionUpdateOne {
+	if v != nil {
+		_u.SetFiveHourStartedAt(*v)
+	}
+	return _u
+}
+
+// ClearFiveHourStartedAt clears the value of the "five_hour_started_at" field.
+func (_u *UserSubscriptionUpdateOne) ClearFiveHourStartedAt() *UserSubscriptionUpdateOne {
+	_u.mutation.ClearFiveHourStartedAt()
+	return _u
+}
+
+// SetFiveHourUsageUsd sets the "five_hour_usage_usd" field.
+func (_u *UserSubscriptionUpdateOne) SetFiveHourUsageUsd(v float64) *UserSubscriptionUpdateOne {
+	_u.mutation.ResetFiveHourUsageUsd()
+	_u.mutation.SetFiveHourUsageUsd(v)
+	return _u
+}
+
+// SetNillableFiveHourUsageUsd sets the "five_hour_usage_usd" field if the given value is not nil.
+func (_u *UserSubscriptionUpdateOne) SetNillableFiveHourUsageUsd(v *float64) *UserSubscriptionUpdateOne {
+	if v != nil {
+		_u.SetFiveHourUsageUsd(*v)
+	}
+	return _u
+}
+
+// AddFiveHourUsageUsd adds value to the "five_hour_usage_usd" field.
+func (_u *UserSubscriptionUpdateOne) AddFiveHourUsageUsd(v float64) *UserSubscriptionUpdateOne {
+	_u.mutation.AddFiveHourUsageUsd(v)
+	return _u
+}
+
+// SetFiveHourReservedUsd sets the "five_hour_reserved_usd" field.
+func (_u *UserSubscriptionUpdateOne) SetFiveHourReservedUsd(v float64) *UserSubscriptionUpdateOne {
+	_u.mutation.ResetFiveHourReservedUsd()
+	_u.mutation.SetFiveHourReservedUsd(v)
+	return _u
+}
+
+// SetNillableFiveHourReservedUsd sets the "five_hour_reserved_usd" field if the given value is not nil.
+func (_u *UserSubscriptionUpdateOne) SetNillableFiveHourReservedUsd(v *float64) *UserSubscriptionUpdateOne {
+	if v != nil {
+		_u.SetFiveHourReservedUsd(*v)
+	}
+	return _u
+}
+
+// AddFiveHourReservedUsd adds value to the "five_hour_reserved_usd" field.
+func (_u *UserSubscriptionUpdateOne) AddFiveHourReservedUsd(v float64) *UserSubscriptionUpdateOne {
+	_u.mutation.AddFiveHourReservedUsd(v)
 	return _u
 }
 
@@ -1634,6 +1839,33 @@ func (_u *UserSubscriptionUpdateOne) sqlSave(ctx context.Context) (_node *UserSu
 	}
 	if value, ok := _u.mutation.AddedMonthlyUsageUsd(); ok {
 		_spec.AddField(usersubscription.FieldMonthlyUsageUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.FiveHourQuotaUsd(); ok {
+		_spec.SetField(usersubscription.FieldFiveHourQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedFiveHourQuotaUsd(); ok {
+		_spec.AddField(usersubscription.FieldFiveHourQuotaUsd, field.TypeFloat64, value)
+	}
+	if _u.mutation.FiveHourQuotaUsdCleared() {
+		_spec.ClearField(usersubscription.FieldFiveHourQuotaUsd, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.FiveHourStartedAt(); ok {
+		_spec.SetField(usersubscription.FieldFiveHourStartedAt, field.TypeTime, value)
+	}
+	if _u.mutation.FiveHourStartedAtCleared() {
+		_spec.ClearField(usersubscription.FieldFiveHourStartedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.FiveHourUsageUsd(); ok {
+		_spec.SetField(usersubscription.FieldFiveHourUsageUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedFiveHourUsageUsd(); ok {
+		_spec.AddField(usersubscription.FieldFiveHourUsageUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.FiveHourReservedUsd(); ok {
+		_spec.SetField(usersubscription.FieldFiveHourReservedUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedFiveHourReservedUsd(); ok {
+		_spec.AddField(usersubscription.FieldFiveHourReservedUsd, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.CycleQuotaUsd(); ok {
 		_spec.SetField(usersubscription.FieldCycleQuotaUsd, field.TypeFloat64, value)

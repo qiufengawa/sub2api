@@ -222,16 +222,40 @@ func (s *subscriptionUserSubRepoStub) UpdateBillingSnapshot(_ context.Context, s
 	}
 	oldKey := s.key(sub.UserID, sub.PlanID)
 	sub.PlanID = snapshot.PlanID
-	sub.CycleQuotaUSD = snapshot.CycleQuotaUSD
-	if !snapshot.PreserveExistingTotalQuota {
-		sub.TotalQuotaUSD = snapshot.TotalQuotaUSD
+	if !snapshot.PreserveExistingFiveHourQuota {
+		sub.FiveHourQuotaUSD = snapshot.FiveHourQuotaUSD
 	}
+	sub.CycleQuotaUSD = snapshot.CycleQuotaUSD
 	sub.ResetIntervalSeconds = snapshot.ResetIntervalSeconds
-	sub.CycleStartedAt = snapshot.CycleStartedAt
 	sub.WalletFallbackEnabled = snapshot.WalletFallbackEnabled
 	if resetCycle {
+		sub.FiveHourStartedAt = snapshot.FiveHourStartedAt
+		sub.FiveHourUsageUSD = 0
+		sub.CycleStartedAt = snapshot.CycleStartedAt
 		sub.CycleUsageUSD = 0
 		sub.TotalUsageUSD = 0
+		if !snapshot.PreserveExistingTotalQuota {
+			sub.TotalQuotaUSD = snapshot.TotalQuotaUSD
+		}
+	} else {
+		if sub.FiveHourStartedAt == nil {
+			sub.FiveHourStartedAt = snapshot.FiveHourStartedAt
+		}
+		if sub.CycleStartedAt == nil {
+			sub.CycleStartedAt = snapshot.CycleStartedAt
+		}
+		if !snapshot.PreserveExistingTotalQuota {
+			switch {
+			case snapshot.TotalQuotaUSD == nil:
+				sub.TotalQuotaUSD = nil
+			case sub.TotalQuotaUSD == nil:
+				quota := sub.TotalUsageUSD + sub.TotalReservedUSD + *snapshot.TotalQuotaUSD
+				sub.TotalQuotaUSD = &quota
+			default:
+				quota := *sub.TotalQuotaUSD + *snapshot.TotalQuotaUSD
+				sub.TotalQuotaUSD = &quota
+			}
+		}
 	}
 	delete(s.byUserPlan, oldKey)
 	s.byUserPlan[s.key(sub.UserID, sub.PlanID)] = sub
@@ -495,48 +519,121 @@ func TestAssignSubscriptionRenewsExpiredAndAppendsDifferentNotes(t *testing.T) {
 	require.Equal(t, "old assignment\nnew assignment", sub.Notes)
 }
 
-func TestAssignSubscriptionExpiredRenewalReplacesTermQuota(t *testing.T) {
+func TestAssignSubscriptionExpiredRenewalResetsUsageAndPreservesReservations(t *testing.T) {
 	groupRepo := &subscriptionGroupRepoStub{
 		group: &Group{ID: 1, SubscriptionType: SubscriptionTypeSubscription},
 	}
 	subRepo := newSubscriptionUserSubRepoStub()
 	oldStart := time.Now().AddDate(0, 0, -31)
+	fiveHourQuota := 8.0
 	cycleQuota := 40.0
 	totalQuota := 160.0
 	subRepo.seed(&UserSubscription{
-		ID:               16,
-		UserID:           1006,
-		PlanID:           1,
-		StartsAt:         oldStart,
-		ExpiresAt:        oldStart.AddDate(0, 0, 28),
-		Status:           SubscriptionStatusExpired,
-		CycleQuotaUSD:    &cycleQuota,
-		TotalQuotaUSD:    &totalQuota,
-		CycleUsageUSD:    12,
-		CycleReservedUSD: 3,
-		TotalUsageUSD:    80,
-		TotalReservedUSD: 5,
+		ID:                  16,
+		UserID:              1006,
+		PlanID:              1,
+		StartsAt:            oldStart,
+		ExpiresAt:           oldStart.AddDate(0, 0, 28),
+		Status:              SubscriptionStatusExpired,
+		FiveHourQuotaUSD:    &fiveHourQuota,
+		CycleQuotaUSD:       &cycleQuota,
+		TotalQuotaUSD:       &totalQuota,
+		FiveHourUsageUSD:    6,
+		FiveHourReservedUSD: 2,
+		CycleUsageUSD:       12,
+		CycleReservedUSD:    3,
+		TotalUsageUSD:       80,
+		TotalReservedUSD:    5,
 	})
 
 	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	newFiveHourQuota := 3.0
 	newCycleQuota := 15.0
 	newTotalQuota := 60.0
 	sub, err := svc.AssignSubscription(context.Background(), &AssignSubscriptionInput{
-		UserID:        1006,
-		PlanID:        1,
-		CycleQuotaUSD: &newCycleQuota,
-		TotalQuotaUSD: &newTotalQuota,
-		ValidityDays:  28,
+		UserID:           1006,
+		PlanID:           1,
+		FiveHourQuotaUSD: &newFiveHourQuota,
+		CycleQuotaUSD:    &newCycleQuota,
+		TotalQuotaUSD:    &newTotalQuota,
+		ValidityDays:     28,
 	})
 
 	require.NoError(t, err)
 	require.NotNil(t, sub)
+	require.Equal(t, newFiveHourQuota, *sub.FiveHourQuotaUSD)
 	require.Equal(t, newCycleQuota, *sub.CycleQuotaUSD)
 	require.Equal(t, newTotalQuota, *sub.TotalQuotaUSD)
+	require.Zero(t, sub.FiveHourUsageUSD)
 	require.Zero(t, sub.CycleUsageUSD)
 	require.Zero(t, sub.TotalUsageUSD)
+	require.Equal(t, 2.0, sub.FiveHourReservedUSD)
 	require.Equal(t, 3.0, sub.CycleReservedUSD)
 	require.Equal(t, 5.0, sub.TotalReservedUSD)
+}
+
+func TestAssignSubscriptionActiveRenewalAddsTermQuotaWithoutResettingWindows(t *testing.T) {
+	groupRepo := &subscriptionGroupRepoStub{
+		group: &Group{ID: 1, SubscriptionType: SubscriptionTypeSubscription},
+	}
+	subRepo := newSubscriptionUserSubRepoStub()
+	startsAt := time.Now().Add(-24 * time.Hour)
+	expiresAt := time.Now().Add(10 * 24 * time.Hour)
+	fiveHourStartedAt := time.Now().Add(-2 * time.Hour)
+	cycleStartedAt := time.Now().Add(-2 * 24 * time.Hour)
+	fiveHourQuota := 8.0
+	cycleQuota := 40.0
+	totalQuota := 160.0
+	subRepo.seed(&UserSubscription{
+		ID:                    19,
+		UserID:                1009,
+		PlanID:                1,
+		StartsAt:              startsAt,
+		ExpiresAt:             expiresAt,
+		Status:                SubscriptionStatusActive,
+		FiveHourQuotaUSD:      &fiveHourQuota,
+		FiveHourStartedAt:     &fiveHourStartedAt,
+		FiveHourUsageUSD:      6,
+		FiveHourReservedUSD:   2,
+		CycleQuotaUSD:         &cycleQuota,
+		CycleStartedAt:        &cycleStartedAt,
+		CycleUsageUSD:         12,
+		CycleReservedUSD:      3,
+		TotalQuotaUSD:         &totalQuota,
+		TotalUsageUSD:         80,
+		TotalReservedUSD:      5,
+		ResetIntervalSeconds:  604800,
+		WalletFallbackEnabled: false,
+	})
+
+	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	purchasedTermQuota := 60.0
+	sub, extended, err := svc.AssignOrExtendSubscription(context.Background(), &AssignSubscriptionInput{
+		UserID:                1009,
+		PlanID:                1,
+		FiveHourQuotaUSD:      &fiveHourQuota,
+		CycleQuotaUSD:         &cycleQuota,
+		TotalQuotaUSD:         &purchasedTermQuota,
+		ResetIntervalSeconds:  604800,
+		WalletFallbackEnabled: boolPtr(false),
+		ValidityDays:          30,
+	})
+
+	require.NoError(t, err)
+	require.True(t, extended)
+	require.NotNil(t, sub)
+	require.Equal(t, startsAt, sub.StartsAt)
+	require.Equal(t, expiresAt.AddDate(0, 0, 30), sub.ExpiresAt)
+	require.Equal(t, fiveHourStartedAt, *sub.FiveHourStartedAt)
+	require.Equal(t, cycleStartedAt, *sub.CycleStartedAt)
+	require.Equal(t, 6.0, sub.FiveHourUsageUSD)
+	require.Equal(t, 2.0, sub.FiveHourReservedUSD)
+	require.Equal(t, 12.0, sub.CycleUsageUSD)
+	require.Equal(t, 3.0, sub.CycleReservedUSD)
+	require.Equal(t, 80.0, sub.TotalUsageUSD)
+	require.Equal(t, 5.0, sub.TotalReservedUSD)
+	require.NotNil(t, sub.TotalQuotaUSD)
+	require.Equal(t, 220.0, *sub.TotalQuotaUSD)
 }
 
 func TestAssignSubscriptionLegacyRenewalPreservesExistingTermQuota(t *testing.T) {

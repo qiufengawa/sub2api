@@ -638,6 +638,10 @@ type UserSubscription struct {
 	DailyUsageUSD         float64    `json:"daily_usage_usd"`
 	WeeklyUsageUSD        float64    `json:"weekly_usage_usd"`
 	MonthlyUsageUSD       float64    `json:"monthly_usage_usd"`
+	FiveHourQuotaUSD      *float64   `json:"five_hour_quota_usd,omitempty"`
+	FiveHourUsageUSD      float64    `json:"five_hour_usage_usd"`
+	FiveHourReservedUSD   float64    `json:"five_hour_reserved_usd"`
+	FiveHourStartedAt     *time.Time `json:"five_hour_started_at,omitempty"`
 	CycleQuotaUSD         *float64   `json:"cycle_quota_usd,omitempty"`
 	CycleUsageUSD         float64    `json:"cycle_usage_usd"`
 	CycleReservedUSD      float64    `json:"cycle_reserved_usd"`

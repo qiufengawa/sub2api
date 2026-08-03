@@ -8,6 +8,7 @@ import AdminPaymentPlansView from '../AdminPaymentPlansView.vue'
 import {
   buildCatalogTemplateRoutes,
   isPaymentCatalogTemplate,
+	isQiuapiFiveTierTemplate,
   personalizeCatalogTemplate,
 } from '../catalogTemplate'
 import type { PaymentCatalogImportRequest } from '@/types/payment'
@@ -48,6 +49,9 @@ const DataTableStub = {
   template: `
     <div>
       <div v-for="row in data" :key="row.id">
+        <slot name="cell-five_hour_quota_usd" :value="row.five_hour_quota_usd" :row="row" />
+        <slot name="cell-cycle_quota_usd" :value="row.cycle_quota_usd" :row="row" />
+        <slot name="cell-total_quota_usd" :value="row.total_quota_usd" :row="row" />
         <slot name="cell-price" :value="row.price" :row="row" />
         <slot name="cell-validity_days" :value="row.validity_days" :row="row" />
       </div>
@@ -68,6 +72,10 @@ describe('AdminPaymentPlansView', () => {
           price: 499,
           original_price: 599,
           currency: 'CNY',
+          five_hour_quota_usd: 0,
+          cycle_quota_usd: 0,
+          total_quota_usd: null,
+          reset_interval_seconds: 0,
           validity_days: 30,
           validity_unit: 'day',
           sort_order: 0,
@@ -81,6 +89,10 @@ describe('AdminPaymentPlansView', () => {
           price: 10,
           original_price: 0,
           currency: '',
+          five_hour_quota_usd: 5,
+          cycle_quota_usd: 10,
+          total_quota_usd: 20,
+          reset_interval_seconds: 604800,
           validity_days: 30,
           validity_unit: 'day',
           sort_order: 0,
@@ -111,6 +123,12 @@ describe('AdminPaymentPlansView', () => {
     expect(wrapper.text()).toContain('¥499.00CNY')
     expect(wrapper.text()).toContain('¥599.00')
     expect(wrapper.text()).toContain('$10.00')
+		expect(wrapper.text()).toContain('$5.00')
+		expect(wrapper.text()).toContain('$20.00')
+		expect(wrapper.text()).toContain('payment.admin.resetEveryDays')
+		expect(wrapper.text()).toContain('payment.admin.unlimitedFiveHourQuota')
+		expect(wrapper.text()).toContain('payment.admin.unlimitedCycleQuota')
+		expect(wrapper.text()).toContain('payment.admin.unlimitedTotalQuota')
     expect(wrapper.text()).toContain('30 payment.admin.days')
     expect(wrapper.text()).not.toContain('payment.admin.day ')
   })
@@ -148,19 +166,20 @@ describe('AdminPaymentPlansView', () => {
     expect(catalog.groups[0].copy_accounts_from).toEqual(['stale source'])
   })
 
-	it('ships a portable v2 template that cannot create virtual subscription groups', () => {
+		it('ships a portable v3 template that cannot create virtual subscription groups', () => {
 		const rawTemplate: unknown = JSON.parse(readFileSync(
 			resolve(process.cwd(), 'public/templates/qiuapi-subscription-catalog-v1.json'),
 			'utf8',
 		))
-		expect(isPaymentCatalogTemplate(rawTemplate)).toBe(true)
-		if (!isPaymentCatalogTemplate(rawTemplate)) throw new Error('invalid template fixture')
+			expect(isPaymentCatalogTemplate(rawTemplate)).toBe(true)
+			if (!isPaymentCatalogTemplate(rawTemplate)) throw new Error('invalid template fixture')
+			expect(isQiuapiFiveTierTemplate(rawTemplate)).toBe(true)
 
-		expect(rawTemplate.template).toEqual({
-			kind: 'qiuapi-five-tier-subscription',
-			version: 2,
-			group_binding: 'select_on_import',
-		})
+			expect(rawTemplate.template).toEqual({
+				kind: 'qiuapi-five-tier-subscription',
+				version: 3,
+				group_binding: 'select_on_import',
+			})
 		expect(rawTemplate.groups).toEqual([])
 		expect(rawTemplate.plans.every(plan => (
 			plan.included_group_keys === undefined && plan.included_group_ids === undefined
@@ -178,8 +197,23 @@ describe('AdminPaymentPlansView', () => {
 		})
 		expect(result.catalog).not.toHaveProperty('template')
 		expect(result.catalog.groups).toEqual([])
-		expect(result.catalog.plans.every(plan => plan.included_group_ids?.[0] === 21)).toBe(true)
-	})
+			expect(result.catalog.plans.every(plan => plan.included_group_ids?.[0] === 21)).toBe(true)
+		})
+
+		it('keeps portable v2 template metadata backward compatible', () => {
+			expect(isPaymentCatalogTemplate({
+				schema_version: 1,
+				mode: 'upsert',
+				template: {
+					kind: 'qiuapi-five-tier-subscription',
+					version: 2,
+					group_binding: 'select_on_import',
+				},
+				defaults: {},
+				groups: [],
+				plans: ['Lite', 'Starter', 'Standard', 'Pro', 'Max'].map((name, index) => ({ name, price: index + 1 })),
+			})).toBe(true)
+		})
 
   it('adds explicit routes for aliases that the composite detector cannot safely infer', () => {
     const result = buildCatalogTemplateRoutes([

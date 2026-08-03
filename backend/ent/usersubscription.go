@@ -47,6 +47,14 @@ type UserSubscription struct {
 	WeeklyUsageUsd float64 `json:"weekly_usage_usd,omitempty"`
 	// MonthlyUsageUsd holds the value of the "monthly_usage_usd" field.
 	MonthlyUsageUsd float64 `json:"monthly_usage_usd,omitempty"`
+	// FiveHourQuotaUsd holds the value of the "five_hour_quota_usd" field.
+	FiveHourQuotaUsd *float64 `json:"five_hour_quota_usd,omitempty"`
+	// FiveHourStartedAt holds the value of the "five_hour_started_at" field.
+	FiveHourStartedAt *time.Time `json:"five_hour_started_at,omitempty"`
+	// FiveHourUsageUsd holds the value of the "five_hour_usage_usd" field.
+	FiveHourUsageUsd float64 `json:"five_hour_usage_usd,omitempty"`
+	// FiveHourReservedUsd holds the value of the "five_hour_reserved_usd" field.
+	FiveHourReservedUsd float64 `json:"five_hour_reserved_usd,omitempty"`
 	// CycleQuotaUsd holds the value of the "cycle_quota_usd" field.
 	CycleQuotaUsd *float64 `json:"cycle_quota_usd,omitempty"`
 	// ResetIntervalSeconds holds the value of the "reset_interval_seconds" field.
@@ -141,13 +149,13 @@ func (*UserSubscription) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case usersubscription.FieldWalletFallbackEnabled:
 			values[i] = new(sql.NullBool)
-		case usersubscription.FieldDailyUsageUsd, usersubscription.FieldWeeklyUsageUsd, usersubscription.FieldMonthlyUsageUsd, usersubscription.FieldCycleQuotaUsd, usersubscription.FieldCycleUsageUsd, usersubscription.FieldCycleReservedUsd, usersubscription.FieldTotalQuotaUsd, usersubscription.FieldTotalUsageUsd, usersubscription.FieldTotalReservedUsd:
+		case usersubscription.FieldDailyUsageUsd, usersubscription.FieldWeeklyUsageUsd, usersubscription.FieldMonthlyUsageUsd, usersubscription.FieldFiveHourQuotaUsd, usersubscription.FieldFiveHourUsageUsd, usersubscription.FieldFiveHourReservedUsd, usersubscription.FieldCycleQuotaUsd, usersubscription.FieldCycleUsageUsd, usersubscription.FieldCycleReservedUsd, usersubscription.FieldTotalQuotaUsd, usersubscription.FieldTotalUsageUsd, usersubscription.FieldTotalReservedUsd:
 			values[i] = new(sql.NullFloat64)
 		case usersubscription.FieldID, usersubscription.FieldUserID, usersubscription.FieldPlanID, usersubscription.FieldResetIntervalSeconds, usersubscription.FieldAssignedBy:
 			values[i] = new(sql.NullInt64)
 		case usersubscription.FieldStatus, usersubscription.FieldNotes:
 			values[i] = new(sql.NullString)
-		case usersubscription.FieldCreatedAt, usersubscription.FieldUpdatedAt, usersubscription.FieldDeletedAt, usersubscription.FieldStartsAt, usersubscription.FieldExpiresAt, usersubscription.FieldDailyWindowStart, usersubscription.FieldWeeklyWindowStart, usersubscription.FieldMonthlyWindowStart, usersubscription.FieldCycleStartedAt, usersubscription.FieldAssignedAt:
+		case usersubscription.FieldCreatedAt, usersubscription.FieldUpdatedAt, usersubscription.FieldDeletedAt, usersubscription.FieldStartsAt, usersubscription.FieldExpiresAt, usersubscription.FieldDailyWindowStart, usersubscription.FieldWeeklyWindowStart, usersubscription.FieldMonthlyWindowStart, usersubscription.FieldFiveHourStartedAt, usersubscription.FieldCycleStartedAt, usersubscription.FieldAssignedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -257,6 +265,32 @@ func (_m *UserSubscription) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field monthly_usage_usd", values[i])
 			} else if value.Valid {
 				_m.MonthlyUsageUsd = value.Float64
+			}
+		case usersubscription.FieldFiveHourQuotaUsd:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field five_hour_quota_usd", values[i])
+			} else if value.Valid {
+				_m.FiveHourQuotaUsd = new(float64)
+				*_m.FiveHourQuotaUsd = value.Float64
+			}
+		case usersubscription.FieldFiveHourStartedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field five_hour_started_at", values[i])
+			} else if value.Valid {
+				_m.FiveHourStartedAt = new(time.Time)
+				*_m.FiveHourStartedAt = value.Time
+			}
+		case usersubscription.FieldFiveHourUsageUsd:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field five_hour_usage_usd", values[i])
+			} else if value.Valid {
+				_m.FiveHourUsageUsd = value.Float64
+			}
+		case usersubscription.FieldFiveHourReservedUsd:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field five_hour_reserved_usd", values[i])
+			} else if value.Valid {
+				_m.FiveHourReservedUsd = value.Float64
 			}
 		case usersubscription.FieldCycleQuotaUsd:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
@@ -440,6 +474,22 @@ func (_m *UserSubscription) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("monthly_usage_usd=")
 	builder.WriteString(fmt.Sprintf("%v", _m.MonthlyUsageUsd))
+	builder.WriteString(", ")
+	if v := _m.FiveHourQuotaUsd; v != nil {
+		builder.WriteString("five_hour_quota_usd=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.FiveHourStartedAt; v != nil {
+		builder.WriteString("five_hour_started_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("five_hour_usage_usd=")
+	builder.WriteString(fmt.Sprintf("%v", _m.FiveHourUsageUsd))
+	builder.WriteString(", ")
+	builder.WriteString("five_hour_reserved_usd=")
+	builder.WriteString(fmt.Sprintf("%v", _m.FiveHourReservedUsd))
 	builder.WriteString(", ")
 	if v := _m.CycleQuotaUsd; v != nil {
 		builder.WriteString("cycle_quota_usd=")

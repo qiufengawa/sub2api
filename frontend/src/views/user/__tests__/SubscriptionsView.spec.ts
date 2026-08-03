@@ -198,6 +198,58 @@ describe('user SubscriptionsView', () => {
     expect(quotaRows[1].text()).toContain('userSubscriptions.expiresOn')
   })
 
+	it('renders all enabled windows and shows pending usage only on the shortest one', async () => {
+		const now = Date.parse('2026-08-03T12:00:00Z')
+		const dateNow = vi.spyOn(Date, 'now').mockReturnValue(now)
+		getMySubscriptions.mockResolvedValue([{
+			...subscriptionFixtures[0],
+			expires_at: '2026-09-02T12:00:00Z',
+			five_hour_quota_usd: 10,
+			five_hour_usage_usd: 4,
+			five_hour_reserved_usd: 1,
+			five_hour_started_at: '2026-08-03T08:00:00Z',
+			cycle_quota_usd: 20,
+			cycle_usage_usd: 6,
+			cycle_reserved_usd: 2,
+			cycle_started_at: '2026-08-01T12:00:00Z',
+			total_quota_usd: 100,
+			total_usage_usd: 30,
+			total_reserved_usd: 3,
+		}])
+
+		try {
+			const wrapper = mountSubscriptionsView()
+			await flushPromises()
+
+			const quotaRows = wrapper.get('[data-testid="subscription-card"]').findAll('[data-testid="quota-row"]')
+			expect(quotaRows).toHaveLength(3)
+			expect(quotaRows[0].text()).toContain('userSubscriptions.fiveHourQuota')
+			expect(quotaRows[0].text()).toContain('1h 0m')
+			expect(quotaRows[1].text()).toContain('userSubscriptions.cycleQuota')
+			expect(quotaRows[2].text()).toContain('userSubscriptions.totalQuota')
+			const pending = wrapper.findAll('[data-testid="quota-reserved"]')
+			expect(pending).toHaveLength(1)
+			expect(pending[0].text()).toContain('"amount":"1.00"')
+		} finally {
+			dateNow.mockRestore()
+		}
+	})
+
+	it('treats zero and null quota dimensions as unlimited', async () => {
+		getMySubscriptions.mockResolvedValue([{
+			...subscriptionFixtures[2],
+			five_hour_quota_usd: 0,
+			cycle_quota_usd: null,
+			total_quota_usd: 0,
+		}])
+
+		const wrapper = mountSubscriptionsView()
+		await flushPromises()
+
+		expect(wrapper.findAll('[data-testid="quota-row"]')).toHaveLength(0)
+		expect(wrapper.findAll('[data-testid="unlimited-quota"]')).toHaveLength(1)
+	})
+
   it('shows a compact summary and caps subscription records at two columns', async () => {
     const wrapper = mountSubscriptionsView()
     await flushPromises()

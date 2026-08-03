@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"strings"
 	"testing"
 
@@ -210,7 +211,15 @@ func TestPaymentCatalogImportValidationRejectsOversizedFieldsAndArrays(t *testin
 			req.Groups[0].SubscriptionType = "wallet"
 		}},
 		{name: "cycle quota", code: "PLAN_CYCLE_QUOTA_INVALID", mutate: func(req *PaymentCatalogImportRequest) {
-			req.Plans[0].CycleQuotaUSD = floatPtr(0)
+			req.Plans[0].CycleQuotaUSD = floatPtr(-1)
+		}},
+		{name: "five-hour quota NaN", code: "PLAN_FIVE_HOUR_QUOTA_INVALID", mutate: func(req *PaymentCatalogImportRequest) {
+			req.Plans[0].FiveHourQuotaUSD = floatPtr(math.NaN())
+			req.Plans[0].FiveHourQuotaUSDSet = true
+		}},
+		{name: "five-hour quota infinity", code: "PLAN_FIVE_HOUR_QUOTA_INVALID", mutate: func(req *PaymentCatalogImportRequest) {
+			req.Plans[0].FiveHourQuotaUSD = floatPtr(math.Inf(1))
+			req.Plans[0].FiveHourQuotaUSDSet = true
 		}},
 		{name: "cycle reset", code: "PLAN_RESET_INTERVAL_REQUIRED", mutate: func(req *PaymentCatalogImportRequest) {
 			req.Plans[0].ResetIntervalSeconds = 0
@@ -229,6 +238,101 @@ func TestPaymentCatalogImportValidationRejectsOversizedFieldsAndArrays(t *testin
 			}
 			t.Fatalf("expected validation issue %s, got %#v", tt.code, normalized.issues)
 		})
+	}
+}
+
+func TestPaymentCatalogImportFiveHourQuotaPresence(t *testing.T) {
+	tests := []struct {
+		name      string
+		payload   string
+		wantSet   bool
+		wantValue *float64
+	}{
+		{name: "missing", payload: `{}`, wantSet: false},
+		{name: "null", payload: `{"five_hour_quota_usd":null}`, wantSet: true},
+		{name: "zero", payload: `{"five_hour_quota_usd":0}`, wantSet: true, wantValue: floatPtr(0)},
+		{name: "positive", payload: `{"five_hour_quota_usd":2.5}`, wantSet: true, wantValue: floatPtr(2.5)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var plan PaymentCatalogImportPlan
+			if err := json.Unmarshal([]byte(tt.payload), &plan); err != nil {
+				t.Fatalf("decode plan: %v", err)
+			}
+			if plan.FiveHourQuotaUSDSet != tt.wantSet {
+				t.Fatalf("presence = %v, want %v", plan.FiveHourQuotaUSDSet, tt.wantSet)
+			}
+			if tt.wantValue == nil {
+				if plan.FiveHourQuotaUSD != nil {
+					t.Fatalf("quota = %v, want nil", *plan.FiveHourQuotaUSD)
+				}
+				return
+			}
+			if plan.FiveHourQuotaUSD == nil || *plan.FiveHourQuotaUSD != *tt.wantValue {
+				t.Fatalf("quota = %v, want %v", plan.FiveHourQuotaUSD, *tt.wantValue)
+			}
+		})
+	}
+}
+
+func TestPaymentCatalogImportFiveHourQuotaUpdateSemantics(t *testing.T) {
+	svc, client := newCatalogImportTestService(t)
+	ctx := context.Background()
+	req := catalogTestRequest()
+	initialQuota := 7.0
+	req.Plans[0].FiveHourQuotaUSD = &initialQuota
+	req.Plans[0].FiveHourQuotaUSDSet = true
+
+	apply := func(label string) {
+		t.Helper()
+		preview, err := svc.PreviewCatalogImport(ctx, req)
+		if err != nil || !preview.CanApply {
+			t.Fatalf("preview %s: preview=%#v err=%v", label, preview, err)
+		}
+		if _, err := svc.ApplyCatalogImport(ctx, PaymentCatalogImportApplyRequest{Catalog: req, PreviewToken: preview.PreviewToken}); err != nil {
+			t.Fatalf("apply %s: %v", label, err)
+		}
+	}
+	loadQuota := func() *float64 {
+		t.Helper()
+		plan, err := client.SubscriptionPlan.Query().Where(subscriptionplan.NameEQ("Lite")).Only(ctx)
+		if err != nil {
+			t.Fatalf("load plan: %v", err)
+		}
+		return plan.FiveHourQuotaUsd
+	}
+
+	apply("initial positive quota")
+	if quota := loadQuota(); quota == nil || *quota != initialQuota {
+		t.Fatalf("initial quota = %v, want %.2f", quota, initialQuota)
+	}
+
+	req.Plans[0].FiveHourQuotaUSD = nil
+	req.Plans[0].FiveHourQuotaUSDSet = false
+	apply("missing field")
+	if quota := loadQuota(); quota == nil || *quota != initialQuota {
+		t.Fatalf("missing field changed quota to %v", quota)
+	}
+
+	req.Plans[0].FiveHourQuotaUSDSet = true
+	apply("explicit null")
+	if quota := loadQuota(); quota != nil {
+		t.Fatalf("explicit null quota = %v, want nil", *quota)
+	}
+
+	positiveQuota := 4.0
+	req.Plans[0].FiveHourQuotaUSD = &positiveQuota
+	apply("replacement positive quota")
+	if quota := loadQuota(); quota == nil || *quota != positiveQuota {
+		t.Fatalf("replacement quota = %v, want %.2f", quota, positiveQuota)
+	}
+
+	zeroQuota := 0.0
+	req.Plans[0].FiveHourQuotaUSD = &zeroQuota
+	apply("explicit zero")
+	if quota := loadQuota(); quota != nil {
+		t.Fatalf("explicit zero quota = %v, want nil", *quota)
 	}
 }
 

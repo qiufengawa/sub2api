@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -50,9 +51,6 @@ func validatePlanRequired(name string, price float64, validityDays int, validity
 }
 
 func validatePlanCycle(cycleQuotaUSD *float64, resetIntervalSeconds int) error {
-	if cycleQuotaUSD != nil && *cycleQuotaUSD <= 0 {
-		return infraerrors.BadRequest("PLAN_CYCLE_QUOTA_INVALID", "cycle quota must be > 0")
-	}
 	if resetIntervalSeconds < 0 {
 		return infraerrors.BadRequest("PLAN_RESET_INTERVAL_INVALID", "reset interval must be >= 0")
 	}
@@ -62,11 +60,27 @@ func validatePlanCycle(cycleQuotaUSD *float64, resetIntervalSeconds int) error {
 	return nil
 }
 
-func validatePlanTotalQuota(totalQuotaUSD *float64) error {
-	if totalQuotaUSD != nil && *totalQuotaUSD <= 0 {
-		return infraerrors.BadRequest("PLAN_TOTAL_QUOTA_INVALID", "total quota must be > 0")
+func normalizeFiveHourQuota(value *float64) (*float64, error) {
+	return normalizePlanQuota(value, "PLAN_FIVE_HOUR_QUOTA_INVALID", "five-hour quota")
+}
+
+func normalizePlanQuota(value *float64, code, label string) (*float64, error) {
+	if value == nil {
+		return nil, nil
 	}
-	return nil
+	if math.IsNaN(*value) || math.IsInf(*value, 0) || *value < 0 {
+		return nil, infraerrors.BadRequest(code, label+" must be a finite number greater than or equal to zero")
+	}
+	if *value == 0 {
+		return nil, nil
+	}
+	normalized := *value
+	return &normalized, nil
+}
+
+func validatePlanTotalQuota(totalQuotaUSD *float64) error {
+	_, err := normalizePlanQuota(totalQuotaUSD, "PLAN_TOTAL_QUOTA_INVALID", "total quota")
+	return err
 }
 
 // validatePlanPatch validates only the non-nil fields in a patch update.
@@ -86,11 +100,14 @@ func validatePlanPatch(req UpdatePlanRequest) error {
 	if req.OriginalPrice != nil && *req.OriginalPrice < 0 {
 		return infraerrors.BadRequest("PLAN_ORIGINAL_PRICE_INVALID", "original price must be >= 0")
 	}
-	if req.CycleQuotaUSD != nil && *req.CycleQuotaUSD <= 0 {
-		return infraerrors.BadRequest("PLAN_CYCLE_QUOTA_INVALID", "cycle quota must be > 0")
+	if _, err := normalizeFiveHourQuota(req.FiveHourQuotaUSD); err != nil {
+		return err
 	}
-	if req.TotalQuotaUSD != nil && *req.TotalQuotaUSD <= 0 {
-		return infraerrors.BadRequest("PLAN_TOTAL_QUOTA_INVALID", "total quota must be > 0")
+	if _, err := normalizePlanQuota(req.CycleQuotaUSD, "PLAN_CYCLE_QUOTA_INVALID", "cycle quota"); err != nil {
+		return err
+	}
+	if _, err := normalizePlanQuota(req.TotalQuotaUSD, "PLAN_TOTAL_QUOTA_INVALID", "total quota"); err != nil {
+		return err
 	}
 	if req.ResetIntervalSeconds != nil && *req.ResetIntervalSeconds < 0 {
 		return infraerrors.BadRequest("PLAN_RESET_INTERVAL_INVALID", "reset interval must be >= 0")
@@ -213,10 +230,26 @@ func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanReq
 	if err := validatePlanRequired(req.Name, req.Price, req.ValidityDays, req.ValidityUnit, req.OriginalPrice); err != nil {
 		return nil, err
 	}
-	if err := validatePlanCycle(req.CycleQuotaUSD, req.ResetIntervalSeconds); err != nil {
+	fiveHourQuotaUSD, err := normalizeFiveHourQuota(req.FiveHourQuotaUSD)
+	if err != nil {
 		return nil, err
 	}
-	if err := validatePlanTotalQuota(req.TotalQuotaUSD); err != nil {
+	cycleQuotaUSD, err := normalizePlanQuota(req.CycleQuotaUSD, "PLAN_CYCLE_QUOTA_INVALID", "cycle quota")
+	if err != nil {
+		return nil, err
+	}
+	totalQuotaUSD, err := normalizePlanQuota(req.TotalQuotaUSD, "PLAN_TOTAL_QUOTA_INVALID", "total quota")
+	if err != nil {
+		return nil, err
+	}
+	resetIntervalSeconds := req.ResetIntervalSeconds
+	if cycleQuotaUSD == nil {
+		resetIntervalSeconds = 0
+	}
+	if err := validatePlanCycle(cycleQuotaUSD, resetIntervalSeconds); err != nil {
+		return nil, err
+	}
+	if err := validatePlanTotalQuota(totalQuotaUSD); err != nil {
 		return nil, err
 	}
 	currency, err := normalizePlanCurrency(req.Currency)
@@ -231,9 +264,10 @@ func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanReq
 		SetPrice(req.Price).SetCurrency(currency).SetValidityDays(req.ValidityDays).SetValidityUnit(req.ValidityUnit).
 		SetFeatures(req.Features).SetProductName(req.ProductName).
 		SetForSale(req.ForSale).SetSortOrder(req.SortOrder).
-		SetNillableCycleQuotaUsd(req.CycleQuotaUSD).
-		SetNillableTotalQuotaUsd(req.TotalQuotaUSD).
-		SetResetIntervalSeconds(req.ResetIntervalSeconds).
+		SetNillableFiveHourQuotaUsd(fiveHourQuotaUSD).
+		SetNillableCycleQuotaUsd(cycleQuotaUSD).
+		SetNillableTotalQuotaUsd(totalQuotaUSD).
+		SetResetIntervalSeconds(resetIntervalSeconds).
 		AddGroupIDs(includedGroupIDs...)
 	if req.WalletFallbackEnabled != nil {
 		b.SetWalletFallbackEnabled(*req.WalletFallbackEnabled)
@@ -259,19 +293,33 @@ func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req Upd
 	if err != nil {
 		return nil, err
 	}
+	fiveHourQuotaUSD := current.FiveHourQuotaUsd
+	fiveHourQuotaSet := req.FiveHourQuotaUSDSet || req.FiveHourQuotaUSD != nil
+	if fiveHourQuotaSet {
+		fiveHourQuotaUSD, err = normalizeFiveHourQuota(req.FiveHourQuotaUSD)
+		if err != nil {
+			return nil, err
+		}
+	}
 	cycleQuotaUSD := current.CycleQuotaUsd
 	totalQuotaUSD := current.TotalQuotaUsd
 	resetIntervalSeconds := current.ResetIntervalSeconds
 	cycleQuotaSet := req.CycleQuotaUSDSet || req.CycleQuotaUSD != nil
-	cycleQuotaCleared := cycleQuotaSet && req.CycleQuotaUSD == nil
 	if cycleQuotaSet {
-		cycleQuotaUSD = req.CycleQuotaUSD
+		cycleQuotaUSD, err = normalizePlanQuota(req.CycleQuotaUSD, "PLAN_CYCLE_QUOTA_INVALID", "cycle quota")
+		if err != nil {
+			return nil, err
+		}
 	}
+	cycleQuotaCleared := cycleQuotaSet && cycleQuotaUSD == nil
 	totalQuotaSet := req.TotalQuotaUSDSet || req.TotalQuotaUSD != nil
-	totalQuotaCleared := totalQuotaSet && req.TotalQuotaUSD == nil
 	if totalQuotaSet {
-		totalQuotaUSD = req.TotalQuotaUSD
+		totalQuotaUSD, err = normalizePlanQuota(req.TotalQuotaUSD, "PLAN_TOTAL_QUOTA_INVALID", "total quota")
+		if err != nil {
+			return nil, err
+		}
 	}
+	totalQuotaCleared := totalQuotaSet && totalQuotaUSD == nil
 	if cycleQuotaCleared {
 		resetIntervalSeconds = 0
 	} else if req.ResetIntervalSeconds != nil {
@@ -284,6 +332,13 @@ func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req Upd
 		return nil, err
 	}
 	u := s.entClient.SubscriptionPlan.UpdateOneID(id)
+	if fiveHourQuotaSet {
+		if fiveHourQuotaUSD == nil {
+			u.ClearFiveHourQuotaUsd()
+		} else {
+			u.SetFiveHourQuotaUsd(*fiveHourQuotaUSD)
+		}
+	}
 	if req.Name != nil {
 		u.SetName(*req.Name)
 	}
@@ -300,14 +355,14 @@ func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req Upd
 		if cycleQuotaCleared {
 			u.ClearCycleQuotaUsd()
 		} else {
-			u.SetCycleQuotaUsd(*req.CycleQuotaUSD)
+			u.SetCycleQuotaUsd(*cycleQuotaUSD)
 		}
 	}
 	if totalQuotaSet {
 		if totalQuotaCleared {
 			u.ClearTotalQuotaUsd()
 		} else {
-			u.SetTotalQuotaUsd(*req.TotalQuotaUSD)
+			u.SetTotalQuotaUsd(*totalQuotaUSD)
 		}
 	}
 	if cycleQuotaCleared || req.ResetIntervalSeconds != nil {

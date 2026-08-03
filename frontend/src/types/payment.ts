@@ -124,9 +124,10 @@ export interface SubscriptionPlanGroup {
 }
 
 export interface SubscriptionPlan {
-  id: number
-  included_groups: SubscriptionPlanGroup[]
-  cycle_quota_usd?: number | null
+	id: number
+	included_groups: SubscriptionPlanGroup[]
+	five_hour_quota_usd?: number | null
+	cycle_quota_usd?: number | null
   total_quota_usd?: number | null
   reset_interval_seconds?: number
   wallet_fallback_enabled?: boolean
@@ -191,9 +192,10 @@ export interface PaymentCatalogGroup {
 }
 
 export interface PaymentCatalogPlan {
-  included_group_keys?: string[]
-  included_group_ids?: number[]
-  cycle_quota_usd?: number | null
+	included_group_keys?: string[]
+	included_group_ids?: number[]
+	five_hour_quota_usd?: number | null
+	cycle_quota_usd?: number | null
   total_quota_usd?: number | null
   reset_interval_seconds?: number
   wallet_fallback_enabled?: boolean

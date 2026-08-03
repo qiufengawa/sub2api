@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
@@ -40,6 +39,10 @@ func (r *userSubscriptionRepository) Create(ctx context.Context, sub *service.Us
 		SetDailyUsageUsd(sub.DailyUsageUSD).
 		SetWeeklyUsageUsd(sub.WeeklyUsageUSD).
 		SetMonthlyUsageUsd(sub.MonthlyUsageUSD).
+		SetNillableFiveHourQuotaUsd(sub.FiveHourQuotaUSD).
+		SetNillableFiveHourStartedAt(sub.FiveHourStartedAt).
+		SetFiveHourUsageUsd(sub.FiveHourUsageUSD).
+		SetFiveHourReservedUsd(sub.FiveHourReservedUSD).
 		SetNillableCycleQuotaUsd(sub.CycleQuotaUSD).
 		SetResetIntervalSeconds(sub.ResetIntervalSeconds).
 		SetNillableCycleStartedAt(sub.CycleStartedAt).
@@ -166,67 +169,51 @@ func (r *userSubscriptionRepository) ExistsActiveCoveringGroup(ctx context.Conte
 
 func (r *userSubscriptionRepository) UpdateBillingSnapshot(ctx context.Context, subscriptionID int64, snapshot service.SubscriptionBillingSnapshot, resetCycle bool) error {
 	client := clientFromContext(ctx, r.client)
-	var result sql.Result
-	var err error
-	if resetCycle {
-		result, err = client.ExecContext(ctx, `
-			UPDATE user_subscriptions
-			SET plan_id = $1,
-				cycle_quota_usd = $2,
-				reset_interval_seconds = $3,
-				cycle_started_at = $4,
-				cycle_usage_usd = 0,
-				total_quota_usd = CASE
-					WHEN $8 THEN total_quota_usd
-					ELSE $5
-				END,
-				total_usage_usd = 0,
-				wallet_fallback_enabled = $6,
-				updated_at = NOW()
-			WHERE id = $7 AND deleted_at IS NULL
-		`, snapshot.PlanID, snapshot.CycleQuotaUSD, snapshot.ResetIntervalSeconds, snapshot.CycleStartedAt, snapshot.TotalQuotaUSD, snapshot.WalletFallbackEnabled, subscriptionID, snapshot.PreserveExistingTotalQuota)
-	} else if snapshot.PreserveExistingTotalQuota {
-		result, err = client.ExecContext(ctx, `
-			UPDATE user_subscriptions
-			SET plan_id = $1,
-				cycle_quota_usd = $2,
-				reset_interval_seconds = $3,
-				cycle_started_at = $4,
-				wallet_fallback_enabled = $5,
-				updated_at = NOW()
-			WHERE id = $6 AND deleted_at IS NULL
-		`, snapshot.PlanID, snapshot.CycleQuotaUSD, snapshot.ResetIntervalSeconds, snapshot.CycleStartedAt, snapshot.WalletFallbackEnabled, subscriptionID)
-	} else if snapshot.TotalQuotaUSD == nil {
-		result, err = client.ExecContext(ctx, `
-			UPDATE user_subscriptions
-			SET plan_id = $1,
-				cycle_quota_usd = $2,
-				reset_interval_seconds = $3,
-				cycle_started_at = $4,
-				total_quota_usd = NULL,
-				wallet_fallback_enabled = $5,
-				updated_at = NOW()
-			WHERE id = $6 AND deleted_at IS NULL
-		`, snapshot.PlanID, snapshot.CycleQuotaUSD, snapshot.ResetIntervalSeconds, snapshot.CycleStartedAt, snapshot.WalletFallbackEnabled, subscriptionID)
-	} else {
-		// An early renewal extends the same entitlement term. Preserve existing
-		// consumption and add the newly purchased allowance. Historical unlimited
-		// rows start enforcing the cap only after receiving a full fresh allowance.
-		result, err = client.ExecContext(ctx, `
-			UPDATE user_subscriptions
-			SET plan_id = $1,
-				cycle_quota_usd = $2,
-				reset_interval_seconds = $3,
-				cycle_started_at = $4,
-				total_quota_usd = CASE
-					WHEN total_quota_usd IS NULL THEN total_usage_usd + total_reserved_usd + $5
-					ELSE total_quota_usd + $5
-				END,
-				wallet_fallback_enabled = $6,
-				updated_at = NOW()
-			WHERE id = $7 AND deleted_at IS NULL
-		`, snapshot.PlanID, snapshot.CycleQuotaUSD, snapshot.ResetIntervalSeconds, snapshot.CycleStartedAt, *snapshot.TotalQuotaUSD, snapshot.WalletFallbackEnabled, subscriptionID)
-	}
+	result, err := client.ExecContext(ctx, `
+		UPDATE user_subscriptions
+		SET plan_id = $1,
+			five_hour_quota_usd = CASE
+				WHEN $3 THEN five_hour_quota_usd
+				ELSE $2
+			END,
+			five_hour_started_at = CASE
+				WHEN $12 OR five_hour_started_at IS NULL THEN $4
+				ELSE five_hour_started_at
+			END,
+			five_hour_usage_usd = CASE WHEN $12 THEN 0 ELSE five_hour_usage_usd END,
+			cycle_quota_usd = $5,
+			reset_interval_seconds = $6,
+			cycle_started_at = CASE
+				WHEN $12 OR cycle_started_at IS NULL THEN $7
+				ELSE cycle_started_at
+			END,
+			cycle_usage_usd = CASE WHEN $12 THEN 0 ELSE cycle_usage_usd END,
+			total_quota_usd = CASE
+				WHEN $12 AND $9 THEN total_quota_usd
+				WHEN $12 THEN $8
+				WHEN $9 THEN total_quota_usd
+				WHEN $8 IS NULL THEN NULL
+				WHEN total_quota_usd IS NULL THEN total_usage_usd + total_reserved_usd + $8
+				ELSE total_quota_usd + $8
+			END,
+			total_usage_usd = CASE WHEN $12 THEN 0 ELSE total_usage_usd END,
+			wallet_fallback_enabled = $10,
+			updated_at = NOW()
+		WHERE id = $11 AND deleted_at IS NULL
+	`,
+		snapshot.PlanID,
+		snapshot.FiveHourQuotaUSD,
+		snapshot.PreserveExistingFiveHourQuota,
+		snapshot.FiveHourStartedAt,
+		snapshot.CycleQuotaUSD,
+		snapshot.ResetIntervalSeconds,
+		snapshot.CycleStartedAt,
+		snapshot.TotalQuotaUSD,
+		snapshot.PreserveExistingTotalQuota,
+		snapshot.WalletFallbackEnabled,
+		subscriptionID,
+		resetCycle,
+	)
 	if err != nil {
 		return translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
 	}
@@ -258,6 +245,10 @@ func (r *userSubscriptionRepository) Update(ctx context.Context, sub *service.Us
 		SetDailyUsageUsd(sub.DailyUsageUSD).
 		SetWeeklyUsageUsd(sub.WeeklyUsageUSD).
 		SetMonthlyUsageUsd(sub.MonthlyUsageUSD).
+		SetNillableFiveHourQuotaUsd(sub.FiveHourQuotaUSD).
+		SetNillableFiveHourStartedAt(sub.FiveHourStartedAt).
+		SetFiveHourUsageUsd(sub.FiveHourUsageUSD).
+		SetFiveHourReservedUsd(sub.FiveHourReservedUSD).
 		SetNillableCycleQuotaUsd(sub.CycleQuotaUSD).
 		SetResetIntervalSeconds(sub.ResetIntervalSeconds).
 		SetNillableCycleStartedAt(sub.CycleStartedAt).
@@ -582,11 +573,24 @@ func (r *userSubscriptionRepository) IncrementUsage(ctx context.Context, id int6
 				daily_usage_usd = daily_usage_usd + $1,
 				weekly_usage_usd = weekly_usage_usd + $1,
 				monthly_usage_usd = monthly_usage_usd + $1,
+				five_hour_started_at = CASE
+					WHEN five_hour_started_at IS NULL THEN NOW()
+					WHEN NOW() >= five_hour_started_at + INTERVAL '5 hours' THEN
+						five_hour_started_at + FLOOR(EXTRACT(EPOCH FROM (NOW() - five_hour_started_at)) / 18000) * INTERVAL '5 hours'
+					ELSE five_hour_started_at
+				END,
+				five_hour_usage_usd = CASE
+					WHEN five_hour_started_at IS NULL OR NOW() >= five_hour_started_at + INTERVAL '5 hours' THEN $1
+					ELSE five_hour_usage_usd + $1
+				END,
 				cycle_started_at = CASE
 					WHEN reset_interval_seconds > 0 AND (
 						cycle_started_at IS NULL OR
 						NOW() >= cycle_started_at + reset_interval_seconds * INTERVAL '1 second'
-					) THEN NOW()
+					) THEN CASE
+						WHEN cycle_started_at IS NULL THEN NOW()
+						ELSE cycle_started_at + FLOOR(EXTRACT(EPOCH FROM (NOW() - cycle_started_at)) / reset_interval_seconds) * reset_interval_seconds * INTERVAL '1 second'
+					END
 					ELSE cycle_started_at
 				END,
 				cycle_usage_usd = CASE
@@ -755,6 +759,10 @@ func userSubscriptionEntityToServiceWithStatusMapping(m *dbent.UserSubscription,
 		DailyUsageUSD:         m.DailyUsageUsd,
 		WeeklyUsageUSD:        m.WeeklyUsageUsd,
 		MonthlyUsageUSD:       m.MonthlyUsageUsd,
+		FiveHourQuotaUSD:      m.FiveHourQuotaUsd,
+		FiveHourStartedAt:     m.FiveHourStartedAt,
+		FiveHourUsageUSD:      m.FiveHourUsageUsd,
+		FiveHourReservedUSD:   m.FiveHourReservedUsd,
 		CycleQuotaUSD:         m.CycleQuotaUsd,
 		ResetIntervalSeconds:  m.ResetIntervalSeconds,
 		CycleStartedAt:        m.CycleStartedAt,
@@ -804,6 +812,10 @@ func applyUserSubscriptionEntityToService(dst *service.UserSubscription, src *db
 	}
 	dst.ID = src.ID
 	dst.PlanID = src.PlanID
+	dst.FiveHourQuotaUSD = src.FiveHourQuotaUsd
+	dst.FiveHourStartedAt = src.FiveHourStartedAt
+	dst.FiveHourUsageUSD = src.FiveHourUsageUsd
+	dst.FiveHourReservedUSD = src.FiveHourReservedUsd
 	dst.CycleQuotaUSD = src.CycleQuotaUsd
 	dst.ResetIntervalSeconds = src.ResetIntervalSeconds
 	dst.CycleStartedAt = src.CycleStartedAt

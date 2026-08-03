@@ -3,7 +3,7 @@
   "mode": "upsert",
   "template": {
     "kind": "qiuapi-five-tier-subscription",
-    "version": 2,
+    "version": 3,
     "group_binding": "select_on_import"
   },
   "payment_settings": {
@@ -11,7 +11,7 @@
     "subscription_usd_to_cny_rate": 0
   },
   "defaults": {
-    "validity_days": 28,
+    "validity_days": 30,
     "validity_unit": "days",
     "currency": "CNY",
     "for_sale": true
@@ -19,6 +19,7 @@
   "groups": [],
   "plans": [
     {
+      "five_hour_quota_usd": 0,
       "cycle_quota_usd": 5,
       "total_quota_usd": 20,
       "reset_interval_seconds": 604800,
@@ -27,13 +28,13 @@
       "price": 12.9,
       "original_price": 20,
       "currency": "CNY",
-      "validity_days": 28,
+      "validity_days": 30,
       "validity_unit": "days",
       "sort_order": 10,
-      "description": "每 7 天 5 积分，28 天累计最高 20 积分。单买价值 20 元，订阅仅需 12.9 元，适合偶尔问答和轻量文本使用。",
+      "description": "每 7 天 5 积分，30 天累计最高 20 积分。单买价值 20 元，订阅仅需 12.9 元，适合偶尔问答和轻量文本使用。",
       "features": [
         "每 7 天重置 5 积分",
-        "28 天累计最高 20 积分",
+        "30 天累计最高 20 积分",
         "未使用额度不结转",
         "支持多模型"
       ],
@@ -41,6 +42,7 @@
       "for_sale": true
     },
     {
+      "five_hour_quota_usd": 0,
       "cycle_quota_usd": 15,
       "total_quota_usd": 60,
       "reset_interval_seconds": 604800,
@@ -49,13 +51,13 @@
       "price": 38.9,
       "original_price": 60,
       "currency": "CNY",
-      "validity_days": 28,
+      "validity_days": 30,
       "validity_unit": "days",
       "sort_order": 20,
-      "description": "每 7 天 15 积分，28 天累计最高 60 积分。单买价值 60 元，订阅仅需 38.9 元，适合日常对话、翻译和轻度开发。",
+      "description": "每 7 天 15 积分，30 天累计最高 60 积分。单买价值 60 元，订阅仅需 38.9 元，适合日常对话、翻译和轻度开发。",
       "features": [
         "每 7 天重置 15 积分",
-        "28 天累计最高 60 积分",
+        "30 天累计最高 60 积分",
         "未使用额度不结转",
         "支持多模型"
       ],
@@ -63,6 +65,7 @@
       "for_sale": true
     },
     {
+      "five_hour_quota_usd": 0,
       "cycle_quota_usd": 40,
       "total_quota_usd": 160,
       "reset_interval_seconds": 604800,
@@ -71,13 +74,13 @@
       "price": 103.9,
       "original_price": 160,
       "currency": "CNY",
-      "validity_days": 28,
+      "validity_days": 30,
       "validity_unit": "days",
       "sort_order": 30,
-      "description": "每 7 天 40 积分，28 天累计最高 160 积分。单买价值 160 元，订阅仅需 103.9 元，适合稳定开发和内容创作。",
+      "description": "每 7 天 40 积分，30 天累计最高 160 积分。单买价值 160 元，订阅仅需 103.9 元，适合稳定开发和内容创作。",
       "features": [
         "每 7 天重置 40 积分",
-        "28 天累计最高 160 积分",
+        "30 天累计最高 160 积分",
         "未使用额度不结转",
         "支持多模型"
       ],
@@ -85,6 +88,7 @@
       "for_sale": true
     },
     {
+      "five_hour_quota_usd": 0,
       "cycle_quota_usd": 100,
       "total_quota_usd": 400,
       "reset_interval_seconds": 604800,
@@ -93,13 +97,13 @@
       "price": 259,
       "original_price": 400,
       "currency": "CNY",
-      "validity_days": 28,
+      "validity_days": 30,
       "validity_unit": "days",
       "sort_order": 40,
-      "description": "每 7 天 100 积分，28 天累计最高 400 积分。单买价值 400 元，订阅仅需 259 元，适合高频开发、批量处理和多模型使用。",
+      "description": "每 7 天 100 积分，30 天累计最高 400 积分。单买价值 400 元，订阅仅需 259 元，适合高频开发、批量处理和多模型使用。",
       "features": [
         "每 7 天重置 100 积分",
-        "28 天累计最高 400 积分",
+        "30 天累计最高 400 积分",
         "未使用额度不结转",
         "支持多模型"
       ],
@@ -107,6 +111,7 @@
       "for_sale": true
     },
     {
+      "five_hour_quota_usd": 0,
       "cycle_quota_usd": 250,
       "total_quota_usd": 1000,
       "reset_interval_seconds": 604800,
@@ -115,13 +120,13 @@
       "price": 649,
       "original_price": 1000,
       "currency": "CNY",
-      "validity_days": 28,
+      "validity_days": 30,
       "validity_unit": "days",
       "sort_order": 50,
-      "description": "每 7 天 250 积分，28 天累计最高 1000 积分。单买价值 1000 元，订阅仅需 649 元，适合重度使用、小型团队和生产业务。",
+      "description": "每 7 天 250 积分，30 天累计最高 1000 积分。单买价值 1000 元，订阅仅需 649 元，适合重度使用、小型团队和生产业务。",
       "features": [
         "每 7 天重置 250 积分",
-        "28 天累计最高 1000 积分",
+        "30 天累计最高 1000 积分",
         "未使用额度不结转",
         "支持多模型"
       ],

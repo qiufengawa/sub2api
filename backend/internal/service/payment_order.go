@@ -22,7 +22,11 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-const subscriptionPlanOrderSnapshotVersion = 3
+const (
+	subscriptionPlanOrderSnapshotVersion              = 4
+	subscriptionPlanOrderSnapshotTotalQuotaVersion    = 3
+	subscriptionPlanOrderSnapshotFiveHourQuotaVersion = 4
+)
 
 type SubscriptionPlanOrderSnapshot struct {
 	SchemaVersion         int      `json:"schema_version"`
@@ -30,6 +34,7 @@ type SubscriptionPlanOrderSnapshot struct {
 	PlanName              string   `json:"plan_name"`
 	IncludedGroupIDs      []int64  `json:"included_group_ids"`
 	IncludedGroupNames    []string `json:"included_group_names,omitempty"`
+	FiveHourQuotaUSD      *float64 `json:"five_hour_quota_usd,omitempty"`
 	CycleQuotaUSD         *float64 `json:"cycle_quota_usd,omitempty"`
 	TotalQuotaUSD         *float64 `json:"total_quota_usd,omitempty"`
 	ResetIntervalSeconds  int      `json:"reset_interval_seconds"`
@@ -156,7 +161,7 @@ func (s *PaymentService) validateSubOrder(ctx context.Context, req CreateOrderRe
 	if err != nil || !plan.ForSale {
 		return nil, infraerrors.NotFound("PLAN_NOT_AVAILABLE", "plan not found or not for sale")
 	}
-	if plan.CycleQuotaUsd == nil || *plan.CycleQuotaUsd <= 0 || plan.ResetIntervalSeconds <= 0 {
+	if plan.CycleQuotaUsd != nil && *plan.CycleQuotaUsd > 0 && plan.ResetIntervalSeconds <= 0 {
 		return nil, infraerrors.BadRequest("PLAN_BILLING_INCOMPLETE", "subscription plan quota and reset interval are required")
 	}
 	if len(plan.Edges.Groups) == 0 {
@@ -204,6 +209,7 @@ func buildSubscriptionPlanOrderSnapshot(plan *dbent.SubscriptionPlan) (map[strin
 		PlanName:              plan.Name,
 		IncludedGroupIDs:      groupIDs,
 		IncludedGroupNames:    groupNames,
+		FiveHourQuotaUSD:      plan.FiveHourQuotaUsd,
 		CycleQuotaUSD:         plan.CycleQuotaUsd,
 		TotalQuotaUSD:         plan.TotalQuotaUsd,
 		ResetIntervalSeconds:  plan.ResetIntervalSeconds,
@@ -233,7 +239,7 @@ func subscriptionPlanOrderSnapshotFromOrder(order *dbent.PaymentOrder) (Subscrip
 	if err := json.Unmarshal(raw, &snapshot); err != nil {
 		return SubscriptionPlanOrderSnapshot{}, false, err
 	}
-	if (snapshot.SchemaVersion != 2 && snapshot.SchemaVersion != subscriptionPlanOrderSnapshotVersion) || snapshot.PlanID <= 0 || len(snapshot.IncludedGroupIDs) == 0 || snapshot.ValidityDays <= 0 {
+	if (snapshot.SchemaVersion != 2 && snapshot.SchemaVersion != subscriptionPlanOrderSnapshotTotalQuotaVersion && snapshot.SchemaVersion != subscriptionPlanOrderSnapshotVersion) || snapshot.PlanID <= 0 || len(snapshot.IncludedGroupIDs) == 0 || snapshot.ValidityDays <= 0 {
 		return SubscriptionPlanOrderSnapshot{}, false, infraerrors.BadRequest("INVALID_STATUS", "invalid subscription plan snapshot")
 	}
 	for _, groupID := range snapshot.IncludedGroupIDs {

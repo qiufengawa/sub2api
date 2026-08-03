@@ -46,6 +46,10 @@ func (SubscriptionPlan) Fields() []ent.Field {
 		field.String("currency").
 			MaxLen(3).
 			Default(""),
+		field.Float("five_hour_quota_usd").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}).
+			Optional().
+			Nillable(),
 		field.Float("cycle_quota_usd").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}).
 			Optional().

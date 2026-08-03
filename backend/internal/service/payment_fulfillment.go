@@ -566,10 +566,13 @@ func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, 
 				Notes:        orderNote,
 			}
 			input.PlanID = snapshot.PlanID
+			input.FiveHourQuotaUSD = snapshot.FiveHourQuotaUSD
+			input.PreserveExistingFiveHourQuota = snapshot.SchemaVersion < subscriptionPlanOrderSnapshotFiveHourQuotaVersion
+			input.FiveHourQuotaSnapshotProvided = snapshot.SchemaVersion >= subscriptionPlanOrderSnapshotFiveHourQuotaVersion
 			input.CycleQuotaUSD = snapshot.CycleQuotaUSD
 			input.TotalQuotaUSD = snapshot.TotalQuotaUSD
-			input.PreserveExistingTotalQuota = snapshot.SchemaVersion < subscriptionPlanOrderSnapshotVersion
-			input.TotalQuotaSnapshotProvided = snapshot.SchemaVersion >= subscriptionPlanOrderSnapshotVersion
+			input.PreserveExistingTotalQuota = snapshot.SchemaVersion < subscriptionPlanOrderSnapshotTotalQuotaVersion
+			input.TotalQuotaSnapshotProvided = snapshot.SchemaVersion >= subscriptionPlanOrderSnapshotTotalQuotaVersion
 			input.ResetIntervalSeconds = snapshot.ResetIntervalSeconds
 			walletFallback := snapshot.WalletFallbackEnabled
 			input.WalletFallbackEnabled = &walletFallback
@@ -581,6 +584,7 @@ func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, 
 		detail, _ := json.Marshal(map[string]any{
 			"planID":            snapshot.PlanID,
 			"includedGroupIDs":  snapshot.IncludedGroupIDs,
+			"fiveHourQuotaUSD":  snapshot.FiveHourQuotaUSD,
 			"cycleQuotaUSD":     snapshot.CycleQuotaUSD,
 			"totalQuotaUSD":     snapshot.TotalQuotaUSD,
 			"resetInterval":     snapshot.ResetIntervalSeconds,

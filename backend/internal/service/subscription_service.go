@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"strings"
 	"time"
 
@@ -98,17 +99,20 @@ func (s *SubscriptionService) invalidateSubscriptionCaches(userID, groupID int64
 
 // AssignSubscriptionInput 分配订阅输入
 type AssignSubscriptionInput struct {
-	UserID                     int64
-	PlanID                     int64
-	CycleQuotaUSD              *float64
-	TotalQuotaUSD              *float64
-	PreserveExistingTotalQuota bool
-	TotalQuotaSnapshotProvided bool
-	ResetIntervalSeconds       int
-	WalletFallbackEnabled      *bool
-	ValidityDays               int
-	AssignedBy                 int64
-	Notes                      string
+	UserID                        int64
+	PlanID                        int64
+	FiveHourQuotaUSD              *float64
+	PreserveExistingFiveHourQuota bool
+	FiveHourQuotaSnapshotProvided bool
+	CycleQuotaUSD                 *float64
+	TotalQuotaUSD                 *float64
+	PreserveExistingTotalQuota    bool
+	TotalQuotaSnapshotProvided    bool
+	ResetIntervalSeconds          int
+	WalletFallbackEnabled         *bool
+	ValidityDays                  int
+	AssignedBy                    int64
+	Notes                         string
 }
 
 // AssignSubscription 分配订阅给用户（不允许重复分配）
@@ -181,15 +185,25 @@ func (s *SubscriptionService) assignOrExtendSubscription(ctx context.Context, in
 		if isExpired || cycleStart == nil {
 			cycleStart = &now
 		}
+		fiveHourStart := existingSub.FiveHourStartedAt
+		if isExpired || fiveHourStart == nil {
+			fiveHourStart = &now
+		}
 		walletFallback := true
 		if input.WalletFallbackEnabled != nil {
 			walletFallback = *input.WalletFallbackEnabled
 		}
 		if err := coverageRepo.UpdateBillingSnapshot(ctx, existingSub.ID, SubscriptionBillingSnapshot{
-			PlanID: input.PlanID, CycleQuotaUSD: input.CycleQuotaUSD, TotalQuotaUSD: input.TotalQuotaUSD,
-			PreserveExistingTotalQuota: input.PreserveExistingTotalQuota,
-			ResetIntervalSeconds:       input.ResetIntervalSeconds,
-			CycleStartedAt:             cycleStart, WalletFallbackEnabled: walletFallback,
+			PlanID:                        input.PlanID,
+			FiveHourQuotaUSD:              input.FiveHourQuotaUSD,
+			PreserveExistingFiveHourQuota: input.PreserveExistingFiveHourQuota,
+			CycleQuotaUSD:                 input.CycleQuotaUSD,
+			TotalQuotaUSD:                 input.TotalQuotaUSD,
+			PreserveExistingTotalQuota:    input.PreserveExistingTotalQuota,
+			ResetIntervalSeconds:          input.ResetIntervalSeconds,
+			FiveHourStartedAt:             fiveHourStart,
+			CycleStartedAt:                cycleStart,
+			WalletFallbackEnabled:         walletFallback,
 		}, isExpired); err != nil {
 			return nil, false, err
 		}
@@ -234,6 +248,9 @@ func (s *SubscriptionService) prepareSubscriptionAssignment(ctx context.Context,
 	}
 	if input.CycleQuotaUSD == nil {
 		input.CycleQuotaUSD = plan.CycleQuotaUsd
+	}
+	if input.FiveHourQuotaUSD == nil && !input.PreserveExistingFiveHourQuota && !input.FiveHourQuotaSnapshotProvided {
+		input.FiveHourQuotaUSD = plan.FiveHourQuotaUsd
 	}
 	if input.TotalQuotaUSD == nil && !input.PreserveExistingTotalQuota && !input.TotalQuotaSnapshotProvided {
 		input.TotalQuotaUSD = plan.TotalQuotaUsd
@@ -370,6 +387,11 @@ func renewedSubscriptionTerm(existingSub *UserSubscription, notes string, starts
 	renewed.DailyUsageUSD = 0
 	renewed.WeeklyUsageUSD = 0
 	renewed.MonthlyUsageUSD = 0
+	renewed.FiveHourStartedAt = &windowStart
+	renewed.FiveHourUsageUSD = 0
+	renewed.CycleStartedAt = &windowStart
+	renewed.CycleUsageUSD = 0
+	renewed.TotalUsageUSD = 0
 	renewed.Notes = appendSubscriptionNotes(existingSub.Notes, notes)
 	return &renewed
 }
@@ -410,6 +432,8 @@ func (s *SubscriptionService) createSubscription(ctx context.Context, input *Ass
 		Notes:                 input.Notes,
 		CreatedAt:             now,
 		UpdatedAt:             now,
+		FiveHourQuotaUSD:      input.FiveHourQuotaUSD,
+		FiveHourStartedAt:     &now,
 		CycleQuotaUSD:         input.CycleQuotaUSD,
 		TotalQuotaUSD:         input.TotalQuotaUSD,
 		ResetIntervalSeconds:  input.ResetIntervalSeconds,
@@ -520,9 +544,16 @@ func (s *SubscriptionService) assignSubscriptionWithReuse(ctx context.Context, i
 				walletFallback = *input.WalletFallbackEnabled
 			}
 			if err := coverageRepo.UpdateBillingSnapshot(ctx, sub.ID, SubscriptionBillingSnapshot{
-				PlanID: input.PlanID, CycleQuotaUSD: input.CycleQuotaUSD, TotalQuotaUSD: input.TotalQuotaUSD,
-				ResetIntervalSeconds: input.ResetIntervalSeconds, CycleStartedAt: &now,
-				WalletFallbackEnabled: walletFallback,
+				PlanID:                        input.PlanID,
+				FiveHourQuotaUSD:              input.FiveHourQuotaUSD,
+				PreserveExistingFiveHourQuota: input.PreserveExistingFiveHourQuota,
+				CycleQuotaUSD:                 input.CycleQuotaUSD,
+				TotalQuotaUSD:                 input.TotalQuotaUSD,
+				PreserveExistingTotalQuota:    input.PreserveExistingTotalQuota,
+				ResetIntervalSeconds:          input.ResetIntervalSeconds,
+				FiveHourStartedAt:             &now,
+				CycleStartedAt:                &now,
+				WalletFallbackEnabled:         walletFallback,
 			}, true); err != nil {
 				return nil, false, err
 			}
@@ -1072,6 +1103,7 @@ type SubscriptionProgress struct {
 	PlanName      string               `json:"plan_name"`
 	ExpiresAt     time.Time            `json:"expires_at"`
 	ExpiresInDays int                  `json:"expires_in_days"`
+	FiveHour      *UsageWindowProgress `json:"five_hour,omitempty"`
 	Cycle         *UsageWindowProgress `json:"cycle,omitempty"`
 	Total         *UsageWindowProgress `json:"total,omitempty"`
 }
@@ -1080,6 +1112,7 @@ type SubscriptionProgress struct {
 type UsageWindowProgress struct {
 	LimitUSD        float64   `json:"limit_usd"`
 	UsedUSD         float64   `json:"used_usd"`
+	ReservedUSD     float64   `json:"reserved_usd"`
 	RemainingUSD    float64   `json:"remaining_usd"`
 	Percentage      float64   `json:"percentage"`
 	WindowStart     time.Time `json:"window_start"`
@@ -1100,15 +1133,48 @@ func (s *SubscriptionService) GetSubscriptionProgress(ctx context.Context, subsc
 // calculateProgress 根据已加载的订阅数据计算套餐周期进度（纯内存计算，无 DB 查询）。
 // 覆盖分组只决定可用路由及实际倍率，不能任选一个分组代表整份套餐的额度。
 func (s *SubscriptionService) calculateProgress(sub *UserSubscription) *SubscriptionProgress {
+	now := s.now()
 	progress := &SubscriptionProgress{
 		ID:            sub.ID,
 		PlanName:      sub.PlanName,
 		ExpiresAt:     sub.ExpiresAt,
 		ExpiresInDays: sub.DaysRemaining(),
 	}
+	if sub.HasFiveHourQuota() {
+		used := sub.FiveHourUsageAt(now)
+		reserved := math.Max(sub.FiveHourReservedUSD, 0)
+		start := sub.StartsAt
+		if sub.FiveHourStartedAt != nil {
+			start = *sub.FiveHourStartedAt
+			if !now.Before(start.Add(subscriptionFiveHourDuration)) {
+				start = start.Add((now.Sub(start) / subscriptionFiveHourDuration) * subscriptionFiveHourDuration)
+			}
+		}
+		resetsAt := sub.ExpiresAt
+		if reset := sub.FiveHourResetTimeAt(now); reset != nil {
+			resetsAt = *reset
+		}
+		limit := *sub.FiveHourQuotaUSD
+		remaining := math.Max(limit-used-reserved, 0)
+		percentage := math.Min(((used+reserved)/limit)*100, 100)
+		resetsInSeconds := int64(resetsAt.Sub(now).Seconds())
+		if resetsInSeconds < 0 {
+			resetsInSeconds = 0
+		}
+		progress.FiveHour = &UsageWindowProgress{
+			LimitUSD:        limit,
+			UsedUSD:         used,
+			ReservedUSD:     reserved,
+			RemainingUSD:    remaining,
+			Percentage:      percentage,
+			WindowStart:     start,
+			ResetsAt:        resetsAt,
+			ResetsInSeconds: resetsInSeconds,
+		}
+	}
 	if sub.HasCycleQuota() {
-		now := s.now()
 		used := sub.CycleUsageAt(now)
+		reserved := math.Max(sub.CycleReservedUSD, 0)
 		start := sub.StartsAt
 		if sub.CycleStartedAt != nil {
 			start = *sub.CycleStartedAt
@@ -1122,21 +1188,16 @@ func (s *SubscriptionService) calculateProgress(sub *UserSubscription) *Subscrip
 			resetsAt = *reset
 		}
 		limit := *sub.CycleQuotaUSD
-		remaining := limit - used
-		if remaining < 0 {
-			remaining = 0
-		}
-		percentage := (used / limit) * 100
-		if percentage > 100 {
-			percentage = 100
-		}
-		resetsInSeconds := int64(time.Until(resetsAt).Seconds())
+		remaining := math.Max(limit-used-reserved, 0)
+		percentage := math.Min(((used+reserved)/limit)*100, 100)
+		resetsInSeconds := int64(resetsAt.Sub(now).Seconds())
 		if resetsInSeconds < 0 {
 			resetsInSeconds = 0
 		}
 		progress.Cycle = &UsageWindowProgress{
 			LimitUSD:        limit,
 			UsedUSD:         used,
+			ReservedUSD:     reserved,
 			RemainingUSD:    remaining,
 			Percentage:      percentage,
 			WindowStart:     start,
@@ -1147,21 +1208,17 @@ func (s *SubscriptionService) calculateProgress(sub *UserSubscription) *Subscrip
 	if sub.HasTotalQuota() {
 		limit := *sub.TotalQuotaUSD
 		used := sub.TotalUsageUSD
-		remaining := limit - used
-		if remaining < 0 {
-			remaining = 0
-		}
-		percentage := (used / limit) * 100
-		if percentage > 100 {
-			percentage = 100
-		}
-		resetsInSeconds := int64(time.Until(sub.ExpiresAt).Seconds())
+		reserved := math.Max(sub.TotalReservedUSD, 0)
+		remaining := math.Max(limit-used-reserved, 0)
+		percentage := math.Min(((used+reserved)/limit)*100, 100)
+		resetsInSeconds := int64(sub.ExpiresAt.Sub(now).Seconds())
 		if resetsInSeconds < 0 {
 			resetsInSeconds = 0
 		}
 		progress.Total = &UsageWindowProgress{
 			LimitUSD:        limit,
 			UsedUSD:         used,
+			ReservedUSD:     reserved,
 			RemainingUSD:    remaining,
 			Percentage:      percentage,
 			WindowStart:     sub.StartsAt,

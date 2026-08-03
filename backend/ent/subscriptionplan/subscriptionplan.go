@@ -24,6 +24,8 @@ const (
 	FieldOriginalPrice = "original_price"
 	// FieldCurrency holds the string denoting the currency field in the database.
 	FieldCurrency = "currency"
+	// FieldFiveHourQuotaUsd holds the string denoting the five_hour_quota_usd field in the database.
+	FieldFiveHourQuotaUsd = "five_hour_quota_usd"
 	// FieldCycleQuotaUsd holds the string denoting the cycle_quota_usd field in the database.
 	FieldCycleQuotaUsd = "cycle_quota_usd"
 	// FieldTotalQuotaUsd holds the string denoting the total_quota_usd field in the database.
@@ -94,6 +96,7 @@ var Columns = []string{
 	FieldPrice,
 	FieldOriginalPrice,
 	FieldCurrency,
+	FieldFiveHourQuotaUsd,
 	FieldCycleQuotaUsd,
 	FieldTotalQuotaUsd,
 	FieldResetIntervalSeconds,
@@ -192,6 +195,11 @@ func ByOriginalPrice(opts ...sql.OrderTermOption) OrderOption {
 // ByCurrency orders the results by the currency field.
 func ByCurrency(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCurrency, opts...).ToFunc()
+}
+
+// ByFiveHourQuotaUsd orders the results by the five_hour_quota_usd field.
+func ByFiveHourQuotaUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFiveHourQuotaUsd, opts...).ToFunc()
 }
 
 // ByCycleQuotaUsd orders the results by the cycle_quota_usd field.

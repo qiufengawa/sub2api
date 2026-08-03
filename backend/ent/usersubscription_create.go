@@ -189,6 +189,62 @@ func (_c *UserSubscriptionCreate) SetNillableMonthlyUsageUsd(v *float64) *UserSu
 	return _c
 }
 
+// SetFiveHourQuotaUsd sets the "five_hour_quota_usd" field.
+func (_c *UserSubscriptionCreate) SetFiveHourQuotaUsd(v float64) *UserSubscriptionCreate {
+	_c.mutation.SetFiveHourQuotaUsd(v)
+	return _c
+}
+
+// SetNillableFiveHourQuotaUsd sets the "five_hour_quota_usd" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableFiveHourQuotaUsd(v *float64) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetFiveHourQuotaUsd(*v)
+	}
+	return _c
+}
+
+// SetFiveHourStartedAt sets the "five_hour_started_at" field.
+func (_c *UserSubscriptionCreate) SetFiveHourStartedAt(v time.Time) *UserSubscriptionCreate {
+	_c.mutation.SetFiveHourStartedAt(v)
+	return _c
+}
+
+// SetNillableFiveHourStartedAt sets the "five_hour_started_at" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableFiveHourStartedAt(v *time.Time) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetFiveHourStartedAt(*v)
+	}
+	return _c
+}
+
+// SetFiveHourUsageUsd sets the "five_hour_usage_usd" field.
+func (_c *UserSubscriptionCreate) SetFiveHourUsageUsd(v float64) *UserSubscriptionCreate {
+	_c.mutation.SetFiveHourUsageUsd(v)
+	return _c
+}
+
+// SetNillableFiveHourUsageUsd sets the "five_hour_usage_usd" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableFiveHourUsageUsd(v *float64) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetFiveHourUsageUsd(*v)
+	}
+	return _c
+}
+
+// SetFiveHourReservedUsd sets the "five_hour_reserved_usd" field.
+func (_c *UserSubscriptionCreate) SetFiveHourReservedUsd(v float64) *UserSubscriptionCreate {
+	_c.mutation.SetFiveHourReservedUsd(v)
+	return _c
+}
+
+// SetNillableFiveHourReservedUsd sets the "five_hour_reserved_usd" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableFiveHourReservedUsd(v *float64) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetFiveHourReservedUsd(*v)
+	}
+	return _c
+}
+
 // SetCycleQuotaUsd sets the "cycle_quota_usd" field.
 func (_c *UserSubscriptionCreate) SetCycleQuotaUsd(v float64) *UserSubscriptionCreate {
 	_c.mutation.SetCycleQuotaUsd(v)
@@ -468,6 +524,14 @@ func (_c *UserSubscriptionCreate) defaults() error {
 		v := usersubscription.DefaultMonthlyUsageUsd
 		_c.mutation.SetMonthlyUsageUsd(v)
 	}
+	if _, ok := _c.mutation.FiveHourUsageUsd(); !ok {
+		v := usersubscription.DefaultFiveHourUsageUsd
+		_c.mutation.SetFiveHourUsageUsd(v)
+	}
+	if _, ok := _c.mutation.FiveHourReservedUsd(); !ok {
+		v := usersubscription.DefaultFiveHourReservedUsd
+		_c.mutation.SetFiveHourReservedUsd(v)
+	}
 	if _, ok := _c.mutation.ResetIntervalSeconds(); !ok {
 		v := usersubscription.DefaultResetIntervalSeconds
 		_c.mutation.SetResetIntervalSeconds(v)
@@ -538,6 +602,12 @@ func (_c *UserSubscriptionCreate) check() error {
 	}
 	if _, ok := _c.mutation.MonthlyUsageUsd(); !ok {
 		return &ValidationError{Name: "monthly_usage_usd", err: errors.New(`ent: missing required field "UserSubscription.monthly_usage_usd"`)}
+	}
+	if _, ok := _c.mutation.FiveHourUsageUsd(); !ok {
+		return &ValidationError{Name: "five_hour_usage_usd", err: errors.New(`ent: missing required field "UserSubscription.five_hour_usage_usd"`)}
+	}
+	if _, ok := _c.mutation.FiveHourReservedUsd(); !ok {
+		return &ValidationError{Name: "five_hour_reserved_usd", err: errors.New(`ent: missing required field "UserSubscription.five_hour_reserved_usd"`)}
 	}
 	if _, ok := _c.mutation.ResetIntervalSeconds(); !ok {
 		return &ValidationError{Name: "reset_interval_seconds", err: errors.New(`ent: missing required field "UserSubscription.reset_interval_seconds"`)}
@@ -640,6 +710,22 @@ func (_c *UserSubscriptionCreate) createSpec() (*UserSubscription, *sqlgraph.Cre
 	if value, ok := _c.mutation.MonthlyUsageUsd(); ok {
 		_spec.SetField(usersubscription.FieldMonthlyUsageUsd, field.TypeFloat64, value)
 		_node.MonthlyUsageUsd = value
+	}
+	if value, ok := _c.mutation.FiveHourQuotaUsd(); ok {
+		_spec.SetField(usersubscription.FieldFiveHourQuotaUsd, field.TypeFloat64, value)
+		_node.FiveHourQuotaUsd = &value
+	}
+	if value, ok := _c.mutation.FiveHourStartedAt(); ok {
+		_spec.SetField(usersubscription.FieldFiveHourStartedAt, field.TypeTime, value)
+		_node.FiveHourStartedAt = &value
+	}
+	if value, ok := _c.mutation.FiveHourUsageUsd(); ok {
+		_spec.SetField(usersubscription.FieldFiveHourUsageUsd, field.TypeFloat64, value)
+		_node.FiveHourUsageUsd = value
+	}
+	if value, ok := _c.mutation.FiveHourReservedUsd(); ok {
+		_spec.SetField(usersubscription.FieldFiveHourReservedUsd, field.TypeFloat64, value)
+		_node.FiveHourReservedUsd = value
 	}
 	if value, ok := _c.mutation.CycleQuotaUsd(); ok {
 		_spec.SetField(usersubscription.FieldCycleQuotaUsd, field.TypeFloat64, value)
@@ -999,6 +1085,84 @@ func (u *UserSubscriptionUpsert) UpdateMonthlyUsageUsd() *UserSubscriptionUpsert
 // AddMonthlyUsageUsd adds v to the "monthly_usage_usd" field.
 func (u *UserSubscriptionUpsert) AddMonthlyUsageUsd(v float64) *UserSubscriptionUpsert {
 	u.Add(usersubscription.FieldMonthlyUsageUsd, v)
+	return u
+}
+
+// SetFiveHourQuotaUsd sets the "five_hour_quota_usd" field.
+func (u *UserSubscriptionUpsert) SetFiveHourQuotaUsd(v float64) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldFiveHourQuotaUsd, v)
+	return u
+}
+
+// UpdateFiveHourQuotaUsd sets the "five_hour_quota_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateFiveHourQuotaUsd() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldFiveHourQuotaUsd)
+	return u
+}
+
+// AddFiveHourQuotaUsd adds v to the "five_hour_quota_usd" field.
+func (u *UserSubscriptionUpsert) AddFiveHourQuotaUsd(v float64) *UserSubscriptionUpsert {
+	u.Add(usersubscription.FieldFiveHourQuotaUsd, v)
+	return u
+}
+
+// ClearFiveHourQuotaUsd clears the value of the "five_hour_quota_usd" field.
+func (u *UserSubscriptionUpsert) ClearFiveHourQuotaUsd() *UserSubscriptionUpsert {
+	u.SetNull(usersubscription.FieldFiveHourQuotaUsd)
+	return u
+}
+
+// SetFiveHourStartedAt sets the "five_hour_started_at" field.
+func (u *UserSubscriptionUpsert) SetFiveHourStartedAt(v time.Time) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldFiveHourStartedAt, v)
+	return u
+}
+
+// UpdateFiveHourStartedAt sets the "five_hour_started_at" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateFiveHourStartedAt() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldFiveHourStartedAt)
+	return u
+}
+
+// ClearFiveHourStartedAt clears the value of the "five_hour_started_at" field.
+func (u *UserSubscriptionUpsert) ClearFiveHourStartedAt() *UserSubscriptionUpsert {
+	u.SetNull(usersubscription.FieldFiveHourStartedAt)
+	return u
+}
+
+// SetFiveHourUsageUsd sets the "five_hour_usage_usd" field.
+func (u *UserSubscriptionUpsert) SetFiveHourUsageUsd(v float64) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldFiveHourUsageUsd, v)
+	return u
+}
+
+// UpdateFiveHourUsageUsd sets the "five_hour_usage_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateFiveHourUsageUsd() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldFiveHourUsageUsd)
+	return u
+}
+
+// AddFiveHourUsageUsd adds v to the "five_hour_usage_usd" field.
+func (u *UserSubscriptionUpsert) AddFiveHourUsageUsd(v float64) *UserSubscriptionUpsert {
+	u.Add(usersubscription.FieldFiveHourUsageUsd, v)
+	return u
+}
+
+// SetFiveHourReservedUsd sets the "five_hour_reserved_usd" field.
+func (u *UserSubscriptionUpsert) SetFiveHourReservedUsd(v float64) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldFiveHourReservedUsd, v)
+	return u
+}
+
+// UpdateFiveHourReservedUsd sets the "five_hour_reserved_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateFiveHourReservedUsd() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldFiveHourReservedUsd)
+	return u
+}
+
+// AddFiveHourReservedUsd adds v to the "five_hour_reserved_usd" field.
+func (u *UserSubscriptionUpsert) AddFiveHourReservedUsd(v float64) *UserSubscriptionUpsert {
+	u.Add(usersubscription.FieldFiveHourReservedUsd, v)
 	return u
 }
 
@@ -1491,6 +1655,97 @@ func (u *UserSubscriptionUpsertOne) AddMonthlyUsageUsd(v float64) *UserSubscript
 func (u *UserSubscriptionUpsertOne) UpdateMonthlyUsageUsd() *UserSubscriptionUpsertOne {
 	return u.Update(func(s *UserSubscriptionUpsert) {
 		s.UpdateMonthlyUsageUsd()
+	})
+}
+
+// SetFiveHourQuotaUsd sets the "five_hour_quota_usd" field.
+func (u *UserSubscriptionUpsertOne) SetFiveHourQuotaUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetFiveHourQuotaUsd(v)
+	})
+}
+
+// AddFiveHourQuotaUsd adds v to the "five_hour_quota_usd" field.
+func (u *UserSubscriptionUpsertOne) AddFiveHourQuotaUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddFiveHourQuotaUsd(v)
+	})
+}
+
+// UpdateFiveHourQuotaUsd sets the "five_hour_quota_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateFiveHourQuotaUsd() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateFiveHourQuotaUsd()
+	})
+}
+
+// ClearFiveHourQuotaUsd clears the value of the "five_hour_quota_usd" field.
+func (u *UserSubscriptionUpsertOne) ClearFiveHourQuotaUsd() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.ClearFiveHourQuotaUsd()
+	})
+}
+
+// SetFiveHourStartedAt sets the "five_hour_started_at" field.
+func (u *UserSubscriptionUpsertOne) SetFiveHourStartedAt(v time.Time) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetFiveHourStartedAt(v)
+	})
+}
+
+// UpdateFiveHourStartedAt sets the "five_hour_started_at" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateFiveHourStartedAt() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateFiveHourStartedAt()
+	})
+}
+
+// ClearFiveHourStartedAt clears the value of the "five_hour_started_at" field.
+func (u *UserSubscriptionUpsertOne) ClearFiveHourStartedAt() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.ClearFiveHourStartedAt()
+	})
+}
+
+// SetFiveHourUsageUsd sets the "five_hour_usage_usd" field.
+func (u *UserSubscriptionUpsertOne) SetFiveHourUsageUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetFiveHourUsageUsd(v)
+	})
+}
+
+// AddFiveHourUsageUsd adds v to the "five_hour_usage_usd" field.
+func (u *UserSubscriptionUpsertOne) AddFiveHourUsageUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddFiveHourUsageUsd(v)
+	})
+}
+
+// UpdateFiveHourUsageUsd sets the "five_hour_usage_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateFiveHourUsageUsd() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateFiveHourUsageUsd()
+	})
+}
+
+// SetFiveHourReservedUsd sets the "five_hour_reserved_usd" field.
+func (u *UserSubscriptionUpsertOne) SetFiveHourReservedUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetFiveHourReservedUsd(v)
+	})
+}
+
+// AddFiveHourReservedUsd adds v to the "five_hour_reserved_usd" field.
+func (u *UserSubscriptionUpsertOne) AddFiveHourReservedUsd(v float64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddFiveHourReservedUsd(v)
+	})
+}
+
+// UpdateFiveHourReservedUsd sets the "five_hour_reserved_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateFiveHourReservedUsd() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateFiveHourReservedUsd()
 	})
 }
 
@@ -2185,6 +2440,97 @@ func (u *UserSubscriptionUpsertBulk) AddMonthlyUsageUsd(v float64) *UserSubscrip
 func (u *UserSubscriptionUpsertBulk) UpdateMonthlyUsageUsd() *UserSubscriptionUpsertBulk {
 	return u.Update(func(s *UserSubscriptionUpsert) {
 		s.UpdateMonthlyUsageUsd()
+	})
+}
+
+// SetFiveHourQuotaUsd sets the "five_hour_quota_usd" field.
+func (u *UserSubscriptionUpsertBulk) SetFiveHourQuotaUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetFiveHourQuotaUsd(v)
+	})
+}
+
+// AddFiveHourQuotaUsd adds v to the "five_hour_quota_usd" field.
+func (u *UserSubscriptionUpsertBulk) AddFiveHourQuotaUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddFiveHourQuotaUsd(v)
+	})
+}
+
+// UpdateFiveHourQuotaUsd sets the "five_hour_quota_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateFiveHourQuotaUsd() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateFiveHourQuotaUsd()
+	})
+}
+
+// ClearFiveHourQuotaUsd clears the value of the "five_hour_quota_usd" field.
+func (u *UserSubscriptionUpsertBulk) ClearFiveHourQuotaUsd() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.ClearFiveHourQuotaUsd()
+	})
+}
+
+// SetFiveHourStartedAt sets the "five_hour_started_at" field.
+func (u *UserSubscriptionUpsertBulk) SetFiveHourStartedAt(v time.Time) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetFiveHourStartedAt(v)
+	})
+}
+
+// UpdateFiveHourStartedAt sets the "five_hour_started_at" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateFiveHourStartedAt() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateFiveHourStartedAt()
+	})
+}
+
+// ClearFiveHourStartedAt clears the value of the "five_hour_started_at" field.
+func (u *UserSubscriptionUpsertBulk) ClearFiveHourStartedAt() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.ClearFiveHourStartedAt()
+	})
+}
+
+// SetFiveHourUsageUsd sets the "five_hour_usage_usd" field.
+func (u *UserSubscriptionUpsertBulk) SetFiveHourUsageUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetFiveHourUsageUsd(v)
+	})
+}
+
+// AddFiveHourUsageUsd adds v to the "five_hour_usage_usd" field.
+func (u *UserSubscriptionUpsertBulk) AddFiveHourUsageUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddFiveHourUsageUsd(v)
+	})
+}
+
+// UpdateFiveHourUsageUsd sets the "five_hour_usage_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateFiveHourUsageUsd() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateFiveHourUsageUsd()
+	})
+}
+
+// SetFiveHourReservedUsd sets the "five_hour_reserved_usd" field.
+func (u *UserSubscriptionUpsertBulk) SetFiveHourReservedUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetFiveHourReservedUsd(v)
+	})
+}
+
+// AddFiveHourReservedUsd adds v to the "five_hour_reserved_usd" field.
+func (u *UserSubscriptionUpsertBulk) AddFiveHourReservedUsd(v float64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddFiveHourReservedUsd(v)
+	})
+}
+
+// UpdateFiveHourReservedUsd sets the "five_hour_reserved_usd" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateFiveHourReservedUsd() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateFiveHourReservedUsd()
 	})
 }
 

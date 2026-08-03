@@ -52,14 +52,20 @@
           </div>
         </template>
         <template #cell-cycle_quota_usd="{ value, row }">
-          <div v-if="value != null" class="whitespace-nowrap text-sm">
+          <div v-if="Number(value) > 0" class="whitespace-nowrap text-sm">
             <p class="font-medium tabular-nums text-gray-900 dark:text-white">${{ Number(value).toFixed(2) }}</p>
             <p class="text-xs text-gray-400">{{ formatResetInterval(row.reset_interval_seconds) }}</p>
           </div>
-          <span v-else class="text-xs text-gray-400">{{ t('payment.admin.legacyQuota') }}</span>
+          <span v-else class="text-xs text-gray-400">{{ t('payment.admin.unlimitedCycleQuota') }}</span>
+        </template>
+        <template #cell-five_hour_quota_usd="{ value }">
+          <span v-if="Number(value) > 0" class="whitespace-nowrap text-sm font-medium tabular-nums text-gray-900 dark:text-white">
+            ${{ Number(value).toFixed(2) }}
+          </span>
+          <span v-else class="text-xs text-gray-400">{{ t('payment.admin.unlimitedFiveHourQuota') }}</span>
         </template>
         <template #cell-total_quota_usd="{ value }">
-          <span v-if="value != null" class="whitespace-nowrap text-sm font-medium tabular-nums text-gray-900 dark:text-white">
+          <span v-if="Number(value) > 0" class="whitespace-nowrap text-sm font-medium tabular-nums text-gray-900 dark:text-white">
             ${{ Number(value).toFixed(2) }}
           </span>
           <span v-else class="text-xs text-gray-400">{{ t('payment.admin.unlimitedTotalQuota') }}</span>
@@ -188,6 +194,7 @@ const deletingPlanId = ref<number | null>(null)
 const planColumns = computed((): Column[] => [
   { key: 'name', label: t('payment.admin.planName') },
   { key: 'included_groups', label: t('payment.admin.includedGroups') },
+	{ key: 'five_hour_quota_usd', label: t('payment.admin.fiveHourQuota') },
   { key: 'cycle_quota_usd', label: t('payment.admin.cycleQuota') },
   { key: 'total_quota_usd', label: t('payment.admin.totalQuota') },
   { key: 'price', label: t('payment.admin.price') },
@@ -264,7 +271,7 @@ async function downloadCatalogTemplate() {
     const rawTemplate: unknown = await response.json()
     if (!isPaymentCatalogTemplate(rawTemplate)) throw new Error('invalid catalog template')
 
-    saveCatalogFile(rawTemplate, 'qiuapi-subscription-template-v2.json')
+    saveCatalogFile(rawTemplate, 'qiuapi-subscription-template-v3.json')
     appStore.showSuccess(t('payment.admin.catalogImport.templateDownloadSuccess'))
   } catch {
     appStore.showError(t('payment.admin.catalogImport.templateFailed'))

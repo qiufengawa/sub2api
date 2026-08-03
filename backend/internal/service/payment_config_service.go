@@ -164,6 +164,7 @@ type UpdateProviderInstanceRequest struct {
 }
 type CreatePlanRequest struct {
 	IncludedGroupIDs      []int64  `json:"included_group_ids"`
+	FiveHourQuotaUSD      *float64 `json:"five_hour_quota_usd"`
 	CycleQuotaUSD         *float64 `json:"cycle_quota_usd"`
 	TotalQuotaUSD         *float64 `json:"total_quota_usd"`
 	ResetIntervalSeconds  int      `json:"reset_interval_seconds"`
@@ -183,6 +184,8 @@ type CreatePlanRequest struct {
 
 type UpdatePlanRequest struct {
 	IncludedGroupIDs      *[]int64 `json:"included_group_ids"`
+	FiveHourQuotaUSD      *float64 `json:"five_hour_quota_usd"`
+	FiveHourQuotaUSDSet   bool     `json:"-"`
 	CycleQuotaUSD         *float64 `json:"cycle_quota_usd"`
 	CycleQuotaUSDSet      bool     `json:"-"`
 	TotalQuotaUSD         *float64 `json:"total_quota_usd"`

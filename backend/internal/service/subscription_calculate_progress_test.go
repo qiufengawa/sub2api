@@ -80,7 +80,7 @@ func TestCalculateProgress_CycleValuesAreClamped(t *testing.T) {
 	assert.GreaterOrEqual(t, progress.Cycle.ResetsInSeconds, int64(0))
 }
 
-func TestCalculateProgress_IncludesTermTotalWithoutCountingReservationAsUsed(t *testing.T) {
+func TestCalculateProgress_IncludesTermReservationInCommittedCapacity(t *testing.T) {
 	now := time.Now()
 	totalLimit := 1000.0
 	svc := &SubscriptionService{now: func() time.Time { return now }}
@@ -98,10 +98,35 @@ func TestCalculateProgress_IncludesTermTotalWithoutCountingReservationAsUsed(t *
 	require.NotNil(t, progress.Total)
 	assert.Equal(t, totalLimit, progress.Total.LimitUSD)
 	assert.Equal(t, 125.0, progress.Total.UsedUSD)
-	assert.Equal(t, 875.0, progress.Total.RemainingUSD)
-	assert.Equal(t, 12.5, progress.Total.Percentage)
+	assert.Equal(t, 25.0, progress.Total.ReservedUSD)
+	assert.Equal(t, 850.0, progress.Total.RemainingUSD)
+	assert.Equal(t, 15.0, progress.Total.Percentage)
 	assert.Equal(t, sub.StartsAt, progress.Total.WindowStart)
 	assert.Equal(t, sub.ExpiresAt, progress.Total.ResetsAt)
+}
+
+func TestCalculateProgress_IncludesFiveHourWindow(t *testing.T) {
+	now := time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
+	limit := 10.0
+	startedAt := now.Add(-time.Hour)
+	svc := &SubscriptionService{now: func() time.Time { return now }}
+	sub := &UserSubscription{
+		StartsAt:            now.Add(-24 * time.Hour),
+		ExpiresAt:           now.Add(29 * 24 * time.Hour),
+		FiveHourQuotaUSD:    &limit,
+		FiveHourStartedAt:   &startedAt,
+		FiveHourUsageUSD:    6,
+		FiveHourReservedUSD: 1,
+	}
+
+	progress := svc.calculateProgress(sub)
+
+	require.NotNil(t, progress.FiveHour)
+	assert.Equal(t, 6.0, progress.FiveHour.UsedUSD)
+	assert.Equal(t, 1.0, progress.FiveHour.ReservedUSD)
+	assert.Equal(t, 3.0, progress.FiveHour.RemainingUSD)
+	assert.Equal(t, 70.0, progress.FiveHour.Percentage)
+	assert.Equal(t, startedAt.Add(5*time.Hour), progress.FiveHour.ResetsAt)
 }
 
 func TestCalculateProgress_ExpiredSubscriptionHasNoRemainingDays(t *testing.T) {

@@ -121,6 +121,33 @@ func (_u *SubscriptionPlanUpdate) SetNillableCurrency(v *string) *SubscriptionPl
 	return _u
 }
 
+// SetFiveHourQuotaUsd sets the "five_hour_quota_usd" field.
+func (_u *SubscriptionPlanUpdate) SetFiveHourQuotaUsd(v float64) *SubscriptionPlanUpdate {
+	_u.mutation.ResetFiveHourQuotaUsd()
+	_u.mutation.SetFiveHourQuotaUsd(v)
+	return _u
+}
+
+// SetNillableFiveHourQuotaUsd sets the "five_hour_quota_usd" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdate) SetNillableFiveHourQuotaUsd(v *float64) *SubscriptionPlanUpdate {
+	if v != nil {
+		_u.SetFiveHourQuotaUsd(*v)
+	}
+	return _u
+}
+
+// AddFiveHourQuotaUsd adds value to the "five_hour_quota_usd" field.
+func (_u *SubscriptionPlanUpdate) AddFiveHourQuotaUsd(v float64) *SubscriptionPlanUpdate {
+	_u.mutation.AddFiveHourQuotaUsd(v)
+	return _u
+}
+
+// ClearFiveHourQuotaUsd clears the value of the "five_hour_quota_usd" field.
+func (_u *SubscriptionPlanUpdate) ClearFiveHourQuotaUsd() *SubscriptionPlanUpdate {
+	_u.mutation.ClearFiveHourQuotaUsd()
+	return _u
+}
+
 // SetCycleQuotaUsd sets the "cycle_quota_usd" field.
 func (_u *SubscriptionPlanUpdate) SetCycleQuotaUsd(v float64) *SubscriptionPlanUpdate {
 	_u.mutation.ResetCycleQuotaUsd()
@@ -524,6 +551,15 @@ func (_u *SubscriptionPlanUpdate) sqlSave(ctx context.Context) (_node int, err e
 	if value, ok := _u.mutation.Currency(); ok {
 		_spec.SetField(subscriptionplan.FieldCurrency, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.FiveHourQuotaUsd(); ok {
+		_spec.SetField(subscriptionplan.FieldFiveHourQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedFiveHourQuotaUsd(); ok {
+		_spec.AddField(subscriptionplan.FieldFiveHourQuotaUsd, field.TypeFloat64, value)
+	}
+	if _u.mutation.FiveHourQuotaUsdCleared() {
+		_spec.ClearField(subscriptionplan.FieldFiveHourQuotaUsd, field.TypeFloat64)
+	}
 	if value, ok := _u.mutation.CycleQuotaUsd(); ok {
 		_spec.SetField(subscriptionplan.FieldCycleQuotaUsd, field.TypeFloat64, value)
 	}
@@ -832,6 +868,33 @@ func (_u *SubscriptionPlanUpdateOne) SetNillableCurrency(v *string) *Subscriptio
 	if v != nil {
 		_u.SetCurrency(*v)
 	}
+	return _u
+}
+
+// SetFiveHourQuotaUsd sets the "five_hour_quota_usd" field.
+func (_u *SubscriptionPlanUpdateOne) SetFiveHourQuotaUsd(v float64) *SubscriptionPlanUpdateOne {
+	_u.mutation.ResetFiveHourQuotaUsd()
+	_u.mutation.SetFiveHourQuotaUsd(v)
+	return _u
+}
+
+// SetNillableFiveHourQuotaUsd sets the "five_hour_quota_usd" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdateOne) SetNillableFiveHourQuotaUsd(v *float64) *SubscriptionPlanUpdateOne {
+	if v != nil {
+		_u.SetFiveHourQuotaUsd(*v)
+	}
+	return _u
+}
+
+// AddFiveHourQuotaUsd adds value to the "five_hour_quota_usd" field.
+func (_u *SubscriptionPlanUpdateOne) AddFiveHourQuotaUsd(v float64) *SubscriptionPlanUpdateOne {
+	_u.mutation.AddFiveHourQuotaUsd(v)
+	return _u
+}
+
+// ClearFiveHourQuotaUsd clears the value of the "five_hour_quota_usd" field.
+func (_u *SubscriptionPlanUpdateOne) ClearFiveHourQuotaUsd() *SubscriptionPlanUpdateOne {
+	_u.mutation.ClearFiveHourQuotaUsd()
 	return _u
 }
 
@@ -1267,6 +1330,15 @@ func (_u *SubscriptionPlanUpdateOne) sqlSave(ctx context.Context) (_node *Subscr
 	}
 	if value, ok := _u.mutation.Currency(); ok {
 		_spec.SetField(subscriptionplan.FieldCurrency, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.FiveHourQuotaUsd(); ok {
+		_spec.SetField(subscriptionplan.FieldFiveHourQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedFiveHourQuotaUsd(); ok {
+		_spec.AddField(subscriptionplan.FieldFiveHourQuotaUsd, field.TypeFloat64, value)
+	}
+	if _u.mutation.FiveHourQuotaUsdCleared() {
+		_spec.ClearField(subscriptionplan.FieldFiveHourQuotaUsd, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.CycleQuotaUsd(); ok {
 		_spec.SetField(subscriptionplan.FieldCycleQuotaUsd, field.TypeFloat64, value)

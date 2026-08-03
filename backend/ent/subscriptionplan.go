@@ -27,6 +27,8 @@ type SubscriptionPlan struct {
 	OriginalPrice *float64 `json:"original_price,omitempty"`
 	// Currency holds the value of the "currency" field.
 	Currency string `json:"currency,omitempty"`
+	// FiveHourQuotaUsd holds the value of the "five_hour_quota_usd" field.
+	FiveHourQuotaUsd *float64 `json:"five_hour_quota_usd,omitempty"`
 	// CycleQuotaUsd holds the value of the "cycle_quota_usd" field.
 	CycleQuotaUsd *float64 `json:"cycle_quota_usd,omitempty"`
 	// TotalQuotaUsd holds the value of the "total_quota_usd" field.
@@ -115,7 +117,7 @@ func (*SubscriptionPlan) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case subscriptionplan.FieldWalletFallbackEnabled, subscriptionplan.FieldForSale:
 			values[i] = new(sql.NullBool)
-		case subscriptionplan.FieldPrice, subscriptionplan.FieldOriginalPrice, subscriptionplan.FieldCycleQuotaUsd, subscriptionplan.FieldTotalQuotaUsd:
+		case subscriptionplan.FieldPrice, subscriptionplan.FieldOriginalPrice, subscriptionplan.FieldFiveHourQuotaUsd, subscriptionplan.FieldCycleQuotaUsd, subscriptionplan.FieldTotalQuotaUsd:
 			values[i] = new(sql.NullFloat64)
 		case subscriptionplan.FieldID, subscriptionplan.FieldResetIntervalSeconds, subscriptionplan.FieldValidityDays, subscriptionplan.FieldSortOrder:
 			values[i] = new(sql.NullInt64)
@@ -174,6 +176,13 @@ func (_m *SubscriptionPlan) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field currency", values[i])
 			} else if value.Valid {
 				_m.Currency = value.String
+			}
+		case subscriptionplan.FieldFiveHourQuotaUsd:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field five_hour_quota_usd", values[i])
+			} else if value.Valid {
+				_m.FiveHourQuotaUsd = new(float64)
+				*_m.FiveHourQuotaUsd = value.Float64
 			}
 		case subscriptionplan.FieldCycleQuotaUsd:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
@@ -321,6 +330,11 @@ func (_m *SubscriptionPlan) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("currency=")
 	builder.WriteString(_m.Currency)
+	builder.WriteString(", ")
+	if v := _m.FiveHourQuotaUsd; v != nil {
+		builder.WriteString("five_hour_quota_usd=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	if v := _m.CycleQuotaUsd; v != nil {
 		builder.WriteString("cycle_quota_usd=")

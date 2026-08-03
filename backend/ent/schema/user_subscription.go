@@ -68,6 +68,20 @@ func (UserSubscription) Fields() []ent.Field {
 		field.Float("monthly_usage_usd").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}).
 			Default(0),
+		field.Float("five_hour_quota_usd").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}).
+			Optional().
+			Nillable(),
+		field.Time("five_hour_started_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		field.Float("five_hour_usage_usd").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}).
+			Default(0),
+		field.Float("five_hour_reserved_usd").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}).
+			Default(0),
 		field.Float("cycle_quota_usd").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}).
 			Optional().

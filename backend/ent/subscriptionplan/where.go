@@ -80,6 +80,11 @@ func Currency(v string) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldEQ(FieldCurrency, v))
 }
 
+// FiveHourQuotaUsd applies equality check predicate on the "five_hour_quota_usd" field. It's identical to FiveHourQuotaUsdEQ.
+func FiveHourQuotaUsd(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldFiveHourQuotaUsd, v))
+}
+
 // CycleQuotaUsd applies equality check predicate on the "cycle_quota_usd" field. It's identical to CycleQuotaUsdEQ.
 func CycleQuotaUsd(v float64) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldEQ(FieldCycleQuotaUsd, v))
@@ -423,6 +428,56 @@ func CurrencyEqualFold(v string) predicate.SubscriptionPlan {
 // CurrencyContainsFold applies the ContainsFold predicate on the "currency" field.
 func CurrencyContainsFold(v string) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldContainsFold(FieldCurrency, v))
+}
+
+// FiveHourQuotaUsdEQ applies the EQ predicate on the "five_hour_quota_usd" field.
+func FiveHourQuotaUsdEQ(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldFiveHourQuotaUsd, v))
+}
+
+// FiveHourQuotaUsdNEQ applies the NEQ predicate on the "five_hour_quota_usd" field.
+func FiveHourQuotaUsdNEQ(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNEQ(FieldFiveHourQuotaUsd, v))
+}
+
+// FiveHourQuotaUsdIn applies the In predicate on the "five_hour_quota_usd" field.
+func FiveHourQuotaUsdIn(vs ...float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIn(FieldFiveHourQuotaUsd, vs...))
+}
+
+// FiveHourQuotaUsdNotIn applies the NotIn predicate on the "five_hour_quota_usd" field.
+func FiveHourQuotaUsdNotIn(vs ...float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotIn(FieldFiveHourQuotaUsd, vs...))
+}
+
+// FiveHourQuotaUsdGT applies the GT predicate on the "five_hour_quota_usd" field.
+func FiveHourQuotaUsdGT(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGT(FieldFiveHourQuotaUsd, v))
+}
+
+// FiveHourQuotaUsdGTE applies the GTE predicate on the "five_hour_quota_usd" field.
+func FiveHourQuotaUsdGTE(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGTE(FieldFiveHourQuotaUsd, v))
+}
+
+// FiveHourQuotaUsdLT applies the LT predicate on the "five_hour_quota_usd" field.
+func FiveHourQuotaUsdLT(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLT(FieldFiveHourQuotaUsd, v))
+}
+
+// FiveHourQuotaUsdLTE applies the LTE predicate on the "five_hour_quota_usd" field.
+func FiveHourQuotaUsdLTE(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLTE(FieldFiveHourQuotaUsd, v))
+}
+
+// FiveHourQuotaUsdIsNil applies the IsNil predicate on the "five_hour_quota_usd" field.
+func FiveHourQuotaUsdIsNil() predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIsNull(FieldFiveHourQuotaUsd))
+}
+
+// FiveHourQuotaUsdNotNil applies the NotNil predicate on the "five_hour_quota_usd" field.
+func FiveHourQuotaUsdNotNil() predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotNull(FieldFiveHourQuotaUsd))
 }
 
 // CycleQuotaUsdEQ applies the EQ predicate on the "cycle_quota_usd" field.

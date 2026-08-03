@@ -20,6 +20,12 @@ func (r *UpdatePlanRequest) UnmarshalJSON(data []byte) error {
 	}
 
 	*r = UpdatePlanRequest(decoded)
+	if value, ok := fields["five_hour_quota_usd"]; ok {
+		r.FiveHourQuotaUSDSet = true
+		if isJSONNull(value) {
+			r.FiveHourQuotaUSD = nil
+		}
+	}
 	if value, ok := fields["cycle_quota_usd"]; ok {
 		r.CycleQuotaUSDSet = true
 		if isJSONNull(value) {

@@ -1691,11 +1691,18 @@ func (h *GatewayHandler) usageUnrestricted(c *gin.Context, ctx context.Context, 
 
 		resp["remaining"] = calculateSubscriptionRemaining(subscription)
 		resp["subscription"] = gin.H{
+			"five_hour_usage_usd":    subscription.FiveHourUsageUSD,
+			"five_hour_reserved_usd": subscription.FiveHourReservedUSD,
+			"five_hour_quota_usd":    subscription.FiveHourQuotaUSD,
+			"five_hour_started_at":   subscription.FiveHourStartedAt,
 			"cycle_usage_usd":        subscription.CycleUsageUSD,
 			"cycle_reserved_usd":     subscription.CycleReservedUSD,
 			"cycle_quota_usd":        subscription.CycleQuotaUSD,
 			"reset_interval_seconds": subscription.ResetIntervalSeconds,
 			"cycle_started_at":       subscription.CycleStartedAt,
+			"total_usage_usd":        subscription.TotalUsageUSD,
+			"total_reserved_usd":     subscription.TotalReservedUSD,
+			"total_quota_usd":        subscription.TotalQuotaUSD,
 			"expires_at":             subscription.ExpiresAt,
 			"included_groups":        subscription.IncludedGroups,
 		}
@@ -1741,10 +1748,27 @@ func (h *GatewayHandler) usageUnrestricted(c *gin.Context, ctx context.Context, 
 }
 
 func calculateSubscriptionRemaining(sub *service.UserSubscription) float64 {
-	if sub == nil || !sub.HasCycleQuota() {
+	if sub == nil {
 		return -1
 	}
-	remaining := *sub.CycleQuotaUSD - sub.CycleUsageAt(time.Now()) - sub.CycleReservedUSD
+	now := time.Now()
+	remaining := math.Inf(1)
+	limited := false
+	if sub.HasFiveHourQuota() {
+		limited = true
+		remaining = math.Min(remaining, *sub.FiveHourQuotaUSD-sub.FiveHourUsageAt(now)-sub.FiveHourReservedUSD)
+	}
+	if sub.HasCycleQuota() {
+		limited = true
+		remaining = math.Min(remaining, *sub.CycleQuotaUSD-sub.CycleUsageAt(now)-sub.CycleReservedUSD)
+	}
+	if sub.HasTotalQuota() {
+		limited = true
+		remaining = math.Min(remaining, *sub.TotalQuotaUSD-sub.TotalUsageUSD-sub.TotalReservedUSD)
+	}
+	if !limited {
+		return -1
+	}
 	if remaining < 0 {
 		return 0
 	}

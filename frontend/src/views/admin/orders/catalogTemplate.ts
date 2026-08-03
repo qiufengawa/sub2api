@@ -6,7 +6,7 @@ const QIUAPI_FIVE_TIER_TEMPLATE_KIND = 'qiuapi-five-tier-subscription'
 
 export interface QiuapiCatalogTemplateMetadata {
   kind: typeof QIUAPI_FIVE_TIER_TEMPLATE_KIND
-  version: 2
+  version: 2 | 3
   group_binding: 'select_on_import'
 }
 
@@ -181,7 +181,7 @@ function isQiuapiTemplateMetadata(value: unknown): value is QiuapiCatalogTemplat
 	if (!value || typeof value !== 'object' || Array.isArray(value)) return false
 	const candidate = value as Partial<QiuapiCatalogTemplateMetadata>
 	return candidate.kind === QIUAPI_FIVE_TIER_TEMPLATE_KIND
-		&& candidate.version === 2
+		&& (candidate.version === 2 || candidate.version === 3)
 		&& candidate.group_binding === 'select_on_import'
 }
 

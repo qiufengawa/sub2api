@@ -58,23 +58,29 @@
           </div>
         </dd>
       </div>
-      <div v-if="plan.cycle_quota_usd != null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
+	  <div v-if="Number(plan.five_hour_quota_usd) > 0" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
+		<dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.fiveHourQuota') }}</dt>
+		<dd class="min-w-0 text-right font-medium tabular-nums text-gray-800 dark:text-gray-200">
+		  ${{ normalizedFiveHourQuota }}
+		</dd>
+	  </div>
+      <div v-if="Number(plan.cycle_quota_usd) > 0" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
         <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.cycleQuota') }}</dt>
         <dd class="min-w-0 text-right font-medium text-gray-800 dark:text-gray-200">
           <p class="tabular-nums">${{ normalizedQuota }}</p>
           <p class="mt-0.5 text-[10px] font-normal text-gray-400 dark:text-gray-500">{{ resetIntervalLabel }}</p>
         </dd>
       </div>
-      <div v-else class="flex min-w-0 items-start justify-between gap-3 py-2.5">
-        <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.quota') }}</dt>
-        <dd class="min-w-0 break-words text-right font-medium text-gray-800 dark:text-gray-200">{{ t('payment.planCard.unlimited') }}</dd>
-      </div>
-      <div v-if="plan.total_quota_usd != null" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
+      <div v-if="Number(plan.total_quota_usd) > 0" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
         <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.totalQuota') }}</dt>
         <dd class="min-w-0 text-right font-medium tabular-nums text-gray-800 dark:text-gray-200">
-          ${{ normalizedTotalQuota }}
-        </dd>
-      </div>
+		  ${{ normalizedTotalQuota }}
+		</dd>
+	  </div>
+	  <div v-if="!hasAnyQuota" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
+		<dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.quota') }}</dt>
+		<dd class="min-w-0 break-words text-right font-medium text-gray-800 dark:text-gray-200">{{ t('payment.planCard.unlimited') }}</dd>
+	  </div>
       <div v-if="modelScopeLabels.length > 0" class="flex min-w-0 items-start justify-between gap-3 py-2.5">
         <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.models') }}</dt>
         <dd class="flex min-w-0 flex-wrap justify-end gap-1">
@@ -150,6 +156,12 @@ function normalizedRate(rate: number): number {
   return Number((rate ?? 1).toPrecision(10))
 }
 
+const hasAnyQuota = computed(() =>
+  Number(props.plan.five_hour_quota_usd || 0) > 0 ||
+  Number(props.plan.cycle_quota_usd || 0) > 0 ||
+  Number(props.plan.total_quota_usd || 0) > 0
+)
+const normalizedFiveHourQuota = computed(() => Number(props.plan.five_hour_quota_usd || 0).toFixed(2))
 const normalizedQuota = computed(() => Number(props.plan.cycle_quota_usd || 0).toFixed(2))
 const normalizedTotalQuota = computed(() => Number(props.plan.total_quota_usd || 0).toFixed(2))
 const resetIntervalLabel = computed(() => {

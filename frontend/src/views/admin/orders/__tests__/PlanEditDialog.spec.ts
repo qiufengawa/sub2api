@@ -248,6 +248,7 @@ describe('PlanEditDialog', () => {
     Object.assign(vm.planForm, {
       name: 'Standard',
       included_group_ids: [10, 11],
+		  five_hour_quota_usd: 5,
       cycle_quota_usd: 40,
       total_quota_usd: 160,
       reset_interval_days: 7,
@@ -262,8 +263,9 @@ describe('PlanEditDialog', () => {
 
     await wrapper.get('form').trigger('submit')
 
-	  expect(createPlan).toHaveBeenCalledWith(expect.objectContaining({
-		included_group_ids: [11],
+		  expect(createPlan).toHaveBeenCalledWith(expect.objectContaining({
+			included_group_ids: [11],
+			five_hour_quota_usd: 5,
       cycle_quota_usd: 40,
       total_quota_usd: 160,
       reset_interval_seconds: 604800,
@@ -273,6 +275,35 @@ describe('PlanEditDialog', () => {
     }))
     expect(createPlan.mock.calls[0][0]).not.toHaveProperty('group_id')
   })
+
+	it('normalizes zero quota inputs to unlimited values', async () => {
+		createPlan.mockReset().mockResolvedValue({})
+		const wrapper = mountDialog({
+			groups: [groupFixture({ id: 11, name: 'GPT-1', subscription_type: 'standard' })],
+		})
+		const vm = wrapper.vm as any
+		Object.assign(vm.planForm, {
+			name: 'Unlimited windows',
+			included_group_ids: [11],
+			five_hour_quota_usd: 0,
+			cycle_quota_usd: 0,
+			total_quota_usd: 0,
+			reset_interval_days: 7,
+			description: 'Unlimited quota dimensions',
+			price: 10,
+			validity_days: 30,
+			validity_unit: 'days',
+		})
+
+		await wrapper.get('form').trigger('submit')
+
+		expect(createPlan).toHaveBeenCalledWith(expect.objectContaining({
+			five_hour_quota_usd: null,
+			cycle_quota_usd: null,
+			total_quota_usd: null,
+			reset_interval_seconds: 0,
+		}))
+	})
 
   it('preflights a covered-group removal and confirms with the affected subscription count', async () => {
 	updatePlan.mockReset()

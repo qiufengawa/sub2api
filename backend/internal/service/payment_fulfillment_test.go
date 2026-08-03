@@ -888,6 +888,143 @@ func TestExecuteSubscriptionFulfillmentAssignsRealGroupPlanSnapshot(t *testing.T
 	require.Equal(t, 1, assignmentAuditCount)
 }
 
+func TestExecuteSubscriptionFulfillmentMaintainsQuotaSnapshotCompatibility(t *testing.T) {
+	tests := []struct {
+		name              string
+		schemaVersion     int
+		fiveHourValue     any
+		includeFiveHour   bool
+		includeTotal      bool
+		wantFiveHourQuota *float64
+		wantTotalQuota    float64
+	}{
+		{
+			name:              "v2 preserves five-hour and term quota",
+			schemaVersion:     2,
+			wantFiveHourQuota: floatPtr(8),
+			wantTotalQuota:    160,
+		},
+		{
+			name:              "v3 preserves five-hour and adds term quota",
+			schemaVersion:     3,
+			includeTotal:      true,
+			wantFiveHourQuota: floatPtr(8),
+			wantTotalQuota:    220,
+		},
+		{
+			name:              "v4 applies positive five-hour quota",
+			schemaVersion:     4,
+			includeFiveHour:   true,
+			fiveHourValue:     3.0,
+			includeTotal:      true,
+			wantFiveHourQuota: floatPtr(3),
+			wantTotalQuota:    220,
+		},
+		{
+			name:            "v4 explicit null clears five-hour quota",
+			schemaVersion:   4,
+			includeFiveHour: true,
+			fiveHourValue:   nil,
+			includeTotal:    true,
+			wantTotalQuota:  220,
+		},
+		{
+			name:           "v4 missing five-hour quota is unlimited",
+			schemaVersion:  4,
+			includeTotal:   true,
+			wantTotalQuota: 220,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			client := newPaymentConfigServiceTestClient(t)
+			ensurePaymentAuditOrderActionUniqueIndex(t, ctx, client)
+			order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusPaid, time.Now())
+			snapshot := map[string]any{
+				"schema_version":          tt.schemaVersion,
+				"plan_id":                 *order.PlanID,
+				"plan_name":               "Compatibility plan",
+				"included_group_ids":      []int64{7},
+				"cycle_quota_usd":         15.0,
+				"reset_interval_seconds":  604800,
+				"wallet_fallback_enabled": false,
+				"validity_days":           30,
+			}
+			if tt.includeFiveHour {
+				snapshot["five_hour_quota_usd"] = tt.fiveHourValue
+			}
+			if tt.includeTotal {
+				snapshot["total_quota_usd"] = 60.0
+			}
+			order, err := client.PaymentOrder.UpdateOneID(order.ID).
+				SetSubscriptionPlanSnapshot(snapshot).
+				Save(ctx)
+			require.NoError(t, err)
+
+			fiveHourQuota := 8.0
+			cycleQuota := 40.0
+			totalQuota := 160.0
+			fiveHourStartedAt := time.Now().Add(-2 * time.Hour)
+			cycleStartedAt := time.Now().Add(-2 * 24 * time.Hour)
+			subRepo := newSubscriptionUserSubRepoStub()
+			subRepo.seed(&UserSubscription{
+				ID:                    99,
+				UserID:                order.UserID,
+				PlanID:                *order.PlanID,
+				StartsAt:              time.Now().Add(-24 * time.Hour),
+				ExpiresAt:             time.Now().Add(24 * time.Hour),
+				Status:                SubscriptionStatusActive,
+				FiveHourQuotaUSD:      &fiveHourQuota,
+				FiveHourStartedAt:     &fiveHourStartedAt,
+				FiveHourUsageUSD:      2,
+				FiveHourReservedUSD:   1,
+				CycleQuotaUSD:         &cycleQuota,
+				CycleStartedAt:        &cycleStartedAt,
+				CycleUsageUSD:         10,
+				CycleReservedUSD:      2,
+				TotalQuotaUSD:         &totalQuota,
+				TotalUsageUSD:         80,
+				TotalReservedUSD:      5,
+				ResetIntervalSeconds:  604800,
+				WalletFallbackEnabled: true,
+				IncludedGroups:        []Group{{ID: 7}},
+			})
+			groupRepo := &subscriptionGroupRepoStub{group: &Group{
+				ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeStandard,
+			}}
+			svc := &PaymentService{
+				entClient:       client,
+				groupRepo:       groupRepo,
+				subscriptionSvc: NewSubscriptionService(groupRepo, subRepo, nil, nil, nil),
+			}
+
+			require.NoError(t, svc.ExecuteSubscriptionFulfillment(ctx, order.ID))
+			stored, err := subRepo.GetByUserIDAndPlanID(ctx, order.UserID, *order.PlanID)
+			require.NoError(t, err)
+			if tt.wantFiveHourQuota == nil {
+				require.Nil(t, stored.FiveHourQuotaUSD)
+			} else {
+				require.NotNil(t, stored.FiveHourQuotaUSD)
+				require.Equal(t, *tt.wantFiveHourQuota, *stored.FiveHourQuotaUSD)
+			}
+			require.NotNil(t, stored.CycleQuotaUSD)
+			require.Equal(t, 15.0, *stored.CycleQuotaUSD)
+			require.NotNil(t, stored.TotalQuotaUSD)
+			require.Equal(t, tt.wantTotalQuota, *stored.TotalQuotaUSD)
+			require.Equal(t, fiveHourStartedAt, *stored.FiveHourStartedAt)
+			require.Equal(t, cycleStartedAt, *stored.CycleStartedAt)
+			require.Equal(t, 2.0, stored.FiveHourUsageUSD)
+			require.Equal(t, 1.0, stored.FiveHourReservedUSD)
+			require.Equal(t, 10.0, stored.CycleUsageUSD)
+			require.Equal(t, 2.0, stored.CycleReservedUSD)
+			require.Equal(t, 80.0, stored.TotalUsageUSD)
+			require.Equal(t, 5.0, stored.TotalReservedUSD)
+		})
+	}
+}
+
 func TestExecuteSubscriptionFulfillmentRejectsInactiveCoveredGroup(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
