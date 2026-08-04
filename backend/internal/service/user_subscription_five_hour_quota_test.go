@@ -50,13 +50,13 @@ func TestUserSubscriptionUnlimitedFiveHourStillEnforcesLongerWindows(t *testing.
 	totalQuota := 20.0
 	startedAt := now.Add(-24 * time.Hour)
 	sub := &UserSubscription{
-		FiveHourQuotaUSD:       nil,
-		CycleQuotaUSD:          &cycleQuota,
-		CycleStartedAt:         &startedAt,
-		ResetIntervalSeconds:   7 * 24 * 60 * 60,
-		CycleUsageUSD:          5,
-		TotalQuotaUSD:          &totalQuota,
-		TotalUsageUSD:          5,
+		FiveHourQuotaUSD:     nil,
+		CycleQuotaUSD:        &cycleQuota,
+		CycleStartedAt:       &startedAt,
+		ResetIntervalSeconds: 7 * 24 * 60 * 60,
+		CycleUsageUSD:        5,
+		TotalQuotaUSD:        &totalQuota,
+		TotalUsageUSD:        5,
 	}
 
 	require.False(t, sub.CheckQuotaLimitsAt(now, 0))
@@ -70,15 +70,15 @@ func TestUserSubscriptionQuotaUsesMinimumRemainingDimension(t *testing.T) {
 	fiveHourQuota, cycleQuota, totalQuota := 5.0, 20.0, 100.0
 	startedAt := now.Add(-time.Hour)
 	sub := &UserSubscription{
-		FiveHourQuotaUSD:       &fiveHourQuota,
-		FiveHourStartedAt:      &startedAt,
-		FiveHourUsageUSD:       4,
-		CycleQuotaUSD:          &cycleQuota,
-		CycleStartedAt:         &startedAt,
-		ResetIntervalSeconds:   7 * 24 * 60 * 60,
-		CycleUsageUSD:          10,
-		TotalQuotaUSD:          &totalQuota,
-		TotalUsageUSD:          10,
+		FiveHourQuotaUSD:     &fiveHourQuota,
+		FiveHourStartedAt:    &startedAt,
+		FiveHourUsageUSD:     4,
+		CycleQuotaUSD:        &cycleQuota,
+		CycleStartedAt:       &startedAt,
+		ResetIntervalSeconds: 7 * 24 * 60 * 60,
+		CycleUsageUSD:        10,
+		TotalQuotaUSD:        &totalQuota,
+		TotalUsageUSD:        10,
 	}
 
 	require.True(t, sub.CheckQuotaLimitsAt(now, 1))
