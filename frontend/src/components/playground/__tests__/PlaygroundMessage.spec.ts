@@ -133,6 +133,7 @@ describe('PlaygroundMessage', () => {
     })
 
     expect(wrapper.find('img').attributes('src')).toBe('data:image/png;base64,aGVsbG8=')
+    expect(wrapper.get('.playground-image-grid').classes()).toContain('max-w-[20rem]')
     await wrapper.get('button[aria-label="playground.image.preview"]').trigger('click')
     await flushPromises()
     expect(document.body.textContent).toContain('playground.image.previewTitle')
@@ -140,6 +141,25 @@ describe('PlaygroundMessage', () => {
     await wrapper.get('button[aria-label="playground.image.download"]').trigger('click')
     expect(clickSpy).toHaveBeenCalledOnce()
     wrapper.unmount()
+  })
+
+  it('uses the compact two-column image grid for multiple results', () => {
+    const wrapper = mount(PlaygroundMessage, {
+      props: {
+        message: {
+          ...assistantMessage(''),
+          kind: 'image',
+          images: [
+            { id: 'image-1', url: 'data:image/png;base64,MQ==', mimeType: 'image/png' },
+            { id: 'image-2', url: 'data:image/png;base64,Mg==', mimeType: 'image/png' },
+          ],
+        },
+      },
+    })
+
+    const grid = wrapper.get('.playground-image-grid')
+    expect(grid.classes()).toContain('max-w-[40rem]')
+    expect(grid.classes()).toContain('sm:grid-cols-2')
   })
 
   it('downloads a remote image through a local blob URL when CORS allows it', async () => {

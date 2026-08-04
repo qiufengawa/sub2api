@@ -14,8 +14,8 @@
           ? 'w-auto max-w-[min(86%,44rem)] items-end'
           : wideAssistantMessage
             ? messageImageCount > 1
-              ? 'w-full max-w-[min(92%,54rem)] items-start'
-              : 'w-full max-w-[min(92%,36rem)] items-start'
+              ? 'min-w-0 flex-1 max-w-[42rem] items-start'
+              : 'min-w-0 flex-1 max-w-[22rem] items-start'
             : 'w-auto max-w-[min(92%,54rem)] items-start'"
       >
         <div class="mb-1.5 flex min-h-4 items-center gap-2 px-0.5" :class="message.role === 'user' ? 'justify-end' : 'justify-between'">
@@ -72,8 +72,8 @@
 
             <div
               v-if="message.kind === 'image' && message.images?.length"
-              class="mt-1 grid grid-cols-1 gap-2.5"
-              :class="message.images.length > 1 ? 'sm:grid-cols-2' : 'max-w-[34rem]'"
+              class="playground-image-grid mt-1 grid w-full grid-cols-1 gap-2.5"
+              :class="message.images.length > 1 ? 'max-w-[40rem] sm:grid-cols-2' : 'max-w-[20rem]'"
             >
               <figure
                 v-for="(image, imageIndex) in message.images"
@@ -110,8 +110,8 @@
 
             <div
               v-else-if="message.kind === 'image' && message.status === 'streaming'"
-              class="grid grid-cols-1 gap-2.5"
-              :class="imagePlaceholderCount > 1 ? 'sm:grid-cols-2' : 'max-w-[34rem]'"
+              class="playground-image-grid grid w-full grid-cols-1 gap-2.5"
+              :class="imagePlaceholderCount > 1 ? 'max-w-[40rem] sm:grid-cols-2' : 'max-w-[20rem]'"
               aria-live="polite"
             >
               <div

@@ -1,8 +1,8 @@
 <template>
-  <section class="flex-none border-t border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900">
-    <div class="mx-auto w-full max-w-5xl px-3 py-3 sm:px-5 sm:py-4">
-      <div class="overflow-hidden rounded-[4px] border border-gray-300 bg-white shadow-[0_3px_12px_rgba(15,23,42,0.06)] transition-colors focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-500/10 dark:border-dark-600 dark:bg-dark-800 dark:focus-within:border-primary-500">
-        <div class="grid min-w-0 grid-cols-1 gap-2 border-b border-gray-100 px-2.5 py-2.5 sm:grid-cols-2 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.15fr)_auto] lg:items-center dark:border-dark-700">
+  <section class="playground-composer-shell flex-none">
+    <div class="mx-auto w-full max-w-5xl px-3 pb-3 pt-1 sm:px-5 sm:pb-4 sm:pt-1.5">
+      <div class="playground-composer-surface overflow-hidden rounded-[4px] border border-gray-300 bg-white shadow-[0_3px_12px_rgba(15,23,42,0.06)] transition-colors focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-500/10 dark:border-dark-600 dark:bg-dark-800 dark:focus-within:border-primary-500">
+        <div class="grid min-w-0 grid-cols-1 gap-1.5 border-b border-gray-100 px-2.5 py-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.15fr)_auto] lg:items-center dark:border-dark-700">
           <Select
             :model-value="keyId"
             class="min-w-0"
@@ -85,14 +85,14 @@
           ref="inputRef"
           v-model="draft"
           rows="1"
-          class="block max-h-44 min-h-16 w-full resize-none overflow-y-auto border-0 bg-transparent px-3 py-3 text-sm leading-6 text-gray-900 outline-none placeholder:text-gray-400 dark:text-white dark:placeholder:text-dark-500"
+          class="block max-h-44 min-h-14 w-full resize-none overflow-y-auto border-0 bg-transparent px-3 py-2.5 text-sm leading-6 text-gray-900 outline-none placeholder:text-gray-400 dark:text-white dark:placeholder:text-dark-500"
           :placeholder="placeholder"
           :aria-label="placeholder"
           @input="resizeInput"
           @keydown.enter="handleEnter"
         ></textarea>
 
-        <div class="flex min-w-0 items-center justify-between gap-2 border-t border-gray-100 px-2.5 py-2 dark:border-dark-700">
+        <div class="flex min-w-0 items-center justify-between gap-2 border-t border-gray-100 px-2.5 py-1.5 dark:border-dark-700">
           <div class="flex min-w-0 items-center gap-1">
             <span class="mr-1 inline-flex flex-none items-center gap-1.5 text-[11px] text-gray-500 dark:text-dark-400" aria-live="polite">
               <span

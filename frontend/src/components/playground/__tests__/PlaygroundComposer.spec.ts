@@ -41,6 +41,16 @@ const props = {
 }
 
 describe('PlaygroundComposer', () => {
+  it('uses one visible composer surface without a framed outer footer', () => {
+    const wrapper = mount(PlaygroundComposer, { props })
+    const shell = wrapper.get('.playground-composer-shell')
+
+    expect(shell.classes()).not.toContain('border-t')
+    expect(shell.classes()).not.toContain('bg-white')
+    expect(wrapper.findAll('.playground-composer-surface')).toHaveLength(1)
+    expect(wrapper.get('textarea').classes()).toContain('min-h-14')
+  })
+
   it('sends with Enter and keeps Shift+Enter for a new line', async () => {
     const wrapper = mount(PlaygroundComposer, { props })
     const textarea = wrapper.find('textarea')
