@@ -54,6 +54,7 @@ describe('Playground API', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
@@ -93,10 +94,18 @@ describe('Playground API', () => {
   })
 
   it('sends image requests through the protected Playground endpoint', async () => {
-    clientMocks.post.mockResolvedValue({
-      data: { created: 1, data: [{ url: 'https://cdn.example.com/image.png' }] },
-      headers: { 'x-request-id': 'image-request-1' },
-    })
+    localStorage.setItem('auth_token', 'access-token')
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      created: 1,
+      data: [{ url: 'https://cdn.example.com/image.png' }],
+    }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Request-ID': 'image-request-1',
+      },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
     const payload = {
       model: 'gpt-image-2',
       prompt: 'a quiet workspace',
@@ -109,12 +118,64 @@ describe('Playground API', () => {
 
     const result = await sendPlaygroundImage(9, payload)
 
-    expect(clientMocks.post).toHaveBeenCalledWith(
-      '/playground/keys/9/images/generations',
-      payload,
-      expect.objectContaining({ headers: expect.objectContaining({ 'X-Request-ID': expect.any(String) }) }),
-    )
+    expect(fetchMock).toHaveBeenCalledOnce()
+    const [url, init] = fetchMock.mock.calls[0]
+    const headers = new Headers(init.headers)
+    expect(url).toBe('/api/v1/playground/keys/9/images/generations')
+    expect(init).toMatchObject({ method: 'POST', credentials: 'include' })
+    expect(init).not.toHaveProperty('timeout')
+    expect(JSON.parse(String(init.body))).toEqual(payload)
+    expect(headers.get('Authorization')).toBe('Bearer access-token')
+    expect(headers.get('X-User-UI-Request')).toBe('1')
+    expect(headers.get('X-Request-ID')).toBeTruthy()
     expect(result.requestId).toBe('image-request-1')
+  })
+
+  it('preserves structured image gateway errors instead of reporting a network failure', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      error: { type: 'permission_error', message: 'Image generation is not enabled for this group' },
+    }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    })))
+
+    await expect(sendPlaygroundImage(9, {
+      model: 'gpt-image-2',
+      prompt: 'a quiet workspace',
+      n: 1,
+      size: '1024x1024',
+      quality: 'auto',
+      output_format: 'png',
+      response_format: 'b64_json',
+    })).rejects.toThrow('Image generation is not enabled for this group')
+  })
+
+  it('keeps slow image generation alive beyond 30 seconds but still has a bounded deadline', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const request = sendPlaygroundImage(9, {
+      model: 'gpt-image-2',
+      prompt: 'a quiet workspace',
+      n: 1,
+      size: '1024x1024',
+      quality: 'auto',
+      output_format: 'png',
+      response_format: 'b64_json',
+    })
+    const rejection = expect(request).rejects.toMatchObject({ name: 'TimeoutError' })
+    await Promise.resolve()
+
+    const requestSignal = fetchMock.mock.calls[0][1]?.signal as AbortSignal
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(requestSignal.aborted).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(30 * 60_000 + 30_000)
+    expect(requestSignal.aborted).toBe(true)
+    await rejection
   })
 
   it('accepts safe image assets and rejects unsafe or malformed sources', () => {

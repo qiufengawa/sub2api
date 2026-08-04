@@ -155,6 +155,9 @@ const imageMimeTypes: Record<PlaygroundImageFormat, string> = {
   webp: 'image/webp',
 }
 
+// Backend image streaming can legitimately wait up to 30 minutes between data events.
+const imageRequestTimeoutMs = 31 * 60_000
+
 function normalizeInlineImage(value: string): { url: string; mimeType: string } | null {
   const match = value.trim().match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=\s]+)$/i)
   if (!match) return null
@@ -203,17 +206,41 @@ export async function sendPlaygroundImage(
   signal?: AbortSignal,
 ): Promise<PlaygroundImageResult> {
   const requestId = makeRequestId()
-  const result = await apiClient.post<PlaygroundImageResponse>(
-    `/playground/keys/${keyId}/images/generations`,
-    payload,
-    {
-      signal,
-      headers: { 'X-Request-ID': requestId },
-    },
-  )
-  return {
-    response: result.data,
-    requestId: responseRequestId(result.headers as Record<string, unknown>) || requestId,
+  const deadline = requestDeadline(signal, imageRequestTimeoutMs)
+  try {
+    const response = await authenticatedFetch(
+      buildApiUrl(`/playground/keys/${keyId}/images/generations`),
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'Accept-Language': getLocale(),
+          'X-User-UI-Request': '1',
+          'X-Request-ID': requestId,
+        },
+        body: JSON.stringify(payload),
+      },
+      deadline.signal,
+    )
+
+    if (!response.ok) throw new Error(await readPlaygroundError(response))
+
+    let result: PlaygroundImageResponse
+    try {
+      result = await response.json() as PlaygroundImageResponse
+    } catch {
+      throwIfAborted(deadline.signal)
+      throw new Error('Image generation ended before a valid response was received')
+    }
+
+    return {
+      response: result,
+      requestId: responseRequestId(response.headers) || requestId,
+    }
+  } finally {
+    deadline.dispose()
   }
 }
 
@@ -226,6 +253,30 @@ function abortError(): Error {
 
 function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw signal.reason instanceof Error ? signal.reason : abortError()
+}
+
+function requestDeadline(source: AbortSignal | undefined, timeoutMs: number): {
+  signal: AbortSignal
+  dispose: () => void
+} {
+  const controller = new AbortController()
+  const forwardAbort = () => controller.abort(source?.reason instanceof Error ? source.reason : abortError())
+  if (source?.aborted) forwardAbort()
+  else source?.addEventListener('abort', forwardAbort, { once: true })
+
+  const timeoutId = setTimeout(() => {
+    const error = new Error('Image generation timed out. Please try again.')
+    error.name = 'TimeoutError'
+    controller.abort(error)
+  }, timeoutMs)
+
+  return {
+    signal: controller.signal,
+    dispose: () => {
+      clearTimeout(timeoutId)
+      source?.removeEventListener('abort', forwardAbort)
+    },
+  }
 }
 
 async function waitWithAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {

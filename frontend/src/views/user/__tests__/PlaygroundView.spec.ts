@@ -93,12 +93,28 @@ function createState() {
 
 const ComposerStub = defineComponent({
   name: 'PlaygroundComposer',
-  props: ['modelValue', 'model', 'stream', 'imageMode'],
-  emits: ['update:modelValue', 'submit', 'stop', 'openParameters'],
+  props: ['modelValue', 'keyId', 'keyOptions', 'modelOptions', 'selectedKey', 'model', 'stream', 'imageMode'],
+  emits: [
+    'update:modelValue',
+    'submit',
+    'stop',
+    'selectKey',
+    'selectModel',
+    'updateStream',
+    'openParameters',
+    'openPreview',
+    'newConversation',
+  ],
   template: `
     <div data-test="composer">
       <button data-test="composer-submit" @click="$emit('submit', 'hello')">send</button>
       <button data-test="composer-stop" @click="$emit('stop')">stop</button>
+      <button data-test="composer-key" @click="$emit('selectKey', 2)">key</button>
+      <button data-test="composer-model" @click="$emit('selectModel', 'gpt-next')">model</button>
+      <button data-test="composer-stream" @click="$emit('updateStream', false)">stream</button>
+      <button data-test="composer-parameters" @click="$emit('openParameters')">parameters</button>
+      <button data-test="composer-preview" @click="$emit('openPreview')">preview</button>
+      <button data-test="composer-new" @click="$emit('newConversation')">new</button>
     </div>
   `,
 })
@@ -208,13 +224,14 @@ describe('PlaygroundView', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('playground.notices.keysTruncated')
 
-    await wrapper.get('button[aria-label="playground.actions.requestJson"]').trigger('click')
+    expect(wrapper.find('header').exists()).toBe(false)
+    await wrapper.get('[data-test="composer-preview"]').trigger('click')
     expect(wrapper.get('[data-test="preview"]').text()).toContain('gpt-test')
 
-    await wrapper.get('button[aria-label="playground.parameters.title"]').trigger('click')
+    await wrapper.get('[data-test="composer-parameters"]').trigger('click')
     expect(wrapper.get('[data-test="parameters"]').exists()).toBe(true)
 
-    await wrapper.get('button[aria-label="playground.actions.newConversation"]').trigger('click')
+    await wrapper.get('[data-test="composer-new"]').trigger('click')
     await wrapper.get('[data-test="confirm-clear"]').trigger('click')
     expect(state.clearMessages).toHaveBeenCalledOnce()
     expect(wrapper.find('[data-test="confirm"]').exists()).toBe(false)
@@ -232,6 +249,22 @@ describe('PlaygroundView', () => {
 
     expect(state.submit).toHaveBeenCalledWith('hello')
     expect(state.stop).toHaveBeenCalledOnce()
+  })
+
+  it('keeps key, model, and stream selection wired through the composer', async () => {
+    const state = createState()
+    state.keys.value = [activeKey(), { ...activeKey(), id: 2 }]
+    playgroundHarness.usePlayground.mockReturnValue(state)
+
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-test="composer-key"]').trigger('click')
+    await wrapper.get('[data-test="composer-model"]').trigger('click')
+    await wrapper.get('[data-test="composer-stream"]').trigger('click')
+
+    expect(state.selectKey).toHaveBeenCalledWith(2)
+    expect(state.config.value.model).toBe('gpt-next')
+    expect(state.config.value.stream).toBe(false)
   })
 
   it('forwards message actions and keeps following appended output', async () => {
