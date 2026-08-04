@@ -40,6 +40,12 @@ export default {
           priceDescription: '价格说明（Markdown）',
           priceDescriptionHint: '展示在模型广场页面顶部，可用于说明计费规则、汇率、优惠活动等。',
         },
+        playground: {
+          title: '操练场',
+          description: '允许已登录用户选择自己的 API 密钥和可用模型，发起真实计费的对话请求。',
+          enabled: '启用操练场',
+          enabledHint: '关闭后用户菜单和页面入口立即隐藏，后端操练场接口同时返回 404。',
+        },
         riskControl: {
           title: '风控中心',
           description: '启用内容审计菜单和全端点请求审核入口。默认关闭。',

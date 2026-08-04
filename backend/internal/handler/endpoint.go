@@ -84,7 +84,7 @@ func NormalizeInboundEndpoint(path string) string {
 		return EndpointEmbeddings
 	case strings.Contains(path, EndpointAlphaSearch) || isBareOrSubpathOf(strings.TrimRight(path, "/"), "/alpha/search") || isBareOrSubpathOf(strings.TrimRight(path, "/"), "/backend-api/codex/alpha/search"):
 		return EndpointAlphaSearch
-	case strings.Contains(path, EndpointChatCompletions):
+	case strings.Contains(path, EndpointChatCompletions) || isPlaygroundChatCompletionsPath(path):
 		return EndpointChatCompletions
 	case strings.Contains(path, EndpointMessages):
 		return EndpointMessages
@@ -111,6 +111,19 @@ func NormalizeInboundEndpoint(path string) string {
 	default:
 		return path
 	}
+}
+
+func isPlaygroundChatCompletionsPath(path string) bool {
+	trimmed := strings.TrimRight(strings.TrimSpace(path), "/")
+	const (
+		prefix = "/api/v1/playground/keys/"
+		suffix = "/chat/completions"
+	)
+	if !strings.HasPrefix(trimmed, prefix) || !strings.HasSuffix(trimmed, suffix) {
+		return false
+	}
+	keyID := strings.TrimSuffix(strings.TrimPrefix(trimmed, prefix), suffix)
+	return keyID != "" && !strings.Contains(keyID, "/")
 }
 
 // isResponsesCompactAliasPath reports whether path is the bare/alias

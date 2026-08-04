@@ -87,6 +87,44 @@ func (r *apiKeyRepository) GetByID(ctx context.Context, id int64) (*service.APIK
 	return apiKeyEntityToService(m), nil
 }
 
+// ListPlaygroundOptions returns only the fields needed by the authenticated
+// Playground selector. In particular, the credential and usage metadata are
+// never loaded for this endpoint.
+func (r *apiKeyRepository) ListPlaygroundOptions(ctx context.Context, userID int64, limit int) ([]service.PlaygroundAPIKeyOption, error) {
+	maxQueryLimit := service.MaxPlaygroundAPIKeyOptions + 1
+	if limit <= 0 || limit > maxQueryLimit {
+		limit = maxQueryLimit
+	}
+	keys, err := r.activeQuery().
+		Where(apikey.UserIDEQ(userID)).
+		Select(apikey.FieldID, apikey.FieldName, apikey.FieldStatus, apikey.FieldGroupID).
+		WithGroup(func(q *dbent.GroupQuery) {
+			q.Select(group.FieldID, group.FieldName, group.FieldPlatform)
+		}).
+		Order(dbent.Desc(apikey.FieldID)).
+		Limit(limit).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	options := make([]service.PlaygroundAPIKeyOption, 0, len(keys))
+	for _, key := range keys {
+		option := service.PlaygroundAPIKeyOption{
+			ID:      key.ID,
+			Name:    key.Name,
+			Status:  key.Status,
+			GroupID: key.GroupID,
+		}
+		if key.Edges.Group != nil {
+			option.GroupName = key.Edges.Group.Name
+			option.Platform = key.Edges.Group.Platform
+		}
+		options = append(options, option)
+	}
+	return options, nil
+}
+
 // GetKeyAndOwnerID 根据 API Key ID 获取其 key 与所有者（用户）ID。
 // 相比 GetByID，此方法性能更优，因为：
 //   - 使用 Select() 只查询必要字段，减少数据传输量

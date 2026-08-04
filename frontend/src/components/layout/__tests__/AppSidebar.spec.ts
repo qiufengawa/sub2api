@@ -50,6 +50,26 @@ describe('AppSidebar model plaza navigation', () => {
   })
 })
 
+describe('AppSidebar playground navigation', () => {
+  it('places playground immediately after API keys and before batch images', () => {
+    const keyIndex = componentSource.indexOf("{ path: '/keys'")
+    const playgroundIndex = componentSource.indexOf("{ path: '/playground'", keyIndex)
+    const batchImageIndex = componentSource.indexOf("{ path: '/batch-image'", keyIndex)
+
+    expect(keyIndex).toBeGreaterThan(-1)
+    expect(playgroundIndex).toBeGreaterThan(keyIndex)
+    expect(batchImageIndex).toBeGreaterThan(playgroundIndex)
+    expect(componentSource).toContain(
+      'const flagPlayground = makeSidebarFlag(FeatureFlags.playground)'
+    )
+  })
+
+  it('keeps playground in the shared personal menu and restores it in admin simple mode', () => {
+    expect(componentSource).toContain("{ path: '/playground', label: t('nav.playground'), icon: PlaygroundIcon, featureFlag: flagPlayground }")
+    expect(componentSource).toContain("filtered.push(...applyFeatureFlags([{ path: '/playground'")
+  })
+})
+
 describe('AppSidebar custom SVG styles', () => {
   it('does not override uploaded SVG fill or stroke colors', () => {
     expect(componentSource).toContain('.sidebar-svg-icon {')

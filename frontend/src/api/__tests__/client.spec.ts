@@ -9,6 +9,7 @@ vi.mock('@/i18n', () => ({
 
 describe('API Client', () => {
   let apiClient: AxiosInstance
+  let refreshAccessToken: () => Promise<string>
 
   beforeEach(async () => {
     localStorage.clear()
@@ -17,6 +18,7 @@ describe('API Client', () => {
     vi.resetModules()
     const mod = await import('@/api/client')
     apiClient = mod.apiClient
+    refreshAccessToken = mod.refreshAccessToken
   })
 
   afterEach(() => {
@@ -310,6 +312,35 @@ describe('API Client', () => {
   // --- 401 Token 刷新 ---
 
   describe('401 Token 刷新', () => {
+    it('并发调用共享同一个刷新请求并保存轮换后的 token', async () => {
+      localStorage.setItem('refresh_token', 'old-refresh-token')
+      let resolveRefresh!: (value: unknown) => void
+      const refreshResponse = new Promise((resolve) => { resolveRefresh = resolve })
+      const post = vi.spyOn(axios, 'post').mockReturnValue(refreshResponse as any)
+
+      const first = refreshAccessToken()
+      const second = refreshAccessToken()
+      expect(post).toHaveBeenCalledTimes(1)
+
+      resolveRefresh({
+        data: {
+          code: 0,
+          data: {
+            access_token: 'new-access-token',
+            refresh_token: 'new-refresh-token',
+            expires_in: 3600,
+          },
+        },
+      })
+
+      await expect(Promise.all([first, second])).resolves.toEqual([
+        'new-access-token',
+        'new-access-token',
+      ])
+      expect(localStorage.getItem('auth_token')).toBe('new-access-token')
+      expect(localStorage.getItem('refresh_token')).toBe('new-refresh-token')
+    })
+
     it('无 refresh_token 时 401 清除 localStorage', async () => {
       localStorage.setItem('auth_token', 'expired-token')
       // 不设置 refresh_token

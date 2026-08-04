@@ -40,6 +40,12 @@ export default {
           priceDescription: 'Pricing notes (Markdown)',
           priceDescriptionHint: 'Rendered at the top of the plaza page. Use it for billing rules, exchange rates, promotions, etc.',
         },
+        playground: {
+          title: 'Playground',
+          description: 'Let signed-in users select their own API key and available model for real, billed chat requests.',
+          enabled: 'Enable Playground',
+          enabledHint: 'When disabled, the menu and page are hidden and Playground backend endpoints return 404.',
+        },
         riskControl: {
           title: 'Risk Control',
           description: 'Enable the content moderation menu and gateway audit entry point. Disabled by default.',

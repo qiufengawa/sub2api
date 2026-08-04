@@ -56,6 +56,12 @@ declare module 'vue-router' {
     requiresRiskControl?: boolean
 
     /**
+     * Whether the authenticated Playground feature must be enabled.
+     * @default false
+     */
+    requiresPlayground?: boolean
+
+    /**
      * i18n key for the page title
      */
     titleKey?: string

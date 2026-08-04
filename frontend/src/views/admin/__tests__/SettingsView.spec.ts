@@ -491,6 +491,7 @@ const baseSettingsResponse = {
   antigravity_user_agent_version: "",
   openai_codex_user_agent: "",
   payment_enabled: true,
+  playground_enabled: true,
   payment_min_amount: 1,
   payment_max_amount: 10000,
   payment_daily_limit: 50000,
@@ -726,6 +727,27 @@ describe("admin SettingsView payment visible method controls", () => {
 
     expect(updateSettings).toHaveBeenCalledWith(
       expect.objectContaining({ compact_home_enabled: true }),
+    );
+  });
+
+  it("loads and submits the Playground feature switch", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    const featuresTab = wrapper.findAll("button").find((node) =>
+      node.text().includes("admin.settings.tabs.features"),
+    );
+    expect(featuresTab).toBeDefined();
+    await featuresTab?.trigger("click");
+    await flushPromises();
+
+    const toggle = wrapper.get('[data-testid="playground-enabled-toggle"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(true);
+    await toggle.setValue(false);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ playground_enabled: false }),
     );
   });
 

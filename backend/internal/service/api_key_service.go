@@ -44,6 +44,8 @@ var (
 
 const (
 	MaxAPIKeyCredentialBytes     = 128
+	MaxPlaygroundAPIKeyOptions   = 1000
+	playgroundAPIKeyQueryLimit   = MaxPlaygroundAPIKeyOptions + 1
 	defaultAuthLookupConcurrency = 64
 	defaultNegativeAuthCacheSize = 16384
 	apiKeyMaxErrorsPerHour       = 20
@@ -122,6 +124,26 @@ type APIKeyRepository interface {
 
 type apiKeyAllByUserIDLister interface {
 	ListAllByUserID(ctx context.Context, userID int64, filters APIKeyListFilters) ([]APIKey, error)
+}
+
+// PlaygroundAPIKeyOption is the credential-free projection exposed to the
+// authenticated Playground selector.
+type PlaygroundAPIKeyOption struct {
+	ID        int64
+	Name      string
+	Status    string
+	GroupID   *int64
+	GroupName string
+	Platform  string
+}
+
+type PlaygroundAPIKeyOptionList struct {
+	Items     []PlaygroundAPIKeyOption
+	Truncated bool
+}
+
+type apiKeyPlaygroundOptionLister interface {
+	ListPlaygroundOptions(ctx context.Context, userID int64, limit int) ([]PlaygroundAPIKeyOption, error)
 }
 
 // APIKeyRateLimitData holds rate limit usage and window state for an API key.
@@ -539,6 +561,23 @@ func (s *APIKeyService) List(ctx context.Context, userID int64, params paginatio
 	return keys, pagination, nil
 }
 
+// ListPlaygroundOptions returns a bounded, credential-free API key projection.
+func (s *APIKeyService) ListPlaygroundOptions(ctx context.Context, userID int64) (*PlaygroundAPIKeyOptionList, error) {
+	repo, ok := s.apiKeyRepo.(apiKeyPlaygroundOptionLister)
+	if !ok {
+		return nil, fmt.Errorf("list playground api keys: repository does not support safe option listing")
+	}
+	keys, err := repo.ListPlaygroundOptions(ctx, userID, playgroundAPIKeyQueryLimit)
+	if err != nil {
+		return nil, fmt.Errorf("list playground api keys: %w", err)
+	}
+	truncated := len(keys) > MaxPlaygroundAPIKeyOptions
+	if truncated {
+		keys = keys[:MaxPlaygroundAPIKeyOptions]
+	}
+	return &PlaygroundAPIKeyOptionList{Items: keys, Truncated: truncated}, nil
+}
+
 func (s *APIKeyService) listByCurrentConcurrency(ctx context.Context, userID int64, params pagination.PaginationParams, filters APIKeyListFilters) ([]APIKey, *pagination.PaginationResult, error) {
 	repo, ok := s.apiKeyRepo.(apiKeyAllByUserIDLister)
 	if !ok {
@@ -659,6 +698,28 @@ func (s *APIKeyService) GetByID(ctx context.Context, id int64) (*APIKey, error) 
 	s.compileAPIKeyIPRules(apiKey)
 	if apiKey != nil {
 		apiKey.CurrentConcurrency = s.currentConcurrencyForAPIKey(ctx, apiKey.ID)
+	}
+	return apiKey, nil
+}
+
+// GetByIDForPlayground resolves a user-owned API key ID through the same
+// credential authentication cache used by the public gateway. Ownership is
+// checked before the credential is used, and callers receive not-found for
+// both missing and foreign IDs.
+func (s *APIKeyService) GetByIDForPlayground(ctx context.Context, id, userID int64) (*APIKey, error) {
+	key, ownerID, err := s.apiKeyRepo.GetKeyAndOwnerID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get playground api key: %w", err)
+	}
+	if ownerID != userID {
+		return nil, ErrAPIKeyNotFound
+	}
+	apiKey, err := s.GetByKey(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	if apiKey == nil || apiKey.UserID != userID {
+		return nil, ErrAPIKeyNotFound
 	}
 	return apiKey, nil
 }

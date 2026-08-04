@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -12,6 +13,7 @@ import (
 
 type settingPublicRepoStub struct {
 	values map[string]string
+	err    error
 }
 
 func (s *settingPublicRepoStub) Get(ctx context.Context, key string) (*Setting, error) {
@@ -27,6 +29,9 @@ func (s *settingPublicRepoStub) Set(ctx context.Context, key, value string) erro
 }
 
 func (s *settingPublicRepoStub) GetMultiple(ctx context.Context, keys []string) (map[string]string, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
 	out := make(map[string]string, len(keys))
 	for _, key := range keys {
 		if value, ok := s.values[key]; ok {
@@ -34,6 +39,34 @@ func (s *settingPublicRepoStub) GetMultiple(ctx context.Context, keys []string) 
 		}
 	}
 	return out, nil
+}
+
+func TestSettingService_PlaygroundFeatureSwitch(t *testing.T) {
+	t.Run("missing setting defaults to enabled", func(t *testing.T) {
+		svc := NewSettingService(&settingPublicRepoStub{values: map[string]string{}}, &config.Config{})
+
+		settings, err := svc.GetPublicSettings(context.Background())
+		require.NoError(t, err)
+		require.True(t, settings.PlaygroundEnabled)
+		require.True(t, svc.IsPlaygroundEnabled(context.Background()))
+	})
+
+	t.Run("explicit false disables the feature", func(t *testing.T) {
+		svc := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+			SettingKeyPlaygroundEnabled: "false",
+		}}, &config.Config{})
+
+		settings, err := svc.GetPublicSettings(context.Background())
+		require.NoError(t, err)
+		require.False(t, settings.PlaygroundEnabled)
+		require.False(t, svc.IsPlaygroundEnabled(context.Background()))
+	})
+
+	t.Run("repository failure fails closed", func(t *testing.T) {
+		svc := NewSettingService(&settingPublicRepoStub{err: errors.New("database unavailable")}, &config.Config{})
+
+		require.False(t, svc.IsPlaygroundEnabled(context.Background()))
+	})
 }
 
 func (s *settingPublicRepoStub) SetMultiple(ctx context.Context, settings map[string]string) error {

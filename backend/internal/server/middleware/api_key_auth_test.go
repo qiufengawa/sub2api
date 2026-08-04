@@ -50,6 +50,95 @@ func TestAPIKeyAuthRejectsOversizedCredentialsBeforeLookup(t *testing.T) {
 	require.Zero(t, calls.Load())
 }
 
+func TestPlaygroundAPIKeyAuthLoadsOwnedCredentialWithoutExposingItToClient(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	const (
+		userID = int64(7)
+		keyID  = int64(41)
+	)
+	user := &service.User{ID: userID, Role: service.RoleUser, Status: service.StatusActive, Balance: 10}
+	apiKey := &service.APIKey{ID: keyID, UserID: userID, Key: "sk-server-only", Status: service.StatusActive, User: user}
+	repo := &stubApiKeyRepo{
+		getKeyAndOwnerID: func(_ context.Context, id int64) (string, int64, error) {
+			require.Equal(t, keyID, id)
+			return apiKey.Key, userID, nil
+		},
+		getByKey: func(_ context.Context, key string) (*service.APIKey, error) {
+			require.Equal(t, apiKey.Key, key)
+			clone := *apiKey
+			return &clone, nil
+		},
+	}
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, cfg)
+	router := newPlaygroundAuthTestRouter(svc, nil, cfg, userID)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/playground/keys/41/test", strings.NewReader(`{"model":"test"}`))
+	req.Header.Set("Authorization", "Bearer panel-jwt")
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.NotContains(t, w.Body.String(), apiKey.Key)
+}
+
+func TestPlaygroundAPIKeyAuthHidesForeignAndMissingIDs(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, test := range []struct {
+		name  string
+		owner int64
+		err   error
+	}{
+		{name: "foreign", owner: 99},
+		{name: "missing", err: service.ErrAPIKeyNotFound},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			authLookupCalls := 0
+			repo := &stubApiKeyRepo{
+				getKeyAndOwnerID: func(context.Context, int64) (string, int64, error) {
+					return "sk-hidden", test.owner, test.err
+				},
+				getByKey: func(context.Context, string) (*service.APIKey, error) {
+					authLookupCalls++
+					return nil, service.ErrAPIKeyNotFound
+				},
+			}
+			cfg := &config.Config{RunMode: config.RunModeSimple}
+			svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, cfg)
+			router := newPlaygroundAuthTestRouter(svc, nil, cfg, 7)
+
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/playground/keys/41/test", nil))
+
+			require.Equal(t, http.StatusNotFound, w.Code)
+			require.Contains(t, w.Body.String(), "API_KEY_NOT_FOUND")
+			require.Zero(t, authLookupCalls)
+		})
+	}
+}
+
+func TestPlaygroundAPIKeyAuthUsesSharedDisabledKeyChecks(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	user := &service.User{ID: 7, Role: service.RoleUser, Status: service.StatusActive, Balance: 10}
+	apiKey := &service.APIKey{ID: 41, UserID: user.ID, Key: "sk-disabled", Status: service.StatusDisabled, User: user}
+	repo := &stubApiKeyRepo{
+		getKeyAndOwnerID: func(context.Context, int64) (string, int64, error) {
+			return apiKey.Key, user.ID, nil
+		},
+		getByKey: func(context.Context, string) (*service.APIKey, error) {
+			clone := *apiKey
+			return &clone, nil
+		},
+	}
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	router := newPlaygroundAuthTestRouter(service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, cfg), nil, cfg, user.ID)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/playground/keys/41/test", nil))
+
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+	require.Contains(t, w.Body.String(), "API_KEY_DISABLED")
+}
+
 func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -1594,6 +1683,24 @@ func newAuthTestRouter(apiKeyService *service.APIKeyService, subscriptionService
 	return router
 }
 
+func newPlaygroundAuthTestRouter(apiKeyService *service.APIKeyService, subscriptionService *service.SubscriptionService, cfg *config.Config, userID int64) *gin.Engine {
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(string(ContextKeyUser), AuthSubject{UserID: userID})
+		c.Next()
+	})
+	router.Use(NewPlaygroundAPIKeyAuthMiddleware(apiKeyService, subscriptionService, cfg))
+	router.POST("/playground/keys/:key_id/test", func(c *gin.Context) {
+		apiKey, ok := GetAPIKeyFromContext(c)
+		if !ok || apiKey == nil {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"key_id": apiKey.ID})
+	})
+	return router
+}
+
 func requireAPIKeyAuthError(t *testing.T, w *httptest.ResponseRecorder, code, message string) {
 	t.Helper()
 
@@ -1604,8 +1711,9 @@ func requireAPIKeyAuthError(t *testing.T, w *httptest.ResponseRecorder, code, me
 }
 
 type stubApiKeyRepo struct {
-	getByKey       func(ctx context.Context, key string) (*service.APIKey, error)
-	updateLastUsed func(ctx context.Context, id int64, usedAt time.Time) error
+	getByKey         func(ctx context.Context, key string) (*service.APIKey, error)
+	getKeyAndOwnerID func(ctx context.Context, id int64) (string, int64, error)
+	updateLastUsed   func(ctx context.Context, id int64, usedAt time.Time) error
 }
 
 func (r *stubApiKeyRepo) Create(ctx context.Context, key *service.APIKey) error {
@@ -1617,6 +1725,9 @@ func (r *stubApiKeyRepo) GetByID(ctx context.Context, id int64) (*service.APIKey
 }
 
 func (r *stubApiKeyRepo) GetKeyAndOwnerID(ctx context.Context, id int64) (string, int64, error) {
+	if r.getKeyAndOwnerID != nil {
+		return r.getKeyAndOwnerID(ctx, id)
+	}
 	return "", 0, errors.New("not implemented")
 }
 

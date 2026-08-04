@@ -57,6 +57,7 @@ function createPublicSettings(overrides: Partial<PublicSettings> = {}): PublicSe
     available_channels_enabled: false,
     model_plaza_enabled: false,
     model_plaza_require_auth: false,
+    playground_enabled: true,
     service_quota_enabled: false,
     affiliate_enabled: false,
     ...overrides,
@@ -402,6 +403,7 @@ describe('useAppStore', () => {
         contact_info: 'test@test.com',
         api_base_url: 'https://api.test.com',
         doc_url: 'https://docs.test.com',
+        playground_enabled: false,
       }
 
       const store = useAppStore()
@@ -411,6 +413,7 @@ describe('useAppStore', () => {
       expect(store.siteName).toBe('TestSite')
       expect(store.siteLogo).toBe('/logo.png')
       expect(store.siteVersion).toBe('1.0.0')
+      expect(store.cachedPublicSettings?.playground_enabled).toBe(false)
       expect(store.publicSettingsLoaded).toBe(true)
     })
 

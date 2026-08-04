@@ -19,6 +19,7 @@ import (
 
 type authRepoStub struct {
 	getByKeyForAuth   func(ctx context.Context, key string) (*APIKey, error)
+	getKeyAndOwnerID  func(ctx context.Context, id int64) (string, int64, error)
 	listKeysByUserID  func(ctx context.Context, userID int64) ([]string, error)
 	listKeysByGroupID func(ctx context.Context, groupID int64) ([]string, error)
 }
@@ -32,7 +33,10 @@ func (s *authRepoStub) GetByID(ctx context.Context, id int64) (*APIKey, error) {
 }
 
 func (s *authRepoStub) GetKeyAndOwnerID(ctx context.Context, id int64) (string, int64, error) {
-	panic("unexpected GetKeyAndOwnerID call")
+	if s.getKeyAndOwnerID == nil {
+		panic("unexpected GetKeyAndOwnerID call")
+	}
+	return s.getKeyAndOwnerID(ctx, id)
 }
 
 func (s *authRepoStub) GetByKey(ctx context.Context, key string) (*APIKey, error) {

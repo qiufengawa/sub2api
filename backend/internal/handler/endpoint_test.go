@@ -24,6 +24,8 @@ func TestNormalizeInboundEndpoint(t *testing.T) {
 		// Direct canonical paths.
 		{"/v1/messages", EndpointMessages},
 		{"/v1/chat/completions", EndpointChatCompletions},
+		{"/api/v1/playground/keys/41/chat/completions", EndpointChatCompletions},
+		{"/api/v1/playground/keys/41/chat/completions/", EndpointChatCompletions},
 		{"/v1/embeddings", EndpointEmbeddings},
 		{"/v1/alpha/search", EndpointAlphaSearch},
 		{"/v1/responses", EndpointResponses},
@@ -67,6 +69,8 @@ func TestNormalizeInboundEndpoint(t *testing.T) {
 		// supported "/v1/responses..." prefix form.
 		{"/foo/responses", "/foo/responses"},
 		{"/foo/responses/compact", "/foo/responses/compact"},
+		{"/foo/chat/completions", "/foo/chat/completions"},
+		{"/api/v1/playground/keys/41/chat/completions-extra", "/api/v1/playground/keys/41/chat/completions-extra"},
 
 		// Unknown path is returned as-is.
 		{"/v1/embeddings", "/v1/embeddings"},

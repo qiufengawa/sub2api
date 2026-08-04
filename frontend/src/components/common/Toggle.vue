@@ -1,9 +1,13 @@
 <template>
   <button
     type="button"
+    :disabled="disabled"
     @click="toggle"
     class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:ring-offset-1 dark:focus:ring-offset-dark-800"
-    :class="[modelValue ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600']"
+    :class="[
+      modelValue ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600',
+      disabled ? 'cursor-not-allowed opacity-50' : ''
+    ]"
     role="switch"
     :aria-checked="modelValue"
     :aria-label="ariaLabel"
@@ -19,6 +23,7 @@
 const props = defineProps<{
   modelValue: boolean
   ariaLabel?: string
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -26,6 +31,7 @@ const emit = defineEmits<{
 }>()
 
 function toggle() {
+  if (props.disabled) return
   emit('update:modelValue', !props.modelValue)
 }
 </script>

@@ -318,6 +318,7 @@ type UpdateSettingsRequest struct {
 	ModelPlazaEnabled     *bool   `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth *bool   `json:"model_plaza_require_auth"`
 	ModelPlazaDescription *string `json:"model_plaza_description"`
+	PlaygroundEnabled     *bool   `json:"playground_enabled"`
 
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled *bool `json:"affiliate_enabled"`
@@ -1703,6 +1704,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.ModelPlazaDescription
 		}(),
+		PlaygroundEnabled: func() bool {
+			if req.PlaygroundEnabled != nil {
+				return *req.PlaygroundEnabled
+			}
+			return previousSettings.PlaygroundEnabled
+		}(),
 		AffiliateEnabled: func() bool {
 			if req.AffiliateEnabled != nil {
 				return *req.AffiliateEnabled
@@ -2102,6 +2109,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ModelPlazaEnabled:     updatedSettings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth: updatedSettings.ModelPlazaRequireAuth,
 		ModelPlazaDescription: updatedSettings.ModelPlazaDescription,
+		PlaygroundEnabled:     updatedSettings.PlaygroundEnabled,
 
 		AffiliateEnabled: updatedSettings.AffiliateEnabled,
 

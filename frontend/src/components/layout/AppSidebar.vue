@@ -312,6 +312,21 @@ const KeyIcon = {
     )
 }
 
+const PlaygroundIcon = {
+  render: () =>
+    h(
+      'svg',
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
+      [
+        h('path', {
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L3.8 15.7c-1.232 1.232-.65 3.318 1.067 3.611A43.64 43.64 0 0012 19.9c2.42 0 4.81-.197 7.133-.589 1.718-.293 2.3-2.379 1.067-3.61l-5.291-5.292a2.25 2.25 0 01-.659-1.591V3.104m-4.5 0a24.301 24.301 0 014.5 0m-4.5 0A24.362 24.362 0 008.25 3.3m6-.196c.502.046 1.002.111 1.5.196M6.4 14.5h11.2'
+        })
+      ]
+    )
+}
+
 const BatchImageIcon = {
   render: () =>
     h(
@@ -704,6 +719,7 @@ const flagChannelMonitor = makeSidebarFlag(FeatureFlags.channelMonitor)
 const flagPayment = makeSidebarFlag(FeatureFlags.payment)
 const flagAvailableChannels = makeSidebarFlag(FeatureFlags.availableChannels)
 const flagModelPlaza = makeSidebarFlag(FeatureFlags.modelPlaza)
+const flagPlayground = makeSidebarFlag(FeatureFlags.playground)
 const flagAffiliate = makeSidebarFlag(FeatureFlags.affiliate)
 const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
@@ -723,7 +739,7 @@ function createModelPlazaNavItem(): NavItem {
 // buildSelfNavItems 构造用户自己的导航项（用户端主菜单和管理员的"我的账户"子菜单共享这组声明）。
 // withDashboard=true 时仅包含用户仪表盘；管理员主菜单有独立的后台仪表盘入口。
 //
-// 条目顺序：密钥 → 用量 → 可用渠道 → 模型广场 → 渠道状态 → 订阅/支付 → 兑换/资料。
+// 条目顺序：密钥 → 操练场 → 批量生图 → 用量 → 可用渠道 → 模型广场 → 渠道状态 → 订阅/支付 → 兑换/资料。
 // 模型广场属于用户侧的模型选择工具，放在渠道能力与渠道状态之间，不混入后台运维导航。
 function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   const items: NavItem[] = []
@@ -732,6 +748,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   }
   items.push(
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
+    { path: '/playground', label: t('nav.playground'), icon: PlaygroundIcon, featureFlag: flagPlayground },
     { path: '/batch-image', label: t('nav.batchImage'), icon: BatchImageIcon, hideInSimpleMode: true, featureFlag: flagBatchImageAccess },
     { path: '/usage', label: t('nav.usage'), icon: ChartIcon, hideInSimpleMode: true },
     { path: '/available-channels', label: t('nav.availableChannels'), icon: ChannelIcon, hideInSimpleMode: true, featureFlag: flagAvailableChannels },
@@ -848,11 +865,12 @@ const adminNavItems = computed((): NavItem[] => {
 
   const visible = applyFeatureFlags(baseItems)
 
-  // 简单模式会隐藏"我的账户"分组，因此在底部用户入口区补充模型广场和 API 密钥。
+  // 简单模式会隐藏"我的账户"分组，因此在底部用户入口区补充模型广场、API 密钥和操练场。
   if (authStore.isSimpleMode) {
     const filtered = visible.filter(item => !item.hideInSimpleMode)
     filtered.push(...applyFeatureFlags([createModelPlazaNavItem()]))
     filtered.push({ path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon })
+    filtered.push(...applyFeatureFlags([{ path: '/playground', label: t('nav.playground'), icon: PlaygroundIcon, featureFlag: flagPlayground }]))
     filtered.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
     for (const cm of customMenuItemsForAdmin.value) {
       filtered.push({ path: `/custom/${cm.id}`, label: cm.label, icon: null, iconSvg: cm.icon_svg })
