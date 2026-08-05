@@ -2,111 +2,74 @@ package service
 
 import (
 	"fmt"
-	"html"
 	"strings"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/emailhtml"
 )
 
 func buildContentModerationViolationEmailBody(siteName string, log *ContentModerationLog, cfg *ContentModerationConfig) string {
 	if log == nil {
 		return ""
 	}
-	userName := strings.TrimSpace(log.UserEmail)
-	if userName == "" && log.UserID != nil {
-		userName = fmt.Sprintf("UID %d", *log.UserID)
-	}
-	threshold := cfg.BanThreshold
-	if threshold <= 0 {
-		threshold = defaultContentModerationBanThreshold
-	}
-	statusBlock := ""
+	userName := contentModerationEmailRecipient(log)
+	threshold := contentModerationEmailThreshold(cfg)
+	body := emailhtml.Intro("尊敬的用户 "+userName+"，您的 API 请求触发了平台内容审核与风险控制策略。") +
+		emailhtml.StatusBand("处理结果", "请求已被记录", "请检查并调整请求内容", emailhtml.ToneDanger) +
+		emailhtml.StatRow(
+			emailhtml.Stat{Label: "累计触发次数", Value: fmt.Sprintf("%d", log.ViolationCount), Tone: emailhtml.ToneDanger},
+			emailhtml.Stat{Label: "自动禁用阈值", Value: fmt.Sprintf("%d", threshold), Tone: emailhtml.ToneWarning},
+		) +
+		emailhtml.FactList(
+			emailhtml.Fact{Label: "触发时间", Value: time.Now().Format("2006-01-02 15:04:05")},
+			emailhtml.Fact{Label: "触发来源", Value: "内容审核"},
+			emailhtml.Fact{Label: "所属分组", Value: defaultContentModerationString(log.GroupName, "-")},
+			emailhtml.Fact{Label: "命中类别", Value: defaultContentModerationString(log.HighestCategory, "-")},
+			emailhtml.Fact{Label: "审核分数", Value: fmt.Sprintf("%.3f", log.HighestScore)},
+		) + emailhtml.Advisory("请调整请求内容，避免后续服务受到影响。", emailhtml.ToneDanger)
 	if log.AutoBanned {
-		statusBlock = `<div style="margin-top:24px;padding:18px 20px;border-radius:10px;background:#ff3b30;color:#fff;font-size:18px;font-weight:700;text-align:center;line-height:1.6;">账户当前处于封禁状态，所有 API 请求将被拒绝</div>`
+		body += emailhtml.Advisory("账户当前处于禁用状态，所有 API 请求将被拒绝。", emailhtml.ToneDanger)
 	}
-	return fmt.Sprintf(`<!doctype html>
-<html>
-<body style="margin:0;padding:0;background:#f5f6fb;color:#222;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
-  <div style="max-width:680px;margin:0 auto;padding:32px 20px;">
-    <div style="height:8px;background:#ef4444;border-radius:14px 14px 0 0;"></div>
-    <div style="background:#fff;border-radius:0 0 14px 14px;padding:40px 48px;box-shadow:0 8px 28px rgba(15,23,42,.08);">
-      <div style="letter-spacing:4px;color:#999;font-size:14px;text-transform:uppercase;">Risk Control / 风控提醒</div>
-      <h1 style="margin:20px 0 28px;font-size:30px;line-height:1.25;">账户触发内容审计规则</h1>
-      <p style="font-size:17px;line-height:1.9;margin:0 0 24px;">尊敬的用户 <strong>%s</strong>，您的 API 请求在内容审计中触发平台风控策略。详情如下。</p>
-      <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:12px;padding:22px 28px;margin:28px 0;">
-        <h2 style="margin:0 0 18px;color:#b91c1c;font-size:18px;">触发详情</h2>
-        <table style="width:100%%;border-collapse:collapse;font-size:16px;">
-          <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">触发时间</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">%s</td></tr>
-          <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">触发来源</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">内容审核</td></tr>
-          <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">所属分组</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">%s</td></tr>
-          <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">命中类别</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">%s / %.3f</td></tr>
-          <tr><td style="padding:12px 0;color:#888;">累计触发次数</td><td style="padding:12px 0;color:#dc2626;font-weight:700;">%d 次（阈值 %d）</td></tr>
-        </table>
-      </div>
-      %s
-      <p style="font-size:14px;line-height:1.8;color:#777;margin-top:28px;">此邮件由 %s 自动发送，请勿回复。</p>
-    </div>
-  </div>
-</body>
-</html>`,
-		html.EscapeString(userName),
-		html.EscapeString(time.Now().Format("2006-01-02 15:04:05")),
-		html.EscapeString(defaultContentModerationString(log.GroupName, "-")),
-		html.EscapeString(defaultContentModerationString(log.HighestCategory, "-")),
-		log.HighestScore,
-		log.ViolationCount,
-		threshold,
-		statusBlock,
-		html.EscapeString(siteName),
-	)
+	return emailhtml.Render(emailhtml.Message{
+		Lang:         "zh-CN",
+		SiteName:     siteName,
+		Preheader:    "您的 API 请求触发了内容审核与风险控制策略。",
+		Category:     "风险控制",
+		Title:        "请求触发内容审核规则",
+		Tone:         emailhtml.ToneDanger,
+		Illustration: emailhtml.IllustrationModerationRisk,
+		BodyHTML:     body,
+		Footer:       "此邮件由 " + siteName + " 自动发送，请勿直接回复。",
+	})
 }
 
 func buildContentModerationAccountDisabledEmailBody(siteName string, log *ContentModerationLog, cfg *ContentModerationConfig) string {
 	if log == nil {
 		return ""
 	}
-	userName := strings.TrimSpace(log.UserEmail)
-	if userName == "" && log.UserID != nil {
-		userName = fmt.Sprintf("UID %d", *log.UserID)
-	}
-	threshold := cfg.BanThreshold
-	if threshold <= 0 {
-		threshold = defaultContentModerationBanThreshold
-	}
-	return fmt.Sprintf(`<!doctype html>
-<html>
-<body style="margin:0;padding:0;background:#f5f6fb;color:#222;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
-  <div style="max-width:680px;margin:0 auto;padding:32px 20px;">
-    <div style="height:8px;background:#ef4444;border-radius:14px 14px 0 0;"></div>
-    <div style="background:#fff;border-radius:0 0 14px 14px;padding:40px 48px;box-shadow:0 8px 28px rgba(15,23,42,.08);">
-      <div style="letter-spacing:4px;color:#999;font-size:14px;text-transform:uppercase;">Risk Control / 账户封禁</div>
-      <h1 style="margin:20px 0 28px;font-size:30px;line-height:1.25;">账户已被自动禁用</h1>
-      <p style="font-size:17px;line-height:1.9;margin:0 0 24px;">尊敬的用户 <strong>%s</strong>，您的账户在计数周期内多次触发平台风控策略，系统已自动禁用该账户。详情如下。</p>
-      <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:12px;padding:22px 28px;margin:28px 0;">
-        <h2 style="margin:0 0 18px;color:#b91c1c;font-size:18px;">封禁详情</h2>
-        <table style="width:100%%;border-collapse:collapse;font-size:16px;">
-          <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">封禁时间</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">%s</td></tr>
-          <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">触发来源</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">内容审核</td></tr>
-          <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">所属分组</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">%s</td></tr>
-          <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">命中类别</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">%s / %.3f</td></tr>
-          <tr><td style="padding:12px 0;color:#888;">累计触发次数</td><td style="padding:12px 0;color:#dc2626;font-weight:700;">%d 次（阈值 %d）</td></tr>
-        </table>
-      </div>
-      <div style="margin-top:24px;padding:18px 20px;border-radius:10px;background:#ff3b30;color:#fff;font-size:18px;font-weight:700;text-align:center;line-height:1.6;">账户当前处于封禁状态，所有 API 请求将被拒绝</div>
-      <p style="font-size:15px;line-height:1.8;color:#666;margin-top:24px;">如需申诉或恢复账号，请联系平台管理员处理。</p>
-      <p style="font-size:14px;line-height:1.8;color:#777;margin-top:28px;">此邮件由 %s 自动发送，请勿回复。</p>
-    </div>
-  </div>
-</body>
-</html>`,
-		html.EscapeString(userName),
-		html.EscapeString(time.Now().Format("2006-01-02 15:04:05")),
-		html.EscapeString(defaultContentModerationString(log.GroupName, "-")),
-		html.EscapeString(defaultContentModerationString(log.HighestCategory, "-")),
-		log.HighestScore,
-		log.ViolationCount,
-		threshold,
-		html.EscapeString(siteName),
-	)
+	userName := contentModerationEmailRecipient(log)
+	threshold := contentModerationEmailThreshold(cfg)
+	body := emailhtml.Intro("尊敬的用户 "+userName+"，您的账户在统计周期内多次触发内容审核规则，系统已自动禁用该账户。") +
+		emailhtml.StatusBand("账户状态", "已禁用", fmt.Sprintf("累计触发 %d 次 / 阈值 %d 次", log.ViolationCount, threshold), emailhtml.ToneDanger) +
+		emailhtml.FactList(
+			emailhtml.Fact{Label: "禁用时间", Value: time.Now().Format("2006-01-02 15:04:05")},
+			emailhtml.Fact{Label: "触发来源", Value: "内容审核"},
+			emailhtml.Fact{Label: "所属分组", Value: defaultContentModerationString(log.GroupName, "-")},
+			emailhtml.Fact{Label: "命中类别", Value: defaultContentModerationString(log.HighestCategory, "-")},
+			emailhtml.Fact{Label: "审核分数", Value: fmt.Sprintf("%.3f", log.HighestScore)},
+		) +
+		emailhtml.Advisory("账户当前无法继续发起 API 请求。如需申诉或恢复账号，请联系平台管理员。", emailhtml.ToneDanger)
+	return emailhtml.Render(emailhtml.Message{
+		Lang:         "zh-CN",
+		SiteName:     siteName,
+		Preheader:    "您的账户已被风险控制系统自动禁用。",
+		Category:     "风险控制",
+		Title:        "账户已被自动禁用",
+		Tone:         emailhtml.ToneDanger,
+		Illustration: emailhtml.IllustrationModerationRisk,
+		BodyHTML:     body,
+		Footer:       "此邮件由 " + siteName + " 自动发送，请勿直接回复。",
+	})
 }
 
 func defaultContentModerationString(value string, fallback string) string {
@@ -116,40 +79,46 @@ func defaultContentModerationString(value string, fallback string) string {
 	return strings.TrimSpace(value)
 }
 
-// buildCyberPolicyNoticeEmailBody 是 cyber_policy 通知邮件的内置兜底正文，
-// 当 notification email 模板渲染失败时使用（与 sendViolationEmail 的兜底同理）。
+// buildCyberPolicyNoticeEmailBody is the built-in fallback when the editable
+// cyber-policy notification template cannot be rendered.
 func buildCyberPolicyNoticeEmailBody(siteName string, log *ContentModerationLog) string {
 	if log == nil {
 		return ""
 	}
+	body := emailhtml.Intro("尊敬的用户 "+contentModerationEmailRecipient(log)+"，您的请求被上游服务商的网络安全策略拦截。") +
+		emailhtml.StatusBand("处理结果", "请求已拦截", "上游服务商未执行本次请求", emailhtml.ToneDanger) +
+		emailhtml.FactList(
+			emailhtml.Fact{Label: "触发时间", Value: log.CreatedAt.Format("2006-01-02 15:04:05")},
+			emailhtml.Fact{Label: "模型", Value: defaultContentModerationString(log.Model, "-")},
+			emailhtml.Fact{Label: "所属分组", Value: defaultContentModerationString(log.GroupName, "-")},
+		) +
+		emailhtml.MessageBlock("上游说明", defaultContentModerationString(log.Error, "-"), emailhtml.ToneDanger) +
+		emailhtml.Advisory("如认为系误判，可调整请求措辞后重试，或申请获得授权的安全访问权限。", emailhtml.ToneNeutral)
+	return emailhtml.Render(emailhtml.Message{
+		Lang:         "zh-CN",
+		SiteName:     siteName,
+		Preheader:    "您的请求被上游网络安全策略拦截。",
+		Category:     "风险控制",
+		Title:        "请求被网络安全策略拦截",
+		Tone:         emailhtml.ToneDanger,
+		Illustration: emailhtml.IllustrationCyberPolicy,
+		BodyHTML:     body,
+		Footer:       "此邮件由 " + siteName + " 自动发送，请勿直接回复。",
+	})
+}
+
+func contentModerationEmailRecipient(log *ContentModerationLog) string {
 	userName := strings.TrimSpace(log.UserEmail)
 	if userName == "" && log.UserID != nil {
 		userName = fmt.Sprintf("UID %d", *log.UserID)
 	}
-	return fmt.Sprintf(`<!doctype html>
-<html><body style="margin:0;padding:0;background:#f5f6fb;color:#222;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
-  <div style="max-width:680px;margin:0 auto;padding:32px 20px;">
-    <div style="height:8px;background:#ef4444;border-radius:14px 14px 0 0;"></div>
-    <div style="background:#fff;border-radius:0 0 14px 14px;padding:40px 48px;box-shadow:0 8px 28px rgba(15,23,42,.08);">
-      <div style="letter-spacing:4px;color:#999;font-size:14px;text-transform:uppercase;">Risk Control / 网络安全策略</div>
-      <h1 style="margin:20px 0 28px;font-size:30px;line-height:1.25;">请求被网络安全策略拦截</h1>
-      <p style="font-size:17px;line-height:1.9;margin:0 0 24px;">尊敬的用户 <strong>%s</strong>，您的请求被上游网络安全策略（cyber policy）拦截。</p>
-      <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:12px;padding:22px 28px;margin:28px 0;">
-        <table style="width:100%%;border-collapse:collapse;font-size:16px;">
-          <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">触发时间</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">%s</td></tr>
-          <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">模型</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">%s</td></tr>
-          <tr><td style="padding:12px 0;color:#888;">上游说明</td><td style="padding:12px 0;">%s</td></tr>
-        </table>
-      </div>
-      <p style="font-size:15px;line-height:1.8;color:#666;">如认为系误判，可调整请求措辞后重试，或申请获得授权的安全访问权限。</p>
-      <p style="font-size:14px;line-height:1.8;color:#777;margin-top:28px;">此邮件由 %s 自动发送，请勿回复。</p>
-    </div>
-  </div>
-</body></html>`,
-		html.EscapeString(userName),
-		html.EscapeString(log.CreatedAt.Format("2006-01-02 15:04:05")),
-		html.EscapeString(defaultContentModerationString(log.Model, "-")),
-		html.EscapeString(defaultContentModerationString(log.Error, "-")),
-		html.EscapeString(siteName),
-	)
+	return defaultContentModerationString(userName, "用户")
+}
+
+func contentModerationEmailThreshold(cfg *ContentModerationConfig) int {
+	threshold := defaultContentModerationBanThreshold
+	if cfg != nil && cfg.BanThreshold > 0 {
+		threshold = cfg.BanThreshold
+	}
+	return threshold
 }

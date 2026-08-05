@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/emailhtml"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/robfig/cron/v3"
@@ -381,12 +382,45 @@ func (s *OpsScheduledReportService) runReport(ctx context.Context, report *opsSc
 			subjectPrefix = "[运维报表]"
 		}
 		subject := fmt.Sprintf("%s %s", subjectPrefix, subjectName)
-		if err := s.emailService.SendEmail(ctx, addr, subject, content.html); err != nil {
+		fallbackBody := s.buildScheduledReportFallbackEmail(ctx, locale, subjectName, content.html)
+		if err := s.emailService.SendEmail(ctx, addr, subject, fallbackBody); err != nil {
 			// Ignore per-recipient failures; continue best-effort.
 			continue
 		}
 	}
 	return attempts, nil
+}
+
+func (s *OpsScheduledReportService) buildScheduledReportFallbackEmail(ctx context.Context, locale, reportName, body string) string {
+	siteName := defaultSiteName
+	if s != nil && s.emailService != nil && s.emailService.settingRepo != nil {
+		if configured, err := s.emailService.settingRepo.GetValue(ctx, SettingKeySiteName); err == nil && strings.TrimSpace(configured) != "" {
+			siteName = strings.TrimSpace(configured)
+		}
+	}
+	zh := strings.HasPrefix(strings.ToLower(locale), "zh")
+	category := "Operations"
+	title := strings.TrimSpace(reportName)
+	preheader := "The latest operations report is ready."
+	footer := "This message was sent automatically by " + siteName + ". Please do not reply directly."
+	lang := "en"
+	if zh {
+		category = "运维"
+		preheader = "最新运维报表已生成。"
+		footer = "此邮件由 " + siteName + " 自动发送，请勿直接回复。"
+		lang = "zh-CN"
+	}
+	return emailhtml.Render(emailhtml.Message{
+		Lang:         lang,
+		SiteName:     siteName,
+		Preheader:    preheader,
+		Category:     category,
+		Title:        title,
+		Tone:         emailhtml.TonePrimary,
+		Illustration: emailhtml.IllustrationOpsReport,
+		BodyHTML:     body,
+		Footer:       footer,
+	})
 }
 
 func opsScheduledReportDeliverySourceID(report *opsScheduledReport) string {
@@ -626,72 +660,52 @@ func (s *OpsScheduledReportService) generateReportContent(ctx context.Context, r
 }
 
 func buildOpsSummaryEmailHTML(title string, start, end time.Time, overview *OpsDashboardOverview) string {
+	heading := `<h2 style="margin:0 0 14px;color:#172033;font-size:18px;line-height:1.4;">` + htmlEscape(strings.TrimSpace(title)) + `</h2>`
 	if overview == nil {
-		return fmt.Sprintf("<h2>%s</h2><p>No data.</p>", htmlEscape(title))
+		return heading + emailhtml.Advisory("No data is available for this reporting period.", emailhtml.ToneNeutral)
 	}
 
 	latP50 := "-"
 	latP99 := "-"
 	if overview.Duration.P50 != nil {
-		latP50 = fmt.Sprintf("%dms", *overview.Duration.P50)
+		latP50 = fmt.Sprintf("%d ms", *overview.Duration.P50)
 	}
 	if overview.Duration.P99 != nil {
-		latP99 = fmt.Sprintf("%dms", *overview.Duration.P99)
+		latP99 = fmt.Sprintf("%d ms", *overview.Duration.P99)
 	}
-
 	ttftP50 := "-"
 	ttftP99 := "-"
 	if overview.TTFT.P50 != nil {
-		ttftP50 = fmt.Sprintf("%dms", *overview.TTFT.P50)
+		ttftP50 = fmt.Sprintf("%d ms", *overview.TTFT.P50)
 	}
 	if overview.TTFT.P99 != nil {
-		ttftP99 = fmt.Sprintf("%dms", *overview.TTFT.P99)
+		ttftP99 = fmt.Sprintf("%d ms", *overview.TTFT.P99)
 	}
 
-	return fmt.Sprintf(`
-<h2>%s</h2>
-<p><b>Period</b>: %s ~ %s (UTC)</p>
-<ul>
-  <li><b>Total Requests</b>: %d</li>
-  <li><b>Success</b>: %d</li>
-  <li><b>Errors (SLA)</b>: %d</li>
-  <li><b>Business Limited</b>: %d</li>
-  <li><b>SLA</b>: %.2f%%</li>
-  <li><b>Error Rate</b>: %.2f%%</li>
-  <li><b>Upstream Error Rate (excl 429/529)</b>: %.2f%%</li>
-  <li><b>Upstream Errors</b>: excl429/529=%d, 429=%d, 529=%d</li>
-  <li><b>Latency</b>: p50=%s, p99=%s</li>
-  <li><b>TTFT</b>: p50=%s, p99=%s</li>
-  <li><b>Tokens</b>: %d</li>
-  <li><b>QPS</b>: current=%.1f, peak=%.1f, avg=%.1f</li>
-  <li><b>TPS</b>: current=%.1f, peak=%.1f, avg=%.1f</li>
-</ul>
-`,
-		htmlEscape(strings.TrimSpace(title)),
-		htmlEscape(start.UTC().Format(time.RFC3339)),
-		htmlEscape(end.UTC().Format(time.RFC3339)),
-		overview.RequestCountTotal,
-		overview.SuccessCount,
-		overview.ErrorCountSLA,
-		overview.BusinessLimitedCount,
-		overview.SLA*100,
-		overview.ErrorRate*100,
-		overview.UpstreamErrorRate*100,
-		overview.UpstreamErrorCountExcl429529,
-		overview.Upstream429Count,
-		overview.Upstream529Count,
-		htmlEscape(latP50),
-		htmlEscape(latP99),
-		htmlEscape(ttftP50),
-		htmlEscape(ttftP99),
-		overview.TokenConsumed,
-		overview.QPS.Current,
-		overview.QPS.Peak,
-		overview.QPS.Avg,
-		overview.TPS.Current,
-		overview.TPS.Peak,
-		overview.TPS.Avg,
-	)
+	return heading +
+		emailhtml.Intro("Period: "+start.UTC().Format(time.RFC3339)+" to "+end.UTC().Format(time.RFC3339)+" (UTC)") +
+		emailhtml.StatRow(
+			emailhtml.Stat{Label: "Total requests", Value: formatOpsReportInteger(overview.RequestCountTotal), Tone: emailhtml.TonePrimary},
+			emailhtml.Stat{Label: "Successful requests", Value: formatOpsReportInteger(overview.SuccessCount), Tone: emailhtml.ToneSuccess},
+			emailhtml.Stat{Label: "SLA errors", Value: formatOpsReportInteger(overview.ErrorCountSLA), Tone: emailhtml.ToneDanger},
+			emailhtml.Stat{Label: "Business limited", Value: formatOpsReportInteger(overview.BusinessLimitedCount), Tone: emailhtml.ToneWarning},
+		) +
+		emailhtml.Section("Reliability") +
+		emailhtml.FactList(
+			emailhtml.Fact{Label: "SLA", Value: fmt.Sprintf("%.2f%%", overview.SLA*100)},
+			emailhtml.Fact{Label: "Error rate", Value: fmt.Sprintf("%.2f%%", overview.ErrorRate*100)},
+			emailhtml.Fact{Label: "Upstream error rate", Value: fmt.Sprintf("%.2f%%", overview.UpstreamErrorRate*100)},
+			emailhtml.Fact{Label: "Upstream errors (excluding 429 / 529)", Value: formatOpsReportInteger(overview.UpstreamErrorCountExcl429529)},
+			emailhtml.Fact{Label: "Upstream 429 / 529", Value: fmt.Sprintf("%d / %d", overview.Upstream429Count, overview.Upstream529Count)},
+		) +
+		emailhtml.Section("Latency and throughput") +
+		emailhtml.FactList(
+			emailhtml.Fact{Label: "Request latency p50 / p99", Value: latP50 + " / " + latP99},
+			emailhtml.Fact{Label: "Time to first token p50 / p99", Value: ttftP50 + " / " + ttftP99},
+			emailhtml.Fact{Label: "Tokens consumed", Value: formatOpsReportInteger(overview.TokenConsumed)},
+			emailhtml.Fact{Label: "QPS current / peak / average", Value: fmt.Sprintf("%.1f / %.1f / %.1f", overview.QPS.Current, overview.QPS.Peak, overview.QPS.Avg)},
+			emailhtml.Fact{Label: "TPS current / peak / average", Value: fmt.Sprintf("%.1f / %.1f / %.1f", overview.TPS.Current, overview.TPS.Peak, overview.TPS.Avg)},
+		)
 }
 
 func buildOpsErrorDigestEmailHTML(title string, start, end time.Time, list *OpsErrorLogList) string {
@@ -705,39 +719,25 @@ func buildOpsErrorDigestEmailHTML(title string, start, end time.Time, list *OpsE
 		recent = recent[:10]
 	}
 
-	rows := ""
+	records := make([]emailhtml.Record, 0, len(recent))
 	for _, item := range recent {
 		if item == nil {
 			continue
 		}
-		rows += fmt.Sprintf(
-			"<tr><td>%s</td><td>%s</td><td>%d</td><td>%s</td></tr>",
-			htmlEscape(item.CreatedAt.UTC().Format(time.RFC3339)),
-			htmlEscape(item.Platform),
-			item.StatusCode,
-			htmlEscape(truncateString(item.Message, 180)),
-		)
+		records = append(records, emailhtml.Record{
+			Meta: fmt.Sprintf("%s · %s · HTTP %d", item.CreatedAt.UTC().Format(time.RFC3339), defaultContentModerationString(item.Platform, "unknown"), item.StatusCode),
+			Text: truncateString(item.Message, 180),
+		})
 	}
-	if rows == "" {
-		rows = "<tr><td colspan=\"4\">No recent errors.</td></tr>"
+	if len(records) == 0 {
+		records = append(records, emailhtml.Record{Meta: "No recent errors", Text: "No error records were returned for this reporting period."})
 	}
 
-	return fmt.Sprintf(`
-<h2>%s</h2>
-<p><b>Period</b>: %s ~ %s (UTC)</p>
-<p><b>Total Errors</b>: %d</p>
-<h3>Recent</h3>
-<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;">
-  <thead><tr><th>Time</th><th>Platform</th><th>Status</th><th>Message</th></tr></thead>
-  <tbody>%s</tbody>
-</table>
-`,
-		htmlEscape(strings.TrimSpace(title)),
-		htmlEscape(start.UTC().Format(time.RFC3339)),
-		htmlEscape(end.UTC().Format(time.RFC3339)),
-		total,
-		rows,
-	)
+	return `<h2 style="margin:0 0 14px;color:#172033;font-size:18px;line-height:1.4;">` + htmlEscape(strings.TrimSpace(title)) + `</h2>` +
+		emailhtml.Intro("Period: "+start.UTC().Format(time.RFC3339)+" to "+end.UTC().Format(time.RFC3339)+" (UTC)") +
+		emailhtml.AmountPanel("Total errors", formatOpsReportInteger(int64(total)), "Up to 10 latest records are shown below", emailhtml.ToneDanger) +
+		emailhtml.Section("Recent errors") +
+		emailhtml.Records(records...)
 }
 
 func buildOpsAccountHealthEmailHTML(title string, start, end time.Time, avail *OpsAccountAvailability) string {
@@ -745,44 +745,32 @@ func buildOpsAccountHealthEmailHTML(title string, start, end time.Time, avail *O
 	available := 0
 	rateLimited := 0
 	hasError := 0
-
 	if avail != nil && avail.Accounts != nil {
-		for _, a := range avail.Accounts {
-			if a == nil {
+		for _, account := range avail.Accounts {
+			if account == nil {
 				continue
 			}
 			total++
-			if a.IsAvailable {
+			if account.IsAvailable {
 				available++
 			}
-			if a.IsRateLimited {
+			if account.IsRateLimited {
 				rateLimited++
 			}
-			if a.HasError {
+			if account.HasError {
 				hasError++
 			}
 		}
 	}
 
-	return fmt.Sprintf(`
-<h2>%s</h2>
-<p><b>Period</b>: %s ~ %s (UTC)</p>
-<ul>
-  <li><b>Total Accounts</b>: %d</li>
-  <li><b>Available</b>: %d</li>
-  <li><b>Rate Limited</b>: %d</li>
-  <li><b>Error</b>: %d</li>
-</ul>
-<p>Note: This report currently reflects account availability status only.</p>
-`,
-		htmlEscape(strings.TrimSpace(title)),
-		htmlEscape(start.UTC().Format(time.RFC3339)),
-		htmlEscape(end.UTC().Format(time.RFC3339)),
-		total,
-		available,
-		rateLimited,
-		hasError,
-	)
+	return `<h2 style="margin:0 0 14px;color:#172033;font-size:18px;line-height:1.4;">` + htmlEscape(strings.TrimSpace(title)) + `</h2>` +
+		emailhtml.Intro("Period: "+start.UTC().Format(time.RFC3339)+" to "+end.UTC().Format(time.RFC3339)+" (UTC)") +
+		emailhtml.StatRow(
+			emailhtml.Stat{Label: "Total accounts", Value: formatOpsReportInteger(int64(total)), Tone: emailhtml.TonePrimary},
+			emailhtml.Stat{Label: "Available", Value: formatOpsReportInteger(int64(available)), Tone: emailhtml.ToneSuccess},
+			emailhtml.Stat{Label: "Rate limited", Value: formatOpsReportInteger(int64(rateLimited)), Tone: emailhtml.ToneWarning},
+			emailhtml.Stat{Label: "In error", Value: formatOpsReportInteger(int64(hasError)), Tone: emailhtml.ToneDanger},
+		) + emailhtml.Advisory("This report currently reflects account availability status only.", emailhtml.ToneNeutral)
 }
 
 func (s *OpsScheduledReportService) tryAcquireLeaderLock(ctx context.Context) (func(), bool) {

@@ -3,11 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
-	"html"
 	"log/slog"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/emailhtml"
 )
 
 const (
@@ -386,7 +387,7 @@ func (s *BalanceNotifyService) sendBalanceLowEmails(recipients []string, userID 
 		recipients = fallbackRecipients
 	}
 	subject := fmt.Sprintf("[%s] 余额不足提醒 / Balance Low Alert", sanitizeEmailHeader(siteName))
-	body := s.buildBalanceLowEmailBody(html.EscapeString(displayName), balance, threshold, html.EscapeString(siteName), rechargeURL)
+	body := s.buildBalanceLowEmailBody(displayName, balance, threshold, siteName, rechargeURL)
 	s.sendEmails(recipients, subject, body, "user_email", userEmail, "balance", balance)
 }
 
@@ -446,7 +447,7 @@ func (s *BalanceNotifyService) sendQuotaAlertEmails(adminEmails []string, accoun
 	}
 
 	subject := fmt.Sprintf("[%s] 账号限额告警 / Account Quota Alert - %s", sanitizeEmailHeader(siteName), sanitizeEmailHeader(accountName))
-	body := s.buildQuotaAlertEmailBody(accountID, html.EscapeString(accountName), html.EscapeString(platform), html.EscapeString(dimLabel), used, dim.limit, remaining, thresholdDisplay, html.EscapeString(siteName))
+	body := s.buildQuotaAlertEmailBody(accountID, accountName, platform, dimLabel, used, dim.limit, remaining, thresholdDisplay, siteName)
 	s.sendEmails(adminEmails, subject, body, "account", accountName, "dimension", dim.name)
 }
 
@@ -455,101 +456,56 @@ func sanitizeEmailHeader(s string) string {
 	return strings.NewReplacer("\r", "", "\n", "").Replace(s)
 }
 
-// balanceLowEmailTemplate is the HTML template for balance low notifications.
-// Format args: siteName, userName, userName, balance, threshold, threshold.
-// The recharge button is appended dynamically when rechargeURL is set.
-const balanceLowEmailTemplate = `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #f59e0b 0%%, #d97706 100%%); color: white; padding: 30px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 40px 30px; text-align: center; }
-        .balance { font-size: 36px; font-weight: bold; color: #dc2626; margin: 20px 0; }
-        .info { color: #666; font-size: 14px; line-height: 1.6; margin-top: 20px; }
-        .recharge-btn { display: inline-block; margin-top: 24px; padding: 12px 32px; background: linear-gradient(135deg, #f59e0b 0%%, #d97706 100%%); color: #fff; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: bold; }
-        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; color: #999; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header"><h1>%s</h1></div>
-        <div class="content">
-            <p style="font-size: 18px; color: #333;">%s，您的余额不足</p>
-            <p style="color: #666;">Dear %s, your balance is running low</p>
-            <div class="balance">$%.2f</div>
-            <div class="info">
-                <p>您的账户余额已低于提醒阈值 <strong>$%.2f</strong>。</p>
-                <p>Your account balance has fallen below the alert threshold of <strong>$%.2f</strong>.</p>
-                <p>请及时充值以免服务中断。</p>
-                <p>Please top up to avoid service interruption.</p>
-            </div>
-            %s
-        </div>
-        <div class="footer"><p>此邮件由系统自动发送，请勿回复。</p></div>
-    </div>
-</body>
-</html>`
-
-// quotaAlertEmailTemplate is the HTML template for account quota alert notifications.
-// Format args: siteName, accountID, accountName, platform, dimLabel, used, limitStr, remaining, thresholdDisplay.
-const quotaAlertEmailTemplate = `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #ef4444 0%%, #dc2626 100%%); color: white; padding: 30px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 40px 30px; }
-        .metric { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }
-        .metric-label { color: #666; }
-        .metric-value { font-weight: bold; color: #333; }
-        .info { color: #666; font-size: 14px; line-height: 1.6; margin-top: 20px; text-align: center; }
-        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; color: #999; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header"><h1>%s</h1></div>
-        <div class="content">
-            <p style="font-size: 18px; color: #333; text-align: center;">账号限额告警 / Account Quota Alert</p>
-            <div class="metric"><span class="metric-label">账号 ID / Account ID</span><span class="metric-value">#%d</span></div>
-            <div class="metric"><span class="metric-label">账号 / Account</span><span class="metric-value">%s</span></div>
-            <div class="metric"><span class="metric-label">平台 / Platform</span><span class="metric-value">%s</span></div>
-            <div class="metric"><span class="metric-label">维度 / Dimension</span><span class="metric-value">%s</span></div>
-            <div class="metric"><span class="metric-label">已使用 / Used</span><span class="metric-value">$%.2f</span></div>
-            <div class="metric"><span class="metric-label">限额 / Limit</span><span class="metric-value">%s</span></div>
-            <div class="metric"><span class="metric-label">剩余额度 / Remaining</span><span class="metric-value">$%.2f</span></div>
-            <div class="metric"><span class="metric-label">提醒阈值 / Alert Threshold</span><span class="metric-value">%s</span></div>
-            <div class="info">
-                <p>账号剩余额度已低于提醒阈值，请及时关注。</p>
-                <p>Account remaining quota has fallen below the alert threshold.</p>
-            </div>
-        </div>
-        <div class="footer"><p>此邮件由系统自动发送，请勿回复。</p></div>
-    </div>
-</body>
-</html>`
-
-// buildBalanceLowEmailBody builds HTML email for balance low notification.
+// buildBalanceLowEmailBody builds the bilingual fallback balance alert.
 func (s *BalanceNotifyService) buildBalanceLowEmailBody(userName string, balance, threshold float64, siteName, rechargeURL string) string {
-	rechargeBlock := ""
+	body := emailhtml.Intro(userName+"，您好。您的账户余额已触发低余额提醒。 Your account has triggered its low-balance alert.") +
+		emailhtml.AmountPanel("当前余额 / Current balance", fmt.Sprintf("$%.2f", balance), fmt.Sprintf("提醒阈值 / Alert threshold $%.2f", threshold), emailhtml.ToneWarning)
 	if rechargeURL != "" {
-		rechargeBlock = fmt.Sprintf(`<a href="%s" class="recharge-btn">立即充值 / Top Up Now</a>`, html.EscapeString(rechargeURL))
+		body += emailhtml.Action(rechargeURL, "立即充值 / Recharge now", emailhtml.TonePrimary)
 	}
-	return fmt.Sprintf(balanceLowEmailTemplate, siteName, userName, userName, balance, threshold, threshold, rechargeBlock)
+	body += emailhtml.Advisory("请及时检查余额，避免影响按余额计费的请求。 Review your balance to avoid interruptions to balance-billed requests.", emailhtml.ToneWarning)
+	return emailhtml.Render(emailhtml.Message{
+		Lang:         "zh-CN",
+		SiteName:     siteName,
+		Preheader:    fmt.Sprintf("当前余额 $%.2f，低于提醒阈值 $%.2f。", balance, threshold),
+		Category:     "账户余额 / Balance",
+		Title:        "余额不足提醒 / Low balance alert",
+		Tone:         emailhtml.ToneWarning,
+		Illustration: emailhtml.IllustrationBalanceLow,
+		BodyHTML:     body,
+		Footer:       "此邮件由 " + siteName + " 自动发送，请勿直接回复。 / This message was sent automatically. Please do not reply.",
+	})
 }
 
-// buildQuotaAlertEmailBody builds HTML email for account quota alert.
+// buildQuotaAlertEmailBody builds the bilingual fallback upstream quota alert.
 func (s *BalanceNotifyService) buildQuotaAlertEmailBody(accountID int64, accountName, platform, dimLabel string, used, limit, remaining float64, thresholdDisplay, siteName string) string {
-	limitStr := fmt.Sprintf("$%.2f", limit)
+	limitDisplay := fmt.Sprintf("$%.2f", limit)
 	if limit <= 0 {
-		limitStr = "无限制 / Unlimited"
+		limitDisplay = "无限制 / Unlimited"
 	}
-	return fmt.Sprintf(quotaAlertEmailTemplate, siteName, accountID, accountName, platform, dimLabel, used, limitStr, remaining, thresholdDisplay)
+	body := emailhtml.StatusBand("告警状态 / Alert status", "需要检查上游容量 / Capacity review required", accountName, emailhtml.ToneDanger) +
+		emailhtml.StatRow(
+			emailhtml.Stat{Label: "剩余额度 / Remaining", Value: fmt.Sprintf("$%.2f", remaining), Tone: emailhtml.ToneDanger},
+			emailhtml.Stat{Label: "已用额度 / Used", Value: fmt.Sprintf("$%.2f", used), Tone: emailhtml.ToneWarning},
+			emailhtml.Stat{Label: "额度上限 / Limit", Value: limitDisplay, Tone: emailhtml.ToneNeutral},
+			emailhtml.Stat{Label: "告警阈值 / Alert threshold", Value: thresholdDisplay, Tone: emailhtml.ToneDanger},
+		) +
+		emailhtml.Section("账号信息 / Account information") +
+		emailhtml.FactList(
+			emailhtml.Fact{Label: "账号 ID / Account ID", Value: fmt.Sprintf("#%d", accountID)},
+			emailhtml.Fact{Label: "账号 / Account", Value: accountName},
+			emailhtml.Fact{Label: "平台 / Platform", Value: platform},
+			emailhtml.Fact{Label: "维度 / Dimension", Value: dimLabel},
+		) + emailhtml.Advisory("账号剩余额度已低于提醒阈值，请及时检查上游容量和调度状态。 Review upstream capacity and scheduling promptly.", emailhtml.ToneDanger)
+	return emailhtml.Render(emailhtml.Message{
+		Lang:         "zh-CN",
+		SiteName:     siteName,
+		Preheader:    accountName + " 已触发账号限额告警。",
+		Category:     "系统监控 / Monitoring",
+		Title:        "账号限额告警 / Account quota alert",
+		Tone:         emailhtml.ToneDanger,
+		Illustration: emailhtml.IllustrationQuotaCapacity,
+		BodyHTML:     body,
+		Footer:       "此邮件由 " + siteName + " 自动发送，请勿直接回复。 / This message was sent automatically. Please do not reply.",
+	})
 }

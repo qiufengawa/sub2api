@@ -161,6 +161,99 @@ func TestNotificationEmailAdditionalEventsAreListedAndPreviewable(t *testing.T) 
 	}
 }
 
+func TestOfficialNotificationEmailsShareVisualSystemAndKeepBusinessFields(t *testing.T) {
+	ctx := context.Background()
+	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil)
+	illustrationByEvent := map[string]string{
+		NotificationEmailEventAuthVerifyCode:              "qiu-email-verification@assets.qiu.invalid",
+		NotificationEmailEventAuthPasswordReset:           "qiu-email-password-reset@assets.qiu.invalid",
+		NotificationEmailEventNotificationEmailVerifyCode: "qiu-email-notification-email@assets.qiu.invalid",
+		NotificationEmailEventSubscriptionPurchaseSuccess: "qiu-email-subscription-active@assets.qiu.invalid",
+		NotificationEmailEventSubscriptionExpiryReminder:  "qiu-email-subscription-expiry@assets.qiu.invalid",
+		NotificationEmailEventBalanceLow:                  "qiu-email-balance-low@assets.qiu.invalid",
+		NotificationEmailEventBalanceRechargeSuccess:      "qiu-email-recharge-success@assets.qiu.invalid",
+		NotificationEmailEventAccountQuotaAlert:           "qiu-email-quota-capacity@assets.qiu.invalid",
+		NotificationEmailEventContentModerationViolation:  "qiu-email-moderation-risk@assets.qiu.invalid",
+		NotificationEmailEventContentModerationDisabled:   "qiu-email-moderation-risk@assets.qiu.invalid",
+		NotificationEmailEventCyberPolicyNotice:           "qiu-email-cyber-policy@assets.qiu.invalid",
+		NotificationEmailEventOpsAlert:                    "qiu-email-ops-alert@assets.qiu.invalid",
+		NotificationEmailEventOpsScheduledReport:          "qiu-email-ops-report@assets.qiu.invalid",
+	}
+	requiredByEvent := map[string][]string{
+		NotificationEmailEventAuthVerifyCode:              {"verification_code", "expires_in_minutes"},
+		NotificationEmailEventAuthPasswordReset:           {"reset_url", "expires_in_minutes"},
+		NotificationEmailEventNotificationEmailVerifyCode: {"verification_code", "expires_in_minutes"},
+		NotificationEmailEventSubscriptionPurchaseSuccess: {"subscription_group", "subscription_days", "expiry_time", "order_id"},
+		NotificationEmailEventSubscriptionExpiryReminder:  {"subscription_group", "expiry_time", "days_remaining", "unsubscribe_url"},
+		NotificationEmailEventBalanceLow:                  {"current_balance", "threshold", "recharge_url", "unsubscribe_url"},
+		NotificationEmailEventBalanceRechargeSuccess:      {"recharge_amount", "current_balance", "order_id"},
+		NotificationEmailEventAccountQuotaAlert:           {"account_id", "account_name", "platform", "quota_dimension", "quota_used", "quota_limit", "quota_remaining", "quota_threshold"},
+		NotificationEmailEventContentModerationViolation:  {"triggered_at", "group_name", "moderation_category", "moderation_score", "violation_count", "ban_threshold"},
+		NotificationEmailEventContentModerationDisabled:   {"triggered_at", "group_name", "moderation_category", "moderation_score", "violation_count", "ban_threshold"},
+		NotificationEmailEventCyberPolicyNotice:           {"triggered_at", "model", "group_name", "upstream_message"},
+		NotificationEmailEventOpsAlert:                    {"rule_name", "severity", "alert_status", "metric_type", "operator", "metric_value", "threshold_value", "triggered_at", "alert_description"},
+		NotificationEmailEventOpsScheduledReport:          {"report_name", "report_type", "report_start_time", "report_end_time", "report_summary_display", "report_detail_display", "report_html"},
+	}
+
+	for event, required := range requiredByEvent {
+		for _, locale := range []string{"en", "zh"} {
+			tmpl, err := svc.GetTemplate(ctx, event, locale)
+			require.NoError(t, err)
+			require.LessOrEqual(t, len(tmpl.HTML), notificationEmailMaxHTMLLength)
+			for _, marker := range []string{"max-width:620px", "max-width: 480px", "mail-sheet", "mail-footer", "overflow-wrap:anywhere", `role="presentation"`, `display:none;max-height:0`} {
+				require.Containsf(t, tmpl.HTML, marker, "%s/%s should use the shared email layout", event, locale)
+			}
+			require.Containsf(t, tmpl.HTML, `src="cid:`+illustrationByEvent[event]+`"`, "%s/%s should use its business-specific illustration", event, locale)
+			for _, forbidden := range []string{"linear-gradient", "box-shadow", "white-space:nowrap", "border-radius:8px", "border-radius:12px"} {
+				require.NotContainsf(t, tmpl.HTML, forbidden, "%s/%s should not use legacy decoration", event, locale)
+			}
+			for _, placeholder := range required {
+				require.Containsf(t, tmpl.HTML, "{{"+placeholder+"}}", "%s/%s must retain %s", event, locale, placeholder)
+			}
+		}
+	}
+}
+
+func TestOfficialNotificationEmailToneColorsRemainSemantic(t *testing.T) {
+	ctx := context.Background()
+	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil)
+	checks := map[string]string{
+		NotificationEmailEventAuthVerifyCode:              "#1f55bd",
+		NotificationEmailEventSubscriptionPurchaseSuccess: "#16803e",
+		NotificationEmailEventSubscriptionExpiryReminder:  "#b45309",
+		NotificationEmailEventContentModerationDisabled:   "#c2413b",
+	}
+	for event, color := range checks {
+		tmpl, err := svc.GetTemplate(ctx, event, "zh")
+		require.NoError(t, err)
+		require.Contains(t, tmpl.HTML, color)
+	}
+}
+
+func TestOfficialNotificationEmailsUseContentSpecificEmphasis(t *testing.T) {
+	ctx := context.Background()
+	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil)
+	checks := map[string]string{
+		NotificationEmailEventAuthVerifyCode:              "mail-code-panel",
+		NotificationEmailEventNotificationEmailVerifyCode: "mail-code-panel",
+		NotificationEmailEventSubscriptionPurchaseSuccess: "mail-statement-panel",
+		NotificationEmailEventSubscriptionExpiryReminder:  "mail-amount-panel",
+		NotificationEmailEventBalanceLow:                  "mail-amount-panel",
+		NotificationEmailEventBalanceRechargeSuccess:      "mail-amount-panel",
+		NotificationEmailEventAccountQuotaAlert:           "mail-stat-table",
+		NotificationEmailEventContentModerationDisabled:   "mail-status-band",
+		NotificationEmailEventCyberPolicyNotice:           "mail-status-band",
+		NotificationEmailEventOpsAlert:                    "mail-status-band",
+	}
+	for event, marker := range checks {
+		for _, locale := range []string{"en", "zh"} {
+			tmpl, err := svc.GetTemplate(ctx, event, locale)
+			require.NoError(t, err)
+			require.Containsf(t, tmpl.HTML, marker, "%s/%s should use semantic emphasis", event, locale)
+		}
+	}
+}
+
 func TestCyberPolicyNoticeTemplateWrapsLongUpstreamMessages(t *testing.T) {
 	ctx := context.Background()
 	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil)
@@ -175,9 +268,9 @@ func TestCyberPolicyNoticeTemplateWrapsLongUpstreamMessages(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		require.Contains(t, preview.HTML, "table-layout:fixed")
+		require.Contains(t, preview.HTML, "max-width:100%")
 		require.Contains(t, preview.HTML, "overflow-wrap:anywhere")
-		require.Contains(t, preview.HTML, "word-break:break-all")
+		require.Contains(t, preview.HTML, "word-break:break-word")
 		require.NotContains(t, preview.HTML, "{{upstream_message}}")
 	}
 }
@@ -228,7 +321,7 @@ func TestOpsScheduledReportTemplateExposesEditableSummaryMetrics(t *testing.T) {
 		require.Contains(t, preview.HTML, "2,374")
 		require.Contains(t, preview.HTML, "99.86%")
 		require.Contains(t, preview.HTML, "151,260 ms")
-		require.Contains(t, preview.HTML, `style="display: none;"`)
+		require.Contains(t, preview.HTML, `class="mail-generated-content" style="display: none;`)
 		require.NotContains(t, preview.HTML, "{{report_total_requests}}")
 	}
 }

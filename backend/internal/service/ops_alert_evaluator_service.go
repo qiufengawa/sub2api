@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/emailhtml"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -800,24 +801,25 @@ func buildOpsAlertEmailBody(rule *OpsAlertRule, event *OpsAlertEvent) string {
 	if event.ThresholdValue != nil {
 		threshold = fmt.Sprintf("%.2f", *event.ThresholdValue)
 	}
-	return fmt.Sprintf(`
-<h2>Ops Alert</h2>
-<p><b>Rule</b>: %s</p>
-<p><b>Severity</b>: %s</p>
-<p><b>Status</b>: %s</p>
-<p><b>Metric</b>: %s %s %s</p>
-<p><b>Fired at</b>: %s</p>
-<p><b>Description</b>: %s</p>
-`,
-		htmlEscape(rule.Name),
-		htmlEscape(rule.Severity),
-		htmlEscape(event.Status),
-		htmlEscape(metric),
-		htmlEscape(rule.Operator),
-		htmlEscape(fmt.Sprintf("%s (threshold %s)", value, threshold)),
-		event.FiredAt.Format(time.RFC3339),
-		htmlEscape(event.Description),
-	)
+	body := emailhtml.StatusBand("Alert status", strings.TrimSpace(event.Status), "Severity "+strings.TrimSpace(rule.Severity), emailhtml.ToneWarning) +
+		emailhtml.Statement("Triggered metric", fmt.Sprintf("%s %s %s", metric, strings.TrimSpace(rule.Operator), value), "Threshold "+threshold, emailhtml.ToneWarning) +
+		emailhtml.FactList(
+			emailhtml.Fact{Label: "Rule", Value: strings.TrimSpace(rule.Name)},
+			emailhtml.Fact{Label: "Severity", Value: strings.TrimSpace(rule.Severity)},
+			emailhtml.Fact{Label: "Status", Value: strings.TrimSpace(event.Status)},
+			emailhtml.Fact{Label: "Triggered at", Value: event.FiredAt.Format(time.RFC3339)},
+		) + emailhtml.MessageBlock("Alert description", strings.TrimSpace(event.Description), emailhtml.ToneWarning)
+	return emailhtml.Render(emailhtml.Message{
+		Lang:         "en",
+		SiteName:     defaultSiteName,
+		Preheader:    strings.TrimSpace(rule.Name) + " is " + strings.TrimSpace(event.Status) + ".",
+		Category:     "Operations",
+		Title:        "Monitoring rule triggered",
+		Tone:         emailhtml.ToneWarning,
+		Illustration: emailhtml.IllustrationOpsAlert,
+		BodyHTML:     body,
+		Footer:       "This message was sent automatically by " + defaultSiteName + ". Please do not reply directly.",
+	})
 }
 
 func shouldSendOpsAlertEmailByMinSeverity(minSeverity string, ruleSeverity string) bool {

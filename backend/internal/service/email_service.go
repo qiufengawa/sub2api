@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"html"
 	"log/slog"
 	"math/big"
 	"net"
@@ -19,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/emailhtml"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
@@ -188,7 +188,7 @@ const smtpIOTimeout = 20 * time.Second
 
 // SendEmailWithConfig 使用指定配置发送邮件
 func (s *EmailService) SendEmailWithConfig(config *SMTPConfig, to, subject, body string) error {
-	message, err := buildSMTPMessage(config, to, subject, body)
+	message, err := buildSMTPMessageWithInlineAssets(config, to, subject, body, emailhtml.InlineAssetsForHTML(body))
 	if err != nil {
 		return err
 	}
@@ -411,42 +411,19 @@ func (s *EmailService) VerifyCode(ctx context.Context, email, code string) error
 
 // buildVerifyCodeEmailBody 构建验证码邮件HTML内容
 func (s *EmailService) buildVerifyCodeEmailBody(code, siteName string) string {
-	return fmt.Sprintf(`
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); color: white; padding: 30px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 40px 30px; text-align: center; }
-        .code { font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #333; background-color: #f8f9fa; padding: 20px 30px; border-radius: 8px; display: inline-block; margin: 20px 0; font-family: monospace; }
-        .info { color: #666; font-size: 14px; line-height: 1.6; margin-top: 20px; }
-        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; color: #999; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>%s</h1>
-        </div>
-        <div class="content">
-            <p style="font-size: 18px; color: #333;">Your verification code is:</p>
-            <div class="code">%s</div>
-            <div class="info">
-                <p>This code will expire in <strong>15 minutes</strong>.</p>
-                <p>If you did not request this code, please ignore this email.</p>
-            </div>
-        </div>
-        <div class="footer">
-            <p>This is an automated message, please do not reply.</p>
-        </div>
-    </div>
-</body>
-</html>
-`, html.EscapeString(siteName), code)
+	return emailhtml.Render(emailhtml.Message{
+		Lang:         "en",
+		SiteName:     siteName,
+		Preheader:    "Your verification code expires in 15 minutes.",
+		Category:     "Account security",
+		Title:        "Email verification code",
+		Tone:         emailhtml.TonePrimary,
+		Illustration: emailhtml.IllustrationVerification,
+		BodyHTML: emailhtml.Intro("Use the code below to complete this identity verification.") +
+			emailhtml.CodePanel("Verification code", code, "Valid for 15 minutes") +
+			emailhtml.Advisory("If you did not start this request, ignore this email and do not share the code with anyone.", emailhtml.ToneNeutral),
+		Footer: "This message was sent automatically by " + siteName + ". Please do not reply directly.",
+	})
 }
 
 // TestSMTPConnectionWithConfig 使用指定配置测试SMTP连接。
@@ -597,48 +574,19 @@ func (s *EmailService) ConsumePasswordResetToken(ctx context.Context, email, tok
 
 // buildPasswordResetEmailBody builds the HTML content for password reset email
 func (s *EmailService) buildPasswordResetEmailBody(resetURL, siteName string) string {
-	return fmt.Sprintf(`
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); color: white; padding: 30px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 40px 30px; text-align: center; }
-        .button { display: inline-block; background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600; margin: 20px 0; }
-        .button:hover { opacity: 0.9; }
-        .info { color: #666; font-size: 14px; line-height: 1.6; margin-top: 20px; }
-        .link-fallback { color: #666; font-size: 12px; word-break: break-all; margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 4px; }
-        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; color: #999; font-size: 12px; }
-        .warning { color: #e74c3c; font-weight: 500; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>%s</h1>
-        </div>
-        <div class="content">
-            <p style="font-size: 18px; color: #333;">密码重置请求</p>
-            <p style="color: #666;">您已请求重置密码。请点击下方按钮设置新密码：</p>
-            <a href="%s" class="button">重置密码</a>
-            <div class="info">
-                <p>此链接将在 <strong>30 分钟</strong>后失效。</p>
-                <p class="warning">如果您没有请求重置密码，请忽略此邮件。您的密码将保持不变。</p>
-            </div>
-            <div class="link-fallback">
-                <p>如果按钮无法点击，请复制以下链接到浏览器中打开：</p>
-                <p>%s</p>
-            </div>
-        </div>
-        <div class="footer">
-            <p>这是一封自动发送的邮件，请勿回复。</p>
-        </div>
-    </div>
-</body>
-</html>
-`, html.EscapeString(siteName), html.EscapeString(resetURL), html.EscapeString(resetURL))
+	return emailhtml.Render(emailhtml.Message{
+		Lang:         "zh-CN",
+		SiteName:     siteName,
+		Preheader:    "密码重置链接将在 30 分钟后失效。",
+		Category:     "账户安全",
+		Title:        "重置账户密码",
+		Tone:         emailhtml.TonePrimary,
+		Illustration: emailhtml.IllustrationPasswordReset,
+		BodyHTML: emailhtml.Intro("我们收到了您的密码重置请求，请通过下方按钮设置新密码。") +
+			emailhtml.Action(resetURL, "重置密码", emailhtml.TonePrimary) +
+			emailhtml.FactList(emailhtml.Fact{Label: "链接有效期", Value: "30 分钟"}) +
+			emailhtml.ReferenceLink(resetURL, "按钮无法打开时，请复制此完整链接") +
+			emailhtml.Advisory("如果不是您本人发起的请求，请忽略此邮件，您的密码不会被修改。", emailhtml.ToneWarning),
+		Footer: "此邮件由 " + siteName + " 自动发送，请勿直接回复。",
+	})
 }

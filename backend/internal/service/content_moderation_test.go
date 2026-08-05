@@ -1792,10 +1792,10 @@ func TestBuildContentModerationAccountDisabledEmailBody_ContainsBanDetails(t *te
 	}, cfg)
 
 	require.Contains(t, body, "账户已被自动禁用")
-	require.Contains(t, body, "封禁详情")
-	require.Contains(t, body, "账户当前处于封禁状态，所有 API 请求将被拒绝")
-	require.Contains(t, body, "10 次（阈值 10）")
-	require.Contains(t, body, "sexual / 0.926")
+	require.Contains(t, body, "账户当前无法继续发起 API 请求")
+	require.Contains(t, body, "累计触发 10 次 / 阈值 10 次")
+	require.Contains(t, body, "sexual")
+	require.Contains(t, body, "0.926")
 	require.Contains(t, body, "Sub2API &lt;Admin&gt;")
 }
 
