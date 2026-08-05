@@ -121,13 +121,13 @@
           <div v-if="requestIntervals(m).length" class="request-tiers">
             <span v-for="(iv, idx) in requestIntervals(m)" :key="idx" class="request-tier">
               <span>{{ tierLabel(iv) }}</span>
-              <strong>{{ paidRequestPrice(iv.per_request_price) }}</strong>
+              <strong>{{ paidRequestPrice(m, iv.per_request_price) }}</strong>
               <small>{{ perUnitSuffix(m) }}</small>
             </span>
           </div>
           <template v-else-if="m.pricing?.per_request_price != null">
             <strong class="font-mono text-sm text-gray-900 dark:text-gray-50">
-              {{ paidRequestPrice(m.pricing.per_request_price) }}
+              {{ paidRequestPrice(m, m.pricing.per_request_price) }}
             </strong>
             <span class="ml-1 text-xs text-gray-400 dark:text-dark-500">{{ perUnitSuffix(m) }}</span>
           </template>
@@ -180,7 +180,8 @@
 
       <div class="rate-cell" data-testid="rate-cell">
         <span class="rate-caption xl:hidden">{{ t('modelPlaza.table.rate') }}</span>
-        <template v-if="hasCustomRate">
+        <strong v-if="usesIndependentImageRate(m)">{{ requestRate(m) }}x</strong>
+        <template v-else-if="hasCustomRate">
           <span class="text-gray-400 line-through dark:text-dark-500">{{ rateMultiplier }}x</span>
           <strong class="text-primary-600 dark:text-primary-400">{{ effectiveRate }}x</strong>
         </template>
@@ -209,6 +210,8 @@ const props = defineProps<{
   platform?: string
   rateMultiplier: number
   userRateMultiplier?: number | null
+  imageRateIndependent?: boolean
+  imageRateMultiplier?: number | null
 }>()
 
 const { t } = useI18n()
@@ -261,9 +264,19 @@ function paidPerMillion(value: number | null | undefined): string {
   return formatScaled(value * effectiveRate.value, PER_MILLION, MIN_DECIMALS)
 }
 
-function paidRequestPrice(value: number | null | undefined): string {
+function usesIndependentImageRate(model: PlazaModel): boolean {
+  return billingMode(model) === BILLING_MODE_IMAGE && props.imageRateIndependent === true
+}
+
+function requestRate(model: PlazaModel): number {
+  return usesIndependentImageRate(model)
+    ? (props.imageRateMultiplier ?? 1)
+    : effectiveRate.value
+}
+
+function paidRequestPrice(model: PlazaModel, value: number | null | undefined): string {
   if (value == null) return '-'
-  return formatScaled(value * effectiveRate.value, 1, MIN_DECIMALS)
+  return formatScaled(value * requestRate(model), 1, MIN_DECIMALS)
 }
 
 function official(value: number | null | undefined): string {

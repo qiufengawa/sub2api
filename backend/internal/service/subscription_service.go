@@ -161,33 +161,17 @@ func (s *SubscriptionService) assignOrExtendSubscription(ctx context.Context, in
 
 	// 已有订阅，执行续期（在事务中完成所有更新）
 	if existingSub != nil {
-		now := time.Now()
-		var newExpiresAt time.Time
-
-		isExpired := !existingSub.ExpiresAt.After(now)
-		if !isExpired {
-			// 未过期：从当前过期时间累加
-			newExpiresAt = existingSub.ExpiresAt.AddDate(0, 0, validityDays)
-		} else {
-			// 已过期：从当前时间开始计算
-			newExpiresAt = now.AddDate(0, 0, validityDays)
-		}
-
-		// 确保不超过最大过期时间
-		if newExpiresAt.After(MaxExpiresAt) {
-			newExpiresAt = MaxExpiresAt
-		}
-
-		if err := s.updateExistingSubscriptionTerm(ctx, existingSub, input.Notes, now, newExpiresAt, isExpired); err != nil {
+		termUpdate, err := s.updateExistingSubscriptionTerm(ctx, existingSub.ID, validityDays, input.Notes, false)
+		if err != nil {
 			return nil, false, err
 		}
-		cycleStart := existingSub.CycleStartedAt
-		if isExpired || cycleStart == nil {
-			cycleStart = &now
+		cycleStart := termUpdate.previous.CycleStartedAt
+		if termUpdate.wasExpired || cycleStart == nil {
+			cycleStart = &termUpdate.updatedAt
 		}
-		fiveHourStart := existingSub.FiveHourStartedAt
-		if isExpired || fiveHourStart == nil {
-			fiveHourStart = &now
+		fiveHourStart := termUpdate.previous.FiveHourStartedAt
+		if termUpdate.wasExpired || fiveHourStart == nil {
+			fiveHourStart = &termUpdate.updatedAt
 		}
 		walletFallback := true
 		if input.WalletFallbackEnabled != nil {
@@ -204,7 +188,7 @@ func (s *SubscriptionService) assignOrExtendSubscription(ctx context.Context, in
 			FiveHourStartedAt:             fiveHourStart,
 			CycleStartedAt:                cycleStart,
 			WalletFallbackEnabled:         walletFallback,
-		}, isExpired); err != nil {
+		}, termUpdate.wasExpired); err != nil {
 			return nil, false, err
 		}
 
@@ -310,20 +294,59 @@ func (s *SubscriptionService) invalidateSubscriptionCoverage(sub *UserSubscripti
 	return nil
 }
 
+type subscriptionTermUpdateResult struct {
+	updated    bool
+	wasExpired bool
+	updatedAt  time.Time
+	previous   UserSubscription
+}
+
 func (s *SubscriptionService) updateExistingSubscriptionTerm(
 	ctx context.Context,
-	existingSub *UserSubscription,
+	subscriptionID int64,
+	validityDays int,
 	notes string,
-	startsAt time.Time,
-	newExpiresAt time.Time,
-	isExpired bool,
-) error {
-	return s.withSubscriptionUpdateTx(ctx, func(txCtx context.Context) error {
+	assignmentSemantics bool,
+) (subscriptionTermUpdateResult, error) {
+	var result subscriptionTermUpdateResult
+	err := s.withSubscriptionUpdateTx(ctx, func(txCtx context.Context) error {
+		existingSub, err := s.userSubRepo.GetByIDForUpdate(txCtx, subscriptionID)
+		if err != nil {
+			return fmt.Errorf("lock subscription for renewal: %w", err)
+		}
+		result.previous = *existingSub
+		if assignmentSemantics && existingSub.Status == SubscriptionStatusSuspended {
+			return nil
+		}
+
+		now := time.Now()
+		if s.now != nil {
+			now = s.now()
+		}
+		result.updatedAt = now
+		isExpired := !existingSub.ExpiresAt.After(now)
+		if assignmentSemantics {
+			isExpired = existingSub.Status == SubscriptionStatusExpired ||
+				(existingSub.Status != SubscriptionStatusSuspended && !existingSub.ExpiresAt.After(now))
+		}
+		result.wasExpired = isExpired
+		newExpiresAt := existingSub.ExpiresAt.AddDate(0, 0, validityDays)
 		if isExpired {
-			renewed := renewedSubscriptionTerm(existingSub, notes, startsAt, newExpiresAt)
+			newExpiresAt = now.AddDate(0, 0, validityDays)
+		}
+		if newExpiresAt.After(MaxExpiresAt) {
+			newExpiresAt = MaxExpiresAt
+		}
+		if assignmentSemantics && strings.TrimSpace(existingSub.Notes) == strings.TrimSpace(notes) {
+			notes = ""
+		}
+
+		if isExpired {
+			renewed := renewedSubscriptionTerm(existingSub, notes, now, newExpiresAt)
 			if err := s.userSubRepo.Update(txCtx, renewed); err != nil {
 				return fmt.Errorf("renew expired subscription: %w", err)
 			}
+			result.updated = true
 			return nil
 		}
 
@@ -346,8 +369,10 @@ func (s *SubscriptionService) updateExistingSubscriptionTerm(
 			}
 		}
 
+		result.updated = true
 		return nil
 	})
+	return result, err
 }
 
 func (s *SubscriptionService) withSubscriptionUpdateTx(ctx context.Context, fn func(context.Context) error) error {
@@ -528,16 +553,21 @@ func (s *SubscriptionService) assignSubscriptionWithReuse(ctx context.Context, i
 		if sub.Status == SubscriptionStatusExpired ||
 			(sub.Status != SubscriptionStatusSuspended && !sub.ExpiresAt.After(now)) {
 			validityDays := normalizeAssignValidityDays(input.ValidityDays)
-			newExpiresAt := now.AddDate(0, 0, validityDays)
-			if newExpiresAt.After(MaxExpiresAt) {
-				newExpiresAt = MaxExpiresAt
-			}
-			renewalNotes := input.Notes
-			if strings.TrimSpace(sub.Notes) == strings.TrimSpace(input.Notes) {
-				renewalNotes = ""
-			}
-			if err := s.updateExistingSubscriptionTerm(ctx, sub, renewalNotes, now, newExpiresAt, true); err != nil {
+			termUpdate, err := s.updateExistingSubscriptionTerm(ctx, sub.ID, validityDays, input.Notes, true)
+			if err != nil {
 				return nil, false, err
+			}
+			if !termUpdate.updated {
+				current, getErr := s.userSubRepo.GetByID(ctx, sub.ID)
+				return current, true, getErr
+			}
+			fiveHourStart := termUpdate.previous.FiveHourStartedAt
+			if termUpdate.wasExpired || fiveHourStart == nil {
+				fiveHourStart = &termUpdate.updatedAt
+			}
+			cycleStart := termUpdate.previous.CycleStartedAt
+			if termUpdate.wasExpired || cycleStart == nil {
+				cycleStart = &termUpdate.updatedAt
 			}
 			walletFallback := true
 			if input.WalletFallbackEnabled != nil {
@@ -551,10 +581,10 @@ func (s *SubscriptionService) assignSubscriptionWithReuse(ctx context.Context, i
 				TotalQuotaUSD:                 input.TotalQuotaUSD,
 				PreserveExistingTotalQuota:    input.PreserveExistingTotalQuota,
 				ResetIntervalSeconds:          input.ResetIntervalSeconds,
-				FiveHourStartedAt:             &now,
-				CycleStartedAt:                &now,
+				FiveHourStartedAt:             fiveHourStart,
+				CycleStartedAt:                cycleStart,
 				WalletFallbackEnabled:         walletFallback,
-			}, true); err != nil {
+			}, termUpdate.wasExpired); err != nil {
 				return nil, false, err
 			}
 			s.maybeInvalidateAssignmentCaches(input.UserID, groupIDs, false)

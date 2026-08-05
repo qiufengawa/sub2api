@@ -55,16 +55,21 @@
       </div>
     </header>
 
-    <PlazaModelPricingTable
-      v-if="group.models.length > 0"
-      :models="group.models"
-      :platform="group.platform"
-      :rate-multiplier="group.rate_multiplier"
-      :user-rate-multiplier="group.user_rate_multiplier ?? null"
-    />
-    <p v-else class="py-6 text-center text-sm text-gray-400 dark:text-dark-500">
-      {{ t('modelPlaza.detail.noModels') }}
-    </p>
+    <!-- 模型价格表:整行(含 hover 底色/分区底色)顶到卡片边缘,左右留白由表格首列/末列的 padding 提供 -->
+    <div>
+      <PlazaModelPricingTable
+        v-if="group.models.length > 0"
+        :models="group.models"
+        :platform="group.platform"
+        :rate-multiplier="group.rate_multiplier"
+        :user-rate-multiplier="group.user_rate_multiplier ?? null"
+        :image-rate-independent="group.image_rate_independent"
+        :image-rate-multiplier="group.image_rate_multiplier"
+      />
+      <p v-else class="px-5 py-4 text-center text-sm text-gray-400 dark:text-dark-500">
+        {{ t('modelPlaza.detail.noModels') }}
+      </p>
+    </div>
   </section>
 </template>
 

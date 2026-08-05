@@ -12,6 +12,7 @@ import {
   shouldMarkAdminUIRequest,
   shouldMarkUserUIRequest,
 } from './adminUIRequest'
+import { refreshAuthTokens } from './tokenRefresh'
 import { getAPIBaseURL } from './url'
 export { buildApiUrl, buildGatewayUrl } from './url'
 
@@ -26,76 +27,14 @@ export const apiClient: AxiosInstance = axios.create({
   }
 })
 
-// ==================== Token Refresh State ====================
-
-let refreshPromise: Promise<string> | null = null
-
-function expireAuthenticationSession(): void {
-  localStorage.removeItem('auth_token')
-  localStorage.removeItem('refresh_token')
-  localStorage.removeItem('auth_user')
-  localStorage.removeItem('token_expires_at')
-  sessionStorage.setItem('auth_expired', '1')
-
-  if (!window.location.pathname.includes('/login')) {
-    window.location.href = '/login'
-  }
-}
-
 /**
- * Refresh the panel access token through one shared request. Native streaming
- * consumers use this alongside Axios so rotating refresh tokens stay ordered.
+ * Refresh the panel access token for native streaming consumers. The shared
+ * implementation coordinates concurrent requests and rotating tokens.
  */
-export function refreshAccessToken(): Promise<string> {
-  if (refreshPromise) return refreshPromise
-
-  const refreshToken = localStorage.getItem('refresh_token')
-  if (!refreshToken) {
-    expireAuthenticationSession()
-    return Promise.reject({
-      status: 401,
-      code: 'TOKEN_REFRESH_FAILED',
-      message: 'Session expired. Please log in again.'
-    })
-  }
-
-  refreshPromise = (async () => {
-    try {
-      const refreshResponse = await axios.post(
-        `${getAPIBaseURL()}/auth/refresh`,
-        { refresh_token: refreshToken },
-        { headers: { 'Content-Type': 'application/json' }, timeout: 30000 }
-      )
-      const refreshData = refreshResponse.data as ApiResponse<{
-        access_token: string
-        refresh_token: string
-        expires_in: number
-      }>
-
-      if (refreshData.code !== 0 || !refreshData.data?.access_token || !refreshData.data?.refresh_token) {
-        throw new Error('Token refresh failed')
-      }
-
-      const { access_token, refresh_token: nextRefreshToken, expires_in } = refreshData.data
-      localStorage.setItem('auth_token', access_token)
-      localStorage.setItem('refresh_token', nextRefreshToken)
-      localStorage.setItem('token_expires_at', String(Date.now() + expires_in * 1000))
-      return access_token
-    } catch {
-      expireAuthenticationSession()
-      throw {
-        status: 401,
-        code: 'TOKEN_REFRESH_FAILED',
-        message: 'Session expired. Please log in again.'
-      }
-    }
-  })().finally(() => {
-    refreshPromise = null
-  })
-
-  return refreshPromise
+export async function refreshAccessToken(): Promise<string> {
+  const tokens = await refreshAuthTokens()
+  return tokens.access_token
 }
-
 // ==================== Request Interceptor ====================
 
 // Get user's timezone
@@ -238,15 +177,53 @@ apiClient.interceptors.response.use(
 
         // If we have a refresh token and this is not an auth endpoint, try to refresh
         if (refreshToken && !isAuthEndpoint) {
+          const refreshSessionUser = localStorage.getItem('auth_user')
           originalRequest._retry = true
+
           try {
-            const accessToken = await refreshAccessToken()
+            const headers = originalRequest.headers as Record<string, unknown> | undefined
+            const authHeader = headers?.Authorization ?? headers?.authorization
+            const failedAccessToken =
+              typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+                ? authHeader.slice('Bearer '.length)
+                : null
+            const tokens = await refreshAuthTokens({ failedAccessToken })
+
+            // Retry the original request with the refreshed token
             if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${accessToken}`
+              originalRequest.headers.Authorization = `Bearer ${tokens.access_token}`
             }
             return apiClient(originalRequest)
-          } catch (refreshError) {
-            return Promise.reject(refreshError)
+          } catch {
+            // A stale request must never destroy a session that was logged out or replaced while
+            // its refresh was in flight (for example, when another tab signs in as another user).
+            const sessionChanged =
+              localStorage.getItem('refresh_token') !== refreshToken ||
+              localStorage.getItem('auth_user') !== refreshSessionUser
+            if (sessionChanged) {
+              return Promise.reject({
+                status: 401,
+                code: 'AUTH_SESSION_CHANGED',
+                message: 'Authentication session changed while refreshing.'
+              })
+            }
+
+            // Clear tokens and redirect to login
+            localStorage.removeItem('auth_token')
+            localStorage.removeItem('refresh_token')
+            localStorage.removeItem('auth_user')
+            localStorage.removeItem('token_expires_at')
+            sessionStorage.setItem('auth_expired', '1')
+
+            if (!window.location.pathname.includes('/login')) {
+              window.location.href = '/login'
+            }
+
+            return Promise.reject({
+              status: 401,
+              code: 'TOKEN_REFRESH_FAILED',
+              message: 'Session expired. Please log in again.'
+            })
           }
         }
 
