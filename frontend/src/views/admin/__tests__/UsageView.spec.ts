@@ -92,6 +92,13 @@ vi.mock('vue-router', () => ({
 }))
 
 const AppLayoutStub = { template: '<div><slot /></div>' }
+const UsageStatsCardsStub = defineComponent({
+  name: 'UsageStatsCards',
+  props: {
+    showCacheHitRate: Boolean,
+  },
+  template: '<div data-test="usage-stats-cards" />',
+})
 const UsageFiltersStub = defineComponent({
   setup(_, { expose }) {
     const userKeyword = ref('')
@@ -144,7 +151,7 @@ const GroupDistributionChartStub = {
 
 const mountRouteFilteredUsageView = () => mount(UsageView, {
   global: { stubs: {
-    AppLayout: AppLayoutStub, UsageStatsCards: true, UsageFilters: UsageFiltersStub,
+    AppLayout: AppLayoutStub, UsageStatsCards: UsageStatsCardsStub, UsageFilters: UsageFiltersStub,
     UsageTable: true, UsageExportProgress: true, UsageCleanupDialog: true,
     UserBalanceHistoryModal: true, Pagination: true, Select: true,
     DateRangePicker: true, Icon: true, TokenUsageTrend: true,
@@ -176,6 +183,13 @@ describe('admin UsageView route filters', () => {
   afterEach(() => {
     Object.keys(routeQuery).forEach((key) => delete routeQuery[key])
     vi.useRealTimers()
+  })
+
+  it('enables the same cache percentage label as user usage', async () => {
+    const wrapper = mountRouteFilteredUsageView()
+    await flushPromises()
+
+    expect(wrapper.getComponent(UsageStatsCardsStub).props('showCacheHitRate')).toBe(true)
   })
 
   it('shows the routed user while applying user_id to usage requests', async () => {
