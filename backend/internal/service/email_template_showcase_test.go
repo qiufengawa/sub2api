@@ -78,18 +78,18 @@ func buildEmailTemplateShowcase() (string, int, error) {
 	var sections strings.Builder
 	for index := 0; index < len(items); index += len(notificationEmailLocales) {
 		first := items[index]
-		sections.WriteString(`<section class="template-section" id="` + html.EscapeString(first.event) + `">`)
-		sections.WriteString(`<div class="section-heading"><div><p class="event-key">` + html.EscapeString(first.event) + `</p><h2>` + html.EscapeString(first.label) + `</h2><p class="description">` + html.EscapeString(first.description) + `</p></div><span class="index">` + fmt.Sprintf("%02d", index/len(notificationEmailLocales)+1) + `</span></div>`)
-		sections.WriteString(`<div class="locale-grid">`)
+		_, _ = sections.WriteString(`<section class="template-section" id="` + html.EscapeString(first.event) + `">`)
+		_, _ = sections.WriteString(`<div class="section-heading"><div><p class="event-key">` + html.EscapeString(first.event) + `</p><h2>` + html.EscapeString(first.label) + `</h2><p class="description">` + html.EscapeString(first.description) + `</p></div><span class="index">` + fmt.Sprintf("%02d", index/len(notificationEmailLocales)+1) + `</span></div>`)
+		_, _ = sections.WriteString(`<div class="locale-grid">`)
 		for offset := 0; offset < len(notificationEmailLocales); offset++ {
 			item := items[index+offset]
 			localeLabel := "English"
 			if item.locale == notificationEmailLocaleChinese {
 				localeLabel = "简体中文"
 			}
-			sections.WriteString(`<article class="locale-panel locale-` + html.EscapeString(item.locale) + `"><div class="locale-meta"><span>` + localeLabel + `</span><code>` + html.EscapeString(item.subject) + `</code></div><div class="frame-shell"><iframe class="email-frame" title="` + html.EscapeString(item.event+" "+localeLabel) + `" srcdoc="` + html.EscapeString(item.html) + `"></iframe></div></article>`)
+			_, _ = sections.WriteString(`<article class="locale-panel locale-` + html.EscapeString(item.locale) + `"><div class="locale-meta"><span>` + localeLabel + `</span><code>` + html.EscapeString(item.subject) + `</code></div><div class="frame-shell"><iframe class="email-frame" title="` + html.EscapeString(item.event+" "+localeLabel) + `" srcdoc="` + html.EscapeString(item.html) + `"></iframe></div></article>`)
 		}
-		sections.WriteString(`</div></section>`)
+		_, _ = sections.WriteString(`</div></section>`)
 	}
 
 	document := `<!doctype html>
