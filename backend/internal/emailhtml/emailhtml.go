@@ -402,27 +402,27 @@ func StatusBand(label, value, note string, tone Tone) string {
 
 func FactList(rows ...Fact) string {
 	var builder strings.Builder
-	builder.WriteString(`<table class="mail-fact-table" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;margin:22px 0;border-top:1px solid #dfe6ee;table-layout:fixed;">`)
+	_, _ = builder.WriteString(`<table class="mail-fact-table" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;margin:22px 0;border-top:1px solid #dfe6ee;table-layout:fixed;">`)
 	for _, row := range rows {
-		builder.WriteString(`<tr><td class="mail-fact-label" style="width:36%;padding:12px 14px 12px 0;border-bottom:1px solid #dfe6ee;color:#6b7789;font-size:12px;font-weight:650;line-height:1.5;vertical-align:top;overflow-wrap:anywhere;word-break:break-word;">`)
-		builder.WriteString(text(row.Label))
-		builder.WriteString(`</td><td class="mail-fact-value" style="width:64%;padding:12px 0 12px 14px;border-bottom:1px solid #dfe6ee;color:#172033;font-size:14px;font-weight:650;line-height:1.55;text-align:right;vertical-align:top;overflow-wrap:anywhere;word-break:break-word;">`)
-		builder.WriteString(text(row.Value))
-		builder.WriteString(`</td></tr>`)
+		_, _ = builder.WriteString(`<tr><td class="mail-fact-label" style="width:36%;padding:12px 14px 12px 0;border-bottom:1px solid #dfe6ee;color:#6b7789;font-size:12px;font-weight:650;line-height:1.5;vertical-align:top;overflow-wrap:anywhere;word-break:break-word;">`)
+		_, _ = builder.WriteString(text(row.Label))
+		_, _ = builder.WriteString(`</td><td class="mail-fact-value" style="width:64%;padding:12px 0 12px 14px;border-bottom:1px solid #dfe6ee;color:#172033;font-size:14px;font-weight:650;line-height:1.55;text-align:right;vertical-align:top;overflow-wrap:anywhere;word-break:break-word;">`)
+		_, _ = builder.WriteString(text(row.Value))
+		_, _ = builder.WriteString(`</td></tr>`)
 	}
-	builder.WriteString(`</table>`)
+	_, _ = builder.WriteString(`</table>`)
 	return builder.String()
 }
 
 func StatRow(stats ...Stat) string {
 	var builder strings.Builder
-	builder.WriteString(`<table class="mail-stat-table" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;margin:20px 0;border-top:1px solid #dfe6ee;border-bottom:1px solid #dfe6ee;table-layout:fixed;"><tbody>`)
+	_, _ = builder.WriteString(`<table class="mail-stat-table" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;margin:20px 0;border-top:1px solid #dfe6ee;border-bottom:1px solid #dfe6ee;table-layout:fixed;"><tbody>`)
 	for index := 0; index < len(stats); index += 2 {
-		builder.WriteString(`<tr>`)
+		_, _ = builder.WriteString(`<tr>`)
 		for offset := 0; offset < 2; offset++ {
 			statIndex := index + offset
 			if statIndex >= len(stats) {
-				builder.WriteString(`<td class="mail-stat-cell" style="width:50%;"></td>`)
+				_, _ = builder.WriteString(`<td class="mail-stat-cell" style="width:50%;"></td>`)
 				continue
 			}
 			stat := stats[statIndex]
@@ -431,17 +431,17 @@ func StatRow(stats ...Stat) string {
 			if offset == 0 {
 				border = "border-right:1px solid #dfe6ee;"
 			}
-			builder.WriteString(`<td class="mail-stat-cell" style="width:50%;padding:15px 16px;` + border + `vertical-align:top;"><div style="color:#6b7789;font-size:11px;font-weight:650;line-height:1.45;overflow-wrap:anywhere;word-break:break-word;">`)
-			builder.WriteString(text(stat.Label))
-			builder.WriteString(`</div><div style="margin-top:5px;color:`)
-			builder.WriteString(p.strong)
-			builder.WriteString(`;font-size:20px;font-weight:750;line-height:1.3;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;word-break:break-word;">`)
-			builder.WriteString(text(stat.Value))
-			builder.WriteString(`</div></td>`)
+			_, _ = builder.WriteString(`<td class="mail-stat-cell" style="width:50%;padding:15px 16px;` + border + `vertical-align:top;"><div style="color:#6b7789;font-size:11px;font-weight:650;line-height:1.45;overflow-wrap:anywhere;word-break:break-word;">`)
+			_, _ = builder.WriteString(text(stat.Label))
+			_, _ = builder.WriteString(`</div><div style="margin-top:5px;color:`)
+			_, _ = builder.WriteString(p.strong)
+			_, _ = builder.WriteString(`;font-size:20px;font-weight:750;line-height:1.3;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;word-break:break-word;">`)
+			_, _ = builder.WriteString(text(stat.Value))
+			_, _ = builder.WriteString(`</div></td>`)
 		}
-		builder.WriteString(`</tr>`)
+		_, _ = builder.WriteString(`</tr>`)
 	}
-	builder.WriteString(`</tbody></table>`)
+	_, _ = builder.WriteString(`</tbody></table>`)
 	return builder.String()
 }
 
@@ -474,15 +474,15 @@ func MinorLink(url, label string) string {
 
 func Records(records ...Record) string {
 	var builder strings.Builder
-	builder.WriteString(`<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;margin:16px 0;border-top:1px solid #dfe6ee;">`)
+	_, _ = builder.WriteString(`<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;margin:16px 0;border-top:1px solid #dfe6ee;">`)
 	for _, record := range records {
-		builder.WriteString(`<tr><td style="padding:13px 0;border-bottom:1px solid #dfe6ee;vertical-align:top;"><div style="margin-bottom:4px;color:#6b7789;font-size:11px;font-weight:650;line-height:1.5;overflow-wrap:anywhere;word-break:break-word;">`)
-		builder.WriteString(text(record.Meta))
-		builder.WriteString(`</div><div style="color:#344054;font-size:13px;line-height:1.65;overflow-wrap:anywhere;word-break:break-word;">`)
-		builder.WriteString(text(record.Text))
-		builder.WriteString(`</div></td></tr>`)
+		_, _ = builder.WriteString(`<tr><td style="padding:13px 0;border-bottom:1px solid #dfe6ee;vertical-align:top;"><div style="margin-bottom:4px;color:#6b7789;font-size:11px;font-weight:650;line-height:1.5;overflow-wrap:anywhere;word-break:break-word;">`)
+		_, _ = builder.WriteString(text(record.Meta))
+		_, _ = builder.WriteString(`</div><div style="color:#344054;font-size:13px;line-height:1.65;overflow-wrap:anywhere;word-break:break-word;">`)
+		_, _ = builder.WriteString(text(record.Text))
+		_, _ = builder.WriteString(`</div></td></tr>`)
 	}
-	builder.WriteString(`</table>`)
+	_, _ = builder.WriteString(`</table>`)
 	return builder.String()
 }
 

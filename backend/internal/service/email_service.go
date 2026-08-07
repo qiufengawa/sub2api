@@ -188,7 +188,14 @@ const smtpIOTimeout = 20 * time.Second
 
 // SendEmailWithConfig 使用指定配置发送邮件
 func (s *EmailService) SendEmailWithConfig(config *SMTPConfig, to, subject, body string) error {
-	message, err := buildSMTPMessageWithInlineAssets(config, to, subject, body, emailhtml.InlineAssetsForHTML(body))
+	inlineAssets := emailhtml.InlineAssetsForHTML(body)
+	var message smtpMessage
+	var err error
+	if len(inlineAssets) == 0 {
+		message, err = buildSMTPMessage(config, to, subject, body)
+	} else {
+		message, err = buildSMTPMessageWithInlineAssets(config, to, subject, body, inlineAssets)
+	}
 	if err != nil {
 		return err
 	}

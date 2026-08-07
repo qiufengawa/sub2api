@@ -133,7 +133,7 @@ ORDER BY account_id, bucket_start
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	result := make([]service.AccountServiceStatusBucketAggregate, 0, len(accountIDs))
 	for rows.Next() {
