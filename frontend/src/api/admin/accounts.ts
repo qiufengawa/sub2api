@@ -489,6 +489,42 @@ export interface BatchTodayStatsResponse {
   stats: Record<string, WindowStats>
 }
 
+export type AccountServiceStatusLevel = 'operational' | 'degraded' | 'failed' | 'unknown'
+
+export interface AccountServiceStatusBucket {
+  start_time: string
+  end_time: string
+  status: AccountServiceStatusLevel
+  success_rate: number | null
+  success_count: number
+  failure_count: number
+  request_count: number
+  average_first_token_ms: number | null
+  average_tokens_per_second: number | null
+  last_call_at: string | null
+}
+
+export interface AccountServiceStatus {
+  account_id: number
+  status: AccountServiceStatusLevel
+  success_rate: number | null
+  success_count: number
+  failure_count: number
+  request_count: number
+  average_first_token_ms: number | null
+  average_tokens_per_second: number | null
+  last_call_at: string | null
+  buckets: AccountServiceStatusBucket[]
+}
+
+export interface AccountServiceStatusBatchResponse {
+  enabled: boolean
+  window_start: string
+  window_end: string
+  bucket_seconds: number
+  accounts: Record<string, AccountServiceStatus>
+}
+
 /**
  * 批量获取多个账号的今日统计
  * @param accountIds - 账号 ID 列表
@@ -496,6 +532,17 @@ export interface BatchTodayStatsResponse {
  */
 export async function getBatchTodayStats(accountIds: number[]): Promise<BatchTodayStatsResponse> {
   const { data } = await apiClient.post<BatchTodayStatsResponse>('/admin/accounts/today-stats/batch', {
+    account_ids: accountIds
+  })
+  return data
+}
+
+/**
+ * Read passive service-health history for a batch of accounts.
+ * This endpoint only aggregates existing request logs and never probes upstream.
+ */
+export async function getServiceStatus(accountIds: number[]): Promise<AccountServiceStatusBatchResponse> {
+  const { data } = await apiClient.post<AccountServiceStatusBatchResponse>('/admin/ops/account-service-status', {
     account_ids: accountIds
   })
   return data
@@ -988,6 +1035,7 @@ export const accountsAPI = {
   getUsage,
   getTodayStats,
   getBatchTodayStats,
+  getServiceStatus,
   clearRateLimit,
   recoverState,
   resetAccountQuota,

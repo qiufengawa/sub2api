@@ -14,6 +14,10 @@ const show = ref(false)
 const triggerRef = useTemplateRef<HTMLElement>('trigger')
 const tooltipRef = useTemplateRef<HTMLElement>('tooltip')
 const tooltipStyle = ref({ top: '0px', left: '0px' })
+const placement = ref<'top' | 'bottom'>('top')
+
+const TOOLTIP_GAP = 8
+const VIEWPORT_MARGIN = 8
 
 function openTooltip() {
   show.value = true
@@ -66,11 +70,29 @@ function onViewportChange() {
 
 function updatePosition() {
   const el = triggerRef.value
-  if (!el) return
+  const tooltip = tooltipRef.value
+  if (!el || !tooltip) return
+
   const rect = el.getBoundingClientRect()
+  const tooltipRect = tooltip.getBoundingClientRect()
+  const viewportWidth = document.documentElement.clientWidth || window.innerWidth
+  const viewportHeight = document.documentElement.clientHeight || window.innerHeight
+
+  const naturalCenter = rect.left + rect.width / 2
+  const minimumCenter = VIEWPORT_MARGIN + tooltipRect.width / 2
+  const maximumCenter = viewportWidth - VIEWPORT_MARGIN - tooltipRect.width / 2
+  const horizontalCenter = minimumCenter <= maximumCenter
+    ? Math.min(maximumCenter, Math.max(minimumCenter, naturalCenter))
+    : viewportWidth / 2
+
+  const spaceAbove = rect.top - TOOLTIP_GAP - VIEWPORT_MARGIN
+  const spaceBelow = viewportHeight - rect.bottom - TOOLTIP_GAP - VIEWPORT_MARGIN
+  const placeBelow = tooltipRect.height > spaceAbove && spaceBelow > spaceAbove
+  placement.value = placeBelow ? 'bottom' : 'top'
+
   tooltipStyle.value = {
-    top: `${rect.top + window.scrollY}px`,
-    left: `${rect.left + rect.width / 2 + window.scrollX}px`,
+    top: `${placeBelow ? rect.bottom + TOOLTIP_GAP : rect.top - TOOLTIP_GAP}px`,
+    left: `${horizontalCenter}px`,
   }
 }
 
@@ -120,11 +142,13 @@ onBeforeUnmount(() => {
         ref="tooltip"
         v-show="show"
         role="tooltip"
+        :data-placement="placement"
         :class="[
-          'fixed z-[99999] -translate-x-1/2 -translate-y-full rounded-[4px] bg-gray-900 px-3 py-2 text-xs leading-relaxed text-white shadow-md ring-1 ring-white/10 dark:bg-gray-800',
+          'fixed z-[99999] max-h-[calc(100dvh-1rem)] max-w-[calc(100vw-1rem)] -translate-x-1/2 overflow-y-auto rounded-[4px] bg-gray-900 px-3 py-2 text-xs leading-relaxed text-white shadow-md ring-1 ring-white/10 dark:bg-gray-800',
+          placement === 'top' ? '-translate-y-full' : 'translate-y-0',
           props.widthClass,
         ]"
-        :style="{ top: `calc(${tooltipStyle.top} - 8px)`, left: tooltipStyle.left }"
+        :style="tooltipStyle"
       >
         <button
           v-if="props.trigger === 'click'"
@@ -138,7 +162,12 @@ onBeforeUnmount(() => {
           </svg>
         </button>
         <slot>{{ content }}</slot>
-        <div class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-gray-900 dark:bg-gray-800"></div>
+        <div
+          :class="[
+            'absolute left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-gray-900 dark:bg-gray-800',
+            placement === 'top' ? '-bottom-1' : '-top-1'
+          ]"
+        ></div>
       </div>
     </Teleport>
   </div>

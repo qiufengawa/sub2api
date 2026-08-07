@@ -97,6 +97,7 @@ export default {
       groupCountTotal: '共 {count} 个分组',
       columns: {
         name: '名称',
+        serviceStatus: '服务状态',
         id: '账号ID',
         platformType: '平台/类型',
         platform: '平台',
@@ -118,6 +119,24 @@ export default {
         createdAt: '创建时间',
         expiresAt: '过期时间',
         actions: '操作'
+      },
+      serviceStatus: {
+        title: '近 12 小时服务状态',
+        passiveHint: '仅根据真实用户调用记录统计，不会主动检测账号，也不会产生额外请求或费用。',
+        historyLabel: '近 12 小时服务状态历史，左侧较早，右侧最新',
+        operational: '正常',
+        degraded: '波动',
+        failed: '异常',
+        noSamples: '无样本',
+        unavailable: '统计不可用',
+        successRate: '成功率',
+        requests: '有效调用',
+        successFailure: '成功 / 失败',
+        averageFirstToken: '平均首字',
+        averageSpeed: '平均速度',
+        lastCall: '最近调用',
+        never: '暂无',
+        requestCountShort: '{count} 次'
       },
       schedulerScore: {
         baseShort: '普通',

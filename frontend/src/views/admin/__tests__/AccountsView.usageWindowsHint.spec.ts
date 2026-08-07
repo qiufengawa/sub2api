@@ -7,12 +7,14 @@ const {
   listAccounts,
   listWithEtag,
   getBatchTodayStats,
+  getServiceStatus,
   getAllProxies,
   getAllGroups
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   listWithEtag: vi.fn(),
   getBatchTodayStats: vi.fn(),
+  getServiceStatus: vi.fn(),
   getAllProxies: vi.fn(),
   getAllGroups: vi.fn()
 }))
@@ -23,6 +25,7 @@ vi.mock('@/api/admin', () => ({
       list: listAccounts,
       listWithEtag,
       getBatchTodayStats,
+      getServiceStatus,
       getUpstreamBillingProbeSettings: vi.fn().mockResolvedValue({ enabled: true, interval_minutes: 30 }),
       delete: vi.fn(),
       batchClearError: vi.fn(),
@@ -69,6 +72,9 @@ const DataTableStub = {
     <div data-test="data-table">
       <template v-for="column in columns" :key="column.key">
         <div v-if="column.key === 'usage'" data-test="usage-header">
+          <slot :name="'header-' + column.key" :column="column" />
+        </div>
+        <div v-if="column.key === 'service_status'" data-test="service-status-header">
           <slot :name="'header-' + column.key" :column="column" />
         </div>
         <div v-if="column.key === 'upstream_billing_rate'" data-test="upstream-billing-header">
@@ -120,6 +126,7 @@ function mountView() {
         AccountCapacityCell: true,
         AccountStatusIndicator: true,
         AccountTodayStatsCell: true,
+        AccountServiceStatusCell: true,
         AccountGroupsCell: true,
         AccountUsageCell: true,
         Icon: true
@@ -135,6 +142,7 @@ describe('admin AccountsView usage windows hint', () => {
     listAccounts.mockReset()
     listWithEtag.mockReset()
     getBatchTodayStats.mockReset()
+    getServiceStatus.mockReset()
     getAllProxies.mockReset()
     getAllGroups.mockReset()
 
@@ -151,6 +159,7 @@ describe('admin AccountsView usage windows hint', () => {
       data: null
     })
     getBatchTodayStats.mockResolvedValue({ stats: {} })
+    getServiceStatus.mockResolvedValue({ enabled: true, accounts: {} })
     getAllProxies.mockResolvedValue([])
     getAllGroups.mockResolvedValue([])
   })
@@ -164,9 +173,30 @@ describe('admin AccountsView usage windows hint', () => {
     // Column label is still shown alongside the help icon.
     expect(header.text()).toContain('admin.accounts.columns.usageWindows')
 
-    const hint = wrapper.find('[data-test="usage-windows-hint"]')
-    expect(hint.exists()).toBe(true)
-    expect(hint.text()).toBe('admin.accounts.usageWindowsHint')
+    const hint = wrapper.findAll('[data-test="usage-windows-hint"]').find(node =>
+      node.text() === 'admin.accounts.usageWindowsHint'
+    )
+    expect(hint).toBeDefined()
+  })
+
+  it('keeps passive service health immediately after the account name', async () => {
+    listAccounts.mockResolvedValueOnce({
+      items: [{ id: 7, name: 'account-7', platform: 'openai', type: 'apikey' }],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const columns = wrapper.getComponent(DataTableStub).props('columns') as Array<{ key: string }>
+    const nameIndex = columns.findIndex(column => column.key === 'name')
+    expect(columns[nameIndex + 1]?.key).toBe('service_status')
+    expect(wrapper.find('[data-test="service-status-header"]').text()).toContain('admin.accounts.columns.serviceStatus')
+    expect(getServiceStatus).toHaveBeenCalledTimes(1)
+    expect(getServiceStatus).toHaveBeenCalledWith([7])
   })
 
   it('keeps Ollama Cloud in the single usage column and ignores legacy column preferences', async () => {

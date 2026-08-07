@@ -251,6 +251,19 @@
               </span>
             </div>
           </template>
+          <template #header-service_status="{ column }">
+            <div class="flex items-center">
+              <span>{{ column.label }}</span>
+              <HelpTooltip :content="t('admin.accounts.serviceStatus.passiveHint')" width-class="w-72" />
+            </div>
+          </template>
+          <template #cell-service_status="{ row }">
+            <AccountServiceStatusCell
+              :status="serviceStatusByAccountId[String(row.id)] ?? null"
+              :loading="serviceStatusLoading"
+              :error="serviceStatusError"
+            />
+          </template>
           <template #cell-notes="{ value }">
             <span v-if="value" :title="value" class="block max-w-xs truncate text-sm text-gray-600 dark:text-gray-300">{{ value }}</span>
             <span v-else class="text-sm text-gray-400 dark:text-dark-500">-</span>
@@ -509,6 +522,7 @@ import type { SelectOption } from '@/components/common/Select.vue'
 import AccountStatusIndicator from '@/components/account/AccountStatusIndicator.vue'
 import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
 import AccountTodayStatsCell from '@/components/account/AccountTodayStatsCell.vue'
+import AccountServiceStatusCell from '@/components/account/AccountServiceStatusCell.vue'
 import AccountGroupsCell from '@/components/account/AccountGroupsCell.vue'
 import AccountCapacityCell from '@/components/account/AccountCapacityCell.vue'
 import UpstreamBillingRateCell from '@/components/account/UpstreamBillingRateCell.vue'
@@ -524,6 +538,7 @@ import { extractApiErrorMessage } from '@/utils/apiError'
 import { sanitizeUrl } from '@/utils/url'
 import { getFloatingPanelPosition } from '@/utils/floatingPanel'
 import { formatMultiplier } from '@/utils/formatters'
+import type { AccountServiceStatus } from '@/api/admin/accounts'
 import type { Account, AccountPlatform, AccountSchedulerGroupScore, AccountType, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel, UpstreamBillingProbeSnapshot } from '@/types'
 
 const { t } = useI18n()
@@ -686,7 +701,11 @@ const todayStatsByAccountId = ref<Record<string, WindowStats>>({})
 const todayStatsLoading = ref(false)
 const todayStatsError = ref<string | null>(null)
 const todayStatsReqSeq = ref(0)
-const pendingTodayStatsRefresh = ref(false)
+const serviceStatusByAccountId = ref<Record<string, AccountServiceStatus>>({})
+const serviceStatusLoading = ref(false)
+const serviceStatusError = ref<string | null>(null)
+const serviceStatusReqSeq = ref(0)
+const pendingAccountMetricsRefresh = ref(false)
 const usageManualRefreshToken = ref(0)
 
 const buildDefaultTodayStats = (): WindowStats => ({
@@ -739,6 +758,51 @@ const refreshTodayStatsBatch = async () => {
       todayStatsLoading.value = false
     }
   }
+}
+
+const refreshServiceStatusBatch = async () => {
+  const accountIDs = accounts.value.map(account => account.id)
+  const reqSeq = ++serviceStatusReqSeq.value
+  if (accountIDs.length === 0) {
+    serviceStatusByAccountId.value = {}
+    serviceStatusError.value = null
+    serviceStatusLoading.value = false
+    return
+  }
+
+  serviceStatusLoading.value = true
+  serviceStatusError.value = null
+
+  try {
+    const result = await adminAPI.accounts.getServiceStatus(accountIDs)
+    if (reqSeq !== serviceStatusReqSeq.value) return
+    if (!result.enabled) {
+      serviceStatusByAccountId.value = {}
+      serviceStatusError.value = 'Unavailable'
+      return
+    }
+
+    const nextStatus: Record<string, AccountServiceStatus> = {}
+    for (const accountID of accountIDs) {
+      const key = String(accountID)
+      const accountStatus = result.accounts?.[key]
+      if (accountStatus) nextStatus[key] = accountStatus
+    }
+    serviceStatusByAccountId.value = nextStatus
+  } catch (error) {
+    if (reqSeq !== serviceStatusReqSeq.value) return
+    serviceStatusByAccountId.value = {}
+    serviceStatusError.value = 'Unavailable'
+    console.error('Failed to load account service status:', error)
+  } finally {
+    if (reqSeq === serviceStatusReqSeq.value) {
+      serviceStatusLoading.value = false
+    }
+  }
+}
+
+const refreshAccountPageMetrics = async () => {
+  await Promise.all([refreshTodayStatsBatch(), refreshServiceStatusBatch()])
 }
 
 const autoRefreshIntervalLabel = (sec: number) => {
@@ -995,7 +1059,7 @@ const load = async () => {
   syncAccountListDerivedParams()
   hasPendingListSync.value = false
   resetAutoRefreshCache()
-  pendingTodayStatsRefresh.value = false
+  pendingAccountMetricsRefresh.value = false
   if (isFirstLoad.value) {
     requestParams.lite = '1'
   }
@@ -1004,7 +1068,7 @@ const load = async () => {
     isFirstLoad.value = false
     delete requestParams.lite
   }
-  await refreshTodayStatsBatch()
+  await refreshAccountPageMetrics()
 }
 
 const reload = async () => {
@@ -1012,9 +1076,9 @@ const reload = async () => {
   syncAccountListDerivedParams()
   hasPendingListSync.value = false
   resetAutoRefreshCache()
-  pendingTodayStatsRefresh.value = false
+  pendingAccountMetricsRefresh.value = false
   await baseReload()
-  await refreshTodayStatsBatch()
+  await refreshAccountPageMetrics()
 }
 
 const refreshUpstreamBillingSortedList = async (force = false) => {
@@ -1035,7 +1099,7 @@ const debouncedReload = () => {
   syncAccountListDerivedParams()
   hasPendingListSync.value = false
   resetAutoRefreshCache()
-  pendingTodayStatsRefresh.value = true
+  pendingAccountMetricsRefresh.value = true
   baseDebouncedReload()
 }
 
@@ -1043,7 +1107,7 @@ const handlePageChange = (page: number) => {
   syncAccountListDerivedParams()
   hasPendingListSync.value = false
   resetAutoRefreshCache()
-  pendingTodayStatsRefresh.value = true
+  pendingAccountMetricsRefresh.value = true
   baseHandlePageChange(page)
 }
 
@@ -1051,7 +1115,7 @@ const handlePageSizeChange = (size: number) => {
   syncAccountListDerivedParams()
   hasPendingListSync.value = false
   resetAutoRefreshCache()
-  pendingTodayStatsRefresh.value = true
+  pendingAccountMetricsRefresh.value = true
   baseHandlePageSizeChange(size)
 }
 
@@ -1065,7 +1129,7 @@ const handleSort = (key: string, order: AccountSortOrder) => {
   pagination.page = 1
   hasPendingListSync.value = false
   resetAutoRefreshCache()
-  pendingTodayStatsRefresh.value = true
+  pendingAccountMetricsRefresh.value = true
   load()
 }
 
@@ -1073,10 +1137,10 @@ watch(loading, (isLoading, wasLoading) => {
   if (wasLoading && !isLoading) {
     upstreamBillingNow.value = Date.now()
   }
-  if (wasLoading && !isLoading && pendingTodayStatsRefresh.value) {
-    pendingTodayStatsRefresh.value = false
-    refreshTodayStatsBatch().catch((error) => {
-      console.error('Failed to refresh account today stats after table load:', error)
+  if (wasLoading && !isLoading && pendingAccountMetricsRefresh.value) {
+    pendingAccountMetricsRefresh.value = false
+    refreshAccountPageMetrics().catch((error) => {
+      console.error('Failed to refresh account metrics after table load:', error)
     })
   }
 })
@@ -1202,7 +1266,7 @@ const refreshAccountsIncrementally = async () => {
     }
     upstreamBillingNow.value = Date.now()
 
-    await refreshTodayStatsBatch()
+    await refreshAccountPageMetrics()
   } catch (error) {
     console.error('Auto refresh failed:', error)
   } finally {
@@ -1432,6 +1496,7 @@ const allColumns = computed(() => {
   const c = [
     { key: 'select', label: '', sortable: false },
     { key: 'name', label: t('admin.accounts.columns.name'), sortable: true },
+    { key: 'service_status', label: t('admin.accounts.columns.serviceStatus'), sortable: false, class: 'w-[200px] min-w-[200px]' },
     { key: 'id', label: t('admin.accounts.columns.id'), sortable: true },
     { key: 'platform_type', label: t('admin.accounts.columns.platformType'), sortable: false },
     { key: 'capacity', label: t('admin.accounts.columns.capacity'), sortable: false },
@@ -1458,15 +1523,15 @@ const allColumns = computed(() => {
   return c
 })
 
-// Columns that can be toggled (exclude select, name, and actions)
+// Identity and passive service health remain fixed so the two always read as one row summary.
 const toggleableColumns = computed(() =>
-  allColumns.value.filter(col => col.key !== 'select' && col.key !== 'name' && col.key !== 'actions')
+  allColumns.value.filter(col => col.key !== 'select' && col.key !== 'name' && col.key !== 'service_status' && col.key !== 'actions')
 )
 
 // Filtered columns based on visibility
 const cols = computed(() =>
   allColumns.value.filter(col =>
-    col.key === 'select' || col.key === 'name' || col.key === 'actions' || !hiddenColumns.has(col.key)
+    col.key === 'select' || col.key === 'name' || col.key === 'service_status' || col.key === 'actions' || !hiddenColumns.has(col.key)
   )
 )
 

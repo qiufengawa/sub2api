@@ -145,6 +145,7 @@ export default {
       },
       columns: {
         name: 'Name',
+        serviceStatus: 'Service Health',
         id: 'Account ID',
         platformType: 'Platform/Type',
         platform: 'Platform',
@@ -166,6 +167,24 @@ export default {
         createdAt: 'Created',
         expiresAt: 'Expires At',
         actions: 'Actions'
+      },
+      serviceStatus: {
+        title: 'Service health, last 12 hours',
+        passiveHint: 'Calculated only from real user requests. It never probes accounts or creates extra requests or charges.',
+        historyLabel: 'Service health for the last 12 hours, oldest on the left and newest on the right',
+        operational: 'Healthy',
+        degraded: 'Degraded',
+        failed: 'Failed',
+        noSamples: 'No samples',
+        unavailable: 'Stats unavailable',
+        successRate: 'Success rate',
+        requests: 'Valid requests',
+        successFailure: 'Success / failure',
+        averageFirstToken: 'Avg. first token',
+        averageSpeed: 'Avg. speed',
+        lastCall: 'Last request',
+        never: 'None',
+        requestCountShort: '{count} req.'
       },
       schedulerScore: {
         baseShort: 'Base',
