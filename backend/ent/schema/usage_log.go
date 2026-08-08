@@ -49,7 +49,7 @@ func (UsageLog) Fields() []ent.Field {
 			Nillable(),
 		// UpstreamModel stores the actual upstream model name when model mapping
 		// is applied. NULL means no mapping — the requested model was used as-is.
-	field.String("upstream_model").
+		field.String("upstream_model").
 			MaxLen(100).
 			Optional().
 			Nillable(),
