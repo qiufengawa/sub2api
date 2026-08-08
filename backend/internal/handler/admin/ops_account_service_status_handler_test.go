@@ -54,7 +54,7 @@ func performAccountServiceStatusRequest(
 
 func TestAccountServiceStatusHandlerCachesBatchAndSupportsETag(t *testing.T) {
 	previousCache := accountServiceStatusBatchCache
-	accountServiceStatusBatchCache = newSnapshotCache(30 * time.Second)
+	accountServiceStatusBatchCache = newSnapshotCache(5 * time.Second)
 	t.Cleanup(func() { accountServiceStatusBatchCache = previousCache })
 
 	repo := &accountServiceStatusHandlerRepo{}
@@ -82,7 +82,7 @@ func TestAccountServiceStatusHandlerCachesBatchAndSupportsETag(t *testing.T) {
 
 func TestAccountServiceStatusHandlerDoesNotServeCachedHealthAfterDisable(t *testing.T) {
 	previousCache := accountServiceStatusBatchCache
-	accountServiceStatusBatchCache = newSnapshotCache(30 * time.Second)
+	accountServiceStatusBatchCache = newSnapshotCache(5 * time.Second)
 	t.Cleanup(func() { accountServiceStatusBatchCache = previousCache })
 
 	repo := &accountServiceStatusHandlerRepo{}

@@ -32,11 +32,11 @@ func (r *accountServiceStatusRepoStub) GetAccountServiceStatusBuckets(
 	return r.aggregates, r.err
 }
 
-func TestGetAccountServiceStatusBatchBuildsTwelvePassiveBuckets(t *testing.T) {
-	now := time.Date(2026, time.August, 7, 12, 30, 0, 0, time.UTC)
-	firstLastCall := time.Date(2026, time.August, 7, 10, 15, 0, 0, time.UTC)
-	latestCall := time.Date(2026, time.August, 7, 11, 45, 0, 0, time.UTC)
-	currentCall := time.Date(2026, time.August, 7, 12, 10, 0, 0, time.UTC)
+func TestGetAccountServiceStatusBatchBuildsMinuteTimeline(t *testing.T) {
+	now := time.Date(2026, time.August, 7, 12, 30, 30, 0, time.UTC)
+	firstLastCall := time.Date(2026, time.August, 7, 12, 27, 20, 0, time.UTC)
+	latestCall := time.Date(2026, time.August, 7, 12, 28, 45, 0, time.UTC)
+	currentCall := time.Date(2026, time.August, 7, 12, 30, 10, 0, time.UTC)
 	firstToken120 := 120.0
 	firstToken320 := 320.0
 	firstToken180 := 180.0
@@ -46,19 +46,19 @@ func TestGetAccountServiceStatusBatchBuildsTwelvePassiveBuckets(t *testing.T) {
 
 	repo := &accountServiceStatusRepoStub{aggregates: []AccountServiceStatusBucketAggregate{
 		{
-			AccountID: 7, BucketStart: time.Date(2026, time.August, 7, 10, 0, 0, 0, time.UTC),
+			AccountID: 7, BucketStart: time.Date(2026, time.August, 7, 12, 27, 0, 0, time.UTC),
 			SuccessCount: 98, FailureCount: 2,
 			AverageFirstTokenMs: &firstToken120, FirstTokenSampleCount: 2,
 			AverageTokensPerSec: &speed40, SpeedSampleCount: 2, LastCallAt: &firstLastCall,
 		},
 		{
-			AccountID: 7, BucketStart: time.Date(2026, time.August, 7, 11, 0, 0, 0, time.UTC),
+			AccountID: 7, BucketStart: time.Date(2026, time.August, 7, 12, 28, 0, 0, time.UTC),
 			SuccessCount: 8, FailureCount: 2,
 			AverageFirstTokenMs: &firstToken320, FirstTokenSampleCount: 6,
 			AverageTokensPerSec: &speed80, SpeedSampleCount: 6, LastCallAt: &latestCall,
 		},
 		{
-			AccountID: 8, BucketStart: time.Date(2026, time.August, 7, 12, 0, 0, 0, time.UTC),
+			AccountID: 8, BucketStart: time.Date(2026, time.August, 7, 12, 30, 0, 0, time.UTC),
 			SuccessCount: 3, FailureCount: 2,
 			AverageFirstTokenMs: &firstToken180, FirstTokenSampleCount: 3,
 			AverageTokensPerSec: &speed30, SpeedSampleCount: 3, LastCallAt: &currentCall,
@@ -69,14 +69,14 @@ func TestGetAccountServiceStatusBatchBuildsTwelvePassiveBuckets(t *testing.T) {
 	result, err := svc.getAccountServiceStatusBatchAt(context.Background(), []int64{9, 7, 8, 7, 0, -1}, now)
 	require.NoError(t, err)
 	require.Equal(t, []int64{7, 8, 9}, repo.accountIDs)
-	require.Equal(t, time.Date(2026, time.August, 7, 1, 0, 0, 0, time.UTC), repo.startTime)
+	require.Equal(t, time.Date(2026, time.August, 7, 11, 31, 0, 0, time.UTC), repo.startTime)
 	require.Equal(t, now, repo.endTime)
-	require.Equal(t, 3600, result.BucketSeconds)
+	require.Equal(t, 60, result.BucketSeconds)
 
 	account7 := result.Accounts[7]
-	require.Len(t, account7.Buckets, AccountServiceStatusWindowHours)
-	require.Equal(t, AccountServiceStatusOperational, account7.Buckets[9].Status)
-	require.Equal(t, AccountServiceStatusDegraded, account7.Buckets[10].Status)
+	require.Len(t, account7.Buckets, AccountServiceStatusBucketCount)
+	require.Equal(t, AccountServiceStatusOperational, account7.Buckets[56].Status)
+	require.Equal(t, AccountServiceStatusDegraded, account7.Buckets[57].Status)
 	require.Equal(t, int64(110), account7.RequestCount)
 	require.InDelta(t, 106.0/110.0, *account7.SuccessRate, 0.000001)
 	require.InDelta(t, 270.0, *account7.AverageFirstTokenMs, 0.000001)
@@ -85,7 +85,7 @@ func TestGetAccountServiceStatusBatchBuildsTwelvePassiveBuckets(t *testing.T) {
 
 	account8 := result.Accounts[8]
 	require.Equal(t, AccountServiceStatusFailed, account8.Status)
-	require.Equal(t, now, account8.Buckets[11].EndTime)
+	require.Equal(t, now, account8.Buckets[59].EndTime)
 
 	account9 := result.Accounts[9]
 	require.Equal(t, AccountServiceStatusUnknown, account9.Status)

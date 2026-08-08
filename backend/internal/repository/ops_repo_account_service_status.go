@@ -54,7 +54,7 @@ WITH valid_failures AS (
 successful AS (
   SELECT
     ul.account_id,
-    date_trunc('hour', ul.created_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS bucket_start,
+    date_trunc('minute', ul.created_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS bucket_start,
     COUNT(*)::bigint AS success_count,
     AVG(ul.first_token_ms) FILTER (WHERE ul.first_token_ms IS NOT NULL AND ul.first_token_ms >= 0)::float8 AS avg_first_token_ms,
     COUNT(ul.first_token_ms) FILTER (WHERE ul.first_token_ms >= 0)::bigint AS first_token_sample_count,
@@ -79,7 +79,7 @@ successful AS (
 failed AS (
   SELECT
     vf.account_id,
-    date_trunc('hour', vf.created_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS bucket_start,
+    date_trunc('minute', vf.created_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS bucket_start,
     COUNT(DISTINCT COALESCE(NULLIF(vf.request_id, ''), 'ops:' || vf.id::text))::bigint AS failure_count,
     MAX(vf.created_at) AS last_call_at
   FROM valid_failures vf

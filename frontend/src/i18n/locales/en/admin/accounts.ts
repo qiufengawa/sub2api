@@ -169,9 +169,13 @@ export default {
         actions: 'Actions'
       },
       serviceStatus: {
-        title: 'Service health, last 12 hours',
+        title: 'Service health, last 60 minutes',
         passiveHint: 'Calculated only from real user requests. It never probes accounts or creates extra requests or charges.',
-        historyLabel: 'Service health for the last 12 hours, oldest on the left and newest on the right',
+        historyLabel: 'Service health for the last 60 minutes, one minute per bar, oldest on the left and newest on the right',
+        hourAgo: '60 min ago',
+        now: 'Now',
+        overallStatus: 'Overall status',
+        intervalStatus: 'Interval status',
         operational: 'Healthy',
         degraded: 'Degraded',
         failed: 'Failed',

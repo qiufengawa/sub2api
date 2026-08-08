@@ -121,9 +121,13 @@ export default {
         actions: '操作'
       },
       serviceStatus: {
-        title: '近 12 小时服务状态',
+        title: '近 60 分钟服务状态',
         passiveHint: '仅根据真实用户调用记录统计，不会主动检测账号，也不会产生额外请求或费用。',
-        historyLabel: '近 12 小时服务状态历史，左侧较早，右侧最新',
+        historyLabel: '近 60 分钟服务状态历史，每格 1 分钟，左侧较早，右侧最新',
+        hourAgo: '60 分钟前',
+        now: '现在',
+        overallStatus: '整体状态',
+        intervalStatus: '区间状态',
         operational: '正常',
         degraded: '波动',
         failed: '异常',

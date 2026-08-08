@@ -13,7 +13,7 @@ import (
 
 const maxAccountServiceStatusBatchSize = 200
 
-var accountServiceStatusBatchCache = newSnapshotCache(30 * time.Second)
+var accountServiceStatusBatchCache = newSnapshotCache(5 * time.Second)
 
 type accountServiceStatusBatchRequest struct {
 	AccountIDs []int64 `json:"account_ids" binding:"required"`
@@ -46,11 +46,13 @@ func (h *OpsHandler) GetAccountServiceStatus(c *gin.Context) {
 	}
 	if len(accountIDs) == 0 {
 		now := time.Now().UTC()
+		bucketDuration := time.Duration(service.AccountServiceStatusBucketMinutes) * time.Minute
+		currentBucket := now.Truncate(bucketDuration)
 		response.Success(c, &service.AccountServiceStatusBatch{
 			Enabled:       true,
-			WindowStart:   now.Truncate(time.Hour).Add(-(service.AccountServiceStatusWindowHours - 1) * time.Hour),
+			WindowStart:   currentBucket.Add(-time.Duration(service.AccountServiceStatusBucketCount-1) * bucketDuration),
 			WindowEnd:     now,
-			BucketSeconds: int(time.Hour / time.Second),
+			BucketSeconds: service.AccountServiceStatusBucketMinutes * 60,
 			Accounts:      map[int64]*service.AccountServiceStatus{},
 		})
 		return

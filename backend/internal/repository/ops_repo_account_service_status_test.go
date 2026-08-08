@@ -14,10 +14,10 @@ func TestGetAccountServiceStatusBucketsScansBatchAggregates(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 
-	start := time.Date(2026, time.August, 7, 1, 0, 0, 0, time.UTC)
-	end := time.Date(2026, time.August, 7, 12, 30, 0, 0, time.UTC)
-	bucketStart := time.Date(2026, time.August, 7, 10, 0, 0, 0, time.UTC)
-	lastCall := time.Date(2026, time.August, 7, 10, 42, 0, 0, time.UTC)
+	start := time.Date(2026, time.August, 7, 11, 31, 0, 0, time.UTC)
+	end := time.Date(2026, time.August, 7, 12, 30, 30, 0, time.UTC)
+	bucketStart := time.Date(2026, time.August, 7, 12, 27, 0, 0, time.UTC)
+	lastCall := time.Date(2026, time.August, 7, 12, 27, 42, 0, time.UTC)
 	rows := sqlmock.NewRows([]string{
 		"account_id", "bucket_start", "success_count", "failure_count",
 		"avg_first_token_ms", "first_token_sample_count",
@@ -26,7 +26,7 @@ func TestGetAccountServiceStatusBucketsScansBatchAggregates(t *testing.T) {
 		AddRow(int64(7), bucketStart, int64(98), int64(2), 125.5, int64(90), 42.25, int64(80), lastCall).
 		AddRow(int64(8), bucketStart, int64(0), int64(3), nil, int64(0), nil, int64(0), nil)
 
-	mock.ExpectQuery(`(?s)WITH valid_failures AS .*FROM combined.*ORDER BY account_id, bucket_start`).
+	mock.ExpectQuery(`(?s)WITH valid_failures AS .*date_trunc\('minute'.*FROM combined.*ORDER BY account_id, bucket_start`).
 		WithArgs(sqlmock.AnyArg(), start, end).
 		WillReturnRows(rows)
 

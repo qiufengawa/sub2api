@@ -8,7 +8,12 @@ import (
 )
 
 const (
-	AccountServiceStatusWindowHours = 12
+	// The status timeline is intentionally minute-granular so the admin account
+	// list can show recent changes without turning the passive metric into an
+	// active upstream probe.
+	AccountServiceStatusWindowMinutes = 60
+	AccountServiceStatusBucketMinutes = 1
+	AccountServiceStatusBucketCount   = AccountServiceStatusWindowMinutes / AccountServiceStatusBucketMinutes
 
 	AccountServiceStatusOperational = "operational"
 	AccountServiceStatusDegraded    = "degraded"
@@ -16,7 +21,7 @@ const (
 	AccountServiceStatusUnknown     = "unknown"
 )
 
-// AccountServiceStatusBucketAggregate is the repository-level aggregate for one account/hour.
+// AccountServiceStatusBucketAggregate is the repository-level aggregate for one account/minute.
 type AccountServiceStatusBucketAggregate struct {
 	AccountID             int64
 	BucketStart           time.Time
@@ -89,8 +94,12 @@ func (s *OpsService) getAccountServiceStatusBatchAt(
 
 	ids := normalizeAccountServiceStatusIDs(accountIDs)
 	windowEnd := now.UTC()
-	currentHour := windowEnd.Truncate(time.Hour)
-	windowStart := currentHour.Add(-(AccountServiceStatusWindowHours - 1) * time.Hour)
+	bucketDuration := time.Duration(AccountServiceStatusBucketMinutes) * time.Minute
+	currentBucket := windowEnd.Truncate(bucketDuration)
+	// Keep the current, still-open minute visible as the rightmost bar. The
+	// first bar is consequently the oldest complete minute in the 60-minute
+	// view, while the final bar grows as new requests arrive.
+	windowStart := currentBucket.Add(-time.Duration(AccountServiceStatusBucketCount-1) * bucketDuration)
 	result := newEmptyAccountServiceStatusBatch(ids, windowStart, windowEnd)
 	if len(ids) == 0 {
 		return result, nil
@@ -111,7 +120,7 @@ func (s *OpsService) getAccountServiceStatusBatchAt(
 		if account == nil {
 			continue
 		}
-		bucketIndex := int(aggregate.BucketStart.UTC().Sub(windowStart) / time.Hour)
+		bucketIndex := int(aggregate.BucketStart.UTC().Sub(windowStart) / bucketDuration)
 		if bucketIndex < 0 || bucketIndex >= len(account.Buckets) {
 			continue
 		}
@@ -150,14 +159,15 @@ func newEmptyAccountServiceStatusBatch(accountIDs []int64, windowStart, windowEn
 		Enabled:       true,
 		WindowStart:   windowStart,
 		WindowEnd:     windowEnd,
-		BucketSeconds: int(time.Hour / time.Second),
+		BucketSeconds: AccountServiceStatusBucketMinutes * 60,
 		Accounts:      make(map[int64]*AccountServiceStatus, len(accountIDs)),
 	}
 	for _, accountID := range accountIDs {
-		buckets := make([]AccountServiceStatusBucket, AccountServiceStatusWindowHours)
+		bucketDuration := time.Duration(AccountServiceStatusBucketMinutes) * time.Minute
+		buckets := make([]AccountServiceStatusBucket, AccountServiceStatusBucketCount)
 		for index := range buckets {
-			start := windowStart.Add(time.Duration(index) * time.Hour)
-			end := start.Add(time.Hour)
+			start := windowStart.Add(time.Duration(index) * bucketDuration)
+			end := start.Add(bucketDuration)
 			if end.After(windowEnd) {
 				end = windowEnd
 			}

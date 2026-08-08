@@ -2,11 +2,11 @@
   <div class="w-[184px] min-w-[184px]">
     <div v-if="loading && !status" class="space-y-1.5" aria-busy="true">
       <div class="h-3 w-20 animate-pulse rounded-[3px] bg-gray-200 dark:bg-dark-700"></div>
-      <div class="grid h-3 grid-cols-12 items-end gap-px">
+      <div class="flex h-5 w-[179px] items-stretch gap-px">
         <span
-          v-for="index in 12"
+          v-for="index in BUCKET_COUNT"
           :key="index"
-          class="h-2 animate-pulse rounded-[1px] bg-gray-200 dark:bg-dark-700"
+          class="h-5 w-[2px] flex-none animate-pulse rounded-[1px] bg-gray-200 dark:bg-dark-700"
         ></span>
       </div>
     </div>
@@ -29,45 +29,59 @@
             </span>
           </div>
 
-          <div
-            class="grid h-3 grid-cols-12 items-end gap-px"
-            :aria-label="t('admin.accounts.serviceStatus.historyLabel')"
-          >
-            <span
-              v-for="(bucket, index) in displayBuckets"
-              :key="`${bucket.start_time}-${index}`"
-              class="min-w-px rounded-[1px]"
-              :class="bucketColorClass(bucket.status)"
-              :style="{ height: bucketHeight(bucket.status) }"
-              :title="bucketTitle(bucket)"
-              :data-status="bucket.status"
-            ></span>
+          <div class="space-y-0.5">
+            <div
+              class="flex h-5 w-[179px] items-stretch gap-px"
+              :aria-label="t('admin.accounts.serviceStatus.historyLabel')"
+              @mousemove="handleTimelinePointerMove"
+              @mouseleave="activeBucket = null"
+            >
+              <span
+                v-for="(bucket, index) in displayBuckets"
+                :key="`${bucket.start_time}-${index}`"
+                class="h-5 w-[2px] flex-none rounded-[1px] transition-opacity"
+                :class="[
+                  bucketColorClass(bucket.status),
+                  activeBucket === bucket ? 'opacity-70' : ''
+                ]"
+                :title="bucketTitle(bucket)"
+                :data-status="bucket.status"
+                :data-current="index === displayBuckets.length - 1 ? 'true' : undefined"
+                @mouseenter="activeBucket = bucket"
+              ></span>
+            </div>
+            <div class="flex w-[179px] justify-between text-[9px] leading-3 text-gray-400 dark:text-gray-500">
+              <span>{{ t('admin.accounts.serviceStatus.hourAgo') }}</span>
+              <span>{{ t('admin.accounts.serviceStatus.now') }}</span>
+            </div>
           </div>
         </div>
       </template>
 
       <div class="space-y-2 text-left">
         <div>
-          <div class="font-semibold text-white">{{ t('admin.accounts.serviceStatus.title') }}</div>
+          <div class="font-semibold text-white">{{ tooltipTitle }}</div>
           <div class="mt-0.5 text-[11px] text-gray-300">
             {{ t('admin.accounts.serviceStatus.passiveHint') }}
           </div>
         </div>
         <div class="grid grid-cols-2 gap-x-3 gap-y-1 border-t border-white/10 pt-2 tabular-nums">
+          <span class="text-gray-300">{{ tooltipStatusTitle }}</span>
+          <span class="text-right font-medium text-white">{{ tooltipStatusLabel }}</span>
           <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.successRate') }}</span>
-          <span class="text-right font-medium text-white">{{ formattedSuccessRate }}</span>
+          <span class="text-right font-medium text-white">{{ tooltipSuccessRate }}</span>
           <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.requests') }}</span>
-          <span class="text-right font-medium text-white">{{ status?.request_count ?? 0 }}</span>
+          <span class="text-right font-medium text-white">{{ tooltipMetrics?.request_count ?? 0 }}</span>
           <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.successFailure') }}</span>
           <span class="text-right font-medium text-white">
-            {{ status?.success_count ?? 0 }} / {{ status?.failure_count ?? 0 }}
+            {{ tooltipMetrics?.success_count ?? 0 }} / {{ tooltipMetrics?.failure_count ?? 0 }}
           </span>
           <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.averageFirstToken') }}</span>
-          <span class="text-right font-medium text-white">{{ formatLatency(status?.average_first_token_ms) }}</span>
+          <span class="text-right font-medium text-white">{{ formatLatency(tooltipMetrics?.average_first_token_ms) }}</span>
           <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.averageSpeed') }}</span>
-          <span class="text-right font-medium text-white">{{ formatSpeed(status?.average_tokens_per_second) }}</span>
+          <span class="text-right font-medium text-white">{{ formatSpeed(tooltipMetrics?.average_tokens_per_second) }}</span>
           <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.lastCall') }}</span>
-          <span class="text-right font-medium text-white">{{ formatTimestamp(status?.last_call_at) }}</span>
+          <span class="text-right font-medium text-white">{{ formatTimestamp(tooltipMetrics?.last_call_at) }}</span>
         </div>
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/10 pt-2 text-[10px] text-gray-300">
           <span v-for="item in legendItems" :key="item.status" class="inline-flex items-center gap-1">
@@ -81,7 +95,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import type {
@@ -101,6 +115,8 @@ const props = withDefaults(defineProps<{
 })
 
 const { t, locale } = useI18n()
+const BUCKET_COUNT = 60
+const activeBucket = ref<AccountServiceStatusBucket | null>(null)
 
 const statusLabels = computed<Record<AccountServiceStatusLevel, string>>(() => ({
   operational: t('admin.accounts.serviceStatus.operational'),
@@ -110,9 +126,9 @@ const statusLabels = computed<Record<AccountServiceStatusLevel, string>>(() => (
 }))
 
 const displayBuckets = computed<AccountServiceStatusBucket[]>(() => {
-  const buckets = Array.isArray(props.status?.buckets) ? props.status.buckets.slice(-12) : []
-  if (buckets.length >= 12) return buckets
-  const placeholders = Array.from({ length: 12 - buckets.length }, (_, index) => ({
+  const buckets = Array.isArray(props.status?.buckets) ? props.status.buckets.slice(-BUCKET_COUNT) : []
+  if (buckets.length >= BUCKET_COUNT) return buckets
+  const placeholders = Array.from({ length: BUCKET_COUNT - buckets.length }, (_, index) => ({
     start_time: `empty-${index}`,
     end_time: '',
     status: 'unknown' as const,
@@ -139,7 +155,28 @@ const requestSummary = computed(() =>
   t('admin.accounts.serviceStatus.requestCountShort', { count: props.status?.request_count ?? 0 })
 )
 
-const formattedSuccessRate = computed(() => formatPercent(props.status?.success_rate))
+const tooltipMetrics = computed<AccountServiceStatus | AccountServiceStatusBucket | null>(() =>
+  activeBucket.value ?? props.status ?? null
+)
+
+const tooltipTitle = computed(() =>
+  activeBucket.value
+    ? formatBucketRange(activeBucket.value)
+    : t('admin.accounts.serviceStatus.title')
+)
+
+const tooltipStatusLabel = computed(() => {
+  const status = tooltipMetrics.value?.status ?? 'unknown'
+  return statusLabels.value[status] ?? statusLabels.value.unknown
+})
+
+const tooltipStatusTitle = computed(() =>
+  activeBucket.value
+    ? t('admin.accounts.serviceStatus.intervalStatus')
+    : t('admin.accounts.serviceStatus.overallStatus')
+)
+
+const tooltipSuccessRate = computed(() => formatPercent(tooltipMetrics.value?.success_rate))
 
 const summaryDotClass = computed(() => bucketColorClass(props.status?.status ?? 'unknown'))
 const summaryTextClass = computed(() => {
@@ -175,19 +212,6 @@ function bucketColorClass(status: AccountServiceStatusLevel): string {
   }
 }
 
-function bucketHeight(status: AccountServiceStatusLevel): string {
-  switch (status) {
-    case 'operational':
-      return '100%'
-    case 'degraded':
-      return '68%'
-    case 'failed':
-      return '38%'
-    default:
-      return '22%'
-  }
-}
-
 function formatPercent(value: number | null | undefined): string {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '-'
   return `${(value * 100).toFixed(value >= 0.995 ? 0 : 1)}%`
@@ -219,7 +243,7 @@ function formatTimestamp(value: string | null | undefined): string {
 
 function bucketTitle(bucket: AccountServiceStatusBucket): string {
   if (!bucket.end_time || bucket.start_time.startsWith('empty-')) return ''
-  const range = `${formatTimestamp(bucket.start_time)} - ${formatTimestamp(bucket.end_time)}`
+  const range = formatBucketRange(bucket)
   if (bucket.request_count === 0) {
     return `${range} · ${t('admin.accounts.serviceStatus.noSamples')}`
   }
@@ -231,5 +255,22 @@ function bucketTitle(bucket: AccountServiceStatusBucket): string {
     `${t('admin.accounts.serviceStatus.averageFirstToken')} ${formatLatency(bucket.average_first_token_ms)}`,
     `${t('admin.accounts.serviceStatus.averageSpeed')} ${formatSpeed(bucket.average_tokens_per_second)}`
   ].join(' · ')
+}
+
+function formatBucketRange(bucket: AccountServiceStatusBucket): string {
+  if (!bucket.end_time || bucket.start_time.startsWith('empty-')) {
+    return t('admin.accounts.serviceStatus.noSamples')
+  }
+  return `${formatTimestamp(bucket.start_time)} - ${formatTimestamp(bucket.end_time)}`
+}
+
+function handleTimelinePointerMove(event: MouseEvent): void {
+  const timeline = event.currentTarget as HTMLElement | null
+  if (!timeline || displayBuckets.value.length === 0) return
+  const rect = timeline.getBoundingClientRect()
+  if (rect.width <= 0) return
+  const relativeX = Math.min(rect.width - Number.EPSILON, Math.max(0, event.clientX - rect.left))
+  const index = Math.floor((relativeX / rect.width) * displayBuckets.value.length)
+  activeBucket.value = displayBuckets.value[index] ?? null
 }
 </script>

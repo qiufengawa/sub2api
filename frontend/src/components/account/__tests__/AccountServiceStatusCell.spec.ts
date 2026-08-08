@@ -26,8 +26,8 @@ const HelpTooltipStub = {
 }
 
 function makeBucket(index: number, status: AccountServiceStatusLevel): AccountServiceStatusBucket {
-  const start = new Date(Date.UTC(2026, 7, 7, index, 0, 0))
-  const end = new Date(start.getTime() + 60 * 60 * 1000)
+  const start = new Date(Date.UTC(2026, 7, 7, 11, 31 + index, 0))
+  const end = new Date(start.getTime() + 60 * 1000)
   const hasSamples = status !== 'unknown'
   return {
     start_time: start.toISOString(),
@@ -44,11 +44,9 @@ function makeBucket(index: number, status: AccountServiceStatusLevel): AccountSe
 }
 
 function makeStatus(): AccountServiceStatus {
-  const states: AccountServiceStatusLevel[] = [
-    'operational', 'degraded', 'failed', 'unknown',
-    'operational', 'degraded', 'failed', 'unknown',
-    'operational', 'degraded', 'failed', 'unknown'
-  ]
+  const states = Array.from<AccountServiceStatusLevel>({ length: 60 }, (_, index) =>
+    (['operational', 'degraded', 'failed', 'unknown'] as const)[index % 4]
+  )
   return {
     account_id: 7,
     status: 'degraded',
@@ -75,15 +73,18 @@ function mountCell(props: { status?: AccountServiceStatus | null; loading?: bool
 }
 
 describe('AccountServiceStatusCell', () => {
-  it('renders a stable 12-hour timeline with all four status levels', () => {
+  it('renders a stable 60-minute timeline with narrow equal-height bars', () => {
     const wrapper = mountCell({ status: makeStatus() })
     const buckets = wrapper.findAll('[data-status]')
 
-    expect(buckets).toHaveLength(12)
+    expect(buckets).toHaveLength(60)
     expect(buckets[0].classes()).toContain('bg-emerald-500')
     expect(buckets[1].classes()).toContain('bg-amber-500')
     expect(buckets[2].classes()).toContain('bg-red-500')
     expect(buckets[3].classes()).toContain('bg-gray-300')
+    expect(buckets[0].classes()).toContain('w-[2px]')
+    expect(buckets[0].classes()).toContain('h-5')
+    expect(buckets[59].attributes('data-current')).toBe('true')
     expect(wrapper.text()).toContain('admin.accounts.serviceStatus.degraded 90.0%')
     expect(wrapper.text()).toContain('100 次')
   })
@@ -99,6 +100,16 @@ describe('AccountServiceStatusCell', () => {
     expect(tooltip.text()).toContain('42.5 tok/s')
   })
 
+  it('switches the tooltip to the hovered minute without changing its layout', async () => {
+    const wrapper = mountCell({ status: makeStatus() })
+    await wrapper.findAll('[data-status]')[0].trigger('mouseenter')
+    const tooltip = wrapper.get('[data-test="service-tooltip"]')
+
+    expect(tooltip.text()).toContain('admin.accounts.serviceStatus.intervalStatus')
+    expect(tooltip.text()).toContain('99.0%')
+    expect(tooltip.text()).toContain('9 / 1')
+  })
+
   it('keeps loading, unavailable, and no-sample states distinct', () => {
     const loading = mountCell({ loading: true })
     expect(loading.get('[aria-busy="true"]').exists()).toBe(true)
@@ -108,7 +119,7 @@ describe('AccountServiceStatusCell', () => {
     expect(unavailable.find('[data-status]').exists()).toBe(false)
 
     const noSamples = mountCell({ status: null })
-    expect(noSamples.findAll('[data-status]')).toHaveLength(12)
+    expect(noSamples.findAll('[data-status]')).toHaveLength(60)
     expect(noSamples.text()).toContain('admin.accounts.serviceStatus.noSamples')
     expect(noSamples.text()).not.toContain('100%')
   })
