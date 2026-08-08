@@ -28,7 +28,7 @@
 
     <div
       v-for="m in sortedModels"
-      :key="m.name"
+      :key="`${m.platform ?? ''}:${m.name}`"
       class="plaza-model-row"
       role="group"
       :aria-label="m.name"
@@ -39,6 +39,15 @@
         <ModelIcon :model="m.name" size="20px" class="mt-0.5 flex-shrink-0" />
         <div class="min-w-0">
           <span class="model-name min-w-0" :title="m.name">{{ m.name }}</span>
+          <span
+            v-if="platform && m.platform !== platform"
+            :class="[
+              'mt-1 inline-flex items-center rounded-[3px] px-1.5 py-0.5 text-[10px] font-medium',
+              platformBadgeLightClass(m.platform)
+            ]"
+          >
+            {{ platformLabel(m.platform) }}
+          </span>
           <span
             v-if="billingMode(m) !== BILLING_MODE_TOKEN"
             class="mt-1 inline-flex rounded-[3px] bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-dark-700/70 dark:text-dark-300"
@@ -196,7 +205,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ModelIcon from '@/components/common/ModelIcon.vue'
 import { formatScaled } from '@/utils/pricing'
-import { platformAccentColor } from '@/utils/platformColors'
+import { platformAccentColor, platformBadgeLightClass, platformLabel } from '@/utils/platformColors'
 import {
   BILLING_MODE_TOKEN,
   BILLING_MODE_IMAGE,

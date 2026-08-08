@@ -49,8 +49,19 @@ func (UsageLog) Fields() []ent.Field {
 			Nillable(),
 		// UpstreamModel stores the actual upstream model name when model mapping
 		// is applied. NULL means no mapping — the requested model was used as-is.
-		field.String("upstream_model").
+	field.String("upstream_model").
 			MaxLen(100).
+			Optional().
+			Nillable(),
+		// UpstreamResponseModel stores the model name declared by the upstream
+		// response before any protocol conversion or client-facing rewrite.
+		field.String("upstream_response_model").
+			MaxLen(200).
+			Optional().
+			Nillable(),
+		// UpstreamModelMismatch is tri-state: NULL means the upstream response did
+		// not declare a model (or predates this field); false/true means observed.
+		field.Bool("upstream_model_mismatch").
 			Optional().
 			Nillable(),
 		field.Int64("channel_id").Optional().Nillable().Comment("渠道 ID"),

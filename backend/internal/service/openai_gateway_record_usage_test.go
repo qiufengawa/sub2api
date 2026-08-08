@@ -325,11 +325,11 @@ func TestOpenAIGatewayServiceRecordUsage_ZeroUsageStillWritesUsageLog(t *testing
 	require.Zero(t, usageRepo.lastLog.ActualCost)
 
 	require.NotNil(t, billingRepo.lastCmd)
-	require.Zero(t, billingRepo.lastCmd.BalanceCost)
-	require.Zero(t, billingRepo.lastCmd.SubscriptionCost)
-	require.Zero(t, billingRepo.lastCmd.APIKeyQuotaCost)
-	require.Zero(t, billingRepo.lastCmd.APIKeyRateLimitCost)
-	require.Zero(t, billingRepo.lastCmd.AccountQuotaCost)
+	require.True(t, billingRepo.lastCmd.BalanceCost.IsZero())
+	require.True(t, billingRepo.lastCmd.SubscriptionCost.IsZero())
+	require.True(t, billingRepo.lastCmd.APIKeyQuotaCost.IsZero())
+	require.True(t, billingRepo.lastCmd.APIKeyRateLimitCost.IsZero())
+	require.True(t, billingRepo.lastCmd.AccountQuotaCost.IsZero())
 }
 
 func TestOpenAIGatewayServiceRecordUsage_MissingPricingRecordsZeroCostUsageLog(t *testing.T) {
@@ -376,11 +376,11 @@ func TestOpenAIGatewayServiceRecordUsage_MissingPricingRecordsZeroCostUsageLog(t
 	require.Equal(t, string(BillingModeToken), *usageRepo.lastLog.BillingMode)
 
 	require.NotNil(t, billingRepo.lastCmd)
-	require.Zero(t, billingRepo.lastCmd.BalanceCost)
-	require.Zero(t, billingRepo.lastCmd.SubscriptionCost)
-	require.Zero(t, billingRepo.lastCmd.APIKeyQuotaCost)
-	require.Zero(t, billingRepo.lastCmd.APIKeyRateLimitCost)
-	require.Zero(t, billingRepo.lastCmd.AccountQuotaCost)
+	require.True(t, billingRepo.lastCmd.BalanceCost.IsZero())
+	require.True(t, billingRepo.lastCmd.SubscriptionCost.IsZero())
+	require.True(t, billingRepo.lastCmd.APIKeyQuotaCost.IsZero())
+	require.True(t, billingRepo.lastCmd.APIKeyRateLimitCost.IsZero())
+	require.True(t, billingRepo.lastCmd.AccountQuotaCost.IsZero())
 }
 
 func TestOpenAIGatewayServiceRecordUsage_UsesUserSpecificGroupRate(t *testing.T) {
