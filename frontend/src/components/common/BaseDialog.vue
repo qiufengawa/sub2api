@@ -34,7 +34,7 @@
           </div>
 
           <!-- Body -->
-          <div class="modal-body">
+          <div ref="modalBodyRef" class="modal-body">
             <slot></slot>
           </div>
 
@@ -63,6 +63,7 @@ const { t } = useI18n()
 // 焦点管理
 const dialogRef = ref<HTMLElement | null>(null)
 const effectiveZIndex = ref(50)
+const modalBodyRef = ref<HTMLElement | null>(null)
 let previousActiveElement: HTMLElement | null = null
 let isRegistered = false
 
@@ -187,6 +188,9 @@ watch(
       isRegistered = true
 
       await nextTick()
+      if (modalBodyRef.value) {
+        modalBodyRef.value.scrollTop = 0
+      }
       if (dialogRef.value) {
         const firstFocusable = getFocusableElements()[0]
         const focusTarget = firstFocusable ?? dialogRef.value

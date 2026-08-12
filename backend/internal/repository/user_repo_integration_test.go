@@ -4,7 +4,7 @@ package repository
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -65,6 +65,44 @@ func (s *UserRepoSuite) mustCreateUser(u *service.User) *service.User {
 	return u
 }
 
+func (s *UserRepoSuite) TestCreateWithEmailAliasGuardAndDomainLimitConcurrent() {
+	domain := "race-" + strings.ToLower(strings.ReplaceAll(time.Now().Format("150405.000000000"), ".", "")) + ".example"
+	users := []*service.User{
+		{Email: "first@" + domain, PasswordHash: "hash", Role: service.RoleUser, Status: service.StatusActive},
+		{Email: "second@" + domain, PasswordHash: "hash", Role: service.RoleUser, Status: service.StatusActive},
+	}
+
+	errs := make(chan error, len(users))
+	var wg sync.WaitGroup
+	for _, user := range users {
+		wg.Add(1)
+		go func(user *service.User) {
+			defer wg.Done()
+			errs <- s.repo.CreateWithEmailAliasGuardAndDomainLimit(s.ctx, user, domain)
+		}(user)
+	}
+	wg.Wait()
+	close(errs)
+
+	var success, limited int
+	for err := range errs {
+		switch {
+		case err == nil:
+			success++
+		case errors.Is(err, service.ErrEmailDomainRegistrationLimit):
+			limited++
+		default:
+			s.Require().NoError(err)
+		}
+	}
+	s.Require().Equal(1, success)
+	s.Require().Equal(1, limited)
+
+	count, err := s.repo.CountUsersByEmailDomain(s.ctx, domain)
+	s.Require().NoError(err)
+	s.Require().Equal(1, count)
+}
+
 func (s *UserRepoSuite) mustCreateGroup(name string) *service.Group {
 	s.T().Helper()
 
@@ -80,15 +118,9 @@ func (s *UserRepoSuite) mustCreateSubscription(userID, groupID int64, mutate fun
 	s.T().Helper()
 
 	now := time.Now()
-	plan, err := s.client.SubscriptionPlan.Create().
-		SetName(fmt.Sprintf("user-repo-plan-%d", time.Now().UnixNano())).
-		SetPrice(0).
-		AddGroupIDs(groupID).
-		Save(s.ctx)
-	s.Require().NoError(err, "create subscription plan")
 	create := s.client.UserSubscription.Create().
 		SetUserID(userID).
-		SetPlanID(plan.ID).
+		SetGroupID(groupID).
 		SetStartsAt(now.Add(-1 * time.Hour)).
 		SetExpiresAt(now.Add(24 * time.Hour)).
 		SetStatus(service.SubscriptionStatusActive).
@@ -360,7 +392,8 @@ func (s *UserRepoSuite) TestListWithFilters_LoadsActiveSubscriptions() {
 	s.Require().NoError(err, "ListWithFilters")
 	s.Require().Len(users, 1, "expected 1 user")
 	s.Require().Len(users[0].Subscriptions, 1, "expected 1 active subscription")
-	s.Require().True(users[0].Subscriptions[0].CoversGroup(groupActive.ID), "expected active plan to cover group")
+	s.Require().NotNil(users[0].Subscriptions[0].Group, "expected subscription group preload")
+	s.Require().Equal(groupActive.ID, users[0].Subscriptions[0].Group.ID, "group ID mismatch")
 }
 
 func (s *UserRepoSuite) TestListWithFilters_CombinedFilters() {

@@ -49,12 +49,10 @@
             class="flex w-full flex-shrink-0 flex-wrap items-center justify-end gap-3 lg:w-auto"
           >
             <button
-              type="button"
               @click="loadGroups"
               :disabled="loading"
-              class="btn btn-secondary btn-icon"
+              class="btn btn-secondary"
               :title="t('common.refresh')"
-              :aria-label="t('common.refresh')"
             >
               <Icon
                 name="refresh"
@@ -64,11 +62,9 @@
             </button>
             <div class="relative" ref="columnDropdownRef">
               <button
-                type="button"
                 @click="showColumnDropdown = !showColumnDropdown"
-                class="btn btn-secondary px-2 md:px-3"
+                class="btn btn-secondary"
                 :title="t('admin.groups.columnSettings')"
-                :aria-label="t('admin.groups.columnSettings')"
               >
                 <Icon name="grid" size="md" class="mr-2" />
                 <span class="hidden md:inline">{{
@@ -77,16 +73,15 @@
               </button>
               <div
                 v-if="showColumnDropdown"
-                class="absolute right-0 top-full z-50 mt-1 max-h-[min(20rem,calc(100dvh-5rem))] w-56 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-[4px] border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
+                class="absolute right-0 top-full z-50 mt-1 max-h-80 w-48 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
               >
                 <button
                   v-for="col in toggleableColumns"
                   :key="col.key"
-                  type="button"
                   @click="toggleColumn(col.key)"
                   class="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
                 >
-                  <span class="min-w-0 truncate" :title="col.label">{{ col.label }}</span>
+                  <span>{{ col.label }}</span>
                   <Icon
                     v-if="isColumnVisible(col.key)"
                     name="check"
@@ -98,17 +93,14 @@
               </div>
             </div>
             <button
-              type="button"
               @click="openSortModal"
               class="btn btn-secondary"
               :title="t('admin.groups.sortOrder')"
-              :aria-label="t('admin.groups.sortOrder')"
             >
-              <Icon name="arrowsUpDown" size="md" class="md:mr-2" />
-              <span class="hidden md:inline">{{ t("admin.groups.sortOrder") }}</span>
+              <Icon name="arrowsUpDown" size="md" class="mr-2" />
+              {{ t("admin.groups.sortOrder") }}
             </button>
             <button
-              type="button"
               @click="openCreateModal"
               class="btn btn-primary"
               data-tour="groups-create-btn"
@@ -131,7 +123,9 @@
           @sort="handleSort"
         >
           <template #cell-name="{ value }">
-            <span class="block max-w-[16rem] truncate font-medium text-gray-900 dark:text-white" :title="String(value)">{{ value }}</span>
+            <span class="font-medium text-gray-900 dark:text-white">{{
+              value
+            }}</span>
           </template>
 
           <template #cell-id="{ value }">
@@ -158,6 +152,101 @@
               <PlatformIcon :platform="value" size="xs" />
               {{ t("admin.groups.platforms." + value) }}
             </span>
+          </template>
+
+          <template #cell-billing_type="{ row }">
+            <div class="space-y-1">
+              <!-- Type Badge -->
+              <span
+                :class="[
+                  'inline-block rounded-full px-2 py-0.5 text-xs font-medium',
+                  row.subscription_type === 'subscription'
+                    ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400'
+                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
+                ]"
+              >
+                {{
+                  row.subscription_type === "subscription"
+                    ? t("admin.groups.subscription.subscription")
+                    : t("admin.groups.subscription.standard")
+                }}
+              </span>
+              <!-- Subscription Limits - compact single line -->
+              <div
+                v-if="row.subscription_type === 'subscription'"
+                class="space-y-0.5 text-xs text-gray-500 dark:text-gray-400"
+              >
+                <div
+                  v-if="
+                    row.daily_limit_usd ||
+                    row.weekly_limit_usd ||
+                    row.monthly_limit_usd
+                  "
+                  class="flex flex-wrap items-center gap-x-1 gap-y-0.5"
+                >
+                  <span v-if="row.daily_limit_usd" class="whitespace-nowrap">
+                    <span
+                      v-if="usageLoading"
+                      class="font-medium text-gray-400 dark:text-gray-500"
+                      >—</span
+                    >
+                    <span
+                      v-else
+                      :class="
+                        getQuotaUsageClass(
+                          usageMap.get(row.id)?.today_cost ?? 0,
+                          row.daily_limit_usd
+                        )
+                      "
+                      >{{
+                        formatUsd(usageMap.get(row.id)?.today_cost ?? 0)
+                      }}</span
+                    >
+                    <span class="text-gray-400 dark:text-gray-500">
+                      / {{ formatUsd(row.daily_limit_usd) }}/{{
+                        t("admin.groups.limitDay")
+                      }}</span
+                    >
+                  </span>
+                  <span
+                    v-if="
+                      row.daily_limit_usd &&
+                      (row.weekly_limit_usd || row.monthly_limit_usd)
+                    "
+                    class="mx-1 text-gray-300 dark:text-gray-600"
+                    >·</span
+                  >
+                  <span v-if="row.weekly_limit_usd" class="whitespace-nowrap"
+                    >{{ formatUsd(row.weekly_limit_usd) }}/{{
+                      t("admin.groups.limitWeek")
+                    }}</span
+                  >
+                  <span
+                    v-if="row.weekly_limit_usd && row.monthly_limit_usd"
+                    class="mx-1 text-gray-300 dark:text-gray-600"
+                    >·</span
+                  >
+                  <span v-if="row.monthly_limit_usd" class="whitespace-nowrap"
+                    >{{ formatUsd(row.monthly_limit_usd) }}/{{
+                      t("admin.groups.limitMonth")
+                    }}</span
+                  >
+                </div>
+                <span v-else class="text-gray-400 dark:text-gray-500">{{
+                  t("admin.groups.subscription.noLimit")
+                }}</span>
+                <div class="text-gray-400 dark:text-gray-500">
+                  {{ t("admin.groups.usageTotal") }}
+                  <span class="ml-1 font-medium text-gray-600 dark:text-gray-300"
+                    >{{
+                      usageLoading
+                        ? "—"
+                        : formatUsd(usageMap.get(row.id)?.total_cost ?? 0)
+                    }}</span
+                  >
+                </div>
+              </div>
+            </div>
           </template>
 
           <template #cell-rate_multiplier="{ value }">
@@ -271,17 +360,14 @@
           <template #cell-actions="{ row }">
             <div class="flex items-center gap-1">
               <button
-                type="button"
                 @click="handleEdit(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:text-primary-600 dark:hover:text-primary-400"
-                :title="t('common.edit')"
-                :aria-label="t('common.edit')"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-400"
               >
                 <Icon name="edit" size="sm" />
+                <span class="text-xs">{{ t("common.edit") }}</span>
               </button>
               <button
                 data-testid="group-duplicate"
-                type="button"
                 :title="
                   duplicatingGroupIds.has(row.id)
                     ? t('admin.groups.duplicating')
@@ -289,47 +375,51 @@
                 "
                 :disabled="duplicatingGroupIds.has(row.id)"
                 @click="handleDuplicate(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-primary-400"
-                :aria-label="duplicatingGroupIds.has(row.id) ? t('admin.groups.duplicating') : t('admin.groups.duplicate')"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-dark-700 dark:hover:text-primary-400"
               >
                 <Icon name="copy" size="sm" />
+                <span class="text-xs">
+                  {{
+                    duplicatingGroupIds.has(row.id)
+                      ? t("admin.groups.duplicating")
+                      : t("admin.groups.duplicate")
+                  }}
+                </span>
               </button>
               <button
                 v-if="row.platform === 'composite'"
-                type="button"
                 @click="handleCompositeRoutes(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:text-cyan-600 dark:hover:text-cyan-400"
-                :title="t('admin.groups.compositeRoutes.action')"
-                :aria-label="t('admin.groups.compositeRoutes.action')"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-cyan-600 dark:hover:bg-dark-700 dark:hover:text-cyan-400"
               >
                 <Icon name="swap" size="sm" />
+                <span class="text-xs">{{
+                  t("admin.groups.compositeRoutes.action")
+                }}</span>
               </button>
               <button
-                type="button"
                 @click="handleRateMultipliers(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:text-purple-600 dark:hover:text-purple-400"
-                :title="t('admin.groups.rateMultipliers')"
-                :aria-label="t('admin.groups.rateMultipliers')"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-purple-600 dark:hover:bg-dark-700 dark:hover:text-purple-400"
               >
                 <Icon name="dollar" size="sm" />
+                <span class="text-xs">{{
+                  t("admin.groups.rateMultipliers")
+                }}</span>
               </button>
               <button
-                type="button"
                 @click="handleRPMOverrides(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:text-orange-600 dark:hover:text-orange-400"
-                :title="t('admin.groups.rpmOverrides')"
-                :aria-label="t('admin.groups.rpmOverrides')"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-orange-600 dark:hover:bg-dark-700 dark:hover:text-orange-400"
               >
                 <Icon name="bolt" size="sm" />
+                <span class="text-xs">{{
+                  t("admin.groups.rpmOverrides")
+                }}</span>
               </button>
               <button
-                type="button"
                 @click="handleDelete(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                :title="t('common.delete')"
-                :aria-label="t('common.delete')"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
               >
                 <Icon name="trash" size="sm" />
+                <span class="text-xs">{{ t("common.delete") }}</span>
               </button>
             </div>
           </template>
@@ -527,7 +617,10 @@
           v-model:max-effort="createForm.max_reasoning_effort"
           v-model:mappings="createForm.reasoning_effort_mappings"
         />
-        <div data-tour="group-form-exclusive">
+        <div
+          v-if="createForm.subscription_type !== 'subscription'"
+          data-tour="group-form-exclusive"
+        >
           <div class="mb-1.5 flex items-center gap-1">
             <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
               {{ t("admin.groups.form.exclusive") }}
@@ -596,6 +689,68 @@
                   : t("admin.groups.public")
               }}
             </span>
+          </div>
+        </div>
+
+        <!-- Subscription Configuration -->
+        <div class="mt-4 border-t pt-4">
+          <div>
+            <label class="input-label">{{
+              t("admin.groups.subscription.type")
+            }}</label>
+            <Select
+              v-model="createForm.subscription_type"
+              :options="subscriptionTypeOptions"
+            />
+            <p class="input-hint">
+              {{ t("admin.groups.subscription.typeHint") }}
+            </p>
+          </div>
+
+          <!-- Subscription limits (only show when subscription type is selected) -->
+          <div
+            v-if="createForm.subscription_type === 'subscription'"
+            class="space-y-4 border-l-2 border-primary-200 pl-4 dark:border-primary-800"
+          >
+            <div>
+              <label class="input-label">{{
+                t("admin.groups.subscription.dailyLimit")
+              }}</label>
+              <input
+                v-model.number="createForm.daily_limit_usd"
+                type="number"
+                step="0.01"
+                min="0"
+                class="input"
+                :placeholder="t('admin.groups.subscription.noLimit')"
+              />
+            </div>
+            <div>
+              <label class="input-label">{{
+                t("admin.groups.subscription.weeklyLimit")
+              }}</label>
+              <input
+                v-model.number="createForm.weekly_limit_usd"
+                type="number"
+                step="0.01"
+                min="0"
+                class="input"
+                :placeholder="t('admin.groups.subscription.noLimit')"
+              />
+            </div>
+            <div>
+              <label class="input-label">{{
+                t("admin.groups.subscription.monthlyLimit")
+              }}</label>
+              <input
+                v-model.number="createForm.monthly_limit_usd"
+                type="number"
+                step="0.01"
+                min="0"
+                class="input"
+                :placeholder="t('admin.groups.subscription.noLimit')"
+              />
+            </div>
           </div>
         </div>
 
@@ -932,6 +1087,45 @@
               />
             </div>
           </div>
+          <div
+            class="mt-4 border-t border-dashed border-gray-200 pt-4 dark:border-dark-700"
+            data-testid="create-grok-video-model-prices"
+          >
+            <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {{ t("admin.groups.videoPricing.modelOverridesTitle") }}
+            </p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t("admin.groups.videoPricing.modelOverridesDescription") }}
+            </p>
+            <div class="mt-3 space-y-3">
+              <div
+                v-for="family in videoModelPriceFamilyRows(createForm.video_model_prices)"
+                :key="family.key"
+                class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,7rem))] sm:items-end"
+              >
+                <div class="min-w-0 pb-1 font-mono text-xs text-gray-700 dark:text-gray-300">
+                  {{ family.label }}
+                </div>
+                <label
+                  v-for="resolution in grokVideoPriceResolutions"
+                  :key="resolution.key"
+                  class="block"
+                >
+                  <span class="mb-1 block text-xs text-gray-500 dark:text-gray-400">
+                    {{ resolution.label }} ($/s)
+                  </span>
+                  <input
+                    v-model.number="createForm.video_model_prices[family.key][resolution.key]"
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    class="input"
+                    :data-testid="`create-grok-video-price-${family.key}-${resolution.key}`"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
           <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
             {{ t(videoPricingI18nKey("modeHint")) }}
           </p>
@@ -950,8 +1144,8 @@
           </div>
         </div>
 
-        <!-- 高峰时段倍率配置 -->
-        <div class="border-t pt-4">
+        <!-- 高峰时段倍率配置（仅订阅类型分组） -->
+        <div v-if="createForm.subscription_type === 'subscription'" class="border-t pt-4">
           <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input
@@ -1289,6 +1483,69 @@
           </div>
         </div>
 
+
+        <!-- Grok Voice 显式定价（仅 grok 平台） -->
+        <div
+          v-if="createForm.platform === 'grok'"
+          class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
+        >
+          <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {{ t("admin.groups.explicitPricing.title") }}
+          </h4>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            {{ t("admin.groups.explicitPricing.description") }}
+          </p>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div>
+              <label class="input-label">{{ t("admin.groups.explicitPricing.searchPricePer1k") }}</label>
+              <input
+                v-model.number="createForm.search_price_per_1k"
+                type="number"
+                step="0.000001"
+                min="0"
+                class="input"
+                :placeholder="t('admin.groups.explicitPricing.pricePlaceholder')"
+                data-testid="create-search-price"
+              />
+            </div>
+            <div>
+              <label class="input-label">{{ t("admin.groups.voicePricing.audioRealtimePerMin") }}</label>
+              <input
+                v-model.number="createForm.audio_realtime_price_per_min"
+                type="number"
+                step="0.000001"
+                min="0"
+                class="input"
+                :placeholder="t('admin.groups.voicePricing.pricePlaceholder')"
+                data-testid="create-audio-realtime-price"
+              />
+            </div>
+            <div>
+              <label class="input-label">{{ t("admin.groups.voicePricing.audioTtsPerMillionChars") }}</label>
+              <input
+                v-model.number="createForm.audio_tts_price_per_million_chars"
+                type="number"
+                step="0.000001"
+                min="0"
+                class="input"
+                :placeholder="t('admin.groups.voicePricing.pricePlaceholder')"
+                data-testid="create-audio-tts-price"
+              />
+            </div>
+            <div>
+              <label class="input-label">{{ t("admin.groups.voicePricing.audioSttPerHour") }}</label>
+              <input
+                v-model.number="createForm.audio_stt_price_per_hour"
+                type="number"
+                step="0.000001"
+                min="0"
+                class="input"
+                :placeholder="t('admin.groups.voicePricing.pricePlaceholder')"
+                data-testid="create-audio-stt-price"
+              />
+            </div>
+          </div>
+        </div>
         <!-- OpenAI Live 开关（仅 openai 平台） -->
         <div
           v-if="createForm.platform === 'openai'"
@@ -1637,9 +1894,12 @@
           </div>
         </div>
 
-        <!-- 无效请求兜底（仅 anthropic/antigravity 平台） -->
+        <!-- 无效请求兜底（仅 anthropic/antigravity 平台，且非订阅分组） -->
         <div
-          v-if="['anthropic', 'antigravity'].includes(createForm.platform)"
+          v-if="
+            ['anthropic', 'antigravity'].includes(createForm.platform) &&
+            createForm.subscription_type !== 'subscription'
+          "
           class="border-t pt-4"
         >
           <label class="input-label">{{
@@ -2062,7 +2322,7 @@
           v-model:max-effort="editForm.max_reasoning_effort"
           v-model:mappings="editForm.reasoning_effort_mappings"
         />
-        <div>
+        <div v-if="editForm.subscription_type !== 'subscription'">
           <div class="mb-1.5 flex items-center gap-1">
             <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
               {{ t("admin.groups.form.exclusive") }}
@@ -2136,6 +2396,69 @@
         <div>
           <label class="input-label">{{ t("admin.groups.form.status") }}</label>
           <Select v-model="editForm.status" :options="editStatusOptions" />
+        </div>
+
+        <!-- Subscription Configuration -->
+        <div class="mt-4 border-t pt-4">
+          <div>
+            <label class="input-label">{{
+              t("admin.groups.subscription.type")
+            }}</label>
+            <Select
+              v-model="editForm.subscription_type"
+              :options="subscriptionTypeOptions"
+              :disabled="true"
+            />
+            <p class="input-hint">
+              {{ t("admin.groups.subscription.typeNotEditable") }}
+            </p>
+          </div>
+
+          <!-- Subscription limits (only show when subscription type is selected) -->
+          <div
+            v-if="editForm.subscription_type === 'subscription'"
+            class="space-y-4 border-l-2 border-primary-200 pl-4 dark:border-primary-800"
+          >
+            <div>
+              <label class="input-label">{{
+                t("admin.groups.subscription.dailyLimit")
+              }}</label>
+              <input
+                v-model.number="editForm.daily_limit_usd"
+                type="number"
+                step="0.01"
+                min="0"
+                class="input"
+                :placeholder="t('admin.groups.subscription.noLimit')"
+              />
+            </div>
+            <div>
+              <label class="input-label">{{
+                t("admin.groups.subscription.weeklyLimit")
+              }}</label>
+              <input
+                v-model.number="editForm.weekly_limit_usd"
+                type="number"
+                step="0.01"
+                min="0"
+                class="input"
+                :placeholder="t('admin.groups.subscription.noLimit')"
+              />
+            </div>
+            <div>
+              <label class="input-label">{{
+                t("admin.groups.subscription.monthlyLimit")
+              }}</label>
+              <input
+                v-model.number="editForm.monthly_limit_usd"
+                type="number"
+                step="0.01"
+                min="0"
+                class="input"
+                :placeholder="t('admin.groups.subscription.noLimit')"
+              />
+            </div>
+          </div>
         </div>
 
         <div class="border-t pt-4">
@@ -2471,6 +2794,45 @@
               />
             </div>
           </div>
+          <div
+            class="mt-4 border-t border-dashed border-gray-200 pt-4 dark:border-dark-700"
+            data-testid="edit-grok-video-model-prices"
+          >
+            <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {{ t("admin.groups.videoPricing.modelOverridesTitle") }}
+            </p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t("admin.groups.videoPricing.modelOverridesDescription") }}
+            </p>
+            <div class="mt-3 space-y-3">
+              <div
+                v-for="family in videoModelPriceFamilyRows(editForm.video_model_prices)"
+                :key="family.key"
+                class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,7rem))] sm:items-end"
+              >
+                <div class="min-w-0 pb-1 font-mono text-xs text-gray-700 dark:text-gray-300">
+                  {{ family.label }}
+                </div>
+                <label
+                  v-for="resolution in grokVideoPriceResolutions"
+                  :key="resolution.key"
+                  class="block"
+                >
+                  <span class="mb-1 block text-xs text-gray-500 dark:text-gray-400">
+                    {{ resolution.label }} ($/s)
+                  </span>
+                  <input
+                    v-model.number="editForm.video_model_prices[family.key][resolution.key]"
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    class="input"
+                    :data-testid="`edit-grok-video-price-${family.key}-${resolution.key}`"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
           <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
             {{ t(videoPricingI18nKey("modeHint")) }}
           </p>
@@ -2489,8 +2851,8 @@
           </div>
         </div>
 
-        <!-- 高峰时段倍率配置 -->
-        <div class="border-t pt-4">
+        <!-- 高峰时段倍率配置（仅订阅类型分组） -->
+        <div v-if="editForm.subscription_type === 'subscription'" class="border-t pt-4">
           <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input
@@ -2824,6 +3186,69 @@
           </div>
         </div>
 
+
+        <!-- Grok Voice 显式定价（仅 grok 平台） -->
+        <div
+          v-if="editForm.platform === 'grok'"
+          class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
+        >
+          <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {{ t("admin.groups.explicitPricing.title") }}
+          </h4>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            {{ t("admin.groups.explicitPricing.description") }}
+          </p>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div>
+              <label class="input-label">{{ t("admin.groups.explicitPricing.searchPricePer1k") }}</label>
+              <input
+                v-model.number="editForm.search_price_per_1k"
+                type="number"
+                step="0.000001"
+                min="0"
+                class="input"
+                :placeholder="t('admin.groups.explicitPricing.pricePlaceholder')"
+                data-testid="edit-search-price"
+              />
+            </div>
+            <div>
+              <label class="input-label">{{ t("admin.groups.voicePricing.audioRealtimePerMin") }}</label>
+              <input
+                v-model.number="editForm.audio_realtime_price_per_min"
+                type="number"
+                step="0.000001"
+                min="0"
+                class="input"
+                :placeholder="t('admin.groups.voicePricing.pricePlaceholder')"
+                data-testid="edit-audio-realtime-price"
+              />
+            </div>
+            <div>
+              <label class="input-label">{{ t("admin.groups.voicePricing.audioTtsPerMillionChars") }}</label>
+              <input
+                v-model.number="editForm.audio_tts_price_per_million_chars"
+                type="number"
+                step="0.000001"
+                min="0"
+                class="input"
+                :placeholder="t('admin.groups.voicePricing.pricePlaceholder')"
+                data-testid="edit-audio-tts-price"
+              />
+            </div>
+            <div>
+              <label class="input-label">{{ t("admin.groups.voicePricing.audioSttPerHour") }}</label>
+              <input
+                v-model.number="editForm.audio_stt_price_per_hour"
+                type="number"
+                step="0.000001"
+                min="0"
+                class="input"
+                :placeholder="t('admin.groups.voicePricing.pricePlaceholder')"
+                data-testid="edit-audio-stt-price"
+              />
+            </div>
+          </div>
+        </div>
         <!-- OpenAI Live 开关（仅 openai 平台） -->
         <div
           v-if="editForm.platform === 'openai'"
@@ -3172,9 +3597,12 @@
           </div>
         </div>
 
-        <!-- 无效请求兜底（仅 anthropic/antigravity 平台） -->
+        <!-- 无效请求兜底（仅 anthropic/antigravity 平台，且非订阅分组） -->
         <div
-          v-if="['anthropic', 'antigravity'].includes(editForm.platform)"
+          v-if="
+            ['anthropic', 'antigravity'].includes(editForm.platform) &&
+            editForm.subscription_type !== 'subscription'
+          "
           class="border-t pt-4"
         >
           <label class="input-label">{{
@@ -3932,6 +4360,7 @@ import type {
   CompositeRouteEndpoint,
   CompositeRouteMatchType,
   GroupPlatform,
+  SubscriptionType,
 } from "@/types";
 import type { Column } from "@/components/common/types";
 import AppLayout from "@/components/layout/AppLayout.vue";
@@ -3994,6 +4423,12 @@ import {
   supportsVideoPricingPlatform,
   videoPricingI18nKey,
 } from "./groupsImagePricing";
+import {
+  createVideoModelPricesForm,
+  grokVideoPriceResolutions,
+  serializeVideoModelPrices,
+  videoModelPriceFamilyRows,
+} from "./groupsVideoModelPricing";
 
 const { t } = useI18n();
 const appStore = useAppStore();
@@ -4016,6 +4451,11 @@ const allColumns = computed<Column[]>(() => [
   {
     key: "platform",
     label: t("admin.groups.columns.platform"),
+    sortable: true,
+  },
+  {
+    key: "billing_type",
+    label: t("admin.groups.columns.billingType"),
     sortable: true,
   },
   {
@@ -4120,7 +4560,9 @@ const saveColumnsToStorage = () => {
 };
 
 const isColumnVisible = (key: string) => !hiddenColumns.has(key);
-const hasVisibleUsageSummaryConsumer = computed(() => isColumnVisible("usage"));
+const hasVisibleUsageSummaryConsumer = computed(
+  () => isColumnVisible("usage") || isColumnVisible("billing_type"),
+);
 const hasVisibleCapacityColumn = computed(() => isColumnVisible("capacity"));
 
 const toggleColumn = (key: string) => {
@@ -4135,7 +4577,7 @@ const toggleColumn = (key: string) => {
   }
   saveColumnsToStorage();
 
-  if (wasHidden && key === "usage") {
+  if (wasHidden && (key === "usage" || key === "billing_type")) {
     loadUsageSummary();
   }
   if (wasHidden && key === "capacity") {
@@ -4229,6 +4671,11 @@ const editStatusOptions = computed(() => [
   { value: "inactive", label: t("admin.accounts.status.inactive") },
 ]);
 
+const subscriptionTypeOptions = computed(() => [
+  { value: "standard", label: t("admin.groups.subscription.standard") },
+  { value: "subscription", label: t("admin.groups.subscription.subscription") },
+]);
+
 // 降级分组选项（创建时）- 仅包含 anthropic 平台且未启用 claude_code_only 的分组
 const fallbackGroupOptions = computed(() => {
   const options: { value: number | null; label: string }[] = [
@@ -4265,7 +4712,7 @@ const fallbackGroupOptionsForEdit = computed(() => {
   return options;
 });
 
-// 无效请求兜底分组选项（创建时）- 仅包含 anthropic 平台且未配置兜底的分组
+// 无效请求兜底分组选项（创建时）- 仅包含 anthropic 平台、非订阅且未配置兜底的分组
 const invalidRequestFallbackOptions = computed(() => {
   const options: { value: number | null; label: string }[] = [
     { value: null, label: t("admin.groups.invalidRequestFallback.noFallback") },
@@ -4274,6 +4721,7 @@ const invalidRequestFallbackOptions = computed(() => {
     (g) =>
       g.platform === "anthropic" &&
       g.status === "active" &&
+      g.subscription_type !== "subscription" &&
       g.fallback_group_id_on_invalid_request === null,
   );
   eligibleGroups.forEach((g) => {
@@ -4292,6 +4740,7 @@ const invalidRequestFallbackOptionsForEdit = computed(() => {
     (g) =>
       g.platform === "anthropic" &&
       g.status === "active" &&
+      g.subscription_type !== "subscription" &&
       g.fallback_group_id_on_invalid_request === null &&
       g.id !== currentId,
   );
@@ -4460,6 +4909,10 @@ const createForm = reactive({
   platform: "anthropic" as GroupPlatform,
   rate_multiplier: 1.0,
   is_exclusive: false,
+  subscription_type: "standard" as SubscriptionType,
+  daily_limit_usd: null as number | null,
+  weekly_limit_usd: null as number | null,
+  monthly_limit_usd: null as number | null,
   // 图片生成计费配置
   allow_image_generation: false,
   allow_batch_image_generation: false,
@@ -4476,8 +4929,13 @@ const createForm = reactive({
   video_price_480p: null as number | null,
   video_price_720p: null as number | null,
   video_price_1080p: null as number | null,
+  video_model_prices: createVideoModelPricesForm(),
   // Codex 网页搜索按次计费（仅 openai 平台使用）；null = 使用默认价 0.01
   web_search_price_per_call: null as number | null,
+  search_price_per_1k: null as number | null,
+  audio_realtime_price_per_min: null as number | null,
+  audio_tts_price_per_million_chars: null as number | null,
+  audio_stt_price_per_hour: null as number | null,
   // 高峰时段倍率配置
   peak_rate_enabled: false,
   peak_start: "",
@@ -4810,6 +5268,10 @@ const editForm = reactive({
   rate_multiplier: 1.0,
   is_exclusive: false,
   status: "active" as "active" | "inactive",
+  subscription_type: "standard" as SubscriptionType,
+  daily_limit_usd: null as number | null,
+  weekly_limit_usd: null as number | null,
+  monthly_limit_usd: null as number | null,
   // 图片生成计费配置
   allow_image_generation: false,
   allow_batch_image_generation: false,
@@ -4826,8 +5288,13 @@ const editForm = reactive({
   video_price_480p: null as number | null,
   video_price_720p: null as number | null,
   video_price_1080p: null as number | null,
+  video_model_prices: createVideoModelPricesForm(),
   // Codex 网页搜索按次计费（仅 openai 平台使用）；null = 使用默认价 0.01
   web_search_price_per_call: null as number | null,
+  search_price_per_1k: null as number | null,
+  audio_realtime_price_per_min: null as number | null,
+  audio_tts_price_per_million_chars: null as number | null,
+  audio_stt_price_per_hour: null as number | null,
   // 高峰时段倍率配置
   peak_rate_enabled: false,
   peak_start: "",
@@ -5028,9 +5495,15 @@ const resetDisabledBatchImagePricing = (
   }
 };
 
+// 根据分组类型返回不同的删除确认消息
 const deleteConfirmMessage = computed(() => {
   if (!deletingGroup.value) {
     return "";
+  }
+  if (deletingGroup.value.subscription_type === "subscription") {
+    return t("admin.groups.deleteConfirmSubscription", {
+      name: deletingGroup.value.name,
+    });
   }
   return t("admin.groups.deleteConfirm", { name: deletingGroup.value.name });
 });
@@ -5130,6 +5603,26 @@ const formatCost = (cost: number): string => {
   if (cost >= 1000) return cost.toFixed(0);
   if (cost >= 100) return cost.toFixed(1);
   return cost.toFixed(2);
+};
+
+const formatUsd = (cost: number | null | undefined): string =>
+  `$${formatCost(cost ?? 0)}`;
+
+const getQuotaUsageClass = (
+  used: number,
+  limit: number | null | undefined,
+): string => {
+  if (!limit || limit <= 0) {
+    return "font-medium text-gray-700 dark:text-gray-300";
+  }
+  const ratio = used / limit;
+  if (ratio >= 1) {
+    return "font-semibold text-red-600 dark:text-red-400";
+  }
+  if (ratio >= 0.8) {
+    return "font-semibold text-amber-600 dark:text-amber-400";
+  }
+  return "font-medium text-gray-700 dark:text-gray-300";
 };
 
 const loadUsageSummary = async () => {
@@ -5232,6 +5725,10 @@ const closeCreateModal = () => {
   createForm.platform = "anthropic";
   createForm.rate_multiplier = 1.0;
   createForm.is_exclusive = false;
+  createForm.subscription_type = "standard";
+  createForm.daily_limit_usd = null;
+  createForm.weekly_limit_usd = null;
+  createForm.monthly_limit_usd = null;
   createForm.allow_image_generation = false;
   createForm.allow_batch_image_generation = false;
   createForm.image_rate_independent = false;
@@ -5246,7 +5743,12 @@ const closeCreateModal = () => {
   createForm.video_price_480p = null;
   createForm.video_price_720p = null;
   createForm.video_price_1080p = null;
+  createForm.video_model_prices = createVideoModelPricesForm();
   createForm.web_search_price_per_call = null;
+  createForm.search_price_per_1k = null;
+  createForm.audio_realtime_price_per_min = null;
+  createForm.audio_tts_price_per_million_chars = null;
+  createForm.audio_stt_price_per_hour = null;
   createForm.peak_rate_enabled = false;
   createForm.peak_start = "";
   createForm.peak_end = "";
@@ -5270,6 +5772,25 @@ const closeCreateModal = () => {
   createReasoningEffortPolicyRef.value?.resetValidation();
   resetModelsListState(createModelsListState);
   createModelRoutingRules.value = [];
+};
+
+const normalizeOptionalLimit = (
+  value: number | string | null | undefined,
+): number | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  return Number.isFinite(value) && value > 0 ? value : null;
 };
 
 const normalizeRateMultiplier = (
@@ -5312,13 +5833,28 @@ const handleCreateGroup = async () => {
   }
   submitting.value = true;
   try {
+    const {
+      video_model_prices: _createFormVideoModelPrices,
+      ...createGroupForm
+    } = createForm;
+    const videoModelPrices = serializeVideoModelPrices(
+      createForm.video_model_prices,
+    );
     // 构建请求数据，包含模型路由配置
     const requestData = {
-      ...createForm,
-      subscription_type: "standard" as const,
-      daily_limit_usd: null,
-      weekly_limit_usd: null,
-      monthly_limit_usd: null,
+      ...createGroupForm,
+      daily_limit_usd: normalizeOptionalLimit(
+        createForm.daily_limit_usd as number | string | null,
+      ),
+      weekly_limit_usd: normalizeOptionalLimit(
+        createForm.weekly_limit_usd as number | string | null,
+      ),
+      monthly_limit_usd: normalizeOptionalLimit(
+        createForm.monthly_limit_usd as number | string | null,
+      ),
+      ...(Object.keys(videoModelPrices).length > 0
+        ? { video_model_prices: videoModelPrices }
+        : {}),
       model_routing: convertRoutingRulesToApiFormat(
         createModelRoutingRules.value,
       ),
@@ -5353,6 +5889,9 @@ const handleCreateGroup = async () => {
     delete (requestData as Record<string, unknown>).profit_safety_buffer_percent;
     // v-model.number 清空输入框时产生 ""，转为 null 让后端设为无限制
     const emptyToNull = (v: any) => (v === "" ? null : v);
+    requestData.daily_limit_usd = emptyToNull(requestData.daily_limit_usd);
+    requestData.weekly_limit_usd = emptyToNull(requestData.weekly_limit_usd);
+    requestData.monthly_limit_usd = emptyToNull(requestData.monthly_limit_usd);
     requestData.image_rate_multiplier = normalizeRateMultiplier(
       requestData.image_rate_multiplier,
     );
@@ -5374,6 +5913,18 @@ const handleCreateGroup = async () => {
     requestData.video_price_480p = emptyToNull(requestData.video_price_480p);
     requestData.video_price_720p = emptyToNull(requestData.video_price_720p);
     requestData.video_price_1080p = emptyToNull(requestData.video_price_1080p);
+    requestData.search_price_per_1k = emptyToNull(
+      requestData.search_price_per_1k,
+    );
+    requestData.audio_realtime_price_per_min = emptyToNull(
+      requestData.audio_realtime_price_per_min,
+    );
+    requestData.audio_tts_price_per_million_chars = emptyToNull(
+      requestData.audio_tts_price_per_million_chars,
+    );
+    requestData.audio_stt_price_per_hour = emptyToNull(
+      requestData.audio_stt_price_per_hour,
+    );
     requestData.web_search_price_per_call = emptyToNull(
       requestData.web_search_price_per_call,
     );
@@ -5410,6 +5961,10 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.rate_multiplier = group.rate_multiplier;
   editForm.is_exclusive = group.is_exclusive;
   editForm.status = group.status;
+  editForm.subscription_type = group.subscription_type || "standard";
+  editForm.daily_limit_usd = group.daily_limit_usd;
+  editForm.weekly_limit_usd = group.weekly_limit_usd;
+  editForm.monthly_limit_usd = group.monthly_limit_usd;
   editForm.allow_image_generation = group.allow_image_generation ?? false;
   editForm.allow_batch_image_generation =
     group.allow_batch_image_generation ?? false;
@@ -5426,7 +5981,14 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.video_price_480p = group.video_price_480p;
   editForm.video_price_720p = group.video_price_720p;
   editForm.video_price_1080p = group.video_price_1080p;
+  editForm.video_model_prices = createVideoModelPricesForm(
+    group.video_model_prices,
+  );
   editForm.web_search_price_per_call = group.web_search_price_per_call ?? null;
+  editForm.search_price_per_1k = group.search_price_per_1k ?? null;
+  editForm.audio_realtime_price_per_min = group.audio_realtime_price_per_min ?? null;
+  editForm.audio_tts_price_per_million_chars = group.audio_tts_price_per_million_chars ?? null;
+  editForm.audio_stt_price_per_hour = group.audio_stt_price_per_hour ?? null;
   editForm.peak_rate_enabled = group.peak_rate_enabled ?? false;
   editForm.peak_start = group.peak_start ?? "";
   editForm.peak_end = group.peak_end ?? "";
@@ -5506,7 +6068,12 @@ const closeEditModal = () => {
   editForm.video_price_480p = null;
   editForm.video_price_720p = null;
   editForm.video_price_1080p = null;
+  editForm.video_model_prices = createVideoModelPricesForm();
   editForm.web_search_price_per_call = null;
+  editForm.search_price_per_1k = null;
+  editForm.audio_realtime_price_per_min = null;
+  editForm.audio_tts_price_per_million_chars = null;
+  editForm.audio_stt_price_per_hour = null;
   resetMessagesDispatchFormState(editForm);
   editForm.allow_live = false;
   resetModelsListState(editModelsListState);
@@ -5534,10 +6101,18 @@ const handleUpdateGroup = async () => {
     // 转换 fallback_group_id: null -> 0 (后端使用 0 表示清除)
     const payload = {
       ...editForm,
-      subscription_type: "standard" as const,
-      daily_limit_usd: null,
-      weekly_limit_usd: null,
-      monthly_limit_usd: null,
+      daily_limit_usd: normalizeOptionalLimit(
+        editForm.daily_limit_usd as number | string | null,
+      ),
+      weekly_limit_usd: normalizeOptionalLimit(
+        editForm.weekly_limit_usd as number | string | null,
+      ),
+      monthly_limit_usd: normalizeOptionalLimit(
+        editForm.monthly_limit_usd as number | string | null,
+      ),
+      video_model_prices: serializeVideoModelPrices(
+        editForm.video_model_prices,
+      ),
       fallback_group_id:
         editForm.fallback_group_id === null ? 0 : editForm.fallback_group_id,
       fallback_group_id_on_invalid_request:
@@ -5604,6 +6179,18 @@ const handleUpdateGroup = async () => {
     payload.video_price_480p = emptyPriceToClear(payload.video_price_480p);
     payload.video_price_720p = emptyPriceToClear(payload.video_price_720p);
     payload.video_price_1080p = emptyPriceToClear(payload.video_price_1080p);
+    payload.search_price_per_1k = emptyPriceToClear(
+      payload.search_price_per_1k,
+    );
+    payload.audio_realtime_price_per_min = emptyPriceToClear(
+      payload.audio_realtime_price_per_min,
+    );
+    payload.audio_tts_price_per_million_chars = emptyPriceToClear(
+      payload.audio_tts_price_per_million_chars,
+    );
+    payload.audio_stt_price_per_hour = emptyPriceToClear(
+      payload.audio_stt_price_per_hour,
+    );
     payload.web_search_price_per_call = emptyPriceToClear(
       payload.web_search_price_per_call,
     );
@@ -5883,6 +6470,35 @@ const confirmDelete = async () => {
     console.error("Error deleting group:", error);
   }
 };
+
+// 监听 subscription_type 变化，订阅模式时 is_exclusive 默认为 true；标准模式清空高峰配置
+watch(
+  () => createForm.subscription_type,
+  (newVal) => {
+    if (newVal === "subscription") {
+      createForm.is_exclusive = true;
+      createForm.fallback_group_id_on_invalid_request = null;
+    } else {
+      createForm.peak_rate_enabled = false;
+      createForm.peak_start = "";
+      createForm.peak_end = "";
+      createForm.peak_rate_multiplier = 1.0;
+    }
+  },
+);
+
+// 编辑表单：切回标准模式时清空高峰配置，避免残留随更新请求提交被后端拒绝
+watch(
+  () => editForm.subscription_type,
+  (newVal) => {
+    if (newVal !== "subscription") {
+      editForm.peak_rate_enabled = false;
+      editForm.peak_start = "";
+      editForm.peak_end = "";
+      editForm.peak_rate_multiplier = 1.0;
+    }
+  },
+);
 
 watch(
   () => createForm.platform,

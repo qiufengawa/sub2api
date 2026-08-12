@@ -150,9 +150,6 @@ func usageRecordContext(parent context.Context, base context.Context) context.Co
 	if requestID, _ := parent.Value(ctxkey.RequestID).(string); strings.TrimSpace(requestID) != "" {
 		base = context.WithValue(base, ctxkey.RequestID, strings.TrimSpace(requestID))
 	}
-	if billingRequestID, _ := parent.Value(ctxkey.UsageBillingRequestID).(string); strings.TrimSpace(billingRequestID) != "" {
-		base = context.WithValue(base, ctxkey.UsageBillingRequestID, strings.TrimSpace(billingRequestID))
-	}
 	return base
 }
 
@@ -417,34 +414,6 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		h.handleStreamingAwareError(c, status, code, message, streamStarted)
 		return
 	}
-	requestPayloadHash := service.HashUsageRequestPayload(body)
-	billingEstimate := service.RequestBillingEstimate{
-		Kind:  service.RequestBillingEstimateToken,
-		Model: requestBillingEstimateModel(reqModel, channelMapping),
-		Body:  body,
-	}
-	if imageIntent {
-		imageConfig, configErr := service.ResolveOpenAIResponsesImageBillingConfig(body, billingEstimate.Model)
-		if configErr != nil {
-			reqLog.Info("openai.image_billing_reservation_config_failed", zap.Error(configErr))
-			h.handleStreamingAwareError(c, http.StatusBadRequest, "invalid_request_error", configErr.Error(), streamStarted)
-			return
-		}
-		billingEstimate.Kind = service.RequestBillingEstimateImage
-		billingEstimate.Model = imageConfig.Model
-		billingEstimate.SizeTier = imageConfig.SizeTier
-	}
-	billingReservation, err := reserveRequestBilling(c, h.gatewayService, apiKey.User, apiKey, billingEstimate, requestPayloadHash)
-	if err != nil {
-		reqLog.Info("openai.billing_reservation_failed", zap.Error(err))
-		status, code, message, retryAfter := billingErrorDetails(err)
-		if retryAfter > 0 {
-			c.Header("Retry-After", strconv.Itoa(retryAfter))
-		}
-		h.handleStreamingAwareError(c, status, code, message, streamStarted)
-		return
-	}
-	defer billingReservation.Close(c.Request.Context())
 
 	// Generate session hash (header first; fallback to prompt_cache_key)
 	sessionHash := h.gatewayService.GenerateSessionHash(c, sessionHashBody)
@@ -590,10 +559,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		if service.GetOpsCyberPolicy(c) != nil {
 			cyberBlockKeyHTTP = service.CyberSessionBlockKey(apiKey.ID, c, sessionHashBody)
 		}
-		cyberUsageSubmitted := h.recordCyberPolicyIfMarked(c, apiKey, account, subscription, reqModel, err != nil, cyberBlockKeyHTTP, clientRequestedUsageFields(c, channelMapping, reqModel, ""), requestPayloadHash)
-		if cyberUsageSubmitted {
-			billingReservation.MarkForSettlement()
-		}
+		h.recordCyberPolicyIfMarked(c, apiKey, account, subscription, reqModel, err != nil, cyberBlockKeyHTTP, clientRequestedUsageFields(c, channelMapping, reqModel, ""), service.HashUsageRequestPayload(body))
 		forwardDurationMs := time.Since(forwardStart).Milliseconds()
 		upstreamLatencyMs, _ := getContextInt64(c, service.OpsUpstreamLatencyMsKey)
 		responseLatencyMs := forwardDurationMs
@@ -605,10 +571,6 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			service.SetOpsLatencyMs(c, service.OpsTimeToFirstTokenMsKey, int64(*result.FirstTokenMs))
 		}
 		if err != nil {
-			if cyberUsageSubmitted {
-				reqLog.Warn("openai.forward_rejected_by_cyber_policy", zap.Int64("account_id", account.ID), zap.Error(err))
-				return
-			}
 			if result != nil && result.ImageCount > 0 {
 				reqLog.Warn("openai.forward_partial_error_with_image_result",
 					zap.Int64("account_id", account.ID),
@@ -648,16 +610,18 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 						retryLimit := account.GetPoolModeRetryCount()
 						if sameAccountRetryCount[account.ID] < retryLimit {
 							sameAccountRetryCount[account.ID]++
+							retryDelay := sameAccountRetryDelayFor(failoverErr, sameAccountRetryCount[account.ID])
 							reqLog.Warn("openai.pool_mode_same_account_retry",
 								zap.Int64("account_id", account.ID),
 								zap.Int("upstream_status", failoverErr.StatusCode),
 								zap.Int("retry_limit", retryLimit),
 								zap.Int("retry_count", sameAccountRetryCount[account.ID]),
+								zap.Duration("retry_delay", retryDelay),
 							)
 							select {
 							case <-c.Request.Context().Done():
 								return
-							case <-time.After(sameAccountRetryDelay):
+							case <-time.After(retryDelay):
 							}
 							continue
 						}
@@ -726,6 +690,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		// 捕获请求信息（用于异步记录，避免在 goroutine 中访问 gin.Context）
 		userAgent := c.GetHeader("User-Agent")
 		clientIP := ip.GetClientIP(c)
+		requestPayloadHash := service.HashUsageRequestPayload(body)
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := resolveOpenAIUpstreamEndpoint(c, account, result)
 		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
@@ -733,7 +698,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 
 		// 使用量记录通过有界 worker 池提交，避免请求热路径创建无界 goroutine。
 		cyberBlocked := service.GetOpsCyberPolicy(c) != nil
-		if h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
+		h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
 			if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 				Result:             result,
 				APIKey:             apiKey,
@@ -761,9 +726,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 					zap.Int64("account_id", account.ID),
 				).Error("openai.record_usage_failed", zap.Error(err))
 			}
-		}) {
-			billingReservation.MarkForSettlement()
-		}
+		})
 		reqLog.Debug("openai.request_completed",
 			zap.Int64("account_id", account.ID),
 			zap.Int("switch_count", switchCount),
@@ -1035,26 +998,6 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		h.anthropicStreamingAwareError(c, status, code, message, streamStarted)
 		return
 	}
-	requestPayloadHash := service.HashUsageRequestPayload(body)
-	estimateModel := requestBillingEstimateModel(reqModel, channelMappingMsg)
-	if strings.TrimSpace(preferredMappedModel) != "" {
-		estimateModel = preferredMappedModel
-	}
-	billingReservation, err := reserveRequestBilling(c, h.gatewayService, apiKey.User, apiKey, service.RequestBillingEstimate{
-		Kind:  service.RequestBillingEstimateToken,
-		Model: estimateModel,
-		Body:  body,
-	}, requestPayloadHash)
-	if err != nil {
-		reqLog.Info("openai_messages.billing_reservation_failed", zap.Error(err))
-		status, code, message, retryAfter := billingErrorDetails(err)
-		if retryAfter > 0 {
-			c.Header("Retry-After", strconv.Itoa(retryAfter))
-		}
-		h.anthropicStreamingAwareError(c, status, code, message, streamStarted)
-		return
-	}
-	defer billingReservation.Close(c.Request.Context())
 
 	sessionHash := h.gatewayService.GenerateSessionHash(c, body)
 	promptCacheKey := h.gatewayService.ExtractSessionID(c, body)
@@ -1173,10 +1116,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		if service.GetOpsCyberPolicy(c) != nil {
 			cyberBlockKeyMsg = service.CyberSessionBlockKey(apiKey.ID, c, body)
 		}
-		cyberUsageSubmitted := h.recordCyberPolicyIfMarked(c, apiKey, account, subscription, reqModel, err != nil, cyberBlockKeyMsg, clientRequestedUsageFields(c, channelMappingMsg, reqModel, ""), requestPayloadHash)
-		if cyberUsageSubmitted {
-			billingReservation.MarkForSettlement()
-		}
+		h.recordCyberPolicyIfMarked(c, apiKey, account, subscription, reqModel, err != nil, cyberBlockKeyMsg, clientRequestedUsageFields(c, channelMappingMsg, reqModel, ""), service.HashUsageRequestPayload(body))
 		forwardDurationMs := time.Since(forwardStart).Milliseconds()
 		upstreamLatencyMs, _ := getContextInt64(c, service.OpsUpstreamLatencyMsKey)
 		responseLatencyMs := forwardDurationMs
@@ -1188,10 +1128,6 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 			service.SetOpsLatencyMs(c, service.OpsTimeToFirstTokenMsKey, int64(*result.FirstTokenMs))
 		}
 		if err != nil {
-			if cyberUsageSubmitted {
-				reqLog.Warn("openai_messages.forward_rejected_by_cyber_policy", zap.Int64("account_id", account.ID), zap.Error(err))
-				return
-			}
 			if result != nil && result.ImageCount > 0 {
 				reqLog.Warn("openai_messages.forward_partial_error_with_image_result",
 					zap.Int64("account_id", account.ID),
@@ -1224,16 +1160,18 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 						retryLimit := account.GetPoolModeRetryCount()
 						if sameAccountRetryCount[account.ID] < retryLimit {
 							sameAccountRetryCount[account.ID]++
+							retryDelay := sameAccountRetryDelayFor(failoverErr, sameAccountRetryCount[account.ID])
 							reqLog.Warn("openai_messages.pool_mode_same_account_retry",
 								zap.Int64("account_id", account.ID),
 								zap.Int("upstream_status", failoverErr.StatusCode),
 								zap.Int("retry_limit", retryLimit),
 								zap.Int("retry_count", sameAccountRetryCount[account.ID]),
+								zap.Duration("retry_delay", retryDelay),
 							)
 							select {
 							case <-c.Request.Context().Done():
 								return
-							case <-time.After(sameAccountRetryDelay):
+							case <-time.After(retryDelay):
 							}
 							continue
 						}
@@ -1283,13 +1221,14 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 
 		userAgent := c.GetHeader("User-Agent")
 		clientIP := ip.GetClientIP(c)
+		requestPayloadHash := service.HashUsageRequestPayload(body)
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := resolveOpenAIUpstreamEndpoint(c, account, result)
 		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 		sessionID := service.ExtractClientSessionID(c)
 
 		cyberBlocked := service.GetOpsCyberPolicy(c) != nil
-		if h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
+		h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
 			if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 				Result:             result,
 				APIKey:             apiKey,
@@ -1317,9 +1256,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 					zap.Int64("account_id", account.ID),
 				).Error("openai_messages.record_usage_failed", zap.Error(err))
 			}
-		}) {
-			billingReservation.MarkForSettlement()
-		}
+		})
 		reqLog.Debug("openai_messages.request_completed",
 			zap.Int64("account_id", account.ID),
 			zap.Int("switch_count", switchCount),
@@ -1871,86 +1808,6 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, "billing check failed")
 		return
 	}
-	ctx = service.EnsureUsageBillingRequestContext(ctx)
-	c.Request = c.Request.WithContext(ctx)
-	type wsTurnBillingReservation struct {
-		ctx         context.Context
-		handle      *service.RequestBillingReservationHandle
-		payloadHash string
-	}
-	var wsTurnBillingMu sync.Mutex
-	wsTurnBilling := make(map[int]*wsTurnBillingReservation)
-	reserveWSTurnBilling := func(turn int, payload []byte, originalModel string, mapping service.ChannelMappingResult) error {
-		wsTurnBillingMu.Lock()
-		_, exists := wsTurnBilling[turn]
-		wsTurnBillingMu.Unlock()
-		if exists {
-			return nil
-		}
-		turnCtx := service.WithUsageBillingRequestScope(ctx, fmt.Sprintf("responses-ws-turn:%d", turn))
-		payloadHash := service.HashUsageRequestPayload(payload)
-		estimate := service.RequestBillingEstimate{
-			Kind:  service.RequestBillingEstimateToken,
-			Model: requestBillingEstimateModel(originalModel, mapping),
-			Body:  payload,
-		}
-		if service.IsExplicitImageGenerationIntent("/v1/responses", originalModel, payload) {
-			imageConfig, err := service.ResolveOpenAIResponsesImageBillingConfig(payload, estimate.Model)
-			if err != nil {
-				return err
-			}
-			estimate.Kind = service.RequestBillingEstimateImage
-			estimate.Model = imageConfig.Model
-			estimate.SizeTier = imageConfig.SizeTier
-		}
-		handle, err := h.gatewayService.ReserveRequestBilling(turnCtx, apiKey.User, apiKey, estimate, payloadHash)
-		if err != nil {
-			return err
-		}
-		wsTurnBillingMu.Lock()
-		if existing := wsTurnBilling[turn]; existing != nil {
-			wsTurnBillingMu.Unlock()
-			handle.Close(turnCtx)
-			return nil
-		}
-		wsTurnBilling[turn] = &wsTurnBillingReservation{ctx: turnCtx, handle: handle, payloadHash: payloadHash}
-		wsTurnBillingMu.Unlock()
-		return nil
-	}
-	loadWSTurnBilling := func(turn int) *wsTurnBillingReservation {
-		wsTurnBillingMu.Lock()
-		defer wsTurnBillingMu.Unlock()
-		return wsTurnBilling[turn]
-	}
-	transferWSTurnBilling := func(turn int) {
-		wsTurnBillingMu.Lock()
-		reservation := wsTurnBilling[turn]
-		delete(wsTurnBilling, turn)
-		wsTurnBillingMu.Unlock()
-		if reservation != nil && reservation.handle != nil {
-			reservation.handle.MarkForSettlement()
-		}
-	}
-	defer func() {
-		wsTurnBillingMu.Lock()
-		pending := make([]*wsTurnBillingReservation, 0, len(wsTurnBilling))
-		for _, reservation := range wsTurnBilling {
-			pending = append(pending, reservation)
-		}
-		wsTurnBilling = make(map[int]*wsTurnBillingReservation)
-		wsTurnBillingMu.Unlock()
-		for _, reservation := range pending {
-			if reservation != nil && reservation.handle != nil {
-				reservation.handle.Close(reservation.ctx)
-			}
-		}
-	}()
-	if err := reserveWSTurnBilling(1, firstMessage, reqModel, channelMappingWS); err != nil {
-		reqLog.Info("openai.websocket_billing_reservation_failed", zap.Int("turn", 1), zap.Error(err))
-		_, _, message, _ := billingErrorDetails(err)
-		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, message)
-		return
-	}
 
 	sessionHash := h.gatewayService.GenerateSessionHashWithFallback(
 		c,
@@ -2155,6 +2012,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		)
 
 		maxReasoningEffort, reasoningEffortMappings, _ := openAIReasoningEffortPolicyForRequest(c, apiKey)
+		var requestPayloadHash string
 		// Passthrough rejects overlapping response.create frames, so one immutable
 		// turn-tagged slot preserves the exact mapping used for the in-flight request.
 		var turnChannelMapping atomic.Pointer[openAIWSTurnChannelMappingSnapshot]
@@ -2169,6 +2027,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			MaxReasoningEffort:      maxReasoningEffort,
 			ReasoningEffortMappings: reasoningEffortMappings,
 			BeforeRequest: func(turn int, payload []byte, originalModel string) error {
+				c.Set(securityAuditWSTurnContextKey, turn)
 				if turn == 1 {
 					return nil
 				}
@@ -2185,17 +2044,6 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				if decision := h.checkSecurityAuditStage(c, reqLog, apiKey, subject, service.ContentModerationProtocolOpenAIResponses, model, payload, "subsequent_turn"); decision != nil && !decision.AllowNextStage {
 					writeSecurityAuditWSError(ctx, wsConn, decision)
 					return service.NewOpenAIWSClientCloseError(securityAuditWSCloseStatus(decision), securityAuditWSCloseReason(decision), nil)
-				}
-				var mapping service.ChannelMappingResult
-				if snapshot := turnChannelMapping.Load(); snapshot != nil && snapshot.turn == turn {
-					mapping = snapshot.mapping
-				} else {
-					mapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(ctx, apiKey.GroupID, model)
-				}
-				if err := reserveWSTurnBilling(turn, payload, model, mapping); err != nil {
-					reqLog.Info("openai.websocket_billing_reservation_failed", zap.Int("turn", turn), zap.Error(err))
-					_, _, message, _ := billingErrorDetails(err)
-					return service.NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, message, err)
 				}
 				return nil
 			},
@@ -2268,13 +2116,6 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				// 届时 defer 已清除标记）。
 				defer clearCyberPolicyTurnState(c)
 				releaseTurnSlots()
-				turnBilling := loadWSTurnBilling(turn)
-				turnBillingCtx := ctx
-				requestPayloadHash := ""
-				if turnBilling != nil {
-					turnBillingCtx = turnBilling.ctx
-					requestPayloadHash = turnBilling.payloadHash
-				}
 				turnRequestedModel := reqModel
 				turnUpstreamModel := ""
 				if result != nil && turn > 1 {
@@ -2295,23 +2136,17 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 					turnUpstreamModel = turnRequestedModel
 				}
 				turnUsageFields := turnMapping.ToUsageFields(turnRequestedModel, turnUpstreamModel)
-				cyberUsageSubmitted := h.recordCyberPolicyIfMarkedWithContext(turnBillingCtx, c, apiKey, account, subscription, turnRequestedModel, turnErr != nil, cyberBlockKey, turnUsageFields, requestPayloadHash)
+				h.recordCyberPolicyIfMarked(c, apiKey, account, subscription, turnRequestedModel, turnErr != nil, cyberBlockKey, turnUsageFields, requestPayloadHash)
 				if service.GetOpsCyberPolicy(c) != nil {
 					cyberBlockedThisConn = true
 				}
 				if turnErr != nil {
 					if result == nil || result.ImageCount <= 0 {
-						if cyberUsageSubmitted {
-							transferWSTurnBilling(turn)
-						}
 						return
 					}
 					// cyber 命中时该 turn 的用量已由 recordCyberPolicyIfMarked(forwardErrored=true)
 					// 按真实 token 记录，这里不再走下方 RecordUsage，避免对同一 turn 双写/双扣费。
 					if service.GetOpsCyberPolicy(c) != nil {
-						if cyberUsageSubmitted {
-							transferWSTurnBilling(turn)
-						}
 						return
 					}
 					reqLog.Warn("openai.websocket_partial_error_with_image_result",
@@ -2345,7 +2180,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				sessionID := service.ExtractClientSessionID(c)
 				turnRecordPricingAt := turnPricing.current()
 				cyberBlocked := service.GetOpsCyberPolicy(c) != nil
-				if h.submitOpenAIUsageRecordTask(turnBillingCtx, result, func(taskCtx context.Context) {
+				h.submitOpenAIUsageRecordTask(ctx, result, func(taskCtx context.Context) {
 					if err := h.gatewayService.RecordUsage(taskCtx, &service.OpenAIRecordUsageInput{
 						Result:             result,
 						APIKey:             apiKey,
@@ -2370,9 +2205,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 							zap.Error(err),
 						)
 					}
-				}) {
-					transferWSTurnBilling(turn)
-				}
+				})
 			},
 		}
 
@@ -2388,6 +2221,9 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				zap.String("schedule_layer", scheduleDecision.Layer),
 			)
 		}
+
+		// WebSocket 首包可能很大，hash 必须在 hooks 外算成字符串，避免 AfterTurn 闭包保活请求体。
+		requestPayloadHash = service.HashUsageRequestPayload(wsFirstMessage)
 
 		if err := h.gatewayService.ProxyResponsesWebSocketFromClient(ctx, c, wsConn, account, token, wsFirstMessage, hooks); err != nil {
 			var failoverErr *service.UpstreamFailoverError
@@ -2554,47 +2390,69 @@ func getContextInt64(c *gin.Context, key string) (int64, bool) {
 	}
 }
 
-func (h *OpenAIGatewayHandler) submitUsageRecordTask(parent context.Context, task service.UsageRecordTask) bool {
+func (h *OpenAIGatewayHandler) submitUsageRecordTask(parent context.Context, task service.UsageRecordTask) {
 	if task == nil {
-		return false
+		return
 	}
 	task = wrapUsageRecordTaskContext(parent, task)
 	if h.usageRecordWorkerPool != nil {
-		switch mode := h.usageRecordWorkerPool.Submit(task); mode {
-		case service.UsageRecordSubmitModeDroppedStopped:
-			logger.L().With(
-				zap.String("component", "handler.openai_gateway.usage"),
-			).Warn("openai.usage_record_task_stopped_sync_fallback")
-		case service.UsageRecordSubmitModeDropped:
-			return false
-		default:
-			return true
+		if mode := h.usageRecordWorkerPool.Submit(task); mode != service.UsageRecordSubmitModeDroppedStopped {
+			return
 		}
+		// 池已停止（进程关停窗口）：计费任务不能静默丢失，降级为内联同步执行。
+		// 显式配置的 drop/sample 溢出丢弃仍按配置语义保留。
+		logger.L().With(
+			zap.String("component", "handler.openai_gateway.responses"),
+		).Warn("openai.usage_record_task_stopped_sync_fallback")
 	}
-	return runUsageRecordTaskSynchronously(task, "handler.openai_gateway.usage")
+	// 回退路径：worker 池未注入或已停止时同步执行，避免退回到无界 goroutine 模式。
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			logger.L().With(
+				zap.String("component", "handler.openai_gateway.responses"),
+				zap.Any("panic", recovered),
+			).Error("openai.usage_record_task_panic_recovered")
+		}
+	}()
+	task(ctx)
 }
 
-func (h *OpenAIGatewayHandler) submitOpenAIUsageRecordTask(parent context.Context, result *service.OpenAIForwardResult, task service.UsageRecordTask) bool {
-	if result != nil && result.ImageCount > 0 {
-		return h.submitMandatoryUsageRecordTask(parent, task)
+func (h *OpenAIGatewayHandler) submitOpenAIUsageRecordTask(parent context.Context, result *service.OpenAIForwardResult, task service.UsageRecordTask) {
+	// Money-critical bills never drop on pool overflow: media, search surcharge, voice.
+	if result != nil && (result.ImageCount > 0 || result.VideoCount > 0 ||
+		result.SearchCount > 0 || result.WebSearchCalls > 0 || result.AudioUsage != nil) {
+		h.submitMandatoryUsageRecordTask(parent, task)
+		return
 	}
-	return h.submitUsageRecordTask(parent, task)
+	h.submitUsageRecordTask(parent, task)
 }
 
-func (h *OpenAIGatewayHandler) submitMandatoryUsageRecordTask(parent context.Context, task service.UsageRecordTask) bool {
+func (h *OpenAIGatewayHandler) submitMandatoryUsageRecordTask(parent context.Context, task service.UsageRecordTask) {
 	if task == nil {
-		return false
+		return
 	}
 	task = wrapUsageRecordTaskContext(parent, task)
 	if h.usageRecordWorkerPool != nil {
 		if mode := h.usageRecordWorkerPool.Submit(task); !mode.Dropped() {
-			return true
+			return
 		}
 		logger.L().With(
 			zap.String("component", "handler.openai_gateway.usage"),
 		).Warn("openai.usage_record_task_mandatory_sync_fallback")
 	}
-	return runUsageRecordTaskSynchronously(task, "handler.openai_gateway.usage")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			logger.L().With(
+				zap.String("component", "handler.openai_gateway.usage"),
+				zap.Any("panic", recovered),
+			).Error("openai.usage_record_task_panic_recovered")
+		}
+	}()
+	task(ctx)
 }
 
 func (h *OpenAIGatewayHandler) acquireImageGenerationSlot(c *gin.Context, streamStarted bool) (func(), bool) {
@@ -2845,7 +2703,11 @@ func (h *OpenAIGatewayHandler) ensureForwardErrorResponse(c *gin.Context, stream
 		imageKeepalivePaddingOnly = adjustedSize < 0
 		imageKeepaliveResponseWritten = adjustedSize >= 0
 	}
-	if service.IsResponseCommitted(c) || (!compactKeepaliveCommitted && imageKeepaliveResponseWritten) {
+	compactKeepaliveHasMeaningfulOutput := compactKeepaliveCommitted && service.OpenAICompactKeepaliveAdjustedWrittenSize(c) > 0
+	// Compact keepalive may have committed 200 headers without writing a
+	// semantic SSE event. In that case the Responses stream still needs its
+	// protocol-correct terminal response.failed event.
+	if (service.IsResponseCommitted(c) && (!compactKeepaliveCommitted || compactKeepaliveHasMeaningfulOutput)) || (!compactKeepaliveCommitted && imageKeepaliveResponseWritten) {
 		return false
 	}
 	if c.Writer.Written() && !imageKeepalivePaddingOnly {
@@ -3294,21 +3156,13 @@ func (h *OpenAIGatewayHandler) enqueueCyberSessionBlockedOpsEntry(c *gin.Context
 // 并在 forward 返回错误时写一条 tokens=0 用量行。标记由 gateway 服务层在透传 cyber 后设置；
 // 当前请求已发给用户，本方法只做事后记录，不影响响应。forwardErrored 为 true 时才写用量行，
 // 避免与正常 RecordUsage(forward 成功路径)重复。每请求至多记录一次。
-func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey *service.APIKey, account *service.Account, subscription *service.UserSubscription, model string, forwardErrored bool, cyberBlockKey string, channelFields service.ChannelUsageFields, requestPayloadHash string) bool {
-	billingCtx := context.Background()
-	if c != nil && c.Request != nil {
-		billingCtx = c.Request.Context()
-	}
-	return h.recordCyberPolicyIfMarkedWithContext(billingCtx, c, apiKey, account, subscription, model, forwardErrored, cyberBlockKey, channelFields, requestPayloadHash)
-}
-
-func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarkedWithContext(billingCtx context.Context, c *gin.Context, apiKey *service.APIKey, account *service.Account, subscription *service.UserSubscription, model string, forwardErrored bool, cyberBlockKey string, channelFields service.ChannelUsageFields, requestPayloadHash string) bool {
+func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey *service.APIKey, account *service.Account, subscription *service.UserSubscription, model string, forwardErrored bool, cyberBlockKey string, channelFields service.ChannelUsageFields, requestPayloadHash string) {
 	mark := service.GetOpsCyberPolicy(c)
 	if mark == nil {
-		return false
+		return
 	}
 	if c.GetBool(cyberPolicyRecordedKey) {
-		return false
+		return
 	}
 	c.Set(cyberPolicyRecordedKey, true)
 	model = clientRequestedModel(c, model)
@@ -3384,10 +3238,8 @@ func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarkedWithContext(billingCtx c
 		ClientIP:        clientIPStr,
 		CreatedAt:       time.Now(),
 	}
-	usageSubmitted := forwardErrored && gwSvc != nil
 	go func() {
-		baseCtx := usageRecordContext(billingCtx, context.Background())
-		ctx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		if cmSvc != nil {
 			cmSvc.RecordCyberPolicyEvent(ctx, service.CyberPolicyRecordInput{
@@ -3434,7 +3286,6 @@ func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarkedWithContext(billingCtx c
 			enqueueOpsErrorLog(opsSvc, buildCyberPolicyOpsErrorEntry(opsMeta, mark))
 		}
 	}()
-	return usageSubmitted
 }
 
 // clearCyberPolicyTurnState resets the cyber mark and the per-request recorded
