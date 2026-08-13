@@ -630,13 +630,6 @@ export interface AdminGroup extends Group {
   messages_dispatch_model_config?: OpenAIMessagesDispatchModelConfig;
   models_list_config?: ModelsListConfig;
 
-  // Per-model media/search/audio billing configured by administrators.
-  video_model_prices?: Record<string, Record<string, number>>;
-  search_price_per_1k?: number | null;
-  audio_realtime_price_per_min?: number | null;
-  audio_tts_price_per_million_chars?: number | null;
-  audio_stt_price_per_hour?: number | null;
-
   // 分组排序
   sort_order: number;
 }
@@ -1296,9 +1289,6 @@ export interface GrokBillingSummary {
   product_usage?: GrokBillingProductUsage[];
   monthly_limit_cents?: number | null;
   used_cents?: number | null;
-	prepaid_balance?: number | null;
-	monthly_used?: number | null;
-	monthly_limit?: number | null;
   included_used_cents?: number | null;
   billing_period_start?: string;
   billing_period_end?: string;
