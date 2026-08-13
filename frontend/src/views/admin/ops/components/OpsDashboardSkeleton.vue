@@ -9,7 +9,7 @@ const props = withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <div class="space-y-4 lg:space-y-5">
+  <div class="w-full min-w-0 flex-1 space-y-4 lg:space-y-5">
     <div :class="['overflow-hidden rounded-[4px] border border-gray-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-800', props.fullscreen ? 'p-6' : 'p-4 sm:p-5']">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3 dark:border-dark-700">
         <div class="h-3 w-64 max-w-full animate-pulse rounded bg-gray-100 dark:bg-dark-700"></div>

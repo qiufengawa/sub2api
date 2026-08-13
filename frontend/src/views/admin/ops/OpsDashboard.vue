@@ -1,6 +1,6 @@
 <template>
   <component :is="isFullscreen ? 'div' : AppLayout" :class="isFullscreen ? 'flex min-h-screen flex-col justify-center bg-gray-50 dark:bg-dark-950' : ''">
-    <div :class="[isFullscreen ? 'p-4 md:p-6' : '', 'space-y-4 pb-10 lg:space-y-5']">
+    <div :class="[isFullscreen ? 'p-4 md:p-6' : '', 'w-full min-w-0 space-y-4 pb-10 lg:space-y-5']">
       <div
         v-if="errorMessage"
         class="rounded-[4px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/60 dark:bg-red-900/20 dark:text-red-400"

@@ -30,5 +30,8 @@ describe('OpsDashboard command-center layout contract', () => {
       'ops-skeleton-tokens',
       'ops-skeleton-logs',
     ])
+    expect(wrapper.element.className).toContain('w-full')
+    expect(wrapper.element.className).toContain('min-w-0')
+    expect(dashboardSource).toContain('w-full min-w-0 space-y-4')
   })
 })
