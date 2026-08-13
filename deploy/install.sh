@@ -151,7 +151,7 @@ declare -A MSG_ZH=(
     ["cmd_uninstall"]="卸载 Sub2API"
     ["cmd_install_version"]="安装/回退到指定版本"
     ["cmd_list_versions"]="列出可用版本"
-    ["opt_version"]="指定要安装的版本号 (例如: v0.1.175-qiu.1)"
+    ["opt_version"]="指定要安装的版本号 (例如: v0.1.175-qiu.3)"
 
     # Server configuration
     ["server_config_title"]="服务器配置"
@@ -276,7 +276,7 @@ declare -A MSG_EN=(
     ["cmd_uninstall"]="Remove Sub2API"
     ["cmd_install_version"]="Install/rollback to a specific version"
     ["cmd_list_versions"]="List available versions"
-    ["opt_version"]="Specify version to install (e.g., v0.1.175-qiu.1)"
+    ["opt_version"]="Specify version to install (e.g., v0.1.175-qiu.3)"
 
     # Server configuration
     ["server_config_title"]="Server Configuration"
@@ -660,6 +660,10 @@ download_and_extract() {
     # Copy binary
     cp "$TEMP_DIR/sub2api" "$INSTALL_DIR/sub2api"
     chmod +x "$INSTALL_DIR/sub2api"
+    if [ -f "$TEMP_DIR/account-priority-publisher" ]; then
+        cp "$TEMP_DIR/account-priority-publisher" "$INSTALL_DIR/account-priority-publisher"
+        chmod +x "$INSTALL_DIR/account-priority-publisher"
+    fi
 
     # Copy deploy files if they exist in the archive
     if [ -d "$TEMP_DIR/deploy" ]; then
@@ -1182,9 +1186,9 @@ main() {
             echo ""
             echo "Examples:"
             echo "  $0                        # Install latest version"
-            echo "  $0 install -v v0.1.175-qiu.1 # Install specific version"
+            echo "  $0 install -v v0.1.175-qiu.3 # Install specific version"
             echo "  $0 upgrade                # Upgrade to latest"
-            echo "  $0 upgrade -v v0.1.175-qiu.1 # Upgrade to specific version"
+            echo "  $0 upgrade -v v0.1.175-qiu.3 # Upgrade to specific version"
             echo "  $0 rollback v0.1.168-qiu.2   # Roll back to a specific version"
             echo "  $0 list-versions          # List available versions"
             echo ""
