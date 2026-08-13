@@ -45,6 +45,10 @@
         <dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.validity') }}</dt>
         <dd class="min-w-0 break-words text-right font-medium text-gray-800 dark:text-gray-200">{{ validitySuffix }}</dd>
       </div>
+	  <div class="flex min-w-0 items-start justify-between gap-3 py-2.5">
+		<dt class="shrink-0 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.owned') }}</dt>
+		<dd class="font-medium tabular-nums text-gray-800 dark:text-gray-200">{{ ownedCount }} / {{ maxCount }}</dd>
+	  </div>
       <div v-if="includedGroups.length" class="py-2.5">
         <dt class="mb-2 text-gray-400 dark:text-gray-500">{{ t('payment.planCard.includedGroups') }}</dt>
         <dd class="space-y-1.5">
@@ -107,10 +111,11 @@
 
     <button
       type="button"
-      class="mt-auto min-h-10 w-full rounded-[3px] bg-primary-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600"
+	  :disabled="atLimit && maxCount > 1"
+	  :class="['mt-auto min-h-10 w-full rounded-[3px] px-3 py-2 text-sm font-semibold text-white transition-colors', atLimit && maxCount > 1 ? 'cursor-not-allowed bg-gray-300 dark:bg-dark-600' : 'bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600']"
       @click="emit('select', plan)"
     >
-      {{ isRenewal ? t('payment.renewNow') : t('payment.subscribeNow') }}
+	  {{ buttonLabel }}
     </button>
   </div>
 </template>
@@ -138,8 +143,25 @@ const platform = computed(() => {
   return ''
 })
 const isRenewal = computed(() =>
-  props.activeSubscriptions?.some(s => s.plan_id === props.plan.id && s.status === 'active') ?? false
+  props.activeSubscriptions?.some(s =>
+    s.plan_id === props.plan.id &&
+    (s.status === 'active' || s.status === 'suspended') &&
+    (!s.expires_at || new Date(s.expires_at).getTime() > Date.now())
+  ) ?? false
 )
+const ownedCount = computed(() => props.activeSubscriptions?.filter(s =>
+	s.plan_id === props.plan.id &&
+	(s.status === 'active' || s.status === 'suspended') &&
+	(!s.expires_at || new Date(s.expires_at).getTime() > Date.now())
+).length ?? 0)
+const maxCount = computed(() => Math.max(1, Number(props.plan.max_subscriptions_per_user) || 1))
+const atLimit = computed(() => ownedCount.value >= maxCount.value)
+const buttonLabel = computed(() => {
+	if (maxCount.value === 1 && isRenewal.value) return t('payment.renewNow')
+	if (atLimit.value) return t('payment.planCard.limitReached')
+	if (ownedCount.value > 0) return t('payment.planCard.subscribeAnother')
+	return t('payment.subscribeNow')
+})
 
 const pLabel = computed(() => platformLabel(platform.value))
 

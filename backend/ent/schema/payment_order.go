@@ -87,6 +87,9 @@ func (PaymentOrder) Fields() []ent.Field {
 		field.JSON("subscription_plan_snapshot", map[string]any{}).
 			Optional().
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
+		field.Int64("fulfilled_subscription_id").
+			Optional().
+			Nillable(),
 		field.String("provider_instance_id").
 			Optional().
 			Nillable().
@@ -189,6 +192,7 @@ func (PaymentOrder) Indexes() []ent.Index {
 			Unique().
 			Annotations(entsql.IndexWhere("out_trade_no <> ''")),
 		index.Fields("user_id"),
+		index.Fields("fulfilled_subscription_id"),
 		index.Fields("status"),
 		index.Fields("expires_at"),
 		index.Fields("created_at"),

@@ -219,6 +219,20 @@ func (_c *SubscriptionPlanCreate) SetNillableForSale(v *bool) *SubscriptionPlanC
 	return _c
 }
 
+// SetMaxSubscriptionsPerUser sets the "max_subscriptions_per_user" field.
+func (_c *SubscriptionPlanCreate) SetMaxSubscriptionsPerUser(v int) *SubscriptionPlanCreate {
+	_c.mutation.SetMaxSubscriptionsPerUser(v)
+	return _c
+}
+
+// SetNillableMaxSubscriptionsPerUser sets the "max_subscriptions_per_user" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillableMaxSubscriptionsPerUser(v *int) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetMaxSubscriptionsPerUser(*v)
+	}
+	return _c
+}
+
 // SetSortOrder sets the "sort_order" field.
 func (_c *SubscriptionPlanCreate) SetSortOrder(v int) *SubscriptionPlanCreate {
 	_c.mutation.SetSortOrder(v)
@@ -377,6 +391,10 @@ func (_c *SubscriptionPlanCreate) defaults() {
 		v := subscriptionplan.DefaultForSale
 		_c.mutation.SetForSale(v)
 	}
+	if _, ok := _c.mutation.MaxSubscriptionsPerUser(); !ok {
+		v := subscriptionplan.DefaultMaxSubscriptionsPerUser
+		_c.mutation.SetMaxSubscriptionsPerUser(v)
+	}
 	if _, ok := _c.mutation.SortOrder(); !ok {
 		v := subscriptionplan.DefaultSortOrder
 		_c.mutation.SetSortOrder(v)
@@ -445,6 +463,14 @@ func (_c *SubscriptionPlanCreate) check() error {
 	}
 	if _, ok := _c.mutation.ForSale(); !ok {
 		return &ValidationError{Name: "for_sale", err: errors.New(`ent: missing required field "SubscriptionPlan.for_sale"`)}
+	}
+	if _, ok := _c.mutation.MaxSubscriptionsPerUser(); !ok {
+		return &ValidationError{Name: "max_subscriptions_per_user", err: errors.New(`ent: missing required field "SubscriptionPlan.max_subscriptions_per_user"`)}
+	}
+	if v, ok := _c.mutation.MaxSubscriptionsPerUser(); ok {
+		if err := subscriptionplan.MaxSubscriptionsPerUserValidator(v); err != nil {
+			return &ValidationError{Name: "max_subscriptions_per_user", err: fmt.Errorf(`ent: validator failed for field "SubscriptionPlan.max_subscriptions_per_user": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.SortOrder(); !ok {
 		return &ValidationError{Name: "sort_order", err: errors.New(`ent: missing required field "SubscriptionPlan.sort_order"`)}
@@ -541,6 +567,10 @@ func (_c *SubscriptionPlanCreate) createSpec() (*SubscriptionPlan, *sqlgraph.Cre
 	if value, ok := _c.mutation.ForSale(); ok {
 		_spec.SetField(subscriptionplan.FieldForSale, field.TypeBool, value)
 		_node.ForSale = value
+	}
+	if value, ok := _c.mutation.MaxSubscriptionsPerUser(); ok {
+		_spec.SetField(subscriptionplan.FieldMaxSubscriptionsPerUser, field.TypeInt, value)
+		_node.MaxSubscriptionsPerUser = value
 	}
 	if value, ok := _c.mutation.SortOrder(); ok {
 		_spec.SetField(subscriptionplan.FieldSortOrder, field.TypeInt, value)
@@ -904,6 +934,24 @@ func (u *SubscriptionPlanUpsert) UpdateForSale() *SubscriptionPlanUpsert {
 	return u
 }
 
+// SetMaxSubscriptionsPerUser sets the "max_subscriptions_per_user" field.
+func (u *SubscriptionPlanUpsert) SetMaxSubscriptionsPerUser(v int) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldMaxSubscriptionsPerUser, v)
+	return u
+}
+
+// UpdateMaxSubscriptionsPerUser sets the "max_subscriptions_per_user" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdateMaxSubscriptionsPerUser() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldMaxSubscriptionsPerUser)
+	return u
+}
+
+// AddMaxSubscriptionsPerUser adds v to the "max_subscriptions_per_user" field.
+func (u *SubscriptionPlanUpsert) AddMaxSubscriptionsPerUser(v int) *SubscriptionPlanUpsert {
+	u.Add(subscriptionplan.FieldMaxSubscriptionsPerUser, v)
+	return u
+}
+
 // SetSortOrder sets the "sort_order" field.
 func (u *SubscriptionPlanUpsert) SetSortOrder(v int) *SubscriptionPlanUpsert {
 	u.Set(subscriptionplan.FieldSortOrder, v)
@@ -1263,6 +1311,27 @@ func (u *SubscriptionPlanUpsertOne) SetForSale(v bool) *SubscriptionPlanUpsertOn
 func (u *SubscriptionPlanUpsertOne) UpdateForSale() *SubscriptionPlanUpsertOne {
 	return u.Update(func(s *SubscriptionPlanUpsert) {
 		s.UpdateForSale()
+	})
+}
+
+// SetMaxSubscriptionsPerUser sets the "max_subscriptions_per_user" field.
+func (u *SubscriptionPlanUpsertOne) SetMaxSubscriptionsPerUser(v int) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetMaxSubscriptionsPerUser(v)
+	})
+}
+
+// AddMaxSubscriptionsPerUser adds v to the "max_subscriptions_per_user" field.
+func (u *SubscriptionPlanUpsertOne) AddMaxSubscriptionsPerUser(v int) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddMaxSubscriptionsPerUser(v)
+	})
+}
+
+// UpdateMaxSubscriptionsPerUser sets the "max_subscriptions_per_user" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdateMaxSubscriptionsPerUser() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateMaxSubscriptionsPerUser()
 	})
 }
 
@@ -1796,6 +1865,27 @@ func (u *SubscriptionPlanUpsertBulk) SetForSale(v bool) *SubscriptionPlanUpsertB
 func (u *SubscriptionPlanUpsertBulk) UpdateForSale() *SubscriptionPlanUpsertBulk {
 	return u.Update(func(s *SubscriptionPlanUpsert) {
 		s.UpdateForSale()
+	})
+}
+
+// SetMaxSubscriptionsPerUser sets the "max_subscriptions_per_user" field.
+func (u *SubscriptionPlanUpsertBulk) SetMaxSubscriptionsPerUser(v int) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetMaxSubscriptionsPerUser(v)
+	})
+}
+
+// AddMaxSubscriptionsPerUser adds v to the "max_subscriptions_per_user" field.
+func (u *SubscriptionPlanUpsertBulk) AddMaxSubscriptionsPerUser(v int) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddMaxSubscriptionsPerUser(v)
+	})
+}
+
+// UpdateMaxSubscriptionsPerUser sets the "max_subscriptions_per_user" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdateMaxSubscriptionsPerUser() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateMaxSubscriptionsPerUser()
 	})
 }
 

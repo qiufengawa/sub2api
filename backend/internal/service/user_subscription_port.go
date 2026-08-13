@@ -50,6 +50,14 @@ type SubscriptionCoverageRepository interface {
 	UpdateBillingSnapshot(ctx context.Context, subscriptionID int64, snapshot SubscriptionBillingSnapshot, resetCycle bool) error
 }
 
+// SubscriptionInstanceRepository exposes the user-plan scope operations used
+// by explicit multi-instance purchase and renewal flows.
+type SubscriptionInstanceRepository interface {
+	ListByUserIDAndPlanID(ctx context.Context, userID, planID int64) ([]UserSubscription, error)
+	CountOccupyingByUserIDAndPlanID(ctx context.Context, userID, planID int64, now time.Time) (int, error)
+	LockUserPlanScope(ctx context.Context, userID, planID int64) error
+}
+
 type SubscriptionBillingSnapshot struct {
 	PlanID           int64
 	FiveHourQuotaUSD *float64

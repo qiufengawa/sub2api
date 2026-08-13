@@ -274,7 +274,7 @@ func TestReserveBatchImageFunding_SubscriptionFirstCreatesPendingReservation(t *
 	mock.ExpectQuery(`(?s)SELECT billing_preference, balance.*FROM users.*FOR UPDATE`).
 		WithArgs(int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{"billing_preference", "balance"}).AddRow(service.BillingPreferenceSubscriptionFirst, 20.0))
-	mock.ExpectQuery(`(?s)SELECT\s+us.id,.*us.cycle_reserved_usd.*FROM user_subscriptions us.*FOR UPDATE OF us`).
+	mock.ExpectQuery(`(?s)SELECT\s+us.id,.*us.cycle_reserved_usd.*FROM user_subscriptions us.*ORDER BY us\.expires_at ASC, us\.id ASC.*FOR UPDATE OF us`).
 		WithArgs(int64(42), int64(9), sqlmock.AnyArg()).
 		WillReturnRows(subscriptionBillingCandidateRows().
 			AddRow(int64(71), now.Add(24*time.Hour), nil, now, 0.0, 0.0, 10.0, 604800, now, 2.0, 1.0, 20.0, 5.0, 1.0, true))

@@ -72,6 +72,18 @@ type restoreUserSubRepoStub struct {
 	restoredStatus string
 }
 
+func (r *restoreUserSubRepoStub) LockUserPlanScope(context.Context, int64, int64) error {
+	return nil
+}
+
+func (r *restoreUserSubRepoStub) ListByUserIDAndPlanID(context.Context, int64, int64) ([]UserSubscription, error) {
+	return nil, nil
+}
+
+func (r *restoreUserSubRepoStub) CountOccupyingByUserIDAndPlanID(context.Context, int64, int64, time.Time) (int, error) {
+	return 0, nil
+}
+
 func (r *restoreUserSubRepoStub) GetByIDIncludeDeleted(_ context.Context, id int64) (*UserSubscription, error) {
 	if r.sub == nil || r.sub.ID != id {
 		return nil, ErrSubscriptionNotFound
@@ -157,26 +169,5 @@ func TestRestoreSubscription_NotRevokedReturnsConflict(t *testing.T) {
 
 	_, err := svc.RestoreSubscription(context.Background(), 1)
 	require.ErrorIs(t, err, ErrSubscriptionNotRevoked)
-	require.Zero(t, repo.restoreCalls)
-}
-
-func TestRestoreSubscription_LiveSubscriptionConflict(t *testing.T) {
-	deletedAt := time.Now().Add(-time.Hour)
-	repo := &restoreUserSubRepoStub{
-		existsActive: true,
-		sub: &UserSubscription{
-			ID:        1,
-			UserID:    10,
-			PlanID:    20,
-			Status:    SubscriptionStatusExpired,
-			ExpiresAt: time.Now().Add(-time.Hour),
-			DeletedAt: &deletedAt,
-		},
-	}
-	svc := NewSubscriptionService(groupRepoNoop{}, repo, nil, nil, nil)
-	t.Cleanup(svc.Stop)
-
-	_, err := svc.RestoreSubscription(context.Background(), 1)
-	require.ErrorIs(t, err, ErrSubscriptionRestoreConflict)
 	require.Zero(t, repo.restoreCalls)
 }

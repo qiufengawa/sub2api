@@ -290,7 +290,7 @@ describe('user SubscriptionsView', () => {
     await firstCard.get('button').trigger('click')
     expect(routerPush).toHaveBeenCalledWith({
       path: '/purchase',
-      query: { tab: 'subscription', plan_id: '101' },
+	  query: { tab: 'subscription', plan_id: '101', subscription_id: '1' },
     })
   })
 

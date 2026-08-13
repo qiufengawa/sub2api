@@ -423,7 +423,7 @@ async function loadSubscriptions() {
 function renewSubscription(subscription: UserSubscription) {
   router.push({
     path: '/purchase',
-    query: { tab: 'subscription', plan_id: String(subscription.plan_id) },
+	query: { tab: 'subscription', plan_id: String(subscription.plan_id), subscription_id: String(subscription.id) },
   })
 }
 

@@ -150,6 +150,58 @@ function mountDialog({
 }
 
 describe('PlanEditDialog', () => {
+	it('defaults the per-user subscription limit to one and sends it in create payloads', async () => {
+		createPlan.mockReset().mockResolvedValue({})
+		const wrapper = mountDialog({
+			groups: [groupFixture({ id: 11, name: 'GPT-1', subscription_type: 'standard' })],
+		})
+		const vm = wrapper.vm as any
+		expect(vm.planForm.max_subscriptions_per_user).toBe('1')
+		Object.assign(vm.planForm, {
+			name: 'Single', included_group_ids: [11], price: 10, validity_days: 30, validity_unit: 'days',
+		})
+		await wrapper.get('form').trigger('submit')
+		expect(createPlan).toHaveBeenCalledWith(expect.objectContaining({ max_subscriptions_per_user: 1 }))
+	})
+
+	it('hydrates and saves the configured multi-instance limit', async () => {
+		updatePlan.mockReset().mockResolvedValue({})
+		const plan = {
+			id: 99, name: 'Pro', description: '', price: 10, validity_days: 30, validity_unit: 'days',
+			features: [], for_sale: true, sort_order: 0, max_subscriptions_per_user: 3,
+			included_groups: [{ id: 11, name: 'GPT-1', platform: 'openai', rate_multiplier: 1 }],
+		} as SubscriptionPlan
+		const wrapper = mountDialog({
+			groups: [groupFixture({ id: 11, name: 'GPT-1', subscription_type: 'standard' })], plan,
+		})
+		await wrapper.setProps({ show: false })
+		await wrapper.setProps({ show: true })
+		const vm = wrapper.vm as any
+		expect(vm.planForm.max_subscriptions_per_user).toBe('3')
+		vm.planForm.max_subscriptions_per_user = '5'
+		await wrapper.get('form').trigger('submit')
+		expect(updatePlan).toHaveBeenCalledWith(99, expect.objectContaining({ max_subscriptions_per_user: 5 }))
+	})
+
+	it.each(['', '0', '-1', '1.5', '1e2', ' 2 ', '2147483648'])(
+		'rejects invalid per-user subscription limit %j',
+		async value => {
+			createPlan.mockReset().mockResolvedValue({})
+			showError.mockReset()
+			const wrapper = mountDialog({
+				groups: [groupFixture({ id: 11, name: 'GPT-1', subscription_type: 'standard' })],
+			})
+			const vm = wrapper.vm as any
+			Object.assign(vm.planForm, {
+				name: 'Invalid', included_group_ids: [11], price: 10, validity_days: 30,
+				max_subscriptions_per_user: value,
+			})
+			await wrapper.get('form').trigger('submit')
+			expect(createPlan).not.toHaveBeenCalled()
+			expect(showError).toHaveBeenCalledWith('payment.admin.maxSubscriptionsPerUserInvalid')
+		},
+	)
+
   it('does not expose a separate primary-group field', () => {
     const wrapper = mountDialog()
 

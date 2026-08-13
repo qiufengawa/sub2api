@@ -55,16 +55,18 @@ type ResumeTokenClaims struct {
 }
 
 type WeChatPaymentResumeClaims struct {
-	TokenType   string `json:"tk,omitempty"`
-	OpenID      string `json:"openid"`
-	PaymentType string `json:"pt,omitempty"`
-	Amount      string `json:"amt,omitempty"`
-	OrderType   string `json:"ot,omitempty"`
-	PlanID      int64  `json:"pid,omitempty"`
-	RedirectTo  string `json:"rd,omitempty"`
-	Scope       string `json:"scp,omitempty"`
-	IssuedAt    int64  `json:"iat"`
-	ExpiresAt   int64  `json:"exp,omitempty"`
+	TokenType            string `json:"tk,omitempty"`
+	OpenID               string `json:"openid"`
+	PaymentType          string `json:"pt,omitempty"`
+	Amount               string `json:"amt,omitempty"`
+	OrderType            string `json:"ot,omitempty"`
+	PlanID               int64  `json:"pid,omitempty"`
+	PurchaseMode         string `json:"pm,omitempty"`
+	TargetSubscriptionID int64  `json:"sid,omitempty"`
+	RedirectTo           string `json:"rd,omitempty"`
+	Scope                string `json:"scp,omitempty"`
+	IssuedAt             int64  `json:"iat"`
+	ExpiresAt            int64  `json:"exp,omitempty"`
 }
 
 type PaymentResumeService struct {
@@ -385,6 +387,9 @@ func (s *PaymentResumeService) CreateWeChatPaymentResumeToken(claims WeChatPayme
 	if claims.OrderType == "" {
 		claims.OrderType = payment.OrderTypeBalance
 	}
+	if err := normalizeWeChatResumePurchaseContext(&claims); err != nil {
+		return "", err
+	}
 	claims.TokenType = wechatPaymentResumeTokenType
 	return s.createSignedToken(claims)
 }
@@ -416,7 +421,43 @@ func (s *PaymentResumeService) ParseWeChatPaymentResumeToken(token string) (*WeC
 	if claims.OrderType == "" {
 		claims.OrderType = payment.OrderTypeBalance
 	}
+	if err := normalizeWeChatResumePurchaseContext(&claims); err != nil {
+		return nil, infraerrors.BadRequest("INVALID_WECHAT_PAYMENT_RESUME_TOKEN", err.Error())
+	}
 	return &claims, nil
+}
+
+func normalizeWeChatResumePurchaseContext(claims *WeChatPaymentResumeClaims) error {
+	if claims == nil {
+		return fmt.Errorf("wechat payment resume context is missing")
+	}
+	claims.PurchaseMode = strings.TrimSpace(claims.PurchaseMode)
+	if claims.OrderType != payment.OrderTypeSubscription {
+		if claims.PurchaseMode != "" || claims.TargetSubscriptionID != 0 {
+			return fmt.Errorf("subscription purchase context requires a subscription order")
+		}
+		return nil
+	}
+	if claims.PlanID <= 0 {
+		return fmt.Errorf("subscription payment resume token requires plan id")
+	}
+	switch claims.PurchaseMode {
+	case "":
+		if claims.TargetSubscriptionID != 0 {
+			return fmt.Errorf("target subscription requires renew_instance mode")
+		}
+	case PurchaseModeNewInstance:
+		if claims.TargetSubscriptionID != 0 {
+			return fmt.Errorf("new_instance cannot include target subscription")
+		}
+	case PurchaseModeRenewInstance:
+		if claims.TargetSubscriptionID <= 0 {
+			return fmt.Errorf("renew_instance requires target subscription")
+		}
+	default:
+		return fmt.Errorf("invalid subscription purchase mode")
+	}
+	return nil
 }
 
 func (s *PaymentResumeService) createSignedToken(claims any) (string, error) {

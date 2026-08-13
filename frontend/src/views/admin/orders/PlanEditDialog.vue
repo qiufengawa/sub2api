@@ -97,6 +97,11 @@
         <div><label class="input-label">{{ t('payment.admin.validity') }} <span class="text-red-500">*</span></label><input v-model.number="planForm.validity_days" type="number" min="1" class="input" required /></div>
         <div><label class="input-label">{{ t('payment.admin.validityUnit') }} <span class="text-red-500">*</span></label><Select v-model="planForm.validity_unit" :options="validityUnitOptions" /></div>
       </div>
+	  <div>
+		<label class="input-label">{{ t('payment.admin.maxSubscriptionsPerUser') }} <span class="text-red-500">*</span></label>
+		<input v-model="planForm.max_subscriptions_per_user" type="text" inputmode="numeric" pattern="[1-9][0-9]*" class="input" required />
+		<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.maxSubscriptionsPerUserHint') }}</p>
+	  </div>
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div><label class="input-label">{{ t('payment.admin.sortOrder') }}</label><input v-model.number="planForm.sort_order" type="number" min="0" class="input" /></div>
         <div>
@@ -174,6 +179,7 @@ const planForm = reactive({
   total_quota_usd: null as number | null,
   reset_interval_days: 7,
   wallet_fallback_enabled: true,
+	max_subscriptions_per_user: '1',
   description: '',
   price: 0,
   original_price: 0,
@@ -266,6 +272,7 @@ watch(() => props.show, (visible) => {
       total_quota_usd: props.plan.total_quota_usd ?? null,
       reset_interval_days: props.plan.reset_interval_seconds ? props.plan.reset_interval_seconds / 86400 : 7,
       wallet_fallback_enabled: props.plan.wallet_fallback_enabled ?? true,
+	  max_subscriptions_per_user: String(props.plan.max_subscriptions_per_user ?? 1),
       description: props.plan.description,
       price: props.plan.price,
       original_price: props.plan.original_price || 0,
@@ -278,7 +285,7 @@ watch(() => props.show, (visible) => {
     initialIncludedGroupIDs.value = [...new Set(includedGroupIDs)]
     planFeaturesText.value = (props.plan.features || []).join('\n')
   } else {
-    Object.assign(planForm, { name: '', included_group_ids: [], five_hour_quota_usd: null, cycle_quota_usd: null, total_quota_usd: null, reset_interval_days: 7, wallet_fallback_enabled: true, description: '', price: 0, original_price: 0, currency: '', validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true })
+    Object.assign(planForm, { name: '', included_group_ids: [], five_hour_quota_usd: null, cycle_quota_usd: null, total_quota_usd: null, reset_interval_days: 7, wallet_fallback_enabled: true, max_subscriptions_per_user: '1', description: '', price: 0, original_price: 0, currency: '', validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true })
     initialIncludedGroupIDs.value = []
     planFeaturesText.value = ''
   }
@@ -300,6 +307,7 @@ function buildPlanPayload() {
     total_quota_usd: totalQuota,
     reset_interval_seconds: cycleQuota ? Math.round(Number(planForm.reset_interval_days) * 86400) : 0,
     wallet_fallback_enabled: planForm.wallet_fallback_enabled,
+	max_subscriptions_per_user: Number(planForm.max_subscriptions_per_user),
     confirm_group_removal: confirmGroupRemoval.value,
     description: planForm.description,
     price: planForm.price,
@@ -326,6 +334,10 @@ async function handleSavePlan() {
     appStore.showError(t('payment.admin.validityRequired'))
     return
   }
+	if (!/^[1-9]\d*$/.test(planForm.max_subscriptions_per_user) || Number(planForm.max_subscriptions_per_user) > 2147483647) {
+		appStore.showError(t('payment.admin.maxSubscriptionsPerUserInvalid'))
+		return
+	}
 	if (Number(planForm.five_hour_quota_usd) < 0) {
 		appStore.showError(t('payment.admin.fiveHourQuotaInvalid'))
 		return

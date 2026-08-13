@@ -516,7 +516,7 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder, lease
 			return fmt.Errorf("group %d no longer exists or inactive", groupID)
 		}
 	}
-	if err := s.ensurePaymentSubscriptionAssigned(ctx, o, snapshot); err != nil {
+	if err := s.ensurePaymentSubscriptionAssigned(ctx, o, lease, snapshot); err != nil {
 		return err
 	}
 	if err := s.applyAffiliateRebateForOrder(ctx, o); err != nil {
@@ -525,7 +525,7 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder, lease
 	return s.markCompleted(ctx, o, lease, "SUBSCRIPTION_SUCCESS")
 }
 
-func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, o *dbent.PaymentOrder, snapshot SubscriptionPlanOrderSnapshot) error {
+func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, o *dbent.PaymentOrder, lease *paymentFulfillmentLease, snapshot SubscriptionPlanOrderSnapshot) error {
 	if s.subscriptionSvc == nil {
 		return errors.New("subscription service is unavailable")
 	}
@@ -538,58 +538,106 @@ func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, 
 
 	txCtx := dbent.NewTxContext(ctx, tx)
 	txClient := tx.Client()
+	claimedOrderQuery := txClient.PaymentOrder.Query().Where(
+		paymentorder.IDEQ(o.ID),
+		paymentorder.StatusEQ(OrderStatusRecharging),
+		paymentorder.UpdatedAtEQ(lease.version),
+	)
+	if txClient.Driver().Dialect() == dialect.Postgres {
+		claimedOrderQuery = claimedOrderQuery.ForUpdate()
+	}
+	claimedOrder, err := claimedOrderQuery.Only(txCtx)
+	if err != nil {
+		return infraerrors.Conflict("CONFLICT", "fulfillment lease was lost before subscription assignment")
+	}
+	if claimedOrder.FulfilledSubscriptionID != nil {
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("commit recovered subscription fulfillment tx: %w", err)
+		}
+		return s.invalidatePaymentSubscriptionCaches(o.UserID, snapshot.IncludedGroupIDs)
+	}
 	alreadyAssigned, err := hasPaymentSubscriptionAssignmentAudit(txCtx, txClient, o.ID)
 	if err != nil {
 		return fmt.Errorf("check subscription assignment audit: %w", err)
 	}
 
 	recoveredFromNote := false
+	var fulfilledSubscriptionID int64
 	if !alreadyAssigned {
 		orderNote := paymentSubscriptionOrderNote(o.ID)
-		var existing *UserSubscription
-		var lookupErr error
-		if coverageRepo, ok := s.subscriptionSvc.userSubRepo.(SubscriptionCoverageRepository); ok {
-			existing, lookupErr = coverageRepo.GetByUserIDAndPlanID(txCtx, o.UserID, snapshot.PlanID)
-		} else {
-			lookupErr = ErrSubscriptionNotFound
+		input := &AssignSubscriptionInput{
+			UserID:       o.UserID,
+			ValidityDays: snapshot.ValidityDays,
+			AssignedBy:   0,
+			Notes:        orderNote,
 		}
-		switch {
-		case lookupErr == nil && existing != nil && hasPaymentSubscriptionOrderNote(existing.Notes, orderNote):
-			recoveredFromNote = true
-		case lookupErr != nil && !errors.Is(lookupErr, ErrSubscriptionNotFound):
-			return fmt.Errorf("check existing subscription assignment: %w", lookupErr)
-		default:
-			input := &AssignSubscriptionInput{
-				UserID:       o.UserID,
-				ValidityDays: snapshot.ValidityDays,
-				AssignedBy:   0,
-				Notes:        orderNote,
+		input.PlanID = snapshot.PlanID
+		input.FiveHourQuotaUSD = snapshot.FiveHourQuotaUSD
+		input.PreserveExistingFiveHourQuota = snapshot.SchemaVersion < subscriptionPlanOrderSnapshotFiveHourQuotaVersion
+		input.FiveHourQuotaSnapshotProvided = snapshot.SchemaVersion >= subscriptionPlanOrderSnapshotFiveHourQuotaVersion
+		input.CycleQuotaUSD = snapshot.CycleQuotaUSD
+		input.TotalQuotaUSD = snapshot.TotalQuotaUSD
+		input.PreserveExistingTotalQuota = snapshot.SchemaVersion < subscriptionPlanOrderSnapshotTotalQuotaVersion
+		input.TotalQuotaSnapshotProvided = snapshot.SchemaVersion >= subscriptionPlanOrderSnapshotTotalQuotaVersion
+		input.ResetIntervalSeconds = snapshot.ResetIntervalSeconds
+		walletFallback := snapshot.WalletFallbackEnabled
+		input.WalletFallbackEnabled = &walletFallback
+		if snapshot.SchemaVersion >= subscriptionPlanOrderSnapshotMultiInstanceVersion {
+			var fulfilled *UserSubscription
+			switch snapshot.PurchaseMode {
+			case PurchaseModeNewInstance:
+				fulfilled, err = s.subscriptionSvc.CreateSubscriptionInstance(txCtx, input, false, true)
+			case PurchaseModeRenewInstance:
+				fulfilled, err = s.subscriptionSvc.RenewSubscriptionInstance(txCtx, snapshot.TargetSubscriptionID, input, true)
+			default:
+				err = infraerrors.BadRequest("INVALID_STATUS", "invalid subscription purchase mode")
 			}
-			input.PlanID = snapshot.PlanID
-			input.FiveHourQuotaUSD = snapshot.FiveHourQuotaUSD
-			input.PreserveExistingFiveHourQuota = snapshot.SchemaVersion < subscriptionPlanOrderSnapshotFiveHourQuotaVersion
-			input.FiveHourQuotaSnapshotProvided = snapshot.SchemaVersion >= subscriptionPlanOrderSnapshotFiveHourQuotaVersion
-			input.CycleQuotaUSD = snapshot.CycleQuotaUSD
-			input.TotalQuotaUSD = snapshot.TotalQuotaUSD
-			input.PreserveExistingTotalQuota = snapshot.SchemaVersion < subscriptionPlanOrderSnapshotTotalQuotaVersion
-			input.TotalQuotaSnapshotProvided = snapshot.SchemaVersion >= subscriptionPlanOrderSnapshotTotalQuotaVersion
-			input.ResetIntervalSeconds = snapshot.ResetIntervalSeconds
-			walletFallback := snapshot.WalletFallbackEnabled
-			input.WalletFallbackEnabled = &walletFallback
-			if _, _, err := s.subscriptionSvc.assignOrExtendSubscription(txCtx, input, true); err != nil {
-				return fmt.Errorf("assign subscription: %w", err)
+			if err != nil {
+				return fmt.Errorf("fulfill subscription instance: %w", err)
 			}
+			fulfilledSubscriptionID = fulfilled.ID
+		} else {
+			var existing *UserSubscription
+			var lookupErr error
+			if coverageRepo, ok := s.subscriptionSvc.userSubRepo.(SubscriptionCoverageRepository); ok {
+				existing, lookupErr = coverageRepo.GetByUserIDAndPlanID(txCtx, o.UserID, snapshot.PlanID)
+			} else {
+				lookupErr = ErrSubscriptionNotFound
+			}
+			switch {
+			case lookupErr == nil && existing != nil && hasPaymentSubscriptionOrderNote(existing.Notes, orderNote):
+				recoveredFromNote = true
+				fulfilledSubscriptionID = existing.ID
+			case lookupErr != nil && !errors.Is(lookupErr, ErrSubscriptionNotFound):
+				return fmt.Errorf("check existing subscription assignment: %w", lookupErr)
+			default:
+				fulfilled, _, assignErr := s.subscriptionSvc.assignOrExtendSubscription(txCtx, input, true)
+				if assignErr != nil {
+					return fmt.Errorf("assign subscription: %w", assignErr)
+				}
+				fulfilledSubscriptionID = fulfilled.ID
+			}
+		}
+		if fulfilledSubscriptionID <= 0 {
+			return errors.New("subscription fulfillment did not resolve an instance")
+		}
+		if _, err := txClient.PaymentOrder.UpdateOneID(o.ID).
+			SetFulfilledSubscriptionID(fulfilledSubscriptionID).
+			SetUpdatedAt(lease.version).
+			Save(txCtx); err != nil {
+			return fmt.Errorf("record fulfilled subscription: %w", err)
 		}
 
 		detail, _ := json.Marshal(map[string]any{
-			"planID":            snapshot.PlanID,
-			"includedGroupIDs":  snapshot.IncludedGroupIDs,
-			"fiveHourQuotaUSD":  snapshot.FiveHourQuotaUSD,
-			"cycleQuotaUSD":     snapshot.CycleQuotaUSD,
-			"totalQuotaUSD":     snapshot.TotalQuotaUSD,
-			"resetInterval":     snapshot.ResetIntervalSeconds,
-			"validityDays":      snapshot.ValidityDays,
-			"recoveredFromNote": recoveredFromNote,
+			"planID":                  snapshot.PlanID,
+			"includedGroupIDs":        snapshot.IncludedGroupIDs,
+			"fiveHourQuotaUSD":        snapshot.FiveHourQuotaUSD,
+			"cycleQuotaUSD":           snapshot.CycleQuotaUSD,
+			"totalQuotaUSD":           snapshot.TotalQuotaUSD,
+			"resetInterval":           snapshot.ResetIntervalSeconds,
+			"validityDays":            snapshot.ValidityDays,
+			"recoveredFromNote":       recoveredFromNote,
+			"fulfilledSubscriptionID": fulfilledSubscriptionID,
 		})
 		if _, err := txClient.PaymentAuditLog.Create().
 			SetOrderID(strconv.FormatInt(o.ID, 10)).

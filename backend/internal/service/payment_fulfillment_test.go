@@ -846,7 +846,7 @@ func TestExecuteSubscriptionFulfillmentAssignsRealGroupPlanSnapshot(t *testing.T
 		SetPlanID(planID).
 		SetSubscriptionDays(28).
 		SetSubscriptionPlanSnapshot(map[string]any{
-			"schema_version":          subscriptionPlanOrderSnapshotVersion,
+			"schema_version":          subscriptionPlanOrderSnapshotFiveHourQuotaVersion,
 			"plan_id":                 planID,
 			"plan_name":               "Standard",
 			"included_group_ids":      []int64{groupID},
@@ -886,6 +886,80 @@ func TestExecuteSubscriptionFulfillmentAssignsRealGroupPlanSnapshot(t *testing.T
 		Count(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, assignmentAuditCount)
+}
+
+func TestExecuteSubscriptionFulfillmentV5CreatesAndRenewsExactInstances(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	ensurePaymentAuditOrderActionUniqueIndex(t, ctx, client)
+	groupRepo := &subscriptionGroupRepoStub{group: &Group{
+		ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeStandard,
+	}}
+	subRepo := newSubscriptionUserSubRepoStub()
+	svc := &PaymentService{
+		entClient: client, groupRepo: groupRepo,
+		subscriptionSvc: NewSubscriptionService(groupRepo, subRepo, nil, nil, nil),
+	}
+
+	firstOrder := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusPaid, time.Now())
+	planID := *firstOrder.PlanID
+	v5Snapshot := func(mode string, targetID int64) map[string]any {
+		return map[string]any{
+			"schema_version": subscriptionPlanOrderSnapshotVersion, "plan_id": planID,
+			"plan_name": "Pro", "included_group_ids": []int64{7},
+			"reset_interval_seconds": 0, "wallet_fallback_enabled": true,
+			"validity_days": 30, "purchase_mode": mode,
+			"target_subscription_id": targetID, "max_subscriptions_per_user": 2,
+		}
+	}
+	firstOrder, err := client.PaymentOrder.UpdateOneID(firstOrder.ID).
+		SetSubscriptionPlanSnapshot(v5Snapshot(PurchaseModeNewInstance, 0)).Save(ctx)
+	require.NoError(t, err)
+
+	createOrder := func(snapshot map[string]any) *dbent.PaymentOrder {
+		order, err := client.PaymentOrder.Create().
+			SetUserID(firstOrder.UserID).SetUserEmail(firstOrder.UserEmail).SetUserName(firstOrder.UserName).
+			SetAmount(80).SetPayAmount(80).SetFeeRate(0).
+			SetRechargeCode("PAY-SUB-V5-" + strconv.FormatInt(time.Now().UnixNano(), 10)).
+			SetOutTradeNo("sub2_v5_" + strconv.FormatInt(time.Now().UnixNano(), 10)).
+			SetPaymentType(payment.TypeAlipay).SetPaymentTradeNo("trade-v5").
+			SetOrderType(payment.OrderTypeSubscription).SetPlanID(planID).SetSubscriptionDays(30).
+			SetSubscriptionPlanSnapshot(snapshot).SetStatus(OrderStatusPaid).SetPaidAt(time.Now()).
+			SetExpiresAt(time.Now().Add(time.Hour)).SetClientIP("127.0.0.1").SetSrcHost("api.example.com").
+			Save(ctx)
+		require.NoError(t, err)
+		return order
+	}
+
+	require.NoError(t, svc.ExecuteSubscriptionFulfillment(ctx, firstOrder.ID))
+	firstOrder, err = client.PaymentOrder.Get(ctx, firstOrder.ID)
+	require.NoError(t, err)
+	require.NotNil(t, firstOrder.FulfilledSubscriptionID)
+	firstSub, err := subRepo.GetByID(ctx, *firstOrder.FulfilledSubscriptionID)
+	require.NoError(t, err)
+	firstExpiry := firstSub.ExpiresAt
+
+	secondOrder := createOrder(v5Snapshot(PurchaseModeNewInstance, 0))
+	require.NoError(t, svc.ExecuteSubscriptionFulfillment(ctx, secondOrder.ID))
+	secondOrder, err = client.PaymentOrder.Get(ctx, secondOrder.ID)
+	require.NoError(t, err)
+	require.NotNil(t, secondOrder.FulfilledSubscriptionID)
+	require.NotEqual(t, *firstOrder.FulfilledSubscriptionID, *secondOrder.FulfilledSubscriptionID)
+	require.Equal(t, 2, subRepo.createCalls)
+	require.NoError(t, svc.ExecuteSubscriptionFulfillment(ctx, secondOrder.ID))
+	require.Equal(t, 2, subRepo.createCalls, "completed webhook replay must not create another instance")
+
+	renewOrder := createOrder(v5Snapshot(PurchaseModeRenewInstance, firstSub.ID))
+	require.NoError(t, svc.ExecuteSubscriptionFulfillment(ctx, renewOrder.ID))
+	renewOrder, err = client.PaymentOrder.Get(ctx, renewOrder.ID)
+	require.NoError(t, err)
+	require.Equal(t, firstSub.ID, *renewOrder.FulfilledSubscriptionID)
+	renewedFirst, err := subRepo.GetByID(ctx, firstSub.ID)
+	require.NoError(t, err)
+	require.WithinDuration(t, firstExpiry.AddDate(0, 0, 30), renewedFirst.ExpiresAt, time.Second)
+	secondSub, err := subRepo.GetByID(ctx, *secondOrder.FulfilledSubscriptionID)
+	require.NoError(t, err)
+	require.True(t, secondSub.ExpiresAt.Before(renewedFirst.ExpiresAt))
 }
 
 func TestExecuteSubscriptionFulfillmentMaintainsQuotaSnapshotCompatibility(t *testing.T) {
@@ -1106,7 +1180,7 @@ func assertPaymentSubscriptionExpiry(t *testing.T, repo *subscriptionUserSubRepo
 
 func paymentFulfillmentPlanSnapshot(planID int64, validityDays int, groupIDs ...int64) map[string]any {
 	return map[string]any{
-		"schema_version":          subscriptionPlanOrderSnapshotVersion,
+		"schema_version":          subscriptionPlanOrderSnapshotFiveHourQuotaVersion,
 		"plan_id":                 planID,
 		"plan_name":               "Test Plan",
 		"included_group_ids":      groupIDs,

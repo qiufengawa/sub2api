@@ -2,8 +2,10 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
@@ -91,10 +93,11 @@ func (r *userSubscriptionRepository) GetByID(ctx context.Context, id int64) (*se
 
 func (r *userSubscriptionRepository) GetByIDForUpdate(ctx context.Context, id int64) (*service.UserSubscription, error) {
 	client := clientFromContext(ctx, r.client)
-	m, err := client.UserSubscription.Query().
-		Where(usersubscription.IDEQ(id)).
-		ForUpdate().
-		Only(ctx)
+	query := client.UserSubscription.Query().Where(usersubscription.IDEQ(id))
+	if client.Driver().Dialect() == dialect.Postgres {
+		query = query.ForUpdate()
+	}
+	m, err := query.Only(ctx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
 	}
@@ -149,6 +152,46 @@ func (r *userSubscriptionRepository) GetByUserIDAndPlanID(ctx context.Context, u
 		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
 	}
 	return userSubscriptionEntityToService(m), nil
+}
+
+func (r *userSubscriptionRepository) ListByUserIDAndPlanID(ctx context.Context, userID, planID int64) ([]service.UserSubscription, error) {
+	client := clientFromContext(ctx, r.client)
+	rows, err := client.UserSubscription.Query().
+		Where(usersubscription.UserIDEQ(userID), usersubscription.PlanIDEQ(planID)).
+		WithPlan(func(q *dbent.SubscriptionPlanQuery) { q.WithGroups() }).
+		Order(dbent.Asc(usersubscription.FieldExpiresAt), dbent.Asc(usersubscription.FieldID)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return userSubscriptionEntitiesToService(rows), nil
+}
+
+func (r *userSubscriptionRepository) CountOccupyingByUserIDAndPlanID(ctx context.Context, userID, planID int64, now time.Time) (int, error) {
+	client := clientFromContext(ctx, r.client)
+	return client.UserSubscription.Query().Where(
+		usersubscription.UserIDEQ(userID),
+		usersubscription.PlanIDEQ(planID),
+		usersubscription.StatusIn(service.SubscriptionStatusActive, service.SubscriptionStatusSuspended),
+		usersubscription.ExpiresAtGT(now),
+	).Count(ctx)
+}
+
+func (r *userSubscriptionRepository) LockUserPlanScope(ctx context.Context, userID, planID int64) error {
+	if dbent.TxFromContext(ctx) == nil {
+		return fmt.Errorf("user-plan scope lock requires a transaction")
+	}
+	client := clientFromContext(ctx, r.client)
+	if client.Driver().Dialect() != dialect.Postgres {
+		// SQLite test transactions serialize writers. PostgreSQL production uses
+		// the advisory lock below to cover the zero-row case.
+		return nil
+	}
+	rows, err := client.QueryContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, fmt.Sprintf("sub2api:subscription:%d:%d", userID, planID))
+	if err != nil {
+		return err
+	}
+	return rows.Close()
 }
 
 func (r *userSubscriptionRepository) ListActiveCoveringGroup(ctx context.Context, userID, groupID int64) ([]service.UserSubscription, error) {
@@ -210,7 +253,7 @@ func (r *userSubscriptionRepository) UpdateBillingSnapshot(ctx context.Context, 
 			END,
 			total_usage_usd = CASE WHEN $12 THEN 0 ELSE total_usage_usd END,
 			wallet_fallback_enabled = $10,
-			updated_at = NOW()
+			updated_at = CURRENT_TIMESTAMP
 		WHERE id = $11 AND deleted_at IS NULL
 	`,
 		snapshot.PlanID,

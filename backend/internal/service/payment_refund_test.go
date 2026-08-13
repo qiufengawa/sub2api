@@ -157,6 +157,58 @@ func TestPrepDeductBalanceRequiresForceWhenBalanceIsInsufficient(t *testing.T) {
 	}
 }
 
+func TestPrepDeductV5SubscriptionUsesExactFulfilledInstance(t *testing.T) {
+	repo := newSubscriptionUserSubRepoStub()
+	repo.seed(&UserSubscription{ID: 101, UserID: 7, PlanID: 7, Status: SubscriptionStatusActive, ExpiresAt: time.Now().Add(time.Hour)})
+	repo.seed(&UserSubscription{ID: 102, UserID: 7, PlanID: 7, Status: SubscriptionStatusActive, ExpiresAt: time.Now().Add(2 * time.Hour)})
+	svc := &PaymentService{subscriptionSvc: NewSubscriptionService(nil, repo, nil, nil, nil)}
+	t.Cleanup(svc.subscriptionSvc.Stop)
+	fulfilledID := int64(101)
+	order := &dbent.PaymentOrder{
+		UserID:                   7,
+		OrderType:                payment.OrderTypeSubscription,
+		SubscriptionPlanSnapshot: validV5SubscriptionOrderSnapshot(PurchaseModeNewInstance, 0),
+		FulfilledSubscriptionID:  &fulfilledID,
+	}
+	plan := &RefundPlan{}
+
+	result := svc.prepDeduct(context.Background(), order, plan, false)
+	require.Nil(t, result)
+	require.Equal(t, payment.DeductionTypeSubscription, plan.DeductionType)
+	require.Equal(t, int64(101), plan.SubscriptionID)
+	require.Equal(t, 30, plan.SubDaysToDeduct)
+}
+
+func TestPrepDeductV5SubscriptionRejectsMissingOrMismatchedFulfilledInstance(t *testing.T) {
+	repo := newSubscriptionUserSubRepoStub()
+	repo.seed(&UserSubscription{ID: 201, UserID: 8, PlanID: 9, Status: SubscriptionStatusActive, ExpiresAt: time.Now().Add(time.Hour)})
+	svc := &PaymentService{subscriptionSvc: NewSubscriptionService(nil, repo, nil, nil, nil)}
+	t.Cleanup(svc.subscriptionSvc.Stop)
+
+	tests := []struct {
+		name        string
+		fulfilledID *int64
+	}{
+		{name: "missing fulfilled id"},
+		{name: "fulfilled id belongs to another user", fulfilledID: func() *int64 { id := int64(201); return &id }()},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			order := &dbent.PaymentOrder{
+				UserID:                   7,
+				OrderType:                payment.OrderTypeSubscription,
+				SubscriptionPlanSnapshot: validV5SubscriptionOrderSnapshot(PurchaseModeNewInstance, 0),
+				FulfilledSubscriptionID:  test.fulfilledID,
+			}
+			plan := &RefundPlan{}
+			result := svc.prepDeduct(context.Background(), order, plan, false)
+			require.NotNil(t, result)
+			require.True(t, result.RequireForce)
+			require.Zero(t, plan.SubscriptionID)
+		})
+	}
+}
+
 func TestExecuteRefundUsesActualAvailableBalanceDeduction(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)

@@ -75,6 +75,9 @@ func (SubscriptionPlan) Fields() []ent.Field {
 			Default(""),
 		field.Bool("for_sale").
 			Default(true),
+		field.Int("max_subscriptions_per_user").
+			Default(1).
+			Min(1),
 		field.Int("sort_order").
 			Default(0),
 		field.Time("created_at").

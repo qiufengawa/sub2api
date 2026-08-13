@@ -314,6 +314,27 @@ func (_u *SubscriptionPlanUpdate) SetNillableForSale(v *bool) *SubscriptionPlanU
 	return _u
 }
 
+// SetMaxSubscriptionsPerUser sets the "max_subscriptions_per_user" field.
+func (_u *SubscriptionPlanUpdate) SetMaxSubscriptionsPerUser(v int) *SubscriptionPlanUpdate {
+	_u.mutation.ResetMaxSubscriptionsPerUser()
+	_u.mutation.SetMaxSubscriptionsPerUser(v)
+	return _u
+}
+
+// SetNillableMaxSubscriptionsPerUser sets the "max_subscriptions_per_user" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdate) SetNillableMaxSubscriptionsPerUser(v *int) *SubscriptionPlanUpdate {
+	if v != nil {
+		_u.SetMaxSubscriptionsPerUser(*v)
+	}
+	return _u
+}
+
+// AddMaxSubscriptionsPerUser adds value to the "max_subscriptions_per_user" field.
+func (_u *SubscriptionPlanUpdate) AddMaxSubscriptionsPerUser(v int) *SubscriptionPlanUpdate {
+	_u.mutation.AddMaxSubscriptionsPerUser(v)
+	return _u
+}
+
 // SetSortOrder sets the "sort_order" field.
 func (_u *SubscriptionPlanUpdate) SetSortOrder(v int) *SubscriptionPlanUpdate {
 	_u.mutation.ResetSortOrder()
@@ -512,6 +533,11 @@ func (_u *SubscriptionPlanUpdate) check() error {
 			return &ValidationError{Name: "product_name", err: fmt.Errorf(`ent: validator failed for field "SubscriptionPlan.product_name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.MaxSubscriptionsPerUser(); ok {
+		if err := subscriptionplan.MaxSubscriptionsPerUserValidator(v); err != nil {
+			return &ValidationError{Name: "max_subscriptions_per_user", err: fmt.Errorf(`ent: validator failed for field "SubscriptionPlan.max_subscriptions_per_user": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -604,6 +630,12 @@ func (_u *SubscriptionPlanUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if value, ok := _u.mutation.ForSale(); ok {
 		_spec.SetField(subscriptionplan.FieldForSale, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.MaxSubscriptionsPerUser(); ok {
+		_spec.SetField(subscriptionplan.FieldMaxSubscriptionsPerUser, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMaxSubscriptionsPerUser(); ok {
+		_spec.AddField(subscriptionplan.FieldMaxSubscriptionsPerUser, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.SortOrder(); ok {
 		_spec.SetField(subscriptionplan.FieldSortOrder, field.TypeInt, value)
@@ -1064,6 +1096,27 @@ func (_u *SubscriptionPlanUpdateOne) SetNillableForSale(v *bool) *SubscriptionPl
 	return _u
 }
 
+// SetMaxSubscriptionsPerUser sets the "max_subscriptions_per_user" field.
+func (_u *SubscriptionPlanUpdateOne) SetMaxSubscriptionsPerUser(v int) *SubscriptionPlanUpdateOne {
+	_u.mutation.ResetMaxSubscriptionsPerUser()
+	_u.mutation.SetMaxSubscriptionsPerUser(v)
+	return _u
+}
+
+// SetNillableMaxSubscriptionsPerUser sets the "max_subscriptions_per_user" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdateOne) SetNillableMaxSubscriptionsPerUser(v *int) *SubscriptionPlanUpdateOne {
+	if v != nil {
+		_u.SetMaxSubscriptionsPerUser(*v)
+	}
+	return _u
+}
+
+// AddMaxSubscriptionsPerUser adds value to the "max_subscriptions_per_user" field.
+func (_u *SubscriptionPlanUpdateOne) AddMaxSubscriptionsPerUser(v int) *SubscriptionPlanUpdateOne {
+	_u.mutation.AddMaxSubscriptionsPerUser(v)
+	return _u
+}
+
 // SetSortOrder sets the "sort_order" field.
 func (_u *SubscriptionPlanUpdateOne) SetSortOrder(v int) *SubscriptionPlanUpdateOne {
 	_u.mutation.ResetSortOrder()
@@ -1275,6 +1328,11 @@ func (_u *SubscriptionPlanUpdateOne) check() error {
 			return &ValidationError{Name: "product_name", err: fmt.Errorf(`ent: validator failed for field "SubscriptionPlan.product_name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.MaxSubscriptionsPerUser(); ok {
+		if err := subscriptionplan.MaxSubscriptionsPerUserValidator(v); err != nil {
+			return &ValidationError{Name: "max_subscriptions_per_user", err: fmt.Errorf(`ent: validator failed for field "SubscriptionPlan.max_subscriptions_per_user": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -1384,6 +1442,12 @@ func (_u *SubscriptionPlanUpdateOne) sqlSave(ctx context.Context) (_node *Subscr
 	}
 	if value, ok := _u.mutation.ForSale(); ok {
 		_spec.SetField(subscriptionplan.FieldForSale, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.MaxSubscriptionsPerUser(); ok {
+		_spec.SetField(subscriptionplan.FieldMaxSubscriptionsPerUser, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedMaxSubscriptionsPerUser(); ok {
+		_spec.AddField(subscriptionplan.FieldMaxSubscriptionsPerUser, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.SortOrder(); ok {
 		_spec.SetField(subscriptionplan.FieldSortOrder, field.TypeInt, value)

@@ -191,6 +191,31 @@ func (s *subscriptionUserSubRepoStub) GetByUserIDAndPlanID(_ context.Context, us
 	return &cp, nil
 }
 
+func (s *subscriptionUserSubRepoStub) ListByUserIDAndPlanID(_ context.Context, userID, planID int64) ([]UserSubscription, error) {
+	result := make([]UserSubscription, 0)
+	for _, sub := range s.byID {
+		if sub.UserID == userID && sub.PlanID == planID {
+			result = append(result, *sub)
+		}
+	}
+	return result, nil
+}
+
+func (s *subscriptionUserSubRepoStub) CountOccupyingByUserIDAndPlanID(_ context.Context, userID, planID int64, now time.Time) (int, error) {
+	count := 0
+	for _, sub := range s.byID {
+		if sub.UserID == userID && sub.PlanID == planID && sub.ExpiresAt.After(now) &&
+			(sub.Status == SubscriptionStatusActive || sub.Status == SubscriptionStatusSuspended) {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (s *subscriptionUserSubRepoStub) LockUserPlanScope(context.Context, int64, int64) error {
+	return nil
+}
+
 func (s *subscriptionUserSubRepoStub) GetActiveCoveringGroup(_ context.Context, userID, groupID int64) (*UserSubscription, error) {
 	for _, sub := range s.byUserPlan {
 		if sub.UserID == userID && sub.Status == SubscriptionStatusActive && sub.CoversGroup(groupID) {

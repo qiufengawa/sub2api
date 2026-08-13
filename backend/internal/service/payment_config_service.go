@@ -163,47 +163,49 @@ type UpdateProviderInstanceRequest struct {
 	AllowUserRefund *bool             `json:"allow_user_refund"`
 }
 type CreatePlanRequest struct {
-	IncludedGroupIDs      []int64  `json:"included_group_ids"`
-	FiveHourQuotaUSD      *float64 `json:"five_hour_quota_usd"`
-	CycleQuotaUSD         *float64 `json:"cycle_quota_usd"`
-	TotalQuotaUSD         *float64 `json:"total_quota_usd"`
-	ResetIntervalSeconds  int      `json:"reset_interval_seconds"`
-	WalletFallbackEnabled *bool    `json:"wallet_fallback_enabled"`
-	Name                  string   `json:"name"`
-	Description           string   `json:"description"`
-	Price                 float64  `json:"price"`
-	OriginalPrice         *float64 `json:"original_price"`
-	Currency              string   `json:"currency"`
-	ValidityDays          int      `json:"validity_days"`
-	ValidityUnit          string   `json:"validity_unit"`
-	Features              string   `json:"features"`
-	ProductName           string   `json:"product_name"`
-	ForSale               bool     `json:"for_sale"`
-	SortOrder             int      `json:"sort_order"`
+	IncludedGroupIDs        []int64  `json:"included_group_ids"`
+	FiveHourQuotaUSD        *float64 `json:"five_hour_quota_usd"`
+	CycleQuotaUSD           *float64 `json:"cycle_quota_usd"`
+	TotalQuotaUSD           *float64 `json:"total_quota_usd"`
+	ResetIntervalSeconds    int      `json:"reset_interval_seconds"`
+	WalletFallbackEnabled   *bool    `json:"wallet_fallback_enabled"`
+	MaxSubscriptionsPerUser *int     `json:"max_subscriptions_per_user"`
+	Name                    string   `json:"name"`
+	Description             string   `json:"description"`
+	Price                   float64  `json:"price"`
+	OriginalPrice           *float64 `json:"original_price"`
+	Currency                string   `json:"currency"`
+	ValidityDays            int      `json:"validity_days"`
+	ValidityUnit            string   `json:"validity_unit"`
+	Features                string   `json:"features"`
+	ProductName             string   `json:"product_name"`
+	ForSale                 bool     `json:"for_sale"`
+	SortOrder               int      `json:"sort_order"`
 }
 
 type UpdatePlanRequest struct {
-	IncludedGroupIDs      *[]int64 `json:"included_group_ids"`
-	FiveHourQuotaUSD      *float64 `json:"five_hour_quota_usd"`
-	FiveHourQuotaUSDSet   bool     `json:"-"`
-	CycleQuotaUSD         *float64 `json:"cycle_quota_usd"`
-	CycleQuotaUSDSet      bool     `json:"-"`
-	TotalQuotaUSD         *float64 `json:"total_quota_usd"`
-	TotalQuotaUSDSet      bool     `json:"-"`
-	ResetIntervalSeconds  *int     `json:"reset_interval_seconds"`
-	WalletFallbackEnabled *bool    `json:"wallet_fallback_enabled"`
-	ConfirmGroupRemoval   bool     `json:"confirm_group_removal"`
-	Name                  *string  `json:"name"`
-	Description           *string  `json:"description"`
-	Price                 *float64 `json:"price"`
-	OriginalPrice         *float64 `json:"original_price"`
-	Currency              *string  `json:"currency"`
-	ValidityDays          *int     `json:"validity_days"`
-	ValidityUnit          *string  `json:"validity_unit"`
-	Features              *string  `json:"features"`
-	ProductName           *string  `json:"product_name"`
-	ForSale               *bool    `json:"for_sale"`
-	SortOrder             *int     `json:"sort_order"`
+	IncludedGroupIDs        *[]int64 `json:"included_group_ids"`
+	FiveHourQuotaUSD        *float64 `json:"five_hour_quota_usd"`
+	FiveHourQuotaUSDSet     bool     `json:"-"`
+	CycleQuotaUSD           *float64 `json:"cycle_quota_usd"`
+	CycleQuotaUSDSet        bool     `json:"-"`
+	TotalQuotaUSD           *float64 `json:"total_quota_usd"`
+	TotalQuotaUSDSet        bool     `json:"-"`
+	ResetIntervalSeconds    *int     `json:"reset_interval_seconds"`
+	WalletFallbackEnabled   *bool    `json:"wallet_fallback_enabled"`
+	MaxSubscriptionsPerUser *int     `json:"max_subscriptions_per_user"`
+	ConfirmGroupRemoval     bool     `json:"confirm_group_removal"`
+	Name                    *string  `json:"name"`
+	Description             *string  `json:"description"`
+	Price                   *float64 `json:"price"`
+	OriginalPrice           *float64 `json:"original_price"`
+	Currency                *string  `json:"currency"`
+	ValidityDays            *int     `json:"validity_days"`
+	ValidityUnit            *string  `json:"validity_unit"`
+	Features                *string  `json:"features"`
+	ProductName             *string  `json:"product_name"`
+	ForSale                 *bool    `json:"for_sale"`
+	SortOrder               *int     `json:"sort_order"`
 }
 
 // PaymentConfigService manages payment configuration and CRUD for

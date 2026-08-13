@@ -44,6 +44,8 @@ const (
 	FieldProductName = "product_name"
 	// FieldForSale holds the string denoting the for_sale field in the database.
 	FieldForSale = "for_sale"
+	// FieldMaxSubscriptionsPerUser holds the string denoting the max_subscriptions_per_user field in the database.
+	FieldMaxSubscriptionsPerUser = "max_subscriptions_per_user"
 	// FieldSortOrder holds the string denoting the sort_order field in the database.
 	FieldSortOrder = "sort_order"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -106,6 +108,7 @@ var Columns = []string{
 	FieldFeatures,
 	FieldProductName,
 	FieldForSale,
+	FieldMaxSubscriptionsPerUser,
 	FieldSortOrder,
 	FieldCreatedAt,
 	FieldUpdatedAt,
@@ -154,6 +157,10 @@ var (
 	ProductNameValidator func(string) error
 	// DefaultForSale holds the default value on creation for the "for_sale" field.
 	DefaultForSale bool
+	// DefaultMaxSubscriptionsPerUser holds the default value on creation for the "max_subscriptions_per_user" field.
+	DefaultMaxSubscriptionsPerUser int
+	// MaxSubscriptionsPerUserValidator is a validator for the "max_subscriptions_per_user" field. It is called by the builders before save.
+	MaxSubscriptionsPerUserValidator func(int) error
 	// DefaultSortOrder holds the default value on creation for the "sort_order" field.
 	DefaultSortOrder int
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
@@ -245,6 +252,11 @@ func ByProductName(opts ...sql.OrderTermOption) OrderOption {
 // ByForSale orders the results by the for_sale field.
 func ByForSale(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldForSale, opts...).ToFunc()
+}
+
+// ByMaxSubscriptionsPerUser orders the results by the max_subscriptions_per_user field.
+func ByMaxSubscriptionsPerUser(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMaxSubscriptionsPerUser, opts...).ToFunc()
 }
 
 // BySortOrder orders the results by the sort_order field.

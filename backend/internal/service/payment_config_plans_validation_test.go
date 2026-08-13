@@ -173,6 +173,13 @@ func TestValidatePlanPatch_AllNil(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestValidatePlanPatch_MaxSubscriptionsPerUser(t *testing.T) {
+	require.NoError(t, validatePlanPatch(UpdatePlanRequest{MaxSubscriptionsPerUser: ptrInt(1)}))
+	require.NoError(t, validatePlanPatch(UpdatePlanRequest{MaxSubscriptionsPerUser: ptrInt(2)}))
+	require.Error(t, validatePlanPatch(UpdatePlanRequest{MaxSubscriptionsPerUser: ptrInt(0)}))
+	require.Error(t, validatePlanPatch(UpdatePlanRequest{MaxSubscriptionsPerUser: ptrInt(-1)}))
+}
+
 // --- normalizePlanCurrency tests ---
 // Empty must stay empty (not coerced to the default payment currency),
 // so existing plans keep rendering without any currency label.

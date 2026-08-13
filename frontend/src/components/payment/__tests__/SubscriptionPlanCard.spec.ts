@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createPinia } from "pinia";
 import { createI18n } from "vue-i18n";
 import type { SubscriptionPlan } from "@/types/payment";
+import type { UserSubscription } from "@/types";
 import SubscriptionPlanCard from "../SubscriptionPlanCard.vue";
 
 const i18n = createI18n({
@@ -29,14 +30,18 @@ const i18n = createI18n({
           validForPlanTerm: "for the full plan term",
           rate: "Rate",
           unlimited: "Unlimited",
+		  owned: "Owned",
+		  subscribeAnother: "Subscribe another",
+		  limitReached: "Limit reached",
         },
         subscribeNow: "Subscribe now",
+		renewNow: "Renew now",
       },
     },
   },
 });
 
-const mountPlanCard = (groupPlatform: string, overrides: Partial<SubscriptionPlan> = {}) => {
+const mountPlanCard = (groupPlatform: string, overrides: Partial<SubscriptionPlan> = {}, activeSubscriptions: UserSubscription[] = []) => {
   const includedGroups = groupPlatform === "composite"
     ? [
         { id: 10, name: "OpenAI", platform: "openai", rate_multiplier: 1 },
@@ -66,12 +71,52 @@ const mountPlanCard = (groupPlatform: string, overrides: Partial<SubscriptionPla
         is_active: true,
         ...overrides,
       },
+	  activeSubscriptions,
     },
     global: { plugins: [i18n, createPinia()] },
   });
 }
 
 describe("SubscriptionPlanCard", () => {
+	const subscription = (overrides: Partial<UserSubscription> = {}): UserSubscription => ({
+		id: 11,
+		user_id: 1,
+		plan_id: 1,
+		status: 'active',
+		starts_at: new Date(Date.now() - 86400000).toISOString(),
+		expires_at: new Date(Date.now() + 86400000).toISOString(),
+		included_groups: [],
+		...overrides,
+	} as UserSubscription)
+
+	it("keeps single-instance active and suspended subscriptions renewable", () => {
+		for (const status of ['active', 'suspended']) {
+			const wrapper = mountPlanCard("openai", { max_subscriptions_per_user: 1 }, [subscription({ status })])
+			expect(wrapper.text()).toContain("1 / 1")
+			expect(wrapper.get("button").text()).toBe("payment.renewNow")
+			expect(wrapper.get("button").attributes("disabled")).toBeUndefined()
+		}
+	})
+
+	it("offers another independent instance while below a multi-instance limit", () => {
+		const wrapper = mountPlanCard("openai", { max_subscriptions_per_user: 3 }, [subscription()])
+		expect(wrapper.text()).toContain("1 / 3")
+		expect(wrapper.get("button").text()).toBe("payment.planCard.subscribeAnother")
+		expect(wrapper.get("button").attributes("disabled")).toBeUndefined()
+	})
+
+	it("disables new purchases when the multi-instance limit is reached", () => {
+		const wrapper = mountPlanCard("openai", { max_subscriptions_per_user: 2 }, [subscription(), subscription({ id: 12, status: 'suspended' })])
+		expect(wrapper.text()).toContain("2 / 2")
+		expect(wrapper.get("button").text()).toBe("payment.planCard.limitReached")
+		expect(wrapper.get("button").attributes("disabled")).toBeDefined()
+	})
+
+	it("does not count expired instances toward ownership", () => {
+		const wrapper = mountPlanCard("openai", { max_subscriptions_per_user: 2 }, [subscription({ expires_at: new Date(Date.now() - 1000).toISOString() })])
+		expect(wrapper.text()).toContain("0 / 2")
+		expect(wrapper.get("button").text()).toBe("payment.subscribeNow")
+	})
   it("does not show Antigravity model scopes for OpenAI plans", () => {
     const text = mountPlanCard("openai").text();
 

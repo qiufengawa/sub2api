@@ -75,6 +75,25 @@ func TestApplyWeChatPaymentResumeClaimsRejectsPaymentTypeMismatch(t *testing.T) 
 	}
 }
 
+func TestApplyWeChatPaymentResumeClaimsRejectsPurchaseContextMismatch(t *testing.T) {
+	t.Parallel()
+
+	req := CreateOrderRequest{
+		PaymentType:          payment.TypeWxpay,
+		PurchaseMode:         service.PurchaseModeRenewInstance,
+		TargetSubscriptionID: 41,
+	}
+	err := applyWeChatPaymentResumeClaims(&req, &service.WeChatPaymentResumeClaims{
+		OpenID:               "openid-123",
+		PaymentType:          payment.TypeWxpay,
+		OrderType:            payment.OrderTypeSubscription,
+		PlanID:               7,
+		PurchaseMode:         service.PurchaseModeRenewInstance,
+		TargetSubscriptionID: 42,
+	})
+	require.Error(t, err)
+}
+
 func TestVerifyOrderPublicReturnsLegacyOrderState(t *testing.T) {
 	t.Parallel()
 

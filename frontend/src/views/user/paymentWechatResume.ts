@@ -1,5 +1,6 @@
 import type { LocationQuery, LocationQueryRaw } from 'vue-router'
 import type { SubscriptionPlan } from '@/types/payment'
+import type { SubscriptionPurchaseMode } from '@/types/payment'
 import { normalizeVisibleMethod } from '@/components/payment/paymentFlow'
 
 export interface ParsedWechatResumeRoute {
@@ -7,6 +8,8 @@ export interface ParsedWechatResumeRoute {
   orderType: 'balance' | 'subscription'
   paymentType: string
   planId?: number
+	purchaseMode?: SubscriptionPurchaseMode
+	targetSubscriptionId?: number
   openid?: string
   wechatResumeToken?: string
 }
@@ -40,6 +43,10 @@ export function parseWechatResumeRoute(
   const paymentType = normalizeVisibleMethod(readQueryString(query, 'payment_type')) || 'wxpay'
   const planId = Number.parseInt(readQueryString(query, 'plan_id'), 10)
   const hasPlanId = Number.isFinite(planId) && planId > 0
+	const rawPurchaseMode = readQueryString(query, 'purchase_mode')
+	const purchaseMode = rawPurchaseMode === 'new_instance' || rawPurchaseMode === 'renew_instance' ? rawPurchaseMode : undefined
+	const targetSubscriptionId = Number.parseInt(readQueryString(query, 'target_subscription_id'), 10)
+	const hasTargetSubscriptionId = Number.isFinite(targetSubscriptionId) && targetSubscriptionId > 0
   const orderType = readQueryString(query, 'order_type') === 'subscription' || hasPlanId
     ? 'subscription'
     : 'balance'
@@ -51,6 +58,8 @@ export function parseWechatResumeRoute(
       orderType,
       orderAmount: 0,
       planId: hasPlanId ? planId : undefined,
+	  purchaseMode,
+	  targetSubscriptionId: hasTargetSubscriptionId ? targetSubscriptionId : undefined,
     }
   }
 
@@ -72,6 +81,8 @@ export function parseWechatResumeRoute(
     orderType,
     orderAmount,
     planId: hasPlanId ? planId : undefined,
+	purchaseMode,
+	targetSubscriptionId: hasTargetSubscriptionId ? targetSubscriptionId : undefined,
   }
 }
 
@@ -86,5 +97,7 @@ export function stripWechatResumeQuery(query: LocationQuery): LocationQueryRaw {
   delete nextQuery.amount
   delete nextQuery.order_type
   delete nextQuery.plan_id
+	delete nextQuery.purchase_mode
+	delete nextQuery.target_subscription_id
   return nextQuery
 }

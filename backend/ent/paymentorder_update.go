@@ -350,6 +350,33 @@ func (_u *PaymentOrderUpdate) ClearSubscriptionPlanSnapshot() *PaymentOrderUpdat
 	return _u
 }
 
+// SetFulfilledSubscriptionID sets the "fulfilled_subscription_id" field.
+func (_u *PaymentOrderUpdate) SetFulfilledSubscriptionID(v int64) *PaymentOrderUpdate {
+	_u.mutation.ResetFulfilledSubscriptionID()
+	_u.mutation.SetFulfilledSubscriptionID(v)
+	return _u
+}
+
+// SetNillableFulfilledSubscriptionID sets the "fulfilled_subscription_id" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableFulfilledSubscriptionID(v *int64) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetFulfilledSubscriptionID(*v)
+	}
+	return _u
+}
+
+// AddFulfilledSubscriptionID adds value to the "fulfilled_subscription_id" field.
+func (_u *PaymentOrderUpdate) AddFulfilledSubscriptionID(v int64) *PaymentOrderUpdate {
+	_u.mutation.AddFulfilledSubscriptionID(v)
+	return _u
+}
+
+// ClearFulfilledSubscriptionID clears the value of the "fulfilled_subscription_id" field.
+func (_u *PaymentOrderUpdate) ClearFulfilledSubscriptionID() *PaymentOrderUpdate {
+	_u.mutation.ClearFulfilledSubscriptionID()
+	return _u
+}
+
 // SetProviderInstanceID sets the "provider_instance_id" field.
 func (_u *PaymentOrderUpdate) SetProviderInstanceID(v string) *PaymentOrderUpdate {
 	_u.mutation.SetProviderInstanceID(v)
@@ -923,6 +950,15 @@ func (_u *PaymentOrderUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if _u.mutation.SubscriptionPlanSnapshotCleared() {
 		_spec.ClearField(paymentorder.FieldSubscriptionPlanSnapshot, field.TypeJSON)
 	}
+	if value, ok := _u.mutation.FulfilledSubscriptionID(); ok {
+		_spec.SetField(paymentorder.FieldFulfilledSubscriptionID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedFulfilledSubscriptionID(); ok {
+		_spec.AddField(paymentorder.FieldFulfilledSubscriptionID, field.TypeInt64, value)
+	}
+	if _u.mutation.FulfilledSubscriptionIDCleared() {
+		_spec.ClearField(paymentorder.FieldFulfilledSubscriptionID, field.TypeInt64)
+	}
 	if value, ok := _u.mutation.ProviderInstanceID(); ok {
 		_spec.SetField(paymentorder.FieldProviderInstanceID, field.TypeString, value)
 	}
@@ -1392,6 +1428,33 @@ func (_u *PaymentOrderUpdateOne) SetSubscriptionPlanSnapshot(v map[string]interf
 // ClearSubscriptionPlanSnapshot clears the value of the "subscription_plan_snapshot" field.
 func (_u *PaymentOrderUpdateOne) ClearSubscriptionPlanSnapshot() *PaymentOrderUpdateOne {
 	_u.mutation.ClearSubscriptionPlanSnapshot()
+	return _u
+}
+
+// SetFulfilledSubscriptionID sets the "fulfilled_subscription_id" field.
+func (_u *PaymentOrderUpdateOne) SetFulfilledSubscriptionID(v int64) *PaymentOrderUpdateOne {
+	_u.mutation.ResetFulfilledSubscriptionID()
+	_u.mutation.SetFulfilledSubscriptionID(v)
+	return _u
+}
+
+// SetNillableFulfilledSubscriptionID sets the "fulfilled_subscription_id" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableFulfilledSubscriptionID(v *int64) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetFulfilledSubscriptionID(*v)
+	}
+	return _u
+}
+
+// AddFulfilledSubscriptionID adds value to the "fulfilled_subscription_id" field.
+func (_u *PaymentOrderUpdateOne) AddFulfilledSubscriptionID(v int64) *PaymentOrderUpdateOne {
+	_u.mutation.AddFulfilledSubscriptionID(v)
+	return _u
+}
+
+// ClearFulfilledSubscriptionID clears the value of the "fulfilled_subscription_id" field.
+func (_u *PaymentOrderUpdateOne) ClearFulfilledSubscriptionID() *PaymentOrderUpdateOne {
+	_u.mutation.ClearFulfilledSubscriptionID()
 	return _u
 }
 
@@ -1997,6 +2060,15 @@ func (_u *PaymentOrderUpdateOne) sqlSave(ctx context.Context) (_node *PaymentOrd
 	}
 	if _u.mutation.SubscriptionPlanSnapshotCleared() {
 		_spec.ClearField(paymentorder.FieldSubscriptionPlanSnapshot, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.FulfilledSubscriptionID(); ok {
+		_spec.SetField(paymentorder.FieldFulfilledSubscriptionID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedFulfilledSubscriptionID(); ok {
+		_spec.AddField(paymentorder.FieldFulfilledSubscriptionID, field.TypeInt64, value)
+	}
+	if _u.mutation.FulfilledSubscriptionIDCleared() {
+		_spec.ClearField(paymentorder.FieldFulfilledSubscriptionID, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.ProviderInstanceID(); ok {
 		_spec.SetField(paymentorder.FieldProviderInstanceID, field.TypeString, value)

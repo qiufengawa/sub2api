@@ -22,6 +22,7 @@ export type OrderStatus =
 export type PaymentType = 'alipay' | 'wxpay' | 'alipay_direct' | 'wxpay_direct' | 'stripe' | 'easypay' | 'airwallex'
 
 export type OrderType = 'balance' | 'subscription'
+export type SubscriptionPurchaseMode = 'new_instance' | 'renew_instance'
 
 // ==================== Configuration ====================
 
@@ -103,6 +104,9 @@ export interface PaymentOrder {
   refund_requested_by?: number
   refund_request_reason?: string
   plan_id?: number
+	purchase_mode?: SubscriptionPurchaseMode
+	target_subscription_id?: number
+	fulfilled_subscription_id?: number
   provider_instance_id?: string
 }
 
@@ -131,6 +135,7 @@ export interface SubscriptionPlan {
   total_quota_usd?: number | null
   reset_interval_seconds?: number
   wallet_fallback_enabled?: boolean
+	max_subscriptions_per_user: number
   name: string
   description: string
   price: number
@@ -199,6 +204,7 @@ export interface PaymentCatalogPlan {
   total_quota_usd?: number | null
   reset_interval_seconds?: number
   wallet_fallback_enabled?: boolean
+	max_subscriptions_per_user?: number
   name: string
   description?: string
   price: number
@@ -305,6 +311,8 @@ export interface CreateOrderRequest {
   payment_type: string
   order_type: string
   plan_id?: number
+	purchase_mode?: SubscriptionPurchaseMode
+	target_subscription_id?: number
   return_url?: string
   payment_source?: string
   openid?: string

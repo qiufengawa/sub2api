@@ -50,6 +50,8 @@ const (
 	FieldSubscriptionDays = "subscription_days"
 	// FieldSubscriptionPlanSnapshot holds the string denoting the subscription_plan_snapshot field in the database.
 	FieldSubscriptionPlanSnapshot = "subscription_plan_snapshot"
+	// FieldFulfilledSubscriptionID holds the string denoting the fulfilled_subscription_id field in the database.
+	FieldFulfilledSubscriptionID = "fulfilled_subscription_id"
 	// FieldProviderInstanceID holds the string denoting the provider_instance_id field in the database.
 	FieldProviderInstanceID = "provider_instance_id"
 	// FieldProviderKey holds the string denoting the provider_key field in the database.
@@ -126,6 +128,7 @@ var Columns = []string{
 	FieldPlanID,
 	FieldSubscriptionDays,
 	FieldSubscriptionPlanSnapshot,
+	FieldFulfilledSubscriptionID,
 	FieldProviderInstanceID,
 	FieldProviderKey,
 	FieldProviderSnapshot,
@@ -297,6 +300,11 @@ func ByPlanID(opts ...sql.OrderTermOption) OrderOption {
 // BySubscriptionDays orders the results by the subscription_days field.
 func BySubscriptionDays(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSubscriptionDays, opts...).ToFunc()
+}
+
+// ByFulfilledSubscriptionID orders the results by the fulfilled_subscription_id field.
+func ByFulfilledSubscriptionID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFulfilledSubscriptionID, opts...).ToFunc()
 }
 
 // ByProviderInstanceID orders the results by the provider_instance_id field.

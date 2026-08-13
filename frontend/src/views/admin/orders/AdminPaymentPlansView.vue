@@ -80,6 +80,9 @@
         <template #cell-validity_days="{ value, row }">
           <span class="text-sm">{{ value }} {{ t(`payment.admin.${validityUnitKey(row.validity_unit)}`) }}</span>
         </template>
+		<template #cell-max_subscriptions_per_user="{ value }">
+		  <span class="font-mono text-sm tabular-nums">{{ value || 1 }}</span>
+		</template>
         <template #cell-for_sale="{ value, row }">
           <button
             type="button"
@@ -199,6 +202,7 @@ const planColumns = computed((): Column[] => [
   { key: 'total_quota_usd', label: t('payment.admin.totalQuota') },
   { key: 'price', label: t('payment.admin.price') },
   { key: 'validity_days', label: t('payment.admin.validity') },
+	{ key: 'max_subscriptions_per_user', label: t('payment.admin.maxSubscriptionsPerUser') },
   { key: 'for_sale', label: t('payment.admin.forSale') },
   { key: 'sort_order', label: t('payment.admin.sortOrder') },
   { key: 'actions', label: t('common.actions') },

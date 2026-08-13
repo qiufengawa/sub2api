@@ -15,6 +15,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/Wei-Shaw/sub2api/internal/payment/provider"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -23,23 +24,29 @@ import (
 )
 
 const (
-	subscriptionPlanOrderSnapshotVersion              = 4
+	subscriptionPlanOrderSnapshotVersion              = 5
 	subscriptionPlanOrderSnapshotTotalQuotaVersion    = 3
 	subscriptionPlanOrderSnapshotFiveHourQuotaVersion = 4
+	subscriptionPlanOrderSnapshotMultiInstanceVersion = 5
+	PurchaseModeNewInstance                           = "new_instance"
+	PurchaseModeRenewInstance                         = "renew_instance"
 )
 
 type SubscriptionPlanOrderSnapshot struct {
-	SchemaVersion         int      `json:"schema_version"`
-	PlanID                int64    `json:"plan_id"`
-	PlanName              string   `json:"plan_name"`
-	IncludedGroupIDs      []int64  `json:"included_group_ids"`
-	IncludedGroupNames    []string `json:"included_group_names,omitempty"`
-	FiveHourQuotaUSD      *float64 `json:"five_hour_quota_usd,omitempty"`
-	CycleQuotaUSD         *float64 `json:"cycle_quota_usd,omitempty"`
-	TotalQuotaUSD         *float64 `json:"total_quota_usd,omitempty"`
-	ResetIntervalSeconds  int      `json:"reset_interval_seconds"`
-	WalletFallbackEnabled bool     `json:"wallet_fallback_enabled"`
-	ValidityDays          int      `json:"validity_days"`
+	SchemaVersion           int      `json:"schema_version"`
+	PlanID                  int64    `json:"plan_id"`
+	PlanName                string   `json:"plan_name"`
+	IncludedGroupIDs        []int64  `json:"included_group_ids"`
+	IncludedGroupNames      []string `json:"included_group_names,omitempty"`
+	FiveHourQuotaUSD        *float64 `json:"five_hour_quota_usd,omitempty"`
+	CycleQuotaUSD           *float64 `json:"cycle_quota_usd,omitempty"`
+	TotalQuotaUSD           *float64 `json:"total_quota_usd,omitempty"`
+	ResetIntervalSeconds    int      `json:"reset_interval_seconds"`
+	WalletFallbackEnabled   bool     `json:"wallet_fallback_enabled"`
+	ValidityDays            int      `json:"validity_days"`
+	PurchaseMode            string   `json:"purchase_mode,omitempty"`
+	TargetSubscriptionID    int64    `json:"target_subscription_id,omitempty"`
+	MaxSubscriptionsPerUser int      `json:"max_subscriptions_per_user,omitempty"`
 }
 
 // --- Order Creation ---
@@ -175,7 +182,7 @@ func (s *PaymentService) validateSubOrder(ctx context.Context, req CreateOrderRe
 	return plan, nil
 }
 
-func buildSubscriptionPlanOrderSnapshot(plan *dbent.SubscriptionPlan) (map[string]any, error) {
+func buildSubscriptionPlanOrderSnapshot(plan *dbent.SubscriptionPlan, purchaseMode string, targetSubscriptionID int64) (map[string]any, error) {
 	if plan == nil {
 		return nil, nil
 	}
@@ -204,17 +211,20 @@ func buildSubscriptionPlanOrderSnapshot(plan *dbent.SubscriptionPlan) (map[strin
 		}
 	}
 	snapshot := SubscriptionPlanOrderSnapshot{
-		SchemaVersion:         subscriptionPlanOrderSnapshotVersion,
-		PlanID:                plan.ID,
-		PlanName:              plan.Name,
-		IncludedGroupIDs:      groupIDs,
-		IncludedGroupNames:    groupNames,
-		FiveHourQuotaUSD:      plan.FiveHourQuotaUsd,
-		CycleQuotaUSD:         plan.CycleQuotaUsd,
-		TotalQuotaUSD:         plan.TotalQuotaUsd,
-		ResetIntervalSeconds:  plan.ResetIntervalSeconds,
-		WalletFallbackEnabled: plan.WalletFallbackEnabled,
-		ValidityDays:          psComputeValidityDays(plan.ValidityDays, plan.ValidityUnit),
+		SchemaVersion:           subscriptionPlanOrderSnapshotVersion,
+		PlanID:                  plan.ID,
+		PlanName:                plan.Name,
+		IncludedGroupIDs:        groupIDs,
+		IncludedGroupNames:      groupNames,
+		FiveHourQuotaUSD:        plan.FiveHourQuotaUsd,
+		CycleQuotaUSD:           plan.CycleQuotaUsd,
+		TotalQuotaUSD:           plan.TotalQuotaUsd,
+		ResetIntervalSeconds:    plan.ResetIntervalSeconds,
+		WalletFallbackEnabled:   plan.WalletFallbackEnabled,
+		ValidityDays:            psComputeValidityDays(plan.ValidityDays, plan.ValidityUnit),
+		PurchaseMode:            purchaseMode,
+		TargetSubscriptionID:    targetSubscriptionID,
+		MaxSubscriptionsPerUser: plan.MaxSubscriptionsPerUser,
 	}
 	raw, err := json.Marshal(snapshot)
 	if err != nil {
@@ -239,8 +249,16 @@ func subscriptionPlanOrderSnapshotFromOrder(order *dbent.PaymentOrder) (Subscrip
 	if err := json.Unmarshal(raw, &snapshot); err != nil {
 		return SubscriptionPlanOrderSnapshot{}, false, err
 	}
-	if (snapshot.SchemaVersion != 2 && snapshot.SchemaVersion != subscriptionPlanOrderSnapshotTotalQuotaVersion && snapshot.SchemaVersion != subscriptionPlanOrderSnapshotVersion) || snapshot.PlanID <= 0 || len(snapshot.IncludedGroupIDs) == 0 || snapshot.ValidityDays <= 0 {
+	if (snapshot.SchemaVersion != 2 && snapshot.SchemaVersion != subscriptionPlanOrderSnapshotTotalQuotaVersion && snapshot.SchemaVersion != subscriptionPlanOrderSnapshotFiveHourQuotaVersion && snapshot.SchemaVersion != subscriptionPlanOrderSnapshotVersion) || snapshot.PlanID <= 0 || len(snapshot.IncludedGroupIDs) == 0 || snapshot.ValidityDays <= 0 {
 		return SubscriptionPlanOrderSnapshot{}, false, infraerrors.BadRequest("INVALID_STATUS", "invalid subscription plan snapshot")
+	}
+	if snapshot.SchemaVersion >= subscriptionPlanOrderSnapshotMultiInstanceVersion {
+		if snapshot.MaxSubscriptionsPerUser < 1 ||
+			(snapshot.PurchaseMode != PurchaseModeNewInstance && snapshot.PurchaseMode != PurchaseModeRenewInstance) ||
+			(snapshot.PurchaseMode == PurchaseModeNewInstance && snapshot.TargetSubscriptionID != 0) ||
+			(snapshot.PurchaseMode == PurchaseModeRenewInstance && snapshot.TargetSubscriptionID <= 0) {
+			return SubscriptionPlanOrderSnapshot{}, false, infraerrors.BadRequest("INVALID_STATUS", "invalid subscription purchase mode snapshot")
+		}
 	}
 	for _, groupID := range snapshot.IncludedGroupIDs {
 		if groupID <= 0 {
@@ -256,10 +274,11 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		return nil, fmt.Errorf("begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
-	if err := s.checkPendingLimit(ctx, tx, req.UserID, cfg.MaxPendingOrders); err != nil {
+	txCtx := dbent.NewTxContext(ctx, tx)
+	if err := s.checkPendingLimit(txCtx, tx, req.UserID, cfg.MaxPendingOrders); err != nil {
 		return nil, err
 	}
-	if err := s.checkDailyLimit(ctx, tx, req.UserID, limitAmount, cfg.DailyLimit); err != nil {
+	if err := s.checkDailyLimit(txCtx, tx, req.UserID, limitAmount, cfg.DailyLimit); err != nil {
 		return nil, err
 	}
 	tm := cfg.OrderTimeoutMin
@@ -308,7 +327,11 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		b.SetProviderSnapshot(providerSnapshot)
 	}
 	if plan != nil {
-		subscriptionSnapshot, err := buildSubscriptionPlanOrderSnapshot(plan)
+		plan, req.PurchaseMode, req.TargetSubscriptionID, err = s.prepareSubscriptionOrderSlot(txCtx, tx, req, plan.ID)
+		if err != nil {
+			return nil, err
+		}
+		subscriptionSnapshot, err := buildSubscriptionPlanOrderSnapshot(plan, req.PurchaseMode, req.TargetSubscriptionID)
 		if err != nil {
 			return nil, fmt.Errorf("build subscription plan snapshot: %w", err)
 		}
@@ -329,6 +352,103 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		return nil, fmt.Errorf("commit order transaction: %w", err)
 	}
 	return order, nil
+}
+
+func (s *PaymentService) prepareSubscriptionOrderSlot(ctx context.Context, tx *dbent.Tx, req CreateOrderRequest, planID int64) (*dbent.SubscriptionPlan, string, int64, error) {
+	if s.subscriptionSvc == nil {
+		return nil, "", 0, errors.New("subscription service is unavailable")
+	}
+	instanceRepo, ok := s.subscriptionSvc.userSubRepo.(SubscriptionInstanceRepository)
+	if !ok {
+		return nil, "", 0, errors.New("subscription repository does not support subscription instances")
+	}
+	if err := instanceRepo.LockUserPlanScope(ctx, req.UserID, planID); err != nil {
+		return nil, "", 0, fmt.Errorf("lock subscription order scope: %w", err)
+	}
+	plan, err := tx.Client().SubscriptionPlan.Query().Where(subscriptionplan.IDEQ(planID)).WithGroups().Only(ctx)
+	if err != nil {
+		return nil, "", 0, infraerrors.NotFound("PLAN_NOT_AVAILABLE", "plan not found or not for sale")
+	}
+	mode := strings.TrimSpace(req.PurchaseMode)
+	targetID := req.TargetSubscriptionID
+	instances, err := instanceRepo.ListByUserIDAndPlanID(ctx, req.UserID, planID)
+	if err != nil {
+		return nil, "", 0, err
+	}
+	now := time.Now()
+	if mode == "" {
+		if plan.MaxSubscriptionsPerUser == 1 {
+			for i := range instances {
+				if instances[i].ExpiresAt.After(now) && (instances[i].Status == SubscriptionStatusActive || instances[i].Status == SubscriptionStatusSuspended) {
+					mode = PurchaseModeRenewInstance
+					targetID = instances[i].ID
+					break
+				}
+			}
+		}
+		if mode == "" {
+			mode = PurchaseModeNewInstance
+		}
+	}
+	switch mode {
+	case PurchaseModeRenewInstance:
+		if targetID <= 0 {
+			return nil, "", 0, ErrSubscriptionTargetMismatch
+		}
+		target, err := s.subscriptionSvc.userSubRepo.GetByIDForUpdate(ctx, targetID)
+		if err != nil || target.UserID != req.UserID || target.PlanID != planID {
+			return nil, "", 0, ErrSubscriptionTargetMismatch
+		}
+	case PurchaseModeNewInstance:
+		if targetID != 0 {
+			return nil, "", 0, ErrSubscriptionTargetMismatch
+		}
+		occupied, err := instanceRepo.CountOccupyingByUserIDAndPlanID(ctx, req.UserID, planID, now)
+		if err != nil {
+			return nil, "", 0, err
+		}
+		pendingSlots, err := countPendingSubscriptionInstanceSlots(ctx, tx, req.UserID, planID, now)
+		if err != nil {
+			return nil, "", 0, err
+		}
+		if occupied+pendingSlots >= plan.MaxSubscriptionsPerUser {
+			return nil, "", 0, ErrSubscriptionInstanceLimit.WithMetadata(map[string]string{
+				"max":     strconv.Itoa(plan.MaxSubscriptionsPerUser),
+				"current": strconv.Itoa(occupied),
+				"pending": strconv.Itoa(pendingSlots),
+			})
+		}
+	default:
+		return nil, "", 0, infraerrors.BadRequest("INVALID_PURCHASE_MODE", "purchase_mode must be new_instance or renew_instance")
+	}
+	return plan, mode, targetID, nil
+}
+
+func countPendingSubscriptionInstanceSlots(ctx context.Context, tx *dbent.Tx, userID, planID int64, now time.Time) (int, error) {
+	orders, err := tx.PaymentOrder.Query().Where(
+		paymentorder.UserIDEQ(userID),
+		paymentorder.PlanIDEQ(planID),
+		paymentorder.OrderTypeEQ(payment.OrderTypeSubscription),
+		paymentorder.FulfilledSubscriptionIDIsNil(),
+		paymentorder.Or(
+			paymentorder.And(paymentorder.StatusEQ(OrderStatusPending), paymentorder.ExpiresAtGT(now)),
+			paymentorder.StatusIn(OrderStatusPaid, OrderStatusRecharging),
+		),
+	).All(ctx)
+	if err != nil {
+		return 0, err
+	}
+	count := 0
+	for _, order := range orders {
+		snapshot, ok, err := subscriptionPlanOrderSnapshotFromOrder(order)
+		if err != nil {
+			return 0, err
+		}
+		if ok && snapshot.SchemaVersion >= subscriptionPlanOrderSnapshotMultiInstanceVersion && snapshot.PurchaseMode == PurchaseModeNewInstance {
+			count++
+		}
+	}
+	return count, nil
 }
 
 func (s *PaymentService) allocateOutTradeNo(ctx context.Context, tx *dbent.Tx) (string, error) {
@@ -876,6 +996,12 @@ func buildWeChatPaymentOAuthStartURL(req CreateOrderRequest, scope string) (stri
 	}
 	if req.PlanID > 0 {
 		q.Set("plan_id", strconv.FormatInt(req.PlanID, 10))
+	}
+	if mode := strings.TrimSpace(req.PurchaseMode); mode != "" {
+		q.Set("purchase_mode", mode)
+	}
+	if req.TargetSubscriptionID > 0 {
+		q.Set("target_subscription_id", strconv.FormatInt(req.TargetSubscriptionID, 10))
 	}
 	if scope = strings.TrimSpace(scope); scope != "" {
 		q.Set("scope", scope)

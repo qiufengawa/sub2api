@@ -111,25 +111,27 @@ type PaymentCatalogImportRoute struct {
 }
 
 type PaymentCatalogImportPlan struct {
-	IncludedGroupKeys     []string `json:"included_group_keys,omitempty"`
-	IncludedGroupIDs      []int64  `json:"included_group_ids,omitempty"`
-	FiveHourQuotaUSD      *float64 `json:"five_hour_quota_usd,omitempty"`
-	FiveHourQuotaUSDSet   bool     `json:"-"`
-	CycleQuotaUSD         *float64 `json:"cycle_quota_usd"`
-	TotalQuotaUSD         *float64 `json:"total_quota_usd"`
-	ResetIntervalSeconds  int      `json:"reset_interval_seconds,omitempty"`
-	WalletFallbackEnabled *bool    `json:"wallet_fallback_enabled,omitempty"`
-	Name                  string   `json:"name"`
-	Description           string   `json:"description,omitempty"`
-	Price                 float64  `json:"price"`
-	OriginalPrice         *float64 `json:"original_price"`
-	Currency              string   `json:"currency,omitempty"`
-	ValidityDays          *int     `json:"validity_days,omitempty"`
-	ValidityUnit          string   `json:"validity_unit,omitempty"`
-	Features              []string `json:"features,omitempty"`
-	ProductName           string   `json:"product_name,omitempty"`
-	ForSale               *bool    `json:"for_sale,omitempty"`
-	SortOrder             *int     `json:"sort_order,omitempty"`
+	IncludedGroupKeys          []string `json:"included_group_keys,omitempty"`
+	IncludedGroupIDs           []int64  `json:"included_group_ids,omitempty"`
+	FiveHourQuotaUSD           *float64 `json:"five_hour_quota_usd,omitempty"`
+	FiveHourQuotaUSDSet        bool     `json:"-"`
+	CycleQuotaUSD              *float64 `json:"cycle_quota_usd"`
+	TotalQuotaUSD              *float64 `json:"total_quota_usd"`
+	ResetIntervalSeconds       int      `json:"reset_interval_seconds,omitempty"`
+	WalletFallbackEnabled      *bool    `json:"wallet_fallback_enabled,omitempty"`
+	MaxSubscriptionsPerUser    *int     `json:"max_subscriptions_per_user,omitempty"`
+	MaxSubscriptionsPerUserSet bool     `json:"-"`
+	Name                       string   `json:"name"`
+	Description                string   `json:"description,omitempty"`
+	Price                      float64  `json:"price"`
+	OriginalPrice              *float64 `json:"original_price"`
+	Currency                   string   `json:"currency,omitempty"`
+	ValidityDays               *int     `json:"validity_days,omitempty"`
+	ValidityUnit               string   `json:"validity_unit,omitempty"`
+	Features                   []string `json:"features,omitempty"`
+	ProductName                string   `json:"product_name,omitempty"`
+	ForSale                    *bool    `json:"for_sale,omitempty"`
+	SortOrder                  *int     `json:"sort_order,omitempty"`
 }
 
 type paymentCatalogImportPlanAlias PaymentCatalogImportPlan
@@ -149,6 +151,14 @@ func (p *PaymentCatalogImportPlan) UnmarshalJSON(data []byte) error {
 		if isJSONNull(value) {
 			p.FiveHourQuotaUSD = nil
 		}
+	}
+	if value, ok := fields["max_subscriptions_per_user"]; ok {
+		parsed, err := parseMaxSubscriptionsPerUserJSON(value)
+		if err != nil {
+			return err
+		}
+		p.MaxSubscriptionsPerUser = &parsed
+		p.MaxSubscriptionsPerUserSet = true
 	}
 	return nil
 }
@@ -237,21 +247,23 @@ type catalogGroup struct {
 
 type catalogPlan struct {
 	PaymentCatalogImportPlan
-	includedGroupKeys     []string
-	includedGroupIDs      []int64
-	groupRefs             []catalogGroupRef
-	fiveHourQuotaUSD      *float64
-	fiveHourQuotaUSDSet   bool
-	cycleQuotaUSD         *float64
-	totalQuotaUSD         *float64
-	resetIntervalSeconds  int
-	walletFallbackEnabled bool
-	currency              string
-	validityDays          int
-	validityUnit          string
-	forSale               bool
-	sortOrder             int
-	features              []string
+	includedGroupKeys          []string
+	includedGroupIDs           []int64
+	groupRefs                  []catalogGroupRef
+	fiveHourQuotaUSD           *float64
+	fiveHourQuotaUSDSet        bool
+	cycleQuotaUSD              *float64
+	totalQuotaUSD              *float64
+	resetIntervalSeconds       int
+	walletFallbackEnabled      bool
+	maxSubscriptionsPerUser    int
+	maxSubscriptionsPerUserSet bool
+	currency                   string
+	validityDays               int
+	validityUnit               string
+	forSale                    bool
+	sortOrder                  int
+	features                   []string
 }
 
 type catalogGroupRef struct {
@@ -633,6 +645,14 @@ func (s *PaymentConfigService) normalizeCatalogImport(req PaymentCatalogImportRe
 		if raw.WalletFallbackEnabled != nil {
 			walletFallbackEnabled = *raw.WalletFallbackEnabled
 		}
+		maxSubscriptionsPerUser := 1
+		maxSubscriptionsPerUserSet := raw.MaxSubscriptionsPerUserSet || raw.MaxSubscriptionsPerUser != nil
+		if raw.MaxSubscriptionsPerUser != nil {
+			maxSubscriptionsPerUser = *raw.MaxSubscriptionsPerUser
+			if maxSubscriptionsPerUser < 1 {
+				add("error", "PLAN_MAX_SUBSCRIPTIONS_INVALID", path+".max_subscriptions_per_user", "max_subscriptions_per_user must be at least 1")
+			}
+		}
 		currency := d.currency
 		if strings.TrimSpace(raw.Currency) != "" {
 			currency = strings.ToUpper(strings.TrimSpace(raw.Currency))
@@ -682,22 +702,24 @@ func (s *PaymentConfigService) normalizeCatalogImport(req PaymentCatalogImportRe
 			}
 		}
 		n.plans = append(n.plans, catalogPlan{
-			PaymentCatalogImportPlan: raw,
-			includedGroupKeys:        includedGroupKeys,
-			includedGroupIDs:         includedGroupIDs,
-			groupRefs:                groupRefs,
-			fiveHourQuotaUSD:         fiveHourQuotaUSD,
-			fiveHourQuotaUSDSet:      fiveHourQuotaUSDSet,
-			cycleQuotaUSD:            cycleQuotaUSD,
-			totalQuotaUSD:            totalQuotaUSD,
-			resetIntervalSeconds:     resetIntervalSeconds,
-			walletFallbackEnabled:    walletFallbackEnabled,
-			currency:                 currency,
-			validityDays:             validityDays,
-			validityUnit:             validityUnit,
-			forSale:                  forSale,
-			sortOrder:                sortOrder,
-			features:                 features,
+			PaymentCatalogImportPlan:   raw,
+			includedGroupKeys:          includedGroupKeys,
+			includedGroupIDs:           includedGroupIDs,
+			groupRefs:                  groupRefs,
+			fiveHourQuotaUSD:           fiveHourQuotaUSD,
+			fiveHourQuotaUSDSet:        fiveHourQuotaUSDSet,
+			cycleQuotaUSD:              cycleQuotaUSD,
+			totalQuotaUSD:              totalQuotaUSD,
+			resetIntervalSeconds:       resetIntervalSeconds,
+			walletFallbackEnabled:      walletFallbackEnabled,
+			maxSubscriptionsPerUser:    maxSubscriptionsPerUser,
+			maxSubscriptionsPerUserSet: maxSubscriptionsPerUserSet,
+			currency:                   currency,
+			validityDays:               validityDays,
+			validityUnit:               validityUnit,
+			forSale:                    forSale,
+			sortOrder:                  sortOrder,
+			features:                   features,
 		})
 	}
 
@@ -829,25 +851,27 @@ func (s *PaymentConfigService) ExportCatalog(ctx context.Context) (*PaymentCatal
 		}
 		features := splitCatalogFeatures(p.Features)
 		req.Plans = append(req.Plans, PaymentCatalogImportPlan{
-			IncludedGroupKeys:     includedGroupKeys,
-			IncludedGroupIDs:      includedGroupIDs,
-			FiveHourQuotaUSD:      cloneFloat(p.FiveHourQuotaUsd),
-			FiveHourQuotaUSDSet:   true,
-			CycleQuotaUSD:         cloneFloat(p.CycleQuotaUsd),
-			TotalQuotaUSD:         cloneFloat(p.TotalQuotaUsd),
-			ResetIntervalSeconds:  p.ResetIntervalSeconds,
-			WalletFallbackEnabled: catalogBoolPtr(p.WalletFallbackEnabled),
-			Name:                  p.Name,
-			Description:           p.Description,
-			Price:                 p.Price,
-			OriginalPrice:         cloneFloat(p.OriginalPrice),
-			Currency:              p.Currency,
-			ValidityDays:          catalogIntPtr(p.ValidityDays),
-			ValidityUnit:          p.ValidityUnit,
-			Features:              features,
-			ProductName:           p.ProductName,
-			ForSale:               catalogBoolPtr(p.ForSale),
-			SortOrder:             catalogIntPtr(p.SortOrder),
+			IncludedGroupKeys:          includedGroupKeys,
+			IncludedGroupIDs:           includedGroupIDs,
+			FiveHourQuotaUSD:           cloneFloat(p.FiveHourQuotaUsd),
+			FiveHourQuotaUSDSet:        true,
+			CycleQuotaUSD:              cloneFloat(p.CycleQuotaUsd),
+			TotalQuotaUSD:              cloneFloat(p.TotalQuotaUsd),
+			ResetIntervalSeconds:       p.ResetIntervalSeconds,
+			WalletFallbackEnabled:      catalogBoolPtr(p.WalletFallbackEnabled),
+			MaxSubscriptionsPerUser:    catalogIntPtr(p.MaxSubscriptionsPerUser),
+			MaxSubscriptionsPerUserSet: true,
+			Name:                       p.Name,
+			Description:                p.Description,
+			Price:                      p.Price,
+			OriginalPrice:              cloneFloat(p.OriginalPrice),
+			Currency:                   p.Currency,
+			ValidityDays:               catalogIntPtr(p.ValidityDays),
+			ValidityUnit:               p.ValidityUnit,
+			Features:                   features,
+			ProductName:                p.ProductName,
+			ForSale:                    catalogBoolPtr(p.ForSale),
+			SortOrder:                  catalogIntPtr(p.SortOrder),
 		})
 	}
 	return req, nil
@@ -1381,6 +1405,9 @@ func catalogPlanDiff(existing *dbent.SubscriptionPlan, desired catalogPlan, grou
 	appendCatalogDiff(&diffs, "total_quota_usd", optionalFloat(existing.TotalQuotaUsd), optionalFloat(desired.totalQuotaUSD))
 	appendCatalogDiff(&diffs, "reset_interval_seconds", existing.ResetIntervalSeconds, desired.resetIntervalSeconds)
 	appendCatalogDiff(&diffs, "wallet_fallback_enabled", existing.WalletFallbackEnabled, desired.walletFallbackEnabled)
+	if desired.maxSubscriptionsPerUserSet {
+		appendCatalogDiff(&diffs, "max_subscriptions_per_user", existing.MaxSubscriptionsPerUser, desired.maxSubscriptionsPerUser)
+	}
 	appendCatalogDiff(&diffs, "description", existing.Description, desired.Description)
 	appendCatalogDiff(&diffs, "price", existing.Price, desired.Price)
 	appendCatalogDiff(&diffs, "original_price", optionalFloat(existing.OriginalPrice), optionalFloat(desired.OriginalPrice))
@@ -1720,6 +1747,7 @@ func (s *PaymentConfigService) applyCatalogWithinTx(ctx context.Context, client 
 				SetNillableTotalQuotaUsd(desired.totalQuotaUSD).
 				SetResetIntervalSeconds(desired.resetIntervalSeconds).
 				SetWalletFallbackEnabled(desired.walletFallbackEnabled).
+				SetMaxSubscriptionsPerUser(desired.maxSubscriptionsPerUser).
 				SetCurrency(desired.currency).
 				SetValidityDays(desired.validityDays).
 				SetValidityUnit(desired.validityUnit).
@@ -1745,6 +1773,9 @@ func (s *PaymentConfigService) applyCatalogWithinTx(ctx context.Context, client 
 				SetProductName(desired.ProductName).
 				SetForSale(desired.forSale).
 				SetSortOrder(desired.sortOrder)
+			if desired.maxSubscriptionsPerUserSet {
+				update.SetMaxSubscriptionsPerUser(desired.maxSubscriptionsPerUser)
+			}
 			if desired.OriginalPrice == nil {
 				update.ClearOriginalPrice()
 			} else {

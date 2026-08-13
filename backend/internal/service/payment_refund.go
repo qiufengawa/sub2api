@@ -268,7 +268,17 @@ func (s *PaymentService) prepDeduct(ctx context.Context, o *dbent.PaymentOrder, 
 			p.SubDaysToDeduct = snapshot.ValidityDays
 			var sub *UserSubscription
 			var err error
-			if coverageRepo, ok := s.subscriptionSvc.userSubRepo.(SubscriptionCoverageRepository); ok {
+			if snapshot.SchemaVersion >= subscriptionPlanOrderSnapshotMultiInstanceVersion {
+				if o.FulfilledSubscriptionID == nil || *o.FulfilledSubscriptionID <= 0 {
+					err = errors.New("fulfilled subscription id is missing")
+				} else {
+					sub, err = s.subscriptionSvc.userSubRepo.GetByID(ctx, *o.FulfilledSubscriptionID)
+					if err == nil && (sub.UserID != o.UserID || sub.PlanID != snapshot.PlanID) {
+						sub = nil
+						err = ErrSubscriptionTargetMismatch
+					}
+				}
+			} else if coverageRepo, ok := s.subscriptionSvc.userSubRepo.(SubscriptionCoverageRepository); ok {
 				sub, err = coverageRepo.GetByUserIDAndPlanID(ctx, o.UserID, snapshot.PlanID)
 			} else {
 				err = ErrSubscriptionNotFound

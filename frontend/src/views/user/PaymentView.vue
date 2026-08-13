@@ -341,14 +341,14 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePaymentStore } from '@/stores/payment'
-import { useSubscriptionStore } from '@/stores/subscriptions'
 import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/api/payment'
+import subscriptionsAPI from '@/api/subscriptions'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
 import { formatPeakRateWindow, serverTimezoneLabel, type PeakRateFields } from '@/utils/peak-rate'
-import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
-import type { GroupPlatform } from '@/types'
+import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType, SubscriptionPurchaseMode } from '@/types/payment'
+import type { GroupPlatform, UserSubscription } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
@@ -383,11 +383,19 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const paymentStore = usePaymentStore()
-const subscriptionStore = useSubscriptionStore()
 const appStore = useAppStore()
 
 const user = computed(() => authStore.user)
-const activeSubscriptions = computed(() => subscriptionStore.activeSubscriptions)
+const activeSubscriptions = ref<UserSubscription[]>([])
+
+async function refreshPurchaseSubscriptions() {
+  const subscriptions = await subscriptionsAPI.getMySubscriptions()
+  const now = Date.now()
+  activeSubscriptions.value = subscriptions.filter(subscription =>
+    (subscription.status === 'active' || subscription.status === 'suspended') &&
+    (!subscription.expires_at || new Date(subscription.expires_at).getTime() > now)
+  )
+}
 
 function getDaysRemaining(expiresAt: string): number {
   const diff = new Date(expiresAt).getTime() - Date.now()
@@ -417,6 +425,8 @@ const activeTab = ref<'recharge' | 'subscription'>('recharge')
 const amount = ref<number | null>(null)
 const selectedMethod = ref('')
 const selectedPlan = ref<SubscriptionPlan | null>(null)
+const selectedPurchaseMode = ref<SubscriptionPurchaseMode | undefined>()
+const selectedTargetSubscriptionId = ref<number | undefined>()
 const previewImage = ref('')
 
 const paymentPhase = ref<'select' | 'paying'>('select')
@@ -427,6 +437,8 @@ interface CreateOrderOptions {
   paymentType?: string
   isResume?: boolean
   mobileQrFallbackAttempted?: boolean
+	purchaseMode?: SubscriptionPurchaseMode
+	targetSubscriptionId?: number
 }
 
 interface WeixinJSBridgeLike {
@@ -532,7 +544,7 @@ async function redirectToPaymentResult(state: PaymentRecoverySnapshot): Promise<
 
 function buildWechatOAuthAuthorizeUrl(
   authorizeUrl: string,
-  context: { paymentType: string; orderType: OrderType; planId?: number; orderAmount: number },
+  context: { paymentType: string; orderType: OrderType; planId?: number; orderAmount: number; purchaseMode?: SubscriptionPurchaseMode; targetSubscriptionId?: number },
 ): string {
   const normalizedUrl = normalizePaymentNavigationUrl(authorizeUrl)
   if (!normalizedUrl || typeof window === 'undefined') {
@@ -553,6 +565,10 @@ function buildWechatOAuthAuthorizeUrl(
     } else {
       redirectUrl.searchParams.delete('plan_id')
     }
+	if (context.purchaseMode) redirectUrl.searchParams.set('purchase_mode', context.purchaseMode)
+	else redirectUrl.searchParams.delete('purchase_mode')
+	if (context.targetSubscriptionId) redirectUrl.searchParams.set('target_subscription_id', String(context.targetSubscriptionId))
+	else redirectUrl.searchParams.delete('target_subscription_id')
 
     if (context.orderAmount > 0) {
       redirectUrl.searchParams.set('amount', String(context.orderAmount))
@@ -572,7 +588,7 @@ function onPaymentDone() {
   resetPayment()
   selectedPlan.value = null
   if (wasSubscription) {
-    subscriptionStore.fetchActiveSubscriptions(true).catch(() => {})
+    refreshPurchaseSubscriptions().catch(() => {})
   }
 }
 
@@ -581,7 +597,7 @@ async function onPaymentSuccess() {
   removeRecoverySnapshot()
   authStore.refreshUser()
   if (paymentState.value.orderType === 'subscription') {
-    subscriptionStore.fetchActiveSubscriptions(true).catch(() => {})
+    refreshPurchaseSubscriptions().catch(() => {})
   }
   await redirectToPaymentResult(completedPayment)
 }
@@ -831,6 +847,18 @@ const planValiditySuffix = computed(() => {
 
 function selectPlan(plan: SubscriptionPlan) {
   selectedPlan.value = plan
+	const owned = activeSubscriptions.value.filter(sub =>
+		sub.plan_id === plan.id &&
+		(sub.status === 'active' || sub.status === 'suspended') &&
+		(!sub.expires_at || new Date(sub.expires_at).getTime() > Date.now())
+	)
+	if ((Number(plan.max_subscriptions_per_user) || 1) === 1 && owned.length > 0) {
+		selectedPurchaseMode.value = 'renew_instance'
+		selectedTargetSubscriptionId.value = owned[0].id
+	} else {
+		selectedPurchaseMode.value = 'new_instance'
+		selectedTargetSubscriptionId.value = undefined
+	}
   errorMessage.value = ''
 }
 
@@ -841,7 +869,10 @@ async function handleSubmitRecharge() {
 
 async function confirmSubscribe() {
   if (!selectedPlan.value || submitting.value) return
-  await createOrder(selectedPlan.value.price, 'subscription', selectedPlan.value.id)
+  await createOrder(selectedPlan.value.price, 'subscription', selectedPlan.value.id, {
+	  purchaseMode: selectedPurchaseMode.value,
+	  targetSubscriptionId: selectedTargetSubscriptionId.value,
+	})
 }
 
 async function createOrder(orderAmount: number, orderType: OrderType, planId?: number, options: CreateOrderOptions = {}) {
@@ -855,6 +886,8 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
       paymentType: requestType,
       orderType,
       planId,
+	  purchaseMode: options.purchaseMode,
+	  targetSubscriptionId: options.targetSubscriptionId,
       origin: typeof window !== 'undefined' ? window.location.origin : '',
       isMobile: isMobileDevice(),
       isWechatBrowser: typeof window !== 'undefined' && /MicroMessenger/i.test(window.navigator.userAgent),
@@ -920,6 +953,8 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
         orderType,
         planId,
         orderAmount,
+		purchaseMode: options.purchaseMode,
+		targetSubscriptionId: options.targetSubscriptionId,
       })
       return
     }
@@ -960,6 +995,8 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
               orderAmount,
               orderType,
               planId,
+			  purchaseMode: options.purchaseMode,
+			  targetSubscriptionId: options.targetSubscriptionId,
               paymentType: visibleMethod,
               attempted: options.mobileQrFallbackAttempted === true,
             },
@@ -978,6 +1015,8 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
           orderAmount,
           orderType,
           planId,
+		  purchaseMode: options.purchaseMode,
+		  targetSubscriptionId: options.targetSubscriptionId,
           paymentType: visibleMethod,
           attempted: options.mobileQrFallbackAttempted === true,
         })
@@ -1007,6 +1046,8 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
       orderAmount,
       orderType,
       planId,
+	  purchaseMode: options.purchaseMode,
+	  targetSubscriptionId: options.targetSubscriptionId,
       paymentType: requestType,
       attempted: options.mobileQrFallbackAttempted === true,
     })) {
@@ -1034,6 +1075,8 @@ interface MobileQrFallbackContext {
   orderAmount: number
   orderType: OrderType
   planId?: number
+	purchaseMode?: SubscriptionPurchaseMode
+	targetSubscriptionId?: number
   paymentType: string
   attempted: boolean
 }
@@ -1083,6 +1126,8 @@ async function attemptMobileQrFallback(err: unknown, context: MobileQrFallbackCo
       paymentType: visibleMethod,
       orderType: context.orderType,
       planId: context.planId,
+	  purchaseMode: context.purchaseMode,
+	  targetSubscriptionId: context.targetSubscriptionId,
       origin: typeof window !== 'undefined' ? window.location.origin : '',
       isMobile: false,
       isWechatBrowser: false,
@@ -1155,6 +1200,8 @@ async function resumeWechatPaymentFromQuery() {
   if (resume.orderType === 'subscription' && resume.planId) {
     selectedPlan.value = checkout.value.plans.find(plan => plan.id === resume.planId) ?? null
   }
+	selectedPurchaseMode.value = resume.purchaseMode
+	selectedTargetSubscriptionId.value = resume.targetSubscriptionId
 
   await router.replace({ path: route.path, query: stripWechatResumeQuery(route.query) })
 
@@ -1163,6 +1210,8 @@ async function resumeWechatPaymentFromQuery() {
       wechatResumeToken: resume.wechatResumeToken,
       paymentType: resume.paymentType,
       isResume: true,
+	  purchaseMode: resume.purchaseMode,
+	  targetSubscriptionId: resume.targetSubscriptionId,
     })
     return
   }
@@ -1172,6 +1221,8 @@ async function resumeWechatPaymentFromQuery() {
       openid: resume.openid,
       paymentType: resume.paymentType,
       isResume: true,
+	  purchaseMode: resume.purchaseMode,
+	  targetSubscriptionId: resume.targetSubscriptionId,
     })
   }
 }
@@ -1215,6 +1266,7 @@ onMounted(async () => {
       }
     }
     await resumeWechatPaymentFromQuery()
+	await refreshPurchaseSubscriptions().catch(() => {})
     if (checkout.value.balance_disabled) {
       activeTab.value = 'subscription'
     }
@@ -1224,11 +1276,16 @@ onMounted(async () => {
       if (route.query.plan_id) {
         const planId = Number(route.query.plan_id)
         selectedPlan.value = checkout.value.plans.find(plan => plan.id === planId) || null
+		const subscriptionId = Number(route.query.subscription_id)
+		if (Number.isInteger(subscriptionId) && subscriptionId > 0) {
+			selectedPurchaseMode.value = 'renew_instance'
+			selectedTargetSubscriptionId.value = subscriptionId
+		} else if (selectedPlan.value) {
+			selectPlan(selectedPlan.value)
+		}
       }
     }
   } catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
   finally { loading.value = false }
-  // Fetch active subscriptions (uses cache, non-blocking)
-  subscriptionStore.fetchActiveSubscriptions().catch(() => {})
 })
 </script>

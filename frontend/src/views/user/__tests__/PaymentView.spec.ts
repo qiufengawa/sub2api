@@ -17,6 +17,7 @@ const routerResolve = vi.hoisted(() => vi.fn(() => ({ href: '/payment/stripe?moc
 const createOrder = vi.hoisted(() => vi.fn())
 const refreshUser = vi.hoisted(() => vi.fn())
 const fetchActiveSubscriptions = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+const getMySubscriptions = vi.hoisted(() => vi.fn().mockResolvedValue([]))
 const showError = vi.hoisted(() => vi.fn())
 const showInfo = vi.hoisted(() => vi.fn())
 const showWarning = vi.hoisted(() => vi.fn())
@@ -80,6 +81,12 @@ vi.mock('@/stores', () => ({
 vi.mock('@/api/payment', () => ({
   paymentAPI: {
     getCheckoutInfo,
+  },
+}))
+
+vi.mock('@/api/subscriptions', () => ({
+  default: {
+    getMySubscriptions,
   },
 }))
 
@@ -215,6 +222,7 @@ async function mountSubscriptionConfirm(options: Parameters<typeof checkoutInfoW
   createOrder.mockReset()
   refreshUser.mockReset()
   fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
+  getMySubscriptions.mockReset().mockResolvedValue([])
   showError.mockReset()
   showInfo.mockReset()
   showWarning.mockReset()

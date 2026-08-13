@@ -54,23 +54,24 @@ func TestAdminSubscriptionPlansForResponseIncludesCompositeGroupInfo(t *testing.
 	now := time.Now()
 	plans := []*dbent.SubscriptionPlan{
 		{
-			ID:                    11,
-			Edges:                 dbent.SubscriptionPlanEdges{Groups: []*dbent.Group{{ID: 7}}},
-			Name:                  "All models",
-			Description:           "Composite access",
-			Price:                 19.99,
-			Currency:              "CNY",
-			ValidityDays:          30,
-			ValidityUnit:          "days",
-			Features:              "OpenAI\nClaude\nGemini\nGrok",
-			ProductName:           "Sub2API",
-			ForSale:               true,
-			SortOrder:             1,
-			CycleQuotaUsd:         &cycleQuota,
-			ResetIntervalSeconds:  604800,
-			WalletFallbackEnabled: true,
-			CreatedAt:             now,
-			UpdatedAt:             now,
+			ID:                      11,
+			Edges:                   dbent.SubscriptionPlanEdges{Groups: []*dbent.Group{{ID: 7}}},
+			Name:                    "All models",
+			Description:             "Composite access",
+			Price:                   19.99,
+			Currency:                "CNY",
+			ValidityDays:            30,
+			ValidityUnit:            "days",
+			Features:                "OpenAI\nClaude\nGemini\nGrok",
+			ProductName:             "Sub2API",
+			ForSale:                 true,
+			SortOrder:               1,
+			CycleQuotaUsd:           &cycleQuota,
+			ResetIntervalSeconds:    604800,
+			WalletFallbackEnabled:   true,
+			MaxSubscriptionsPerUser: 3,
+			CreatedAt:               now,
+			UpdatedAt:               now,
 		},
 	}
 	groupInfo := map[int64]service.PlanGroupInfo{
@@ -109,6 +110,9 @@ func TestAdminSubscriptionPlansForResponseIncludesCompositeGroupInfo(t *testing.
 	}
 	if !got[0].WalletFallbackEnabled {
 		t.Fatal("expected wallet fallback flag to be preserved")
+	}
+	if got[0].MaxSubscriptionsPerUser != 3 {
+		t.Fatalf("expected max subscriptions per user 3, got %d", got[0].MaxSubscriptionsPerUser)
 	}
 	// 投影必须保留 ent 原始响应的全部套餐字段：currency 丢失曾导致编辑保存时
 	// 静默清空套餐货币（PlanEditDialog 回传空串 → SetCurrency("")）。

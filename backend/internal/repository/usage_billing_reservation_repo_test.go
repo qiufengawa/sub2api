@@ -44,7 +44,7 @@ func TestReserveRequestBilling_WalletOnlyMovesBalanceToFrozen(t *testing.T) {
 	mock.ExpectQuery(`(?s)SELECT billing_preference, balance.*FROM users.*FOR UPDATE`).
 		WithArgs(int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{"billing_preference", "balance"}).AddRow(service.BillingPreferenceWalletOnly, 10))
-	mock.ExpectQuery(`(?s)SELECT.*FROM user_subscriptions us.*FOR UPDATE OF us`).
+	mock.ExpectQuery(`(?s)SELECT.*FROM user_subscriptions us.*ORDER BY us\.expires_at ASC, us\.id ASC.*FOR UPDATE OF us`).
 		WithArgs(int64(42), groupID, sqlmock.AnyArg()).
 		WillReturnRows(reservationSubscriptionBillingCandidateRows())
 	mock.ExpectQuery(`(?s)UPDATE users.*frozen_balance = COALESCE\(frozen_balance, 0\) \+ \$1.*RETURNING balance, frozen_balance`).
@@ -97,7 +97,7 @@ func TestRebindRequestBilling_ReleasesOldWalletAndReservesDestinationSubscriptio
 	mock.ExpectQuery(`(?s)UPDATE users.*balance = balance \+ \$1.*frozen_balance.*- \$1.*RETURNING balance, frozen_balance`).
 		WithArgs(oldAmount, int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{"balance", "frozen_balance"}).AddRow(7, 0))
-	mock.ExpectQuery(`(?s)SELECT.*FROM user_subscriptions us.*FOR UPDATE OF us`).
+	mock.ExpectQuery(`(?s)SELECT.*FROM user_subscriptions us.*ORDER BY us\.expires_at ASC, us\.id ASC.*FOR UPDATE OF us`).
 		WithArgs(int64(42), newGroupID, sqlmock.AnyArg()).
 		WillReturnRows(reservationSubscriptionBillingCandidateRows().
 			AddRow(int64(91), time.Now().Add(24*time.Hour), nil, time.Now(), 0, 0, 10, 604800, time.Now(), 1, 0, 12, 9, 0, true))

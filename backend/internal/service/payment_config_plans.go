@@ -50,6 +50,16 @@ func validatePlanRequired(name string, price float64, validityDays int, validity
 	return nil
 }
 
+func normalizeMaxSubscriptionsPerUser(value *int) (int, error) {
+	if value == nil {
+		return 1, nil
+	}
+	if *value < 1 {
+		return 0, infraerrors.BadRequest("PLAN_MAX_SUBSCRIPTIONS_INVALID", "max subscriptions per user must be >= 1")
+	}
+	return *value, nil
+}
+
 func validatePlanCycle(cycleQuotaUSD *float64, resetIntervalSeconds int) error {
 	if resetIntervalSeconds < 0 {
 		return infraerrors.BadRequest("PLAN_RESET_INTERVAL_INVALID", "reset interval must be >= 0")
@@ -99,6 +109,9 @@ func validatePlanPatch(req UpdatePlanRequest) error {
 	}
 	if req.OriginalPrice != nil && *req.OriginalPrice < 0 {
 		return infraerrors.BadRequest("PLAN_ORIGINAL_PRICE_INVALID", "original price must be >= 0")
+	}
+	if req.MaxSubscriptionsPerUser != nil && *req.MaxSubscriptionsPerUser < 1 {
+		return infraerrors.BadRequest("PLAN_MAX_SUBSCRIPTIONS_INVALID", "max subscriptions per user must be >= 1")
 	}
 	if _, err := normalizeFiveHourQuota(req.FiveHourQuotaUSD); err != nil {
 		return err
@@ -230,6 +243,10 @@ func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanReq
 	if err := validatePlanRequired(req.Name, req.Price, req.ValidityDays, req.ValidityUnit, req.OriginalPrice); err != nil {
 		return nil, err
 	}
+	maxSubscriptionsPerUser, err := normalizeMaxSubscriptionsPerUser(req.MaxSubscriptionsPerUser)
+	if err != nil {
+		return nil, err
+	}
 	fiveHourQuotaUSD, err := normalizeFiveHourQuota(req.FiveHourQuotaUSD)
 	if err != nil {
 		return nil, err
@@ -264,6 +281,7 @@ func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanReq
 		SetPrice(req.Price).SetCurrency(currency).SetValidityDays(req.ValidityDays).SetValidityUnit(req.ValidityUnit).
 		SetFeatures(req.Features).SetProductName(req.ProductName).
 		SetForSale(req.ForSale).SetSortOrder(req.SortOrder).
+		SetMaxSubscriptionsPerUser(maxSubscriptionsPerUser).
 		SetNillableFiveHourQuotaUsd(fiveHourQuotaUSD).
 		SetNillableCycleQuotaUsd(cycleQuotaUSD).
 		SetNillableTotalQuotaUsd(totalQuotaUSD).
@@ -370,6 +388,9 @@ func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req Upd
 	}
 	if req.WalletFallbackEnabled != nil {
 		u.SetWalletFallbackEnabled(*req.WalletFallbackEnabled)
+	}
+	if req.MaxSubscriptionsPerUser != nil {
+		u.SetMaxSubscriptionsPerUser(*req.MaxSubscriptionsPerUser)
 	}
 	if req.Currency != nil {
 		currency, err := normalizePlanCurrency(*req.Currency)

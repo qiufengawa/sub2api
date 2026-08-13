@@ -277,14 +277,16 @@ func TestWeChatPaymentResumeTokenRoundTrip(t *testing.T) {
 
 	svc := NewPaymentResumeService([]byte("0123456789abcdef0123456789abcdef"))
 	token, err := svc.CreateWeChatPaymentResumeToken(WeChatPaymentResumeClaims{
-		OpenID:      "openid-123",
-		PaymentType: payment.TypeWxpay,
-		Amount:      "12.50",
-		OrderType:   payment.OrderTypeSubscription,
-		PlanID:      7,
-		RedirectTo:  "/purchase?from=wechat",
-		Scope:       "snsapi_base",
-		IssuedAt:    1234567890,
+		OpenID:               "openid-123",
+		PaymentType:          payment.TypeWxpay,
+		Amount:               "12.50",
+		OrderType:            payment.OrderTypeSubscription,
+		PlanID:               7,
+		PurchaseMode:         PurchaseModeRenewInstance,
+		TargetSubscriptionID: 42,
+		RedirectTo:           "/purchase?from=wechat",
+		Scope:                "snsapi_base",
+		IssuedAt:             1234567890,
 	})
 	if err != nil {
 		t.Fatalf("CreateWeChatPaymentResumeToken returned error: %v", err)
@@ -300,8 +302,29 @@ func TestWeChatPaymentResumeTokenRoundTrip(t *testing.T) {
 	if claims.Amount != "12.50" || claims.OrderType != payment.OrderTypeSubscription || claims.PlanID != 7 {
 		t.Fatalf("claims payment context mismatch: %+v", claims)
 	}
+	if claims.PurchaseMode != PurchaseModeRenewInstance || claims.TargetSubscriptionID != 42 {
+		t.Fatalf("claims subscription purchase context mismatch: %+v", claims)
+	}
 	if claims.RedirectTo != "/purchase?from=wechat" || claims.Scope != "snsapi_base" {
 		t.Fatalf("claims redirect/scope mismatch: %+v", claims)
+	}
+}
+
+func TestWeChatPaymentResumeTokenRejectsInvalidPurchaseContext(t *testing.T) {
+	t.Parallel()
+
+	svc := NewPaymentResumeService([]byte("0123456789abcdef0123456789abcdef"))
+	tests := []WeChatPaymentResumeClaims{
+		{OpenID: "openid", OrderType: payment.OrderTypeSubscription, PlanID: 7, PurchaseMode: "invalid"},
+		{OpenID: "openid", OrderType: payment.OrderTypeSubscription, PlanID: 7, PurchaseMode: PurchaseModeNewInstance, TargetSubscriptionID: 1},
+		{OpenID: "openid", OrderType: payment.OrderTypeSubscription, PlanID: 7, PurchaseMode: PurchaseModeRenewInstance},
+		{OpenID: "openid", OrderType: payment.OrderTypeBalance, PurchaseMode: PurchaseModeNewInstance},
+	}
+	for _, claims := range tests {
+		_, err := svc.CreateWeChatPaymentResumeToken(claims)
+		if err == nil {
+			t.Fatalf("expected invalid claims to fail: %+v", claims)
+		}
 	}
 }
 
