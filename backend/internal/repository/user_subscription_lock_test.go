@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	_ "github.com/Wei-Shaw/sub2api/ent/runtime"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 
 	"entgo.io/ent/dialect"
@@ -43,6 +45,26 @@ func TestUserSubscriptionGetByIDForUpdateLocksRow(t *testing.T) {
 	sub, err := repo.GetByIDForUpdate(context.Background(), 7)
 	require.NoError(t, err)
 	require.Equal(t, int64(7), sub.ID)
+	require.NoError(t, mock.ExpectationsWereMet())
+	require.Contains(t, strings.ToUpper(normalizeSQLWhitespace(capturedSQL)), "FOR UPDATE")
+}
+
+func TestUserSubscriptionGetByIDIncludeDeletedForUpdateLocksRow(t *testing.T) {
+	var capturedSQL string
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(captureEntQueryMatcher{actual: &capturedSQL}))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	driver := entsql.OpenDB(dialect.Postgres, db)
+	client := dbent.NewClient(dbent.Driver(driver))
+	t.Cleanup(func() { _ = client.Close() })
+	repo := NewUserSubscriptionRepository(client)
+	restoreRepo, ok := repo.(service.SubscriptionRestoreRepository)
+	require.True(t, ok)
+	mock.ExpectQuery("locked revoked subscription").WillReturnError(errors.New("stop after lock query"))
+
+	_, err = restoreRepo.GetByIDIncludeDeletedForUpdate(context.Background(), 8)
+	require.EqualError(t, err, "stop after lock query")
 	require.NoError(t, mock.ExpectationsWereMet())
 	require.Contains(t, strings.ToUpper(normalizeSQLWhitespace(capturedSQL)), "FOR UPDATE")
 }

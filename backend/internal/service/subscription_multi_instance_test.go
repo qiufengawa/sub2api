@@ -5,6 +5,7 @@ package service_test
 import (
 	"context"
 	"database/sql"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,9 +22,14 @@ import (
 )
 
 func newMultiInstanceSubscriptionService(t *testing.T) (*service.SubscriptionService, *dbent.Client, context.Context, int64, int64) {
+	return newMultiInstanceSubscriptionServiceWithLimit(t, 2)
+}
+
+func newMultiInstanceSubscriptionServiceWithLimit(t *testing.T, maxSubscriptions int) (*service.SubscriptionService, *dbent.Client, context.Context, int64, int64) {
 	t.Helper()
 	db, err := sql.Open("sqlite", "file:"+t.Name()+"?mode=memory&cache=shared&_pragma=foreign_keys(1)")
 	require.NoError(t, err)
+	db.SetMaxOpenConns(1)
 	client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.SQLite, db)))
 	t.Cleanup(func() { _ = client.Close() })
 	ctx := context.Background()
@@ -37,12 +43,47 @@ func newMultiInstanceSubscriptionService(t *testing.T) (*service.SubscriptionSer
 		SetPrice(10).
 		SetValidityDays(30).
 		SetValidityUnit("days").
-		SetMaxSubscriptionsPerUser(2).
+		SetMaxSubscriptionsPerUser(maxSubscriptions).
 		AddGroupIDs(group.ID).
 		Save(ctx)
 	require.NoError(t, err)
 	repo := repository.NewUserSubscriptionRepository(client)
 	return service.NewSubscriptionService(nil, repo, nil, client, nil), client, ctx, user.ID, plan.ID
+}
+
+func TestCreateSubscriptionInstanceConcurrentSQLiteLimit(t *testing.T) {
+	svc, client, ctx, userID, planID := newMultiInstanceSubscriptionServiceWithLimit(t, 1)
+	const workers = 16
+	start := make(chan struct{})
+	errs := make(chan error, workers)
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, err := svc.CreateSubscriptionInstance(ctx, &service.AssignSubscriptionInput{
+				UserID: userID, PlanID: planID, ValidityDays: 30,
+			}, true, false)
+			errs <- err
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+
+	successes := 0
+	for err := range errs {
+		if err == nil {
+			successes++
+			continue
+		}
+		require.ErrorIs(t, err, service.ErrSubscriptionInstanceLimit)
+	}
+	require.Equal(t, 1, successes)
+	count, err := client.UserSubscription.Query().Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
 }
 
 func TestCreateSubscriptionInstanceEnforcesIndependentLimit(t *testing.T) {

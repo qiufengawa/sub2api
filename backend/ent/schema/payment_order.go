@@ -192,7 +192,9 @@ func (PaymentOrder) Indexes() []ent.Index {
 			Unique().
 			Annotations(entsql.IndexWhere("out_trade_no <> ''")),
 		index.Fields("user_id"),
-		index.Fields("fulfilled_subscription_id"),
+		index.Fields("fulfilled_subscription_id").
+			StorageKey("idx_payment_orders_fulfilled_subscription_id").
+			Annotations(entsql.IndexWhere("fulfilled_subscription_id IS NOT NULL")),
 		index.Fields("status"),
 		index.Fields("expires_at"),
 		index.Fields("created_at"),

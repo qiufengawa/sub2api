@@ -9,6 +9,7 @@ BEGIN
         SELECT 1
         FROM pg_constraint
         WHERE conname = 'subscription_plans_max_subscriptions_per_user_check'
+	      AND conrelid = 'subscription_plans'::regclass
     ) THEN
         ALTER TABLE subscription_plans
             ADD CONSTRAINT subscription_plans_max_subscriptions_per_user_check

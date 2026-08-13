@@ -92,6 +92,10 @@ func (r *restoreUserSubRepoStub) GetByIDIncludeDeleted(_ context.Context, id int
 	return &cp, nil
 }
 
+func (r *restoreUserSubRepoStub) GetByIDIncludeDeletedForUpdate(ctx context.Context, id int64) (*UserSubscription, error) {
+	return r.GetByIDIncludeDeleted(ctx, id)
+}
+
 func (r *restoreUserSubRepoStub) GetByUserIDAndPlanID(_ context.Context, userID, planID int64) (*UserSubscription, error) {
 	if !r.existsActive || r.sub == nil || r.sub.UserID != userID || r.sub.PlanID != planID {
 		return nil, ErrSubscriptionNotFound

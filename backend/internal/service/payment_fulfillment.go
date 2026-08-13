@@ -560,10 +560,19 @@ func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, 
 	if err != nil {
 		return fmt.Errorf("check subscription assignment audit: %w", err)
 	}
-
 	recoveredFromNote := false
 	var fulfilledSubscriptionID int64
 	if !alreadyAssigned {
+		instanceRepo, ok := s.subscriptionSvc.userSubRepo.(SubscriptionInstanceRepository)
+		if !ok {
+			return errors.New("subscription repository does not support subscription instances")
+		}
+		if err := instanceRepo.LockUserPlanScope(txCtx, claimedOrder.UserID, snapshot.PlanID); err != nil {
+			return fmt.Errorf("lock subscription fulfillment scope: %w", err)
+		}
+		if err := s.revalidateSubscriptionFulfillmentCapacity(txCtx, tx, claimedOrder, snapshot, instanceRepo); err != nil {
+			return err
+		}
 		orderNote := paymentSubscriptionOrderNote(o.ID)
 		input := &AssignSubscriptionInput{
 			UserID:       o.UserID,
@@ -583,12 +592,13 @@ func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, 
 		walletFallback := snapshot.WalletFallbackEnabled
 		input.WalletFallbackEnabled = &walletFallback
 		if snapshot.SchemaVersion >= subscriptionPlanOrderSnapshotMultiInstanceVersion {
+			maxSubscriptions := snapshot.MaxSubscriptionsPerUser
 			var fulfilled *UserSubscription
 			switch snapshot.PurchaseMode {
 			case PurchaseModeNewInstance:
-				fulfilled, err = s.subscriptionSvc.CreateSubscriptionInstance(txCtx, input, false, true)
+				fulfilled, err = s.subscriptionSvc.createSubscriptionInstance(txCtx, input, true, &maxSubscriptions, true)
 			case PurchaseModeRenewInstance:
-				fulfilled, err = s.subscriptionSvc.RenewSubscriptionInstance(txCtx, snapshot.TargetSubscriptionID, input, true)
+				fulfilled, err = s.subscriptionSvc.renewSubscriptionInstance(txCtx, snapshot.TargetSubscriptionID, input, &maxSubscriptions, true)
 			default:
 				err = infraerrors.BadRequest("INVALID_STATUS", "invalid subscription purchase mode")
 			}
@@ -665,6 +675,77 @@ func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, 
 	// then performed synchronously against the committed subscription.
 	if err := s.invalidatePaymentSubscriptionCaches(o.UserID, snapshot.IncludedGroupIDs); err != nil {
 		return fmt.Errorf("invalidate subscription cache after fulfillment: %w", err)
+	}
+	return nil
+}
+
+func (s *PaymentService) revalidateSubscriptionFulfillmentCapacity(
+	ctx context.Context,
+	tx *dbent.Tx,
+	order *dbent.PaymentOrder,
+	snapshot SubscriptionPlanOrderSnapshot,
+	instanceRepo SubscriptionInstanceRepository,
+) error {
+	if order == nil || tx == nil || instanceRepo == nil {
+		return errors.New("subscription fulfillment capacity is unavailable")
+	}
+	now := time.Now()
+	if s.subscriptionSvc != nil && s.subscriptionSvc.now != nil {
+		now = s.subscriptionSvc.now()
+	}
+	occupied, err := instanceRepo.CountOccupyingByUserIDAndPlanID(ctx, order.UserID, snapshot.PlanID, now)
+	if err != nil {
+		return fmt.Errorf("count subscription occupancy: %w", err)
+	}
+	reserved, err := countSubscriptionInstanceReservationSlots(ctx, tx, order.UserID, snapshot.PlanID, now, order.ID)
+	if err != nil {
+		return fmt.Errorf("count subscription reservations: %w", err)
+	}
+	limit := snapshot.MaxSubscriptionsPerUser
+	requiresSlot := snapshot.PurchaseMode == PurchaseModeNewInstance
+	if snapshot.SchemaVersion < subscriptionPlanOrderSnapshotMultiInstanceVersion {
+		limit = 1
+		plan, err := tx.Client().SubscriptionPlan.Get(ctx, snapshot.PlanID)
+		if err == nil {
+			limit = plan.MaxSubscriptionsPerUser
+		} else if !dbent.IsNotFound(err) {
+			return fmt.Errorf("resolve legacy subscription limit: %w", err)
+		}
+		coverageRepo, ok := s.subscriptionSvc.userSubRepo.(SubscriptionCoverageRepository)
+		if !ok {
+			return errors.New("subscription repository does not support plan assignments")
+		}
+		existing, err := coverageRepo.GetByUserIDAndPlanID(ctx, order.UserID, snapshot.PlanID)
+		switch {
+		case err == nil:
+			requiresSlot = !subscriptionOccupiesCapacity(existing, now)
+		case errors.Is(err, ErrSubscriptionNotFound):
+			requiresSlot = true
+		default:
+			return err
+		}
+	} else if snapshot.PurchaseMode == PurchaseModeRenewInstance {
+		target, err := s.subscriptionSvc.userSubRepo.GetByIDForUpdate(ctx, snapshot.TargetSubscriptionID)
+		if err != nil {
+			return err
+		}
+		if target.UserID != order.UserID || target.PlanID != snapshot.PlanID {
+			return ErrSubscriptionTargetMismatch
+		}
+		requiresSlot = !subscriptionOccupiesCapacity(target, now)
+	}
+	if !requiresSlot {
+		return nil
+	}
+	projected := occupied + reserved
+	projected++
+	if projected > limit {
+		return ErrSubscriptionInstanceLimit.WithMetadata(map[string]string{
+			"max":       strconv.Itoa(limit),
+			"current":   strconv.Itoa(occupied),
+			"reserved":  strconv.Itoa(reserved),
+			"projected": strconv.Itoa(projected),
+		})
 	}
 	return nil
 }

@@ -58,6 +58,12 @@ type SubscriptionInstanceRepository interface {
 	LockUserPlanScope(ctx context.Context, userID, planID int64) error
 }
 
+// SubscriptionRestoreRepository locks revoked rows that are hidden by the
+// normal soft-delete predicate before restoring them.
+type SubscriptionRestoreRepository interface {
+	GetByIDIncludeDeletedForUpdate(ctx context.Context, id int64) (*UserSubscription, error)
+}
+
 type SubscriptionBillingSnapshot struct {
 	PlanID           int64
 	FiveHourQuotaUSD *float64

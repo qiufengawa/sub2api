@@ -190,7 +190,7 @@ func TestCountPendingSubscriptionInstanceSlotsStatusMatrix(t *testing.T) {
 		{name: "cancelled", status: OrderStatusCancelled, expiresAt: now.Add(time.Hour), snapshot: validV5SubscriptionOrderSnapshot(PurchaseModeNewInstance, 0)},
 		{name: "fulfilled", status: OrderStatusPaid, expiresAt: now.Add(time.Hour), snapshot: validV5SubscriptionOrderSnapshot(PurchaseModeNewInstance, 0), fulfilledID: 99},
 		{name: "renewal", status: OrderStatusPaid, expiresAt: now.Add(time.Hour), snapshot: validV5SubscriptionOrderSnapshot(PurchaseModeRenewInstance, 42)},
-		{name: "legacy v4", status: OrderStatusPaid, expiresAt: now.Add(time.Hour), snapshot: map[string]any{
+		{name: "legacy v4", status: OrderStatusPaid, expiresAt: now.Add(time.Hour), want: 1, snapshot: map[string]any{
 			"schema_version": 4, "plan_id": int64(7), "included_group_ids": []int64{3}, "validity_days": 30,
 		}},
 	}

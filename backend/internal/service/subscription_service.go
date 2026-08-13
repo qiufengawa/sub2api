@@ -140,6 +140,10 @@ func (s *SubscriptionService) AssignOrExtendSubscription(ctx context.Context, in
 // CreateSubscriptionInstance creates a separate entitlement row. When
 // enforceLimit is true the plan limit is checked under the user-plan lock.
 func (s *SubscriptionService) CreateSubscriptionInstance(ctx context.Context, input *AssignSubscriptionInput, enforceLimit, deferCacheInvalidation bool) (*UserSubscription, error) {
+	return s.createSubscriptionInstance(ctx, input, enforceLimit, nil, deferCacheInvalidation)
+}
+
+func (s *SubscriptionService) createSubscriptionInstance(ctx context.Context, input *AssignSubscriptionInput, enforceLimit bool, maxOverride *int, deferCacheInvalidation bool) (*UserSubscription, error) {
 	groupIDs, err := s.prepareSubscriptionAssignment(ctx, input)
 	if err != nil {
 		return nil, err
@@ -154,25 +158,18 @@ func (s *SubscriptionService) CreateSubscriptionInstance(ctx context.Context, in
 			return fmt.Errorf("lock user-plan subscription scope: %w", err)
 		}
 		if enforceLimit {
-			if s.entClient == nil {
-				return fmt.Errorf("subscription plan limit requires a database client")
-			}
-			client := s.entClient
-			if tx := dbent.TxFromContext(txCtx); tx != nil {
-				client = tx.Client()
-			}
-			plan, err := client.SubscriptionPlan.Get(txCtx, input.PlanID)
+			limit, err := s.resolveSubscriptionInstanceLimit(txCtx, input.PlanID, maxOverride)
 			if err != nil {
-				return infraerrors.NotFound("PLAN_NOT_FOUND", "subscription plan not found")
+				return err
 			}
 			now := s.now()
 			count, err := instanceRepo.CountOccupyingByUserIDAndPlanID(txCtx, input.UserID, input.PlanID, now)
 			if err != nil {
 				return err
 			}
-			if count >= plan.MaxSubscriptionsPerUser {
+			if count >= limit {
 				return ErrSubscriptionInstanceLimit.WithMetadata(map[string]string{
-					"max": fmt.Sprintf("%d", plan.MaxSubscriptionsPerUser),
+					"max": fmt.Sprintf("%d", limit),
 				})
 			}
 		}
@@ -189,6 +186,10 @@ func (s *SubscriptionService) CreateSubscriptionInstance(ctx context.Context, in
 // RenewSubscriptionInstance renews only targetSubscriptionID and validates
 // its ownership before changing either term or billing snapshot.
 func (s *SubscriptionService) RenewSubscriptionInstance(ctx context.Context, targetSubscriptionID int64, input *AssignSubscriptionInput, deferCacheInvalidation bool) (*UserSubscription, error) {
+	return s.renewSubscriptionInstance(ctx, targetSubscriptionID, input, nil, deferCacheInvalidation)
+}
+
+func (s *SubscriptionService) renewSubscriptionInstance(ctx context.Context, targetSubscriptionID int64, input *AssignSubscriptionInput, maxOverride *int, deferCacheInvalidation bool) (*UserSubscription, error) {
 	groupIDs, err := s.prepareSubscriptionAssignment(ctx, input)
 	if err != nil {
 		return nil, err
@@ -211,6 +212,22 @@ func (s *SubscriptionService) RenewSubscriptionInstance(ctx context.Context, tar
 		}
 		if target.UserID != input.UserID || target.PlanID != input.PlanID {
 			return ErrSubscriptionTargetMismatch
+		}
+		now := s.now()
+		if !subscriptionOccupiesCapacity(target, now) {
+			limit, err := s.resolveSubscriptionInstanceLimit(txCtx, input.PlanID, maxOverride)
+			if err != nil {
+				return err
+			}
+			count, err := instanceRepo.CountOccupyingByUserIDAndPlanID(txCtx, input.UserID, input.PlanID, now)
+			if err != nil {
+				return err
+			}
+			if count >= limit {
+				return ErrSubscriptionInstanceLimit.WithMetadata(map[string]string{
+					"max": fmt.Sprintf("%d", limit),
+				})
+			}
 		}
 		termUpdate, err := s.updateExistingSubscriptionTerm(txCtx, targetSubscriptionID, normalizeAssignValidityDays(input.ValidityDays), input.Notes, false)
 		if err != nil {
@@ -252,6 +269,32 @@ func (s *SubscriptionService) RenewSubscriptionInstance(ctx context.Context, tar
 	return renewed, nil
 }
 
+func (s *SubscriptionService) resolveSubscriptionInstanceLimit(ctx context.Context, planID int64, maxOverride *int) (int, error) {
+	if maxOverride != nil {
+		if *maxOverride < 1 {
+			return 0, infraerrors.BadRequest("INVALID_STATUS", "invalid subscription instance limit")
+		}
+		return *maxOverride, nil
+	}
+	if s.entClient == nil {
+		return 0, fmt.Errorf("subscription plan limit requires a database client")
+	}
+	client := s.entClient
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		client = tx.Client()
+	}
+	plan, err := client.SubscriptionPlan.Get(ctx, planID)
+	if err != nil {
+		return 0, infraerrors.NotFound("PLAN_NOT_FOUND", "subscription plan not found")
+	}
+	return plan.MaxSubscriptionsPerUser, nil
+}
+
+func subscriptionOccupiesCapacity(sub *UserSubscription, now time.Time) bool {
+	return sub != nil && sub.ExpiresAt.After(now) &&
+		(sub.Status == SubscriptionStatusActive || sub.Status == SubscriptionStatusSuspended)
+}
+
 func (s *SubscriptionService) assignOrExtendSubscription(ctx context.Context, input *AssignSubscriptionInput, deferCacheInvalidation bool) (*UserSubscription, bool, error) {
 	groupIDs, err := s.prepareSubscriptionAssignment(ctx, input)
 	if err != nil {
@@ -263,10 +306,9 @@ func (s *SubscriptionService) assignOrExtendSubscription(ctx context.Context, in
 	if !ok {
 		return nil, false, fmt.Errorf("subscription repository does not support plan assignments")
 	}
-	existingSub, err := coverageRepo.GetByUserIDAndPlanID(ctx, input.UserID, input.PlanID)
-	if err != nil {
-		// 不存在记录是正常情况，其他错误需要返回
-		existingSub = nil
+	instanceRepo, ok := s.userSubRepo.(SubscriptionInstanceRepository)
+	if !ok {
+		return nil, false, fmt.Errorf("subscription repository does not support subscription instances")
 	}
 
 	validityDays := input.ValidityDays
@@ -277,11 +319,28 @@ func (s *SubscriptionService) assignOrExtendSubscription(ctx context.Context, in
 		validityDays = MaxValidityDays
 	}
 
-	// 已有订阅，执行续期（在事务中完成所有更新）
-	if existingSub != nil {
-		termUpdate, err := s.updateExistingSubscriptionTerm(ctx, existingSub.ID, validityDays, input.Notes, false)
+	var result *UserSubscription
+	var extended bool
+	err = s.withSubscriptionUpdateTx(ctx, func(txCtx context.Context) error {
+		if err := instanceRepo.LockUserPlanScope(txCtx, input.UserID, input.PlanID); err != nil {
+			return fmt.Errorf("lock user-plan subscription scope: %w", err)
+		}
+		existingSub, lookupErr := coverageRepo.GetByUserIDAndPlanID(txCtx, input.UserID, input.PlanID)
+		if lookupErr != nil && !errors.Is(lookupErr, ErrSubscriptionNotFound) {
+			return lookupErr
+		}
+		if existingSub == nil {
+			created, err := s.createSubscription(txCtx, input)
+			if err != nil {
+				return err
+			}
+			result = created
+			return nil
+		}
+
+		termUpdate, err := s.updateExistingSubscriptionTerm(txCtx, existingSub.ID, validityDays, input.Notes, false)
 		if err != nil {
-			return nil, false, err
+			return err
 		}
 		cycleStart := termUpdate.previous.CycleStartedAt
 		if termUpdate.wasExpired || cycleStart == nil {
@@ -295,7 +354,7 @@ func (s *SubscriptionService) assignOrExtendSubscription(ctx context.Context, in
 		if input.WalletFallbackEnabled != nil {
 			walletFallback = *input.WalletFallbackEnabled
 		}
-		if err := coverageRepo.UpdateBillingSnapshot(ctx, existingSub.ID, SubscriptionBillingSnapshot{
+		if err := coverageRepo.UpdateBillingSnapshot(txCtx, existingSub.ID, SubscriptionBillingSnapshot{
 			PlanID:                        input.PlanID,
 			FiveHourQuotaUSD:              input.FiveHourQuotaUSD,
 			PreserveExistingFiveHourQuota: input.PreserveExistingFiveHourQuota,
@@ -307,27 +366,17 @@ func (s *SubscriptionService) assignOrExtendSubscription(ctx context.Context, in
 			CycleStartedAt:                cycleStart,
 			WalletFallbackEnabled:         walletFallback,
 		}, termUpdate.wasExpired); err != nil {
-			return nil, false, err
+			return err
 		}
-
-		// 失效订阅缓存
-		s.maybeInvalidateAssignmentCaches(input.UserID, groupIDs, deferCacheInvalidation)
-
-		// 返回更新后的订阅
-		sub, err := s.userSubRepo.GetByID(ctx, existingSub.ID)
-		return sub, true, err // true 表示是续期
-	}
-
-	// 没有订阅，创建新订阅
-	sub, err := s.createSubscription(ctx, input)
+		result, err = s.userSubRepo.GetByID(txCtx, existingSub.ID)
+		extended = true
+		return err
+	})
 	if err != nil {
 		return nil, false, err
 	}
-
-	// 失效订阅缓存
 	s.maybeInvalidateAssignmentCaches(input.UserID, groupIDs, deferCacheInvalidation)
-
-	return sub, false, nil // false 表示是新建
+	return result, extended, nil
 }
 
 func (s *SubscriptionService) prepareSubscriptionAssignment(ctx context.Context, input *AssignSubscriptionInput) ([]int64, error) {
@@ -671,70 +720,81 @@ func (s *SubscriptionService) assignSubscriptionWithReuse(ctx context.Context, i
 	if !ok {
 		return nil, false, fmt.Errorf("subscription repository does not support plan assignments")
 	}
-	sub, getErr := coverageRepo.GetByUserIDAndPlanID(ctx, input.UserID, input.PlanID)
-	if getErr == nil && sub != nil {
-		now := time.Now()
-		if sub.Status == SubscriptionStatusExpired ||
-			(sub.Status != SubscriptionStatusSuspended && !sub.ExpiresAt.After(now)) {
-			validityDays := normalizeAssignValidityDays(input.ValidityDays)
-			termUpdate, err := s.updateExistingSubscriptionTerm(ctx, sub.ID, validityDays, input.Notes, true)
-			if err != nil {
-				return nil, false, err
-			}
-			if !termUpdate.updated {
-				current, getErr := s.userSubRepo.GetByID(ctx, sub.ID)
-				return current, true, getErr
-			}
-			fiveHourStart := termUpdate.previous.FiveHourStartedAt
-			if termUpdate.wasExpired || fiveHourStart == nil {
-				fiveHourStart = &termUpdate.updatedAt
-			}
-			cycleStart := termUpdate.previous.CycleStartedAt
-			if termUpdate.wasExpired || cycleStart == nil {
-				cycleStart = &termUpdate.updatedAt
-			}
-			walletFallback := true
-			if input.WalletFallbackEnabled != nil {
-				walletFallback = *input.WalletFallbackEnabled
-			}
-			if err := coverageRepo.UpdateBillingSnapshot(ctx, sub.ID, SubscriptionBillingSnapshot{
-				PlanID:                        input.PlanID,
-				FiveHourQuotaUSD:              input.FiveHourQuotaUSD,
-				PreserveExistingFiveHourQuota: input.PreserveExistingFiveHourQuota,
-				CycleQuotaUSD:                 input.CycleQuotaUSD,
-				TotalQuotaUSD:                 input.TotalQuotaUSD,
-				PreserveExistingTotalQuota:    input.PreserveExistingTotalQuota,
-				ResetIntervalSeconds:          input.ResetIntervalSeconds,
-				FiveHourStartedAt:             fiveHourStart,
-				CycleStartedAt:                cycleStart,
-				WalletFallbackEnabled:         walletFallback,
-			}, termUpdate.wasExpired); err != nil {
-				return nil, false, err
-			}
-			s.maybeInvalidateAssignmentCaches(input.UserID, groupIDs, false)
-			renewed, getErr := s.userSubRepo.GetByID(ctx, sub.ID)
-			return renewed, true, getErr
-		}
-		if conflictReason, conflict := detectAssignSemanticConflict(sub, input); conflict {
-			return nil, false, ErrSubscriptionAssignConflict.WithMetadata(map[string]string{
-				"conflict_reason": conflictReason,
-			})
-		}
-		return sub, true, nil
+	instanceRepo, ok := s.userSubRepo.(SubscriptionInstanceRepository)
+	if !ok {
+		return nil, false, fmt.Errorf("subscription repository does not support subscription instances")
 	}
-	if getErr != nil && !errors.Is(getErr, ErrSubscriptionNotFound) {
-		return nil, false, getErr
-	}
-
-	sub, err = s.createSubscription(ctx, input)
+	var result *UserSubscription
+	var reused bool
+	err = s.withSubscriptionUpdateTx(ctx, func(txCtx context.Context) error {
+		if err := instanceRepo.LockUserPlanScope(txCtx, input.UserID, input.PlanID); err != nil {
+			return fmt.Errorf("lock user-plan subscription scope: %w", err)
+		}
+		sub, getErr := coverageRepo.GetByUserIDAndPlanID(txCtx, input.UserID, input.PlanID)
+		if getErr == nil && sub != nil {
+			now := s.now()
+			if sub.Status == SubscriptionStatusExpired ||
+				(sub.Status != SubscriptionStatusSuspended && !sub.ExpiresAt.After(now)) {
+				validityDays := normalizeAssignValidityDays(input.ValidityDays)
+				termUpdate, err := s.updateExistingSubscriptionTerm(txCtx, sub.ID, validityDays, input.Notes, true)
+				if err != nil {
+					return err
+				}
+				if !termUpdate.updated {
+					result, err = s.userSubRepo.GetByID(txCtx, sub.ID)
+					reused = true
+					return err
+				}
+				fiveHourStart := termUpdate.previous.FiveHourStartedAt
+				if termUpdate.wasExpired || fiveHourStart == nil {
+					fiveHourStart = &termUpdate.updatedAt
+				}
+				cycleStart := termUpdate.previous.CycleStartedAt
+				if termUpdate.wasExpired || cycleStart == nil {
+					cycleStart = &termUpdate.updatedAt
+				}
+				walletFallback := true
+				if input.WalletFallbackEnabled != nil {
+					walletFallback = *input.WalletFallbackEnabled
+				}
+				if err := coverageRepo.UpdateBillingSnapshot(txCtx, sub.ID, SubscriptionBillingSnapshot{
+					PlanID:                        input.PlanID,
+					FiveHourQuotaUSD:              input.FiveHourQuotaUSD,
+					PreserveExistingFiveHourQuota: input.PreserveExistingFiveHourQuota,
+					CycleQuotaUSD:                 input.CycleQuotaUSD,
+					TotalQuotaUSD:                 input.TotalQuotaUSD,
+					PreserveExistingTotalQuota:    input.PreserveExistingTotalQuota,
+					ResetIntervalSeconds:          input.ResetIntervalSeconds,
+					FiveHourStartedAt:             fiveHourStart,
+					CycleStartedAt:                cycleStart,
+					WalletFallbackEnabled:         walletFallback,
+				}, termUpdate.wasExpired); err != nil {
+					return err
+				}
+				result, err = s.userSubRepo.GetByID(txCtx, sub.ID)
+				reused = true
+				return err
+			}
+			if conflictReason, conflict := detectAssignSemanticConflict(sub, input); conflict {
+				return ErrSubscriptionAssignConflict.WithMetadata(map[string]string{
+					"conflict_reason": conflictReason,
+				})
+			}
+			result = sub
+			reused = true
+			return nil
+		}
+		if getErr != nil && !errors.Is(getErr, ErrSubscriptionNotFound) {
+			return getErr
+		}
+		result, err = s.createSubscription(txCtx, input)
+		return err
+	})
 	if err != nil {
 		return nil, false, err
 	}
-
-	// 失效订阅缓存
 	s.maybeInvalidateAssignmentCaches(input.UserID, groupIDs, false)
-
-	return sub, false, nil
+	return result, reused, nil
 }
 
 func detectAssignSemanticConflict(existing *UserSubscription, input *AssignSubscriptionInput) (string, bool) {
@@ -804,6 +864,10 @@ func (s *SubscriptionService) RestoreSubscription(ctx context.Context, subscript
 	if !ok {
 		return nil, fmt.Errorf("subscription repository does not support subscription instances")
 	}
+	restoreRepo, ok := s.userSubRepo.(SubscriptionRestoreRepository)
+	if !ok {
+		return nil, fmt.Errorf("subscription repository does not support locked restores")
+	}
 
 	var restored *UserSubscription
 	err = s.withSubscriptionUpdateTx(ctx, func(txCtx context.Context) error {
@@ -811,7 +875,7 @@ func (s *SubscriptionService) RestoreSubscription(ctx context.Context, subscript
 			return fmt.Errorf("lock user-plan subscription scope: %w", err)
 		}
 
-		current, err := s.userSubRepo.GetByIDIncludeDeleted(txCtx, subscriptionID)
+		current, err := restoreRepo.GetByIDIncludeDeletedForUpdate(txCtx, subscriptionID)
 		if err != nil {
 			return err
 		}

@@ -18,6 +18,16 @@ type lockingRenewalRepo struct {
 	billingSnapshotUpdates int
 }
 
+func (r *lockingRenewalRepo) LockUserPlanScope(context.Context, int64, int64) error { return nil }
+
+func (r *lockingRenewalRepo) ListByUserIDAndPlanID(context.Context, int64, int64) ([]UserSubscription, error) {
+	return []UserSubscription{r.current}, nil
+}
+
+func (r *lockingRenewalRepo) CountOccupyingByUserIDAndPlanID(context.Context, int64, int64, time.Time) (int, error) {
+	return 1, nil
+}
+
 func (r *lockingRenewalRepo) GetByUserIDAndPlanID(context.Context, int64, int64) (*UserSubscription, error) {
 	copy := r.stale
 	return &copy, nil

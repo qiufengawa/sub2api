@@ -15,6 +15,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
+	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/Wei-Shaw/sub2api/internal/payment/provider"
@@ -425,7 +426,11 @@ func (s *PaymentService) prepareSubscriptionOrderSlot(ctx context.Context, tx *d
 }
 
 func countPendingSubscriptionInstanceSlots(ctx context.Context, tx *dbent.Tx, userID, planID int64, now time.Time) (int, error) {
-	orders, err := tx.PaymentOrder.Query().Where(
+	return countSubscriptionInstanceReservationSlots(ctx, tx, userID, planID, now, 0)
+}
+
+func countSubscriptionInstanceReservationSlots(ctx context.Context, tx *dbent.Tx, userID, planID int64, now time.Time, excludeOrderID int64) (int, error) {
+	predicates := []predicate.PaymentOrder{
 		paymentorder.UserIDEQ(userID),
 		paymentorder.PlanIDEQ(planID),
 		paymentorder.OrderTypeEQ(payment.OrderTypeSubscription),
@@ -434,7 +439,11 @@ func countPendingSubscriptionInstanceSlots(ctx context.Context, tx *dbent.Tx, us
 			paymentorder.And(paymentorder.StatusEQ(OrderStatusPending), paymentorder.ExpiresAtGT(now)),
 			paymentorder.StatusIn(OrderStatusPaid, OrderStatusRecharging),
 		),
-	).All(ctx)
+	}
+	if excludeOrderID > 0 {
+		predicates = append(predicates, paymentorder.IDNEQ(excludeOrderID))
+	}
+	orders, err := tx.PaymentOrder.Query().Where(predicates...).All(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -444,7 +453,7 @@ func countPendingSubscriptionInstanceSlots(ctx context.Context, tx *dbent.Tx, us
 		if err != nil {
 			return 0, err
 		}
-		if ok && snapshot.SchemaVersion >= subscriptionPlanOrderSnapshotMultiInstanceVersion && snapshot.PurchaseMode == PurchaseModeNewInstance {
+		if ok && (snapshot.SchemaVersion < subscriptionPlanOrderSnapshotMultiInstanceVersion || snapshot.PurchaseMode == PurchaseModeNewInstance) {
 			count++
 		}
 	}

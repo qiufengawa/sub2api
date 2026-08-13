@@ -204,6 +204,12 @@ func (s *UserSubscriptionRepoSuite) TestRestore() {
 	s.Require().NoError(err, "GetByID after restore")
 	s.Require().Nil(got.DeletedAt)
 	s.Require().Equal(service.SubscriptionStatusExpired, got.Status)
+
+	_, err = s.repo.Restore(s.ctx, sub.ID, service.SubscriptionStatusActive)
+	s.Require().ErrorIs(err, service.ErrSubscriptionNotRevoked)
+	unchanged, err := s.repo.GetByID(s.ctx, sub.ID)
+	s.Require().NoError(err)
+	s.Require().Equal(service.SubscriptionStatusExpired, unchanged.Status)
 }
 
 func (s *UserSubscriptionRepoSuite) TestDelete_Idempotent() {

@@ -119,6 +119,24 @@ func (r *userSubscriptionRepository) GetByIDIncludeDeleted(ctx context.Context, 
 	return userSubscriptionEntityToServicePreserveStatus(m), nil
 }
 
+func (r *userSubscriptionRepository) GetByIDIncludeDeletedForUpdate(ctx context.Context, id int64) (*service.UserSubscription, error) {
+	client := clientFromContext(ctx, r.client)
+	queryCtx := mixins.SkipSoftDelete(ctx)
+	query := client.UserSubscription.Query().
+		Where(usersubscription.IDEQ(id)).
+		WithUser().
+		WithAssignedByUser().
+		WithPlan(func(q *dbent.SubscriptionPlanQuery) { q.WithGroups() })
+	if client.Driver().Dialect() == dialect.Postgres {
+		query = query.ForUpdate()
+	}
+	m, err := query.Only(queryCtx)
+	if err != nil {
+		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
+	}
+	return userSubscriptionEntityToServicePreserveStatus(m), nil
+}
+
 func activeSubscriptionCoversGroup(groupID int64) predicate.UserSubscription {
 	return usersubscription.HasPlanWith(subscriptionplan.HasGroupsWith(group.IDEQ(groupID)))
 }
@@ -335,13 +353,17 @@ func (r *userSubscriptionRepository) Delete(ctx context.Context, id int64) error
 func (r *userSubscriptionRepository) Restore(ctx context.Context, subscriptionID int64, restoredStatus string) (*service.UserSubscription, error) {
 	client := clientFromContext(ctx, r.client)
 	queryCtx := mixins.SkipSoftDelete(ctx)
-	_, err := client.UserSubscription.UpdateOneID(subscriptionID).
+	updated, err := client.UserSubscription.Update().
+		Where(usersubscription.IDEQ(subscriptionID), usersubscription.DeletedAtNotNil()).
 		SetStatus(restoredStatus).
 		ClearDeletedAt().
 		SetUpdatedAt(time.Now()).
 		Save(queryCtx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, service.ErrSubscriptionRestoreConflict)
+	}
+	if updated == 0 {
+		return nil, service.ErrSubscriptionNotRevoked
 	}
 	return r.GetByID(ctx, subscriptionID)
 }

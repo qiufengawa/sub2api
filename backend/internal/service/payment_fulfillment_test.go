@@ -960,6 +960,92 @@ func TestExecuteSubscriptionFulfillmentV5CreatesAndRenewsExactInstances(t *testi
 	secondSub, err := subRepo.GetByID(ctx, *secondOrder.FulfilledSubscriptionID)
 	require.NoError(t, err)
 	require.True(t, secondSub.ExpiresAt.Before(renewedFirst.ExpiresAt))
+
+	thirdOrder := createOrder(v5Snapshot(PurchaseModeNewInstance, 0))
+	err = svc.ExecuteSubscriptionFulfillment(ctx, thirdOrder.ID)
+	require.ErrorIs(t, err, ErrSubscriptionInstanceLimit)
+	thirdOrder, reloadErr := client.PaymentOrder.Get(ctx, thirdOrder.ID)
+	require.NoError(t, reloadErr)
+	require.Equal(t, OrderStatusFailed, thirdOrder.Status)
+	require.Equal(t, 2, subRepo.createCalls)
+
+	expired := &UserSubscription{
+		ID: 999, UserID: firstOrder.UserID, PlanID: planID,
+		Status: SubscriptionStatusExpired, ExpiresAt: time.Now().Add(-time.Hour),
+	}
+	subRepo.seed(expired)
+	expiredRenewal := createOrder(v5Snapshot(PurchaseModeRenewInstance, expired.ID))
+	err = svc.ExecuteSubscriptionFulfillment(ctx, expiredRenewal.ID)
+	require.ErrorIs(t, err, ErrSubscriptionInstanceLimit)
+	expiredAfter, getErr := subRepo.GetByID(ctx, expired.ID)
+	require.NoError(t, getErr)
+	require.Equal(t, SubscriptionStatusExpired, expiredAfter.Status)
+}
+
+func TestExecuteSubscriptionFulfillmentRespectsOtherReservations(t *testing.T) {
+	tests := []struct {
+		name          string
+		currentSchema int
+		currentStatus string
+	}{
+		{name: "failed v5 retry", currentSchema: subscriptionPlanOrderSnapshotVersion, currentStatus: OrderStatusFailed},
+		{name: "late v5 payment", currentSchema: subscriptionPlanOrderSnapshotVersion, currentStatus: OrderStatusPaid},
+		{name: "legacy v4 fulfillment", currentSchema: subscriptionPlanOrderSnapshotFiveHourQuotaVersion, currentStatus: OrderStatusPaid},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			client := newPaymentConfigServiceTestClient(t)
+			ensurePaymentAuditOrderActionUniqueIndex(t, ctx, client)
+			groupRepo := &subscriptionGroupRepoStub{group: &Group{
+				ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeStandard,
+			}}
+			subRepo := newSubscriptionUserSubRepoStub()
+			svc := &PaymentService{
+				entClient: client, groupRepo: groupRepo,
+				subscriptionSvc: NewSubscriptionService(groupRepo, subRepo, nil, nil, nil),
+			}
+
+			current := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, test.currentStatus, time.Now())
+			planID := *current.PlanID
+			currentSnapshot := paymentFulfillmentPlanSnapshot(planID, 30, 7)
+			if test.currentSchema >= subscriptionPlanOrderSnapshotMultiInstanceVersion {
+				currentSnapshot["schema_version"] = subscriptionPlanOrderSnapshotVersion
+				currentSnapshot["purchase_mode"] = PurchaseModeNewInstance
+				currentSnapshot["target_subscription_id"] = int64(0)
+				currentSnapshot["max_subscriptions_per_user"] = 1
+			}
+			current, err := client.PaymentOrder.UpdateOneID(current.ID).
+				SetSubscriptionPlanSnapshot(currentSnapshot).
+				SetPaidAt(time.Now().Add(-time.Minute)).
+				Save(ctx)
+			require.NoError(t, err)
+
+			reservationSnapshot := map[string]any{
+				"schema_version": subscriptionPlanOrderSnapshotVersion, "plan_id": planID,
+				"plan_name": "Pro", "included_group_ids": []int64{7}, "validity_days": 30,
+				"purchase_mode": PurchaseModeNewInstance, "target_subscription_id": int64(0),
+				"max_subscriptions_per_user": 1,
+			}
+			_, err = client.PaymentOrder.Create().
+				SetUserID(current.UserID).SetUserEmail(current.UserEmail).SetUserName(current.UserName).
+				SetAmount(80).SetPayAmount(80).SetRechargeCode("RESERVE-" + strconv.FormatInt(time.Now().UnixNano(), 10)).
+				SetOutTradeNo("reserve_" + strconv.FormatInt(time.Now().UnixNano(), 10)).
+				SetPaymentType(payment.TypeAlipay).SetPaymentTradeNo("").
+				SetOrderType(payment.OrderTypeSubscription).SetPlanID(planID).SetSubscriptionDays(30).
+				SetSubscriptionPlanSnapshot(reservationSnapshot).SetStatus(OrderStatusPending).
+				SetExpiresAt(time.Now().Add(time.Hour)).SetClientIP("127.0.0.1").SetSrcHost("api.example.com").
+				Save(ctx)
+			require.NoError(t, err)
+
+			err = svc.ExecuteSubscriptionFulfillment(ctx, current.ID)
+			require.ErrorIs(t, err, ErrSubscriptionInstanceLimit)
+			require.Equal(t, 0, subRepo.createCalls)
+			reloaded, reloadErr := client.PaymentOrder.Get(ctx, current.ID)
+			require.NoError(t, reloadErr)
+			require.Equal(t, OrderStatusFailed, reloaded.Status)
+		})
+	}
 }
 
 func TestExecuteSubscriptionFulfillmentMaintainsQuotaSnapshotCompatibility(t *testing.T) {

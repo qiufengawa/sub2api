@@ -1177,9 +1177,12 @@ var (
 				Columns: []*schema.Column{PaymentOrdersColumns[40]},
 			},
 			{
-				Name:    "paymentorder_fulfilled_subscription_id",
+				Name:    "idx_payment_orders_fulfilled_subscription_id",
 				Unique:  false,
 				Columns: []*schema.Column{PaymentOrdersColumns[18]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "fulfilled_subscription_id IS NOT NULL",
+				},
 			},
 			{
 				Name:    "paymentorder_status",
@@ -2094,6 +2097,22 @@ var (
 				Name:    "usersubscription_plan_id",
 				Unique:  false,
 				Columns: []*schema.Column{UserSubscriptionsColumns[28]},
+			},
+			{
+				Name:    "idx_user_subscriptions_user_plan",
+				Unique:  false,
+				Columns: []*schema.Column{UserSubscriptionsColumns[29], UserSubscriptionsColumns[28]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "deleted_at IS NULL AND plan_id IS NOT NULL",
+				},
+			},
+			{
+				Name:    "idx_user_subscriptions_user_plan_occupancy",
+				Unique:  false,
+				Columns: []*schema.Column{UserSubscriptionsColumns[29], UserSubscriptionsColumns[28], UserSubscriptionsColumns[6], UserSubscriptionsColumns[5], UserSubscriptionsColumns[0]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "deleted_at IS NULL AND plan_id IS NOT NULL",
+				},
 			},
 			{
 				Name:    "usersubscription_status",

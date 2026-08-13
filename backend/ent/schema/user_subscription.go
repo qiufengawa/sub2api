@@ -148,6 +148,12 @@ func (UserSubscription) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("user_id"),
 		index.Fields("plan_id"),
+		index.Fields("user_id", "plan_id").
+			StorageKey("idx_user_subscriptions_user_plan").
+			Annotations(entsql.IndexWhere("deleted_at IS NULL AND plan_id IS NOT NULL")),
+		index.Fields("user_id", "plan_id", "status", "expires_at", "id").
+			StorageKey("idx_user_subscriptions_user_plan_occupancy").
+			Annotations(entsql.IndexWhere("deleted_at IS NULL AND plan_id IS NOT NULL")),
 		index.Fields("status"),
 		index.Fields("expires_at"),
 		// 活跃订阅查询复合索引（线上由 SQL 迁移创建部分索引，schema 仅用于模型可读性对齐）
