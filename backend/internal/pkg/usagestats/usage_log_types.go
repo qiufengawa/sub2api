@@ -280,8 +280,11 @@ type UsageLogFilters struct {
 	BillingType           *int8
 	BillingMode           string
 	UpstreamModelMismatch *bool
-	StartTime             *time.Time
-	EndTime               *time.Time
+	// Timezone controls date bucketing for user-facing trend queries.
+	// Empty preserves the database/session timezone behavior for existing callers.
+	Timezone  string
+	StartTime *time.Time
+	EndTime   *time.Time
 	// ExactTotal requests exact COUNT(*) for pagination. Default false for fast large-table paging.
 	ExactTotal bool
 }

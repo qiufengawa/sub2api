@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="space-y-6">
+    <div class="w-full min-w-0 space-y-6">
       <UsageStatsCards :stats="usageStats" show-cache-hit-rate />
       <!-- Charts Section -->
       <div class="space-y-4">

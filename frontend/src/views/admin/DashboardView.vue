@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="mx-auto max-w-[1600px] space-y-4">
+    <div class="mx-auto w-full min-w-0 max-w-[1600px] space-y-4">
       <header class="dashboard-header">
         <div>
           <h1 class="text-xl font-semibold tracking-tight text-[#181818] dark:text-white">

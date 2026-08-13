@@ -119,6 +119,10 @@ const usageTableStub = {
   },
   template: '<div data-testid="usage-table-stub" />',
 }
+const dateRangePickerStub = {
+  emits: ['change'],
+  template: '<button data-testid="date-range-apply" type="button" @click="$emit(\'change\', { startDate: \'2026-08-13\', endDate: \'2026-08-13\', preset: \'today\' })">Apply date</button>',
+}
 
 const usageLog = {
   id: 1,
@@ -167,7 +171,7 @@ function mountUsageView() {
         AppLayout: simpleStub,
         Pagination: true,
         Select: true,
-        DateRangePicker: true,
+        DateRangePicker: dateRangePickerStub,
         Icon: true,
         UsageStatsCards: chartStub,
         UsageTable: usageTableStub,
@@ -270,6 +274,27 @@ describe('user UsageView', () => {
     expect(getStats).toHaveBeenCalledWith(expect.objectContaining({ model: 'gpt-draft-model' }))
     expect(getDashboardModels).toHaveBeenCalledWith(expect.objectContaining({ model: 'gpt-draft-model' }))
     expect(getDashboardSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({ model: 'gpt-draft-model' }))
+  })
+
+  it('queries all usage surfaces when the date picker applies a range', async () => {
+    const wrapper = mountUsageView()
+    await flushPromises()
+    query.mockClear()
+    getStats.mockClear()
+    getDashboardModels.mockClear()
+    getDashboardSnapshotV2.mockClear()
+
+    await wrapper.get('[data-testid="date-range-apply"]').trigger('click')
+    await flushPromises()
+
+    expect(query).toHaveBeenCalledWith(expect.objectContaining({
+      start_date: '2026-08-13',
+      end_date: '2026-08-13',
+      page: 1,
+    }), expect.anything())
+    expect(getStats).toHaveBeenCalledWith(expect.objectContaining({ start_date: '2026-08-13', end_date: '2026-08-13' }))
+    expect(getDashboardModels).toHaveBeenCalledWith(expect.objectContaining({ start_date: '2026-08-13', end_date: '2026-08-13' }))
+    expect(getDashboardSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({ start_date: '2026-08-13', end_date: '2026-08-13' }))
   })
 
   it('opens the failed-request tab from the dashboard link when the feature is enabled', async () => {

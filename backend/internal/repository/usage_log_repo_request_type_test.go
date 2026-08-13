@@ -461,6 +461,24 @@ func TestUsageLogRepositoryGetUsageTrendWithUsageFiltersRequestedModelSource(t *
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestUsageLogRepositoryGetUsageTrendWithUsageFiltersUsesRequestedTimezone(t *testing.T) {
+	db, mock := newSQLMock(t)
+	repo := &usageLogRepository{sql: db}
+
+	start := time.Date(2026, 8, 12, 16, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 13, 16, 0, 0, 0, time.UTC)
+	filters := usagestats.UsageLogFilters{UserID: 42, Timezone: "Asia/Shanghai"}
+
+	mock.ExpectQuery("TO_CHAR\\(created_at AT TIME ZONE \\$3, 'YYYY-MM-DD'\\)").
+		WithArgs(start, end, "Asia/Shanghai", int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"date", "requests", "input_tokens", "output_tokens", "cache_creation_tokens", "cache_read_tokens", "total_tokens", "cost", "actual_cost"}))
+
+	trend, err := repo.GetUsageTrendWithUsageFilters(context.Background(), start, end, "day", filters)
+	require.NoError(t, err)
+	require.Empty(t, trend)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestUsageLogRepositoryGetModelStatsWithFiltersRequestTypePriority(t *testing.T) {
 	db, mock := newSQLMock(t)
 	repo := &usageLogRepository{sql: db}

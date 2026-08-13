@@ -151,6 +151,43 @@ func TestUserUsageListAdvancedFilters(t *testing.T) {
 	require.NotNil(t, repo.listFilters.EndTime)
 }
 
+func TestUserUsageListDateRangeUsesUserTimezoneAndHalfOpenEnd(t *testing.T) {
+	repo := &userUsageRepoCapture{}
+	router := newUserUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/usage?start_date=2026-08-13&end_date=2026-08-13&timezone=Asia/Shanghai", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NotNil(t, repo.listFilters.StartTime)
+	require.NotNil(t, repo.listFilters.EndTime)
+	require.Equal(t, "Asia/Shanghai", repo.listFilters.Timezone)
+
+	start := *repo.listFilters.StartTime
+	end := *repo.listFilters.EndTime
+	require.Equal(t, time.Date(2026, time.August, 12, 16, 0, 0, 0, time.UTC), start.UTC())
+	require.Equal(t, time.Date(2026, time.August, 13, 16, 0, 0, 0, time.UTC), end.UTC())
+	require.Equal(t, 24*time.Hour, end.Sub(start))
+}
+
+func TestUserUsageListDateRangeUsesCalendarDaysAcrossDST(t *testing.T) {
+	repo := &userUsageRepoCapture{}
+	router := newUserUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/usage?start_date=2026-03-08&end_date=2026-03-08&timezone=America/Los_Angeles", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	start := *repo.listFilters.StartTime
+	end := *repo.listFilters.EndTime
+	require.Equal(t, "America/Los_Angeles", repo.listFilters.Timezone)
+	require.Equal(t, time.Date(2026, time.March, 8, 8, 0, 0, 0, time.UTC), start.UTC())
+	require.Equal(t, time.Date(2026, time.March, 9, 7, 0, 0, 0, time.UTC), end.UTC())
+	require.Equal(t, 23*time.Hour, end.Sub(start))
+}
+
 func TestUserUsageListInvalidBillingMode(t *testing.T) {
 	repo := &userUsageRepoCapture{}
 	router := newUserUsageRequestTypeTestRouter(repo)

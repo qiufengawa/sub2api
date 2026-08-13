@@ -192,6 +192,12 @@ func (h *UsageHandler) parseUserUsageFilters(c *gin.Context, requireRange bool) 
 			endPtr = &endTime
 		}
 	}
+	resolvedTimezone := ""
+	if userTZ != "" {
+		if loc, err := time.LoadLocation(userTZ); err == nil {
+			resolvedTimezone = loc.String()
+		}
+	}
 
 	return &userUsageFilters{
 		Filters: usagestats.UsageLogFilters{
@@ -204,6 +210,7 @@ func (h *UsageHandler) parseUserUsageFilters(c *gin.Context, requireRange bool) 
 			Stream:            stream,
 			BillingType:       billingType,
 			BillingMode:       billingMode,
+			Timezone:          resolvedTimezone,
 			StartTime:         startPtr,
 			EndTime:           endPtr,
 		},

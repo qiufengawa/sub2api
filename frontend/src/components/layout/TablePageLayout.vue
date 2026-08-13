@@ -1,5 +1,5 @@
 <template>
-  <div class="table-page-layout">
+  <div class="table-page-layout w-full min-w-0">
     <!-- 固定区域：操作按钮 -->
     <div v-if="$slots.actions" class="layout-section-fixed">
       <slot name="actions" />

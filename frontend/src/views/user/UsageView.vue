@@ -645,6 +645,9 @@ const onDateRangeChange = (range: { startDate: string; endDate: string; preset: 
   filters.value.start_date = range.startDate
   filters.value.end_date = range.endDate
   granularity.value = getGranularityForRange(range.startDate, range.endDate)
+  // The date picker is the user's explicit confirmation. Apply the complete
+  // range immediately so the list, stats, and charts cannot show stale data.
+  applyFilters()
 }
 
 const handlePageChange = (page: number) => {
