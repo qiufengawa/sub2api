@@ -381,14 +381,53 @@
                 />
               </div>
             </template>
-            <template #cell-priority="{ value }">
-              <span
-                class="inline-flex min-w-[5.25rem] items-center justify-center gap-1 rounded border border-primary-200 bg-primary-50 px-1.5 py-1 font-mono text-sm font-semibold tabular-nums text-primary-700 dark:border-primary-800 dark:bg-primary-950/40 dark:text-primary-300"
-                :title="`${t('admin.accounts.priorityColumnHint')} · ${value}`"
+            <template #cell-priority="{ row }">
+              <div
+                class="inline-flex h-8 items-stretch overflow-hidden rounded border border-gray-300 bg-white text-gray-700 shadow-sm dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200"
+                :class="prioritySavingIds.has(row.id) ? 'opacity-60' : ''"
+                :title="t('admin.accounts.priorityColumnHint')"
+                :aria-busy="prioritySavingIds.has(row.id)"
               >
-                <Icon name="arrowUp" size="xs" aria-hidden="true" />
-                <span class="whitespace-nowrap">{{ value }}</span>
-              </span>
+                <button
+                  type="button"
+                  class="grid w-8 place-items-center border-r border-gray-300 text-base leading-none transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 dark:border-dark-600 dark:hover:bg-dark-700 dark:disabled:text-dark-500"
+                  :aria-label="t('admin.accounts.priorityDecrease')"
+                  :disabled="prioritySavingIds.has(row.id) || row.priority <= 0"
+                  @click.stop="stepAccountPriority(row, -1)"
+                >
+                  &minus;
+                </button>
+                <input
+                  :value="priorityDrafts[row.id] ?? String(row.priority)"
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  class="h-full w-14 border-0 bg-transparent px-1 text-center font-mono text-sm font-medium tabular-nums text-gray-800 outline-none focus:ring-0 dark:text-gray-100"
+                  :aria-label="t('admin.accounts.priority')"
+                  :disabled="prioritySavingIds.has(row.id)"
+                  @click.stop
+                  @input="handlePriorityDraftInput(row.id, $event)"
+                  @blur="commitPriorityDraft(row)"
+                  @keydown.enter.prevent="commitPriorityDraft(row, $event)"
+                  @keydown.esc.prevent="resetPriorityDraft(row)"
+                />
+                <button
+                  type="button"
+                  class="grid w-8 place-items-center border-l border-gray-300 text-base leading-none transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 dark:border-dark-600 dark:hover:bg-dark-700 dark:disabled:text-dark-500"
+                  :aria-label="t('admin.accounts.priorityIncrease')"
+                  :disabled="prioritySavingIds.has(row.id) || row.priority >= ACCOUNT_PRIORITY_MAX"
+                  @click.stop="stepAccountPriority(row, 1)"
+                >
+                  +
+                </button>
+                <span class="sr-only" aria-live="polite">
+                  {{
+                    prioritySavingIds.has(row.id)
+                      ? t("admin.accounts.prioritySaving")
+                      : ""
+                  }}
+                </span>
+              </div>
             </template>
             <template #cell-notes="{ value }">
               <span
@@ -916,6 +955,10 @@ import { extractApiErrorMessage } from "@/utils/apiError";
 import { sanitizeUrl } from "@/utils/url";
 import { getFloatingPanelPosition } from "@/utils/floatingPanel";
 import { formatMultiplier } from "@/utils/formatters";
+import {
+  ACCOUNT_PRIORITY_MAX,
+  parseAccountPriority,
+} from "@/utils/accountPriority";
 import type { AccountServiceStatus } from "@/api/admin/accounts";
 import type {
   Account,
@@ -1127,6 +1170,68 @@ const serviceStatusError = ref<string | null>(null);
 const serviceStatusReqSeq = ref(0);
 const pendingAccountMetricsRefresh = ref(false);
 const usageManualRefreshToken = ref(0);
+const priorityDrafts = reactive<Record<number, string>>({});
+const prioritySavingIds = reactive(new Set<number>());
+
+const resetPriorityDraft = (account: Account) => {
+  delete priorityDrafts[account.id];
+};
+
+const handlePriorityDraftInput = (accountId: number, event: Event) => {
+  priorityDrafts[accountId] = (event.target as HTMLInputElement).value;
+};
+
+const saveAccountPriority = async (account: Account, priority: number) => {
+  if (prioritySavingIds.has(account.id) || priority === account.priority) {
+    resetPriorityDraft(account);
+    return;
+  }
+
+  const previous = account.priority;
+  prioritySavingIds.add(account.id);
+  enterAutoRefreshSilentWindow();
+  account.priority = priority;
+  priorityDrafts[account.id] = String(priority);
+  try {
+    const updated = await adminAPI.accounts.update(account.id, { priority });
+    Object.assign(account, updated);
+    delete priorityDrafts[account.id];
+    hasPendingListSync.value = true;
+  } catch (error) {
+    account.priority = previous;
+    delete priorityDrafts[account.id];
+    appStore.showError(
+      extractApiErrorMessage(error, t("admin.accounts.priorityUpdateFailed")),
+    );
+  } finally {
+    prioritySavingIds.delete(account.id);
+  }
+  void reload().catch((error) => {
+    hasPendingListSync.value = true;
+    console.error("Failed to sync priority-sorted account list:", error);
+  });
+};
+
+const stepAccountPriority = (account: Account, delta: -1 | 1) => {
+  const next = Math.min(
+    ACCOUNT_PRIORITY_MAX,
+    Math.max(0, account.priority + delta),
+  );
+  void saveAccountPriority(account, next);
+};
+
+const commitPriorityDraft = (account: Account, event?: Event) => {
+  const parsed = parseAccountPriority(
+    priorityDrafts[account.id] ?? String(account.priority),
+  );
+  if (parsed == null) {
+    resetPriorityDraft(account);
+    appStore.showError(t("admin.accounts.priorityInvalid"));
+    return;
+  }
+  if (event?.target instanceof HTMLInputElement) event.target.blur();
+  void saveAccountPriority(account, parsed);
+};
 
 const buildDefaultTodayStats = (): WindowStats => ({
   requests: 0,
@@ -1673,7 +1778,10 @@ const syncAccountRefs = (nextAccount: Account) => {
   if (menu.acc?.id === nextAccount.id) menu.acc = nextAccount;
 };
 
-const mergeAccountsIncrementally = (nextRows: Account[]) => {
+const mergeAccountsIncrementally = (nextRows: Account[]): boolean => {
+  if (prioritySavingIds.size > 0) {
+    return false;
+  }
   const currentRows = accounts.value;
   const currentByID = new Map(currentRows.map((row) => [row.id, row]));
   let changed = nextRows.length !== currentRows.length;
@@ -1701,6 +1809,7 @@ const mergeAccountsIncrementally = (nextRows: Account[]) => {
   if (changed) {
     accounts.value = mergedRows;
   }
+  return true;
 };
 
 const refreshAccountsIncrementally = async () => {
@@ -1728,11 +1837,15 @@ const refreshAccountsIncrementally = async () => {
       autoRefreshETag.value = result.etag;
     }
     if (!result.notModified && result.data) {
-      pagination.total = result.data.total || 0;
-      pagination.pages = result.data.pages || 0;
-      mergeAccountsIncrementally(result.data.items || []);
-      hasPendingListSync.value = false;
-      markUpstreamBillingSortRefresh();
+      const merged = mergeAccountsIncrementally(result.data.items || []);
+      hasPendingListSync.value = !merged;
+      if (merged) {
+        pagination.total = result.data.total || 0;
+        pagination.pages = result.data.pages || 0;
+        markUpstreamBillingSortRefresh();
+      } else {
+        autoRefreshETag.value = null;
+      }
     }
     upstreamBillingNow.value = Date.now();
 
@@ -2010,7 +2123,7 @@ const allColumns = computed(() => {
       key: "priority",
       label: t("admin.accounts.columns.priority"),
       sortable: true,
-      class: "w-[6.5rem] min-w-[6.5rem]",
+      class: "w-[8rem] min-w-[8rem]",
     },
     { key: "id", label: t("admin.accounts.columns.id"), sortable: true },
     {
