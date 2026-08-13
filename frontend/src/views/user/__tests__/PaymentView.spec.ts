@@ -5,6 +5,7 @@ import { PAYMENT_RECOVERY_STORAGE_KEY } from '@/components/payment/paymentFlow'
 import { formatPaymentAmount } from '@/components/payment/currency'
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import type { CheckoutInfoResponse, MethodLimit, SubscriptionPlan } from '@/types/payment'
+import type { UserSubscription } from '@/types'
 
 const routeState = vi.hoisted(() => ({
   path: '/purchase',
@@ -209,12 +210,16 @@ function oauthOrderFixture() {
   }
 }
 
-async function mountSubscriptionConfirm(options: Parameters<typeof checkoutInfoWithPlansFixture>[0] = {}) {
+async function mountSubscriptionConfirm(
+  options: Parameters<typeof checkoutInfoWithPlansFixture>[0] = {},
+  context: { routeQuery?: Record<string, unknown>; subscriptions?: UserSubscription[] } = {},
+) {
   vi.useRealTimers()
   routeState.path = '/purchase'
   routeState.query = {
     tab: 'subscription',
     plan_id: '7',
+    ...context.routeQuery,
   }
   routerReplace.mockReset().mockResolvedValue(undefined)
   routerPush.mockReset().mockResolvedValue(undefined)
@@ -222,7 +227,7 @@ async function mountSubscriptionConfirm(options: Parameters<typeof checkoutInfoW
   createOrder.mockReset()
   refreshUser.mockReset()
   fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
-  getMySubscriptions.mockReset().mockResolvedValue([])
+  getMySubscriptions.mockReset().mockResolvedValue(context.subscriptions ?? [])
   showError.mockReset()
   showInfo.mockReset()
   showWarning.mockReset()
@@ -370,6 +375,62 @@ describe('PaymentView subscription plan grid', () => {
 })
 
 describe('PaymentView subscription confirmation amounts', () => {
+  it('shows the selected renewal instance and submits that exact target', async () => {
+    const expiresAt = '2099-06-15T08:30:00.000Z'
+    const targetSubscription: UserSubscription = {
+      id: 42,
+      user_id: 1,
+      plan_id: 7,
+      plan_name: 'Starter',
+      status: 'active',
+      starts_at: '2099-05-15T08:30:00.000Z',
+      expires_at: expiresAt,
+      daily_usage_usd: 0,
+      weekly_usage_usd: 0,
+      monthly_usage_usd: 0,
+      daily_window_start: null,
+      weekly_window_start: null,
+      monthly_window_start: null,
+      created_at: '2099-05-15T08:30:00.000Z',
+      updated_at: '2099-05-15T08:30:00.000Z',
+      included_groups: [],
+    }
+    createOrder.mockResolvedValue({
+      order_id: 900,
+      amount: 128,
+      pay_amount: 128,
+      fee_rate: 0,
+      expires_at: '2099-06-15T08:40:00.000Z',
+      payment_type: 'wxpay',
+      out_trade_no: 'sub2_renew_900',
+      result_type: 'qr_code',
+      qr_code: 'renew-qr',
+    })
+
+    const wrapper = await mountSubscriptionConfirm({}, {
+      routeQuery: { subscription_id: '42' },
+      subscriptions: [targetSubscription],
+    })
+    const renewalTarget = wrapper.get('[data-testid="renewal-target"]')
+
+    expect(renewalTarget.text()).toContain('payment.renewalTarget')
+    expect(renewalTarget.text()).toContain('payment.subscriptionInstance')
+    expect(renewalTarget.text()).toContain('payment.currentExpiration')
+    expect(renewalTarget.text()).toContain('2099')
+
+    const submit = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
+    expect(submit).toBeDefined()
+    await submit!.trigger('click')
+    await flushPromises()
+
+    expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({
+      order_type: 'subscription',
+      plan_id: 7,
+      purchase_mode: 'renew_instance',
+      target_subscription_id: 42,
+    }))
+  })
+
   it('shows converted CNY pay amount using the subscription rate, not the balance multiplier', async () => {
     const wrapper = await mountSubscriptionConfirm({
       checkout: {
