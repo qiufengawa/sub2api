@@ -172,6 +172,24 @@
                 <p v-if="selectedPlan.description" class="mt-2 break-words text-sm leading-relaxed text-gray-500 dark:text-gray-400">
                   {{ selectedPlan.description }}
                 </p>
+                <div
+                  v-if="selectedPurchaseMode === 'renew_instance' && selectedRenewalSubscription"
+                  data-testid="renewal-target"
+                  class="mt-4 border-l-2 border-primary-500 bg-primary-50 px-3 py-2.5 dark:bg-primary-500/10"
+                >
+                  <p class="text-xs font-medium text-primary-700 dark:text-primary-300">
+                    {{ t('payment.renewalTarget') }}
+                  </p>
+                  <div class="mt-1 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-700 dark:text-gray-300">
+                    <span class="tabular-nums">
+                      {{ t('payment.subscriptionInstance', { id: selectedRenewalSubscription.id }) }}
+                    </span>
+                    <span class="break-words">
+                      {{ t('payment.currentExpiration') }}:
+                      {{ formatRenewalExpiration(selectedRenewalSubscription.expires_at) }}
+                    </span>
+                  </div>
+                </div>
                 <!-- Included routing groups and quota -->
                 <div class="mt-4 border-y border-gray-100 py-3 dark:border-dark-700">
                   <p class="mb-2 text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.includedGroups') }}</p>
@@ -347,6 +365,7 @@ import subscriptionsAPI from '@/api/subscriptions'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
 import { formatPeakRateWindow, serverTimezoneLabel, type PeakRateFields } from '@/utils/peak-rate'
+import { formatDateTimeToMinute } from '@/utils/format'
 import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType, SubscriptionPurchaseMode } from '@/types/payment'
 import type { GroupPlatform, UserSubscription } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -428,6 +447,15 @@ const selectedPlan = ref<SubscriptionPlan | null>(null)
 const selectedPurchaseMode = ref<SubscriptionPurchaseMode | undefined>()
 const selectedTargetSubscriptionId = ref<number | undefined>()
 const previewImage = ref('')
+
+const selectedRenewalSubscription = computed(() => {
+  if (selectedPurchaseMode.value !== 'renew_instance' || !selectedTargetSubscriptionId.value) return null
+  return activeSubscriptions.value.find(subscription => subscription.id === selectedTargetSubscriptionId.value) ?? null
+})
+
+function formatRenewalExpiration(expiresAt: string | null): string {
+  return expiresAt ? formatDateTimeToMinute(new Date(expiresAt)) : t('userSubscriptions.noExpiration')
+}
 
 const paymentPhase = ref<'select' | 'paying'>('select')
 
