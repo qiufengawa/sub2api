@@ -112,44 +112,44 @@ func NewAccountHandler(
 
 // CreateAccountRequest represents create account request
 type CreateAccountRequest struct {
-	Name                    string         `json:"name" binding:"required"`
-	Notes                   *string        `json:"notes"`
-	Platform                string         `json:"platform" binding:"required"`
-	Type                    string         `json:"type" binding:"required,oneof=oauth setup-token apikey upstream bedrock service_account"`
-	Credentials             map[string]any `json:"credentials" binding:"required"`
-	Extra                   map[string]any `json:"extra"`
-	ProxyID                 *int64         `json:"proxy_id"`
-	Concurrency             int            `json:"concurrency"`
-	Priority                int            `json:"priority"`
-	RateMultiplier          *float64       `json:"rate_multiplier"`
-	LoadFactor              *int           `json:"load_factor"`
-	GroupIDs                []int64        `json:"group_ids"`
-	ExpiresAt               *int64         `json:"expires_at"`
-	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
-	ProbeEnabled            *bool          `json:"upstream_billing_probe_enabled"`
-	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
+	Name                    string               `json:"name" binding:"required"`
+	Notes                   *string              `json:"notes"`
+	Platform                string               `json:"platform" binding:"required"`
+	Type                    string               `json:"type" binding:"required,oneof=oauth setup-token apikey upstream bedrock service_account"`
+	Credentials             map[string]any       `json:"credentials" binding:"required"`
+	Extra                   map[string]any       `json:"extra"`
+	ProxyID                 *int64               `json:"proxy_id"`
+	Concurrency             int                  `json:"concurrency"`
+	Priority                accountPriorityField `json:"priority"`
+	RateMultiplier          *float64             `json:"rate_multiplier"`
+	LoadFactor              *int                 `json:"load_factor"`
+	GroupIDs                []int64              `json:"group_ids"`
+	ExpiresAt               *int64               `json:"expires_at"`
+	AutoPauseOnExpired      *bool                `json:"auto_pause_on_expired"`
+	ProbeEnabled            *bool                `json:"upstream_billing_probe_enabled"`
+	ConfirmMixedChannelRisk *bool                `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
 }
 
 // UpdateAccountRequest represents update account request
 // 使用指针类型来区分"未提供"和"设置为0"
 type UpdateAccountRequest struct {
-	Name                    string         `json:"name"`
-	Notes                   *string        `json:"notes"`
-	Type                    string         `json:"type" binding:"omitempty,oneof=oauth setup-token apikey upstream bedrock service_account"`
-	Credentials             map[string]any `json:"credentials"`
-	Extra                   map[string]any `json:"extra"`
-	ProxyID                 *int64         `json:"proxy_id"`
-	Concurrency             *int           `json:"concurrency"`
-	Priority                *int           `json:"priority"`
-	RateMultiplier          *float64       `json:"rate_multiplier"`
-	LoadFactor              *int           `json:"load_factor"`
-	Status                  string         `json:"status" binding:"omitempty,oneof=active inactive error"`
-	GroupIDs                *[]int64       `json:"group_ids"`
-	ExpiresAt               *int64         `json:"expires_at"`
-	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
-	ProbeEnabled            *bool          `json:"upstream_billing_probe_enabled"`
-	RateSyncEnabled         *bool          `json:"upstream_billing_rate_sync_enabled"`
-	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
+	Name                    string               `json:"name"`
+	Notes                   *string              `json:"notes"`
+	Type                    string               `json:"type" binding:"omitempty,oneof=oauth setup-token apikey upstream bedrock service_account"`
+	Credentials             map[string]any       `json:"credentials"`
+	Extra                   map[string]any       `json:"extra"`
+	ProxyID                 *int64               `json:"proxy_id"`
+	Concurrency             *int                 `json:"concurrency"`
+	Priority                accountPriorityField `json:"priority"`
+	RateMultiplier          *float64             `json:"rate_multiplier"`
+	LoadFactor              *int                 `json:"load_factor"`
+	Status                  string               `json:"status" binding:"omitempty,oneof=active inactive error"`
+	GroupIDs                *[]int64             `json:"group_ids"`
+	ExpiresAt               *int64               `json:"expires_at"`
+	AutoPauseOnExpired      *bool                `json:"auto_pause_on_expired"`
+	ProbeEnabled            *bool                `json:"upstream_billing_probe_enabled"`
+	RateSyncEnabled         *bool                `json:"upstream_billing_rate_sync_enabled"`
+	ConfirmMixedChannelRisk *bool                `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
 }
 
 // BulkUpdateAccountsRequest represents the payload for bulk editing accounts
@@ -159,7 +159,7 @@ type BulkUpdateAccountsRequest struct {
 	Name                    string                    `json:"name"`
 	ProxyID                 *int64                    `json:"proxy_id"`
 	Concurrency             *int                      `json:"concurrency"`
-	Priority                *int                      `json:"priority"`
+	Priority                accountPriorityField      `json:"priority"`
 	RateMultiplier          *float64                  `json:"rate_multiplier"`
 	LoadFactor              *int                      `json:"load_factor"`
 	Status                  string                    `json:"status" binding:"omitempty,oneof=active inactive error"`
@@ -204,6 +204,8 @@ type AccountSchedulerScore struct {
 	StickyScore           float64 `json:"sticky_score"`
 	StickyScoreInfinity   bool    `json:"sticky_score_infinity"`
 	StickyWeightedEnabled bool    `json:"sticky_weighted_enabled"`
+	PriorityTierActive    bool    `json:"priority_tier_active"`
+	MetricsMode           string  `json:"metrics_mode"`
 }
 
 type AccountSchedulerGroupScore struct {
@@ -305,6 +307,8 @@ func (h *AccountHandler) scoreOpenAIAccountSchedulerPool(ctx context.Context, ac
 			StickyScore:           score.StickyScore,
 			StickyScoreInfinity:   score.StickyScoreInfinity,
 			StickyWeightedEnabled: score.StickyWeightedEnabled,
+			PriorityTierActive:    score.PriorityTierActive,
+			MetricsMode:           score.MetricsMode,
 		}
 	}
 	return result
@@ -504,8 +508,8 @@ func (h *AccountHandler) List(c *gin.Context) {
 	status := c.Query("status")
 	search := c.Query("search")
 	privacyMode := strings.TrimSpace(c.Query("privacy_mode"))
-	sortBy := c.DefaultQuery("sort_by", "name")
-	sortOrder := c.DefaultQuery("sort_order", "asc")
+	sortBy := c.DefaultQuery("sort_by", "priority")
+	sortOrder := c.DefaultQuery("sort_order", "desc")
 	// 标准化和验证 search 参数
 	search = strings.TrimSpace(search)
 	if len(search) > 100 {
@@ -840,6 +844,11 @@ func (h *AccountHandler) Create(c *gin.Context) {
 
 	// 确定是否跳过混合渠道检查
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
+	priority := req.Priority.ValueOrDefault()
+	if err := service.ValidateAccountPriority(priority); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 
 	// 捕获闭包内创建的账号引用，用于创建成功后触发异步探测。
 	// 幂等重放时闭包不会执行 → createdAccount 为 nil → 不重复调度。
@@ -855,7 +864,7 @@ func (h *AccountHandler) Create(c *gin.Context) {
 			Extra:                 req.Extra,
 			ProxyID:               req.ProxyID,
 			Concurrency:           req.Concurrency,
-			Priority:              req.Priority,
+			Priority:              priority,
 			RateMultiplier:        req.RateMultiplier,
 			LoadFactor:            req.LoadFactor,
 			GroupIDs:              req.GroupIDs,
@@ -981,8 +990,8 @@ func (h *AccountHandler) Update(c *gin.Context) {
 		Credentials:           req.Credentials,
 		Extra:                 req.Extra,
 		ProxyID:               req.ProxyID,
-		Concurrency:           req.Concurrency, // 指针类型，nil 表示未提供
-		Priority:              req.Priority,    // 指针类型，nil 表示未提供
+		Concurrency:           req.Concurrency,              // 指针类型，nil 表示未提供
+		Priority:              req.Priority.OptionalValue(), // nil 表示未提供，0 是合法值
 		RateMultiplier:        req.RateMultiplier,
 		LoadFactor:            req.LoadFactor,
 		Status:                req.Status,
@@ -1065,6 +1074,10 @@ type TestAccountRequest struct {
 	ModelID string `json:"model_id"`
 	Prompt  string `json:"prompt"`
 	Mode    string `json:"mode"`
+	// Optional media for Grok (and future) real generation tests.
+	// ImageDataURL / AudioDataURL are data:<mime>;base64,... payloads.
+	ImageDataURL string `json:"image_data_url"`
+	AudioDataURL string `json:"audio_data_url"`
 }
 
 type SyncFromCRSRequest struct {
@@ -1094,8 +1107,13 @@ func (h *AccountHandler) Test(c *gin.Context) {
 	// Allow empty body, model_id is optional
 	_ = c.ShouldBindJSON(&req)
 
+	opts := service.AccountTestOptions{
+		ImageDataURL: req.ImageDataURL,
+		AudioDataURL: req.AudioDataURL,
+	}
+
 	// Use AccountTestService to test the account with SSE streaming
-	if err := h.accountTestService.TestAccountConnection(c, accountID, req.ModelID, req.Prompt, req.Mode); err != nil {
+	if err := h.accountTestService.TestAccountConnection(c, accountID, req.ModelID, req.Prompt, req.Mode, opts); err != nil {
 		// Error already sent via SSE, just log
 		return
 	}
@@ -1415,6 +1433,9 @@ func (h *AccountHandler) ApplyOAuthCredentials(c *gin.Context) {
 		return
 	}
 
+	// Drop SSO/password residue; re-auth must leave only OAuth tokens on disk.
+	req.Credentials = service.SanitizeStoredCredentials(existing.Platform, req.Credentials)
+
 	updatedAccount, err := h.adminService.UpdateAccount(ctx, accountID, &service.UpdateAccountInput{
 		Type:        req.Type,
 		Credentials: req.Credentials,
@@ -1438,6 +1459,20 @@ func (h *AccountHandler) ApplyOAuthCredentials(c *gin.Context) {
 				"account_id", accountID,
 				"extra_keys", extraKeys,
 				"err", extraErr,
+			)
+		}
+	}
+
+	// Successful re-auth clears the soft spending-limit reauth flag for Grok.
+	if existing.Platform == service.PlatformGrok {
+		if clearErr := h.adminService.UpdateAccountExtra(ctx, accountID, map[string]any{
+			"grok_needs_reauth":        false,
+			"grok_needs_reauth_reason": "",
+			"grok_needs_reauth_at":     "",
+		}); clearErr != nil {
+			slog.Warn("apply_oauth_credentials.clear_grok_reauth_failed",
+				"account_id", accountID,
+				"err", clearErr,
 			)
 		}
 	}
@@ -1847,6 +1882,11 @@ func (h *AccountHandler) BatchCreate(c *gin.Context) {
 			response.ErrorFrom(c, err)
 			return
 		}
+		priority := item.Priority.ValueOrDefault()
+		if err := service.ValidateAccountPriority(priority); err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
 	}
 
 	executeAdminIdempotentJSON(c, "admin.accounts.batch_create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
@@ -1872,6 +1912,7 @@ func (h *AccountHandler) BatchCreate(c *gin.Context) {
 			sanitizeExtraBaseRPM(item.Extra)
 
 			skipCheck := item.ConfirmMixedChannelRisk != nil && *item.ConfirmMixedChannelRisk
+			priority := item.Priority.ValueOrDefault()
 
 			account, err := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
 				Name:                  item.Name,
@@ -1882,7 +1923,7 @@ func (h *AccountHandler) BatchCreate(c *gin.Context) {
 				Extra:                 item.Extra,
 				ProxyID:               item.ProxyID,
 				Concurrency:           item.Concurrency,
-				Priority:              item.Priority,
+				Priority:              priority,
 				RateMultiplier:        item.RateMultiplier,
 				GroupIDs:              item.GroupIDs,
 				ExpiresAt:             item.ExpiresAt,
@@ -2071,7 +2112,7 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 	hasUpdates := req.Name != "" ||
 		req.ProxyID != nil ||
 		req.Concurrency != nil ||
-		req.Priority != nil ||
+		req.Priority.set ||
 		req.RateMultiplier != nil ||
 		req.LoadFactor != nil ||
 		req.Status != "" ||
@@ -2092,7 +2133,7 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		Name:                  req.Name,
 		ProxyID:               req.ProxyID,
 		Concurrency:           req.Concurrency,
-		Priority:              req.Priority,
+		Priority:              req.Priority.OptionalValue(),
 		RateMultiplier:        req.RateMultiplier,
 		LoadFactor:            req.LoadFactor,
 		Status:                req.Status,
@@ -2422,6 +2463,11 @@ type BatchTodayStatsRequest struct {
 	AccountIDs []int64 `json:"account_ids" binding:"required"`
 }
 
+type BatchUsageRequest struct {
+	AccountIDs []int64 `json:"account_ids" binding:"required"`
+	Force      bool    `json:"force"`
+}
+
 // GetBatchTodayStats 批量获取多个账号的今日统计。
 // POST /api/v1/admin/accounts/today-stats/batch
 func (h *AccountHandler) GetBatchTodayStats(c *gin.Context) {
@@ -2466,6 +2512,36 @@ func (h *AccountHandler) GetBatchTodayStats(c *gin.Context) {
 	}
 	c.Header("X-Snapshot-Cache", "miss")
 	response.Success(c, payload)
+}
+
+// GetBatchUsage 批量获取多个账号的 current usage。
+// POST /api/v1/admin/accounts/usage/batch
+func (h *AccountHandler) GetBatchUsage(c *gin.Context) {
+	var req BatchUsageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	accountIDs := normalizeInt64IDList(req.AccountIDs)
+	if len(accountIDs) == 0 {
+		response.Success(c, gin.H{
+			"usage":  map[string]any{},
+			"errors": map[string]string{},
+		})
+		return
+	}
+
+	usageByAccount, errorsByAccount, err := h.accountUsageService.GetUsageBatch(c.Request.Context(), accountIDs, req.Force)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, gin.H{
+		"usage":  usageByAccount,
+		"errors": errorsByAccount,
+	})
 }
 
 // SetSchedulableRequest represents the request body for setting schedulable status

@@ -267,7 +267,7 @@ func newCodexModelsFailoverTestHandlerWithAccountCount(firstStatus, accountCount
 			Type:        service.AccountTypeAPIKey,
 			Status:      service.StatusActive,
 			Schedulable: true,
-			Priority:    i - 1,
+			Priority:    accountCount - i,
 			Concurrency: 1,
 			Credentials: map[string]any{
 				"api_key":  fmt.Sprintf("sk-%d", i),

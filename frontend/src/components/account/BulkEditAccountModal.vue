@@ -711,15 +711,18 @@
             />
           </div>
           <input
-            v-model.number="priority"
+            v-model="priorityInput"
             id="bulk-edit-priority"
-            type="number"
-            min="1"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            min="0"
             :disabled="!enablePriority"
             class="input"
             :class="!enablePriority && 'cursor-not-allowed opacity-50'"
             aria-labelledby="bulk-edit-priority-label"
           />
+          <p class="input-hint">{{ t('admin.accounts.priorityHint') }}</p>
         </div>
         <div>
           <div class="mb-3 flex items-center justify-between">
@@ -910,6 +913,24 @@
               ]"
             />
           </button>
+        </div>
+      </div>
+
+      <!-- Codex 指纹收敛模式（仅 OpenAI OAuth） -->
+      <div v-if="allOpenAIOAuth" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="mb-3 flex items-center justify-between">
+          <label class="input-label mb-0">{{ t('admin.accounts.openai.codexFingerprintMode') }}</label>
+          <input
+            v-model="enableCodexFingerprintMode"
+            type="checkbox"
+            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+        </div>
+        <div :class="!enableCodexFingerprintMode && 'pointer-events-none opacity-50'">
+          <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.accounts.openai.codexFingerprintModeDesc') }}
+          </p>
+          <Select v-model="codexFingerprintMode" data-testid="bulk-codex-fingerprint-mode-select" :options="codexFingerprintModeOptions" />
         </div>
       </div>
 
@@ -1311,6 +1332,7 @@ import ProxySelector from '@/components/common/ProxySelector.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { parseAccountPriority } from '@/utils/accountPriority'
 import {
   buildModelMappingObject as buildModelMappingPayload,
   getPresetMappingsByPlatform
@@ -1503,7 +1525,8 @@ const headerOverrideRows = ref<HeaderOverrideRow[]>([])
 const proxyId = ref<number | null>(null)
 const concurrency = ref(1)
 const loadFactor = ref<number | null>(null)
-const priority = ref(1)
+const priority = ref(0)
+const priorityInput = ref('0')
 const rateMultiplier = ref(1)
 const status = ref<'active' | 'inactive'>('active')
 const groupIds = ref<number[]>([])
@@ -1515,6 +1538,15 @@ const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OF
 const upstreamBillingAutoProbeMode = ref<'enabled' | 'disabled'>('enabled')
 const codexCLIOnlyEnabled = ref(false)
 const codexCLIOnlyAppServerEnabled = ref(false)
+type CodexFingerprintMode = 'off' | 'device' | 'session' | 'full'
+const enableCodexFingerprintMode = ref(false)
+const codexFingerprintMode = ref<CodexFingerprintMode>('session')
+const codexFingerprintModeOptions = computed(() => [
+  { value: 'off' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintOff') },
+  { value: 'device' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintDevice') },
+  { value: 'session' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintSession') },
+  { value: 'full' as CodexFingerprintMode, label: t('admin.accounts.openai.codexFingerprintFull') },
+])
 const openAICompactMode = ref<OpenAICompactMode>('auto')
 const openAICompactModelMappings = ref<ModelMapping[]>([])
 const rpmLimitEnabled = ref(false)
@@ -1800,6 +1832,15 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     extra.codex_cli_only_allow_app_server = codexCLIOnlyAppServerEnabled.value
   }
 
+  if (enableCodexFingerprintMode.value) {
+    const extra = ensureExtra()
+    if (codexFingerprintMode.value !== 'session') {
+      extra.codex_fingerprint_mode = codexFingerprintMode.value
+    } else {
+      delete extra.codex_fingerprint_mode
+    }
+  }
+
   if (enableOpenAICompactMode.value) {
     const extra = ensureExtra()
     extra.openai_compact_mode = openAICompactMode.value
@@ -1910,6 +1951,7 @@ const handleSubmit = async () => {
     enableUpstreamBillingAutoProbe.value ||
     enableCodexCLIOnly.value ||
     enableCodexCLIOnlyAppServer.value ||
+    enableCodexFingerprintMode.value ||
     enableOpenAICompactMode.value ||
     enableOpenAICompactModelMapping.value ||
     enableRpmLimit.value ||
@@ -1918,6 +1960,15 @@ const handleSubmit = async () => {
   if (!hasAnyFieldEnabled) {
     appStore.showError(t('admin.accounts.bulkEdit.noFieldsSelected'))
     return
+  }
+
+  if (enablePriority.value) {
+    const parsedPriority = parseAccountPriority(priorityInput.value)
+    if (parsedPriority == null) {
+      appStore.showError(t('admin.accounts.priorityInvalid'))
+      return
+    }
+    priority.value = parsedPriority
   }
 
   // base_url 现在也会作用于 Grok OAuth 订阅账号的转发端点；坏值会让请求期
@@ -2044,6 +2095,8 @@ watch(
       enableUpstreamBillingAutoProbe.value = false
       enableCodexCLIOnly.value = false
       enableCodexCLIOnlyAppServer.value = false
+      enableCodexFingerprintMode.value = false
+      codexFingerprintMode.value = 'session'
       enableOpenAICompactMode.value = false
       enableOpenAICompactModelMapping.value = false
       enableRpmLimit.value = false
@@ -2063,7 +2116,8 @@ watch(
       proxyId.value = null
       concurrency.value = 1
       loadFactor.value = null
-      priority.value = 1
+      priority.value = 0
+      priorityInput.value = '0'
       rateMultiplier.value = 1
       status.value = 'active'
       groupIds.value = []

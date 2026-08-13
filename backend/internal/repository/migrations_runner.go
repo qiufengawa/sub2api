@@ -15,6 +15,11 @@ import (
 	"github.com/Wei-Shaw/sub2api/migrations"
 )
 
+var ErrAccountPriorityMaintenanceRequired = errors.New("account priority maintenance migration must be run before starting the server")
+
+const accountPrioritySemanticMigrationFilename = "199_account_priority_higher_wins.sql"
+const setupBootstrapMarkerTable = "sub2api_setup_bootstrap_marker"
+
 // schemaMigrationsTableDDL 定义迁移记录表的 DDL。
 // 该表用于跟踪已应用的迁移文件及其校验和。
 // - filename: 迁移文件名，作为主键唯一标识每个迁移
@@ -83,6 +88,19 @@ var migrationChecksumCompatibilityRules = map[string]migrationChecksumCompatibil
 	"123_fix_legacy_auth_source_grant_on_signup_defaults.sql": newMigrationChecksumCompatibilityRule("2ce43c2cd89e9f9e1febd34a407ed9e84d177386c5544b6f02c1f58a21129f57", "6cd33422f215dcd1f486ab6f35c0ea5805d9ca69bb25906d94bc649156657145"),
 	"159_batch_image_foundation.sql":                          newMigrationChecksumCompatibilityRule("d902b70982025ec519749faf058aab7631e82c3f48167b9a4ae4db718eb72cce", "82da85b5d98e67a0507647b873a40373e84538e4adafdeed6767c0ac8b6570b2"),
 	"161_batch_image_pricing_snapshot.sql":                    newMigrationChecksumCompatibilityRule("4012af3e43636cb6af22e0176d59d1fcc70615c0f310194329461ae462c4fbd6", "96d915c9b7a6941ae99039e0ff3f1a61481eb9bddd933d11c6fadb2274554e87"),
+	// 199 was exercised in a pre-release maintenance rehearsal before the
+	// durable publication manifest was folded into the same transaction. The
+	// follow-up 200 migration upgrades that exact known checksum; every unknown
+	// checksum remains fail-closed.
+	"199_account_priority_higher_wins.sql": newMigrationChecksumCompatibilityRule("25db7fbba3e717b32ed829ee068ff69177a2789cfa26ca55b33ff26299cbeb43", "fadc2fdcffe75c025b9ff964d04eb3e0d920ac3611896d2e60504e4be82ac37d"),
+	// 195 originally seeded mode=v2; flipped to v1 (safe default / opt-in v2). Existing DBs
+	// that already applied the v2 seed keep their row and the historical checksum.
+	"195_channel_monitor_mode.sql": newMigrationChecksumCompatibilityRule("13f3792f3e3e53ee96e26415c884cf8062c77172824b54fcc9a8c0c2b1f185ec", "4c74fe33ef2274cc72e1bb49671e651274532c034b29f5b2982c2a4c88d101a6"),
+	// 220 originally cleared video prices for all non-grok platforms (including composite);
+	// composite is now preserved because it may route to Grok accounts.
+	"220_clear_non_grok_video_generation_config.sql": newMigrationChecksumCompatibilityRule("85e320b9ec64f2d3fcd8cf705b2b4e76a7b49f7a57140c14bff97f32691c818b", "3da48c8fdffe6390325f43d08b8e353e0a365df43d44a78dbbe655d0deb18402"),
+	"219_group_search_price_per_1k.sql":              newMigrationChecksumCompatibilityRule("e86786ebcc3b14206fd2d321380a4e50e80cdadbfcf4962c639255e6a14008db", "df6ffd71b97e30ec2c8fe7b95e15783042dea58c553e32701ee7c42a5619af80"),
+	"218_group_audio_voice_pricing.sql":              newMigrationChecksumCompatibilityRule("40ee9f3a2af0e0a5e99dabc878fd0fe98be1011f26bcfcefcac7197f7081f0e7", "c2a5e5b4ffd6968ad1c10593289fbc11192cdea19fec3ed9bce3a84eff9a8351"),
 }
 
 // ApplyMigrations 将嵌入的 SQL 迁移文件应用到指定的数据库。
@@ -101,6 +119,48 @@ var migrationChecksumCompatibilityRules = map[string]migrationChecksumCompatibil
 func ApplyMigrations(ctx context.Context, db *sql.DB) error {
 	if db == nil {
 		return errors.New("nil sql db")
+	}
+	return applyMigrationsFS(ctx, db, migrations.FS)
+}
+
+// ApplySetupMigrations only permits the setup wizard to initialize a pristine
+// database or resume a database that already uses higher-wins semantics. A
+// legacy database must go through the explicit maintenance publisher so setup
+// cannot flip priorities while older application instances are still online.
+func ApplySetupMigrations(ctx context.Context, db *sql.DB) error {
+	if db == nil {
+		return errors.New("nil sql db")
+	}
+	if err := applyMigrationsFSWithPreflight(ctx, db, migrations.FS, validateSetupMigrationTarget); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `DROP TABLE IF EXISTS `+setupBootstrapMarkerTable); err != nil {
+		return fmt.Errorf("clear setup bootstrap marker: %w", err)
+	}
+	return nil
+}
+
+// ApplyServerMigrations prevents an ordinary application instance from being
+// the process that flips the global account-priority meaning. That migration
+// requires a maintenance window because older instances interpret the same
+// stored integers in the opposite direction.
+func ApplyServerMigrations(ctx context.Context, db *sql.DB) error {
+	if db == nil {
+		return errors.New("nil sql db")
+	}
+	var tableExists bool
+	if err := db.QueryRowContext(ctx, `SELECT to_regclass('public.schema_migrations') IS NOT NULL`).Scan(&tableExists); err != nil {
+		return fmt.Errorf("inspect schema_migrations: %w", err)
+	}
+	if !tableExists {
+		return ErrAccountPriorityMaintenanceRequired
+	}
+	var applied bool
+	if err := db.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE filename = $1)`, accountPrioritySemanticMigrationFilename).Scan(&applied); err != nil {
+		return fmt.Errorf("inspect account priority migration: %w", err)
+	}
+	if !applied {
+		return ErrAccountPriorityMaintenanceRequired
 	}
 	return applyMigrationsFS(ctx, db, migrations.FS)
 }
@@ -124,6 +184,10 @@ func ApplyMigrations(ctx context.Context, db *sql.DB) error {
 //   - db: 数据库连接
 //   - fsys: 包含迁移文件的文件系统（通常是 embed.FS）
 func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS) error {
+	return applyMigrationsFSWithPreflight(ctx, db, fsys, nil)
+}
+
+func applyMigrationsFSWithPreflight(ctx context.Context, db *sql.DB, fsys fs.FS, preflight func(context.Context, *sql.Conn) error) error {
 	if db == nil {
 		return errors.New("nil sql db")
 	}
@@ -146,6 +210,11 @@ func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 		defer cancel()
 		_ = pgAdvisoryUnlock(unlockCtx, lockConn)
 	}()
+	if preflight != nil {
+		if err := preflight(ctx, lockConn); err != nil {
+			return err
+		}
+	}
 
 	// 创建迁移记录表（如果不存在）。
 	// 该表记录所有已应用的迁移及其校验和。
@@ -268,6 +337,79 @@ func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 	}
 
 	return nil
+}
+
+func validateSetupMigrationTarget(ctx context.Context, conn *sql.Conn) error {
+	var bootstrapInProgress bool
+	if err := conn.QueryRowContext(ctx, `SELECT to_regclass('public.`+setupBootstrapMarkerTable+`') IS NOT NULL`).Scan(&bootstrapInProgress); err != nil {
+		return fmt.Errorf("inspect setup bootstrap marker: %w", err)
+	}
+	if bootstrapInProgress {
+		return nil
+	}
+	var migrationTableExists bool
+	if err := conn.QueryRowContext(ctx, `SELECT to_regclass('public.schema_migrations') IS NOT NULL`).Scan(&migrationTableExists); err != nil {
+		return fmt.Errorf("inspect setup migration state: %w", err)
+	}
+	if migrationTableExists {
+		var applied bool
+		if err := conn.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE filename = $1)`, accountPrioritySemanticMigrationFilename).Scan(&applied); err != nil {
+			return fmt.Errorf("inspect setup account priority migration: %w", err)
+		}
+		if applied {
+			return nil
+		}
+		var appliedCount int64
+		if err := conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM schema_migrations`).Scan(&appliedCount); err != nil {
+			return fmt.Errorf("count setup migrations: %w", err)
+		}
+		if appliedCount == 0 {
+			applicationSchemaExists, err := setupApplicationSchemaExists(ctx, conn)
+			if err != nil {
+				return err
+			}
+			if applicationSchemaExists {
+				return ErrAccountPriorityMaintenanceRequired
+			}
+			if _, err := conn.ExecContext(ctx, `CREATE TABLE `+setupBootstrapMarkerTable+` (
+				id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
+				started_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			)`); err != nil {
+				return fmt.Errorf("create setup bootstrap marker: %w", err)
+			}
+			return nil
+		}
+		return ErrAccountPriorityMaintenanceRequired
+	}
+
+	// A pristine target has none of Sub2API's core tables. Their presence
+	// without schema_migrations identifies a legacy or partially restored DB.
+	applicationSchemaExists, err := setupApplicationSchemaExists(ctx, conn)
+	if err != nil {
+		return err
+	}
+	if applicationSchemaExists {
+		return ErrAccountPriorityMaintenanceRequired
+	}
+	if _, err := conn.ExecContext(ctx, `CREATE TABLE `+setupBootstrapMarkerTable+` (
+		id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
+		started_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+	)`); err != nil {
+		return fmt.Errorf("create setup bootstrap marker: %w", err)
+	}
+	return nil
+}
+
+func setupApplicationSchemaExists(ctx context.Context, conn *sql.Conn) (bool, error) {
+	var exists bool
+	if err := conn.QueryRowContext(ctx, `
+		SELECT to_regclass('public.accounts') IS NOT NULL
+		    OR to_regclass('public.users') IS NOT NULL
+		    OR to_regclass('public.account_groups') IS NOT NULL
+	`).Scan(&exists); err != nil {
+		return false, fmt.Errorf("inspect setup application schema: %w", err)
+	}
+	return exists, nil
 }
 
 type migrationConnection interface {

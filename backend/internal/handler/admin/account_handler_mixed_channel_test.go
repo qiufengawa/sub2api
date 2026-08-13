@@ -23,6 +23,62 @@ func setupAccountMixedChannelRouter(adminSvc *stubAdminService) *gin.Engine {
 	return router
 }
 
+func TestAccountHandlerPriorityBoundaries(t *testing.T) {
+	intPointer := func(value int) *int { return &value }
+	tests := []struct {
+		name       string
+		method     string
+		path       string
+		body       string
+		wantStatus int
+		wantValue  *int
+	}{
+		{name: "create omitted defaults to zero", method: http.MethodPost, path: "/api/v1/admin/accounts", body: `{"name":"a","platform":"anthropic","type":"apikey","credentials":{"api_key":"test"}}`, wantStatus: http.StatusOK, wantValue: intPointer(0)},
+		{name: "create maximum", method: http.MethodPost, path: "/api/v1/admin/accounts", body: `{"name":"a","platform":"anthropic","type":"apikey","credentials":{"api_key":"test"},"priority":2147483647}`, wantStatus: http.StatusOK, wantValue: intPointer(2147483647)},
+		{name: "create negative rejected", method: http.MethodPost, path: "/api/v1/admin/accounts", body: `{"name":"a","platform":"anthropic","type":"apikey","credentials":{"api_key":"test"},"priority":-1}`, wantStatus: http.StatusBadRequest},
+		{name: "create overflow rejected", method: http.MethodPost, path: "/api/v1/admin/accounts", body: `{"name":"a","platform":"anthropic","type":"apikey","credentials":{"api_key":"test"},"priority":2147483648}`, wantStatus: http.StatusBadRequest},
+		{name: "update omitted preserves", method: http.MethodPut, path: "/api/v1/admin/accounts/1", body: `{}`, wantStatus: http.StatusOK},
+		{name: "update explicit zero", method: http.MethodPut, path: "/api/v1/admin/accounts/1", body: `{"priority":0}`, wantStatus: http.StatusOK, wantValue: intPointer(0)},
+		{name: "update maximum", method: http.MethodPut, path: "/api/v1/admin/accounts/1", body: `{"priority":2147483647}`, wantStatus: http.StatusOK, wantValue: intPointer(2147483647)},
+		{name: "bulk explicit zero", method: http.MethodPost, path: "/api/v1/admin/accounts/bulk-update", body: `{"account_ids":[1],"priority":0}`, wantStatus: http.StatusOK, wantValue: intPointer(0)},
+		{name: "bulk maximum", method: http.MethodPost, path: "/api/v1/admin/accounts/bulk-update", body: `{"account_ids":[1],"priority":2147483647}`, wantStatus: http.StatusOK, wantValue: intPointer(2147483647)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			adminSvc := newStubAdminService()
+			router := setupAccountMixedChannelRouter(adminSvc)
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(tt.method, tt.path, bytes.NewBufferString(tt.body))
+			req.Header.Set("Content-Type", "application/json")
+			router.ServeHTTP(rec, req)
+			require.Equal(t, tt.wantStatus, rec.Code, rec.Body.String())
+
+			if tt.wantStatus != http.StatusOK {
+				require.Empty(t, adminSvc.createdAccounts)
+				require.Nil(t, adminSvc.lastUpdateAccountInput)
+				require.Nil(t, adminSvc.lastBulkUpdateAccountInput)
+				return
+			}
+			switch tt.method + " " + tt.path {
+			case http.MethodPost + " /api/v1/admin/accounts":
+				require.Len(t, adminSvc.createdAccounts, 1)
+				require.Equal(t, *tt.wantValue, adminSvc.createdAccounts[0].Priority)
+			case http.MethodPut + " /api/v1/admin/accounts/1":
+				require.NotNil(t, adminSvc.lastUpdateAccountInput)
+				if tt.wantValue == nil {
+					require.Nil(t, adminSvc.lastUpdateAccountInput.Priority)
+				} else {
+					require.Equal(t, tt.wantValue, adminSvc.lastUpdateAccountInput.Priority)
+				}
+			case http.MethodPost + " /api/v1/admin/accounts/bulk-update":
+				require.NotNil(t, adminSvc.lastBulkUpdateAccountInput)
+				require.Equal(t, tt.wantValue, adminSvc.lastBulkUpdateAccountInput.Priority)
+			}
+		})
+	}
+}
+
 func TestAccountHandlerCheckMixedChannelNoRisk(t *testing.T) {
 	adminSvc := newStubAdminService()
 	router := setupAccountMixedChannelRouter(adminSvc)

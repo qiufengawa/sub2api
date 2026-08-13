@@ -213,7 +213,7 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 	// 也防止已计费的在途视频任务因绑定账号被门排除而查询返回伪 404。
 	requestCtx := service.WithOpenAIProfitControlSuppressed(c.Request.Context())
 	profitVetoCount := 0
-	failedAccountIDs := make(map[int64]struct{})
+	failoverState := service.NewOpenAIAccountFailoverState()
 	sameAccountRetryCount := make(map[int64]int)
 	var lastFailoverErr *service.UpstreamFailoverError
 	var oauth429FailoverState service.OpenAIOAuth429FailoverState
@@ -230,13 +230,13 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		if failoverClientGone(c) {
 			return
 		}
-		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
+		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapabilityWithFailoverState(
 			requestCtx,
 			apiKey.GroupID,
 			"",
 			sessionHash,
 			routingModel,
-			failedAccountIDs,
+			failoverState,
 			service.OpenAIUpstreamTransportHTTPSSE,
 			requiredCapability,
 			false,
@@ -251,15 +251,15 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 			}
 			reqLog.Warn("grok_media.account_select_failed",
 				zap.Error(err),
-				zap.Int("excluded_account_count", len(failedAccountIDs)),
+				zap.Int("excluded_account_count", failoverState.ExcludedCount()),
 			)
 			if endpoint.IsGenerationRequest() && errors.Is(err, service.ErrNoAvailableAccounts) &&
-				(len(failedAccountIDs) == 0 || (mediaEligibilityRejected && lastFailoverErr == nil)) {
+				(failoverState.ExcludedCount() == 0 || (mediaEligibilityRejected && lastFailoverErr == nil)) {
 				markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 				h.errorResponse(c, http.StatusServiceUnavailable, "grok_media_no_eligible_account", "No eligible Grok media accounts")
 				return
 			}
-			if len(failedAccountIDs) == 0 {
+			if failoverState.ExcludedCount() == 0 {
 				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, requestModel, routingModel, service.PlatformGrok)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -310,7 +310,7 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 			eligible, eligibilityReason, eligibilityErr := h.ensureGrokMediaAccountEligibility(requestCtx, account)
 			if !eligible {
 				mediaEligibilityRejected = true
-				failedAccountIDs[account.ID] = struct{}{}
+				failoverState.MarkSelectionRejected(account.ID)
 				reqLog.Warn("grok_media.account_eligibility_rejected",
 					zap.Int64("account_id", account.ID),
 					zap.String("reason", eligibilityReason),
@@ -332,10 +332,14 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		if slotResult == openAISlotAcquireProfitVetoed {
 			// 媒体路径已显式豁免利润门（suppress 标记），此分支仅防御性兜底，
 			// 同样受否决上限约束。
-			if !recordOpenAIProfitVeto(failedAccountIDs, account.ID, &profitVetoCount) {
+			if !recordOpenAIProfitVeto(failoverState, account.ID, &profitVetoCount) {
 				h.handleOpenAIProfitVetoExhausted(c, streamStarted, reqLog, profitVetoCount)
 				return
 			}
+			continue
+		}
+		if slotResult == openAISlotAcquireCapacityRejected {
+			failoverState.MarkRetryableRuntimeFailure(account.ID)
 			continue
 		}
 		if slotResult != openAISlotAcquireOK {
@@ -406,7 +410,7 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 					}
 				}
 				h.gatewayService.RecordOpenAIAccountSwitch()
-				failedAccountIDs[account.ID] = struct{}{}
+				failoverState.MarkRetryableRuntimeFailure(account.ID)
 				lastFailoverErr = failoverErr
 				if switchCount >= maxAccountSwitches {
 					h.handleFailoverExhausted(c, failoverErr, false)
@@ -492,8 +496,25 @@ func grokMediaScheduleModel(account *service.Account, routingModel string, resul
 	return account.GetMappedModel(routingModel)
 }
 
-func shouldRecordGrokMediaUsage(endpoint service.GrokMediaEndpoint, requestModel string) bool {
-	return endpoint.IsGenerationRequest() && strings.TrimSpace(requestModel) != ""
+func isGrokVideoCreateEndpoint(endpoint service.GrokMediaEndpoint) bool {
+	switch endpoint {
+	case service.GrokMediaEndpointVideosGenerations,
+		service.GrokMediaEndpointVideosEdits,
+		service.GrokMediaEndpointVideosExtensions:
+		return true
+	default:
+		return false
+	}
+}
+
+func shouldRecordGrokMediaUsage(endpoint service.GrokMediaEndpoint, requestModel string, result ...*service.OpenAIForwardResult) bool {
+	if len(result) == 0 {
+		return endpoint.IsGenerationRequest() && strings.TrimSpace(requestModel) != ""
+	}
+	if result[0] == nil || isGrokVideoCreateEndpoint(endpoint) || endpoint.IsVideoLookupRequest() {
+		return false
+	}
+	return endpoint.IsGenerationRequest() && strings.TrimSpace(requestModel) != "" && result[0].ImageCount > 0
 }
 
 func recordGrokMediaUsage(

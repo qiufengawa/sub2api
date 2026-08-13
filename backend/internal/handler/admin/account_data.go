@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -20,19 +21,49 @@ import (
 const (
 	dataType       = "sub2api-data"
 	legacyDataType = "sub2api-bundle"
-	dataVersion    = 1
+	dataVersion    = 2
 	dataPageCap    = 1000
 )
 
 type DataPayload struct {
-	Type       string        `json:"type,omitempty"`
-	Version    int           `json:"version,omitempty"`
-	ExportedAt string        `json:"exported_at"`
-	Proxies    []DataProxy   `json:"proxies"`
-	Accounts   []DataAccount `json:"accounts"`
+	Type              string        `json:"type,omitempty"`
+	Version           int           `json:"version,omitempty"`
+	PrioritySemantics string        `json:"priority_semantics,omitempty"`
+	PriorityPivot     *int64        `json:"priority_pivot,omitempty"`
+	ExportedAt        string        `json:"exported_at"`
+	Proxies           []DataProxy   `json:"proxies"`
+	Accounts          []DataAccount `json:"accounts"`
 	// SkippedShadows 记录导出时被排除的 spark 影子账号数量(见 ExportData)。仅作可见性提示,
 	// 导入侧忽略该字段;omitempty 保持向后兼容。
 	SkippedShadows int `json:"skipped_shadows,omitempty"`
+}
+
+// UnmarshalJSON applies the same canonical integer grammar to the legacy
+// pivot that is used for account priority. This keeps backup imports
+// presence-aware and rejects null, -0, decimal, exponent, string and boolean
+// values before any proxy/account write can begin.
+func (p *DataPayload) UnmarshalJSON(data []byte) error {
+	type plain DataPayload
+	var decoded plain
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	if raw, ok := fields["priority_pivot"]; ok {
+		value, err := parseCanonicalPriorityInteger(raw, service.MaxAccountPriority)
+		if err != nil {
+			return fmt.Errorf("invalid priority_pivot: %w", err)
+		}
+		pivot := int64(value)
+		decoded.PriorityPivot = &pivot
+	} else {
+		decoded.PriorityPivot = nil
+	}
+	*p = DataPayload(decoded)
+	return nil
 }
 
 type DataProxy struct {
@@ -58,18 +89,18 @@ type DataProxy struct {
 // 影子的独立调度配置(priority/并发/分组/status 管理员可单独调)亦不在本备份范围,属已知局限
 // (外审第6轮裁决:保持排除 + 前端警告,而非升级格式做完整往返)。
 type DataAccount struct {
-	Name               string         `json:"name"`
-	Notes              *string        `json:"notes,omitempty"`
-	Platform           string         `json:"platform"`
-	Type               string         `json:"type"`
-	Credentials        map[string]any `json:"credentials"`
-	Extra              map[string]any `json:"extra,omitempty"`
-	ProxyKey           *string        `json:"proxy_key,omitempty"`
-	Concurrency        int            `json:"concurrency"`
-	Priority           int            `json:"priority"`
-	RateMultiplier     *float64       `json:"rate_multiplier,omitempty"`
-	ExpiresAt          *int64         `json:"expires_at,omitempty"`
-	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired,omitempty"`
+	Name               string               `json:"name"`
+	Notes              *string              `json:"notes,omitempty"`
+	Platform           string               `json:"platform"`
+	Type               string               `json:"type"`
+	Credentials        map[string]any       `json:"credentials"`
+	Extra              map[string]any       `json:"extra,omitempty"`
+	ProxyKey           *string              `json:"proxy_key,omitempty"`
+	Concurrency        int                  `json:"concurrency"`
+	Priority           accountPriorityField `json:"priority"`
+	RateMultiplier     *float64             `json:"rate_multiplier,omitempty"`
+	ExpiresAt          *int64               `json:"expires_at,omitempty"`
+	AutoPauseOnExpired *bool                `json:"auto_pause_on_expired,omitempty"`
 }
 
 type DataImportRequest struct {
@@ -78,12 +109,13 @@ type DataImportRequest struct {
 }
 
 type DataImportResult struct {
-	ProxyCreated   int               `json:"proxy_created"`
-	ProxyReused    int               `json:"proxy_reused"`
-	ProxyFailed    int               `json:"proxy_failed"`
-	AccountCreated int               `json:"account_created"`
-	AccountFailed  int               `json:"account_failed"`
-	Errors         []DataImportError `json:"errors,omitempty"`
+	ProxyCreated           int               `json:"proxy_created"`
+	ProxyReused            int               `json:"proxy_reused"`
+	ProxyFailed            int               `json:"proxy_failed"`
+	AccountCreated         int               `json:"account_created"`
+	AccountFailed          int               `json:"account_failed"`
+	LegacyPriorityMigrated bool              `json:"legacy_priority_migrated,omitempty"`
+	Errors                 []DataImportError `json:"errors,omitempty"`
 }
 
 type DataImportError struct {
@@ -186,8 +218,13 @@ func (h *AccountHandler) ExportData(c *gin.Context) {
 	}
 
 	dataAccounts := make([]DataAccount, 0, len(accounts))
+	var exportedPriorityPivot int64
 	for i := range accounts {
 		acc := accounts[i]
+		priority := acc.Priority
+		if int64(priority) > exportedPriorityPivot {
+			exportedPriorityPivot = int64(priority)
+		}
 		var proxyKey *string
 		if acc.ProxyID != nil {
 			if key, ok := proxyKeyByID[*acc.ProxyID]; ok {
@@ -208,7 +245,7 @@ func (h *AccountHandler) ExportData(c *gin.Context) {
 			Extra:              acc.Extra,
 			ProxyKey:           proxyKey,
 			Concurrency:        acc.Concurrency,
-			Priority:           acc.Priority,
+			Priority:           accountPriorityField{set: true, value: priority},
 			RateMultiplier:     acc.RateMultiplier,
 			ExpiresAt:          expiresAt,
 			AutoPauseOnExpired: &acc.AutoPauseOnExpired,
@@ -216,10 +253,14 @@ func (h *AccountHandler) ExportData(c *gin.Context) {
 	}
 
 	payload := DataPayload{
-		ExportedAt:     time.Now().UTC().Format(time.RFC3339),
-		Proxies:        dataProxies,
-		Accounts:       dataAccounts,
-		SkippedShadows: skippedShadows,
+		Type:              dataType,
+		Version:           dataVersion,
+		PrioritySemantics: service.AccountPrioritySemanticsHigherWins,
+		PriorityPivot:     &exportedPriorityPivot,
+		ExportedAt:        time.Now().UTC().Format(time.RFC3339),
+		Proxies:           dataProxies,
+		Accounts:          dataAccounts,
+		SkippedShadows:    skippedShadows,
 	}
 
 	response.Success(c, payload)
@@ -249,7 +290,19 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 	}
 
 	dataPayload := req.Data
-	result := DataImportResult{}
+	legacyPriorityMigrated, err := migrateLegacyDataPriorities(&dataPayload)
+	if err != nil {
+		return DataImportResult{}, infraerrors.BadRequest("ACCOUNT_DATA_IMPORT_INVALID", err.Error())
+	}
+	result := DataImportResult{LegacyPriorityMigrated: legacyPriorityMigrated}
+	// Validate the complete account payload before creating any proxy or account.
+	// This prevents a malformed priority late in the file from producing a
+	// partial import.
+	for _, item := range dataPayload.Accounts {
+		if err := validateDataAccount(item); err != nil {
+			return result, infraerrors.BadRequest("ACCOUNT_DATA_IMPORT_INVALID", err.Error())
+		}
+	}
 
 	existingProxies, err := h.listAllProxies(ctx)
 	if err != nil {
@@ -438,7 +491,7 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 			Extra:                item.Extra,
 			ProxyID:              proxyID,
 			Concurrency:          item.Concurrency,
-			Priority:             item.Priority,
+			Priority:             item.Priority.ValueOrDefault(),
 			RateMultiplier:       item.RateMultiplier,
 			GroupIDs:             nil,
 			ExpiresAt:            item.ExpiresAt,
@@ -639,8 +692,26 @@ func validateDataHeader(payload DataPayload) error {
 	if payload.Type != "" && payload.Type != dataType && payload.Type != legacyDataType {
 		return fmt.Errorf("unsupported data type: %s", payload.Type)
 	}
-	if payload.Version != 0 && payload.Version != dataVersion {
+	if payload.Version <= 0 || payload.Version > dataVersion {
 		return fmt.Errorf("unsupported data version: %d", payload.Version)
+	}
+	semantics := strings.TrimSpace(payload.PrioritySemantics)
+	if payload.Version >= dataVersion {
+		if semantics != service.AccountPrioritySemanticsHigherWins {
+			return fmt.Errorf("data version %d requires priority_semantics=%q", dataVersion, service.AccountPrioritySemanticsHigherWins)
+		}
+	} else {
+		if semantics != service.AccountPrioritySemanticsLowerWins {
+			return fmt.Errorf("legacy data version %d requires priority_semantics=%q", payload.Version, service.AccountPrioritySemanticsLowerWins)
+		}
+		if payload.PriorityPivot == nil {
+			return errors.New("legacy data requires priority_pivot")
+		}
+	}
+	if payload.PriorityPivot != nil {
+		if *payload.PriorityPivot < 0 || *payload.PriorityPivot > service.MaxAccountPriority {
+			return fmt.Errorf("priority_pivot is outside the integer storage range: %d", *payload.PriorityPivot)
+		}
 	}
 	if payload.Proxies == nil {
 		return errors.New("proxies is required")
@@ -649,6 +720,41 @@ func validateDataHeader(payload DataPayload) error {
 		return errors.New("accounts is required")
 	}
 	return nil
+}
+
+func migrateLegacyDataPriorities(payload *DataPayload) (bool, error) {
+	if payload == nil || payload.Version >= dataVersion || len(payload.Accounts) == 0 {
+		return false, nil
+	}
+
+	if payload.PriorityPivot == nil {
+		return false, errors.New("legacy data requires priority_pivot")
+	}
+	if *payload.PriorityPivot > service.MaxAccountPriority || *payload.PriorityPivot < 0 {
+		return false, fmt.Errorf("legacy priority pivot is outside the integer storage range: %d", *payload.PriorityPivot)
+	}
+	maxPriority := int(*payload.PriorityPivot)
+	for i := range payload.Accounts {
+		if !payload.Accounts[i].Priority.set {
+			return false, errors.New("legacy account priority is required")
+		}
+		priority := payload.Accounts[i].Priority.value
+		if priority < 0 || int64(priority) > service.MaxAccountPriority {
+			return false, fmt.Errorf("legacy account priority is outside the integer storage range: %d", priority)
+		}
+		if priority > maxPriority {
+			return false, fmt.Errorf("legacy account priority %d exceeds priority_pivot %d", priority, maxPriority)
+		}
+	}
+	for i := range payload.Accounts {
+		converted := int64(maxPriority) - int64(payload.Accounts[i].Priority.value)
+		if converted < 0 || converted > service.MaxAccountPriority {
+			return false, fmt.Errorf("converted account priority is outside the integer storage range: %d", converted)
+		}
+		value := int(converted)
+		payload.Accounts[i].Priority = accountPriorityField{set: true, value: value}
+	}
+	return true, nil
 }
 
 func validateDataProxy(item DataProxy) error {
@@ -699,8 +805,8 @@ func validateDataAccount(item DataAccount) error {
 	if item.Concurrency < 0 {
 		return errors.New("concurrency must be >= 0")
 	}
-	if item.Priority < 0 {
-		return errors.New("priority must be >= 0")
+	if err := service.ValidateAccountPriority(item.Priority.ValueOrDefault()); err != nil {
+		return err
 	}
 	return nil
 }

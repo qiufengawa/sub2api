@@ -221,10 +221,15 @@
                       : t(`admin.backup.status.${record.status}`) }}
                   </span>
                 </td>
-                <td class="py-3 pr-4 text-xs">{{ record.file_name }}</td>
+                <td class="py-3 pr-4 text-xs">
+                  <span>{{ record.file_name }}</span>
+                  <span v-if="record.parts?.length" class="ml-1 text-gray-500 dark:text-gray-400">
+                    ({{ record.parts.length }})
+                  </span>
+                </td>
                 <td class="py-3 pr-4 text-xs">{{ formatSize(record.size_bytes) }}</td>
                 <td class="py-3 pr-4 text-xs">
-                  {{ record.expires_at ? formatDate(record.expires_at) : t('admin.backup.neverExpire') }}
+                  {{ record.status === 'running' ? '-' : (record.expires_at ? formatDate(record.expires_at) : t('admin.backup.neverExpire')) }}
                 </td>
                 <td class="py-3 pr-4 text-xs">
                   {{ record.triggered_by === 'scheduled' ? t('admin.backup.trigger.scheduled') : t('admin.backup.trigger.manual') }}
@@ -241,6 +246,7 @@
                       @click="downloadBackup(record.id)"
                     >
                       <Icon name="download" size="sm" />
+                      <span class="sr-only">{{ t('admin.backup.actions.download') }}</span>
                     </button>
                     <button
                       v-if="record.status === 'completed'"
@@ -254,6 +260,7 @@
                       <Icon name="refresh" size="sm" :class="restoringId === record.id ? 'animate-spin' : ''" />
                     </button>
                     <button
+							v-if="record.status !== 'running'"
                       type="button"
                       class="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                       :title="t('common.delete')"
@@ -366,6 +373,31 @@
       @confirm="confirmRemoveBackup"
       @cancel="deleteBackupId = ''"
     />
+
+    <BaseDialog
+      :show="downloadPartsModalOpen"
+      :title="t('admin.backup.actions.downloadParts')"
+      width="normal"
+      @close="closeDownloadParts"
+    >
+      <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
+        {{ t('admin.backup.actions.downloadPartsHint') }}
+      </p>
+      <div class="divide-y divide-gray-100 border-y border-gray-200 dark:divide-dark-700 dark:border-dark-700">
+        <div v-for="part in downloadParts" :key="part.index" class="flex items-center justify-between gap-3 py-3">
+          <span class="text-sm text-gray-700 dark:text-gray-300">
+            {{ t('admin.backup.actions.partLabel', { index: part.index }) }}
+            <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">{{ formatSize(part.size_bytes) }}</span>
+          </span>
+          <a :href="part.url" class="btn btn-secondary btn-sm" rel="noopener">
+            {{ t('admin.backup.actions.download') }}
+          </a>
+        </div>
+      </div>
+      <template #footer>
+        <button type="button" class="btn btn-primary" @click="closeDownloadParts">{{ t('common.close') }}</button>
+      </template>
+    </BaseDialog>
     <TotpStepUpDialog :controller="backupStepUp" />
 </template>
 
@@ -378,6 +410,7 @@ import type {
   BackupS3Config,
   BackupScheduleConfig,
   BackupRecord,
+  BackupDownloadPart,
   ImageStorageConfig,
 } from '@/api/admin/backup'
 import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/composables/useStepUp'
@@ -452,6 +485,13 @@ const restoringId = ref('')
 const manualExpireDays = ref(14)
 const deleteBackupId = ref('')
 const deletingBackup = ref(false)
+const downloadParts = ref<BackupDownloadPart[]>([])
+const downloadPartsModalOpen = ref(false)
+
+function closeDownloadParts() {
+  downloadPartsModalOpen.value = false
+  downloadParts.value = []
+}
 
 // Polling
 const pollingTimer = ref<ReturnType<typeof setInterval> | null>(null)
@@ -735,6 +775,14 @@ async function createBackup() {
 async function downloadBackup(id: string) {
   try {
     const result = await backupStepUp.run(() => adminAPI.backup.getDownloadURL(id))
+    if (result.parts?.length) {
+      downloadParts.value = result.parts
+      downloadPartsModalOpen.value = true
+      return
+    }
+    if (!result.url) {
+      throw new Error(t('errors.networkError'))
+    }
     // 预签名 URL 带 attachment disposition，同页 anchor 导航直接触发下载；
     // 不用 window.open：step-up 弹窗 await 会耗尽瞬态用户激活，新标签页会被浏览器拦截。
     const link = document.createElement('a')

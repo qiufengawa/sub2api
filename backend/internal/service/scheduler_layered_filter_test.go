@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFilterByMinPriority(t *testing.T) {
+func TestFilterByMaxPriority(t *testing.T) {
 	t.Run("empty slice", func(t *testing.T) {
-		result := filterByMinPriority(nil)
+		result := filterByMaxPriority(nil)
 		require.Empty(t, result)
 	})
 
@@ -19,7 +19,7 @@ func TestFilterByMinPriority(t *testing.T) {
 		accounts := []accountWithLoad{
 			{account: &Account{ID: 1, Priority: 5}, loadInfo: &AccountLoadInfo{}},
 		}
-		result := filterByMinPriority(accounts)
+		result := filterByMaxPriority(accounts)
 		require.Len(t, result, 1)
 		require.Equal(t, int64(1), result[0].account.ID)
 	})
@@ -30,21 +30,42 @@ func TestFilterByMinPriority(t *testing.T) {
 			{account: &Account{ID: 2, Priority: 3}, loadInfo: &AccountLoadInfo{}},
 			{account: &Account{ID: 3, Priority: 3}, loadInfo: &AccountLoadInfo{}},
 		}
-		result := filterByMinPriority(accounts)
+		result := filterByMaxPriority(accounts)
 		require.Len(t, result, 3)
 	})
 
-	t.Run("filters to min priority only", func(t *testing.T) {
+	t.Run("filters to max priority only", func(t *testing.T) {
 		accounts := []accountWithLoad{
 			{account: &Account{ID: 1, Priority: 5}, loadInfo: &AccountLoadInfo{}},
 			{account: &Account{ID: 2, Priority: 1}, loadInfo: &AccountLoadInfo{}},
 			{account: &Account{ID: 3, Priority: 3}, loadInfo: &AccountLoadInfo{}},
 			{account: &Account{ID: 4, Priority: 1}, loadInfo: &AccountLoadInfo{}},
 		}
-		result := filterByMinPriority(accounts)
-		require.Len(t, result, 2)
+		result := filterByMaxPriority(accounts)
+		require.Len(t, result, 1)
+		require.Equal(t, int64(1), result[0].account.ID)
+	})
+
+	t.Run("zero priority remains eligible without preempting a positive priority", func(t *testing.T) {
+		accounts := []accountWithLoad{
+			{account: &Account{ID: 1, Priority: 0}, loadInfo: &AccountLoadInfo{}},
+			{account: &Account{ID: 2, Priority: 1}, loadInfo: &AccountLoadInfo{}},
+		}
+		result := filterByMaxPriority(accounts)
+		require.Len(t, result, 1)
 		require.Equal(t, int64(2), result[0].account.ID)
-		require.Equal(t, int64(4), result[1].account.ID)
+	})
+
+	t.Run("preserves source order inside the winning priority tier", func(t *testing.T) {
+		accounts := []accountWithLoad{
+			{account: &Account{ID: 31, Priority: 7}, loadInfo: &AccountLoadInfo{}},
+			{account: &Account{ID: 11, Priority: 7}, loadInfo: &AccountLoadInfo{}},
+			{account: &Account{ID: 21, Priority: 2}, loadInfo: &AccountLoadInfo{}},
+		}
+		result := filterByMaxPriority(accounts)
+		require.Len(t, result, 2)
+		require.Equal(t, int64(31), result[0].account.ID)
+		require.Equal(t, int64(11), result[1].account.ID)
 	})
 }
 
@@ -219,28 +240,29 @@ func TestLayeredFilterIntegration(t *testing.T) {
 	t.Run("full layered selection", func(t *testing.T) {
 		// 模拟真实场景：多个账号，不同优先级、负载率、最后使用时间
 		accounts := []accountWithLoad{
-			// 优先级 1，负载 50%
+			// 调用优先度 1，负载 50%
 			{account: &Account{ID: 1, Priority: 1, LastUsedAt: &now}, loadInfo: &AccountLoadInfo{LoadRate: 50}},
-			// 优先级 1，负载 20%（最低）
+			// 调用优先度 1，负载 20%（最低）
 			{account: &Account{ID: 2, Priority: 1, LastUsedAt: &earlier}, loadInfo: &AccountLoadInfo{LoadRate: 20}},
-			// 优先级 1，负载 20%（最低），更早使用
+			// 调用优先度 1，负载 20%（最低），更早使用
 			{account: &Account{ID: 3, Priority: 1, LastUsedAt: &muchEarlier}, loadInfo: &AccountLoadInfo{LoadRate: 20}},
-			// 优先级 2（较低优先）
+			// 调用优先度 2（更高优先）
 			{account: &Account{ID: 4, Priority: 2, LastUsedAt: &muchEarlier}, loadInfo: &AccountLoadInfo{LoadRate: 0}},
 		}
 
-		// 1. 取优先级最小的集合 → ID: 1, 2, 3
-		step1 := filterByMinPriority(accounts)
-		require.Len(t, step1, 3)
+		// 1. 取调用优先度最高的集合 → ID: 4
+		step1 := filterByMaxPriority(accounts)
+		require.Len(t, step1, 1)
+		require.Equal(t, int64(4), step1[0].account.ID)
 
-		// 2. 取负载率最低的集合 → ID: 2, 3
+		// 2. 最高优先度集合只有 ID 4
 		step2 := filterByMinLoadRate(step1)
-		require.Len(t, step2, 2)
+		require.Len(t, step2, 1)
 
-		// 3. LRU 选择 → ID: 3（muchEarlier 最早）
+		// 3. LRU 选择 → ID: 4
 		selected := selectByLRU(step2, false)
 		require.NotNil(t, selected)
-		require.Equal(t, int64(3), selected.account.ID)
+		require.Equal(t, int64(4), selected.account.ID)
 	})
 
 	t.Run("all same priority and load rate", func(t *testing.T) {
@@ -250,7 +272,7 @@ func TestLayeredFilterIntegration(t *testing.T) {
 			{account: &Account{ID: 3, Priority: 1, LastUsedAt: &muchEarlier}, loadInfo: &AccountLoadInfo{LoadRate: 50}},
 		}
 
-		step1 := filterByMinPriority(accounts)
+		step1 := filterByMaxPriority(accounts)
 		require.Len(t, step1, 3)
 
 		step2 := filterByMinLoadRate(step1)

@@ -10,20 +10,21 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
-func (s *AccountRepoSuite) TestList_DefaultSortByNameAsc() {
-	mustCreateAccount(s.T(), s.client, &service.Account{Name: "z-account"})
-	mustCreateAccount(s.T(), s.client, &service.Account{Name: "a-account"})
+func (s *AccountRepoSuite) TestList_DefaultSortByPriorityDescThenIDAsc() {
+	firstHigh := mustCreateAccount(s.T(), s.client, &service.Account{Name: "z-account", Priority: 90})
+	secondHigh := mustCreateAccount(s.T(), s.client, &service.Account{Name: "a-account", Priority: 90})
+	low := mustCreateAccount(s.T(), s.client, &service.Account{Name: "low-account", Priority: 10})
 
 	accounts, _, err := s.repo.List(s.ctx, pagination.PaginationParams{Page: 1, PageSize: 10})
 	s.Require().NoError(err)
-	s.Require().Len(accounts, 2)
-	s.Require().Equal("a-account", accounts[0].Name)
-	s.Require().Equal("z-account", accounts[1].Name)
+	s.Require().Len(accounts, 3)
+	s.Require().Equal([]int64{firstHigh.ID, secondHigh.ID, low.ID}, []int64{accounts[0].ID, accounts[1].ID, accounts[2].ID})
 }
 
 func (s *AccountRepoSuite) TestListWithFilters_SortByPriorityDesc() {
-	mustCreateAccount(s.T(), s.client, &service.Account{Name: "low-priority", Priority: 10})
-	mustCreateAccount(s.T(), s.client, &service.Account{Name: "high-priority", Priority: 90})
+	low := mustCreateAccount(s.T(), s.client, &service.Account{Name: "low-priority", Priority: 10})
+	firstHigh := mustCreateAccount(s.T(), s.client, &service.Account{Name: "high-priority-first", Priority: 90})
+	secondHigh := mustCreateAccount(s.T(), s.client, &service.Account{Name: "high-priority-second", Priority: 90})
 
 	accounts, _, err := s.repo.ListWithFilters(s.ctx, pagination.PaginationParams{
 		Page:      1,
@@ -32,9 +33,8 @@ func (s *AccountRepoSuite) TestListWithFilters_SortByPriorityDesc() {
 		SortOrder: "desc",
 	}, "", "", "", "", 0, "")
 	s.Require().NoError(err)
-	s.Require().Len(accounts, 2)
-	s.Require().Equal("high-priority", accounts[0].Name)
-	s.Require().Equal("low-priority", accounts[1].Name)
+	s.Require().Len(accounts, 3)
+	s.Require().Equal([]int64{firstHigh.ID, secondHigh.ID, low.ID}, []int64{accounts[0].ID, accounts[1].ID, accounts[2].ID})
 }
 
 func (s *AccountRepoSuite) TestListWithFilters_SortByUpstreamBillingRateWithMissingLast() {

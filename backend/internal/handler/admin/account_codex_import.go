@@ -22,23 +22,23 @@ import (
 const codexImportClockSkewSeconds int64 = 120
 
 type CodexSessionImportRequest struct {
-	Content                 string         `json:"content"`
-	Contents                []string       `json:"contents"`
-	Name                    string         `json:"name"`
-	Notes                   *string        `json:"notes"`
-	GroupIDs                []int64        `json:"group_ids"`
-	ProxyID                 *int64         `json:"proxy_id"`
-	Concurrency             *int           `json:"concurrency"`
-	Priority                *int           `json:"priority"`
-	RateMultiplier          *float64       `json:"rate_multiplier"`
-	LoadFactor              *int           `json:"load_factor"`
-	ExpiresAt               *int64         `json:"expires_at"`
-	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
-	CredentialExtras        map[string]any `json:"credential_extras"`
-	Extra                   map[string]any `json:"extra"`
-	UpdateExisting          *bool          `json:"update_existing"`
-	SkipDefaultGroupBind    *bool          `json:"skip_default_group_bind"`
-	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"`
+	Content                 string               `json:"content"`
+	Contents                []string             `json:"contents"`
+	Name                    string               `json:"name"`
+	Notes                   *string              `json:"notes"`
+	GroupIDs                []int64              `json:"group_ids"`
+	ProxyID                 *int64               `json:"proxy_id"`
+	Concurrency             *int                 `json:"concurrency"`
+	Priority                accountPriorityField `json:"priority"`
+	RateMultiplier          *float64             `json:"rate_multiplier"`
+	LoadFactor              *int                 `json:"load_factor"`
+	ExpiresAt               *int64               `json:"expires_at"`
+	AutoPauseOnExpired      *bool                `json:"auto_pause_on_expired"`
+	CredentialExtras        map[string]any       `json:"credential_extras"`
+	Extra                   map[string]any       `json:"extra"`
+	UpdateExisting          *bool                `json:"update_existing"`
+	SkipDefaultGroupBind    *bool                `json:"skip_default_group_bind"`
+	ConfirmMixedChannelRisk *bool                `json:"confirm_mixed_channel_risk"`
 }
 
 type CodexSessionImportResult struct {
@@ -129,8 +129,8 @@ func (h *AccountHandler) ImportCodexSession(c *gin.Context) {
 		response.BadRequest(c, "concurrency must be >= 0")
 		return
 	}
-	if req.Priority != nil && *req.Priority < 0 {
-		response.BadRequest(c, "priority must be >= 0")
+	if err := service.ValidateAccountPriority(req.Priority.ValueOrDefault()); err != nil {
+		response.ErrorFrom(c, err)
 		return
 	}
 	if req.RateMultiplier != nil && *req.RateMultiplier < 0 {
@@ -177,10 +177,7 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 	if req.Concurrency != nil {
 		concurrency = *req.Concurrency
 	}
-	priority := 50
-	if req.Priority != nil {
-		priority = *req.Priority
-	}
+	priority := req.Priority.ValueOrDefault()
 	credentialExtras := sanitizeCodexImportCredentialExtras(req.CredentialExtras)
 	skipDefaultGroupBind := false
 	if req.SkipDefaultGroupBind != nil {
@@ -280,7 +277,7 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 				Credentials:        mergedCredentials,
 				Extra:              mergedExtra,
 				Concurrency:        req.Concurrency,
-				Priority:           req.Priority,
+				Priority:           req.Priority.OptionalValue(),
 				RateMultiplier:     req.RateMultiplier,
 				LoadFactor:         req.LoadFactor,
 				ExpiresAt:          effectiveExpiresAt,

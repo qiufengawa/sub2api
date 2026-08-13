@@ -125,6 +125,13 @@ type AccountRepository interface {
 	ListShadowsByParent(ctx context.Context, parentID int64) ([]*Account, error)
 }
 
+// AccountPrioritySemanticStateReader is implemented by the production
+// repository. It is optional so lightweight test repositories do not need a
+// database metadata implementation.
+type AccountPrioritySemanticStateReader interface {
+	GetAccountPrioritySemanticState(ctx context.Context) (semantics, migrationKey string, pivot, epoch int64, err error)
+}
+
 type AccountDuplicateRepository interface {
 	// CreateWithAccountGroups atomically persists an account, its exact group priorities,
 	// and the scheduler outbox event for the new routing snapshot.
@@ -178,7 +185,7 @@ type CreateAccountRequest struct {
 	Extra              map[string]any `json:"extra"`
 	ProxyID            *int64         `json:"proxy_id"`
 	Concurrency        int            `json:"concurrency"`
-	Priority           int            `json:"priority"`
+	Priority           *int           `json:"priority"`
 	GroupIDs           []int64        `json:"group_ids"`
 	ExpiresAt          *time.Time     `json:"expires_at"`
 	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
@@ -219,6 +226,13 @@ func NewAccountService(accountRepo AccountRepository, groupRepo GroupRepository)
 
 // Create 创建账号
 func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (*Account, error) {
+	priority := DefaultAccountPriority
+	if req.Priority != nil {
+		priority = *req.Priority
+	}
+	if err := ValidateAccountPriority(priority); err != nil {
+		return nil, err
+	}
 	// 验证分组是否存在（如果指定了分组）
 	if len(req.GroupIDs) > 0 {
 		if err := s.validateGroupIDsExist(ctx, req.GroupIDs); err != nil {
@@ -232,11 +246,11 @@ func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (
 		Notes:       normalizeAccountNotes(req.Notes),
 		Platform:    req.Platform,
 		Type:        req.Type,
-		Credentials: req.Credentials,
+		Credentials: SanitizeStoredCredentials(req.Platform, req.Credentials),
 		Extra:       req.Extra,
 		ProxyID:     req.ProxyID,
 		Concurrency: req.Concurrency,
-		Priority:    req.Priority,
+		Priority:    priority,
 		Status:      StatusActive,
 		ExpiresAt:   req.ExpiresAt,
 	}
@@ -311,6 +325,11 @@ func (s *AccountService) ListByGroup(ctx context.Context, groupID int64) ([]Acco
 
 // Update 更新账号
 func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccountRequest) (*Account, error) {
+	if req.Priority != nil {
+		if err := ValidateAccountPriority(*req.Priority); err != nil {
+			return nil, err
+		}
+	}
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get account: %w", err)
@@ -325,7 +344,7 @@ func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccount
 	}
 
 	if req.Credentials != nil {
-		account.Credentials = *req.Credentials
+		account.Credentials = SanitizeStoredCredentials(account.Platform, *req.Credentials)
 	}
 
 	if req.Extra != nil {

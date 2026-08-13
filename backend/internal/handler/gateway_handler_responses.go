@@ -188,9 +188,9 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		if requestCtx.Err() != nil {
 			return
 		}
-		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(requestCtx, apiKey.GroupID, sessionHash, reqModel, fs.FailedAccountIDs, "", int64(0))
+		selection, err := h.gatewayService.SelectAccountWithLoadAwarenessWithFailoverState(requestCtx, apiKey.GroupID, sessionHash, reqModel, fs.AccountFailoverState, "", int64(0))
 		if err != nil {
-			if len(fs.FailedAccountIDs) == 0 {
+			if fs.ExcludedCount() == 0 {
 				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, effectiveAPIKeyPlatform(c, apiKey))
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -239,6 +239,9 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 			)
 			if err != nil {
 				reqLog.Warn("gateway.responses.account_slot_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+				if !streamStarted && requestCtx.Err() == nil && fs.RecordCapacityFailure(account.ID) == FailoverContinue {
+					continue
+				}
 				h.handleConcurrencyError(c, err, "account", streamStarted)
 				return
 			}

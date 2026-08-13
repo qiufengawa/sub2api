@@ -69,8 +69,9 @@ func TestProxyExportDataRespectsFilters(t *testing.T) {
 	var resp proxyDataResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	require.Equal(t, 0, resp.Code)
-	require.Empty(t, resp.Data.Type)
-	require.Equal(t, 0, resp.Data.Version)
+	require.Equal(t, dataType, resp.Data.Type)
+	require.Equal(t, dataVersion, resp.Data.Version)
+	require.Equal(t, service.AccountPrioritySemanticsHigherWins, resp.Data.PrioritySemantics)
 	require.Len(t, resp.Data.Proxies, 1)
 	require.Len(t, resp.Data.Accounts, 0)
 	require.Equal(t, "https", resp.Data.Proxies[0].Protocol)
@@ -78,6 +79,44 @@ func TestProxyExportDataRespectsFilters(t *testing.T) {
 	require.Equal(t, "https", adminSvc.lastListProxies.protocol)
 	require.Equal(t, "id", adminSvc.lastListProxies.sortBy)
 	require.Equal(t, "desc", adminSvc.lastListProxies.sortOrder)
+}
+
+func TestProxyExportDataRoundTripHeaderIsImportable(t *testing.T) {
+	router, adminSvc := setupProxyDataRouter()
+	adminSvc.proxies = []service.Proxy{
+		{
+			ID:       1,
+			Name:     "proxy-a",
+			Protocol: "http",
+			Host:     "127.0.0.1",
+			Port:     8080,
+			Username: "user",
+			Password: "pass",
+			Status:   service.StatusActive,
+		},
+	}
+
+	exportRecorder := httptest.NewRecorder()
+	exportRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/proxies/data", nil)
+	router.ServeHTTP(exportRecorder, exportRequest)
+	require.Equal(t, http.StatusOK, exportRecorder.Code)
+
+	var exported proxyDataResponse
+	require.NoError(t, json.Unmarshal(exportRecorder.Body.Bytes(), &exported))
+	requestBody, err := json.Marshal(map[string]any{"data": exported.Data})
+	require.NoError(t, err)
+
+	importRecorder := httptest.NewRecorder()
+	importRequest := httptest.NewRequest(http.MethodPost, "/api/v1/admin/proxies/data", bytes.NewReader(requestBody))
+	importRequest.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(importRecorder, importRequest)
+	require.Equal(t, http.StatusOK, importRecorder.Code)
+
+	var imported proxyImportResponse
+	require.NoError(t, json.Unmarshal(importRecorder.Body.Bytes(), &imported))
+	require.Equal(t, 0, imported.Code)
+	require.Equal(t, 1, imported.Data.ProxyReused)
+	require.Equal(t, 0, imported.Data.ProxyFailed)
 }
 
 func TestProxyExportDataWithSelectedIDs(t *testing.T) {
@@ -227,8 +266,9 @@ func TestProxyImportDataReusesAndTriggersLatencyProbe(t *testing.T) {
 
 	payload := map[string]any{
 		"data": map[string]any{
-			"type":    dataType,
-			"version": dataVersion,
+			"type":               dataType,
+			"version":            dataVersion,
+			"priority_semantics": service.AccountPrioritySemanticsHigherWins,
 			"proxies": []map[string]any{
 				{
 					"proxy_key": "http|127.0.0.1|8080|user|pass",

@@ -305,6 +305,20 @@ func (m *mockGatewayCacheForGemini) DeleteSessionAccountID(ctx context.Context, 
 	return nil
 }
 
+func (m *mockGatewayCacheForGemini) SetGrokVideoPendingBilling(_ context.Context, _ string, _ []byte, _ time.Duration) error {
+	return nil
+}
+func (m *mockGatewayCacheForGemini) GetGrokVideoPendingBilling(_ context.Context, _ string) ([]byte, error) {
+	return nil, nil
+}
+func (m *mockGatewayCacheForGemini) ClaimGrokVideoBilled(_ context.Context, _ string, _ time.Duration) (bool, error) {
+	return true, nil
+}
+
+func (m *mockGatewayCacheForGemini) ReleaseGrokVideoBilled(_ context.Context, _ string) error {
+	return nil
+}
+
 // TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_GeminiPlatform 测试 Gemini 单平台选择
 func TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_GeminiPlatform(t *testing.T) {
 	ctx := context.Background()
@@ -334,7 +348,7 @@ func TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_GeminiP
 	acc, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gemini-2.5-flash", nil)
 	require.NoError(t, err)
 	require.NotNil(t, acc)
-	require.Equal(t, int64(1), acc.ID, "应选择优先级最高的 gemini 账户")
+	require.Equal(t, int64(2), acc.ID, "应选择优先级最高的 gemini 账户")
 	require.Equal(t, PlatformGemini, acc.Platform, "无分组时应只返回 gemini 平台账户")
 }
 
@@ -507,8 +521,8 @@ func TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_StickyS
 	t.Run("粘性会话命中-同平台", func(t *testing.T) {
 		repo := &mockAccountRepoForGemini{
 			accounts: []Account{
-				{ID: 1, Platform: PlatformGemini, Priority: 2, Status: StatusActive, Schedulable: true},
-				{ID: 2, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true},
+				{ID: 1, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true},
+				{ID: 2, Platform: PlatformGemini, Priority: 2, Status: StatusActive, Schedulable: true},
 			},
 			accountsByID: map[int64]*Account{},
 		}
@@ -568,8 +582,8 @@ func TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_StickyS
 	t.Run("粘性会话不命中无前缀缓存键", func(t *testing.T) {
 		repo := &mockAccountRepoForGemini{
 			accounts: []Account{
-				{ID: 1, Platform: PlatformGemini, Priority: 2, Status: StatusActive, Schedulable: true},
-				{ID: 2, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true},
+				{ID: 1, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true},
+				{ID: 2, Platform: PlatformGemini, Priority: 2, Status: StatusActive, Schedulable: true},
 			},
 			accountsByID: map[int64]*Account{},
 		}

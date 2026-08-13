@@ -54,6 +54,84 @@ func TestSchedulerCacheWriteAccountIDsSkipsUnencodableTimes(t *testing.T) {
 	require.Nil(t, invalid)
 }
 
+func TestSchedulerCachePrioritySemanticEpochIsMonotonic(t *testing.T) {
+	ctx := context.Background()
+	cache := newSchedulerCacheUnit(t)
+
+	epoch, err := cache.GetPrioritySemanticEpoch(ctx)
+	require.NoError(t, err)
+	require.Zero(t, epoch)
+
+	require.NoError(t, cache.SetPrioritySemanticEpoch(ctx, 4))
+	epoch, err = cache.GetPrioritySemanticEpoch(ctx)
+	require.NoError(t, err)
+	require.Equal(t, int64(4), epoch)
+
+	require.NoError(t, cache.SetPrioritySemanticEpoch(ctx, 4))
+	require.ErrorContains(t, cache.SetPrioritySemanticEpoch(ctx, 3), "regression")
+	require.ErrorContains(t, cache.SetPrioritySemanticEpoch(ctx, 0), "invalid")
+}
+
+func TestSchedulerCacheSemanticPublicationIsAtomicAndFencesLateOldWriter(t *testing.T) {
+	ctx := context.Background()
+	cache := newSchedulerCacheUnit(t)
+	bucket := service.SchedulerBucket{GroupID: 0, Platform: service.PlatformOpenAI, Mode: service.SchedulerModeSingle}
+
+	require.NoError(t, cache.SetPrioritySemanticEpoch(ctx, 1))
+	oldToken, err := cache.CaptureBucketWriteToken(ctx, bucket)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), oldToken.SemanticEpoch)
+	require.NoError(t, cache.SetSnapshot(ctx, bucket, oldToken, []service.Account{{ID: 1, Priority: 1}}))
+
+	require.NoError(t, cache.BeginPrioritySemanticPublication(ctx, 2))
+	newToken, err := cache.CaptureBucketWriteTokenAtSemanticEpoch(ctx, bucket, 2)
+	require.NoError(t, err)
+	require.NoError(t, cache.SetSnapshot(ctx, bucket, newToken, []service.Account{{ID: 2, Priority: 1000}}))
+
+	active, hit, err := cache.GetSnapshot(ctx, bucket)
+	require.NoError(t, err)
+	require.True(t, hit)
+	require.Equal(t, int64(1), active[0].ID, "inactive namespace must not be visible before promotion")
+
+	require.NoError(t, cache.CompletePrioritySemanticPublication(ctx, 2))
+	require.NoError(t, cache.SetSnapshot(ctx, bucket, oldToken, []service.Account{{ID: 3, Priority: 0}}))
+
+	accounts, hit, err := cache.GetSnapshot(ctx, bucket)
+	require.NoError(t, err)
+	require.True(t, hit)
+	require.Len(t, accounts, 1)
+	require.Equal(t, int64(2), accounts[0].ID, "late old writer must remain isolated in the old namespace")
+}
+
+func TestSchedulerCacheSemanticPublicationRequiresMatchingMarker(t *testing.T) {
+	ctx := context.Background()
+	cache := newSchedulerCacheUnit(t)
+	require.NoError(t, cache.SetPrioritySemanticEpoch(ctx, 4))
+	require.Error(t, cache.CompletePrioritySemanticPublication(ctx, 5))
+	epoch, err := cache.GetPrioritySemanticEpoch(ctx)
+	require.NoError(t, err)
+	require.Equal(t, int64(4), epoch)
+}
+
+func TestSchedulerCacheInvalidatePrioritySemanticAccountsIsScoped(t *testing.T) {
+	ctx := context.Background()
+	cache, mr := newSchedulerCacheUnitWithRedis(t)
+
+	require.NoError(t, cache.SetAccount(ctx, &service.Account{ID: 41, Name: "stale"}))
+	mr.Set(schedulerAccountLastUsedPrefix+"41", "123")
+	mr.Set("unrelated:key", "keep")
+
+	require.NoError(t, cache.InvalidatePrioritySemanticAccounts(ctx))
+
+	account, err := cache.GetAccount(ctx, 41)
+	require.NoError(t, err)
+	require.Nil(t, account)
+	require.True(t, mr.Exists(schedulerAccountLastUsedPrefix+"41"))
+	unrelated, err := mr.Get("unrelated:key")
+	require.NoError(t, err)
+	require.Equal(t, "keep", unrelated)
+}
+
 func TestSchedulerCacheSetAccountClearsUnencodablePayload(t *testing.T) {
 	ctx := context.Background()
 	cache := newSchedulerCacheUnit(t)

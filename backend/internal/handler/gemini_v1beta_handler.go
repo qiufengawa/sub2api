@@ -383,9 +383,9 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	}
 
 	for {
-		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, modelName, fs.FailedAccountIDs, "", int64(0)) // Gemini 不使用会话限制
+		selection, err := h.gatewayService.SelectAccountWithLoadAwarenessWithFailoverState(c.Request.Context(), apiKey.GroupID, sessionKey, modelName, fs.AccountFailoverState, "", int64(0)) // Gemini 不使用会话限制
 		if err != nil {
-			if len(fs.FailedAccountIDs) == 0 {
+			if fs.ExcludedCount() == 0 {
 				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, modelName, modelName, service.PlatformGemini)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -455,6 +455,9 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 					zap.Int64("account_id", account.ID),
 					zap.Int("max_waiting", selection.WaitPlan.MaxWaiting),
 				)
+				if fs.RecordCapacityFailure(account.ID) == FailoverContinue {
+					continue
+				}
 				googleError(c, http.StatusTooManyRequests, "Too many pending requests, please retry later")
 				return
 			}
@@ -477,6 +480,13 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 			)
 			if err != nil {
 				reqLog.Warn("gemini.account_slot_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+				if accountWaitCounted {
+					geminiConcurrency.DecrementAccountWaitCount(c.Request.Context(), account.ID)
+					accountWaitCounted = false
+				}
+				if !streamStarted && c.Request.Context().Err() == nil && fs.RecordCapacityFailure(account.ID) == FailoverContinue {
+					continue
+				}
 				googleError(c, http.StatusTooManyRequests, err.Error())
 				return
 			}

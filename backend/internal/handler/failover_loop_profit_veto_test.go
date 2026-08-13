@@ -70,7 +70,7 @@ func TestProfitVetoAfter503DoesNotLivelock(t *testing.T) {
 	// 已经历一次真实 503（Antigravity 单账号分组 MODEL_CAPACITY_EXHAUSTED 是设计内路径）。
 	fs.LastFailoverErr = newTestFailoverErr(503, false, false)
 	fs.SwitchCount = 1
-	fs.FailedAccountIDs[1] = struct{}{}
+	fs.MarkRetryableRuntimeFailure(1)
 
 	start := time.Now()
 	res := runProfitVetoLoop(t, fs, []int64{1}, map[int64]bool{1: true}, 50)
@@ -89,7 +89,7 @@ func TestProfitVetoKeepsBackoffUsefulForHealthyAccount(t *testing.T) {
 	fs.LastFailoverErr = newTestFailoverErr(503, false, false)
 	fs.SwitchCount = 1
 	// 账号 1 因真实 503 被排除；账号 2 会被利润门否决。
-	fs.FailedAccountIDs[1] = struct{}{}
+	fs.MarkRetryableRuntimeFailure(1)
 
 	res := runProfitVetoLoop(t, fs, []int64{2, 1}, map[int64]bool{2: true}, 50)
 
@@ -132,7 +132,7 @@ func TestHandleSelectionExhaustedUnaffectedWithoutProfitVeto(t *testing.T) {
 	fs := NewFailoverState(3, false)
 	fs.LastFailoverErr = newTestFailoverErr(503, false, false)
 	fs.SwitchCount = 1
-	fs.FailedAccountIDs[100] = struct{}{}
+	fs.MarkRetryableRuntimeFailure(100)
 
 	require.Equal(t, FailoverContinue, fs.HandleSelectionExhausted(context.Background()))
 	require.Empty(t, fs.FailedAccountIDs, "无利润否决时排除列表应被完全清空")

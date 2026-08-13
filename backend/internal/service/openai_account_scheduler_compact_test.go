@@ -63,6 +63,60 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_CompactPrefersSupported
 	require.Equal(t, int64(71002), selection.Account.ID, "compact-supported account should win over unknown")
 }
 
+// Compact capability establishes eligibility tiers. Within the same tier,
+// normal account priority still decides the legacy scheduler's first attempt.
+func TestOpenAIGatewayService_SelectAccountWithScheduler_CompactSameCapabilityTierPrefersHigherPriority(t *testing.T) {
+	resetOpenAIAdvancedSchedulerSettingCacheForTest()
+
+	ctx := context.Background()
+	groupID := int64(91005)
+	accounts := []Account{
+		{
+			ID:          71040,
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeAPIKey,
+			Status:      StatusActive,
+			Schedulable: true,
+			Concurrency: 1,
+			Priority:    1,
+			Extra:       map[string]any{"openai_compact_supported": true},
+		},
+		{
+			ID:          71041,
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeAPIKey,
+			Status:      StatusActive,
+			Schedulable: true,
+			Concurrency: 1,
+			Priority:    9,
+			Extra:       map[string]any{"openai_compact_supported": true},
+		},
+	}
+	cfg := &config.Config{}
+	cfg.Gateway.Scheduling.LoadBatchEnabled = false
+	svc := &OpenAIGatewayService{
+		accountRepo:        schedulerTestOpenAIAccountRepo{accounts: accounts},
+		cache:              &schedulerTestGatewayCache{},
+		cfg:                cfg,
+		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{}),
+	}
+
+	selection, _, err := svc.SelectAccountWithScheduler(
+		ctx,
+		&groupID,
+		"",
+		"",
+		"gpt-5.4",
+		nil,
+		OpenAIUpstreamTransportAny,
+		true,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.NotNil(t, selection.Account)
+	require.Equal(t, int64(71041), selection.Account.ID)
+}
+
 // TestOpenAIGatewayService_SelectAccountWithScheduler_CompactRejectsExplicitlyUnsupported
 // 验证 force_off / 已探测不支持 (tier=0) 的账号不会被 compact 请求选中。
 func TestOpenAIGatewayService_SelectAccountWithScheduler_CompactRejectsExplicitlyUnsupported(t *testing.T) {

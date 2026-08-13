@@ -108,6 +108,13 @@ type crsExportResponse struct {
 	Error   string `json:"error"`
 	Message string `json:"message"`
 	Data    struct {
+		Version                 int                         `json:"version"`
+		SchemaVersion           int                         `json:"schemaVersion"`
+		SchemaVersionSnake      int                         `json:"schema_version"`
+		PrioritySemantics       string                      `json:"prioritySemantics"`
+		PrioritySemanticsSnake  string                      `json:"priority_semantics"`
+		PriorityPivot           crsPriorityField            `json:"priorityPivot"`
+		PriorityPivotSnake      crsPriorityField            `json:"priority_pivot"`
 		ExportedAt              string                      `json:"exportedAt"`
 		ClaudeAccounts          []crsClaudeAccount          `json:"claudeAccounts"`
 		ClaudeConsoleAccounts   []crsConsoleAccount         `json:"claudeConsoleAccounts"`
@@ -116,6 +123,50 @@ type crsExportResponse struct {
 		GeminiOAuthAccounts     []crsGeminiOAuthAccount     `json:"geminiOAuthAccounts"`
 		GeminiAPIKeyAccounts    []crsGeminiAPIKeyAccount    `json:"geminiApiKeyAccounts"`
 	} `json:"data"`
+}
+
+// crsPriorityField preserves whether CRS actually supplied a priority.  It
+// deliberately accepts only canonical non-negative JSON integers, matching
+// the administrator API/backup contract while keeping missing distinct from
+// explicit zero for update operations.
+type crsPriorityField struct {
+	set   bool
+	value int
+}
+
+func (f *crsPriorityField) UnmarshalJSON(data []byte) error {
+	f.set = true
+	raw := bytes.TrimSpace(data)
+	if bytes.Equal(raw, []byte("null")) {
+		return errors.New("priority must be a non-negative integer")
+	}
+	if len(raw) == 0 || (len(raw) > 1 && raw[0] == '0') || raw[0] == '-' {
+		return errors.New("priority must use canonical non-negative integer syntax")
+	}
+	for _, ch := range raw {
+		if ch < '0' || ch > '9' {
+			return errors.New("priority must use canonical non-negative integer syntax")
+		}
+	}
+	parsed, err := strconv.ParseInt(string(raw), 10, 32)
+	if err != nil || parsed > MaxAccountPriority {
+		return errors.New("priority exceeds the integer storage range")
+	}
+	f.value = int(parsed)
+	return nil
+}
+
+func (f crsPriorityField) valueOrDefault() int {
+	if !f.set {
+		return DefaultAccountPriority
+	}
+	return f.value
+}
+
+func applyCRSPriority(existing *Account, priority crsPriorityField) {
+	if existing != nil && priority.set {
+		existing.Priority = priority.value
+	}
 }
 
 type crsProxy struct {
@@ -127,96 +178,96 @@ type crsProxy struct {
 }
 
 type crsClaudeAccount struct {
-	Kind        string         `json:"kind"`
-	ID          string         `json:"id"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Platform    string         `json:"platform"`
-	AuthType    string         `json:"authType"` // oauth/setup-token
-	IsActive    bool           `json:"isActive"`
-	Schedulable bool           `json:"schedulable"`
-	Priority    int            `json:"priority"`
-	Status      string         `json:"status"`
-	Proxy       *crsProxy      `json:"proxy"`
-	Credentials map[string]any `json:"credentials"`
-	Extra       map[string]any `json:"extra"`
+	Kind        string           `json:"kind"`
+	ID          string           `json:"id"`
+	Name        string           `json:"name"`
+	Description string           `json:"description"`
+	Platform    string           `json:"platform"`
+	AuthType    string           `json:"authType"` // oauth/setup-token
+	IsActive    bool             `json:"isActive"`
+	Schedulable bool             `json:"schedulable"`
+	Priority    crsPriorityField `json:"priority"`
+	Status      string           `json:"status"`
+	Proxy       *crsProxy        `json:"proxy"`
+	Credentials map[string]any   `json:"credentials"`
+	Extra       map[string]any   `json:"extra"`
 }
 
 type crsConsoleAccount struct {
-	Kind               string         `json:"kind"`
-	ID                 string         `json:"id"`
-	Name               string         `json:"name"`
-	Description        string         `json:"description"`
-	Platform           string         `json:"platform"`
-	IsActive           bool           `json:"isActive"`
-	Schedulable        bool           `json:"schedulable"`
-	Priority           int            `json:"priority"`
-	Status             string         `json:"status"`
-	MaxConcurrentTasks int            `json:"maxConcurrentTasks"`
-	Proxy              *crsProxy      `json:"proxy"`
-	Credentials        map[string]any `json:"credentials"`
+	Kind               string           `json:"kind"`
+	ID                 string           `json:"id"`
+	Name               string           `json:"name"`
+	Description        string           `json:"description"`
+	Platform           string           `json:"platform"`
+	IsActive           bool             `json:"isActive"`
+	Schedulable        bool             `json:"schedulable"`
+	Priority           crsPriorityField `json:"priority"`
+	Status             string           `json:"status"`
+	MaxConcurrentTasks int              `json:"maxConcurrentTasks"`
+	Proxy              *crsProxy        `json:"proxy"`
+	Credentials        map[string]any   `json:"credentials"`
 }
 
 type crsOpenAIResponsesAccount struct {
-	Kind        string         `json:"kind"`
-	ID          string         `json:"id"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Platform    string         `json:"platform"`
-	IsActive    bool           `json:"isActive"`
-	Schedulable bool           `json:"schedulable"`
-	Priority    int            `json:"priority"`
-	Status      string         `json:"status"`
-	Proxy       *crsProxy      `json:"proxy"`
-	Credentials map[string]any `json:"credentials"`
-	Extra       map[string]any `json:"extra"`
+	Kind        string           `json:"kind"`
+	ID          string           `json:"id"`
+	Name        string           `json:"name"`
+	Description string           `json:"description"`
+	Platform    string           `json:"platform"`
+	IsActive    bool             `json:"isActive"`
+	Schedulable bool             `json:"schedulable"`
+	Priority    crsPriorityField `json:"priority"`
+	Status      string           `json:"status"`
+	Proxy       *crsProxy        `json:"proxy"`
+	Credentials map[string]any   `json:"credentials"`
+	Extra       map[string]any   `json:"extra"`
 }
 
 type crsOpenAIOAuthAccount struct {
-	Kind        string         `json:"kind"`
-	ID          string         `json:"id"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Platform    string         `json:"platform"`
-	AuthType    string         `json:"authType"` // oauth
-	IsActive    bool           `json:"isActive"`
-	Schedulable bool           `json:"schedulable"`
-	Priority    int            `json:"priority"`
-	Status      string         `json:"status"`
-	Proxy       *crsProxy      `json:"proxy"`
-	Credentials map[string]any `json:"credentials"`
-	Extra       map[string]any `json:"extra"`
+	Kind        string           `json:"kind"`
+	ID          string           `json:"id"`
+	Name        string           `json:"name"`
+	Description string           `json:"description"`
+	Platform    string           `json:"platform"`
+	AuthType    string           `json:"authType"` // oauth
+	IsActive    bool             `json:"isActive"`
+	Schedulable bool             `json:"schedulable"`
+	Priority    crsPriorityField `json:"priority"`
+	Status      string           `json:"status"`
+	Proxy       *crsProxy        `json:"proxy"`
+	Credentials map[string]any   `json:"credentials"`
+	Extra       map[string]any   `json:"extra"`
 }
 
 type crsGeminiOAuthAccount struct {
-	Kind        string         `json:"kind"`
-	ID          string         `json:"id"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Platform    string         `json:"platform"`
-	AuthType    string         `json:"authType"` // oauth
-	IsActive    bool           `json:"isActive"`
-	Schedulable bool           `json:"schedulable"`
-	Priority    int            `json:"priority"`
-	Status      string         `json:"status"`
-	Proxy       *crsProxy      `json:"proxy"`
-	Credentials map[string]any `json:"credentials"`
-	Extra       map[string]any `json:"extra"`
+	Kind        string           `json:"kind"`
+	ID          string           `json:"id"`
+	Name        string           `json:"name"`
+	Description string           `json:"description"`
+	Platform    string           `json:"platform"`
+	AuthType    string           `json:"authType"` // oauth
+	IsActive    bool             `json:"isActive"`
+	Schedulable bool             `json:"schedulable"`
+	Priority    crsPriorityField `json:"priority"`
+	Status      string           `json:"status"`
+	Proxy       *crsProxy        `json:"proxy"`
+	Credentials map[string]any   `json:"credentials"`
+	Extra       map[string]any   `json:"extra"`
 }
 
 type crsGeminiAPIKeyAccount struct {
-	Kind        string         `json:"kind"`
-	ID          string         `json:"id"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Platform    string         `json:"platform"`
-	IsActive    bool           `json:"isActive"`
-	Schedulable bool           `json:"schedulable"`
-	Priority    int            `json:"priority"`
-	Status      string         `json:"status"`
-	Proxy       *crsProxy      `json:"proxy"`
-	Credentials map[string]any `json:"credentials"`
-	Extra       map[string]any `json:"extra"`
+	Kind        string           `json:"kind"`
+	ID          string           `json:"id"`
+	Name        string           `json:"name"`
+	Description string           `json:"description"`
+	Platform    string           `json:"platform"`
+	IsActive    bool             `json:"isActive"`
+	Schedulable bool             `json:"schedulable"`
+	Priority    crsPriorityField `json:"priority"`
+	Status      string           `json:"status"`
+	Proxy       *crsProxy        `json:"proxy"`
+	Credentials map[string]any   `json:"credentials"`
+	Extra       map[string]any   `json:"extra"`
 }
 
 // fetchCRSExport validates the connection parameters, authenticates with CRS,
@@ -263,6 +314,9 @@ func (s *CRSSyncService) fetchCRSExport(ctx context.Context, baseURL, username, 
 func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput) (*SyncFromCRSResult, error) {
 	exported, err := s.fetchCRSExport(ctx, input.BaseURL, input.Username, input.Password)
 	if err != nil {
+		return nil, err
+	}
+	if err := normalizeCRSAccountPriorities(exported); err != nil {
 		return nil, err
 	}
 
@@ -334,7 +388,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 		if _, exists := credentials["intercept_warmup_requests"]; !exists {
 			credentials["intercept_warmup_requests"] = false
 		}
-		priority := clampPriority(src.Priority)
+		priority := src.Priority.valueOrDefault()
 		concurrency := 3
 		status := mapCRSStatus(src.IsActive, src.Status)
 
@@ -428,7 +482,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 			existing.ProxyID = proxyID
 		}
 		existing.Concurrency = concurrency
-		existing.Priority = priority
+		applyCRSPriority(existing, src.Priority)
 		existing.Status = status
 		existing.Schedulable = src.Schedulable
 
@@ -479,7 +533,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 		}
 
 		credentials := sanitizeCredentialsMap(src.Credentials)
-		priority := clampPriority(src.Priority)
+		priority := src.Priority.valueOrDefault()
 		concurrency := 3
 		if src.MaxConcurrentTasks > 0 {
 			concurrency = src.MaxConcurrentTasks
@@ -557,7 +611,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 			existing.ProxyID = proxyID
 		}
 		existing.Concurrency = concurrency
-		existing.Priority = priority
+		applyCRSPriority(existing, src.Priority)
 		existing.Status = status
 		existing.Schedulable = src.Schedulable
 
@@ -617,7 +671,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 				credentials["expires_at"] = t.Unix()
 			}
 		}
-		priority := clampPriority(src.Priority)
+		priority := src.Priority.valueOrDefault()
 		concurrency := 3
 		status := mapCRSStatus(src.IsActive, src.Status)
 
@@ -707,7 +761,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 			existing.ProxyID = proxyID
 		}
 		existing.Concurrency = concurrency
-		existing.Priority = priority
+		applyCRSPriority(existing, src.Priority)
 		existing.Status = status
 		existing.Schedulable = src.Schedulable
 
@@ -775,7 +829,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 		}
 
 		credentials := sanitizeCredentialsMap(src.Credentials)
-		priority := clampPriority(src.Priority)
+		priority := src.Priority.valueOrDefault()
 		concurrency := 3
 		status := mapCRSStatus(src.IsActive, src.Status)
 
@@ -864,7 +918,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 			existing.ProxyID = proxyID
 		}
 		existing.Concurrency = concurrency
-		existing.Priority = priority
+		applyCRSPriority(existing, src.Priority)
 		existing.Status = status
 		existing.Schedulable = src.Schedulable
 
@@ -958,7 +1012,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 				Extra:       extra,
 				ProxyID:     proxyID,
 				Concurrency: 3,
-				Priority:    clampPriority(src.Priority),
+				Priority:    src.Priority.valueOrDefault(),
 				Status:      mapCRSStatus(src.IsActive, src.Status),
 				Schedulable: src.Schedulable,
 			}
@@ -996,7 +1050,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 			existing.ProxyID = proxyID
 		}
 		existing.Concurrency = 3
-		existing.Priority = clampPriority(src.Priority)
+		applyCRSPriority(existing, src.Priority)
 		existing.Status = mapCRSStatus(src.IsActive, src.Status)
 		existing.Schedulable = src.Schedulable
 
@@ -1088,7 +1142,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 				Extra:       extra,
 				ProxyID:     proxyID,
 				Concurrency: 3,
-				Priority:    clampPriority(src.Priority),
+				Priority:    src.Priority.valueOrDefault(),
 				Status:      mapCRSStatus(src.IsActive, src.Status),
 				Schedulable: src.Schedulable,
 			}
@@ -1123,7 +1177,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 			existing.ProxyID = proxyID
 		}
 		existing.Concurrency = 3
-		existing.Priority = clampPriority(src.Priority)
+		applyCRSPriority(existing, src.Priority)
 		existing.Status = mapCRSStatus(src.IsActive, src.Status)
 		existing.Schedulable = src.Schedulable
 
@@ -1276,11 +1330,93 @@ func defaultName(name, id string) string {
 	return "CRS " + id
 }
 
-func clampPriority(priority int) int {
-	if priority < 1 || priority > 100 {
-		return 50
+func normalizeCRSAccountPriorities(exported *crsExportResponse) error {
+	if exported == nil {
+		return errors.New("CRS export response is empty")
 	}
-	return priority
+
+	camelSemantics := strings.TrimSpace(exported.Data.PrioritySemantics)
+	snakeSemantics := strings.TrimSpace(exported.Data.PrioritySemanticsSnake)
+	if camelSemantics != "" && snakeSemantics != "" && camelSemantics != snakeSemantics {
+		return errors.New("CRS export contains conflicting priority semantics")
+	}
+	semantics := snakeSemantics
+	if semantics == "" {
+		semantics = camelSemantics
+	}
+	if semantics != AccountPrioritySemanticsHigherWins && semantics != AccountPrioritySemanticsLowerWins {
+		if semantics == "" {
+			return errors.New("CRS export is missing priority_semantics")
+		}
+		return fmt.Errorf("unsupported CRS priority semantics: %s", semantics)
+	}
+
+	version := exported.Data.SchemaVersion
+	if version == 0 {
+		version = exported.Data.SchemaVersionSnake
+	}
+	if version == 0 {
+		version = exported.Data.Version
+	}
+	if semantics == AccountPrioritySemanticsLowerWins && version != 1 {
+		return fmt.Errorf("legacy CRS priority semantics require supported schema version 1, got %d", version)
+	}
+
+	camelPivot := exported.Data.PriorityPivot
+	snakePivot := exported.Data.PriorityPivotSnake
+	if camelPivot.set && snakePivot.set && camelPivot.value != snakePivot.value {
+		return errors.New("CRS export contains conflicting priority pivots")
+	}
+	pivot := snakePivot
+	if !pivot.set {
+		pivot = camelPivot
+	}
+	if semantics == AccountPrioritySemanticsLowerWins && !pivot.set {
+		return errors.New("legacy CRS priority semantics require priority_pivot")
+	}
+
+	priorities := make([]*crsPriorityField, 0,
+		len(exported.Data.ClaudeAccounts)+len(exported.Data.ClaudeConsoleAccounts)+
+			len(exported.Data.OpenAIOAuthAccounts)+len(exported.Data.OpenAIResponsesAccounts)+
+			len(exported.Data.GeminiOAuthAccounts)+len(exported.Data.GeminiAPIKeyAccounts))
+	for i := range exported.Data.ClaudeAccounts {
+		priorities = append(priorities, &exported.Data.ClaudeAccounts[i].Priority)
+	}
+	for i := range exported.Data.ClaudeConsoleAccounts {
+		priorities = append(priorities, &exported.Data.ClaudeConsoleAccounts[i].Priority)
+	}
+	for i := range exported.Data.OpenAIOAuthAccounts {
+		priorities = append(priorities, &exported.Data.OpenAIOAuthAccounts[i].Priority)
+	}
+	for i := range exported.Data.OpenAIResponsesAccounts {
+		priorities = append(priorities, &exported.Data.OpenAIResponsesAccounts[i].Priority)
+	}
+	for i := range exported.Data.GeminiOAuthAccounts {
+		priorities = append(priorities, &exported.Data.GeminiOAuthAccounts[i].Priority)
+	}
+	for i := range exported.Data.GeminiAPIKeyAccounts {
+		priorities = append(priorities, &exported.Data.GeminiAPIKeyAccounts[i].Priority)
+	}
+
+	for _, priority := range priorities {
+		if !priority.set {
+			continue
+		}
+		if err := ValidateAccountPriority(priority.value); err != nil {
+			return fmt.Errorf("invalid CRS account priority %d: %w", priority.value, err)
+		}
+		if semantics == AccountPrioritySemanticsLowerWins && priority.value > pivot.value {
+			return fmt.Errorf("legacy CRS account priority %d exceeds priority_pivot %d", priority.value, pivot.value)
+		}
+	}
+	if semantics == AccountPrioritySemanticsLowerWins {
+		for _, priority := range priorities {
+			if priority.set {
+				priority.value = pivot.value - priority.value
+			}
+		}
+	}
+	return nil
 }
 
 func sanitizeCredentialsMap(input map[string]any) map[string]any {
@@ -1532,6 +1668,9 @@ type CRSPreviewAccount struct {
 func (s *CRSSyncService) PreviewFromCRS(ctx context.Context, input SyncFromCRSInput) (*PreviewFromCRSResult, error) {
 	exported, err := s.fetchCRSExport(ctx, input.BaseURL, input.Username, input.Password)
 	if err != nil {
+		return nil, err
+	}
+	if err := normalizeCRSAccountPriorities(exported); err != nil {
 		return nil, err
 	}
 

@@ -36,6 +36,16 @@ import (
 //   - *sql.DB: 底层的 SQL 数据库连接，可用于直接执行原生 SQL
 //   - error: 初始化过程中的错误
 func InitEnt(cfg *config.Config) (*ent.Client, *sql.DB, error) {
+	return initEnt(cfg, false)
+}
+
+// InitEntForMaintenance is reserved for explicit maintenance commands that
+// are allowed to apply the account-priority semantic migration.
+func InitEntForMaintenance(cfg *config.Config) (*ent.Client, *sql.DB, error) {
+	return initEnt(cfg, true)
+}
+
+func initEnt(cfg *config.Config, maintenance bool) (*ent.Client, *sql.DB, error) {
 	// 优先初始化时区设置，确保所有时间操作使用统一的时区。
 	// 这对于跨时区部署和日志时间戳的一致性至关重要。
 	if err := timezone.Init(cfg.Timezone); err != nil {
@@ -69,9 +79,28 @@ func InitEnt(cfg *config.Config) (*ent.Client, *sql.DB, error) {
 	// 这种方式比 Ent 的自动迁移更可控，支持复杂的迁移场景。
 	migrationCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	if err := applyMigrationsFS(migrationCtx, drv.DB(), migrations.FS); err != nil {
+	var migrationErr error
+	if maintenance {
+		migrationErr = applyMigrationsFS(migrationCtx, drv.DB(), migrations.FS)
+	} else {
+		migrationErr = ApplyServerMigrations(migrationCtx, drv.DB())
+	}
+	if migrationErr != nil {
 		_ = drv.Close() // 迁移失败时关闭驱动，避免资源泄露
-		return nil, nil, err
+		return nil, nil, migrationErr
+	}
+	// The account scheduler has one interpretation of accounts.priority. Fail
+	// closed when a manual rollback or interrupted deployment left the database
+	// on the legacy lower-wins semantic epoch.
+	if err := ValidateAccountPrioritySemanticState(migrationCtx, drv.DB()); err != nil {
+		_ = drv.Close()
+		return nil, nil, fmt.Errorf("validate account priority semantic state: %w", err)
+	}
+	if !maintenance {
+		if err := ValidateAccountPriorityPublicationReady(migrationCtx, drv.DB()); err != nil {
+			_ = drv.Close()
+			return nil, nil, fmt.Errorf("validate account priority semantic publication: %w", err)
+		}
 	}
 
 	// 创建 Ent 客户端，绑定到已配置的数据库驱动。

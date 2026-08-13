@@ -25,6 +25,16 @@ import (
 type profitCountingConcurrencyCache struct {
 	fakeConcurrencyCache
 	accountReleases atomic.Int64
+	acquire         bool
+	canWait         bool
+}
+
+func (c *profitCountingConcurrencyCache) AcquireAccountSlot(context.Context, int64, int, string) (bool, error) {
+	return c.acquire, nil
+}
+
+func (c *profitCountingConcurrencyCache) IncrementAccountWaitCount(context.Context, int64, int) (bool, error) {
+	return c.canWait, nil
 }
 
 func (c *profitCountingConcurrencyCache) ReleaseAccountSlot(context.Context, int64, string) error {
@@ -98,7 +108,7 @@ func TestAcquireResponsesAccountSlotProfitRecheck(t *testing.T) {
 	}
 
 	t.Run("veto releases slot and requests reschedule without writing response", func(t *testing.T) {
-		cache := &profitCountingConcurrencyCache{}
+		cache := &profitCountingConcurrencyCache{acquire: true, canWait: true}
 		h := newHandler(cache)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
@@ -113,7 +123,7 @@ func TestAcquireResponsesAccountSlotProfitRecheck(t *testing.T) {
 	})
 
 	t.Run("qualifying account acquires normally", func(t *testing.T) {
-		cache := &profitCountingConcurrencyCache{}
+		cache := &profitCountingConcurrencyCache{acquire: true, canWait: true}
 		h := newHandler(cache)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
@@ -127,7 +137,7 @@ func TestAcquireResponsesAccountSlotProfitRecheck(t *testing.T) {
 	})
 
 	t.Run("image intent suppression keeps official behavior", func(t *testing.T) {
-		cache := &profitCountingConcurrencyCache{}
+		cache := &profitCountingConcurrencyCache{acquire: true, canWait: true}
 		h := newHandler(cache)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
@@ -138,6 +148,20 @@ func TestAcquireResponsesAccountSlotProfitRecheck(t *testing.T) {
 		require.Equal(t, openAISlotAcquireOK, result, "生图意图跳门：过贵账号照常获取（图片边界不装门）")
 		require.NotNil(t, release)
 		release()
+	})
+
+	t.Run("full wait queue requests reschedule without writing response", func(t *testing.T) {
+		cache := &profitCountingConcurrencyCache{acquire: false, canWait: false}
+		h := newHandler(cache)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+		streamStarted := false
+
+		release, result := h.acquireResponsesAccountSlot(c, &groupID, "", newSelection(profitSlotTestAccount(4, 0.3)), false, &streamStarted, zap.NewNop())
+		require.Equal(t, openAISlotAcquireCapacityRejected, result)
+		require.Nil(t, release)
+		require.Zero(t, w.Body.Len(), "capacity rejection must leave the response unwritten for failover")
 	})
 }
 

@@ -799,6 +799,39 @@ func testBatchImageMappedAccount(id int64, accountType string, mapping map[strin
 	return account
 }
 
+type providerTypedBatchImageProvider struct {
+	publicBatchImageProvider
+	accountType string
+}
+
+func (p *providerTypedBatchImageProvider) SupportsAccount(account *Account) bool {
+	return account != nil && account.Type == p.accountType
+}
+
+func TestBatchImageSelectProviderAndAccountUsesGlobalAccountPriority(t *testing.T) {
+	api := &providerTypedBatchImageProvider{
+		publicBatchImageProvider: publicBatchImageProvider{name: BatchImageProviderGeminiAPI},
+		accountType:              AccountTypeAPIKey,
+	}
+	vertex := &providerTypedBatchImageProvider{
+		publicBatchImageProvider: publicBatchImageProvider{name: BatchImageProviderVertex},
+		accountType:              AccountTypeServiceAccount,
+	}
+	lowAPI := testBatchImageAccount(1, AccountTypeAPIKey)
+	lowAPI.Priority = 1
+	highVertex := testBatchImageAccount(2, AccountTypeServiceAccount)
+	highVertex.Priority = 1000
+	svc := &BatchImagePublicService{
+		AccountRepo:      &publicBatchImageAccountRepo{accounts: []Account{lowAPI, highVertex}},
+		ProviderRegistry: NewBatchImageProviderRegistry(api, vertex),
+	}
+
+	provider, account, err := svc.selectProviderAndAccount(context.Background(), testBatchImageOwner(), "", "gemini-2.5-flash-image")
+	require.NoError(t, err)
+	require.Equal(t, BatchImageProviderVertex, provider.Name())
+	require.Equal(t, int64(2), account.ID)
+}
+
 func requireBatchImagePublicJSONHasNoInternals(t *testing.T, body string) {
 	t.Helper()
 	for _, forbidden := range []string{

@@ -83,9 +83,12 @@ func (h *ProxyHandler) ExportData(c *gin.Context) {
 	}
 
 	payload := DataPayload{
-		ExportedAt: time.Now().UTC().Format(time.RFC3339),
-		Proxies:    dataProxies,
-		Accounts:   []DataAccount{},
+		Type:              dataType,
+		Version:           dataVersion,
+		PrioritySemantics: service.AccountPrioritySemanticsHigherWins,
+		ExportedAt:        time.Now().UTC().Format(time.RFC3339),
+		Proxies:           dataProxies,
+		Accounts:          []DataAccount{},
 	}
 
 	response.Success(c, payload)

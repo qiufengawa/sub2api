@@ -277,6 +277,20 @@ func (m *mockGatewayCacheForPlatform) DeleteSessionAccountID(ctx context.Context
 	return nil
 }
 
+func (m *mockGatewayCacheForPlatform) SetGrokVideoPendingBilling(_ context.Context, _ string, _ []byte, _ time.Duration) error {
+	return nil
+}
+func (m *mockGatewayCacheForPlatform) GetGrokVideoPendingBilling(_ context.Context, _ string) ([]byte, error) {
+	return nil, nil
+}
+func (m *mockGatewayCacheForPlatform) ClaimGrokVideoBilled(_ context.Context, _ string, _ time.Duration) (bool, error) {
+	return true, nil
+}
+
+func (m *mockGatewayCacheForPlatform) ReleaseGrokVideoBilled(_ context.Context, _ string) error {
+	return nil
+}
+
 type mockGroupRepoForGateway struct {
 	groups           map[int64]*Group
 	getByIDCalls     int
@@ -370,7 +384,7 @@ func TestGatewayService_SelectAccountForModelWithPlatform_Anthropic(t *testing.T
 	acc, err := svc.selectAccountForModelWithPlatform(ctx, nil, "", "claude-3-5-sonnet-20241022", nil, PlatformAnthropic)
 	require.NoError(t, err)
 	require.NotNil(t, acc)
-	require.Equal(t, int64(1), acc.ID, "应选择优先级最高的 anthropic 账户")
+	require.Equal(t, int64(2), acc.ID, "应选择优先级最高的 anthropic 账户")
 	require.Equal(t, PlatformAnthropic, acc.Platform, "应只返回 anthropic 平台账户")
 }
 
@@ -527,40 +541,40 @@ func TestGatewayService_SelectAccountForModelWithPlatform_Schedulability(t *test
 		{
 			name: "过载账户被跳过",
 			accounts: []Account{
-				{ID: 1, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true, OverloadUntil: ptr(now.Add(1 * time.Hour))},
-				{ID: 2, Platform: PlatformAnthropic, Priority: 2, Status: StatusActive, Schedulable: true},
+				{ID: 1, Platform: PlatformAnthropic, Priority: 2, Status: StatusActive, Schedulable: true, OverloadUntil: ptr(now.Add(1 * time.Hour))},
+				{ID: 2, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true},
 			},
 			expectedID: 2,
 		},
 		{
 			name: "限流账户被跳过",
 			accounts: []Account{
-				{ID: 1, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true, RateLimitResetAt: ptr(now.Add(1 * time.Hour))},
-				{ID: 2, Platform: PlatformAnthropic, Priority: 2, Status: StatusActive, Schedulable: true},
+				{ID: 1, Platform: PlatformAnthropic, Priority: 2, Status: StatusActive, Schedulable: true, RateLimitResetAt: ptr(now.Add(1 * time.Hour))},
+				{ID: 2, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true},
 			},
 			expectedID: 2,
 		},
 		{
 			name: "非active账户被跳过",
 			accounts: []Account{
-				{ID: 1, Platform: PlatformAnthropic, Priority: 1, Status: "error", Schedulable: true},
-				{ID: 2, Platform: PlatformAnthropic, Priority: 2, Status: StatusActive, Schedulable: true},
+				{ID: 1, Platform: PlatformAnthropic, Priority: 2, Status: "error", Schedulable: true},
+				{ID: 2, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true},
 			},
 			expectedID: 2,
 		},
 		{
 			name: "schedulable=false被跳过",
 			accounts: []Account{
-				{ID: 1, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: false},
-				{ID: 2, Platform: PlatformAnthropic, Priority: 2, Status: StatusActive, Schedulable: true},
+				{ID: 1, Platform: PlatformAnthropic, Priority: 2, Status: StatusActive, Schedulable: false},
+				{ID: 2, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true},
 			},
 			expectedID: 2,
 		},
 		{
 			name: "过期的过载账户可调度",
 			accounts: []Account{
-				{ID: 1, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true, OverloadUntil: ptr(now.Add(-1 * time.Hour))},
-				{ID: 2, Platform: PlatformAnthropic, Priority: 2, Status: StatusActive, Schedulable: true},
+				{ID: 1, Platform: PlatformAnthropic, Priority: 2, Status: StatusActive, Schedulable: true, OverloadUntil: ptr(now.Add(-1 * time.Hour))},
+				{ID: 2, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true},
 			},
 			expectedID: 1,
 		},
@@ -800,7 +814,7 @@ func TestGatewayService_SelectAccountForModelWithPlatform_RoutedStickySessionHit
 
 	repo := &mockAccountRepoForPlatform{
 		accounts: []Account{
-			{ID: 1, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true},
+			{ID: 1, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true, AccountGroups: []AccountGroup{{GroupID: groupID}}},
 			{ID: 2, Platform: PlatformAnthropic, Priority: 2, Status: StatusActive, Schedulable: true},
 		},
 		accountsByID: map[int64]*Account{},
@@ -886,7 +900,7 @@ func TestGatewayService_SelectAccountForModelWithPlatform_RoutedFallbackToNormal
 	acc, err := svc.selectAccountForModelWithPlatform(ctx, &groupID, "", requestedModel, nil, PlatformAnthropic)
 	require.NoError(t, err)
 	require.NotNil(t, acc)
-	require.Equal(t, int64(1), acc.ID)
+	require.Equal(t, int64(2), acc.ID)
 }
 
 func TestGatewayService_SelectAccountForModelWithPlatform_NoModelSupport(t *testing.T) {
@@ -1248,8 +1262,8 @@ func TestGatewayService_selectAccountWithMixedScheduling(t *testing.T) {
 	t.Run("混合调度-包含启用mixed_scheduling的antigravity账户", func(t *testing.T) {
 		repo := &mockAccountRepoForPlatform{
 			accounts: []Account{
-				{ID: 1, Platform: PlatformAnthropic, Priority: 2, Status: StatusActive, Schedulable: true},
-				{ID: 2, Platform: PlatformAntigravity, Priority: 1, Status: StatusActive, Schedulable: true, Extra: map[string]any{"mixed_scheduling": true}},
+				{ID: 1, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true},
+				{ID: 2, Platform: PlatformAntigravity, Priority: 2, Status: StatusActive, Schedulable: true, Extra: map[string]any{"mixed_scheduling": true}},
 			},
 			accountsByID: map[int64]*Account{},
 		}
@@ -1278,7 +1292,7 @@ func TestGatewayService_selectAccountWithMixedScheduling(t *testing.T) {
 				{
 					ID:          1,
 					Platform:    PlatformAntigravity,
-					Priority:    1,
+					Priority:    2,
 					Status:      StatusActive,
 					Schedulable: true,
 					Extra: map[string]any{
@@ -1351,7 +1365,7 @@ func TestGatewayService_selectAccountWithMixedScheduling(t *testing.T) {
 						},
 					},
 				},
-				{ID: 2, Platform: PlatformAnthropic, Priority: 2, Status: StatusActive, Schedulable: true},
+				{ID: 2, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true},
 			},
 			accountsByID: map[int64]*Account{},
 		}
@@ -1584,8 +1598,8 @@ func TestGatewayService_selectAccountWithMixedScheduling(t *testing.T) {
 					Schedulable: true,
 					Credentials: map[string]any{"model_mapping": map[string]any{"claude-3-5-haiku-20241022": "claude-3-5-haiku-20241022"}},
 				},
-				{ID: 6, Platform: PlatformAnthropic, Priority: 2, Status: StatusActive, Schedulable: true},
-				{ID: 7, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true},
+				{ID: 6, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true},
+				{ID: 7, Platform: PlatformAnthropic, Priority: 2, Status: StatusActive, Schedulable: true},
 			},
 			accountsByID: map[int64]*Account{},
 		}
@@ -2181,7 +2195,7 @@ func TestGatewayService_SelectAccountWithLoadAwareness(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 		require.NotNil(t, result.Account)
-		require.Equal(t, int64(1), result.Account.ID, "应选择优先级最高的账号")
+		require.Equal(t, int64(2), result.Account.ID, "应选择优先级最高的账号")
 	})
 
 	t.Run("模型路由-无ConcurrencyService也生效", func(t *testing.T) {
@@ -2266,7 +2280,7 @@ func TestGatewayService_SelectAccountWithLoadAwareness(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 		require.NotNil(t, result.Account)
-		require.Equal(t, int64(2), result.Account.ID, "应选择优先级最高的账号")
+		require.Equal(t, int64(1), result.Account.ID, "应选择优先级最高的账号")
 	})
 
 	t.Run("排除账号-不选择被排除的账号", func(t *testing.T) {
@@ -2576,8 +2590,8 @@ func TestGatewayService_SelectAccountWithLoadAwareness(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 		require.NotNil(t, result.Account)
-		require.Equal(t, int64(2), result.Account.ID)
-		require.Equal(t, int64(2), cache.sessionBindings["legacy"])
+		require.Equal(t, int64(1), result.Account.ID)
+		require.Equal(t, int64(1), cache.sessionBindings["legacy"])
 	})
 
 	t.Run("模型路由-粘性账号等待计划", func(t *testing.T) {
@@ -2690,7 +2704,7 @@ func TestGatewayService_SelectAccountWithLoadAwareness(t *testing.T) {
 		require.NotNil(t, result)
 		require.NotNil(t, result.Account)
 		require.Equal(t, int64(1), result.Account.ID)
-		require.Equal(t, 0, concurrencyCache.loadBatchCalls)
+		require.Equal(t, 1, concurrencyCache.loadBatchCalls)
 	})
 
 	t.Run("模型路由-粘性账号缺失-清理并回退", func(t *testing.T) {
@@ -2917,8 +2931,11 @@ func TestGatewayService_SelectAccountWithLoadAwareness(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 		require.NotNil(t, result.Account)
-		require.Equal(t, int64(3), result.Account.ID)
-		require.Equal(t, int64(3), cache.sessionBindings["fallback"])
+		require.Equal(t, int64(2), result.Account.ID)
+		require.False(t, result.Acquired)
+		require.NotNil(t, result.WaitPlan)
+		require.Equal(t, int64(2), result.WaitPlan.AccountID)
+		require.NotEqual(t, int64(3), cache.sessionBindings["fallback"])
 	})
 
 	t.Run("负载批量失败且无法获取-兜底等待", func(t *testing.T) {
@@ -2954,7 +2971,7 @@ func TestGatewayService_SelectAccountWithLoadAwareness(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 		require.NotNil(t, result.WaitPlan)
-		require.Equal(t, int64(1), result.Account.ID)
+		require.Equal(t, int64(2), result.Account.ID)
 	})
 
 	t.Run("Gemini负载排序-优先OAuth", func(t *testing.T) {
@@ -3209,7 +3226,7 @@ func TestGatewayService_SelectAccountWithLoadAwareness(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 		require.NotNil(t, result.WaitPlan)
-		require.Equal(t, int64(1), result.Account.ID)
+		require.Equal(t, int64(2), result.Account.ID)
 	})
 
 	t.Run("负载信息缺失-使用默认负载", func(t *testing.T) {

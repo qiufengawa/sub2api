@@ -93,6 +93,40 @@ describe('BulkEditAccountModal', () => {
     } as any)
   })
 
+  it('未启用调用优先度时不发送字段，启用后可发送 0 和技术上限', async () => {
+    const wrapper = mountModal()
+
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(adminAPI.accounts.bulkUpdate).not.toHaveBeenCalled()
+
+    vi.mocked(adminAPI.accounts.bulkUpdate).mockClear()
+    await wrapper.get('#bulk-edit-priority-enabled').setValue(true)
+    await wrapper.get('#bulk-edit-priority').setValue('0')
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(adminAPI.accounts.bulkUpdate).toHaveBeenLastCalledWith([1, 2], { priority: 0 })
+
+    vi.mocked(adminAPI.accounts.bulkUpdate).mockClear()
+    await wrapper.get('#bulk-edit-priority').setValue('2147483647')
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(adminAPI.accounts.bulkUpdate).toHaveBeenLastCalledWith([1, 2], {
+      priority: 2147483647
+    })
+  })
+
+  it.each(['-0', '-1', '01', '1.0', '1e3', '2147483648', ''])('拒绝非法调用优先度 %s', async value => {
+    const wrapper = mountModal()
+    await wrapper.get('#bulk-edit-priority-enabled').setValue(true)
+    await wrapper.get('#bulk-edit-priority').setValue(value)
+    await wrapper.get('#bulk-edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(adminAPI.accounts.bulkUpdate).not.toHaveBeenCalled()
+    expect(showError).toHaveBeenCalledWith('admin.accounts.priorityInvalid')
+  })
+
   it('批量修改倍率时提示自动同步账号需要先关闭同步', async () => {
     const wrapper = mountModal()
 

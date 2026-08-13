@@ -789,12 +789,16 @@ func (s *stubAdminService) CreateShadow(ctx context.Context, parentID int64, opt
 		return nil, s.createSparkShadowErr
 	}
 	pid := parentID
+	priority := service.DefaultAccountPriority
+	if opts.Priority != nil {
+		priority = *opts.Priority
+	}
 	return &service.Account{
 		ID:              9001,
 		Name:            opts.Name,
 		Platform:        service.PlatformOpenAI,
 		Type:            service.AccountTypeOAuth,
-		Priority:        opts.Priority,
+		Priority:        priority,
 		Concurrency:     opts.Concurrency,
 		GroupIDs:        opts.GroupIDs,
 		ParentAccountID: &pid,

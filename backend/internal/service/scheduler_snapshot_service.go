@@ -6,9 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -44,6 +47,22 @@ type batchSeenKey struct {
 type schedulerBucketWriteTask struct {
 	bucket SchedulerBucket
 	token  SchedulerBucketWriteToken
+}
+
+// RebuildPrioritySemanticBucket publishes one manifest bucket into an inactive
+// semantic namespace. The caller persists success before attempting the next
+// bucket and promotes the namespace only after the entire frozen set succeeds.
+func (s *SchedulerSnapshotService) RebuildPrioritySemanticBucket(ctx context.Context, bucket SchedulerBucket, semanticEpoch int64, reason string) error {
+	publisher, ok := s.cache.(SchedulerPrioritySemanticPublisher)
+	if !ok {
+		return errors.New("scheduler cache does not support semantic publication")
+	}
+	token, err := publisher.CaptureBucketWriteTokenAtSemanticEpoch(ctx, bucket, semanticEpoch)
+	if err != nil {
+		return err
+	}
+	task := schedulerBucketWriteTask{bucket: bucket, token: token}
+	return s.rebuildBucketWithTokenPolicyAndQueryCache(ctx, task, reason, true, newSchedulerAccountQueryCache([]schedulerBucketWriteTask{task}))
 }
 
 type schedulerAccountQueryKey struct {
@@ -143,6 +162,11 @@ type SchedulerSnapshotService struct {
 	fullRebuildRequested uint64
 	fullRebuildCompleted uint64
 	fullRebuildLastErr   error
+
+	prioritySemanticMu       sync.Mutex
+	prioritySemanticErr      error
+	prioritySemanticEpoch    atomic.Int64
+	prioritySemanticCacheHit atomic.Bool
 }
 
 func NewSchedulerSnapshotService(
@@ -171,12 +195,6 @@ func (s *SchedulerSnapshotService) Start() {
 	if s == nil || s.cache == nil {
 		return
 	}
-
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-		s.runInitialRebuild()
-	}()
 
 	interval := s.outboxPollInterval()
 	if s.outboxRepo != nil && interval > 0 {
@@ -216,8 +234,11 @@ func (s *SchedulerSnapshotService) ListSchedulableAccounts(ctx context.Context, 
 	if err := ctx.Err(); err != nil {
 		return nil, useMixed, err
 	}
+	if err := s.loadPrioritySemanticEpoch(ctx); err != nil {
+		return nil, useMixed, err
+	}
 
-	if s.cache != nil {
+	if s.cache != nil && s.prioritySemanticCacheHit.Load() {
 		cached, hit, err := s.cache.GetSnapshot(ctx, bucket)
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return nil, useMixed, ctxErr
@@ -258,7 +279,7 @@ func (s *SchedulerSnapshotService) ListSchedulableAccounts(ctx context.Context, 
 		return nil, useMixed, ctxErr
 	}
 
-	if s.cache != nil && canPublish {
+	if s.cache != nil && canPublish && s.prioritySemanticCacheHit.Load() {
 		if err := s.cache.SetSnapshot(fallbackCtx, bucket, writeToken, accounts); err != nil {
 			if errors.Is(err, ErrSchedulerBucketRetired) || errors.Is(err, ErrSchedulerBucketWriteFenced) {
 				slog.Debug("[Scheduler] cache publish fenced", "bucket", bucket.String())
@@ -278,7 +299,10 @@ func (s *SchedulerSnapshotService) GetAccount(ctx context.Context, accountID int
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if s.cache != nil {
+	if err := s.loadPrioritySemanticEpoch(ctx); err != nil {
+		return nil, err
+	}
+	if s.cache != nil && s.prioritySemanticCacheHit.Load() {
 		account, err := s.cache.GetAccount(ctx, accountID)
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return nil, ctxErr
@@ -322,6 +346,15 @@ func (s *SchedulerSnapshotService) UpdateAccountInCache(ctx context.Context, acc
 	if s.cache == nil || account == nil {
 		return nil
 	}
+	if err := s.loadPrioritySemanticEpoch(ctx); err != nil {
+		return err
+	}
+	if !s.prioritySemanticCacheHit.Load() {
+		// A newer database semantic epoch is active but the full snapshot has
+		// not been published yet. Do not let a single-account write reintroduce
+		// an un-fenced payload into the old cache generation.
+		return nil
+	}
 	return s.cache.SetAccount(ctx, account)
 }
 
@@ -329,15 +362,104 @@ func (s *SchedulerSnapshotService) runInitialRebuild() {
 	if s.cache == nil {
 		return
 	}
+	if err := s.loadPrioritySemanticEpoch(context.Background()); err != nil {
+		logger.LegacyPrintf("service.scheduler_snapshot", "[Scheduler] priority semantic gate failed: %v", err)
+		return
+	}
 	_ = s.coalesceFullRebuild(func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		if err := s.rebuildFullSnapshot(ctx, "startup"); err != nil {
+		if err := s.rebuildFullSnapshotWithPolicy(ctx, "startup", true); err != nil {
 			logger.LegacyPrintf("service.scheduler_snapshot", "[Scheduler] rebuild startup failed: %v", err)
+			return err
+		}
+		if err := s.publishPrioritySemanticEpoch(ctx); err != nil {
 			return err
 		}
 		return nil
 	})
+}
+
+// EnsurePrioritySemanticPublished is a pure startup gate. The independent
+// maintenance publisher owns rebuilding and epoch promotion; an application
+// process must never bypass its persistent manifest.
+func (s *SchedulerSnapshotService) EnsurePrioritySemanticPublished(ctx context.Context) error {
+	if s == nil || s.cache == nil {
+		return nil
+	}
+	if err := s.loadPrioritySemanticEpoch(ctx); err != nil {
+		return err
+	}
+	if s.prioritySemanticCacheHit.Load() {
+		return nil
+	}
+	return fmt.Errorf("scheduler priority semantic epoch is not published; run account-priority-publisher before starting the application")
+}
+
+func (s *SchedulerSnapshotService) loadPrioritySemanticEpoch(ctx context.Context) error {
+	if s == nil {
+		return nil
+	}
+	// This is intentionally refreshed on every cache access. A process can
+	// remain alive while another instance commits a semantic migration; a
+	// startup-only sync.Once check would keep serving the old snapshot.
+	s.prioritySemanticMu.Lock()
+	defer s.prioritySemanticMu.Unlock()
+	reader, ok := s.accountRepo.(AccountPrioritySemanticStateReader)
+	if !ok {
+		// Test doubles and alternate repositories retain legacy behavior.
+		s.prioritySemanticErr = nil
+		s.prioritySemanticCacheHit.Store(true)
+		return nil
+	}
+	semantics, migrationKey, _, epoch, err := reader.GetAccountPrioritySemanticState(ctx)
+	if err != nil {
+		s.prioritySemanticErr = fmt.Errorf("read priority semantic state: %w", err)
+		s.prioritySemanticCacheHit.Store(false)
+		return s.prioritySemanticErr
+	}
+	if semantics != AccountPrioritySemanticsHigherWins || epoch <= 0 || strings.TrimSpace(migrationKey) == "" {
+		s.prioritySemanticErr = fmt.Errorf("unsupported priority semantic state: semantics=%q migration_key=%q epoch=%d", semantics, migrationKey, epoch)
+		s.prioritySemanticCacheHit.Store(false)
+		return s.prioritySemanticErr
+	}
+	s.prioritySemanticEpoch.Store(epoch)
+	epochCache, ok := s.cache.(SchedulerPrioritySemanticEpochCache)
+	if !ok {
+		s.prioritySemanticErr = errors.New("scheduler cache cannot fence priority semantic epochs")
+		s.prioritySemanticCacheHit.Store(false)
+		return s.prioritySemanticErr
+	}
+	cachedEpoch, err := epochCache.GetPrioritySemanticEpoch(ctx)
+	if err != nil {
+		s.prioritySemanticErr = fmt.Errorf("read scheduler priority epoch: %w", err)
+		s.prioritySemanticCacheHit.Store(false)
+		return s.prioritySemanticErr
+	}
+	if cachedEpoch > epoch {
+		s.prioritySemanticErr = fmt.Errorf("scheduler priority epoch is ahead of database: cache=%d database=%d", cachedEpoch, epoch)
+		s.prioritySemanticCacheHit.Store(false)
+		return s.prioritySemanticErr
+	}
+	s.prioritySemanticErr = nil
+	s.prioritySemanticCacheHit.Store(cachedEpoch == epoch)
+	return nil
+}
+
+func (s *SchedulerSnapshotService) publishPrioritySemanticEpoch(ctx context.Context) error {
+	epoch := s.prioritySemanticEpoch.Load()
+	if epoch <= 0 {
+		return nil
+	}
+	epochCache, ok := s.cache.(SchedulerPrioritySemanticEpochCache)
+	if !ok {
+		return errors.New("scheduler cache cannot publish priority semantic epoch")
+	}
+	if err := epochCache.SetPrioritySemanticEpoch(ctx, epoch); err != nil {
+		return fmt.Errorf("publish scheduler priority epoch: %w", err)
+	}
+	s.prioritySemanticCacheHit.Store(true)
+	return nil
 }
 
 func (s *SchedulerSnapshotService) runOutboxWorker(interval time.Duration) {
@@ -477,10 +599,57 @@ func (s *SchedulerSnapshotService) handleOutboxEvent(ctx context.Context, event 
 	case SchedulerOutboxEventGroupChanged:
 		return s.handleGroupEvent(ctx, event.GroupID, seen)
 	case SchedulerOutboxEventFullRebuild:
-		return s.triggerFullRebuild("outbox")
+		return s.handlePrioritySemanticFullRebuild(ctx, event.Payload)
 	default:
 		return nil
 	}
+}
+
+func (s *SchedulerSnapshotService) handlePrioritySemanticFullRebuild(ctx context.Context, payload map[string]any) error {
+	// Most full rebuilds are ordinary scheduler maintenance events and predate
+	// semantic metadata. Only migration/rollback events carry this marker.
+	if payload == nil {
+		return s.triggerFullRebuild("outbox")
+	}
+	rawSemantics, marked := payload["priority_semantics"]
+	if !marked {
+		return s.triggerFullRebuild("outbox")
+	}
+	semantics, ok := rawSemantics.(string)
+	if !ok || semantics != AccountPrioritySemanticsHigherWins {
+		return fmt.Errorf("scheduler full rebuild has unsupported priority semantics: %v", rawSemantics)
+	}
+	migrationKey, ok := payload["migration_key"].(string)
+	if !ok || strings.TrimSpace(migrationKey) == "" {
+		return errors.New("scheduler full rebuild is missing priority migration key")
+	}
+	epoch, ok := toInt64(payload["semantic_epoch"])
+	if !ok || epoch <= 0 {
+		return errors.New("scheduler full rebuild has invalid priority semantic epoch")
+	}
+	reader, ok := s.accountRepo.(AccountPrioritySemanticStateReader)
+	if !ok {
+		return errors.New("scheduler repository cannot verify priority semantic state")
+	}
+	dbSemantics, dbMigrationKey, dbPivot, dbEpoch, err := reader.GetAccountPrioritySemanticState(ctx)
+	if err != nil {
+		return fmt.Errorf("verify priority semantic rebuild: %w", err)
+	}
+	if dbSemantics != semantics || dbMigrationKey != migrationKey || dbEpoch != epoch {
+		return fmt.Errorf("stale priority semantic rebuild event: event=%s/%s/%d database=%s/%s/%d",
+			semantics, migrationKey, epoch, dbSemantics, dbMigrationKey, dbEpoch)
+	}
+	pivot, ok := toInt64(payload["priority_pivot"])
+	if !ok || pivot != dbPivot {
+		return fmt.Errorf("priority semantic rebuild pivot mismatch: event=%v database=%d", payload["priority_pivot"], dbPivot)
+	}
+	if err := s.loadPrioritySemanticEpoch(ctx); err != nil {
+		return err
+	}
+	if !s.prioritySemanticCacheHit.Load() {
+		return errors.New("priority semantic outbox event is waiting for the independent publisher")
+	}
+	return nil
 }
 
 func (s *SchedulerSnapshotService) handleLastUsedEvent(ctx context.Context, payload map[string]any) error {
@@ -557,10 +726,8 @@ func (s *SchedulerSnapshotService) handleBulkAccountEvent(ctx context.Context, p
 			continue
 		}
 		found[account.ID] = struct{}{}
-		if s.cache != nil {
-			if err := s.cache.SetAccount(ctx, account); err != nil {
-				return err
-			}
+		if err := s.UpdateAccountInCache(ctx, account); err != nil {
+			return err
 		}
 		for _, gid := range account.GroupIDs {
 			if gid > 0 {
@@ -674,10 +841,8 @@ func (s *SchedulerSnapshotService) handleAccountEvent(ctx context.Context, accou
 		}
 		return err
 	}
-	if s.cache != nil {
-		if err := s.cache.SetAccount(ctx, account); err != nil {
-			return err
-		}
+	if err := s.UpdateAccountInCache(ctx, account); err != nil {
+		return err
 	}
 	if len(groupIDs) == 0 {
 		groupIDs = account.GroupIDs
@@ -1019,17 +1184,25 @@ func (s *SchedulerSnapshotService) setRebuildSnapshot(
 }
 
 func (s *SchedulerSnapshotService) triggerFullRebuild(reason string) error {
+	return s.triggerFullRebuildWithPolicy(reason, false)
+}
+
+func (s *SchedulerSnapshotService) triggerFullRebuildWithPolicy(reason string, strict bool) error {
 	if s.cache == nil {
 		return ErrSchedulerCacheNotReady
 	}
 	return s.coalesceFullRebuild(func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		return s.rebuildFullSnapshot(ctx, reason)
+		return s.rebuildFullSnapshotWithPolicy(ctx, reason, strict)
 	})
 }
 
 func (s *SchedulerSnapshotService) rebuildFullSnapshot(ctx context.Context, reason string) error {
+	return s.rebuildFullSnapshotWithPolicy(ctx, reason, false)
+}
+
+func (s *SchedulerSnapshotService) rebuildFullSnapshotWithPolicy(ctx context.Context, reason string, strict bool) error {
 	if s.cache == nil {
 		return ErrSchedulerCacheNotReady
 	}
@@ -1050,7 +1223,7 @@ func (s *SchedulerSnapshotService) rebuildFullSnapshot(ctx context.Context, reas
 			return err
 		}
 		ordinary := appendBucketsExcept(nil, registered, canonical)
-		return s.prepareAndRebuildFullSnapshot(ctx, captured, nil, ordinary, reason)
+		return s.prepareAndRebuildFullSnapshot(ctx, captured, nil, ordinary, reason, strict)
 	}
 
 	activeGroupIDs, err := s.listActiveSchedulerGroupIDs(ctx)
@@ -1131,7 +1304,7 @@ func (s *SchedulerSnapshotService) rebuildFullSnapshot(ctx context.Context, reas
 		}
 	}
 
-	return s.prepareAndRebuildFullSnapshot(ctx, capturedTasks, reopenedTasks, ordinaryBuckets, reason)
+	return s.prepareAndRebuildFullSnapshot(ctx, capturedTasks, reopenedTasks, ordinaryBuckets, reason, strict)
 }
 
 func (s *SchedulerSnapshotService) listActiveSchedulerGroupIDs(ctx context.Context) ([]int64, error) {
@@ -1180,6 +1353,7 @@ func (s *SchedulerSnapshotService) prepareAndRebuildFullSnapshot(
 	reopened []schedulerBucketWriteTask,
 	ordinaryBuckets []SchedulerBucket,
 	reason string,
+	strict bool,
 ) error {
 	// 首个 DB 查询前必须完成全部普通 bucket 的 token 预备；任何预备错误都不会留下部分发布。
 	// fresh Reopen task 保持严格锁与 fencing 语义，普通 captured task 继续沿用 lock busy/fence 跳过语义。
@@ -1202,12 +1376,15 @@ func (s *SchedulerSnapshotService) prepareAndRebuildFullSnapshot(
 	if firstErr != nil {
 		return firstErr
 	}
+	if strict && len(ordinary) != len(toCapture) {
+		return fmt.Errorf("%w: prepared=%d expected=%d", ErrSchedulerBucketWriteFenced, len(ordinary), len(toCapture))
+	}
 	captured = append(captured, ordinary...)
 	queries := newSchedulerAccountQueryCache(reopened, captured)
 	if err := s.rebuildPreparedBucketTasks(ctx, reopened, reason, true, queries); err != nil {
 		firstErr = err
 	}
-	if err := s.rebuildPreparedBucketTasks(ctx, captured, reason, false, queries); err != nil && firstErr == nil {
+	if err := s.rebuildPreparedBucketTasks(ctx, captured, reason, strict, queries); err != nil && firstErr == nil {
 		firstErr = err
 	}
 	return firstErr
@@ -1671,7 +1848,16 @@ func parseInt64Slice(value any) []int64 {
 func toInt64(value any) (int64, bool) {
 	switch v := value.(type) {
 	case float64:
+		if math.IsNaN(v) || math.IsInf(v, 0) || v != math.Trunc(v) || v < math.MinInt64 || v > math.MaxInt64 {
+			return 0, false
+		}
 		return int64(v), true
+	case float32:
+		converted := float64(v)
+		if math.IsNaN(converted) || math.IsInf(converted, 0) || converted != math.Trunc(converted) || converted < math.MinInt64 || converted > math.MaxInt64 {
+			return 0, false
+		}
+		return int64(converted), true
 	case int64:
 		return v, true
 	case int:

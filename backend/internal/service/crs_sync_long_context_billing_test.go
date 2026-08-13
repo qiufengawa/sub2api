@@ -151,7 +151,12 @@ func runCRSOpenAILongContextSync(t *testing.T, repo AccountRepository, source cr
 		require.Equal(t, "/admin/sync/export-accounts", request.URL.Path)
 		require.NoError(t, json.NewEncoder(response).Encode(map[string]any{
 			"success": true,
-			"data":    map[string]any{source.collection: []any{account}},
+			"data": map[string]any{
+				"version":            1,
+				"priority_semantics": AccountPrioritySemanticsLowerWins,
+				"priority_pivot":     0,
+				source.collection:    []any{account},
+			},
 		}))
 	}))
 	t.Cleanup(server.Close)
