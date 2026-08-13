@@ -160,6 +160,36 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     createOpenAICodexPATMock.mockReset().mockResolvedValue({})
   })
 
+  it.each([
+    ['0', 0],
+    ['1000', 1000],
+    ['2147483647', 2147483647],
+  ])('submits account priority %s as an exact integer', async (value, expected) => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await selectButtonByText(wrapper, 'API Key')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('priority account')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-test')
+    await wrapper.get('[data-tour="account-form-priority"]').setValue(value)
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock.mock.calls[0]?.[0]?.priority).toBe(expected)
+  })
+
+  it.each(['-0', '-1', '01', '1.0', '1e3', '2147483648', ''])('rejects invalid account priority %s', async value => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await selectButtonByText(wrapper, 'API Key')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('priority account')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-test')
+    await wrapper.get('[data-tour="account-form-priority"]').setValue(value)
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock).not.toHaveBeenCalled()
+  })
+
   it('sends false explicitly for normal OpenAI account creation by default', async () => {
     await submitApiKeyAccount('openai')
 

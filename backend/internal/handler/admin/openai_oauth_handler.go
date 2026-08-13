@@ -175,21 +175,21 @@ type OpenAIRefreshTokenRequest struct {
 }
 
 type OpenAICodexPATCreateRequest struct {
-	AccessToken             string         `json:"access_token" binding:"required"`
-	Name                    string         `json:"name"`
-	Notes                   *string        `json:"notes"`
-	GroupIDs                []int64        `json:"group_ids"`
-	ProxyID                 *int64         `json:"proxy_id"`
-	Concurrency             *int           `json:"concurrency"`
-	Priority                *int           `json:"priority"`
-	RateMultiplier          *float64       `json:"rate_multiplier"`
-	LoadFactor              *int           `json:"load_factor"`
-	ExpiresAt               *int64         `json:"expires_at"`
-	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
-	CredentialExtras        map[string]any `json:"credential_extras"`
-	Extra                   map[string]any `json:"extra"`
-	SkipDefaultGroupBind    *bool          `json:"skip_default_group_bind"`
-	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"`
+	AccessToken             string               `json:"access_token" binding:"required"`
+	Name                    string               `json:"name"`
+	Notes                   *string              `json:"notes"`
+	GroupIDs                []int64              `json:"group_ids"`
+	ProxyID                 *int64               `json:"proxy_id"`
+	Concurrency             *int                 `json:"concurrency"`
+	Priority                accountPriorityField `json:"priority"`
+	RateMultiplier          *float64             `json:"rate_multiplier"`
+	LoadFactor              *int                 `json:"load_factor"`
+	ExpiresAt               *int64               `json:"expires_at"`
+	AutoPauseOnExpired      *bool                `json:"auto_pause_on_expired"`
+	CredentialExtras        map[string]any       `json:"credential_extras"`
+	Extra                   map[string]any       `json:"extra"`
+	SkipDefaultGroupBind    *bool                `json:"skip_default_group_bind"`
+	ConfirmMixedChannelRisk *bool                `json:"confirm_mixed_channel_risk"`
 }
 
 // RefreshToken refreshes an OpenAI OAuth token
@@ -301,15 +301,15 @@ func (h *OpenAIOAuthHandler) RefreshAccountToken(c *gin.Context) {
 // POST /api/v1/admin/openai/create-from-oauth
 func (h *OpenAIOAuthHandler) CreateAccountFromOAuth(c *gin.Context) {
 	var req struct {
-		SessionID   string  `json:"session_id" binding:"required"`
-		Code        string  `json:"code" binding:"required"`
-		State       string  `json:"state" binding:"required"`
-		RedirectURI string  `json:"redirect_uri"`
-		ProxyID     *int64  `json:"proxy_id"`
-		Name        string  `json:"name"`
-		Concurrency int     `json:"concurrency"`
-		Priority    int     `json:"priority"`
-		GroupIDs    []int64 `json:"group_ids"`
+		SessionID   string               `json:"session_id" binding:"required"`
+		Code        string               `json:"code" binding:"required"`
+		State       string               `json:"state" binding:"required"`
+		RedirectURI string               `json:"redirect_uri"`
+		ProxyID     *int64               `json:"proxy_id"`
+		Name        string               `json:"name"`
+		Concurrency int                  `json:"concurrency"`
+		Priority    accountPriorityField `json:"priority"`
+		GroupIDs    []int64              `json:"group_ids"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
@@ -343,6 +343,12 @@ func (h *OpenAIOAuthHandler) CreateAccountFromOAuth(c *gin.Context) {
 		name = "OpenAI OAuth Account"
 	}
 
+	priority := req.Priority.ValueOrDefault()
+	if err := service.ValidateAccountPriority(priority); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
 	// Create account
 	account, err := h.adminService.CreateAccount(c.Request.Context(), &service.CreateAccountInput{
 		Name:        name,
@@ -352,7 +358,7 @@ func (h *OpenAIOAuthHandler) CreateAccountFromOAuth(c *gin.Context) {
 		Extra:       nil,
 		ProxyID:     req.ProxyID,
 		Concurrency: req.Concurrency,
-		Priority:    req.Priority,
+		Priority:    priority,
 		GroupIDs:    req.GroupIDs,
 	})
 	if err != nil {
@@ -379,8 +385,9 @@ func (h *OpenAIOAuthHandler) CreateAccountFromCodexPAT(c *gin.Context) {
 		response.BadRequest(c, "concurrency must be >= 0")
 		return
 	}
-	if req.Priority != nil && *req.Priority < 0 {
-		response.BadRequest(c, "priority must be >= 0")
+	priority := req.Priority.ValueOrDefault()
+	if err := service.ValidateAccountPriority(priority); err != nil {
+		response.ErrorFrom(c, err)
 		return
 	}
 	if req.RateMultiplier != nil && *req.RateMultiplier < 0 {
@@ -424,10 +431,6 @@ func (h *OpenAIOAuthHandler) CreateAccountFromCodexPAT(c *gin.Context) {
 	concurrency := 3
 	if req.Concurrency != nil {
 		concurrency = *req.Concurrency
-	}
-	priority := 50
-	if req.Priority != nil {
-		priority = *req.Priority
 	}
 	skipDefaultGroupBind := false
 	if req.SkipDefaultGroupBind != nil {
@@ -539,10 +542,10 @@ func (h *OpenAIOAuthHandler) RefreshQuota(c *gin.Context) {
 
 // CreateShadowRequest is the request body for CreateShadow.
 type CreateShadowRequest struct {
-	Name        string  `json:"name"`
-	Priority    int     `json:"priority"`
-	Concurrency int     `json:"concurrency"`
-	GroupIDs    []int64 `json:"group_ids"`
+	Name        string               `json:"name"`
+	Priority    accountPriorityField `json:"priority"`
+	Concurrency int                  `json:"concurrency"`
+	GroupIDs    []int64              `json:"group_ids"`
 }
 
 // CreateShadow creates a spark-dimension shadow account for a parent OpenAI OAuth account.
@@ -560,12 +563,13 @@ func (h *OpenAIOAuthHandler) CreateShadow(c *gin.Context) {
 		return
 	}
 
-	shadow, err := h.adminService.CreateShadow(c.Request.Context(), parentID, service.ShadowOptions{
+	shadowOptions := service.ShadowOptions{
 		Name:        req.Name,
-		Priority:    req.Priority,
+		Priority:    req.Priority.OptionalValue(),
 		Concurrency: req.Concurrency,
 		GroupIDs:    req.GroupIDs,
-	})
+	}
+	shadow, err := h.adminService.CreateShadow(c.Request.Context(), parentID, shadowOptions)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return

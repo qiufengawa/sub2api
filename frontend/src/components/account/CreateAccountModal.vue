@@ -2745,9 +2745,11 @@
         <div>
           <label class="input-label">{{ t('admin.accounts.priority') }}</label>
           <input
-            v-model.number="form.priority"
-            type="number"
-            min="1"
+            v-model="priorityInput"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            min="0"
             class="input"
             data-tour="account-form-priority"
           />
@@ -3620,6 +3622,7 @@ import {
 } from '@/components/account/credentialsBuilder'
 import { formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
+import { parseAccountPriority } from '@/utils/accountPriority'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
 import {
   OPENAI_WS_MODE_CTX_POOL,
@@ -4140,11 +4143,13 @@ const form = reactive({
   proxy_id: null as number | null,
   concurrency: 10,
   load_factor: null as number | null,
-  priority: 1,
+  priority: 0,
   rate_multiplier: 1,
   group_ids: [] as number[],
   expires_at: null as number | null
 })
+
+const priorityInput = ref('0')
 
 // Helper to check if current type needs OAuth flow
 const isOAuthFlow = computed(() => {
@@ -4690,7 +4695,8 @@ const resetForm = () => {
   form.proxy_id = null
   form.concurrency = 10
   form.load_factor = null
-  form.priority = 1
+  form.priority = 0
+  priorityInput.value = '0'
   form.rate_multiplier = 1
   form.group_ids = []
   form.expires_at = null
@@ -4992,6 +4998,13 @@ const handleVertexServiceAccountDrop = async (event: DragEvent) => {
 }
 
 const handleSubmit = async () => {
+  const parsedPriority = parseAccountPriority(priorityInput.value)
+  if (parsedPriority == null) {
+    appStore.showError(t('admin.accounts.priorityInvalid'))
+    return
+  }
+  form.priority = parsedPriority
+
   // For OAuth-based type, handle OAuth flow (goes to step 2)
   if (isOAuthFlow.value) {
     if (!isGrokSSOInputMethod.value && !form.name.trim()) {

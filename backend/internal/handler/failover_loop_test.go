@@ -102,6 +102,19 @@ func TestNewFailoverState(t *testing.T) {
 	})
 }
 
+func TestFailoverStateRecordCapacityFailure(t *testing.T) {
+	fs := NewFailoverState(1, false)
+
+	require.Equal(t, FailoverContinue, fs.RecordCapacityFailure(42))
+	require.True(t, fs.IsRetryableRuntimeFailure(42))
+	require.Contains(t, fs.FailedAccountIDs, int64(42))
+	require.Equal(t, 1, fs.SwitchCount)
+
+	require.Equal(t, FailoverExhausted, fs.RecordCapacityFailure(43))
+	require.True(t, fs.IsRetryableRuntimeFailure(43))
+	require.Equal(t, 1, fs.SwitchCount)
+}
+
 // ---------------------------------------------------------------------------
 // sleepWithContext 测试
 // ---------------------------------------------------------------------------

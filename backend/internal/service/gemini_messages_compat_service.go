@@ -376,16 +376,16 @@ func (s *GeminiMessagesCompatService) buildPreCheckUsageResultMap(ctx context.Co
 }
 
 // isBetterGeminiAccount 判断 candidate 是否比 current 更优。
-// 规则：优先级更高（数值更小）优先；同优先级时，未使用过的优先（OAuth > 非 OAuth），其次是最久未使用的。
+// 规则：调用优先度更高（数值更大）优先；同优先度时，未使用过的优先（OAuth > 非 OAuth），其次是最久未使用的。
 //
 // isBetterGeminiAccount checks if candidate is better than current.
-// Rules: higher priority (lower value) wins; same priority: never used (OAuth > non-OAuth) > least recently used.
+// Rules: higher priority (higher value) wins; same priority: never used (OAuth > non-OAuth) > least recently used.
 func (s *GeminiMessagesCompatService) isBetterGeminiAccount(candidate, current *Account) bool {
-	// 优先级更高（数值更小）
-	if candidate.Priority < current.Priority {
+	// 调用优先度更高（数值更大）
+	if isHigherAccountPriority(candidate.Priority, current.Priority) {
 		return true
 	}
-	if candidate.Priority > current.Priority {
+	if isHigherAccountPriority(current.Priority, candidate.Priority) {
 		return false
 	}
 
@@ -399,10 +399,16 @@ func (s *GeminiMessagesCompatService) isBetterGeminiAccount(candidate, current *
 		return false
 	case candidate.LastUsedAt == nil && current.LastUsedAt == nil:
 		// 都未使用，优先选择 OAuth 账号（更兼容 Code Assist 流程）
-		return candidate.Type == AccountTypeOAuth && current.Type != AccountTypeOAuth
+		if candidate.Type != current.Type {
+			return candidate.Type == AccountTypeOAuth
+		}
+		return candidate.ID < current.ID
 	default:
 		// 都使用过，选择最久未使用的
-		return candidate.LastUsedAt.Before(*current.LastUsedAt)
+		if !candidate.LastUsedAt.Equal(*current.LastUsedAt) {
+			return candidate.LastUsedAt.Before(*current.LastUsedAt)
+		}
+		return candidate.ID < current.ID
 	}
 }
 
@@ -495,11 +501,8 @@ func (s *GeminiMessagesCompatService) HasAntigravityAccounts(ctx context.Context
 // SelectAccountForAIStudioEndpoints selects an account that is likely to succeed against
 // generativelanguage.googleapis.com (e.g. GET /v1beta/models).
 //
-// Preference order:
-// 1) API key accounts (AI Studio)
-// 2) OAuth accounts without project_id (AI Studio OAuth)
-// 3) OAuth accounts explicitly marked as ai_studio
-// 4) Any remaining Gemini accounts (fallback)
+// Account call priority is the first ordering tier. Within the same priority,
+// prefer credential shapes that are most likely to work with AI Studio.
 func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpoints(ctx context.Context, groupID *int64) (*Account, error) {
 	accounts, err := s.listSchedulableAccountsOnce(ctx, groupID, PlatformGemini, true)
 	if err != nil {
@@ -540,8 +543,19 @@ func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpoints(ctx cont
 	var selected *Account
 	for i := range accounts {
 		acc := &accounts[i]
+		if !acc.IsSchedulable() || rank(acc) >= 999 {
+			continue
+		}
 		if selected == nil {
 			selected = acc
+			continue
+		}
+
+		if isHigherAccountPriority(acc.Priority, selected.Priority) {
+			selected = acc
+			continue
+		}
+		if isHigherAccountPriority(selected.Priority, acc.Priority) {
 			continue
 		}
 
@@ -554,22 +568,21 @@ func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpoints(ctx cont
 			continue
 		}
 
-		if acc.Priority < selected.Priority {
+		switch {
+		case acc.LastUsedAt == nil && selected.LastUsedAt != nil:
 			selected = acc
-		} else if acc.Priority == selected.Priority {
-			switch {
-			case acc.LastUsedAt == nil && selected.LastUsedAt != nil:
+		case acc.LastUsedAt != nil && selected.LastUsedAt == nil:
+			// keep selected
+		case acc.LastUsedAt == nil && selected.LastUsedAt == nil:
+			if acc.Type == AccountTypeOAuth && selected.Type != AccountTypeOAuth {
 				selected = acc
-			case acc.LastUsedAt != nil && selected.LastUsedAt == nil:
-				// keep selected
-			case acc.LastUsedAt == nil && selected.LastUsedAt == nil:
-				if acc.Type == AccountTypeOAuth && selected.Type != AccountTypeOAuth {
-					selected = acc
-				}
-			default:
-				if acc.LastUsedAt.Before(*selected.LastUsedAt) {
-					selected = acc
-				}
+			} else if acc.Type == selected.Type && acc.ID < selected.ID {
+				selected = acc
+			}
+		default:
+			if acc.LastUsedAt.Before(*selected.LastUsedAt) ||
+				(acc.LastUsedAt.Equal(*selected.LastUsedAt) && acc.ID < selected.ID) {
+				selected = acc
 			}
 		}
 	}

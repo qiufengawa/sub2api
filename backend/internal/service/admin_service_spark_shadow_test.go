@@ -141,7 +141,7 @@ func TestCreateShadow(t *testing.T) {
 	require.NoError(t, repo.Create(ctx, parent))
 
 	// Test 1: 基本生成
-	shadow, err := svc.CreateShadow(ctx, parent.ID, ShadowOptions{Name: "p-spark", Priority: 50})
+	shadow, err := svc.CreateShadow(ctx, parent.ID, ShadowOptions{Name: "p-spark", Priority: testPtrInt(50)})
 	require.NoError(t, err)
 	require.NotNil(t, shadow)
 	require.Equal(t, parent.ID, *shadow.ParentAccountID)
@@ -264,7 +264,7 @@ func TestCreateShadow_InheritsParentConcurrency(t *testing.T) {
 
 // TestCreateShadow_InheritsParentPriorityWhenOmitted 验证外审第5轮 P1:未指定优先级时
 // 影子继承母账号 priority,而非直写 0 抢到最高调度优先级(repo SetPriority 绕过 ent 默认 50,
-// 调度比较数值越小越优先;前端一键创建只传 name 即触发该路径)。
+// 调度比较数值越大越优先；前端一键创建只传 name 即触发该路径。
 func TestCreateShadow_InheritsParentPriorityWhenOmitted(t *testing.T) {
 	ctx := context.Background()
 
@@ -295,7 +295,7 @@ func TestCreateShadow_InheritsParentPriorityWhenOmitted(t *testing.T) {
 		}
 		require.NoError(t, repo.Create(ctx, parent))
 
-		shadow, err := svc.CreateShadow(ctx, parent.ID, ShadowOptions{Name: "prio-shadow2", Priority: 7})
+		shadow, err := svc.CreateShadow(ctx, parent.ID, ShadowOptions{Name: "prio-shadow2", Priority: testPtrInt(7)})
 		require.NoError(t, err)
 		require.Equal(t, 7, shadow.Priority, "显式正优先级应保留")
 	})

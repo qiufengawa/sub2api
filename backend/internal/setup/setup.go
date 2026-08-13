@@ -336,6 +336,10 @@ func Install(cfg *SetupConfig) error {
 	if err := writeConfigFile(cfg); err != nil {
 		return fmt.Errorf("config file creation failed: %w", err)
 	}
+	if err := publishInitialAccountPrioritySemantics(); err != nil {
+		_ = os.Remove(GetConfigFilePath())
+		return fmt.Errorf("scheduler initialization failed: %w", err)
+	}
 
 	// Create installation lock file to prevent re-setup attacks
 	if err := createInstallLock(); err != nil {
@@ -371,7 +375,39 @@ func initializeDatabase(cfg *SetupConfig) error {
 
 	migrationCtx, cancel := context.WithTimeout(context.Background(), cfg.migrationTimeout())
 	defer cancel()
-	return repository.ApplyMigrations(migrationCtx, db)
+	return repository.ApplySetupMigrations(migrationCtx, db)
+}
+
+func publishInitialAccountPrioritySemantics() error {
+	cfg, err := config.LoadForBootstrap()
+	if err != nil {
+		return fmt.Errorf("load setup config: %w", err)
+	}
+	client, db, err := repository.InitEntForMaintenance(cfg)
+	if err != nil {
+		return fmt.Errorf("initialize maintenance database: %w", err)
+	}
+	defer func() { _ = client.Close() }()
+	rdb := repository.InitRedis(cfg)
+	defer func() { _ = rdb.Close() }()
+
+	cache := repository.ProvideSchedulerCache(rdb, cfg)
+	accountRepo := repository.NewAccountRepository(client, db, cache)
+	groupRepo := repository.NewGroupRepository(client, db)
+	snapshot := service.NewSchedulerSnapshotService(cache, repository.NewSchedulerOutboxRepository(db), accountRepo, groupRepo, cfg)
+	publisher := service.NewAccountPrioritySemanticPublisher(
+		repository.NewAccountPriorityPublicationRepository(db),
+		snapshot,
+		cache,
+		groupRepo,
+		cfg,
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	if err := publisher.Publish(ctx, service.AccountPrioritySemanticMigrationKey); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (cfg *SetupConfig) migrationTimeout() time.Duration {
@@ -665,6 +701,10 @@ func AutoSetupFromEnv() error {
 		return fmt.Errorf("config file creation failed: %w", err)
 	}
 	logger.LegacyPrintf("setup", "%s", "Configuration file created")
+	if err := publishInitialAccountPrioritySemantics(); err != nil {
+		_ = os.Remove(GetConfigFilePath())
+		return fmt.Errorf("scheduler initialization failed: %w", err)
+	}
 
 	// Create installation lock file
 	if err := createInstallLock(); err != nil {

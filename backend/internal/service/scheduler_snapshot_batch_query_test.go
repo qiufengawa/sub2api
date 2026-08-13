@@ -606,6 +606,7 @@ func TestSchedulerFullRebuildSharesSuccessfulQueryAcrossStrictAndOrdinarySegment
 		[]schedulerBucketWriteTask{{bucket: single, token: singleToken}},
 		nil,
 		"test",
+		true,
 	)
 	require.ErrorIs(t, err, ErrSchedulerBucketWriteFenced)
 	require.Equal(t, 1, repo.callCount(batchAccountQueryKey{groupID: groupID, platform: PlatformOpenAI}), "SetSnapshot failure must not discard a successful query")
@@ -653,6 +654,7 @@ func TestSchedulerRebuildBatchPreservesLockBusyAndFencingPolicy(t *testing.T) {
 			[]schedulerBucketWriteTask{{bucket: single, token: singleToken}},
 			nil,
 			"test",
+			true,
 		)
 		require.ErrorIs(t, err, ErrSchedulerBucketRebuildBusy)
 		require.Equal(t, 1, repo.callCount(batchAccountQueryKey{groupID: groupID, platform: PlatformOpenAI}))

@@ -316,6 +316,46 @@ describe('EditAccountModal', () => {
     authIsSimpleMode.value = true
   })
 
+  it('omits a missing legacy priority until the administrator edits it', async () => {
+    updateAccountMock.mockReset().mockResolvedValue(buildAccount())
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+    const account = buildAccount()
+    delete account.priority
+    const wrapper = mountModal(account)
+
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]).not.toHaveProperty('priority')
+
+    updateAccountMock.mockClear()
+    await wrapper.get('[data-tour="account-form-priority"]').setValue('0')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.priority).toBe(0)
+  })
+
+  it.each([
+    ['1000', 1000],
+    ['2147483647', 2147483647],
+  ])('submits edited priority %s exactly', async (value, expected) => {
+    updateAccountMock.mockReset().mockResolvedValue(buildAccount())
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+    const wrapper = mountModal()
+
+    await wrapper.get('[data-tour="account-form-priority"]').setValue(value)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.priority).toBe(expected)
+  })
+
+  it.each(['-0', '-1', '01', '1.0', '1e3', '2147483648', ''])('rejects invalid edited priority %s', async value => {
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+    const wrapper = mountModal()
+
+    await wrapper.get('[data-tour="account-form-priority"]').setValue(value)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    expect(updateAccountMock).not.toHaveBeenCalled()
+  })
+
   it('reopening the same account rehydrates the OpenAI whitelist from props', async () => {
     const account = buildAccount()
     updateAccountMock.mockReset()

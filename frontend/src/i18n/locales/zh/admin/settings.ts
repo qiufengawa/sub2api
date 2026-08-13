@@ -1354,7 +1354,7 @@ export default {
         name: '规则名称',
         namePlaceholder: '例如：上下文超限透传',
         priority: '优先级',
-        priorityHint: '数值越小优先级越高，优先匹配',
+        priorityHint: '数值越大，账号调用优先度越高；0 为最低优先度',
         description: '规则描述',
         descriptionPlaceholder: '描述此规则的用途...',
         matchConditions: '匹配条件',

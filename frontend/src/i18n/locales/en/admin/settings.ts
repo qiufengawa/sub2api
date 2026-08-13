@@ -1360,7 +1360,7 @@ export default {
         name: 'Rule Name',
         namePlaceholder: 'e.g., Context Limit Passthrough',
         priority: 'Priority',
-        priorityHint: 'Lower values have higher priority',
+        priorityHint: 'Higher values have higher account call priority; 0 is the lowest',
         description: 'Description',
         descriptionPlaceholder: 'Describe the purpose of this rule...',
         matchConditions: 'Match Conditions',

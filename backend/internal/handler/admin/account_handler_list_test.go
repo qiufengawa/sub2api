@@ -65,7 +65,7 @@ func TestAccountHandlerListReturnsSchedulerScoresPerGroup(t *testing.T) {
 			Status:      service.StatusActive,
 			Schedulable: true,
 			Concurrency: 10,
-			Priority:    1,
+			Priority:    100000,
 			AccountGroups: []service.AccountGroup{
 				{AccountID: 101, GroupID: groupID, Priority: 100, Group: &service.Group{ID: groupID, Name: "openai"}},
 			},
@@ -81,7 +81,7 @@ func TestAccountHandlerListReturnsSchedulerScoresPerGroup(t *testing.T) {
 			Status:      service.StatusActive,
 			Schedulable: true,
 			Concurrency: 10,
-			Priority:    100000,
+			Priority:    1,
 			AccountGroups: []service.AccountGroup{
 				{AccountID: 102, GroupID: groupID, Priority: 1, Group: &service.Group{ID: groupID, Name: "openai"}},
 			},
@@ -304,6 +304,6 @@ func TestAccountHandlerListSchedulerScoreIgnoresPagination(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &payload))
 	require.Len(t, payload.Data.Items, 1)
 	require.Equal(t, int64(301), payload.Data.Items[0].ID)
-	require.Less(t, payload.Data.Items[0].SchedulerScore.BaseScore, 3.75)
+	require.Equal(t, 3.75, payload.Data.Items[0].SchedulerScore.BaseScore)
 	require.Empty(t, payload.Data.Items[0].SchedulerScores)
 }

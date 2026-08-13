@@ -380,7 +380,6 @@ const (
 	defaultChannelMonitorMode      = ChannelMonitorModeV1
 )
 
-// normalizeChannelMonitorMode accepts only v1/v2; empty/invalid → v1 (safe default).
 func normalizeChannelMonitorMode(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case ChannelMonitorModeV1, "":
@@ -417,35 +416,27 @@ func clampChannelMonitorInterval(v int) int {
 }
 
 // ChannelMonitorRuntime is the lightweight view of the channel monitor feature
-// consumed by the runner, V2 aggregator, and user-facing handlers.
+// consumed by the runner and user-facing handlers.
 type ChannelMonitorRuntime struct {
 	Enabled                bool
-	Mode                   string // ChannelMonitorModeV1 or ChannelMonitorModeV2
+	Mode                   string
 	DefaultIntervalSeconds int
-	// HideThroughput: when true, user-facing V2 APIs omit RPM/TPM scale signals.
-	HideThroughput bool
+	HideThroughput         bool
 }
 
-// ActiveProbesAllowed reports whether V1 active provider probes may run.
 func (r ChannelMonitorRuntime) ActiveProbesAllowed() bool {
 	return r.Enabled && r.Mode == ChannelMonitorModeV1
 }
 
-// PassiveAggregationAllowed reports whether V2 passive aggregation may run.
 func (r ChannelMonitorRuntime) PassiveAggregationAllowed() bool {
 	return r.Enabled && r.Mode == ChannelMonitorModeV2
 }
 
 // GetChannelMonitorRuntime reads the channel monitor feature flags directly from
-// the settings store. Fail-open: on error returns Enabled=true, Mode=v1, default interval.
+// the settings store. Fail-open: on error returns Enabled=true with the default interval.
 func (s *SettingService) GetChannelMonitorRuntime(ctx context.Context) ChannelMonitorRuntime {
 	if s == nil || s.settingRepo == nil {
-		return ChannelMonitorRuntime{
-			Enabled:                true,
-			Mode:                   defaultChannelMonitorMode,
-			DefaultIntervalSeconds: channelMonitorIntervalFallback,
-			HideThroughput:         true,
-		}
+		return ChannelMonitorRuntime{Enabled: true, Mode: defaultChannelMonitorMode, DefaultIntervalSeconds: channelMonitorIntervalFallback, HideThroughput: true}
 	}
 	vals, err := s.settingRepo.GetMultiple(ctx, []string{
 		SettingKeyChannelMonitorEnabled,
@@ -454,12 +445,7 @@ func (s *SettingService) GetChannelMonitorRuntime(ctx context.Context) ChannelMo
 		SettingKeyChannelMonitorHideThroughput,
 	})
 	if err != nil {
-		return ChannelMonitorRuntime{
-			Enabled:                true,
-			Mode:                   defaultChannelMonitorMode,
-			DefaultIntervalSeconds: channelMonitorIntervalFallback,
-			HideThroughput:         true,
-		}
+		return ChannelMonitorRuntime{Enabled: true, Mode: defaultChannelMonitorMode, DefaultIntervalSeconds: channelMonitorIntervalFallback, HideThroughput: true}
 	}
 	return ChannelMonitorRuntime{
 		Enabled:                !isFalseSettingValue(vals[SettingKeyChannelMonitorEnabled]),
@@ -615,16 +601,14 @@ type PublicSettingsInjectionPayload struct {
 	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
 	ChannelMonitorMode                   string `json:"channel_monitor_mode"`
 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
-	// ChannelMonitorHideThroughput is public so the user UI can hide RPM/TPM
-	// without waiting for API redaction alone (defense in depth).
-	ChannelMonitorHideThroughput bool `json:"channel_monitor_hide_throughput"`
-	AvailableChannelsEnabled     bool `json:"available_channels_enabled"`
-	ModelPlazaEnabled            bool `json:"model_plaza_enabled"`
-	ModelPlazaRequireAuth        bool `json:"model_plaza_require_auth"`
-	PlaygroundEnabled            bool `json:"playground_enabled"`
-	AffiliateEnabled             bool `json:"affiliate_enabled"`
-	RiskControlEnabled           bool `json:"risk_control_enabled"`
-	AllowUserViewErrorRequests   bool `json:"allow_user_view_error_requests"`
+	ChannelMonitorHideThroughput         bool   `json:"channel_monitor_hide_throughput"`
+	AvailableChannelsEnabled             bool   `json:"available_channels_enabled"`
+	ModelPlazaEnabled                    bool   `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth                bool   `json:"model_plaza_require_auth"`
+	PlaygroundEnabled                    bool   `json:"playground_enabled"`
+	AffiliateEnabled                     bool   `json:"affiliate_enabled"`
+	RiskControlEnabled                   bool   `json:"risk_control_enabled"`
+	AllowUserViewErrorRequests           bool   `json:"allow_user_view_error_requests"`
 }
 
 // GetPublicSettingsForInjection returns public settings in a format suitable for HTML injection.

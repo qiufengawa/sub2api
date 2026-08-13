@@ -36,6 +36,162 @@ func TestApplyMigrations_DelegatesToApplyMigrationsFS(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestApplyServerMigrationsRequiresExplicitPriorityMaintenance(t *testing.T) {
+	t.Run("missing migration table", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = db.Close() })
+		mock.ExpectQuery("SELECT to_regclass").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		err = ApplyServerMigrations(context.Background(), db)
+		require.ErrorIs(t, err, ErrAccountPriorityMaintenanceRequired)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("semantic migration not applied", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = db.Close() })
+		mock.ExpectQuery("SELECT to_regclass").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+		mock.ExpectQuery("SELECT EXISTS").WithArgs(accountPrioritySemanticMigrationFilename).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		err = ApplyServerMigrations(context.Background(), db)
+		require.ErrorIs(t, err, ErrAccountPriorityMaintenanceRequired)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
+func TestValidateSetupMigrationTarget(t *testing.T) {
+	t.Run("accepts pristine database", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = db.Close() })
+		mock.ExpectQuery("SELECT to_regclass\\('public.sub2api_setup_bootstrap_marker'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT to_regclass\\('public.schema_migrations'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT to_regclass\\('public.accounts'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectExec("CREATE TABLE sub2api_setup_bootstrap_marker").WillReturnResult(sqlmock.NewResult(0, 0))
+		conn, err := db.Conn(context.Background())
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = conn.Close() })
+		require.NoError(t, validateSetupMigrationTarget(context.Background(), conn))
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("rejects legacy schema without migration ledger", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = db.Close() })
+		mock.ExpectQuery("SELECT to_regclass\\('public.sub2api_setup_bootstrap_marker'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT to_regclass\\('public.schema_migrations'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT to_regclass\\('public.accounts'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+		conn, err := db.Conn(context.Background())
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = conn.Close() })
+		err = validateSetupMigrationTarget(context.Background(), conn)
+		require.ErrorIs(t, err, ErrAccountPriorityMaintenanceRequired)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("rejects legacy ledger before semantic migration", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = db.Close() })
+		mock.ExpectQuery("SELECT to_regclass\\('public.sub2api_setup_bootstrap_marker'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT to_regclass\\('public.schema_migrations'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+		mock.ExpectQuery("SELECT EXISTS").WithArgs(accountPrioritySemanticMigrationFilename).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT COUNT\\(\\*\\) FROM schema_migrations").
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(10))
+		conn, err := db.Conn(context.Background())
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = conn.Close() })
+		err = validateSetupMigrationTarget(context.Background(), conn)
+		require.ErrorIs(t, err, ErrAccountPriorityMaintenanceRequired)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("accepts an empty migration ledger created by interrupted pristine setup", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = db.Close() })
+		mock.ExpectQuery("SELECT to_regclass\\('public.sub2api_setup_bootstrap_marker'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT to_regclass\\('public.schema_migrations'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+		mock.ExpectQuery("SELECT EXISTS").WithArgs(accountPrioritySemanticMigrationFilename).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT COUNT\\(\\*\\) FROM schema_migrations").
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+		mock.ExpectQuery("SELECT to_regclass\\('public.accounts'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectExec("CREATE TABLE sub2api_setup_bootstrap_marker").WillReturnResult(sqlmock.NewResult(0, 0))
+		conn, err := db.Conn(context.Background())
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = conn.Close() })
+		require.NoError(t, validateSetupMigrationTarget(context.Background(), conn))
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("rejects empty migration ledger next to legacy schema", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = db.Close() })
+		mock.ExpectQuery("SELECT to_regclass\\('public.sub2api_setup_bootstrap_marker'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT to_regclass\\('public.schema_migrations'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+		mock.ExpectQuery("SELECT EXISTS").WithArgs(accountPrioritySemanticMigrationFilename).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT COUNT\\(\\*\\) FROM schema_migrations").
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+		mock.ExpectQuery("SELECT to_regclass\\('public.accounts'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+		conn, err := db.Conn(context.Background())
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = conn.Close() })
+		err = validateSetupMigrationTarget(context.Background(), conn)
+		require.ErrorIs(t, err, ErrAccountPriorityMaintenanceRequired)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("accepts migrated database for setup recovery", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = db.Close() })
+		mock.ExpectQuery("SELECT to_regclass\\('public.sub2api_setup_bootstrap_marker'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT to_regclass\\('public.schema_migrations'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+		mock.ExpectQuery("SELECT EXISTS").WithArgs(accountPrioritySemanticMigrationFilename).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+		conn, err := db.Conn(context.Background())
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = conn.Close() })
+		require.NoError(t, validateSetupMigrationTarget(context.Background(), conn))
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("resumes an interrupted pristine setup", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = db.Close() })
+		mock.ExpectQuery("SELECT to_regclass\\('public.sub2api_setup_bootstrap_marker'\\)").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+		conn, err := db.Conn(context.Background())
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = conn.Close() })
+		require.NoError(t, validateSetupMigrationTarget(context.Background(), conn))
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
 func TestLatestMigrationBaseline(t *testing.T) {
 	t.Run("empty_fs_returns_baseline", func(t *testing.T) {
 		version, description, hash, err := latestMigrationBaseline(fstest.MapFS{})
@@ -104,6 +260,7 @@ func TestMigrationChecksumCompatibilityRules_CoverEditedUpgradeCompatibilityMigr
 		"118_wechat_dual_mode_and_auth_source_defaults.sql",
 		"120_enforce_payment_orders_out_trade_no_unique_notx.sql",
 		"123_fix_legacy_auth_source_grant_on_signup_defaults.sql",
+		"199_account_priority_higher_wins.sql",
 	} {
 		rule, ok := migrationChecksumCompatibilityRules[name]
 		require.Truef(t, ok, "missing compatibility rule for %s", name)

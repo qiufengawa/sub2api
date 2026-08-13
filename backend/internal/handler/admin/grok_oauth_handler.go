@@ -263,15 +263,15 @@ func (h *GrokOAuthHandler) ReconcileOAuthAccounts(c *gin.Context) {
 
 func (h *GrokOAuthHandler) CreateAccountFromOAuth(c *gin.Context) {
 	var req struct {
-		SessionID   string  `json:"session_id" binding:"required"`
-		Code        string  `json:"code" binding:"required"`
-		State       string  `json:"state"`
-		RedirectURI string  `json:"redirect_uri"`
-		ProxyID     *int64  `json:"proxy_id"`
-		Name        string  `json:"name"`
-		Concurrency int     `json:"concurrency"`
-		Priority    int     `json:"priority"`
-		GroupIDs    []int64 `json:"group_ids"`
+		SessionID   string               `json:"session_id" binding:"required"`
+		Code        string               `json:"code" binding:"required"`
+		State       string               `json:"state"`
+		RedirectURI string               `json:"redirect_uri"`
+		ProxyID     *int64               `json:"proxy_id"`
+		Name        string               `json:"name"`
+		Concurrency int                  `json:"concurrency"`
+		Priority    accountPriorityField `json:"priority"`
+		GroupIDs    []int64              `json:"group_ids"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
@@ -298,6 +298,11 @@ func (h *GrokOAuthHandler) CreateAccountFromOAuth(c *gin.Context) {
 		name = "Grok OAuth Account"
 	}
 
+	priority := req.Priority.ValueOrDefault()
+	if err := service.ValidateAccountPriority(priority); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 	account, err := h.adminService.CreateAccount(c.Request.Context(), &service.CreateAccountInput{
 		Name:        name,
 		Platform:    service.PlatformGrok,
@@ -305,7 +310,7 @@ func (h *GrokOAuthHandler) CreateAccountFromOAuth(c *gin.Context) {
 		Credentials: credentials,
 		ProxyID:     req.ProxyID,
 		Concurrency: req.Concurrency,
-		Priority:    req.Priority,
+		Priority:    priority,
 		GroupIDs:    req.GroupIDs,
 	})
 	if err != nil {
@@ -317,20 +322,20 @@ func (h *GrokOAuthHandler) CreateAccountFromOAuth(c *gin.Context) {
 }
 
 type GrokSSOToOAuthRequest struct {
-	SSOTokens          []string       `json:"sso_tokens"`
-	SSOToken           string         `json:"sso_token"`
-	Name               string         `json:"name"`
-	Notes              *string        `json:"notes"`
-	ProxyID            *int64         `json:"proxy_id"`
-	GroupIDs           []int64        `json:"group_ids"`
-	Credentials        map[string]any `json:"credentials"`
-	Extra              map[string]any `json:"extra"`
-	Concurrency        int            `json:"concurrency"`
-	LoadFactor         *int           `json:"load_factor"`
-	Priority           int            `json:"priority"`
-	RateMultiplier     *float64       `json:"rate_multiplier"`
-	ExpiresAt          *int64         `json:"expires_at"`
-	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
+	SSOTokens          []string             `json:"sso_tokens"`
+	SSOToken           string               `json:"sso_token"`
+	Name               string               `json:"name"`
+	Notes              *string              `json:"notes"`
+	ProxyID            *int64               `json:"proxy_id"`
+	GroupIDs           []int64              `json:"group_ids"`
+	Credentials        map[string]any       `json:"credentials"`
+	Extra              map[string]any       `json:"extra"`
+	Concurrency        int                  `json:"concurrency"`
+	LoadFactor         *int                 `json:"load_factor"`
+	Priority           accountPriorityField `json:"priority"`
+	RateMultiplier     *float64             `json:"rate_multiplier"`
+	ExpiresAt          *int64               `json:"expires_at"`
+	AutoPauseOnExpired *bool                `json:"auto_pause_on_expired"`
 }
 
 type GrokSSOToOAuthItemResult struct {
@@ -360,6 +365,10 @@ func (h *GrokOAuthHandler) CreateAccountsFromSSO(c *gin.Context) {
 	var req GrokSSOToOAuthRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if err := service.ValidateAccountPriority(req.Priority.ValueOrDefault()); err != nil {
+		response.ErrorFrom(c, err)
 		return
 	}
 	tokens := normalizeSSOImportTokens(req.SSOTokens, req.SSOToken)
@@ -429,6 +438,7 @@ func (h *GrokOAuthHandler) createAccountFromSSOToken(ctx context.Context, req Gr
 	credentials := grokSSOImportCredentials(h.grokOAuthService.BuildAccountCredentials(tokenInfo), req.Credentials)
 	name := grokSSOImportAccountName(req.Name, tokenInfo, index, total)
 	expiresAt, autoPauseOnExpired := grokSSOImportExpiry(req.ExpiresAt, req.AutoPauseOnExpired, tokenInfo)
+	priority := req.Priority.ValueOrDefault()
 	account, err := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
 		Name:               name,
 		Notes:              req.Notes,
@@ -439,7 +449,7 @@ func (h *GrokOAuthHandler) createAccountFromSSOToken(ctx context.Context, req Gr
 		ProxyID:            req.ProxyID,
 		Concurrency:        req.Concurrency,
 		LoadFactor:         req.LoadFactor,
-		Priority:           req.Priority,
+		Priority:           priority,
 		RateMultiplier:     req.RateMultiplier,
 		GroupIDs:           append([]int64(nil), req.GroupIDs...),
 		ExpiresAt:          expiresAt,

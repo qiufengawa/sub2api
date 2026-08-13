@@ -15,8 +15,13 @@ vi.mock('@/stores/app', () => ({ useAppStore: () => appStoreMocks }))
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
+import { createPinia, setActivePinia } from 'pinia'
 
 import UsageTable from '../UsageTable.vue'
+
+beforeEach(() => {
+  setActivePinia(createPinia())
+})
 
 const messages: Record<string, string> = {
   'admin.usage.userDeletedBadge': 'Deleted',

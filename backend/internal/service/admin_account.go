@@ -397,6 +397,9 @@ func normalizeOpenAILongContextBillingUpdateExtra(account *Account, input *Updat
 // Grok media eligibility helpers live in account_grok_media_eligibility.go.
 
 func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]any) (*Account, error) {
+	if err := ValidateAccountPriority(input.Priority); err != nil {
+		return nil, err
+	}
 	// Probe/session state is system-managed. New accounts always start with automatic refresh disabled.
 	delete(accountExtra, UpstreamBillingProbeEnabledExtraKey)
 	delete(accountExtra, UpstreamBillingRateSyncEnabledExtraKey)
@@ -542,6 +545,11 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 }
 
 func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *UpdateAccountInput) (*Account, error) {
+	if input.Priority != nil {
+		if err := ValidateAccountPriority(*input.Priority); err != nil {
+			return nil, err
+		}
+	}
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -876,6 +884,11 @@ func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, upd
 // BulkUpdateAccounts updates multiple accounts in one request.
 // It merges credentials/extra keys instead of overwriting the whole object.
 func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUpdateAccountsInput) (*BulkUpdateAccountsResult, error) {
+	if input.Priority != nil {
+		if err := ValidateAccountPriority(*input.Priority); err != nil {
+			return nil, err
+		}
+	}
 	// Managed probe/session state may only enter through dedicated typed endpoints.
 	delete(input.Extra, UpstreamBillingProbeEnabledExtraKey)
 	delete(input.Extra, UpstreamBillingRateSyncEnabledExtraKey)
@@ -1339,13 +1352,13 @@ func (s *adminServiceImpl) CreateShadow(ctx context.Context, parentID int64, opt
 	if concurrency <= 0 {
 		concurrency = parent.Concurrency
 	}
-	// 优先级未指定(<=0)时继承母账号——前端一键创建只传 name,opts.Priority 省略即 0,而调度
-	// 比较是「数值越小越优先」(openai_account_scheduler.isOpenAIAccountCandidateBetter),且 repo
-	// 显式 SetPriority 会绕过 ent 默认 50,直写 0 会让影子意外抢到最高优先级(外审第5轮 P1)。
-	// 与上方 Concurrency 一致采用「省略继承母账号」语义(影子的 proxy/分组/并发亦全部继承母账号)。
-	priority := opts.Priority
-	if priority <= 0 {
-		priority = parent.Priority
+	// 未提供时继承母账号；显式 0 是合法的最低调用优先度。
+	priority := parent.Priority
+	if opts.Priority != nil {
+		if err := ValidateAccountPriority(*opts.Priority); err != nil {
+			return nil, err
+		}
+		priority = *opts.Priority
 	}
 	shadow := &Account{
 		Name:            name,

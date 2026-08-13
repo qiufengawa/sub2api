@@ -18,11 +18,13 @@ type dataResponse struct {
 }
 
 type dataPayload struct {
-	Type           string        `json:"type"`
-	Version        int           `json:"version"`
-	Proxies        []dataProxy   `json:"proxies"`
-	Accounts       []dataAccount `json:"accounts"`
-	SkippedShadows int           `json:"skipped_shadows"`
+	Type              string        `json:"type"`
+	Version           int           `json:"version"`
+	PrioritySemantics string        `json:"priority_semantics"`
+	PriorityPivot     *int64        `json:"priority_pivot"`
+	Proxies           []dataProxy   `json:"proxies"`
+	Accounts          []dataAccount `json:"accounts"`
+	SkippedShadows    int           `json:"skipped_shadows"`
 }
 
 type dataProxy struct {
@@ -123,8 +125,11 @@ func TestExportDataIncludesSecrets(t *testing.T) {
 	var resp dataResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	require.Equal(t, 0, resp.Code)
-	require.Empty(t, resp.Data.Type)
-	require.Equal(t, 0, resp.Data.Version)
+	require.Equal(t, dataType, resp.Data.Type)
+	require.Equal(t, dataVersion, resp.Data.Version)
+	require.Equal(t, service.AccountPrioritySemanticsHigherWins, resp.Data.PrioritySemantics)
+	require.NotNil(t, resp.Data.PriorityPivot)
+	require.Equal(t, int64(50), *resp.Data.PriorityPivot)
 	require.Len(t, resp.Data.Proxies, 1)
 	require.Equal(t, "pass", resp.Data.Proxies[0].Password)
 	require.Len(t, resp.Data.Accounts, 1)
@@ -277,8 +282,9 @@ func TestImportDataReusesProxyAndSkipsDefaultGroup(t *testing.T) {
 
 	dataPayload := map[string]any{
 		"data": map[string]any{
-			"type":    dataType,
-			"version": dataVersion,
+			"type":               dataType,
+			"version":            dataVersion,
+			"priority_semantics": service.AccountPrioritySemanticsHigherWins,
 			"proxies": []map[string]any{
 				{
 					"proxy_key": "socks5|1.2.3.4|1080|u|p",
@@ -316,4 +322,103 @@ func TestImportDataReusesProxyAndSkipsDefaultGroup(t *testing.T) {
 	require.Len(t, adminSvc.createdProxies, 0)
 	require.Len(t, adminSvc.createdAccounts, 1)
 	require.True(t, adminSvc.createdAccounts[0].SkipDefaultGroupBind)
+}
+
+func TestImportDataPriorityContract(t *testing.T) {
+	baseAccount := map[string]any{
+		"name":        "priority-contract",
+		"platform":    service.PlatformOpenAI,
+		"type":        service.AccountTypeOAuth,
+		"credentials": map[string]any{"token": "x"},
+		"concurrency": 1,
+	}
+	build := func(version int, semantics string, pivot any, priority any, includePriority bool) []byte {
+		account := make(map[string]any, len(baseAccount)+1)
+		for key, value := range baseAccount {
+			account[key] = value
+		}
+		if includePriority {
+			account["priority"] = priority
+		}
+		data := map[string]any{
+			"type":               dataType,
+			"version":            version,
+			"priority_semantics": semantics,
+			"proxies":            []any{},
+			"accounts":           []any{account},
+		}
+		if pivot != nil {
+			data["priority_pivot"] = pivot
+		}
+		body, err := json.Marshal(map[string]any{"data": data})
+		require.NoError(t, err)
+		return body
+	}
+
+	t.Run("v2 omitted defaults to zero", func(t *testing.T) {
+		router, adminSvc := setupAccountDataRouter()
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/data", bytes.NewReader(build(
+			dataVersion, service.AccountPrioritySemanticsHigherWins, nil, nil, false,
+		)))
+		req.Header.Set("Content-Type", "application/json")
+		router.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		require.Len(t, adminSvc.createdAccounts, 1)
+		require.Equal(t, 0, adminSvc.createdAccounts[0].Priority)
+	})
+
+	t.Run("legacy requires explicit priority and source pivot", func(t *testing.T) {
+		for _, tc := range []struct {
+			name            string
+			pivot           any
+			includePriority bool
+		}{
+			{name: "missing pivot", pivot: nil, includePriority: true},
+			{name: "missing account priority", pivot: 50, includePriority: false},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				router, adminSvc := setupAccountDataRouter()
+				rec := httptest.NewRecorder()
+				req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/data", bytes.NewReader(build(
+					1, service.AccountPrioritySemanticsLowerWins, tc.pivot, 1, tc.includePriority,
+				)))
+				req.Header.Set("Content-Type", "application/json")
+				router.ServeHTTP(rec, req)
+				require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+				require.Empty(t, adminSvc.createdAccounts)
+				require.Empty(t, adminSvc.createdProxies)
+			})
+		}
+	})
+
+	t.Run("legacy converts using declared pivot", func(t *testing.T) {
+		router, adminSvc := setupAccountDataRouter()
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/data", bytes.NewReader(build(
+			1, service.AccountPrioritySemanticsLowerWins, 50, 1, true,
+		)))
+		req.Header.Set("Content-Type", "application/json")
+		router.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		require.Len(t, adminSvc.createdAccounts, 1)
+		require.Equal(t, 49, adminSvc.createdAccounts[0].Priority)
+	})
+}
+
+func TestImportDataRejectsNonCanonicalPriorityTokensBeforeWrites(t *testing.T) {
+	tokens := []string{"null", "-0", "1.0", "1e3", `"1"`, "true", "2147483648"}
+	for _, token := range tokens {
+		t.Run(token, func(t *testing.T) {
+			router, adminSvc := setupAccountDataRouter()
+			body := `{"data":{"type":"sub2api-data","version":2,"priority_semantics":"higher_wins","proxies":[],"accounts":[{"name":"bad","platform":"openai","type":"oauth","credentials":{"token":"x"},"concurrency":1,"priority":` + token + `}]}}`
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/data", bytes.NewBufferString(body))
+			req.Header.Set("Content-Type", "application/json")
+			router.ServeHTTP(rec, req)
+			require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+			require.Empty(t, adminSvc.createdAccounts)
+			require.Empty(t, adminSvc.createdProxies)
+		})
+	}
 }

@@ -31,7 +31,7 @@ type Account struct {
 	ProxyFallbackOriginID   *int64
 	ProxyFallbackOriginName *string // 仅展示用
 	Concurrency             int
-	Priority                int
+	Priority                int // 账号调用优先度，数值越大越优先
 	// RateMultiplier 账号计费倍率（>=0，允许 0 表示该账号计费为 0）。
 	// 使用指针用于兼容旧版本调度缓存（Redis）中缺字段的情况：nil 表示按 1.0 处理。
 	RateMultiplier     *float64

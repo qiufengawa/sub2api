@@ -711,15 +711,18 @@
             />
           </div>
           <input
-            v-model.number="priority"
+            v-model="priorityInput"
             id="bulk-edit-priority"
-            type="number"
-            min="1"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            min="0"
             :disabled="!enablePriority"
             class="input"
             :class="!enablePriority && 'cursor-not-allowed opacity-50'"
             aria-labelledby="bulk-edit-priority-label"
           />
+          <p class="input-hint">{{ t('admin.accounts.priorityHint') }}</p>
         </div>
         <div>
           <div class="mb-3 flex items-center justify-between">
@@ -1329,6 +1332,7 @@ import ProxySelector from '@/components/common/ProxySelector.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { parseAccountPriority } from '@/utils/accountPriority'
 import {
   buildModelMappingObject as buildModelMappingPayload,
   getPresetMappingsByPlatform
@@ -1521,7 +1525,8 @@ const headerOverrideRows = ref<HeaderOverrideRow[]>([])
 const proxyId = ref<number | null>(null)
 const concurrency = ref(1)
 const loadFactor = ref<number | null>(null)
-const priority = ref(1)
+const priority = ref(0)
+const priorityInput = ref('0')
 const rateMultiplier = ref(1)
 const status = ref<'active' | 'inactive'>('active')
 const groupIds = ref<number[]>([])
@@ -1957,6 +1962,15 @@ const handleSubmit = async () => {
     return
   }
 
+  if (enablePriority.value) {
+    const parsedPriority = parseAccountPriority(priorityInput.value)
+    if (parsedPriority == null) {
+      appStore.showError(t('admin.accounts.priorityInvalid'))
+      return
+    }
+    priority.value = parsedPriority
+  }
+
   // base_url 现在也会作用于 Grok OAuth 订阅账号的转发端点；坏值会让请求期
   // 校验失败、账号请求全挂，因此保存前强制格式校验（与单账号编辑一致）。
   if (enableBaseUrl.value) {
@@ -2102,7 +2116,8 @@ watch(
       proxyId.value = null
       concurrency.value = 1
       loadFactor.value = null
-      priority.value = 1
+      priority.value = 0
+      priorityInput.value = '0'
       rateMultiplier.value = 1
       status.value = 'active'
       groupIds.value = []

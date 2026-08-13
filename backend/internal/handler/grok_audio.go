@@ -34,6 +34,7 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 	if !h.ensureResponsesDependencies(c, nil) {
 		return
 	}
+	c.Request = c.Request.WithContext(service.WithOpenAIProfitControlSuppressed(c.Request.Context()))
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
 	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
 		status, code, message, retryAfter := billingErrorDetails(err)
@@ -67,6 +68,10 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 	var streamStarted bool
 	reqLog := requestLogger(c, "handler.openai_gateway.grok_realtime")
 	release, slotStatus := h.acquireResponsesAccountSlot(c, apiKey.GroupID, "", selection, true, &streamStarted, reqLog)
+	if slotStatus == openAISlotAcquireCapacityRejected {
+		h.errorResponse(c, http.StatusTooManyRequests, "rate_limit_error", "Too many pending requests, please retry later")
+		return
+	}
 	if slotStatus != openAISlotAcquireOK {
 		return
 	}
@@ -135,6 +140,7 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 	if !h.ensureResponsesDependencies(c, nil) {
 		return
 	}
+	c.Request = c.Request.WithContext(service.WithOpenAIProfitControlSuppressed(c.Request.Context()))
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
 	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
 		status, code, message, retryAfter := billingErrorDetails(err)
@@ -173,19 +179,19 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 		contentType = "application/json"
 	}
 
-	failed := map[int64]struct{}{}
+	failoverState := NewFailoverState(h.cfg.Gateway.MaxAccountSwitches, false)
 	var last *service.UpstreamFailoverError
 	reqLog := requestLogger(c, "handler.openai_gateway.grok_voice", zap.String("endpoint", endpoint))
 	selectionModel := "grok-4.5"
 
 	for attempts := 0; attempts < 4; attempts++ {
-		selection, _, selectErr := h.gatewayService.SelectAccountWithSchedulerForCapability(
+		selection, _, selectErr := h.gatewayService.SelectAccountWithSchedulerForCapabilityWithFailoverState(
 			c.Request.Context(),
 			apiKey.GroupID,
 			"",
 			"",
 			selectionModel,
-			failed,
+			failoverState.AccountFailoverState,
 			service.OpenAIUpstreamTransportHTTPSSE,
 			service.OpenAIEndpointCapabilityChatCompletions,
 			false,
@@ -205,17 +211,15 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 		var started bool
 		release, status := h.acquireResponsesAccountSlot(c, apiKey.GroupID, "", selection, false, &started, reqLog)
 		if status == openAISlotAcquireProfitVetoed {
-			failed[account.ID] = struct{}{}
+			failoverState.MarkSelectionRejected(account.ID)
+			continue
+		}
+		if status == openAISlotAcquireCapacityRejected {
+			failoverState.MarkRetryableRuntimeFailure(account.ID)
 			continue
 		}
 		if status != openAISlotAcquireOK {
-			// Failed already wrote error response (or transient reject).
-			if status == openAISlotAcquireFailed && len(failed) == 0 {
-				// Slot path wrote the response; stop.
-				return
-			}
-			failed[account.ID] = struct{}{}
-			continue
+			return
 		}
 		result, forwardErr := func() (*service.OpenAIForwardResult, error) {
 			defer release()
@@ -227,9 +231,15 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 		}
 		var failoverErr *service.UpstreamFailoverError
 		if errors.As(forwardErr, &failoverErr) && failoverErr.ShouldRetryNextAccount() {
-			failed[account.ID] = struct{}{}
 			last = failoverErr
-			continue
+			failoverState.LastFailoverErr = failoverErr
+			failoverState.MarkRetryableRuntimeFailure(account.ID)
+			if failoverState.SwitchCount < failoverState.MaxSwitches {
+				failoverState.SwitchCount++
+				continue
+			}
+			h.handleFailoverExhausted(c, failoverErr, false)
+			return
 		}
 		// Non-failover errors: handleGrokMediaErrorResponse / transport already wrote response.
 		return

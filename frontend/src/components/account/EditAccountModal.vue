@@ -1465,11 +1465,14 @@
         <div>
           <label class="input-label">{{ t('admin.accounts.priority') }}</label>
           <input
-            v-model.number="form.priority"
-            type="number"
-            min="1"
+            v-model="priorityInput"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            min="0"
             class="input"
             data-tour="account-form-priority"
+            @input="priorityWasEdited = true"
           />
           <p class="input-hint">{{ t('admin.accounts.priorityHint') }}</p>
         </div>
@@ -2756,6 +2759,7 @@ import {
 } from '@/components/account/credentialsBuilder'
 import { formatDateTime, formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
+import { parseAccountPriority } from '@/utils/accountPriority'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
 import {
   OPENAI_WS_MODE_CTX_POOL,
@@ -3288,12 +3292,15 @@ const form = reactive({
   proxy_id: null as number | null,
   concurrency: 1,
   load_factor: null as number | null,
-  priority: 1,
+  priority: 0,
   rate_multiplier: 1,
   status: 'active' as 'active' | 'inactive' | 'error',
   group_ids: [] as number[],
   expires_at: null as number | null
 })
+const priorityInput = ref('0')
+const priorityWasPresent = ref(true)
+const priorityWasEdited = ref(false)
 
 const handleUpstreamBillingRateSyncChange = (enabled: boolean) => {
   upstreamBillingRateSyncEnabled.value = enabled
@@ -3391,7 +3398,10 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   form.proxy_id = newAccount.proxy_id
   form.concurrency = newAccount.concurrency
   form.load_factor = newAccount.load_factor ?? null
-  form.priority = newAccount.priority
+  priorityWasPresent.value = Object.prototype.hasOwnProperty.call(newAccount, 'priority')
+  priorityWasEdited.value = false
+  form.priority = newAccount.priority ?? 0
+  priorityInput.value = String(newAccount.priority ?? 0)
   form.rate_multiplier = newAccount.rate_multiplier ?? 1
   form.status = (newAccount.status === 'active' || newAccount.status === 'inactive' || newAccount.status === 'error')
     ? newAccount.status
@@ -4255,6 +4265,12 @@ const submitUpdateAccount = async (accountID: number, updatePayload: Record<stri
 
 const handleSubmit = async () => {
   if (!props.account) return
+  const parsedPriority = parseAccountPriority(priorityInput.value)
+  if (parsedPriority == null) {
+    appStore.showError(t('admin.accounts.priorityInvalid'))
+    return
+  }
+  form.priority = parsedPriority
   const accountID = props.account.id
 
   if (form.status !== 'active' && form.status !== 'inactive' && form.status !== 'error') {
@@ -4263,6 +4279,9 @@ const handleSubmit = async () => {
   }
 
   const updatePayload: Record<string, unknown> = { ...form }
+  if (!priorityWasPresent.value && !priorityWasEdited.value) {
+    delete updatePayload.priority
+  }
   try {
     // 后端期望 proxy_id: 0 表示清除代理，而不是 null
     if (updatePayload.proxy_id === null) {

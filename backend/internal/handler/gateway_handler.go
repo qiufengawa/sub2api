@@ -330,9 +330,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		}
 
 		for {
-			selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, reqModel, fs.FailedAccountIDs, "", int64(0)) // Gemini 不使用会话限制
+			selection, err := h.gatewayService.SelectAccountWithLoadAwarenessWithFailoverState(c.Request.Context(), apiKey.GroupID, sessionKey, reqModel, fs.AccountFailoverState, "", int64(0)) // Gemini 不使用会话限制
 			if err != nil {
-				if len(fs.FailedAccountIDs) == 0 {
+				if fs.ExcludedCount() == 0 {
 					cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, service.PlatformGemini)
 					if !cls.ModelNotFound {
 						markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -410,6 +410,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						zap.Int64("account_id", account.ID),
 						zap.Int("max_waiting", selection.WaitPlan.MaxWaiting),
 					)
+					if fs.RecordCapacityFailure(account.ID) == FailoverContinue {
+						continue
+					}
 					h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Too many pending requests, please retry later", streamStarted)
 					return
 				}
@@ -434,6 +437,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				if err != nil {
 					reqLog.Warn("gateway.account_slot_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 					releaseWait()
+					if !streamStarted && c.Request.Context().Err() == nil && fs.RecordCapacityFailure(account.ID) == FailoverContinue {
+						continue
+					}
 					h.handleConcurrencyError(c, err, "account", streamStarted)
 					return
 				}
@@ -642,11 +648,11 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				zap.String("session_key", sessionKey),
 				zap.Int64("sticky_bound_account_id", sessionBoundAccountID),
 				zap.Bool("has_bound_session", hasBoundSession),
-				zap.Int("failed_account_count", len(fs.FailedAccountIDs)),
+				zap.Int("failed_account_count", fs.ExcludedCount()),
 			)
-			selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), currentAPIKey.GroupID, sessionKey, reqModel, fs.FailedAccountIDs, parsedReq.MetadataUserID, subject.UserID)
+			selection, err := h.gatewayService.SelectAccountWithLoadAwarenessWithFailoverState(c.Request.Context(), currentAPIKey.GroupID, sessionKey, reqModel, fs.AccountFailoverState, parsedReq.MetadataUserID, subject.UserID)
 			if err != nil {
-				if len(fs.FailedAccountIDs) == 0 {
+				if fs.ExcludedCount() == 0 {
 					cls := classifyNoAccountErrorFromGin(c, h.gatewayService, currentAPIKey, reqModel, reqModel, platform)
 					if !cls.ModelNotFound {
 						markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -735,6 +741,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						zap.Int64("account_id", account.ID),
 						zap.Int("max_waiting", selection.WaitPlan.MaxWaiting),
 					)
+					if fs.RecordCapacityFailure(account.ID) == FailoverContinue {
+						continue
+					}
 					h.handleStreamingAwareError(c, http.StatusTooManyRequests, "rate_limit_error", "Too many pending requests, please retry later", streamStarted)
 					return
 				}
@@ -759,6 +768,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				if err != nil {
 					reqLog.Warn("gateway.account_slot_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 					releaseWait()
+					if !streamStarted && c.Request.Context().Err() == nil && fs.RecordCapacityFailure(account.ID) == FailoverContinue {
+						continue
+					}
 					h.handleConcurrencyError(c, err, "account", streamStarted)
 					return
 				}

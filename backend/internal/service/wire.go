@@ -404,10 +404,15 @@ func ProvideSchedulerSnapshotService(
 	accountRepo AccountRepository,
 	groupRepo GroupRepository,
 	cfg *config.Config,
-) *SchedulerSnapshotService {
+) (*SchedulerSnapshotService, error) {
 	svc := NewSchedulerSnapshotService(cache, outboxRepo, accountRepo, groupRepo, cfg)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	if err := svc.EnsurePrioritySemanticPublished(ctx); err != nil {
+		return nil, err
+	}
 	svc.Start()
-	return svc
+	return svc, nil
 }
 
 // ProvideRateLimitService creates RateLimitService with optional dependencies.

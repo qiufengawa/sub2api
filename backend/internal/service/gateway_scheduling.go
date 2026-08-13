@@ -32,6 +32,15 @@ func (s *GatewayService) SelectAccountForModel(ctx context.Context, groupID *int
 
 // SelectAccountForModelWithExclusions selects an account supporting the requested model while excluding specified accounts.
 func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
+	return s.SelectAccountForModelWithFailoverState(ctx, groupID, sessionHash, requestedModel, newOpenAIAccountFailoverStateFromLegacy(excludedIDs))
+}
+
+// SelectAccountForModelWithFailoverState preserves the reason an account was
+// excluded so only retryable runtime failures can unlock a lower priority tier.
+func (s *GatewayService) SelectAccountForModelWithFailoverState(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, failoverState *AccountFailoverState) (*Account, error) {
+	if failoverState == nil {
+		failoverState = NewAccountFailoverState()
+	}
 	// 优先检查 context 中的强制平台（/antigravity 路由）
 	var platform string
 	forcePlatform, hasForcePlatform := ctx.Value(ctxkey.ForcePlatform).(string)
@@ -78,7 +87,7 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 	// anthropic/gemini 分组支持混合调度（包含启用了 mixed_scheduling 的 antigravity 账户）
 	// 注意：强制平台模式不走混合调度
 	if (platform == PlatformAnthropic || platform == PlatformGemini) && !hasForcePlatform {
-		account, err := s.selectAccountWithMixedScheduling(ctx, groupID, sessionHash, requestedModel, excludedIDs, platform)
+		account, err := s.selectAccountWithMixedSchedulingWithFailoverState(ctx, groupID, sessionHash, requestedModel, failoverState, platform)
 		if err != nil {
 			return nil, err
 		}
@@ -87,7 +96,7 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 
 	// antigravity 分组、强制平台模式或无分组使用单平台选择
 	// 注意：强制平台模式也必须遵守分组限制，不再回退到全平台查询
-	account, err := s.selectAccountForModelWithPlatform(ctx, groupID, sessionHash, requestedModel, excludedIDs, platform)
+	account, err := s.selectAccountForModelWithPlatformWithFailoverState(ctx, groupID, sessionHash, requestedModel, failoverState, platform)
 	if err != nil {
 		return nil, err
 	}
@@ -98,6 +107,14 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 // metadataUserID: 用于客户端亲和调度，从中提取客户端 ID
 // sub2apiUserID: 系统用户 ID，用于二维亲和调度
 func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, metadataUserID string, sub2apiUserID int64) (*AccountSelectionResult, error) {
+	return s.SelectAccountWithLoadAwarenessWithFailoverState(ctx, groupID, sessionHash, requestedModel, newOpenAIAccountFailoverStateFromLegacy(excludedIDs), metadataUserID, sub2apiUserID)
+}
+
+func (s *GatewayService) SelectAccountWithLoadAwarenessWithFailoverState(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, failoverState *AccountFailoverState, metadataUserID string, sub2apiUserID int64) (*AccountSelectionResult, error) {
+	if failoverState == nil {
+		failoverState = NewAccountFailoverState()
+	}
+	excludedIDs := failoverState.ExcludedIDs()
 	// 调试日志：记录调度入口参数
 	excludedIDsList := make([]int64, 0, len(excludedIDs))
 	for id := range excludedIDs {
@@ -162,14 +179,13 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	}
 
 	if s.concurrencyService == nil || !cfg.LoadBatchEnabled {
-		// 复制排除列表，用于会话限制拒绝时的重试
-		localExcluded := make(map[int64]struct{})
-		for k, v := range excludedIDs {
-			localExcluded[k] = v
+		localFailover := failoverState
+		if localFailover == nil {
+			localFailover = NewAccountFailoverState()
 		}
 
 		for {
-			account, err := s.SelectAccountForModelWithExclusions(ctx, groupID, sessionHash, requestedModel, localExcluded)
+			account, err := s.SelectAccountForModelWithFailoverState(ctx, groupID, sessionHash, requestedModel, localFailover)
 			if err != nil {
 				return nil, err
 			}
@@ -178,16 +194,16 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			if err == nil && result.Acquired {
 				// 获取槽位后检查会话限制（使用 sessionHash 作为会话标识符）
 				if !s.checkAndRegisterSession(ctx, account, sessionHash) {
-					result.ReleaseFunc()                   // 释放槽位
-					localExcluded[account.ID] = struct{}{} // 排除此账号
-					continue                               // 重新选择
+					result.ReleaseFunc()
+					localFailover.MarkSelectionRejected(account.ID)
+					continue
 				}
 				return s.newSelectionResult(ctx, account, true, result.ReleaseFunc, nil)
 			}
 
 			// 对于等待计划的情况，也需要先检查会话限制
 			if !s.checkAndRegisterSession(ctx, account, sessionHash) {
-				localExcluded[account.ID] = struct{}{}
+				localFailover.MarkSelectionRejected(account.ID)
 				continue
 			}
 
@@ -273,10 +289,6 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 		var filteredExcluded, filteredMissing, filteredUnsched, filteredPlatform, filteredModelScope, filteredModelMapping, filteredWindowCost int
 		var modelScopeSkippedIDs []int64 // 记录因模型限流被跳过的账号 ID
 		for _, routingAccountID := range routingAccountIDs {
-			if isExcluded(routingAccountID) {
-				filteredExcluded++
-				continue
-			}
 			account, ok := accountByID[routingAccountID]
 			if !ok || !s.isAccountSchedulableForSelection(account) {
 				if !ok {
@@ -284,9 +296,6 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 				} else {
 					filteredUnsched++
 				}
-				continue
-			}
-			if !s.isGatewayAccountProfitEligible(ctx, account) {
 				continue
 			}
 			if !s.isAccountAllowedForPlatform(account, platform, useMixed) {
@@ -317,6 +326,28 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			}
 			routingCandidates = append(routingCandidates, account)
 		}
+		routingLoads := make([]AccountWithConcurrency, 0, len(routingCandidates))
+		for _, acc := range routingCandidates {
+			routingLoads = append(routingLoads, AccountWithConcurrency{
+				ID:             acc.ID,
+				MaxConcurrency: acc.EffectiveLoadFactor(),
+			})
+		}
+		routingLoadMap, _ := s.concurrencyService.GetAccountsLoadBatch(ctx, routingLoads)
+
+		routingCandidates = s.filterGatewayGrokQuotaBeforePriority(ctx, routingCandidates)
+		var routingPriorityLayerBlocked bool
+		routingCandidates, routingPriorityLayerBlocked = selectOpenAIActivePriorityLayer(routingCandidates, OpenAIAccountScheduleRequest{FailoverState: failoverState})
+		if routingPriorityLayerBlocked {
+			return nil, fmt.Errorf("%w: priority_layer_blocked", ErrNoAvailableAccounts)
+		}
+		if len(routingCandidates) > 0 {
+			var err error
+			routingCandidates, err = s.filterGatewayProfitWithinActiveLayer(ctx, routingCandidates, failoverState)
+			if err != nil {
+				return nil, err
+			}
+		}
 
 		if s.debugModelRoutingEnabled() {
 			logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] routed candidates: group_id=%v model=%s routed=%d candidates=%d filtered(excluded=%d missing=%d unsched=%d platform=%d model_scope=%d model_mapping=%d window_cost=%d)",
@@ -328,7 +359,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			}
 		}
 
-		if len(routingCandidates) > 0 {
+		if len(routingCandidates) > 0 || (sessionHash != "" && stickyAccountID > 0 && containsInt64(routingAccountIDs, stickyAccountID) && !isExcluded(stickyAccountID)) {
 			// 1.5. 在路由账号范围内检查粘性会话
 			if sessionHash != "" && stickyAccountID > 0 {
 				slog.Debug("sticky.layer1_5_checking",
@@ -421,17 +452,8 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 				}
 			}
 
-			// 2. 批量获取负载信息
-			routingLoads := make([]AccountWithConcurrency, 0, len(routingCandidates))
-			for _, acc := range routingCandidates {
-				routingLoads = append(routingLoads, AccountWithConcurrency{
-					ID:             acc.ID,
-					MaxConcurrency: acc.EffectiveLoadFactor(),
-				})
-			}
-			routingLoadMap, _ := s.concurrencyService.GetAccountsLoadBatch(ctx, routingLoads)
-
-			// 3. 按负载感知排序
+			// 2. 按负载感知排序。批量读取失败时沿用零负载回退，
+			// 但仍保持已经选定的最高 priority 层。
 			var routingAvailable []accountWithLoad
 			for _, acc := range routingCandidates {
 				loadInfo := routingLoadMap[acc.ID]
@@ -444,11 +466,11 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			}
 
 			if len(routingAvailable) > 0 {
-				// 排序：优先级 > 负载率 > 最后使用时间
+				// 排序：调用优先度（高值优先） > 负载率 > 最后使用时间
 				sort.SliceStable(routingAvailable, func(i, j int) bool {
 					a, b := routingAvailable[i], routingAvailable[j]
 					if a.account.Priority != b.account.Priority {
-						return a.account.Priority < b.account.Priority
+						return isHigherAccountPriority(a.account.Priority, b.account.Priority)
 					}
 					if a.loadInfo.LoadRate != b.loadInfo.LoadRate {
 						return a.loadInfo.LoadRate < b.loadInfo.LoadRate
@@ -473,6 +495,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 						// 会话数量限制检查
 						if !s.checkAndRegisterSession(ctx, item.account, sessionHash) {
 							result.ReleaseFunc() // 释放槽位，继续尝试下一个账号
+							failoverState.MarkSelectionRejected(item.account.ID)
 							continue
 						}
 						if sessionHash != "" && s.cache != nil {
@@ -489,6 +512,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 				// 遍历找到第一个满足会话限制的账号
 				for _, item := range routingAvailable {
 					if !s.checkAndRegisterSession(ctx, item.account, sessionHash) {
+						failoverState.MarkSelectionRejected(item.account.ID)
 						continue // 会话限制已满，尝试下一个
 					}
 					if s.debugModelRoutingEnabled() {
@@ -500,6 +524,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 						Timeout:        cfg.StickySessionWaitTimeout,
 						MaxWaiting:     cfg.StickySessionMaxWaiting,
 					})
+				}
+				if _, blocked := selectOpenAIActivePriorityLayer(routingCandidates, OpenAIAccountScheduleRequest{FailoverState: failoverState}); blocked {
+					return nil, fmt.Errorf("%w: priority_layer_blocked", ErrNoAvailableAccounts)
 				}
 				// 所有路由账号会话限制都已满，继续到 Layer 2 回退
 			}
@@ -638,16 +665,10 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	candidates := make([]*Account, 0, len(accounts))
 	for i := range accounts {
 		acc := &accounts[i]
-		if isExcluded(acc.ID) {
-			continue
-		}
 		// Scheduler snapshots can be temporarily stale (bucket rebuild is throttled);
 		// re-check schedulability here so recently rate-limited/overloaded accounts
 		// are not selected again before the bucket is rebuilt.
 		if !s.isAccountSchedulableForSelection(acc) {
-			continue
-		}
-		if !s.isGatewayAccountProfitEligible(ctx, acc) {
 			continue
 		}
 		if !s.isAccountAllowedForPlatform(acc, platform, useMixed) {
@@ -677,7 +698,6 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	if len(candidates) == 0 {
 		return nil, ErrNoAvailableAccounts
 	}
-
 	accountLoads := make([]AccountWithConcurrency, 0, len(candidates))
 	for _, acc := range candidates {
 		accountLoads = append(accountLoads, AccountWithConcurrency{
@@ -686,8 +706,24 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 		})
 	}
 
-	loadMap, err := s.concurrencyService.GetAccountsLoadBatch(ctx, accountLoads)
-	if err != nil {
+	loadMap, loadErr := s.concurrencyService.GetAccountsLoadBatch(ctx, accountLoads)
+
+	candidates = s.filterGatewayGrokQuotaBeforePriority(ctx, candidates)
+	activeLayer, priorityLayerBlocked := selectOpenAIActivePriorityLayer(candidates, OpenAIAccountScheduleRequest{FailoverState: failoverState})
+	if priorityLayerBlocked {
+		return nil, fmt.Errorf("%w: priority_layer_blocked", ErrNoAvailableAccounts)
+	}
+	if len(activeLayer) == 0 {
+		return nil, ErrNoAvailableAccounts
+	}
+	candidates = activeLayer
+	var profitErr error
+	candidates, profitErr = s.filterGatewayProfitWithinActiveLayer(ctx, candidates, failoverState)
+	if profitErr != nil {
+		return nil, profitErr
+	}
+
+	if loadErr != nil {
 		if result, ok, legacyErr := s.tryAcquireByLegacyOrder(ctx, candidates, groupID, sessionHash, preferOAuth); legacyErr != nil {
 			return nil, legacyErr
 		} else if ok {
@@ -710,8 +746,8 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 
 		// 分层过滤选择：优先级 →（可选）最早重置 → 负载率 → LRU
 		for len(available) > 0 {
-			// 1. 取优先级最小的集合
-			candidates := filterByMinPriority(available)
+			// 1. 取调用优先度最高的集合
+			candidates := filterByMaxPriority(available)
 			// 2. （可选）use-it-or-lose-it：优先选用会话窗口最早重置的账号
 			if cfg.PreferSoonestReset {
 				candidates = filterBySoonestReset(candidates)
@@ -729,6 +765,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 				// 会话数量限制检查
 				if !s.checkAndRegisterSession(ctx, selected.account, sessionHash) {
 					result.ReleaseFunc() // 释放槽位，继续尝试下一个账号
+					failoverState.MarkSelectionRejected(selected.account.ID)
 				} else {
 					if sessionHash != "" && s.cache != nil {
 						_ = s.bindGatewayStickySessionDuringSelection(ctx, groupID, sessionHash, selected.account.ID)
@@ -754,6 +791,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	for _, acc := range candidates {
 		// 会话数量限制检查（等待计划也需要占用会话配额）
 		if !s.checkAndRegisterSession(ctx, acc, sessionHash) {
+			failoverState.MarkSelectionRejected(acc.ID)
 			continue // 会话限制已满，尝试下一个账号
 		}
 		return s.newSelectionResult(ctx, acc, false, nil, &AccountWaitPlan{
@@ -762,6 +800,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			Timeout:        cfg.FallbackWaitTimeout,
 			MaxWaiting:     cfg.FallbackMaxWaiting,
 		})
+	}
+	if _, blocked := selectOpenAIActivePriorityLayer(candidates, OpenAIAccountScheduleRequest{FailoverState: failoverState}); blocked {
+		return nil, fmt.Errorf("%w: priority_layer_blocked", ErrNoAvailableAccounts)
 	}
 	return nil, ErrNoAvailableAccounts
 }
@@ -962,9 +1003,6 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, groupID *i
 		accounts, useMixed, err := s.schedulerSnapshot.ListSchedulableAccounts(ctx, groupID, platform, hasForcePlatform)
 		if err == nil {
 			accounts = s.filterAccountsBySchedulingThreshold(ctx, accounts)
-			if platform == PlatformGrok || strings.EqualFold(platform, PlatformGrok) {
-				accounts = s.filterGrokFreeQuotaAccountsForGateway(ctx, accounts)
-			}
 			slog.Debug("account_scheduling_list_snapshot",
 				"group_id", derefGroupID(groupID),
 				"platform", platform,
@@ -1062,9 +1100,6 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, groupID *i
 		}
 	}
 	accounts = s.filterAccountsBySchedulingThreshold(ctx, accounts)
-	if platform == PlatformGrok || strings.EqualFold(platform, PlatformGrok) {
-		accounts = s.filterGrokFreeQuotaAccountsForGateway(ctx, accounts)
-	}
 	return accounts, useMixed, nil
 }
 
@@ -1509,24 +1544,94 @@ func (s *GatewayService) newSelectionResult(ctx context.Context, account *Accoun
 	}), nil
 }
 
-// filterByMinPriority 过滤出优先级最小的账号集合
-func filterByMinPriority(accounts []accountWithLoad) []accountWithLoad {
+// filterByMaxPriority 过滤出调用优先度最大的账号集合
+func filterByMaxPriority(accounts []accountWithLoad) []accountWithLoad {
 	if len(accounts) == 0 {
 		return accounts
 	}
-	minPriority := accounts[0].account.Priority
+	maxPriority := accounts[0].account.Priority
 	for _, acc := range accounts[1:] {
-		if acc.account.Priority < minPriority {
-			minPriority = acc.account.Priority
+		if isHigherAccountPriority(acc.account.Priority, maxPriority) {
+			maxPriority = acc.account.Priority
 		}
 	}
 	result := make([]accountWithLoad, 0, len(accounts))
 	for _, acc := range accounts {
-		if acc.account.Priority == minPriority {
+		if acc.account.Priority == maxPriority {
 			result = append(result, acc)
 		}
 	}
 	return result
+}
+
+func selectGatewayActivePriorityLayer(accounts []*Account, failoverState *AccountFailoverState) ([]*Account, error) {
+	selected, blocked := selectOpenAIActivePriorityLayer(accounts, OpenAIAccountScheduleRequest{FailoverState: failoverState})
+	if blocked {
+		return nil, fmt.Errorf("%w: priority_layer_blocked", ErrNoAvailableAccounts)
+	}
+	return selected, nil
+}
+
+func (s *GatewayService) filterGatewayProfitWithinActiveLayer(ctx context.Context, accounts []*Account, failoverState *AccountFailoverState) ([]*Account, error) {
+	originalCount := len(accounts)
+	eligible := make([]*Account, 0, len(accounts))
+	for _, account := range accounts {
+		if s.isGatewayAccountProfitEligible(ctx, account) {
+			eligible = append(eligible, account)
+			continue
+		}
+		failoverState.MarkSelectionRejected(account.ID)
+	}
+	if len(eligible) == 0 && originalCount > 0 {
+		return nil, fmt.Errorf("%w: priority_layer_blocked", ErrNoAvailableAccounts)
+	}
+	return eligible, nil
+}
+
+func (s *GatewayService) filterGatewayGrokQuotaBeforePriority(ctx context.Context, accounts []*Account) []*Account {
+	if len(accounts) == 0 || accounts[0] == nil || accounts[0].Platform != PlatformGrok {
+		return accounts
+	}
+	gated := s.filterGrokFreeQuotaAccountsForGateway(ctx, accountPointersToValues(accounts))
+	allowed := make(map[int64]struct{}, len(gated))
+	for i := range gated {
+		allowed[gated[i].ID] = struct{}{}
+	}
+	kept := accounts[:0]
+	for _, account := range accounts {
+		if _, ok := allowed[account.ID]; ok {
+			kept = append(kept, account)
+		}
+	}
+	return kept
+}
+
+func selectGatewayLegacyCandidate(accounts []*Account, preferOAuth bool, mixed bool) *Account {
+	var selected *Account
+	for _, account := range accounts {
+		if selected == nil {
+			selected = account
+			continue
+		}
+		switch {
+		case account.LastUsedAt == nil && selected.LastUsedAt != nil:
+			selected = account
+		case account.LastUsedAt != nil && selected.LastUsedAt == nil:
+			// Never-used accounts retain the existing LRU preference.
+		case account.LastUsedAt == nil && selected.LastUsedAt == nil:
+			if preferOAuth && account.Type != selected.Type && account.Type == AccountTypeOAuth && (!mixed || account.Platform == PlatformGemini && selected.Platform == PlatformGemini) {
+				selected = account
+			} else if account.Platform == selected.Platform && account.Type == selected.Type && account.ID < selected.ID {
+				selected = account
+			}
+		default:
+			if account.LastUsedAt.Before(*selected.LastUsedAt) ||
+				(account.LastUsedAt.Equal(*selected.LastUsedAt) && account.ID < selected.ID) {
+				selected = account
+			}
+		}
+	}
+	return selected
 }
 
 // filterByMinLoadRate 过滤出负载率最低的账号集合
@@ -1646,7 +1751,7 @@ func sortAccountsByPriorityAndLastUsed(accounts []*Account, preferOAuth bool) {
 	sort.SliceStable(accounts, func(i, j int) bool {
 		a, b := accounts[i], accounts[j]
 		if a.Priority != b.Priority {
-			return a.Priority < b.Priority
+			return isHigherAccountPriority(a.Priority, b.Priority)
 		}
 		switch {
 		case a.LastUsedAt == nil && b.LastUsedAt != nil:
@@ -1780,7 +1885,7 @@ func sortAccountsByPriorityOnly(accounts []*Account, preferOAuth bool) {
 	sort.SliceStable(accounts, func(i, j int) bool {
 		a, b := accounts[i], accounts[j]
 		if a.Priority != b.Priority {
-			return a.Priority < b.Priority
+			return isHigherAccountPriority(a.Priority, b.Priority)
 		}
 		if preferOAuth && a.Type != b.Type {
 			return a.Type == AccountTypeOAuth
@@ -1814,6 +1919,14 @@ func shuffleWithinPriority(accounts []*Account) {
 
 // selectAccountForModelWithPlatform 选择单平台账户（完全隔离）
 func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, platform string) (*Account, error) {
+	return s.selectAccountForModelWithPlatformWithFailoverState(ctx, groupID, sessionHash, requestedModel, newOpenAIAccountFailoverStateFromLegacy(excludedIDs), platform)
+}
+
+func (s *GatewayService) selectAccountForModelWithPlatformWithFailoverState(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, failoverState *AccountFailoverState, platform string) (*Account, error) {
+	if failoverState == nil {
+		failoverState = NewAccountFailoverState()
+	}
+	excludedIDs := failoverState.ExcludedIDs()
 	preferOAuth := platform == PlatformGemini
 	routingAccountIDs := s.routingAccountIDsForRequest(ctx, groupID, requestedModel, platform)
 
@@ -1880,21 +1993,15 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 			}
 		}
 
-		var selected *Account
+		routingHardCandidates := make([]*Account, 0, len(accounts))
 		for i := range accounts {
 			acc := &accounts[i]
 			if _, ok := routingSet[acc.ID]; !ok {
 				continue
 			}
-			if _, excluded := excludedIDs[acc.ID]; excluded {
-				continue
-			}
 			// Scheduler snapshots can be temporarily stale; re-check schedulability here to
 			// avoid selecting accounts that were recently rate-limited/overloaded.
 			if !s.isAccountSchedulableForSelection(acc) {
-				continue
-			}
-			if !s.isGatewayAccountProfitEligible(ctx, acc) {
 				continue
 			}
 			// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
@@ -1918,29 +2025,18 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 			if !s.isAccountSchedulableForRPM(ctx, acc, false) {
 				continue
 			}
-			if selected == nil {
-				selected = acc
-				continue
-			}
-			if acc.Priority < selected.Priority {
-				selected = acc
-			} else if acc.Priority == selected.Priority {
-				switch {
-				case acc.LastUsedAt == nil && selected.LastUsedAt != nil:
-					selected = acc
-				case acc.LastUsedAt != nil && selected.LastUsedAt == nil:
-					// keep selected (never used is preferred)
-				case acc.LastUsedAt == nil && selected.LastUsedAt == nil:
-					if preferOAuth && acc.Type != selected.Type && acc.Type == AccountTypeOAuth {
-						selected = acc
-					}
-				default:
-					if acc.LastUsedAt.Before(*selected.LastUsedAt) {
-						selected = acc
-					}
-				}
-			}
+			routingHardCandidates = append(routingHardCandidates, acc)
 		}
+		routingHardCandidates = s.filterGatewayGrokQuotaBeforePriority(ctx, routingHardCandidates)
+		routingActiveLayer, err := selectGatewayActivePriorityLayer(routingHardCandidates, failoverState)
+		if err != nil {
+			return nil, err
+		}
+		routingEligible, err := s.filterGatewayProfitWithinActiveLayer(ctx, routingActiveLayer, failoverState)
+		if err != nil {
+			return nil, err
+		}
+		selected := selectGatewayLegacyCandidate(routingEligible, preferOAuth, false)
 
 		if selected != nil {
 			if sessionHash != "" && s.cache != nil {
@@ -1997,18 +2093,12 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 	// needsUpstreamCheck 仅在主选择循环中使用；粘性会话命中时跳过此检查，
 	// 因为粘性会话优先保持连接一致性，且 upstream 计费基准极少使用。
 	needsUpstreamCheck := s.needsUpstreamChannelRestrictionCheck(ctx, groupID)
-	var selected *Account
+	hardCandidates := make([]*Account, 0, len(accounts))
 	for i := range accounts {
 		acc := &accounts[i]
-		if _, excluded := excludedIDs[acc.ID]; excluded {
-			continue
-		}
 		// Scheduler snapshots can be temporarily stale; re-check schedulability here to
 		// avoid selecting accounts that were recently rate-limited/overloaded.
 		if !s.isAccountSchedulableForSelection(acc) {
-			continue
-		}
-		if !s.isGatewayAccountProfitEligible(ctx, acc) {
 			continue
 		}
 		// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
@@ -2035,29 +2125,18 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 		if !s.isAccountSchedulableForRPM(ctx, acc, false) {
 			continue
 		}
-		if selected == nil {
-			selected = acc
-			continue
-		}
-		if acc.Priority < selected.Priority {
-			selected = acc
-		} else if acc.Priority == selected.Priority {
-			switch {
-			case acc.LastUsedAt == nil && selected.LastUsedAt != nil:
-				selected = acc
-			case acc.LastUsedAt != nil && selected.LastUsedAt == nil:
-				// keep selected (never used is preferred)
-			case acc.LastUsedAt == nil && selected.LastUsedAt == nil:
-				if preferOAuth && acc.Type != selected.Type && acc.Type == AccountTypeOAuth {
-					selected = acc
-				}
-			default:
-				if acc.LastUsedAt.Before(*selected.LastUsedAt) {
-					selected = acc
-				}
-			}
-		}
+		hardCandidates = append(hardCandidates, acc)
 	}
+	hardCandidates = s.filterGatewayGrokQuotaBeforePriority(ctx, hardCandidates)
+	activeLayer, err := selectGatewayActivePriorityLayer(hardCandidates, failoverState)
+	if err != nil {
+		return nil, err
+	}
+	eligible, err := s.filterGatewayProfitWithinActiveLayer(ctx, activeLayer, failoverState)
+	if err != nil {
+		return nil, err
+	}
+	selected := selectGatewayLegacyCandidate(eligible, preferOAuth, false)
 
 	if selected == nil {
 		stats := s.logDetailedSelectionFailure(ctx, groupID, sessionHash, requestedModel, platform, accounts, excludedIDs, false)
@@ -2080,6 +2159,14 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 // selectAccountWithMixedScheduling 选择账户（支持混合调度）
 // 查询原生平台账户 + 启用 mixed_scheduling 的 antigravity 账户
 func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, nativePlatform string) (*Account, error) {
+	return s.selectAccountWithMixedSchedulingWithFailoverState(ctx, groupID, sessionHash, requestedModel, newOpenAIAccountFailoverStateFromLegacy(excludedIDs), nativePlatform)
+}
+
+func (s *GatewayService) selectAccountWithMixedSchedulingWithFailoverState(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, failoverState *AccountFailoverState, nativePlatform string) (*Account, error) {
+	if failoverState == nil {
+		failoverState = NewAccountFailoverState()
+	}
+	excludedIDs := failoverState.ExcludedIDs()
 	preferOAuth := nativePlatform == PlatformGemini
 	routingAccountIDs := s.routingAccountIDsForRequest(ctx, groupID, requestedModel, nativePlatform)
 
@@ -2142,21 +2229,15 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 			}
 		}
 
-		var selected *Account
+		routingHardCandidates := make([]*Account, 0, len(accounts))
 		for i := range accounts {
 			acc := &accounts[i]
 			if _, ok := routingSet[acc.ID]; !ok {
 				continue
 			}
-			if _, excluded := excludedIDs[acc.ID]; excluded {
-				continue
-			}
 			// Scheduler snapshots can be temporarily stale; re-check schedulability here to
 			// avoid selecting accounts that were recently rate-limited/overloaded.
 			if !s.isAccountSchedulableForSelection(acc) {
-				continue
-			}
-			if !s.isGatewayAccountProfitEligible(ctx, acc) {
 				continue
 			}
 			// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
@@ -2184,29 +2265,18 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 			if !s.isAccountSchedulableForRPM(ctx, acc, false) {
 				continue
 			}
-			if selected == nil {
-				selected = acc
-				continue
-			}
-			if acc.Priority < selected.Priority {
-				selected = acc
-			} else if acc.Priority == selected.Priority {
-				switch {
-				case acc.LastUsedAt == nil && selected.LastUsedAt != nil:
-					selected = acc
-				case acc.LastUsedAt != nil && selected.LastUsedAt == nil:
-					// keep selected (never used is preferred)
-				case acc.LastUsedAt == nil && selected.LastUsedAt == nil:
-					if preferOAuth && acc.Platform == PlatformGemini && selected.Platform == PlatformGemini && acc.Type != selected.Type && acc.Type == AccountTypeOAuth {
-						selected = acc
-					}
-				default:
-					if acc.LastUsedAt.Before(*selected.LastUsedAt) {
-						selected = acc
-					}
-				}
-			}
+			routingHardCandidates = append(routingHardCandidates, acc)
 		}
+		routingHardCandidates = s.filterGatewayGrokQuotaBeforePriority(ctx, routingHardCandidates)
+		routingActiveLayer, err := selectGatewayActivePriorityLayer(routingHardCandidates, failoverState)
+		if err != nil {
+			return nil, err
+		}
+		routingEligible, err := s.filterGatewayProfitWithinActiveLayer(ctx, routingActiveLayer, failoverState)
+		if err != nil {
+			return nil, err
+		}
+		selected := selectGatewayLegacyCandidate(routingEligible, preferOAuth, true)
 
 		if selected != nil {
 			if sessionHash != "" && s.cache != nil {
@@ -2260,18 +2330,12 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 	// 3. 按优先级+最久未用选择（考虑模型支持和混合调度）
 	// needsUpstreamCheck 仅在主选择循环中使用；粘性会话命中时跳过此检查。
 	needsUpstreamCheck := s.needsUpstreamChannelRestrictionCheck(ctx, groupID)
-	var selected *Account
+	hardCandidates := make([]*Account, 0, len(accounts))
 	for i := range accounts {
 		acc := &accounts[i]
-		if _, excluded := excludedIDs[acc.ID]; excluded {
-			continue
-		}
 		// Scheduler snapshots can be temporarily stale; re-check schedulability here to
 		// avoid selecting accounts that were recently rate-limited/overloaded.
 		if !s.isAccountSchedulableForSelection(acc) {
-			continue
-		}
-		if !s.isGatewayAccountProfitEligible(ctx, acc) {
 			continue
 		}
 		// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
@@ -2302,29 +2366,18 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 		if !s.isAccountSchedulableForRPM(ctx, acc, false) {
 			continue
 		}
-		if selected == nil {
-			selected = acc
-			continue
-		}
-		if acc.Priority < selected.Priority {
-			selected = acc
-		} else if acc.Priority == selected.Priority {
-			switch {
-			case acc.LastUsedAt == nil && selected.LastUsedAt != nil:
-				selected = acc
-			case acc.LastUsedAt != nil && selected.LastUsedAt == nil:
-				// keep selected (never used is preferred)
-			case acc.LastUsedAt == nil && selected.LastUsedAt == nil:
-				if preferOAuth && acc.Platform == PlatformGemini && selected.Platform == PlatformGemini && acc.Type != selected.Type && acc.Type == AccountTypeOAuth {
-					selected = acc
-				}
-			default:
-				if acc.LastUsedAt.Before(*selected.LastUsedAt) {
-					selected = acc
-				}
-			}
-		}
+		hardCandidates = append(hardCandidates, acc)
 	}
+	hardCandidates = s.filterGatewayGrokQuotaBeforePriority(ctx, hardCandidates)
+	activeLayer, err := selectGatewayActivePriorityLayer(hardCandidates, failoverState)
+	if err != nil {
+		return nil, err
+	}
+	eligible, err := s.filterGatewayProfitWithinActiveLayer(ctx, activeLayer, failoverState)
+	if err != nil {
+		return nil, err
+	}
+	selected := selectGatewayLegacyCandidate(eligible, preferOAuth, true)
 
 	if selected == nil {
 		stats := s.logDetailedSelectionFailure(ctx, groupID, sessionHash, requestedModel, nativePlatform, accounts, excludedIDs, true)

@@ -200,8 +200,8 @@ func TestOpenAIAccountSchedulerLoadBalanceAppliesGrokFreeQuotaGate(t *testing.T)
 	cfg.RunMode = config.RunModeSimple
 	openaiGrokFreeQuotaGateCache = sync.Map{}
 	accounts := []Account{
-		{ID: 1, Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Credentials: map[string]any{"subscription_tier": "free"}},
-		{ID: 2, Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Credentials: map[string]any{"subscription_tier": "pro"}},
+		{ID: 1, Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 100, Credentials: map[string]any{"subscription_tier": "free"}},
+		{ID: 2, Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 1, Credentials: map[string]any{"subscription_tier": "pro"}},
 	}
 	svc := &OpenAIGatewayService{
 		cfg:         cfg,
@@ -224,6 +224,62 @@ func TestOpenAIAccountSchedulerLoadBalanceAppliesGrokFreeQuotaGate(t *testing.T)
 	require.NotNil(t, selection)
 	require.NotNil(t, selection.Account)
 	require.Equal(t, int64(2), selection.Account.ID)
+}
+
+func TestOpenAILegacyLoadBatchAppliesGrokFreeQuotaGateBeforePriorityLayer(t *testing.T) {
+	cfg := grokFreeQuotaTestConfig()
+	cfg.RunMode = config.RunModeSimple
+	cfg.Gateway.Scheduling.LoadBatchEnabled = true
+	openaiGrokFreeQuotaGateCache = sync.Map{}
+	accounts := []Account{
+		{ID: 1, Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 100, Credentials: map[string]any{"subscription_tier": "free", "access_token": "free-token", "model_mapping": map[string]any{"grok-4.5": "grok-4.5"}, "supported_endpoints": []any{"chat_completions"}}},
+		{ID: 2, Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 1, Credentials: map[string]any{"subscription_tier": "pro", "access_token": "pro-token", "model_mapping": map[string]any{"grok-4.5": "grok-4.5"}, "supported_endpoints": []any{"chat_completions"}}},
+	}
+	svc := &OpenAIGatewayService{
+		cfg:                cfg,
+		accountRepo:        &grokFreeQuotaAccountRepoStub{accounts: accounts},
+		concurrencyService: NewConcurrencyService(stubConcurrencyCache{acquireResults: map[int64]bool{2: true}}),
+		usageLogRepo: &grokFreeQuotaUsageRepoStub{stats: map[int64]*usagestats.AccountStats{
+			1: {Tokens: 480_000},
+		}},
+	}
+
+	_ = svc.filterGrokFreeQuotaAccountsForOpenAI(context.Background(), accounts)
+	require.Eventually(t, func() bool {
+		filtered := svc.filterGrokFreeQuotaAccountsForOpenAI(context.Background(), accounts)
+		return len(filtered) == 1 && filtered[0].ID == 2
+	}, 2*time.Second, 10*time.Millisecond)
+	require.True(t, accounts[1].IsSchedulable(), "paid candidate should be schedulable")
+	require.True(t, accounts[1].IsModelSupported("grok-4.5"), "paid candidate should support model")
+	require.True(t, accounts[1].SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions), "paid candidate should support endpoint")
+	require.True(t, isOpenAICompatibleAccountEligibleForRequest(context.Background(), &accounts[1], PlatformGrok, "grok-4.5", false, OpenAIEndpointCapabilityChatCompletions))
+
+	selection, err := svc.selectAccountWithLoadAwareness(context.Background(), nil, PlatformGrok, "", "grok-4.5", nil, false, OpenAIEndpointCapabilityChatCompletions, false)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.NotNil(t, selection.Account)
+	require.Equal(t, int64(2), selection.Account.ID)
+}
+
+func TestOpenAILegacyPrioritySelectionRejectionDoesNotUnlockLowerLayer(t *testing.T) {
+	accounts := []Account{
+		{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Priority: 100},
+		{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Priority: 1},
+	}
+	svc := &OpenAIGatewayService{}
+
+	selectionRejected := NewOpenAIAccountFailoverState()
+	selectionRejected.MarkSelectionRejected(1)
+	selected, _, blocked, _ := svc.selectBestAccount(context.Background(), nil, PlatformOpenAI, accounts, "", selectionRejected, false, OpenAIEndpointCapabilityChatCompletions, false)
+	require.Nil(t, selected)
+	require.True(t, blocked)
+
+	runtimeFailed := NewOpenAIAccountFailoverState()
+	runtimeFailed.MarkRetryableRuntimeFailure(1)
+	selected, _, blocked, _ = svc.selectBestAccount(context.Background(), nil, PlatformOpenAI, accounts, "", runtimeFailed, false, OpenAIEndpointCapabilityChatCompletions, false)
+	require.False(t, blocked)
+	require.NotNil(t, selected)
+	require.Equal(t, int64(2), selected.ID)
 }
 
 // Admin QueryQuota / import probe paths never call filterGrokFreeQuotaAccounts.

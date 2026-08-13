@@ -936,8 +936,14 @@ func maxBatchImageReferenceImagesForModel(model string) int {
 }
 
 func (s *BatchImagePublicService) selectProviderAndAccount(ctx context.Context, owner BatchImageOwner, requestedProvider, model string) (BatchImageProvider, *Account, error) {
+	type providerAccountCandidate struct {
+		provider      BatchImageProvider
+		providerOrder int
+		account       Account
+	}
 	providers := batchImageProviderSelectionOrder(requestedProvider)
-	for _, providerName := range providers {
+	candidates := make([]providerAccountCandidate, 0)
+	for providerOrder, providerName := range providers {
 		provider, ok := s.ProviderRegistry.Get(providerName)
 		if !ok || provider == nil {
 			continue
@@ -946,21 +952,33 @@ func (s *BatchImagePublicService) selectProviderAndAccount(ctx context.Context, 
 		if err != nil {
 			return nil, nil, err
 		}
-		sort.SliceStable(accounts, func(i, j int) bool {
-			if accounts[i].Priority != accounts[j].Priority {
-				return accounts[i].Priority > accounts[j].Priority
-			}
-			return accounts[i].ID < accounts[j].ID
-		})
 		for i := range accounts {
 			account := accounts[i]
 			if !account.IsSchedulable() || !account.IsModelSupported(model) {
 				continue
 			}
 			if provider.SupportsAccount(&account) {
-				return provider, &account, nil
+				candidates = append(candidates, providerAccountCandidate{
+					provider:      provider,
+					providerOrder: providerOrder,
+					account:       account,
+				})
 			}
 		}
+	}
+	if len(candidates) > 0 {
+		sort.SliceStable(candidates, func(i, j int) bool {
+			left, right := candidates[i], candidates[j]
+			if left.account.Priority != right.account.Priority {
+				return isHigherAccountPriority(left.account.Priority, right.account.Priority)
+			}
+			if left.providerOrder != right.providerOrder {
+				return left.providerOrder < right.providerOrder
+			}
+			return left.account.ID < right.account.ID
+		})
+		selected := candidates[0]
+		return selected.provider, &selected.account, nil
 	}
 	if requestedProvider != "" {
 		return nil, nil, ErrBatchImageNoAccountAvailable

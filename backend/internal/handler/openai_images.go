@@ -171,7 +171,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 	maxAccountSwitches := h.maxAccountSwitches
 	switchCount := 0
 	profitVetoCount := 0
-	failedAccountIDs := make(map[int64]struct{})
+	failoverState := service.NewOpenAIAccountFailoverState()
 	sameAccountRetryCount := make(map[int64]int)
 	var lastFailoverErr *service.UpstreamFailoverError
 	stopJSONKeepalive := func() {}
@@ -180,13 +180,13 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 	var oauth429FailoverState service.OpenAIOAuth429FailoverState
 
 	for {
-		reqLog.Debug("openai.images.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
-		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForImages(
+		reqLog.Debug("openai.images.account_selecting", zap.Int("excluded_account_count", failoverState.ExcludedCount()))
+		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForImagesWithFailoverState(
 			requestCtx,
 			apiKey.GroupID,
 			sessionHash,
 			routingModel,
-			failedAccountIDs,
+			failoverState,
 			parsed.RequiredCapability,
 		)
 		if err != nil {
@@ -196,9 +196,9 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 			}
 			reqLog.Warn("openai.images.account_select_failed",
 				zap.Error(err),
-				zap.Int("excluded_account_count", len(failedAccountIDs)),
+				zap.Int("excluded_account_count", failoverState.ExcludedCount()),
 			)
-			if len(failedAccountIDs) == 0 {
+			if failoverState.ExcludedCount() == 0 {
 				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, clientRequestModel, routingModel, service.PlatformOpenAI)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -247,10 +247,14 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		accountReleaseFunc, slotResult := h.acquireResponsesAccountSlot(c, apiKey.GroupID, sessionHash, selection, parsed.Stream, &streamStarted, reqLog)
 		if slotResult == openAISlotAcquireProfitVetoed {
 			// Images 调度不装利润门，此分支实际不可达；防御性排除重选并受同一否决上限约束。
-			if !recordOpenAIProfitVeto(failedAccountIDs, account.ID, &profitVetoCount) {
+			if !recordOpenAIProfitVeto(failoverState, account.ID, &profitVetoCount) {
 				h.handleOpenAIProfitVetoExhausted(c, streamStarted, reqLog, profitVetoCount)
 				return
 			}
+			continue
+		}
+		if slotResult == openAISlotAcquireCapacityRejected {
+			failoverState.MarkRetryableRuntimeFailure(account.ID)
 			continue
 		}
 		if slotResult != openAISlotAcquireOK {
@@ -325,6 +329,10 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 						)
 						return
 					}
+					if !failoverErr.ShouldRetryNextAccount() {
+						h.handleFailoverExhausted(c, failoverErr, streamStarted)
+						return
+					}
 					if failoverErr.RetryableOnSameAccount {
 						retryLimit := account.GetPoolModeRetryCount()
 						if sameAccountRetryCount[account.ID] < retryLimit {
@@ -344,7 +352,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 						}
 					}
 					h.gatewayService.RecordOpenAIAccountSwitch()
-					failedAccountIDs[account.ID] = struct{}{}
+					failoverState.MarkRetryableRuntimeFailure(account.ID)
 					lastFailoverErr = failoverErr
 					if switchCount >= maxAccountSwitches {
 						h.handleFailoverExhausted(c, failoverErr, streamStarted)

@@ -254,7 +254,7 @@ export default {
       accountPriority: {
         title: ' 4. 优先级（可选）',
         description:
-          '<div style="line-height: 1.7;"><p style="margin-bottom: 12px;">设置账号的调用优先级。</p><div style="padding: 8px 12px; background: #eff6ff; border-left: 3px solid #3b82f6; border-radius: 4px; font-size: 13px; margin-bottom: 12px;"><b> 优先级规则：</b><ul style="margin: 8px 0 0 16px;"><li>数字越小，优先级越高</li><li>系统优先使用低数值账号</li><li>相同优先级则随机选择</li></ul></div><p style="padding: 8px 12px; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px; font-size: 13px;"><b> 使用场景：</b>主账号设置低数值，备用账号设置高数值</p></div>',
+          '<div style="line-height: 1.7;"><p style="margin-bottom: 12px;">设置账号的调用优先度。</p><div style="padding: 8px 12px; background: #eff6ff; border-left: 3px solid #3b82f6; border-radius: 4px; font-size: 13px; margin-bottom: 12px;"><b>优先度规则：</b><ul style="margin: 8px 0 0 16px;"><li>数字越大，调用优先度越高</li><li>0 为最低优先度</li><li>相同优先度继续按负载和平台调度规则选择</li></ul></div><p style="padding: 8px 12px; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px; font-size: 13px;"><b>使用场景：</b>主账号设置较高数值，备用账号设置较低数值</p></div>',
         nextBtn: '下一步'
       },
       accountGroups: {

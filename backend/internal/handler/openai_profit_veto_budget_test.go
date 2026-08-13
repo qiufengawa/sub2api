@@ -3,6 +3,7 @@ package handler
 import (
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 )
 
@@ -13,25 +14,26 @@ import (
 // （sticky 45s / fallback 30s）拿到槽位才做利润终检，无上限重选会把单次请求
 // 的延迟放大到 N × WaitPlan.Timeout。
 func TestRecordOpenAIProfitVetoBounded(t *testing.T) {
-	failed := make(map[int64]struct{})
+	failed := service.NewOpenAIAccountFailoverState()
 	count := 0
 
 	for i := int64(1); i < int64(maxProfitVetoAttempts); i++ {
 		require.True(t, recordOpenAIProfitVeto(failed, i, &count), "第 %d 次否决应允许继续重选", i)
-		require.Contains(t, failed, i, "否决的账号必须进入本请求排除集")
+		require.True(t, failed.IsExcluded(i), "否决的账号必须进入本请求排除集")
+		require.False(t, failed.IsRetryableRuntimeFailure(i), "利润否决不得伪装成可重试运行时失败")
 	}
 
 	require.False(t,
 		recordOpenAIProfitVeto(failed, int64(maxProfitVetoAttempts), &count),
 		"第 %d 次否决应耗尽预算并要求终止", maxProfitVetoAttempts)
 	require.Equal(t, maxProfitVetoAttempts, count)
-	require.Len(t, failed, maxProfitVetoAttempts)
+	require.Equal(t, maxProfitVetoAttempts, failed.ExcludedCount())
 }
 
 // TestOpenAIProfitVetoLoopTerminates 模拟「选号 → 抢槽 → 利润终检否决 → 重选」
 // 循环：整池越线时必须在常数步内终止，而不是把候选池逐个排队一遍。
 func TestOpenAIProfitVetoLoopTerminates(t *testing.T) {
-	failed := make(map[int64]struct{})
+	failed := service.NewOpenAIAccountFailoverState()
 	count := 0
 	terminated := false
 	iterations := 0
@@ -39,7 +41,7 @@ func TestOpenAIProfitVetoLoopTerminates(t *testing.T) {
 	// 候选池远大于否决上限：无上限时会对每个账号各排队一次。
 	for accountID := int64(1); accountID <= 500; accountID++ {
 		iterations++
-		if _, excluded := failed[accountID]; excluded {
+		if failed.IsExcluded(accountID) {
 			continue
 		}
 		if !recordOpenAIProfitVeto(failed, accountID, &count) {
@@ -56,7 +58,7 @@ func TestOpenAIProfitVetoLoopTerminates(t *testing.T) {
 // OpenAI 独立计数器）使用同一上限语义，避免日后单边漂移。
 func TestProfitVetoBudgetSharedWithFailoverState(t *testing.T) {
 	fs := NewFailoverState(10, false)
-	failed := make(map[int64]struct{})
+	failed := service.NewOpenAIAccountFailoverState()
 	count := 0
 
 	var fsStoppedAt, openAIStoppedAt int

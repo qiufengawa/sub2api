@@ -159,7 +159,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 	maxAccountSwitches := h.maxAccountSwitches
 	switchCount := 0
 	profitVetoCount := 0
-	failedAccountIDs := make(map[int64]struct{})
+	failoverState := service.NewOpenAIAccountFailoverState()
 	sameAccountRetryCount := make(map[int64]int)
 	var lastFailoverErr *service.UpstreamFailoverError
 	var oauth429FailoverState service.OpenAIOAuth429FailoverState
@@ -172,14 +172,14 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		if failoverClientGone(c) {
 			return
 		}
-		reqLog.Debug("openai_chat_completions.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
-		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
+		reqLog.Debug("openai_chat_completions.account_selecting", zap.Int("excluded_account_count", failoverState.ExcludedCount()))
+		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForCapabilityWithFailoverState(
 			c.Request.Context(),
 			apiKey.GroupID,
 			"",
 			sessionHash,
 			reqModel,
-			failedAccountIDs,
+			failoverState,
 			service.OpenAIUpstreamTransportAny,
 			service.OpenAIEndpointCapabilityChatCompletions,
 			false,
@@ -194,9 +194,9 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 			}
 			reqLog.Warn("openai_chat_completions.account_select_failed",
 				zap.Error(openAICompatibleSelectionErrorForLog(err, requestPlatform)),
-				zap.Int("excluded_account_count", len(failedAccountIDs)),
+				zap.Int("excluded_account_count", failoverState.ExcludedCount()),
 			)
-			if len(failedAccountIDs) == 0 {
+			if failoverState.ExcludedCount() == 0 {
 				cls := classifyOpenAICompatibleNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -229,10 +229,14 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		accountReleaseFunc, slotResult := h.acquireResponsesAccountSlot(c, apiKey.GroupID, sessionHash, selection, reqStream, &streamStarted, reqLog)
 		if slotResult == openAISlotAcquireProfitVetoed {
 			// 利润终检否决：排除该账号重新选号；否决次数达上限则按无可用账号终止。
-			if !recordOpenAIProfitVeto(failedAccountIDs, account.ID, &profitVetoCount) {
+			if !recordOpenAIProfitVeto(failoverState, account.ID, &profitVetoCount) {
 				h.handleOpenAIProfitVetoExhausted(c, streamStarted, reqLog, profitVetoCount)
 				return
 			}
+			continue
+		}
+		if slotResult == openAISlotAcquireCapacityRejected {
+			failoverState.MarkRetryableRuntimeFailure(account.ID)
 			continue
 		}
 		if slotResult != openAISlotAcquireOK {
@@ -328,7 +332,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 						}
 					}
 					h.gatewayService.RecordOpenAIAccountSwitch()
-					failedAccountIDs[account.ID] = struct{}{}
+					failoverState.MarkRetryableRuntimeFailure(account.ID)
 					lastFailoverErr = failoverErr
 					if switchCount >= maxAccountSwitches {
 						h.handleFailoverExhausted(c, failoverErr, streamStarted)

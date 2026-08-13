@@ -69,7 +69,7 @@ vi.mock('vue-i18n', async () => {
 const DataTableStub = {
   props: ['columns', 'data'],
   template: `
-    <div data-test="data-table">
+    <div data-test="data-table" :data-columns="columns.map(column => column.key).join(',')">
       <div v-for="row in data" :key="row.id" :data-test="'scheduler-score-' + row.id">
         <slot name="cell-scheduler_score" :row="row" />
       </div>
@@ -213,6 +213,37 @@ describe('admin AccountsView scheduler score column', () => {
     expect(ungroupedCell.text()).not.toBe('-')
   })
 
+  it('places priority after name and service status and requests global descending order', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="data-table"]').attributes('data-columns').split(',').slice(0, 5)).toEqual([
+      'select',
+      'name',
+      'service_status',
+      'priority',
+      'id'
+    ])
+    expect(listAccounts.mock.calls[0]?.[2]).toEqual(expect.objectContaining({
+      sort_by: 'priority',
+      sort_order: 'desc'
+    }))
+  })
+
+  it('migrates old hidden priority and legacy name sorting to the new defaults', async () => {
+    localStorage.setItem('account-hidden-columns', JSON.stringify(['priority', 'today_stats']))
+    localStorage.setItem('account-table-sort', JSON.stringify({ key: 'name', order: 'asc' }))
+
+    mountView()
+    await flushPromises()
+
+    expect(JSON.parse(localStorage.getItem('account-hidden-columns') || '[]')).not.toContain('priority')
+    expect(listAccounts.mock.calls[0]?.[2]).toEqual(expect.objectContaining({
+      sort_by: 'priority',
+      sort_order: 'desc'
+    }))
+  })
+
   it('renders per-group scores for grouped accounts', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -223,16 +254,16 @@ describe('admin AccountsView scheduler score column', () => {
     expect(groupedCell.text()).toContain('2')
   })
 
-  it('keeps scheduler score hidden for old saved column settings until the admin opts in again', async () => {
+  it('preserves an explicitly visible scheduler score while migrating priority visibility', async () => {
     localStorage.setItem('account-hidden-columns', JSON.stringify(['today_stats']))
 
     mountView()
     await flushPromises()
 
     expect(listAccounts.mock.calls[0]?.[2]).toEqual(expect.objectContaining({
-      include_scheduler_score: '0'
+      include_scheduler_score: '1'
     }))
-    expect(JSON.parse(localStorage.getItem('account-hidden-columns') || '[]')).toContain('scheduler_score')
+    expect(JSON.parse(localStorage.getItem('account-hidden-columns') || '[]')).not.toContain('scheduler_score')
   })
 
   it('requests scheduler scores when the migrated column settings explicitly show the column', async () => {

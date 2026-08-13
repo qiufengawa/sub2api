@@ -2017,7 +2017,7 @@ func TestOpenAIResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches(
 	accounts := []service.Account{
 		{
 			ID: 9910, Name: "pool-api-key", Platform: service.PlatformOpenAI,
-			Type: service.AccountTypeAPIKey, Status: service.StatusActive, Schedulable: true, Priority: 1,
+			Type: service.AccountTypeAPIKey, Status: service.StatusActive, Schedulable: true, Priority: 2,
 			Credentials: map[string]any{
 				"api_key":                      "sk-pool",
 				"base_url":                     "https://api.example.test",
@@ -2029,7 +2029,7 @@ func TestOpenAIResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches(
 		},
 		{
 			ID: 9911, Name: "fallback-api-key", Platform: service.PlatformOpenAI,
-			Type: service.AccountTypeAPIKey, Status: service.StatusActive, Schedulable: true, Priority: 2,
+			Type: service.AccountTypeAPIKey, Status: service.StatusActive, Schedulable: true, Priority: 1,
 			Credentials: map[string]any{
 				"api_key":  "sk-fallback",
 				"base_url": "https://api.example.test",
@@ -2117,7 +2117,7 @@ func TestOpenAIResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToHe
 			accounts := []service.Account{
 				{
 					ID: 9910, Name: "pool-api-key", Platform: service.PlatformOpenAI,
-					Type: service.AccountTypeAPIKey, Status: service.StatusActive, Schedulable: true, Priority: 1,
+					Type: service.AccountTypeAPIKey, Status: service.StatusActive, Schedulable: true, Priority: 2,
 					Credentials: map[string]any{
 						"api_key":                      "sk-pool",
 						"base_url":                     "https://api.example.test",
@@ -2129,7 +2129,7 @@ func TestOpenAIResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToHe
 				},
 				{
 					ID: 9911, Name: "fallback-api-key", Platform: service.PlatformOpenAI,
-					Type: service.AccountTypeAPIKey, Status: service.StatusActive, Schedulable: true, Priority: 2,
+					Type: service.AccountTypeAPIKey, Status: service.StatusActive, Schedulable: true, Priority: 1,
 					Credentials: map[string]any{
 						"api_key":  "sk-fallback",
 						"base_url": "https://api.example.test",
@@ -2342,7 +2342,7 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 			Status:      service.StatusActive,
 			Schedulable: true,
 			Concurrency: 1,
-			Priority:    1,
+			Priority:    2,
 			Credentials: map[string]any{
 				"api_key":  "sk-first",
 				"base_url": firstUpstream.URL,
@@ -2360,7 +2360,7 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 			Status:      service.StatusActive,
 			Schedulable: true,
 			Concurrency: 1,
-			Priority:    2,
+			Priority:    1,
 			Credentials: map[string]any{
 				"api_key":  "sk-second",
 				"base_url": secondUpstream.URL,
@@ -2554,7 +2554,7 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 			Status:      service.StatusActive,
 			Schedulable: true,
 			Concurrency: 1,
-			Priority:    1,
+			Priority:    2,
 			Credentials: map[string]any{"api_key": "sk-first", "base_url": firstUpstream.URL},
 			Extra: map[string]any{
 				"openai_apikey_responses_websockets_v2_enabled": true,
@@ -2569,7 +2569,7 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 			Status:      service.StatusActive,
 			Schedulable: true,
 			Concurrency: 1,
-			Priority:    2,
+			Priority:    1,
 			Credentials: map[string]any{"api_key": "sk-second", "base_url": secondUpstream.URL},
 			Extra: map[string]any{
 				"openai_apikey_responses_websockets_v2_enabled": true,

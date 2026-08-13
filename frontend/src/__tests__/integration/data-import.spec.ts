@@ -114,7 +114,7 @@ describe('ImportDataModal', () => {
 
     const valid = makeJsonFile(
       'valid.json',
-      JSON.stringify({ exported_at: '2026-07-05T00:00:00Z', proxies: [], accounts: [{ name: 'a' }] })
+      JSON.stringify({ type: 'sub2api-data', version: 2, priority_semantics: 'higher_wins', exported_at: '2026-07-05T00:00:00Z', proxies: [], accounts: [{ name: 'a' }] })
     )
     setInputFiles(input.element, [valid])
     await input.trigger('change')
@@ -149,11 +149,14 @@ describe('ImportDataModal', () => {
     const input = wrapper.find('input[type="file"]')
     const first = makeJsonFile(
       'first.json',
-      JSON.stringify({ exported_at: '2026-07-05T00:00:00Z', proxies: [], accounts: [{ name: 'a' }] })
+      JSON.stringify({ type: 'sub2api-data', version: 2, priority_semantics: 'higher_wins', exported_at: '2026-07-05T00:00:00Z', proxies: [], accounts: [{ name: 'a' }] })
     )
     const second = makeJsonFile(
       'second.json',
       JSON.stringify({
+        type: 'sub2api-data',
+        version: 2,
+        priority_semantics: 'higher_wins',
         exported_at: '2026-07-05T00:00:01Z',
         proxies: [{ proxy_key: 'p' }],
         accounts: [{ name: 'b' }]
@@ -191,6 +194,9 @@ describe('ImportDataModal', () => {
       makeJsonFile(
         'mixed.json',
         JSON.stringify({
+          type: 'sub2api-data',
+          version: 2,
+          priority_semantics: 'higher_wins',
           exported_at: '2026-07-05T00:00:00Z',
           proxies: [],
           accounts: [{ name: 'a' }, { name: 'b' }]

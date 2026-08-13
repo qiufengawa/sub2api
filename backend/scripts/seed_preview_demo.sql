@@ -654,7 +654,7 @@ WITH demo_user_ids AS (
         SELECT id
         FROM accounts
         WHERE notes = 'SUB2API_UI_DEMO' AND platform = x.platform
-        ORDER BY (status = 'active' AND schedulable) DESC, priority ASC, id ASC
+        ORDER BY (status = 'active' AND schedulable) DESC, priority DESC, id ASC
         LIMIT 1
     ) a ON true
     JOIN LATERAL (

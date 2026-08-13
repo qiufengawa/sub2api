@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -15,18 +16,20 @@ import (
 )
 
 const (
-	schedulerBucketSetKey          = "sched:buckets"
-	schedulerOutboxWatermarkKey    = "sched:outbox:watermark"
-	schedulerAccountPrefix         = "sched:acc:"
-	schedulerAccountMetaPrefix     = "sched:meta:"
-	schedulerAccountLastUsedPrefix = "sched:acc:last_used:"
-	schedulerActivePrefix          = "sched:active:"
-	schedulerReadyPrefix           = "sched:ready:"
-	schedulerVersionPrefix         = "sched:ver:"
-	schedulerEpochPrefix           = "sched:epoch:"
-	schedulerRetiredPrefix         = "sched:retired:"
-	schedulerSnapshotPrefix        = "sched:"
-	schedulerLockPrefix            = "sched:lock:"
+	schedulerBucketSetKey               = "sched:buckets"
+	schedulerOutboxWatermarkKey         = "sched:outbox:watermark"
+	schedulerPrioritySemanticEpochKey   = "sched:priority:semantic_epoch"
+	schedulerPriorityPublishingEpochKey = "sched:priority:publishing_epoch"
+	schedulerAccountPrefix              = "sched:acc:"
+	schedulerAccountMetaPrefix          = "sched:meta:"
+	schedulerAccountLastUsedPrefix      = "sched:acc:last_used:"
+	schedulerActivePrefix               = "sched:active:"
+	schedulerReadyPrefix                = "sched:ready:"
+	schedulerVersionPrefix              = "sched:ver:"
+	schedulerEpochPrefix                = "sched:epoch:"
+	schedulerRetiredPrefix              = "sched:retired:"
+	schedulerSnapshotPrefix             = "sched:"
+	schedulerLockPrefix                 = "sched:lock:"
 
 	defaultSchedulerSnapshotMGetChunkSize  = 128
 	defaultSchedulerSnapshotWriteChunkSize = 256
@@ -67,6 +70,13 @@ var (
 	// allocate 与 activate 的双重校验可拦截快照写入期间发生的 Retire。
 	// Retire 仅在首次退休时推进 epoch，Reopen 只清除标记并沿用该代际，因此重复调用保持幂等。
 	captureBucketWriteTokenScript = redis.NewScript(`
+local semanticActive = tonumber(redis.call('GET', KEYS[3])) or 0
+local semanticPublishing = tonumber(redis.call('GET', KEYS[4])) or 0
+local expectedSemantic = tonumber(ARGV[1])
+if expectedSemantic == nil or (expectedSemantic ~= semanticActive and expectedSemantic ~= semanticPublishing) then
+    return -3
+end
+
 if redis.call('EXISTS', KEYS[2]) == 1 then
     return -1
 end
@@ -244,7 +254,11 @@ func newSchedulerCacheWithChunkSizes(rdb *redis.Client, mgetChunkSize, writeChun
 }
 
 func (c *schedulerCache) GetSnapshot(ctx context.Context, bucket service.SchedulerBucket) ([]*service.Account, bool, error) {
-	readyKey := schedulerBucketKey(schedulerReadyPrefix, bucket)
+	semanticEpoch, err := c.GetPrioritySemanticEpoch(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	readyKey := schedulerBucketKeyAtSemanticEpoch(schedulerReadyPrefix, bucket, semanticEpoch)
 	readyVal, err := c.rdb.Get(ctx, readyKey).Result()
 	if err == redis.Nil {
 		return nil, false, nil
@@ -256,7 +270,7 @@ func (c *schedulerCache) GetSnapshot(ctx context.Context, bucket service.Schedul
 		return nil, false, nil
 	}
 
-	activeKey := schedulerBucketKey(schedulerActivePrefix, bucket)
+	activeKey := schedulerBucketKeyAtSemanticEpoch(schedulerActivePrefix, bucket, semanticEpoch)
 	activeVal, err := c.rdb.Get(ctx, activeKey).Result()
 	if err == redis.Nil {
 		return nil, false, nil
@@ -265,7 +279,7 @@ func (c *schedulerCache) GetSnapshot(ctx context.Context, bucket service.Schedul
 		return nil, false, err
 	}
 
-	snapshotKey := schedulerSnapshotKey(bucket, activeVal)
+	snapshotKey := schedulerSnapshotKeyAtSemanticEpoch(bucket, activeVal, semanticEpoch)
 	ids, err := c.rdb.ZRange(ctx, snapshotKey, 0, -1).Result()
 	if err != nil {
 		return nil, false, err
@@ -279,8 +293,8 @@ func (c *schedulerCache) GetSnapshot(ctx context.Context, bucket service.Schedul
 	keys := make([]string, 0, len(ids))
 	lastUsedKeys := make([]string, 0, len(ids))
 	for _, id := range ids {
-		keys = append(keys, schedulerAccountMetaKey(id))
-		lastUsedKeys = append(lastUsedKeys, schedulerLastUsedKey(id))
+		keys = append(keys, schedulerAccountMetaKeyAtSemanticEpoch(id, semanticEpoch))
+		lastUsedKeys = append(lastUsedKeys, schedulerLastUsedKeyAtSemanticEpoch(id, semanticEpoch))
 	}
 	values, err := c.mgetChunked(ctx, keys)
 	if err != nil {
@@ -310,27 +324,44 @@ func (c *schedulerCache) GetSnapshot(ctx context.Context, bucket service.Schedul
 }
 
 func (c *schedulerCache) CaptureBucketWriteToken(ctx context.Context, bucket service.SchedulerBucket) (service.SchedulerBucketWriteToken, error) {
+	semanticEpoch, err := c.CapturePrioritySemanticWriteEpoch(ctx)
+	if err != nil {
+		return service.SchedulerBucketWriteToken{}, err
+	}
+	return c.CaptureBucketWriteTokenAtSemanticEpoch(ctx, bucket, semanticEpoch)
+}
+
+func (c *schedulerCache) CaptureBucketWriteTokenAtSemanticEpoch(ctx context.Context, bucket service.SchedulerBucket, semanticEpoch int64) (service.SchedulerBucketWriteToken, error) {
+	if semanticEpoch < 0 {
+		return service.SchedulerBucketWriteToken{}, fmt.Errorf("invalid scheduler priority semantic epoch: %d", semanticEpoch)
+	}
 	result, err := captureBucketWriteTokenScript.Run(ctx, c.rdb, []string{
-		schedulerBucketKey(schedulerEpochPrefix, bucket),
-		schedulerBucketKey(schedulerRetiredPrefix, bucket),
-	}).Int64()
+		schedulerBucketKeyAtSemanticEpoch(schedulerEpochPrefix, bucket, semanticEpoch),
+		schedulerBucketKeyAtSemanticEpoch(schedulerRetiredPrefix, bucket, semanticEpoch),
+		schedulerPrioritySemanticEpochKey,
+		schedulerPriorityPublishingEpochKey,
+	}, semanticEpoch).Int64()
 	if err != nil {
 		return service.SchedulerBucketWriteToken{}, err
 	}
 	if err := schedulerBucketWriteResultError(result, bucket); err != nil {
 		return service.SchedulerBucketWriteToken{}, err
 	}
-	return service.SchedulerBucketWriteToken{Bucket: bucket, Epoch: result}, nil
+	return service.SchedulerBucketWriteToken{Bucket: bucket, Epoch: result, SemanticEpoch: semanticEpoch}, nil
 }
 
 func (c *schedulerCache) RetireBucket(ctx context.Context, bucket service.SchedulerBucket) error {
-	snapshotKeyPrefix := fmt.Sprintf("%s%d:%s:%s:v", schedulerSnapshotPrefix, bucket.GroupID, bucket.Platform, bucket.Mode)
+	semanticEpoch, err := c.CapturePrioritySemanticWriteEpoch(ctx)
+	if err != nil {
+		return err
+	}
+	snapshotKeyPrefix := schedulerSnapshotPrefixAtSemanticEpoch(bucket, semanticEpoch)
 	result, err := retireBucketScript.Run(ctx, c.rdb, []string{
-		schedulerBucketKey(schedulerEpochPrefix, bucket),
-		schedulerBucketKey(schedulerRetiredPrefix, bucket),
-		schedulerBucketSetKey,
-		schedulerBucketKey(schedulerReadyPrefix, bucket),
-		schedulerBucketKey(schedulerActivePrefix, bucket),
+		schedulerBucketKeyAtSemanticEpoch(schedulerEpochPrefix, bucket, semanticEpoch),
+		schedulerBucketKeyAtSemanticEpoch(schedulerRetiredPrefix, bucket, semanticEpoch),
+		schedulerBucketSetKeyAtSemanticEpoch(semanticEpoch),
+		schedulerBucketKeyAtSemanticEpoch(schedulerReadyPrefix, bucket, semanticEpoch),
+		schedulerBucketKeyAtSemanticEpoch(schedulerActivePrefix, bucket, semanticEpoch),
 	}, bucket.String(), snapshotKeyPrefix, snapshotGraceTTLSeconds).Int64()
 	if err != nil {
 		return err
@@ -342,13 +373,17 @@ func (c *schedulerCache) RetireBucket(ctx context.Context, bucket service.Schedu
 }
 
 func (c *schedulerCache) ReopenBucket(ctx context.Context, bucket service.SchedulerBucket) (service.SchedulerBucketWriteToken, error) {
-	snapshotKeyPrefix := fmt.Sprintf("%s%d:%s:%s:v", schedulerSnapshotPrefix, bucket.GroupID, bucket.Platform, bucket.Mode)
+	semanticEpoch, err := c.CapturePrioritySemanticWriteEpoch(ctx)
+	if err != nil {
+		return service.SchedulerBucketWriteToken{}, err
+	}
+	snapshotKeyPrefix := schedulerSnapshotPrefixAtSemanticEpoch(bucket, semanticEpoch)
 	result, err := reopenBucketScript.Run(ctx, c.rdb, []string{
-		schedulerBucketKey(schedulerEpochPrefix, bucket),
-		schedulerBucketKey(schedulerRetiredPrefix, bucket),
-		schedulerBucketSetKey,
-		schedulerBucketKey(schedulerReadyPrefix, bucket),
-		schedulerBucketKey(schedulerActivePrefix, bucket),
+		schedulerBucketKeyAtSemanticEpoch(schedulerEpochPrefix, bucket, semanticEpoch),
+		schedulerBucketKeyAtSemanticEpoch(schedulerRetiredPrefix, bucket, semanticEpoch),
+		schedulerBucketSetKeyAtSemanticEpoch(semanticEpoch),
+		schedulerBucketKeyAtSemanticEpoch(schedulerReadyPrefix, bucket, semanticEpoch),
+		schedulerBucketKeyAtSemanticEpoch(schedulerActivePrefix, bucket, semanticEpoch),
 	}, bucket.String(), snapshotKeyPrefix, snapshotGraceTTLSeconds).Int64()
 	if err != nil {
 		return service.SchedulerBucketWriteToken{}, err
@@ -356,7 +391,7 @@ func (c *schedulerCache) ReopenBucket(ctx context.Context, bucket service.Schedu
 	if err := schedulerBucketWriteResultError(result, bucket); err != nil {
 		return service.SchedulerBucketWriteToken{}, err
 	}
-	return service.SchedulerBucketWriteToken{Bucket: bucket, Epoch: result}, nil
+	return service.SchedulerBucketWriteToken{Bucket: bucket, Epoch: result, SemanticEpoch: semanticEpoch}, nil
 }
 
 func (c *schedulerCache) TryAcquireGroupLifecycleLease(ctx context.Context, groupID int64, ttl time.Duration) (service.SchedulerGroupLifecycleLease, bool, error) {
@@ -421,10 +456,17 @@ func (c *schedulerCache) SetSnapshot(ctx context.Context, bucket service.Schedul
 	}
 	// 快照成员最终只依赖可编码账号的有序 ID；直接复用 ID 路径，避免为
 	// 随后立即丢弃的完整 Account 再分配一份临时切片。
-	if _, err := c.writeSnapshotVersionAndReturnAccountIDs(ctx, bucket, version, accounts); err != nil {
+	if _, err := c.writeSnapshotVersionAndReturnAccountIDsAtSemanticEpoch(ctx, bucket, version, accounts, semanticEpochFromToken(token)); err != nil {
 		return err
 	}
 	return c.activateSnapshotVersion(ctx, bucket, token, version)
+}
+
+func semanticEpochFromToken(token service.SchedulerBucketWriteToken) int64 {
+	if token.SemanticEpoch > 0 {
+		return token.SemanticEpoch
+	}
+	return 0
 }
 
 // SetSnapshotAndReturnAccountIDs 完整发布快照，并返回实际成功编码并写入的有序账号 ID。
@@ -438,7 +480,7 @@ func (c *schedulerCache) SetSnapshotAndReturnAccountIDs(ctx context.Context, buc
 	if err != nil {
 		return nil, err
 	}
-	accountIDs, err := c.writeSnapshotVersionAndReturnAccountIDs(ctx, bucket, version, accounts)
+	accountIDs, err := c.writeSnapshotVersionAndReturnAccountIDsAtSemanticEpoch(ctx, bucket, version, accounts, semanticEpochFromToken(token))
 	if err != nil {
 		return nil, err
 	}
@@ -458,17 +500,18 @@ func (c *schedulerCache) SetSnapshotByAccountIDs(ctx context.Context, bucket ser
 	if err != nil {
 		return err
 	}
-	if err := c.writeSnapshotAccountIDs(ctx, bucket, version, accountIDs); err != nil {
+	if err := c.writeSnapshotAccountIDsAtSemanticEpoch(ctx, bucket, version, accountIDs, semanticEpochFromToken(token)); err != nil {
 		return err
 	}
 	return c.activateSnapshotVersion(ctx, bucket, token, version)
 }
 
 func (c *schedulerCache) allocateSnapshotVersion(ctx context.Context, bucket service.SchedulerBucket, token service.SchedulerBucketWriteToken) (string, error) {
+	semanticEpoch := semanticEpochFromToken(token)
 	result, err := allocateSnapshotVersionScript.Run(ctx, c.rdb, []string{
-		schedulerBucketKey(schedulerEpochPrefix, bucket),
-		schedulerBucketKey(schedulerRetiredPrefix, bucket),
-		schedulerBucketKey(schedulerVersionPrefix, bucket),
+		schedulerBucketKeyAtSemanticEpoch(schedulerEpochPrefix, bucket, semanticEpoch),
+		schedulerBucketKeyAtSemanticEpoch(schedulerRetiredPrefix, bucket, semanticEpoch),
+		schedulerBucketKeyAtSemanticEpoch(schedulerVersionPrefix, bucket, semanticEpoch),
 	}, token.Epoch).Int64()
 	if err != nil {
 		return "", err
@@ -479,20 +522,30 @@ func (c *schedulerCache) allocateSnapshotVersion(ctx context.Context, bucket ser
 	return strconv.FormatInt(result, 10), nil
 }
 
-func (c *schedulerCache) writeSnapshotVersionAndReturnAccountIDs(ctx context.Context, bucket service.SchedulerBucket, version string, accounts []service.Account) ([]int64, error) {
-	accountIDs, err := c.writeAccountIDs(ctx, accounts)
+func (c *schedulerCache) writeSnapshotVersionAndReturnAccountIDsAtSemanticEpoch(ctx context.Context, bucket service.SchedulerBucket, version string, accounts []service.Account, semanticEpoch int64) ([]int64, error) {
+	accountIDs, err := c.writeAccountIDsAtSemanticEpoch(ctx, accounts, semanticEpoch)
 	if err != nil {
 		return nil, err
 	}
-	if err := c.writeSnapshotAccountIDs(ctx, bucket, version, accountIDs); err != nil {
+	if err := c.writeSnapshotAccountIDsAtSemanticEpoch(ctx, bucket, version, accountIDs, semanticEpoch); err != nil {
 		return nil, err
 	}
 	return accountIDs, nil
 }
 
-func (c *schedulerCache) writeSnapshotAccountIDs(ctx context.Context, bucket service.SchedulerBucket, version string, accountIDs []int64) error {
+// Kept for focused cache tests and legacy internal callers; production
+// snapshot publication always passes the epoch captured in its write token.
+func (c *schedulerCache) writeSnapshotVersionAndReturnAccountIDs(ctx context.Context, bucket service.SchedulerBucket, version string, accounts []service.Account) ([]int64, error) {
+	epoch, err := c.CapturePrioritySemanticWriteEpoch(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return c.writeSnapshotVersionAndReturnAccountIDsAtSemanticEpoch(ctx, bucket, version, accounts, epoch)
+}
+
+func (c *schedulerCache) writeSnapshotAccountIDsAtSemanticEpoch(ctx context.Context, bucket service.SchedulerBucket, version string, accountIDs []int64, semanticEpoch int64) error {
 	members := schedulerSnapshotMembers(accountIDs)
-	return c.writeSnapshotMembers(ctx, bucket, version, members)
+	return c.writeSnapshotMembersAtSemanticEpoch(ctx, bucket, version, members, semanticEpoch)
 }
 
 func schedulerSnapshotMembers(accountIDs []int64) []redis.Z {
@@ -511,11 +564,11 @@ func schedulerSnapshotMembers(accountIDs []int64) []redis.Z {
 	return members
 }
 
-func (c *schedulerCache) writeSnapshotMembers(ctx context.Context, bucket service.SchedulerBucket, version string, members []redis.Z) error {
+func (c *schedulerCache) writeSnapshotMembersAtSemanticEpoch(ctx context.Context, bucket service.SchedulerBucket, version string, members []redis.Z, semanticEpoch int64) error {
 	if len(members) == 0 {
 		return nil
 	}
-	snapshotKey := schedulerSnapshotKey(bucket, version)
+	snapshotKey := schedulerSnapshotKeyAtSemanticEpoch(bucket, version, semanticEpoch)
 	pipe := c.rdb.Pipeline()
 	for start := 0; start < len(members); start += c.writeChunkSize {
 		end := start + c.writeChunkSize
@@ -529,22 +582,23 @@ func (c *schedulerCache) writeSnapshotMembers(ctx context.Context, bucket servic
 }
 
 func (c *schedulerCache) activateSnapshotVersion(ctx context.Context, bucket service.SchedulerBucket, token service.SchedulerBucketWriteToken, version string) error {
-	snapshotKey := schedulerSnapshotKey(bucket, version)
+	semanticEpoch := semanticEpochFromToken(token)
+	snapshotKey := schedulerSnapshotKeyAtSemanticEpoch(bucket, version, semanticEpoch)
 	// Phase 2: 原子 CAS 切换版本，同时再次校验退休状态与 writer epoch。
 	// Lua 脚本保证：仅当新版本 >= 当前激活版本时才切换 active 指针，
 	// 防止并发写入导致版本回滚。
 	// 旧快照使用 EXPIRE 宽限期而非立即 DEL，避免 reader 竞态。
-	activeKey := schedulerBucketKey(schedulerActivePrefix, bucket)
-	readyKey := schedulerBucketKey(schedulerReadyPrefix, bucket)
-	snapshotKeyPrefix := fmt.Sprintf("%s%d:%s:%s:v", schedulerSnapshotPrefix, bucket.GroupID, bucket.Platform, bucket.Mode)
+	activeKey := schedulerBucketKeyAtSemanticEpoch(schedulerActivePrefix, bucket, semanticEpoch)
+	readyKey := schedulerBucketKeyAtSemanticEpoch(schedulerReadyPrefix, bucket, semanticEpoch)
+	snapshotKeyPrefix := schedulerSnapshotPrefixAtSemanticEpoch(bucket, semanticEpoch)
 
 	keys := []string{
 		activeKey,
 		readyKey,
-		schedulerBucketSetKey,
+		schedulerBucketSetKeyAtSemanticEpoch(semanticEpoch),
 		snapshotKey,
-		schedulerBucketKey(schedulerEpochPrefix, bucket),
-		schedulerBucketKey(schedulerRetiredPrefix, bucket),
+		schedulerBucketKeyAtSemanticEpoch(schedulerEpochPrefix, bucket, semanticEpoch),
+		schedulerBucketKeyAtSemanticEpoch(schedulerRetiredPrefix, bucket, semanticEpoch),
 	}
 	args := []any{version, bucket.String(), snapshotKeyPrefix, snapshotGraceTTLSeconds, token.Epoch}
 
@@ -561,14 +615,20 @@ func schedulerBucketWriteResultError(result int64, bucket service.SchedulerBucke
 		return fmt.Errorf("%w: bucket=%s", service.ErrSchedulerBucketRetired, bucket.String())
 	case -2:
 		return fmt.Errorf("%w: bucket=%s", service.ErrSchedulerBucketWriteFenced, bucket.String())
+	case -3:
+		return fmt.Errorf("%w: bucket=%s semantic_epoch", service.ErrSchedulerBucketWriteFenced, bucket.String())
 	default:
 		return nil
 	}
 }
 
 func (c *schedulerCache) GetAccount(ctx context.Context, accountID int64) (*service.Account, error) {
+	semanticEpoch, err := c.GetPrioritySemanticEpoch(ctx)
+	if err != nil {
+		return nil, err
+	}
 	id := strconv.FormatInt(accountID, 10)
-	values, err := c.rdb.MGet(ctx, schedulerAccountKey(id), schedulerLastUsedKey(id)).Result()
+	values, err := c.rdb.MGet(ctx, schedulerAccountKeyAtSemanticEpoch(id, semanticEpoch), schedulerLastUsedKeyAtSemanticEpoch(id, semanticEpoch)).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -586,30 +646,63 @@ func (c *schedulerCache) GetAccount(ctx context.Context, accountID int64) (*serv
 }
 
 func (c *schedulerCache) SetAccount(ctx context.Context, account *service.Account) error {
+	epoch, err := c.CapturePrioritySemanticWriteEpoch(ctx)
+	if err != nil {
+		return err
+	}
+	return c.SetAccountAtSemanticEpoch(ctx, epoch, account)
+}
+
+func (c *schedulerCache) SetAccountAtSemanticEpoch(ctx context.Context, epoch int64, account *service.Account) error {
 	if account == nil || account.ID <= 0 {
 		return nil
 	}
-	accountIDs, err := c.writeAccountIDs(ctx, []service.Account{*account})
+	if err := c.requireActiveSemanticEpoch(ctx, epoch); err != nil {
+		return err
+	}
+	accountIDs, err := c.writeAccountIDsAtSemanticEpoch(ctx, []service.Account{*account}, epoch)
 	if err != nil {
 		return err
 	}
 	if len(accountIDs) == 0 {
-		return c.DeleteAccount(ctx, account.ID)
+		return c.DeleteAccountAtSemanticEpoch(ctx, epoch, account.ID)
 	}
 	return nil
 }
 
 func (c *schedulerCache) DeleteAccount(ctx context.Context, accountID int64) error {
+	epoch, err := c.CapturePrioritySemanticWriteEpoch(ctx)
+	if err != nil {
+		return err
+	}
+	return c.DeleteAccountAtSemanticEpoch(ctx, epoch, accountID)
+}
+
+func (c *schedulerCache) DeleteAccountAtSemanticEpoch(ctx context.Context, epoch int64, accountID int64) error {
 	if accountID <= 0 {
 		return nil
 	}
+	if err := c.requireActiveSemanticEpoch(ctx, epoch); err != nil {
+		return err
+	}
 	id := strconv.FormatInt(accountID, 10)
-	return c.rdb.Del(ctx, schedulerAccountKey(id), schedulerAccountMetaKey(id), schedulerLastUsedKey(id)).Err()
+	return c.rdb.Del(ctx, schedulerAccountKeyAtSemanticEpoch(id, epoch), schedulerAccountMetaKeyAtSemanticEpoch(id, epoch), schedulerLastUsedKeyAtSemanticEpoch(id, epoch)).Err()
 }
 
 func (c *schedulerCache) UpdateLastUsed(ctx context.Context, updates map[int64]time.Time) error {
+	epoch, err := c.CapturePrioritySemanticWriteEpoch(ctx)
+	if err != nil {
+		return err
+	}
+	return c.UpdateLastUsedAtSemanticEpoch(ctx, epoch, updates)
+}
+
+func (c *schedulerCache) UpdateLastUsedAtSemanticEpoch(ctx context.Context, epoch int64, updates map[int64]time.Time) error {
 	if len(updates) == 0 {
 		return nil
+	}
+	if err := c.requireActiveSemanticEpoch(ctx, epoch); err != nil {
+		return err
 	}
 
 	pipe := c.rdb.Pipeline()
@@ -636,12 +729,12 @@ func (c *schedulerCache) UpdateLastUsed(ctx context.Context, updates map[int64]t
 				"error", err,
 			)
 			idText := strconv.FormatInt(id, 10)
-			pipe.Del(ctx, schedulerAccountKey(idText), schedulerAccountMetaKey(idText), schedulerLastUsedKey(idText))
+			pipe.Del(ctx, schedulerAccountKeyAtSemanticEpoch(idText, epoch), schedulerAccountMetaKeyAtSemanticEpoch(idText, epoch), schedulerLastUsedKeyAtSemanticEpoch(idText, epoch))
 			queued++
 			continue
 		}
 		idText := strconv.FormatInt(id, 10)
-		keys = append(keys, schedulerAccountKey(idText), schedulerLastUsedKey(idText))
+		keys = append(keys, schedulerAccountKeyAtSemanticEpoch(idText, epoch), schedulerLastUsedKeyAtSemanticEpoch(idText, epoch))
 		args = append(args, millis)
 		if len(args) >= schedulerLastUsedUpdateChunkSize {
 			queueBatch()
@@ -666,7 +759,11 @@ func (c *schedulerCache) UnlockBucket(ctx context.Context, bucket service.Schedu
 }
 
 func (c *schedulerCache) ListBuckets(ctx context.Context) ([]service.SchedulerBucket, error) {
-	raw, err := c.rdb.SMembers(ctx, schedulerBucketSetKey).Result()
+	epoch, err := c.GetPrioritySemanticEpoch(ctx)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := c.rdb.SMembers(ctx, schedulerBucketSetKeyAtSemanticEpoch(epoch)).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -700,8 +797,204 @@ func (c *schedulerCache) SetOutboxWatermark(ctx context.Context, id int64) error
 	return c.rdb.Set(ctx, schedulerOutboxWatermarkKey, strconv.FormatInt(id, 10), 0).Err()
 }
 
+func (c *schedulerCache) GetPrioritySemanticEpoch(ctx context.Context) (int64, error) {
+	val, err := c.rdb.Get(ctx, schedulerPrioritySemanticEpochKey).Result()
+	if err == redis.Nil {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	epoch, err := strconv.ParseInt(val, 10, 64)
+	if err != nil || epoch < 0 {
+		return 0, fmt.Errorf("invalid scheduler priority semantic epoch %q", val)
+	}
+	return epoch, nil
+}
+
+var setSchedulerPrioritySemanticEpochScript = redis.NewScript(`
+local current = tonumber(redis.call('GET', KEYS[1])) or 0
+local candidate = tonumber(ARGV[1])
+if candidate == nil or candidate <= 0 then
+    return -2
+end
+if current > candidate then
+    return -1
+end
+redis.call('SET', KEYS[1], tostring(candidate))
+return candidate
+`)
+
+var beginSchedulerPrioritySemanticPublicationScript = redis.NewScript(`
+local active = tonumber(redis.call('GET', KEYS[1])) or 0
+local publishing = tonumber(redis.call('GET', KEYS[2])) or 0
+local candidate = tonumber(ARGV[1])
+if candidate == nil or candidate <= active then
+    return -1
+end
+if publishing ~= 0 and publishing ~= candidate then
+    return -2
+end
+redis.call('SET', KEYS[2], tostring(candidate))
+return candidate
+`)
+
+var completeSchedulerPrioritySemanticPublicationScript = redis.NewScript(`
+local active = tonumber(redis.call('GET', KEYS[1])) or 0
+local publishing = tonumber(redis.call('GET', KEYS[2])) or 0
+local candidate = tonumber(ARGV[1])
+if candidate == nil or candidate <= 0 or publishing ~= candidate then
+    return -1
+end
+if active > candidate then
+    return -2
+end
+redis.call('SET', KEYS[1], tostring(candidate))
+redis.call('DEL', KEYS[2])
+return candidate
+`)
+
+func (c *schedulerCache) SetPrioritySemanticEpoch(ctx context.Context, epoch int64) error {
+	result, err := setSchedulerPrioritySemanticEpochScript.Run(ctx, c.rdb, []string{schedulerPrioritySemanticEpochKey}, epoch).Int64()
+	if err != nil {
+		return err
+	}
+	switch result {
+	case -1:
+		return fmt.Errorf("scheduler priority semantic epoch regression: candidate=%d", epoch)
+	case -2:
+		return fmt.Errorf("invalid scheduler priority semantic epoch: %d", epoch)
+	default:
+		return nil
+	}
+}
+
+func (c *schedulerCache) BeginPrioritySemanticPublication(ctx context.Context, epoch int64) error {
+	result, err := beginSchedulerPrioritySemanticPublicationScript.Run(ctx, c.rdb, []string{
+		schedulerPrioritySemanticEpochKey,
+		schedulerPriorityPublishingEpochKey,
+	}, epoch).Int64()
+	if err != nil {
+		return err
+	}
+	switch result {
+	case -1:
+		return fmt.Errorf("scheduler priority publication epoch must advance: %d", epoch)
+	case -2:
+		return fmt.Errorf("another scheduler priority publication is active")
+	default:
+		return nil
+	}
+}
+
+func (c *schedulerCache) CompletePrioritySemanticPublication(ctx context.Context, epoch int64) error {
+	result, err := completeSchedulerPrioritySemanticPublicationScript.Run(ctx, c.rdb, []string{
+		schedulerPrioritySemanticEpochKey,
+		schedulerPriorityPublishingEpochKey,
+	}, epoch).Int64()
+	if err != nil {
+		return err
+	}
+	switch result {
+	case -1:
+		return fmt.Errorf("scheduler priority publication epoch is not active: %d", epoch)
+	case -2:
+		return fmt.Errorf("scheduler priority semantic epoch regression: candidate=%d", epoch)
+	default:
+		return nil
+	}
+}
+
+func (c *schedulerCache) CapturePrioritySemanticWriteEpoch(ctx context.Context) (int64, error) {
+	epoch, err := c.GetPrioritySemanticEpoch(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return epoch, nil
+}
+
+func (c *schedulerCache) requireActiveSemanticEpoch(ctx context.Context, expected int64) error {
+	active, err := c.GetPrioritySemanticEpoch(ctx)
+	if err != nil {
+		return err
+	}
+	if expected < 0 || active != expected {
+		return fmt.Errorf("%w: semantic_epoch expected=%d active=%d", service.ErrSchedulerBucketWriteFenced, expected, active)
+	}
+	return nil
+}
+
+func (c *schedulerCache) InvalidatePrioritySemanticAccounts(ctx context.Context) error {
+	patterns := []string{schedulerAccountPrefix + "[0-9]*", schedulerAccountMetaPrefix + "[0-9]*"}
+	for _, pattern := range patterns {
+		var cursor uint64
+		for {
+			keys, next, err := c.rdb.Scan(ctx, cursor, pattern, 256).Result()
+			if err != nil {
+				return err
+			}
+			if len(keys) > 0 {
+				if err := c.rdb.Unlink(ctx, keys...).Err(); err != nil {
+					return err
+				}
+			}
+			cursor = next
+			if cursor == 0 {
+				break
+			}
+		}
+	}
+	return nil
+}
+
 func schedulerBucketKey(prefix string, bucket service.SchedulerBucket) string {
 	return fmt.Sprintf("%s%d:%s:%s", prefix, bucket.GroupID, bucket.Platform, bucket.Mode)
+}
+
+func schedulerBucketSetKeyAtSemanticEpoch(epoch int64) string {
+	if epoch <= 0 {
+		return schedulerBucketSetKey
+	}
+	return fmt.Sprintf("sched:semantic:%d:buckets", epoch)
+}
+
+func schedulerBucketKeyAtSemanticEpoch(prefix string, bucket service.SchedulerBucket, epoch int64) string {
+	if epoch <= 0 {
+		return schedulerBucketKey(prefix, bucket)
+	}
+	return fmt.Sprintf("sched:semantic:%d:%s%d:%s:%s", epoch, strings.TrimPrefix(prefix, "sched:"), bucket.GroupID, bucket.Platform, bucket.Mode)
+}
+
+func schedulerSnapshotPrefixAtSemanticEpoch(bucket service.SchedulerBucket, epoch int64) string {
+	if epoch <= 0 {
+		return fmt.Sprintf("%s%d:%s:%s:v", schedulerSnapshotPrefix, bucket.GroupID, bucket.Platform, bucket.Mode)
+	}
+	return fmt.Sprintf("sched:semantic:%d:snapshot:%d:%s:%s:v", epoch, bucket.GroupID, bucket.Platform, bucket.Mode)
+}
+
+func schedulerSnapshotKeyAtSemanticEpoch(bucket service.SchedulerBucket, version string, epoch int64) string {
+	return schedulerSnapshotPrefixAtSemanticEpoch(bucket, epoch) + version
+}
+
+func schedulerAccountKeyAtSemanticEpoch(id string, epoch int64) string {
+	if epoch <= 0 {
+		return schedulerAccountKey(id)
+	}
+	return fmt.Sprintf("sched:semantic:%d:acc:%s", epoch, id)
+}
+
+func schedulerAccountMetaKeyAtSemanticEpoch(id string, epoch int64) string {
+	if epoch <= 0 {
+		return schedulerAccountMetaKey(id)
+	}
+	return fmt.Sprintf("sched:semantic:%d:meta:%s", epoch, id)
+}
+
+func schedulerLastUsedKeyAtSemanticEpoch(id string, epoch int64) string {
+	if epoch <= 0 {
+		return schedulerLastUsedKey(id)
+	}
+	return fmt.Sprintf("sched:semantic:%d:last_used:%s", epoch, id)
 }
 
 func schedulerGroupLifecycleLockKey(groupID int64) string {
@@ -777,8 +1070,19 @@ func decodeCachedAccount(val any) (*service.Account, error) {
 }
 
 func (c *schedulerCache) writeAccountIDs(ctx context.Context, accounts []service.Account) ([]int64, error) {
+	epoch, err := c.CapturePrioritySemanticWriteEpoch(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return c.writeAccountIDsAtSemanticEpoch(ctx, accounts, epoch)
+}
+
+func (c *schedulerCache) writeAccountIDsAtSemanticEpoch(ctx context.Context, accounts []service.Account, semanticEpoch int64) ([]int64, error) {
 	if len(accounts) == 0 {
 		return nil, nil
+	}
+	if semanticEpoch < 0 {
+		return nil, fmt.Errorf("invalid scheduler priority semantic epoch: %d", semanticEpoch)
 	}
 
 	pipe := c.rdb.Pipeline()
@@ -807,8 +1111,8 @@ func (c *schedulerCache) writeAccountIDs(ctx context.Context, accounts []service
 		}
 
 		id := strconv.FormatInt(account.ID, 10)
-		pipe.Set(ctx, schedulerAccountKey(id), fullPayload, 0)
-		pipe.Set(ctx, schedulerAccountMetaKey(id), metaPayload, 0)
+		pipe.Set(ctx, schedulerAccountKeyAtSemanticEpoch(id, semanticEpoch), fullPayload, 0)
+		pipe.Set(ctx, schedulerAccountMetaKeyAtSemanticEpoch(id, semanticEpoch), metaPayload, 0)
 		// Keep the hot LastUsedAt side key untouched: a lagging snapshot rebuild
 		// must not overwrite a newer scheduler update.
 		accountIDs = append(accountIDs, account.ID)

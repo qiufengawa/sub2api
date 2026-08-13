@@ -25,8 +25,9 @@ var (
 // SchedulerBucketWriteToken fences a snapshot writer to one bucket epoch.
 // Tokens must be captured before any database load or queued rebuild work.
 type SchedulerBucketWriteToken struct {
-	Bucket SchedulerBucket
-	Epoch  int64
+	Bucket        SchedulerBucket
+	Epoch         int64
+	SemanticEpoch int64
 }
 
 func (t SchedulerBucketWriteToken) ValidFor(bucket SchedulerBucket) bool {
@@ -118,4 +119,32 @@ type SchedulerCache interface {
 	GetOutboxWatermark(ctx context.Context) (int64, error)
 	// SetOutboxWatermark 保存 outbox 水位。
 	SetOutboxWatermark(ctx context.Context, id int64) error
+}
+
+// SchedulerPrioritySemanticEpochCache is optional so existing test doubles and
+// alternate cache implementations retain the historical SchedulerCache
+// contract. Production Redis implements it and the snapshot service uses it as
+// a fail-closed semantic fence.
+type SchedulerPrioritySemanticEpochCache interface {
+	GetPrioritySemanticEpoch(ctx context.Context) (int64, error)
+	SetPrioritySemanticEpoch(ctx context.Context, epoch int64) error
+	InvalidatePrioritySemanticAccounts(ctx context.Context) error
+}
+
+// SchedulerPrioritySemanticPublisher writes an inactive semantic namespace.
+// Readers keep using the active epoch until CompletePrioritySemanticPublication
+// atomically promotes the fully rebuilt namespace.
+type SchedulerPrioritySemanticPublisher interface {
+	BeginPrioritySemanticPublication(ctx context.Context, epoch int64) error
+	CaptureBucketWriteTokenAtSemanticEpoch(ctx context.Context, bucket SchedulerBucket, epoch int64) (SchedulerBucketWriteToken, error)
+	CompletePrioritySemanticPublication(ctx context.Context, epoch int64) error
+}
+
+// SchedulerPrioritySemanticAccountWriter fences account/meta mutations to the
+// semantic epoch observed before the write began.
+type SchedulerPrioritySemanticAccountWriter interface {
+	CapturePrioritySemanticWriteEpoch(ctx context.Context) (int64, error)
+	SetAccountAtSemanticEpoch(ctx context.Context, epoch int64, account *Account) error
+	DeleteAccountAtSemanticEpoch(ctx context.Context, epoch int64, accountID int64) error
+	UpdateLastUsedAtSemanticEpoch(ctx context.Context, epoch int64, updates map[int64]time.Time) error
 }

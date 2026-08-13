@@ -348,7 +348,7 @@ func TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_GeminiP
 	acc, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gemini-2.5-flash", nil)
 	require.NoError(t, err)
 	require.NotNil(t, acc)
-	require.Equal(t, int64(1), acc.ID, "应选择优先级最高的 gemini 账户")
+	require.Equal(t, int64(2), acc.ID, "应选择优先级最高的 gemini 账户")
 	require.Equal(t, PlatformGemini, acc.Platform, "无分组时应只返回 gemini 平台账户")
 }
 
@@ -521,8 +521,8 @@ func TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_StickyS
 	t.Run("粘性会话命中-同平台", func(t *testing.T) {
 		repo := &mockAccountRepoForGemini{
 			accounts: []Account{
-				{ID: 1, Platform: PlatformGemini, Priority: 2, Status: StatusActive, Schedulable: true},
-				{ID: 2, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true},
+				{ID: 1, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true},
+				{ID: 2, Platform: PlatformGemini, Priority: 2, Status: StatusActive, Schedulable: true},
 			},
 			accountsByID: map[int64]*Account{},
 		}
@@ -582,8 +582,8 @@ func TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_StickyS
 	t.Run("粘性会话不命中无前缀缓存键", func(t *testing.T) {
 		repo := &mockAccountRepoForGemini{
 			accounts: []Account{
-				{ID: 1, Platform: PlatformGemini, Priority: 2, Status: StatusActive, Schedulable: true},
-				{ID: 2, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true},
+				{ID: 1, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true},
+				{ID: 2, Platform: PlatformGemini, Priority: 2, Status: StatusActive, Schedulable: true},
 			},
 			accountsByID: map[int64]*Account{},
 		}

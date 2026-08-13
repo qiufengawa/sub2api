@@ -126,7 +126,7 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 	searchID := strings.TrimSpace(gjson.GetBytes(body, "id").String())
 	sessionHash := h.gatewayService.GenerateSessionHashWithFallback(c, nil, searchID)
 	profitVetoCount := 0
-	failedAccountIDs := make(map[int64]struct{})
+	failoverState := service.NewOpenAIAccountFailoverState()
 	var lastFailoverErr *service.UpstreamFailoverError
 	switchCount := 0
 	var oauth429FailoverState service.OpenAIOAuth429FailoverState
@@ -138,13 +138,13 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 	c.Request = c.Request.WithContext(asPricingCtx)
 
 	for {
-		selection, _, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
+		selection, _, err := h.gatewayService.SelectAccountWithSchedulerForCapabilityWithFailoverState(
 			c.Request.Context(),
 			apiKey.GroupID,
 			"",
 			sessionHash,
 			requestedModel,
-			failedAccountIDs,
+			failoverState,
 			service.OpenAIUpstreamTransportHTTPSSE,
 			service.OpenAIEndpointCapabilityAlphaSearch,
 			false,
@@ -157,7 +157,7 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 				reqLog.Info("openai_alpha_search.account_select_aborted_client_disconnected", zap.Error(err))
 				return
 			}
-			if len(failedAccountIDs) == 0 {
+			if failoverState.ExcludedCount() == 0 {
 				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, requestedModel, requestedModel, service.PlatformOpenAI)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -178,10 +178,14 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 		accountRelease, slotResult := h.acquireResponsesAccountSlot(c, apiKey.GroupID, sessionHash, selection, false, &streamStarted, reqLog)
 		if slotResult == openAISlotAcquireProfitVetoed {
 			// 利润终检否决：排除该账号重新选号；否决次数达上限则按无可用账号终止。
-			if !recordOpenAIProfitVeto(failedAccountIDs, account.ID, &profitVetoCount) {
+			if !recordOpenAIProfitVeto(failoverState, account.ID, &profitVetoCount) {
 				h.handleOpenAIProfitVetoExhausted(c, streamStarted, reqLog, profitVetoCount)
 				return
 			}
+			continue
+		}
+		if slotResult == openAISlotAcquireCapacityRejected {
+			failoverState.MarkRetryableRuntimeFailure(account.ID)
 			continue
 		}
 		if slotResult != openAISlotAcquireOK {
@@ -231,8 +235,12 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 			)
 			return
 		}
+		if !failoverErr.ShouldRetryNextAccount() {
+			h.handleFailoverExhausted(c, failoverErr, false)
+			return
+		}
 		h.gatewayService.RecordOpenAIAccountSwitch()
-		failedAccountIDs[account.ID] = struct{}{}
+		failoverState.MarkRetryableRuntimeFailure(account.ID)
 		lastFailoverErr = failoverErr
 		if switchCount >= h.maxAccountSwitches {
 			h.handleFailoverExhausted(c, failoverErr, false)
