@@ -91,6 +91,10 @@ func main() {
 	}
 
 	// Normal server mode
+	log.Println("Checking account priority upgrade state...")
+	if err := setup.EnsureAccountPriorityUpgradeReady(); err != nil {
+		log.Fatalf("Failed to prepare account priority upgrade: %v", err)
+	}
 	runMainServer()
 }
 

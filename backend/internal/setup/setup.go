@@ -378,7 +378,11 @@ func initializeDatabase(cfg *SetupConfig) error {
 	return repository.ApplySetupMigrations(migrationCtx, db)
 }
 
-func publishInitialAccountPrioritySemantics() error {
+// EnsureAccountPriorityUpgradeReady applies the account-priority semantic
+// migration and publishes its scheduler snapshot before the normal server
+// startup gates run. It is idempotent, so release binaries can safely call it
+// after an in-place upgrade as well as after a fresh setup.
+func EnsureAccountPriorityUpgradeReady() error {
 	cfg, err := config.LoadForBootstrap()
 	if err != nil {
 		return fmt.Errorf("load setup config: %w", err)
@@ -408,6 +412,10 @@ func publishInitialAccountPrioritySemantics() error {
 		return err
 	}
 	return nil
+}
+
+func publishInitialAccountPrioritySemantics() error {
+	return EnsureAccountPriorityUpgradeReady()
 }
 
 func (cfg *SetupConfig) migrationTimeout() time.Duration {
