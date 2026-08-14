@@ -92,7 +92,7 @@ function mountDialog(groups: AdminGroup[] = []) {
     props: { show: true, groups },
     global: {
       stubs: {
-        BaseDialog: BaseDialogStub,
+        UiDialog: BaseDialogStub,
         GroupBadge: true,
         Icon: true,
       },

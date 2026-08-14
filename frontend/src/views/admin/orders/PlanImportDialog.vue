@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('payment.admin.catalogImport.title')"
     width="extra-wide"
@@ -96,15 +96,15 @@
           @input="handlePastedJSONInput"
         />
         <div class="flex justify-end">
-          <button
-            type="button"
-            class="btn btn-secondary whitespace-nowrap"
+          <UiButton
+            variant="secondary"
+            density="compact"
             :disabled="!canPreviewPaste || busy"
             @click="previewPastedJSON"
           >
-            <Icon name="search" size="sm" class="mr-1.5" />
+            <template #icon><Icon name="search" size="sm" /></template>
             {{ t('payment.admin.catalogImport.previewPaste') }}
-          </button>
+          </UiButton>
         </div>
       </div>
 
@@ -364,43 +364,46 @@
         </p>
         <span v-else class="hidden sm:block" />
         <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" class="btn btn-secondary w-full sm:w-auto" :disabled="applying" @click="handleClose">
+          <UiButton type="button" variant="secondary" :disabled="applying" @click="handleClose">
             {{ t('common.cancel') }}
-          </button>
-          <button
+          </UiButton>
+          <UiButton
             v-if="templateMappingVisible"
             type="button"
-            class="btn btn-primary w-full whitespace-nowrap sm:w-auto"
+            variant="primary"
+            density="compact"
             :disabled="!templateMappingValid || busy"
             @click="previewMappedTemplate"
           >
-            <Icon name="search" size="sm" class="mr-1.5" />
+            <template #icon><Icon name="search" size="sm" /></template>
             {{ t('payment.admin.catalogImport.previewMapped') }}
-          </button>
-          <button
+          </UiButton>
+          <UiButton
             v-if="preview"
             type="button"
-            class="btn btn-primary w-full whitespace-nowrap sm:w-auto"
+            variant="primary"
+            density="compact"
+            :loading="applying"
             :disabled="!preview.can_apply || applying || previewing"
             @click="applyImport"
           >
-            <Icon :name="applying ? 'refresh' : 'check'" size="sm" class="mr-1.5" :class="applying ? 'animate-spin' : ''" />
+            <template #icon><Icon :name="applying ? 'refresh' : 'check'" size="sm" /></template>
             {{ applying
               ? t('payment.admin.catalogImport.applying')
               : t('payment.admin.catalogImport.confirmApply') }}
-          </button>
+          </UiButton>
         </div>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { UiButton, UiDialog } from '@/components/ui'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import { useAppStore } from '@/stores/app'
 import { extractI18nErrorMessage } from '@/utils/apiError'
