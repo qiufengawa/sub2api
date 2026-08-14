@@ -1,584 +1,389 @@
 <template>
   <AppLayout>
-    <TablePageLayout>
-      <template #filters>
-        <!-- Top Toolbar: Left (search + filters) / Right (actions) -->
-        <div class="flex flex-wrap items-start justify-between gap-4">
-          <!-- Left: Fuzzy user search + filters (wrap to multiple lines) -->
-          <div class="flex flex-1 flex-wrap items-center gap-3">
-            <!-- User Search -->
-            <div
-              class="relative w-full sm:w-64"
-              data-filter-user-search
-            >
-              <Icon
-                name="search"
-                size="md"
-                class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
-              <input
-                v-model="filterUserKeyword"
-                type="text"
+    <AppPage density="compact">
+      <AppPageHeader
+        class="subscriptions-header"
+        :title="t('admin.subscriptions.title')"
+        :description="t('admin.subscriptions.description')"
+      />
+
+      <UiServerTableWorkspace
+        class="subscriptions-workspace"
+        :loading="loading"
+        :loading-text="t('common.loading')"
+        :empty="false"
+      >
+        <template #toolbar>
+          <UiTableToolbar>
+            <div class="subscription-toolbar__filters">
+              <UiAsyncEntityPicker
+                :model-value="filters.user_id"
+                :items="filterUserOptions"
+                :selected-label="selectedFilterUser?.email"
+                :loading="filterUserLoading"
                 :placeholder="t('admin.users.searchUsers')"
-                class="input pl-10 pr-8"
-                @input="debounceSearchFilterUsers"
-                @focus="showFilterUserDropdown = true"
+                :empty-text="t('common.noOptionsFound')"
+                @search="handleFilterUserSearch"
+                @update:model-value="handleFilterUserValue"
+                @select="handleFilterUserSelect"
               />
-              <button
-                v-if="selectedFilterUser"
-                @click="clearFilterUser"
-                type="button"
-                class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                :title="t('common.clear')"
-              >
-                <Icon name="x" size="sm" :stroke-width="2" />
-              </button>
-
-              <!-- User Dropdown -->
-              <div
-                v-if="showFilterUserDropdown && (filterUserResults.length > 0 || filterUserKeyword)"
-                class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-dark-700 dark:bg-dark-800"
-              >
-                <div
-                  v-if="filterUserLoading"
-                  class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400"
-                >
-                  {{ t('common.loading') }}
-                </div>
-                <div
-                  v-else-if="filterUserResults.length === 0 && filterUserKeyword"
-                  class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400"
-                >
-                  {{ t('common.noOptionsFound') }}
-                </div>
-                <button
-                  v-for="user in filterUserResults"
-                  :key="user.id"
-                  type="button"
-                  @click="selectFilterUser(user)"
-                  class="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-dark-700"
-                >
-                  <span class="font-medium text-gray-900 dark:text-white">{{ user.email }}</span>
-                  <span class="ml-2 text-gray-500 dark:text-gray-400">#{{ user.id }}</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Filters -->
-            <div class="w-full sm:w-40">
-              <Select
+              <UiSelect
                 v-model="filters.status"
                 :options="statusOptions"
                 :placeholder="t('admin.subscriptions.allStatus')"
+                density="compact"
                 @change="applyFilters"
               />
-            </div>
-
-            <button
-              type="button"
-              class="btn btn-secondary w-full sm:w-auto"
-              :aria-expanded="advancedFiltersExpanded"
-              data-testid="subscription-advanced-toggle"
-              @click="advancedFiltersExpanded = !advancedFiltersExpanded"
-            >
-              <Icon name="filter" size="sm" class="mr-1.5" />
-              {{ t('admin.subscriptions.advancedFilters') }}
-              <span
-                v-if="advancedFilterCount > 0"
-                class="ml-1 inline-flex min-w-5 justify-center rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 dark:bg-primary-900/40 dark:text-primary-300"
+              <UiButton
+                type="button"
+                variant="secondary"
+                density="compact"
+                :aria-expanded="advancedFiltersExpanded"
+                data-testid="subscription-advanced-toggle"
+                @click="advancedFiltersExpanded = !advancedFiltersExpanded"
               >
-                {{ advancedFilterCount }}
-              </span>
-              <Icon :name="advancedFiltersExpanded ? 'chevronUp' : 'chevronDown'" size="xs" class="ml-1" />
-            </button>
-
-            <div
-              v-if="advancedFiltersExpanded || advancedFilterCount > 0"
-              class="flex basis-full flex-wrap items-center gap-3 border-t border-gray-100 pt-3 dark:border-dark-700"
-              data-testid="subscription-advanced-filters"
-            >
-              <div class="w-full sm:w-48">
-                <Select
-                  v-model="filters.group_id"
-                  :options="groupOptions"
-                  :placeholder="t('admin.subscriptions.allGroups')"
-                  @change="applyFilters"
-                />
-              </div>
-              <div class="w-full sm:w-40">
-                <Select
-                  v-model="filters.platform"
-                  :options="platformFilterOptions"
-                  :placeholder="t('admin.subscriptions.allPlatforms')"
-                  @change="applyFilters"
-                />
-              </div>
+                <template #icon><Icon name="filter" size="sm" /></template>
+                {{ t('admin.subscriptions.advancedFilters') }}
+                <UiBadge v-if="advancedFilterCount > 0" :label="String(advancedFilterCount)" />
+              </UiButton>
             </div>
+
+            <template #actions>
+              <UiSegmentedControl
+                :model-value="userColumnMode"
+                :options="userColumnModeOptions"
+                :label="t('admin.subscriptions.columns.user')"
+                @update:model-value="setUserColumnMode($event as 'email' | 'username')"
+              />
+              <UiIconButton
+                icon="refresh"
+                density="compact"
+                :disabled="loading"
+                :label="t('common.refresh')"
+                @click="loadSubscriptions"
+              />
+              <UiColumnPicker
+                :model-value="visibleColumnKeys"
+                :columns="columnPickerColumns"
+                :label="t('admin.users.columnSettings')"
+                @update:model-value="updateVisibleColumns"
+              />
+              <UiIconButton
+                icon="questionCircle"
+                density="compact"
+                :label="t('admin.subscriptions.guide.showGuide')"
+                @click="showGuideModal = true"
+              />
+              <UiButton variant="primary" density="compact" @click="showAssignModal = true">
+                <template #icon><Icon name="plus" size="sm" /></template>
+                {{ t('admin.subscriptions.assignSubscription') }}
+              </UiButton>
+            </template>
+          </UiTableToolbar>
+        </template>
+
+        <template #filters>
+          <div
+            v-if="advancedFiltersExpanded || advancedFilterCount > 0"
+            class="subscription-advanced-filters"
+            data-testid="subscription-advanced-filters"
+          >
+            <UiSelect
+              v-model="filters.group_id"
+              :options="groupOptions"
+              :label="t('admin.subscriptions.columns.plan')"
+              :placeholder="t('admin.subscriptions.allGroups')"
+              density="compact"
+              @change="applyFilters"
+            />
+            <UiSelect
+              v-model="filters.platform"
+              :options="platformFilterOptions"
+              :label="t('admin.subscriptions.allPlatforms')"
+              :placeholder="t('admin.subscriptions.allPlatforms')"
+              density="compact"
+              @change="applyFilters"
+            />
           </div>
-
-          <!-- Right: Actions -->
-          <div class="ml-auto flex flex-wrap items-center justify-end gap-3">
-            <button
-              @click="loadSubscriptions"
-              :disabled="loading"
-              class="btn btn-secondary"
-              :title="t('common.refresh')"
-            >
-              <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
-            </button>
-            <!-- Column Settings Dropdown -->
-            <div class="relative" ref="columnDropdownRef">
-              <button
-                @click="showColumnDropdown = !showColumnDropdown"
-                class="btn btn-secondary px-2 md:px-3"
-                :title="t('admin.users.columnSettings')"
-              >
-                <svg class="h-4 w-4 md:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125z" />
-                </svg>
-                <span class="hidden md:inline">{{ t('admin.users.columnSettings') }}</span>
-              </button>
-              <!-- Dropdown menu -->
-              <div
-                v-if="showColumnDropdown"
-                class="absolute right-0 z-50 mt-2 w-48 origin-top-right rounded-lg border border-gray-200 bg-white shadow-lg dark:border-dark-700 dark:bg-dark-800"
-              >
-                <div class="p-2">
-                  <!-- User column mode selection -->
-                  <div class="mb-2 border-b border-gray-200 pb-2 dark:border-dark-700">
-                    <div class="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-400">
-                      {{ t('admin.subscriptions.columns.user') }}
-                    </div>
-                    <button
-                      @click="setUserColumnMode('email')"
-                      class="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-dark-700"
-                    >
-                      <span>{{ t('admin.users.columns.email') }}</span>
-                      <Icon v-if="userColumnMode === 'email'" name="check" size="sm" class="text-primary-500" />
-                    </button>
-                    <button
-                      @click="setUserColumnMode('username')"
-                      class="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-dark-700"
-                    >
-                      <span>{{ t('admin.users.columns.username') }}</span>
-                      <Icon v-if="userColumnMode === 'username'" name="check" size="sm" class="text-primary-500" />
-                    </button>
-                  </div>
-                  <!-- Other columns toggle -->
-                  <button
-                    v-for="col in toggleableColumns"
-                    :key="col.key"
-                    @click="toggleColumn(col.key)"
-                    class="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-dark-700"
-                  >
-                    <span>{{ col.label }}</span>
-                    <Icon v-if="isColumnVisible(col.key)" name="check" size="sm" class="text-primary-500" />
-                  </button>
-                </div>
-              </div>
-            </div>
-            <button
-              @click="showGuideModal = true"
-              class="btn btn-secondary"
-              :title="t('admin.subscriptions.guide.showGuide')"
-            >
-              <Icon name="questionCircle" size="md" />
-            </button>
-            <button @click="showAssignModal = true" class="btn btn-primary">
-              <Icon name="plus" size="md" class="mr-2" />
-              {{ t('admin.subscriptions.assignSubscription') }}
-            </button>
-          </div>
-        </div>
-      </template>
+        </template>
 
       <!-- Subscriptions Table -->
-      <template #table>
-        <DataTable
+      <template #default>
+        <UiDataTable
           :columns="columns"
           :data="subscriptions"
           :loading="loading"
+          :mobile-table="true"
+          :aria-label="t('admin.subscriptions.title')"
           :server-side-sort="true"
           default-sort-key="created_at"
           default-sort-order="desc"
           @sort="handleSort"
         >
           <template #cell-user="{ row }">
-            <div class="flex items-center gap-2">
-              <div
-                class="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900/30"
-              >
-                <span class="text-sm font-medium text-primary-700 dark:text-primary-300">
-                  {{ userColumnMode === 'email'
-                    ? (row.user?.email?.charAt(0).toUpperCase() || '?')
-                    : (row.user?.username?.charAt(0).toUpperCase() || '?')
-                  }}
-                </span>
+            <div class="subscription-user-cell">
+              <UiAvatar :name="getUserDisplayName(row)" size="md" />
+              <div>
+                <strong>{{ getUserDisplayName(row) }}</strong>
+                <span>#{{ row.user_id }}</span>
               </div>
-              <span class="font-medium text-gray-900 dark:text-white">
-                {{ userColumnMode === 'email'
-                  ? (row.user?.email || t('admin.redeem.userPrefix', { id: row.user_id }))
-                  : (row.user?.username || '-')
-                }}
-              </span>
             </div>
           </template>
 
           <template #cell-plan="{ row }">
-            <div class="min-w-[220px] max-w-[360px]">
-              <p class="truncate text-sm font-semibold text-gray-900 dark:text-white" :title="row.plan_name">
+            <div class="subscription-plan-cell">
+              <p :title="row.plan_name">
                 {{ row.plan_name || `#${row.plan_id}` }}
               </p>
-              <div v-if="row.included_groups?.length" class="mt-1.5 flex flex-wrap gap-1">
-                <span
+              <div v-if="row.included_groups?.length" class="subscription-plan-cell__groups">
+                <UiBadge
                   v-for="group in row.included_groups"
                   :key="group.id"
-                  class="inline-flex max-w-full items-center gap-1 rounded-[3px] border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-600 dark:border-dark-600 dark:bg-dark-700 dark:text-gray-300"
                   :title="`${group.name} · ×${group.rate_multiplier}`"
                 >
-                  <span class="max-w-[150px] truncate">{{ group.name }}</span>
-                  <span class="shrink-0 tabular-nums">×{{ group.rate_multiplier }}</span>
-                </span>
+                  {{ group.name }} · <span class="ui-numeric">×{{ group.rate_multiplier }}</span>
+                </UiBadge>
               </div>
-              <p v-else class="mt-1 text-xs text-gray-400 dark:text-dark-500">
+              <span v-else class="subscription-plan-cell__empty">
                 {{ t('admin.subscriptions.noIncludedGroups') }}
-              </p>
+              </span>
             </div>
           </template>
 
           <template #cell-usage="{ row }">
-            <div class="min-w-[250px]">
-              <div v-if="hasAnySubscriptionQuota(row)" class="space-y-3">
-			  <div v-if="row.five_hour_quota_usd != null && row.five_hour_quota_usd > 0" class="usage-row">
-				<div class="flex items-center gap-2">
-				  <span class="usage-label">{{ t('admin.subscriptions.fiveHour') }}</span>
-				  <div class="h-1.5 flex-1 rounded-full bg-gray-200 dark:bg-dark-600">
-					<div
-					  class="h-1.5 rounded-full transition-all"
-					  :class="getProgressClass(getFiveHourCommitted(row), row.five_hour_quota_usd)"
-					  :style="{ width: getProgressWidth(getFiveHourCommitted(row), row.five_hour_quota_usd) }"
-					></div>
-				  </div>
-				  <span class="usage-amount">
-					${{ getFiveHourCommitted(row).toFixed(2) }}
-					<span class="text-gray-400">/</span>
-					${{ row.five_hour_quota_usd.toFixed(2) }}
-				  </span>
-				</div>
-				<div class="reset-info">
-				  <Icon name="clock" size="xs" />
-				  <span>{{ t('admin.subscriptions.resetEveryHours', { hours: 5 }) }}</span>
-				  <span v-if="(row.five_hour_reserved_usd || 0) > 0">
-					· {{ t('admin.subscriptions.reserved', { amount: Number(row.five_hour_reserved_usd).toFixed(2) }) }}
-				  </span>
-				</div>
-			  </div>
-              <div v-if="row.cycle_quota_usd != null && row.cycle_quota_usd > 0" class="usage-row">
-                <div class="flex items-center gap-2">
-                  <span class="usage-label">{{ t('admin.subscriptions.cycle') }}</span>
-                  <div class="h-1.5 flex-1 rounded-full bg-gray-200 dark:bg-dark-600">
-                    <div
-                      class="h-1.5 rounded-full transition-all"
-                      :class="getProgressClass(getCycleCommitted(row), row.cycle_quota_usd)"
-                      :style="{
-                        width: getProgressWidth(getCycleCommitted(row), row.cycle_quota_usd)
-                      }"
-                    ></div>
+            <div class="subscription-quota-cell">
+              <div v-if="hasAnySubscriptionQuota(row)" class="subscription-quota-list">
+                <div
+                  v-if="row.five_hour_quota_usd != null && row.five_hour_quota_usd > 0"
+                  class="subscription-quota"
+                >
+                  <div class="subscription-quota__summary">
+                    <span>{{ t('admin.subscriptions.fiveHour') }}</span>
+                    <strong class="ui-numeric">${{ getFiveHourCommitted(row).toFixed(2) }} / ${{ row.five_hour_quota_usd.toFixed(2) }}</strong>
                   </div>
-                  <span class="usage-amount">
-                    ${{ getCycleCommitted(row).toFixed(2) }}
-                    <span class="text-gray-400">/</span>
-                    ${{ row.cycle_quota_usd.toFixed(2) }}
-                  </span>
-                </div>
-                <div class="reset-info" v-if="row.reset_interval_seconds">
-                  <Icon name="clock" size="xs" />
-                  <span>{{ formatCycleInterval(row.reset_interval_seconds) }}</span>
-                  <span v-if="!(row.five_hour_quota_usd != null && row.five_hour_quota_usd > 0) && (row.cycle_reserved_usd || 0) > 0">
-                    · {{ t('admin.subscriptions.reserved', { amount: Number(row.cycle_reserved_usd).toFixed(2) }) }}
-                  </span>
-                </div>
-              </div>
-              <div v-if="row.total_quota_usd != null && row.total_quota_usd > 0" class="usage-row">
-                <div class="flex items-center gap-2">
-                  <span class="usage-label">{{ t('admin.subscriptions.total') }}</span>
-                  <div class="h-1.5 flex-1 rounded-full bg-gray-200 dark:bg-dark-600">
-                    <div
-                      class="h-1.5 rounded-full transition-all"
-                      :class="getProgressClass(getTotalCommitted(row), row.total_quota_usd)"
-                      :style="{ width: getProgressWidth(getTotalCommitted(row), row.total_quota_usd) }"
-                    ></div>
+                  <UiProgressBar
+                    :value="getProgressPercent(getFiveHourCommitted(row), row.five_hour_quota_usd)"
+                    :tone="getProgressTone(getFiveHourCommitted(row), row.five_hour_quota_usd)"
+                    :show-value="false"
+                  />
+                  <div class="subscription-quota__meta">
+                    <Icon name="clock" size="xs" />
+                    <span>{{ t('admin.subscriptions.resetEveryHours', { hours: 5 }) }}</span>
+                    <span v-if="(row.five_hour_reserved_usd || 0) > 0">
+                      · {{ t('admin.subscriptions.reserved', { amount: Number(row.five_hour_reserved_usd).toFixed(2) }) }}
+                    </span>
                   </div>
-                  <span class="usage-amount">
-                    ${{ getTotalCommitted(row).toFixed(2) }}
-                    <span class="text-gray-400">/</span>
-                    ${{ row.total_quota_usd.toFixed(2) }}
-                  </span>
                 </div>
-                <div class="reset-info">
-                  <Icon name="calendar" size="xs" />
-                  <span>{{ t('admin.subscriptions.validUntil', { date: row.expires_at ? formatDateTimeToMinute(row.expires_at) : '-' }) }}</span>
-                  <span
-                    v-if="
-                      !(row.five_hour_quota_usd != null && row.five_hour_quota_usd > 0) &&
-                      !(row.cycle_quota_usd != null && row.cycle_quota_usd > 0) &&
-                      (row.total_reserved_usd || 0) > 0
-                    "
-                  >
-                    · {{ t('admin.subscriptions.reserved', { amount: Number(row.total_reserved_usd).toFixed(2) }) }}
-                  </span>
+                <div
+                  v-if="row.cycle_quota_usd != null && row.cycle_quota_usd > 0"
+                  class="subscription-quota"
+                >
+                  <div class="subscription-quota__summary">
+                    <span>{{ t('admin.subscriptions.cycle') }}</span>
+                    <strong class="ui-numeric">${{ getCycleCommitted(row).toFixed(2) }} / ${{ row.cycle_quota_usd.toFixed(2) }}</strong>
+                  </div>
+                  <UiProgressBar
+                    :value="getProgressPercent(getCycleCommitted(row), row.cycle_quota_usd)"
+                    :tone="getProgressTone(getCycleCommitted(row), row.cycle_quota_usd)"
+                    :show-value="false"
+                  />
+                  <div v-if="row.reset_interval_seconds" class="subscription-quota__meta">
+                    <Icon name="clock" size="xs" />
+                    <span>{{ formatCycleInterval(row.reset_interval_seconds) }}</span>
+                    <span v-if="!(row.five_hour_quota_usd != null && row.five_hour_quota_usd > 0) && (row.cycle_reserved_usd || 0) > 0">
+                      · {{ t('admin.subscriptions.reserved', { amount: Number(row.cycle_reserved_usd).toFixed(2) }) }}
+                    </span>
+                  </div>
+                </div>
+                <div
+                  v-if="row.total_quota_usd != null && row.total_quota_usd > 0"
+                  class="subscription-quota"
+                >
+                  <div class="subscription-quota__summary">
+                    <span>{{ t('admin.subscriptions.total') }}</span>
+                    <strong class="ui-numeric">${{ getTotalCommitted(row).toFixed(2) }} / ${{ row.total_quota_usd.toFixed(2) }}</strong>
+                  </div>
+                  <UiProgressBar
+                    :value="getProgressPercent(getTotalCommitted(row), row.total_quota_usd)"
+                    :tone="getProgressTone(getTotalCommitted(row), row.total_quota_usd)"
+                    :show-value="false"
+                  />
+                  <div class="subscription-quota__meta">
+                    <Icon name="calendar" size="xs" />
+                    <span>{{ t('admin.subscriptions.validUntil', { date: row.expires_at ? formatDateTimeToMinute(row.expires_at) : '-' }) }}</span>
+                    <span
+                      v-if="
+                        !(row.five_hour_quota_usd != null && row.five_hour_quota_usd > 0) &&
+                        !(row.cycle_quota_usd != null && row.cycle_quota_usd > 0) &&
+                        (row.total_reserved_usd || 0) > 0
+                      "
+                    >
+                      · {{ t('admin.subscriptions.reserved', { amount: Number(row.total_reserved_usd).toFixed(2) }) }}
+                    </span>
+                  </div>
                 </div>
               </div>
-              </div>
-              <div
-                v-else
-                class="flex items-center gap-2 rounded-[3px] border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-900/40 dark:bg-emerald-900/20"
-              >
-                <span class="text-lg text-emerald-600 dark:text-emerald-400">∞</span>
-                <span class="text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                  {{ t('admin.subscriptions.unlimited') }}
-                </span>
-              </div>
+              <UiBadge v-else tone="success" :label="`∞ ${t('admin.subscriptions.unlimited')}`" />
             </div>
           </template>
 
           <template #cell-expires_at="{ value }">
-            <div v-if="value">
-              <span
-                class="text-sm"
-                :class="
-                  isExpiringSoon(value)
-                    ? 'text-orange-600 dark:text-orange-400'
-                    : 'text-gray-700 dark:text-gray-300'
-                "
-              >
-                {{ formatDateTimeToMinute(value) }}
-              </span>
+            <div v-if="value" class="subscription-expiry" :class="{ 'is-soon': isExpiringSoon(value) }">
+              <strong class="ui-numeric">{{ formatDateTimeToMinute(value) }}</strong>
               <template
                 v-for="remainingExpiry in [formatRemainingExpiry(value)]"
                 :key="remainingExpiry ?? 'expired'"
               >
-                <div v-if="remainingExpiry" class="text-xs text-gray-500">
-                  {{ remainingExpiry }}
-                </div>
+                <span v-if="remainingExpiry">{{ remainingExpiry }}</span>
               </template>
             </div>
-            <span v-else class="text-sm text-gray-500">{{
-              t('admin.subscriptions.noExpiration')
-            }}</span>
+            <span v-else class="subscription-muted">{{ t('admin.subscriptions.noExpiration') }}</span>
           </template>
 
           <template #cell-status="{ value }">
-            <span
-              :class="[
-                'badge',
-                value === 'active'
-                  ? 'badge-success'
-                  : value === 'expired'
-                    ? 'badge-warning'
-                    : 'badge-danger'
-              ]"
-            >
-              {{ t(`admin.subscriptions.status.${value}`) }}
-            </span>
+            <UiStatusBadge
+              :status="getSubscriptionStatusTone(value)"
+              :label="t(`admin.subscriptions.status.${value}`)"
+            />
           </template>
 
           <template #cell-actions="{ row }">
-            <div class="flex items-center gap-1">
-              <button
+            <div class="subscription-row-actions">
+              <UiIconButton
                 v-if="row.status === 'active' || row.status === 'expired'"
+                icon="calendar"
+                density="mini"
+                :label="t('admin.subscriptions.adjust')"
                 @click="handleExtend(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
-              >
-                <Icon name="calendar" size="sm" />
-                <span class="text-xs">{{ t('admin.subscriptions.adjust') }}</span>
-              </button>
-              <button
+              />
+              <UiIconButton
                 v-if="row.status === 'active'"
-                @click="handleResetQuota(row)"
+                icon="refresh"
+                variant="ghost"
+                density="mini"
+                :label="t('admin.subscriptions.resetQuota')"
                 :disabled="resettingQuota && resettingSubscription?.id === row.id"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-900/20 dark:hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Icon name="refresh" size="sm" />
-                <span class="text-xs">{{ t('admin.subscriptions.resetQuota') }}</span>
-              </button>
-              <button
+                @click="handleResetQuota(row)"
+              />
+              <UiIconButton
                 v-if="row.status === 'active'"
+                icon="ban"
+                variant="danger"
+                density="mini"
+                :label="t('admin.subscriptions.revoke')"
                 @click="handleRevoke(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-              >
-                <Icon name="ban" size="sm" />
-                <span class="text-xs">{{ t('admin.subscriptions.revoke') }}</span>
-              </button>
-              <button
+              />
+              <UiIconButton
                 v-if="row.status === 'revoked'"
+                icon="refresh"
+                variant="success"
+                density="mini"
+                :label="t('admin.subscriptions.restore')"
                 @click="handleRestore(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20 dark:hover:text-green-400"
-              >
-                <Icon name="refresh" size="sm" />
-                <span class="text-xs">{{ t('admin.subscriptions.restore') }}</span>
-              </button>
+              />
             </div>
           </template>
 
           <template #empty>
-            <EmptyState
+            <UiEmptyState
               :title="t('admin.subscriptions.noSubscriptionsYet')"
               :description="t('admin.subscriptions.assignFirstSubscription')"
-              :action-text="t('admin.subscriptions.assignSubscription')"
-              @action="showAssignModal = true"
-            />
+            >
+              <template #action>
+                <UiButton variant="primary" density="compact" @click="showAssignModal = true">
+                  {{ t('admin.subscriptions.assignSubscription') }}
+                </UiButton>
+              </template>
+            </UiEmptyState>
           </template>
-        </DataTable>
+        </UiDataTable>
       </template>
 
       <!-- Pagination -->
       <template #pagination>
-      <Pagination
-        v-if="pagination.total > 0"
-        :page="pagination.page"
-        :total="pagination.total"
-        :page-size="pagination.page_size"
-        @update:page="handlePageChange"
-        @update:pageSize="handlePageSizeChange"
-      />
+        <UiPagination
+          v-if="pagination.total > 0"
+          :page="pagination.page"
+          :total="pagination.total"
+          :page-size="pagination.page_size"
+          :reset-page-on-page-size-change="false"
+          @update:page="handlePageChange"
+          @update:pageSize="handlePageSizeChange"
+        />
       </template>
-    </TablePageLayout>
+      </UiServerTableWorkspace>
+    </AppPage>
 
     <!-- Assign Subscription Modal -->
-    <BaseDialog
+    <UiDialog
       :show="showAssignModal"
       :title="t('admin.subscriptions.assignSubscription')"
+      :close-label="t('common.close')"
       width="normal"
       @close="closeAssignModal"
     >
       <form
         id="assign-subscription-form"
         @submit.prevent="handleAssignSubscription"
-        class="space-y-5"
+        class="subscription-dialog-form"
       >
-        <div>
-          <label class="input-label">{{ t('admin.subscriptions.form.user') }}</label>
-          <div class="relative" data-assign-user-search>
-            <input
-              v-model="userSearchKeyword"
-              type="text"
-              class="input pr-8"
-              :placeholder="t('admin.usage.searchUserPlaceholder')"
-              @input="debounceSearchUsers"
-              @focus="showUserDropdown = true"
-            />
-            <button
-              v-if="selectedUser"
-              @click="clearUserSelection"
-              type="button"
-              class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <Icon name="x" size="sm" :stroke-width="2" />
-            </button>
-            <!-- User Dropdown -->
-            <div
-              v-if="showUserDropdown && (userSearchResults.length > 0 || userSearchKeyword)"
-              class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-dark-700 dark:bg-dark-800"
-            >
-              <div
-                v-if="userSearchLoading"
-                class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400"
-              >
-                {{ t('common.loading') }}
-              </div>
-              <div
-                v-else-if="userSearchResults.length === 0 && userSearchKeyword"
-                class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400"
-              >
-                {{ t('common.noOptionsFound') }}
-              </div>
-              <button
-                v-for="user in userSearchResults"
-                :key="user.id"
-                type="button"
-                @click="selectUser(user)"
-                class="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-dark-700"
-              >
-                <span class="font-medium text-gray-900 dark:text-white">{{ user.email }}</span>
-                <span class="ml-2 text-gray-500 dark:text-gray-400">#{{ user.id }}</span>
-              </button>
+        <UiAsyncEntityPicker
+          :model-value="assignForm.user_id"
+          :items="assignUserOptions"
+          :selected-label="selectedUser?.email"
+          :loading="userSearchLoading"
+          :label="t('admin.subscriptions.form.user')"
+          :placeholder="t('admin.usage.searchUserPlaceholder')"
+          :empty-text="t('common.noOptionsFound')"
+          @search="handleAssignUserSearch"
+          @update:model-value="handleAssignUserValue"
+          @select="handleAssignUserSelect"
+        />
+        <UiSelect
+          v-model="assignForm.plan_id"
+          :options="planOptions"
+          :label="t('admin.subscriptions.form.plan')"
+          :description="t('admin.subscriptions.planHint')"
+          :placeholder="t('admin.subscriptions.selectPlan')"
+        >
+          <template #selected="{ option }">
+            <span v-if="option">{{ (option as unknown as PlanOption).label }}</span>
+            <span v-else>{{ t('admin.subscriptions.selectPlan') }}</span>
+          </template>
+          <template #option="{ option }">
+            <div class="subscription-plan-option">
+              <strong>{{ (option as unknown as PlanOption).label }}</strong>
+              <span>{{ (option as unknown as PlanOption).groupSummary }}</span>
             </div>
-          </div>
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.subscriptions.form.plan') }}</label>
-          <Select
-            v-model="assignForm.plan_id"
-            :options="planOptions"
-            :placeholder="t('admin.subscriptions.selectPlan')"
-          >
-            <template #selected="{ option }">
-              <span v-if="option" class="font-medium text-gray-900 dark:text-white">
-                {{ (option as unknown as PlanOption).label }}
-              </span>
-              <span v-else class="text-gray-400">{{ t('admin.subscriptions.selectPlan') }}</span>
-            </template>
-            <template #option="{ option }">
-              <div class="min-w-0 py-0.5">
-                <p class="truncate text-sm font-medium text-gray-900 dark:text-white">
-                  {{ (option as unknown as PlanOption).label }}
-                </p>
-                <p class="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
-                  {{ (option as unknown as PlanOption).groupSummary }}
-                </p>
-              </div>
-            </template>
-          </Select>
-          <p class="input-hint">{{ t('admin.subscriptions.planHint') }}</p>
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.subscriptions.form.validityDays') }}</label>
-          <input v-model.number="assignForm.validity_days" type="number" min="1" class="input" />
-          <p class="input-hint">{{ t('admin.subscriptions.validityHint') }}</p>
-        </div>
+          </template>
+        </UiSelect>
+        <UiNumberStepper
+          v-model="assignForm.validity_days"
+          :label="t('admin.subscriptions.form.validityDays')"
+          :min="1"
+          :description="t('admin.subscriptions.validityHint')"
+        />
       </form>
       <template #footer>
-        <div class="flex justify-end gap-3">
-          <button @click="closeAssignModal" type="button" class="btn btn-secondary">
-            {{ t('common.cancel') }}
-          </button>
-          <button
-            type="submit"
-            form="assign-subscription-form"
-            :disabled="submitting"
-            class="btn btn-primary"
-          >
-            <svg
-              v-if="submitting"
-              class="-ml-1 mr-2 h-4 w-4 animate-spin"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              ></circle>
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
-            {{ submitting ? t('admin.subscriptions.assigning') : t('admin.subscriptions.assign') }}
-          </button>
-        </div>
+        <UiButton density="compact" @click="closeAssignModal">{{ t('common.cancel') }}</UiButton>
+        <UiButton
+          type="submit"
+          form="assign-subscription-form"
+          :disabled="submitting"
+          :loading="submitting"
+          variant="primary"
+          density="compact"
+        >
+          {{ t('admin.subscriptions.assign') }}
+        </UiButton>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
     <!-- Adjust Subscription Modal -->
-    <BaseDialog
+    <UiDialog
       :show="showExtendModal"
       :title="t('admin.subscriptions.adjustSubscription')"
+      :close-label="t('common.close')"
       width="narrow"
       @close="closeExtendModal"
     >
@@ -586,65 +391,38 @@
         v-if="extendingSubscription"
         id="extend-subscription-form"
         @submit.prevent="handleExtendSubscription"
-        class="space-y-5"
+        class="subscription-dialog-form"
       >
-        <div class="rounded-lg bg-gray-50 p-4 dark:bg-dark-700">
-          <p class="text-sm text-gray-600 dark:text-gray-400">
-            {{ t('admin.subscriptions.adjustingFor') }}
-            <span class="font-medium text-gray-900 dark:text-white">{{
-              extendingSubscription.user?.email
-            }}</span>
-          </p>
-          <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {{ t('admin.subscriptions.currentExpiration') }}:
-            <span class="font-medium text-gray-900 dark:text-white">
-              {{
-                extendingSubscription.expires_at
-                  ? formatDateTimeToMinute(extendingSubscription.expires_at)
-                  : t('admin.subscriptions.noExpiration')
-              }}
-            </span>
-          </p>
-          <p v-if="extendingSubscription.expires_at" class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {{ t('admin.subscriptions.remainingDays') }}:
-            <span class="font-medium text-gray-900 dark:text-white">
-              {{ getDaysRemaining(extendingSubscription.expires_at) ?? 0 }}
-            </span>
-          </p>
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.subscriptions.form.adjustDays') }}</label>
-          <div class="flex items-center gap-2">
-            <input
-              v-model.number="extendForm.days"
-              type="number"
-              required
-              class="input text-center"
-              :placeholder="t('admin.subscriptions.adjustDaysPlaceholder')"
-            />
-          </div>
-          <p class="input-hint">{{ t('admin.subscriptions.adjustHint') }}</p>
-        </div>
+        <UiDescriptionList :items="extendSummaryItems" :columns="1" />
+        <UiTextField
+          :model-value="extendForm.days"
+          type="number"
+          :label="t('admin.subscriptions.form.adjustDays')"
+          :description="t('admin.subscriptions.adjustHint')"
+          :placeholder="t('admin.subscriptions.adjustDaysPlaceholder')"
+          required
+          @update:model-value="setExtendDays"
+        />
       </form>
       <template #footer>
-        <div v-if="extendingSubscription" class="flex justify-end gap-3">
-          <button @click="closeExtendModal" type="button" class="btn btn-secondary">
-            {{ t('common.cancel') }}
-          </button>
-          <button
+        <template v-if="extendingSubscription">
+          <UiButton density="compact" @click="closeExtendModal">{{ t('common.cancel') }}</UiButton>
+          <UiButton
             type="submit"
             form="extend-subscription-form"
             :disabled="submitting"
-            class="btn btn-primary"
+            :loading="submitting"
+            variant="primary"
+            density="compact"
           >
-            {{ submitting ? t('admin.subscriptions.adjusting') : t('admin.subscriptions.adjust') }}
-          </button>
-        </div>
+            {{ t('admin.subscriptions.adjust') }}
+          </UiButton>
+        </template>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
     <!-- Revoke Confirmation Dialog -->
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showRevokeDialog"
       :title="t('admin.subscriptions.revokeSubscription')"
       :message="t('admin.subscriptions.revokeConfirm', { user: revokingSubscription?.user?.email })"
@@ -656,7 +434,7 @@
     />
 
     <!-- Restore Confirmation Dialog -->
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showRestoreDialog"
       :title="t('admin.subscriptions.restoreSubscription')"
       :message="t('admin.subscriptions.restoreConfirm', { user: restoringSubscription?.user?.email })"
@@ -667,7 +445,7 @@
     />
 
     <!-- Reset Quota Confirmation Dialog -->
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showResetQuotaConfirm"
       :title="t('admin.subscriptions.resetQuotaTitle')"
       :message="t('admin.subscriptions.resetQuotaConfirm', { user: resettingSubscription?.user?.email })"
@@ -676,85 +454,47 @@
       @confirm="confirmResetQuota"
       @cancel="showResetQuotaConfirm = false"
     />
-    <!-- Subscription Guide Modal -->
-    <teleport to="body">
-      <transition name="modal">
-        <div v-if="showGuideModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" @mousedown.self="showGuideModal = false">
-          <div class="fixed inset-0 bg-black/50" @click="showGuideModal = false"></div>
-          <div class="relative max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-2xl dark:bg-dark-800">
-            <button type="button" class="absolute right-4 top-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" @click="showGuideModal = false">
-              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-
-            <h2 class="mb-4 text-lg font-bold text-gray-900 dark:text-white">{{ t('admin.subscriptions.guide.title') }}</h2>
-            <p class="mb-5 text-sm text-gray-500 dark:text-gray-400">{{ t('admin.subscriptions.guide.subtitle') }}</p>
-
-            <!-- Step 1 -->
-            <div class="mb-5">
-              <h3 class="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">1</span>
-                {{ t('admin.subscriptions.guide.step1.title') }}
-              </h3>
-              <ol class="ml-8 list-decimal space-y-1 text-sm text-gray-600 dark:text-gray-300">
-                <li>{{ t('admin.subscriptions.guide.step1.line1') }}</li>
-                <li>{{ t('admin.subscriptions.guide.step1.line2') }}</li>
-                <li>{{ t('admin.subscriptions.guide.step1.line3') }}</li>
-              </ol>
-              <div class="ml-8 mt-2">
-                <router-link
-                  to="/admin/orders/plans"
-                  @click="showGuideModal = false"
-                  class="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
-                >
-                  {{ t('admin.subscriptions.guide.step1.link') }}
-                  <Icon name="arrowRight" size="xs" />
-                </router-link>
-              </div>
-            </div>
-
-            <!-- Step 2 -->
-            <div class="mb-5">
-              <h3 class="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">2</span>
-                {{ t('admin.subscriptions.guide.step2.title') }}
-              </h3>
-              <ol class="ml-8 list-decimal space-y-1 text-sm text-gray-600 dark:text-gray-300">
-                <li>{{ t('admin.subscriptions.guide.step2.line1') }}</li>
-                <li>{{ t('admin.subscriptions.guide.step2.line2') }}</li>
-                <li>{{ t('admin.subscriptions.guide.step2.line3') }}</li>
-              </ol>
-            </div>
-
-            <!-- Step 3 -->
-            <div class="mb-5">
-              <h3 class="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">3</span>
-                {{ t('admin.subscriptions.guide.step3.title') }}
-              </h3>
-              <div class="ml-8 overflow-hidden rounded-lg border border-gray-200 dark:border-dark-600">
-                <table class="w-full text-sm">
-                  <tbody>
-                    <tr v-for="(row, i) in guideActionRows" :key="i" class="border-b border-gray-100 dark:border-dark-700 last:border-0">
-                      <td class="whitespace-nowrap bg-gray-50 px-3 py-2 font-medium text-gray-700 dark:bg-dark-700 dark:text-gray-300">{{ row.action }}</td>
-                      <td class="px-3 py-2 text-gray-600 dark:text-gray-400">{{ row.desc }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- Tip -->
-            <div class="rounded-lg bg-blue-50 p-3 text-xs text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
-              {{ t('admin.subscriptions.guide.tip') }}
-            </div>
-
-            <div class="mt-4 text-right">
-              <button type="button" class="btn btn-primary btn-sm" @click="showGuideModal = false">{{ t('common.close') }}</button>
-            </div>
-          </div>
-        </div>
-      </transition>
-    </teleport>
+    <UiDialog
+      :show="showGuideModal"
+      :title="t('admin.subscriptions.guide.title')"
+      :close-label="t('common.close')"
+      :close-on-click-outside="true"
+      width="wide"
+      @close="showGuideModal = false"
+    >
+      <div class="subscription-guide">
+        <p class="subscription-guide__intro">{{ t('admin.subscriptions.guide.subtitle') }}</p>
+        <section class="subscription-guide__step">
+          <h3>{{ t('admin.subscriptions.guide.step1.title') }}</h3>
+          <ul>
+            <li>{{ t('admin.subscriptions.guide.step1.line1') }}</li>
+            <li>{{ t('admin.subscriptions.guide.step1.line2') }}</li>
+            <li>{{ t('admin.subscriptions.guide.step1.line3') }}</li>
+          </ul>
+          <UiLink to="/admin/orders/plans" @click="showGuideModal = false">
+            {{ t('admin.subscriptions.guide.step1.link') }}
+          </UiLink>
+        </section>
+        <section class="subscription-guide__step">
+          <h3>{{ t('admin.subscriptions.guide.step2.title') }}</h3>
+          <ul>
+            <li>{{ t('admin.subscriptions.guide.step2.line1') }}</li>
+            <li>{{ t('admin.subscriptions.guide.step2.line2') }}</li>
+            <li>{{ t('admin.subscriptions.guide.step2.line3') }}</li>
+          </ul>
+        </section>
+        <section class="subscription-guide__step">
+          <h3>{{ t('admin.subscriptions.guide.step3.title') }}</h3>
+          <UiDescriptionList :items="guideDescriptionItems" :columns="1" />
+        </section>
+        <UiAlert tone="info">{{ t('admin.subscriptions.guide.tip') }}</UiAlert>
+      </div>
+      <template #footer>
+        <UiButton type="button" variant="primary" density="compact" @click="showGuideModal = false">
+          {{ t('common.close') }}
+        </UiButton>
+      </template>
+    </UiDialog>
   </AppLayout>
 </template>
 
@@ -766,18 +506,37 @@ import { adminAPI } from '@/api/admin'
 import type { UserSubscription, Group } from '@/types'
 import type { SubscriptionPlan } from '@/types/payment'
 import type { SimpleUser } from '@/api/admin/usage'
-import type { Column } from '@/components/common/types'
 import { formatDateTimeToMinute } from '@/utils/format'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import TablePageLayout from '@/components/layout/TablePageLayout.vue'
-import DataTable from '@/components/common/DataTable.vue'
-import Pagination from '@/components/common/Pagination.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
-import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  AppPage,
+  AppPageHeader,
+  UiAlert,
+  UiAsyncEntityPicker,
+  UiAvatar,
+  UiBadge,
+  UiButton,
+  UiColumnPicker,
+  UiConfirmDialog,
+  UiDataTable,
+  UiDescriptionList,
+  UiDialog,
+  UiEmptyState,
+  UiIconButton,
+  UiLink,
+  UiNumberStepper,
+  UiPagination,
+  UiProgressBar,
+  UiSegmentedControl,
+  UiServerTableWorkspace,
+  UiSelect,
+  UiStatusBadge,
+  UiTableToolbar,
+  UiTextField,
+} from '@/components/ui'
+import type { Column, UiEntityOption } from '@/components/ui'
 import { getRemainingExpiryDuration } from '@/utils/subscriptionQuota'
 
 const { t } = useI18n()
@@ -793,10 +552,10 @@ interface PlanOption {
 // Guide modal state
 const showGuideModal = ref(false)
 
-const guideActionRows = computed(() => [
-  { action: t('admin.subscriptions.guide.actions.adjust'), desc: t('admin.subscriptions.guide.actions.adjustDesc') },
-  { action: t('admin.subscriptions.guide.actions.resetQuota'), desc: t('admin.subscriptions.guide.actions.resetQuotaDesc') },
-  { action: t('admin.subscriptions.guide.actions.revoke'), desc: t('admin.subscriptions.guide.actions.revokeDesc') }
+const guideDescriptionItems = computed(() => [
+  { key: 'adjust', label: t('admin.subscriptions.guide.actions.adjust'), value: t('admin.subscriptions.guide.actions.adjustDesc') },
+  { key: 'reset', label: t('admin.subscriptions.guide.actions.resetQuota'), value: t('admin.subscriptions.guide.actions.resetQuotaDesc') },
+  { key: 'revoke', label: t('admin.subscriptions.guide.actions.revoke'), value: t('admin.subscriptions.guide.actions.revokeDesc') }
 ])
 
 // User column display mode: 'email' or 'username'
@@ -826,6 +585,11 @@ const setUserColumnMode = (mode: 'email' | 'username') => {
   userColumnMode.value = mode
   saveUserColumnMode()
 }
+
+const userColumnModeOptions = computed(() => [
+  { value: 'email', label: t('admin.users.columns.email') },
+  { value: 'username', label: t('admin.users.columns.username') }
+])
 
 // All available columns
 const allColumns = computed<Column[]>(() => [
@@ -882,19 +646,6 @@ const saveColumnsToStorage = () => {
   }
 }
 
-// Toggle column visibility
-const toggleColumn = (key: string) => {
-  if (hiddenColumns.has(key)) {
-    hiddenColumns.delete(key)
-  } else {
-    hiddenColumns.add(key)
-  }
-  saveColumnsToStorage()
-}
-
-// Check if column is visible
-const isColumnVisible = (key: string) => !hiddenColumns.has(key)
-
 // Filtered columns for display
 const columns = computed<Column[]>(() =>
   allColumns.value.filter(col =>
@@ -902,9 +653,22 @@ const columns = computed<Column[]>(() =>
   )
 )
 
-// Column dropdown state
-const showColumnDropdown = ref(false)
-const columnDropdownRef = ref<HTMLElement | null>(null)
+const visibleColumnKeys = computed(() => columns.value.map(column => column.key))
+
+const columnPickerColumns = computed(() => allColumns.value.map(column => ({
+  key: column.key,
+  label: column.label,
+  required: column.key === 'user' || column.key === 'actions'
+})))
+
+const updateVisibleColumns = (keys: string[]) => {
+  const selected = new Set(keys)
+  toggleableColumns.value.forEach(column => {
+    if (selected.has(column.key)) hiddenColumns.delete(column.key)
+    else hiddenColumns.add(column.key)
+  })
+  saveColumnsToStorage()
+}
 
 // Filter options
 const statusOptions = computed(() => [
@@ -924,17 +688,17 @@ let abortController: AbortController | null = null
 const filterUserKeyword = ref('')
 const filterUserResults = ref<SimpleUser[]>([])
 const filterUserLoading = ref(false)
-const showFilterUserDropdown = ref(false)
 const selectedFilterUser = ref<SimpleUser | null>(null)
 let filterUserSearchTimeout: ReturnType<typeof setTimeout> | null = null
+let filterUserSearchSequence = 0
 
 // User search state
 const userSearchKeyword = ref('')
 const userSearchResults = ref<SimpleUser[]>([])
 const userSearchLoading = ref(false)
-const showUserDropdown = ref(false)
 const selectedUser = ref<SimpleUser | null>(null)
 let userSearchTimeout: ReturnType<typeof setTimeout> | null = null
+let userSearchSequence = 0
 
 const filters = reactive({
   status: 'active',
@@ -944,6 +708,15 @@ const filters = reactive({
 })
 const advancedFiltersExpanded = ref(false)
 const advancedFilterCount = computed(() => [filters.group_id, filters.platform].filter(Boolean).length)
+
+const toUserOption = (user: SimpleUser): UiEntityOption => ({
+  value: user.id,
+  label: user.email,
+  description: `#${user.id}${user.deleted ? ' · deleted' : ''}`
+})
+
+const filterUserOptions = computed(() => filterUserResults.value.map(toUserOption))
+const assignUserOptions = computed(() => userSearchResults.value.map(toUserOption))
 
 // Sorting state
 const sortState = reactive({
@@ -978,6 +751,22 @@ const assignForm = reactive({
 
 const extendForm = reactive({
   days: 30
+})
+
+const extendSummaryItems = computed(() => {
+  const subscription = extendingSubscription.value
+  if (!subscription) return []
+  return [
+    { key: 'user', label: t('admin.subscriptions.adjustingFor'), value: subscription.user?.email || `#${subscription.user_id}` },
+    {
+      key: 'expiration',
+      label: t('admin.subscriptions.currentExpiration'),
+      value: subscription.expires_at ? formatDateTimeToMinute(subscription.expires_at) : t('admin.subscriptions.noExpiration'),
+    },
+    ...(subscription.expires_at
+      ? [{ key: 'remaining', label: t('admin.subscriptions.remainingDays'), value: String(getDaysRemaining(subscription.expires_at) ?? 0), numeric: true }]
+      : []),
+  ]
 })
 
 // Group options for filter (all groups)
@@ -1069,101 +858,136 @@ const loadPlans = async () => {
   }
 }
 
-// Toolbar user filter search with debounce
-const debounceSearchFilterUsers = () => {
-  if (filterUserSearchTimeout) {
-    clearTimeout(filterUserSearchTimeout)
-  }
-  filterUserSearchTimeout = setTimeout(searchFilterUsers, 300)
-}
+const handleFilterUserSearch = (value: string) => {
+  filterUserKeyword.value = value
+  const keyword = value.trim()
 
-const searchFilterUsers = async () => {
-  const keyword = filterUserKeyword.value.trim()
-
-  // Clear active user filter if user modified the search keyword
   if (selectedFilterUser.value && keyword !== selectedFilterUser.value.email) {
     selectedFilterUser.value = null
     filters.user_id = null
     applyFilters()
   }
 
+  if (filterUserSearchTimeout) {
+    clearTimeout(filterUserSearchTimeout)
+  }
+  filterUserSearchSequence += 1
   if (!keyword) {
     filterUserResults.value = []
+    filterUserLoading.value = false
     return
   }
+  filterUserSearchTimeout = setTimeout(searchFilterUsers, 300)
+}
 
+const searchFilterUsers = async () => {
+  const keyword = filterUserKeyword.value.trim()
+  if (!keyword) return
+  const sequence = ++filterUserSearchSequence
   filterUserLoading.value = true
   try {
-    filterUserResults.value = await adminAPI.usage.searchUsers(keyword)
+    const results = await adminAPI.usage.searchUsers(keyword)
+    if (sequence !== filterUserSearchSequence) return
+    filterUserResults.value = results
   } catch (error) {
+    if (sequence !== filterUserSearchSequence) return
     console.error('Failed to search users:', error)
     filterUserResults.value = []
   } finally {
-    filterUserLoading.value = false
+    if (sequence === filterUserSearchSequence) filterUserLoading.value = false
   }
 }
 
 const selectFilterUser = (user: SimpleUser) => {
   selectedFilterUser.value = user
   filterUserKeyword.value = user.email
-  showFilterUserDropdown.value = false
   filters.user_id = user.id
+  filterUserSearchSequence += 1
   applyFilters()
 }
 
+const handleFilterUserSelect = (option: UiEntityOption) => {
+  const user = filterUserResults.value.find(item => item.id === Number(option.value))
+  if (user) selectFilterUser(user)
+}
+
+const handleFilterUserValue = (value: string | number | null) => {
+  if (value == null && (selectedFilterUser.value || filters.user_id != null)) clearFilterUser()
+}
+
 const clearFilterUser = () => {
+  filterUserSearchSequence += 1
+  if (filterUserSearchTimeout) clearTimeout(filterUserSearchTimeout)
   selectedFilterUser.value = null
   filterUserKeyword.value = ''
   filterUserResults.value = []
-  showFilterUserDropdown.value = false
+  filterUserLoading.value = false
   filters.user_id = null
   applyFilters()
 }
 
-// User search with debounce
-const debounceSearchUsers = () => {
+const handleAssignUserSearch = (value: string) => {
+  userSearchKeyword.value = value
+  const keyword = value.trim()
+
+  if (selectedUser.value && keyword !== selectedUser.value.email) {
+    selectedUser.value = null
+    assignForm.user_id = null
+  }
+
   if (userSearchTimeout) {
     clearTimeout(userSearchTimeout)
+  }
+  userSearchSequence += 1
+  if (!keyword) {
+    userSearchResults.value = []
+    userSearchLoading.value = false
+    return
   }
   userSearchTimeout = setTimeout(searchUsers, 300)
 }
 
 const searchUsers = async () => {
   const keyword = userSearchKeyword.value.trim()
-
-  // Clear selection if user modified the search keyword
-  if (selectedUser.value && keyword !== selectedUser.value.email) {
-    selectedUser.value = null
-    assignForm.user_id = null
-  }
-
-  if (!keyword) {
-    userSearchResults.value = []
-    return
-  }
-
+  if (!keyword) return
+  const sequence = ++userSearchSequence
   userSearchLoading.value = true
   try {
-    userSearchResults.value = await adminAPI.usage.searchUsers(keyword)
+    const results = await adminAPI.usage.searchUsers(keyword)
+    if (sequence !== userSearchSequence) return
+    userSearchResults.value = results
   } catch (error) {
+    if (sequence !== userSearchSequence) return
     console.error('Failed to search users:', error)
     userSearchResults.value = []
   } finally {
-    userSearchLoading.value = false
+    if (sequence === userSearchSequence) userSearchLoading.value = false
   }
 }
 
 const selectUser = (user: SimpleUser) => {
   selectedUser.value = user
   userSearchKeyword.value = user.email
-  showUserDropdown.value = false
   assignForm.user_id = user.id
+  userSearchSequence += 1
+}
+
+const handleAssignUserSelect = (option: UiEntityOption) => {
+  const user = userSearchResults.value.find(item => item.id === Number(option.value))
+  if (user) selectUser(user)
+}
+
+const handleAssignUserValue = (value: string | number | null) => {
+  if (value == null && (selectedUser.value || assignForm.user_id != null)) clearUserSelection()
 }
 
 const clearUserSelection = () => {
+  userSearchSequence += 1
+  if (userSearchTimeout) clearTimeout(userSearchTimeout)
   selectedUser.value = null
   userSearchKeyword.value = ''
   userSearchResults.value = []
+  userSearchLoading.value = false
   assignForm.user_id = null
 }
 
@@ -1194,7 +1018,8 @@ const closeAssignModal = () => {
   selectedUser.value = null
   userSearchKeyword.value = ''
   userSearchResults.value = []
-  showUserDropdown.value = false
+  userSearchLoading.value = false
+  userSearchSequence += 1
 }
 
 const handleAssignSubscription = async () => {
@@ -1233,6 +1058,11 @@ const handleExtend = (subscription: UserSubscription) => {
   extendingSubscription.value = subscription
   extendForm.days = 30
   showExtendModal.value = true
+}
+
+const setExtendDays = (value: string) => {
+  const days = Number(value)
+  extendForm.days = Number.isFinite(days) ? days : 0
 }
 
 const closeExtendModal = () => {
@@ -1361,20 +1191,33 @@ const isExpiringSoon = (expiresAt: string): boolean => {
   return days !== null && days <= 7
 }
 
-const getProgressWidth = (used: number | null | undefined, limit: number | null): string => {
-  if (!limit || limit === 0) return '0%'
-  const usedValue = used ?? 0
-  const percentage = Math.min((usedValue / limit) * 100, 100)
-  return `${percentage}%`
+const getUserDisplayName = (subscription: UserSubscription): string => {
+  if (userColumnMode.value === 'username') return subscription.user?.username || '-'
+  return subscription.user?.email || t('admin.redeem.userPrefix', { id: subscription.user_id })
 }
 
-const getProgressClass = (used: number | null | undefined, limit: number | null): string => {
-  if (!limit || limit === 0) return 'bg-gray-400'
+const getProgressPercent = (used: number | null | undefined, limit: number | null): number => {
+  if (!limit || limit === 0) return 0
   const usedValue = used ?? 0
-  const percentage = (usedValue / limit) * 100
-  if (percentage >= 90) return 'bg-red-500'
-  if (percentage >= 70) return 'bg-orange-500'
-  return 'bg-green-500'
+  return Math.min((usedValue / limit) * 100, 100)
+}
+
+const getProgressTone = (
+  used: number | null | undefined,
+  limit: number | null
+): 'neutral' | 'success' | 'warning' | 'danger' => {
+  if (!limit || limit === 0) return 'neutral'
+  const percentage = ((used ?? 0) / limit) * 100
+  if (percentage >= 90) return 'danger'
+  if (percentage >= 70) return 'warning'
+  return 'success'
+}
+
+const getSubscriptionStatusTone = (status: string): string => {
+  if (status === 'active') return 'active'
+  if (status === 'expired') return 'warning'
+  if (status === 'revoked') return 'danger'
+  return status
 }
 
 const getCycleCommitted = (subscription: UserSubscription): number =>
@@ -1396,27 +1239,18 @@ const formatCycleInterval = (seconds: number): string => {
   return t('admin.subscriptions.resetEveryDays', { days })
 }
 
-// Handle click outside to close dropdowns
-const handleClickOutside = (event: MouseEvent) => {
-  const target = event.target as HTMLElement
-  if (!target.closest('[data-assign-user-search]')) showUserDropdown.value = false
-  if (!target.closest('[data-filter-user-search]')) showFilterUserDropdown.value = false
-  if (columnDropdownRef.value && !columnDropdownRef.value.contains(target)) {
-    showColumnDropdown.value = false
-  }
-}
-
 onMounted(() => {
   loadUserColumnMode()
   loadSavedColumns()
   loadSubscriptions()
   loadGroups()
   loadPlans()
-  document.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
+  abortController?.abort()
+  filterUserSearchSequence += 1
+  userSearchSequence += 1
   if (filterUserSearchTimeout) {
     clearTimeout(filterUserSearchTimeout)
   }
@@ -1427,19 +1261,246 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.usage-row {
-  @apply space-y-1;
+.subscriptions-header {
+  margin-bottom: 16px;
 }
 
-.usage-label {
-  @apply w-10 flex-shrink-0 text-xs font-medium text-gray-500 dark:text-gray-400;
+.subscriptions-workspace {
+  min-width: 0;
 }
 
-.usage-amount {
-  @apply whitespace-nowrap text-xs tabular-nums text-gray-600 dark:text-gray-300;
+.subscription-toolbar__filters {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: flex-end;
+  gap: 8px;
 }
 
-.reset-info {
-  @apply flex items-center gap-1 pl-12 text-[10px] text-blue-600 dark:text-blue-400;
+.subscription-toolbar__filters > :first-child {
+  width: min(280px, 32vw);
+}
+
+.subscription-toolbar__filters > :nth-child(2) {
+  width: 156px;
+}
+
+.subscription-advanced-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 240px));
+  gap: 10px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--ui-border-soft);
+  background: var(--ui-surface-muted);
+}
+
+.subscription-user-cell {
+  display: flex;
+  min-width: 180px;
+  align-items: center;
+  gap: 9px;
+}
+
+.subscription-user-cell > div {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.subscription-user-cell strong,
+.subscription-plan-cell > p {
+  margin: 0;
+  overflow: hidden;
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subscription-user-cell span,
+.subscription-plan-cell__empty,
+.subscription-muted {
+  color: var(--ui-text-soft);
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.subscription-plan-cell {
+  width: min(320px, 30vw);
+  min-width: 220px;
+}
+
+.subscription-plan-cell__groups {
+  display: flex;
+  max-height: 48px;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+  overflow: hidden;
+}
+
+.subscription-quota-cell {
+  width: min(360px, 34vw);
+  min-width: 280px;
+}
+
+.subscription-quota-list,
+.subscription-dialog-form,
+.subscription-guide {
+  display: grid;
+  gap: 14px;
+}
+
+.subscription-quota {
+  display: grid;
+  gap: 5px;
+}
+
+.subscription-quota__summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.subscription-quota__summary strong {
+  flex: none;
+  color: var(--ui-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.subscription-quota__meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ui-text-soft);
+  font-size: 10px;
+  line-height: 15px;
+}
+
+.subscription-expiry {
+  display: grid;
+  gap: 2px;
+  min-width: 128px;
+}
+
+.subscription-expiry strong {
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.subscription-expiry span {
+  color: var(--ui-text-soft);
+  font-size: 11px;
+}
+
+.subscription-expiry.is-soon strong,
+.subscription-expiry.is-soon span {
+  color: var(--ui-warning);
+}
+
+.subscription-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.subscription-plan-option {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.subscription-plan-option strong {
+  overflow: hidden;
+  color: var(--ui-text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subscription-plan-option span {
+  overflow: hidden;
+  color: var(--ui-text-soft);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subscription-guide__intro {
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: 13px;
+  line-height: 21px;
+}
+
+.subscription-guide__step {
+  display: grid;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ui-border-soft);
+}
+
+.subscription-guide__step h3 {
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.subscription-guide__step ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  line-height: 19px;
+}
+
+@media (max-width: 900px) {
+  .subscription-toolbar__filters {
+    flex-wrap: wrap;
+  }
+
+  .subscription-toolbar__filters > :first-child {
+    width: min(100%, 320px);
+  }
+
+  .subscription-plan-cell,
+  .subscription-quota-cell {
+    width: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .subscription-toolbar__filters,
+  .subscription-toolbar__filters > :first-child,
+  .subscription-toolbar__filters > :nth-child(2) {
+    width: 100%;
+  }
+
+  .subscription-advanced-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .subscription-quota-cell {
+    min-width: 260px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .subscription-quota-cell * {
+    transition: none;
+  }
 }
 </style>
