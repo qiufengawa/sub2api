@@ -140,8 +140,8 @@ function mountDialog({
     },
     global: {
       stubs: {
-        BaseDialog: BaseDialogStub,
-        Select: SelectStub,
+        UiDialog: BaseDialogStub,
+        UiSelect: SelectStub,
         Icon: true,
         GroupBadge: true,
       },

@@ -1,144 +1,100 @@
 <template>
-  <BaseDialog :show="show" :title="plan ? t('payment.admin.editPlan') : t('payment.admin.createPlan')" width="wide" @close="emit('close')">
-    <form id="plan-form" @submit.prevent="handleSavePlan" class="space-y-4">
+  <UiDialog :show="show" :title="plan ? t('payment.admin.editPlan') : t('payment.admin.createPlan')" width="wide" @close="emit('close')">
+    <form id="plan-form" class="plan-form" @submit.prevent="handleSavePlan">
       <div data-testid="plan-primary-fields">
-        <div>
-          <label class="input-label">{{ t('payment.admin.planName') }} <span class="text-red-500">*</span></label>
-          <input v-model="planForm.name" type="text" class="input" required />
-        </div>
+        <UiTextField v-model="planForm.name" :label="t('payment.admin.planName')" required />
       </div>
 
-	  <section class="border-y border-gray-100 py-4 dark:border-dark-700" data-testid="plan-included-groups">
-		<div class="mb-3">
-		  <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('payment.admin.includedGroups') }} <span class="text-red-500">*</span></h3>
-		  <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.includedGroupsHint') }}</p>
+	  <section class="plan-form__section" data-testid="plan-included-groups">
+		<div class="plan-form__section-heading">
+		  <h3>{{ t('payment.admin.includedGroups') }}</h3>
+		  <p>{{ t('payment.admin.includedGroupsHint') }}</p>
 		</div>
-		<div class="max-h-52 divide-y divide-gray-100 overflow-y-auto border-y border-gray-100 dark:divide-dark-700 dark:border-dark-700">
-		  <label
+		<div class="plan-form__group-list">
+		  <UiCheckbox
 			v-for="group in includedGroupOptions"
 			:key="group.id"
-			class="flex cursor-pointer items-center gap-3 py-2.5"
+			:model-value="isIncludedGroup(group.id)"
+			@update:model-value="toggleIncludedGroup(group.id)"
 		  >
-			<input
-			  type="checkbox"
-			  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-			  :checked="isIncludedGroup(group.id)"
-			  @change="toggleIncludedGroup(group.id)"
-			/>
 			<GroupBadge :name="group.name" :platform="group.platform" :rate-multiplier="group.rate_multiplier" />
-		  </label>
-		  <p v-if="includedGroupOptions.length === 0" class="py-3 text-sm text-gray-500 dark:text-gray-400">{{ t('common.noGroupsAvailable') }}</p>
+		  </UiCheckbox>
+		  <p v-if="includedGroupOptions.length === 0" class="plan-form__empty">{{ t('common.noGroupsAvailable') }}</p>
 		</div>
 	  </section>
 
-	  <div class="flex items-center justify-between gap-4 border-b border-gray-100 pb-4 dark:border-dark-700">
-		<div class="min-w-0">
-		  <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('payment.admin.walletFallback') }}</p>
-		  <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.walletFallbackHint') }}</p>
-		</div>
-		<button
-		  type="button"
-		  :aria-pressed="planForm.wallet_fallback_enabled"
-		  :class="[
-			'relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-			planForm.wallet_fallback_enabled ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-600'
-		  ]"
-		  @click="planForm.wallet_fallback_enabled = !planForm.wallet_fallback_enabled"
-		>
-		  <span :class="['pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform', planForm.wallet_fallback_enabled ? 'translate-x-5' : 'translate-x-0']" />
-		</button>
+	  <div class="plan-form__switch-row">
+		<div><p class="plan-form__switch-title">{{ t('payment.admin.walletFallback') }}</p><p class="plan-form__hint">{{ t('payment.admin.walletFallbackHint') }}</p></div>
+		<UiSwitch v-model="planForm.wallet_fallback_enabled" :label="t('payment.admin.walletFallback')" />
 	  </div>
 
-	  <label v-if="removesIncludedGroups && affectedSubscriptions !== null" class="flex items-start gap-2 border-l-2 border-orange-400 bg-orange-50/70 px-3 py-2 text-xs text-orange-800 dark:bg-orange-500/10 dark:text-orange-200">
-		<input v-model="confirmGroupRemoval" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500" />
-		<span>{{ t('payment.admin.confirmGroupRemovalAffected', { count: affectedSubscriptions }) }}</span>
-	  </label>
-	  <p v-else-if="removesIncludedGroups" class="border-l-2 border-orange-400 px-3 py-1 text-xs text-orange-700 dark:text-orange-300">
+	  <UiCheckbox v-if="removesIncludedGroups && affectedSubscriptions !== null" v-model="confirmGroupRemoval" :label="t('payment.admin.confirmGroupRemovalAffected', { count: affectedSubscriptions })" />
+	  <p v-else-if="removesIncludedGroups" class="plan-form__warning">
 		{{ t('payment.admin.groupRemovalImpactCheck') }}
 	  </p>
 
-      <div><label class="input-label">{{ t('payment.admin.planDescription') }} <span class="text-red-500">*</span></label><textarea v-model="planForm.description" rows="2" class="input" required></textarea></div>
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <UiTextArea v-model="planForm.description" :label="t('payment.admin.planDescription')" :rows="2" required />
+      <div class="plan-form__grid">
         <div>
-          <label class="input-label">{{ t('payment.admin.price') }} <span class="text-red-500">*</span></label>
-          <input v-model.number="planForm.price" type="number" step="0.01" min="0.01" class="input" required />
-          <p v-if="subscriptionCnyPreview" class="mt-1 text-xs font-medium text-primary-600 dark:text-primary-400">
+          <UiTextField :model-value="planForm.price" :label="t('payment.admin.price')" type="number" step="0.01" min="0.01" required @update:model-value="setNumeric('price', $event)" />
+          <p v-if="subscriptionCnyPreview" class="plan-form__preview">
             {{ t('payment.admin.subscriptionCnyPayPreview', { amount: subscriptionCnyPreview.amount }) }}
             <span v-if="subscriptionCnyPreview.feeRate > 0">
               {{ t('payment.admin.subscriptionCnyPayPreviewWithFee', { feeRate: subscriptionCnyPreview.feeRate, total: subscriptionCnyPreview.total }) }}
             </span>
           </p>
         </div>
-        <div><label class="input-label">{{ t('payment.admin.originalPrice') }}</label><input v-model.number="planForm.original_price" type="number" step="0.01" min="0" class="input" /></div>
+        <UiTextField :model-value="planForm.original_price" :label="t('payment.admin.originalPrice')" type="number" step="0.01" min="0" @update:model-value="setNumeric('original_price', $event)" />
       </div>
-	  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2" data-testid="plan-cycle-fields">
+	  <div class="plan-form__grid" data-testid="plan-cycle-fields">
 		<div>
-		  <label class="input-label">{{ t('payment.admin.fiveHourQuota') }}</label>
-		  <input v-model.number="planForm.five_hour_quota_usd" type="number" step="0.0001" min="0" class="input" />
-		  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.fiveHourQuotaHint') }}</p>
+		  <UiTextField :model-value="planForm.five_hour_quota_usd ?? ''" :label="t('payment.admin.fiveHourQuota')" type="number" step="0.0001" min="0" @update:model-value="setNumericNullable('five_hour_quota_usd', $event)" />
+		  <p class="plan-form__hint">{{ t('payment.admin.fiveHourQuotaHint') }}</p>
 		</div>
 		<div>
-		  <label class="input-label">{{ t('payment.admin.cycleQuota') }}</label>
-		  <input v-model.number="planForm.cycle_quota_usd" type="number" step="0.0001" min="0" class="input" />
-		  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.cycleQuotaHint') }}</p>
+		  <UiTextField :model-value="planForm.cycle_quota_usd ?? ''" :label="t('payment.admin.cycleQuota')" type="number" step="0.0001" min="0" @update:model-value="setNumericNullable('cycle_quota_usd', $event)" />
+		  <p class="plan-form__hint">{{ t('payment.admin.cycleQuotaHint') }}</p>
 		</div>
 		<div>
-		  <label class="input-label">{{ t('payment.admin.resetIntervalDays') }}</label>
-		  <input v-model.number="planForm.reset_interval_days" type="number" step="0.01" min="0.01" class="input" :disabled="Number(planForm.cycle_quota_usd) <= 0" />
-		  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.resetIntervalHint') }}</p>
+		  <UiTextField :model-value="planForm.reset_interval_days" :label="t('payment.admin.resetIntervalDays')" type="number" step="0.01" min="0.01" :disabled="Number(planForm.cycle_quota_usd) <= 0" @update:model-value="setNumeric('reset_interval_days', $event)" />
+		  <p class="plan-form__hint">{{ t('payment.admin.resetIntervalHint') }}</p>
 		</div>
 		<div>
-		  <label class="input-label">{{ t('payment.admin.totalQuota') }}</label>
-		  <input v-model.number="planForm.total_quota_usd" type="number" step="0.0001" min="0" class="input" />
-		  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.totalQuotaHint') }}</p>
+		  <UiTextField :model-value="planForm.total_quota_usd ?? ''" :label="t('payment.admin.totalQuota')" type="number" step="0.0001" min="0" @update:model-value="setNumericNullable('total_quota_usd', $event)" />
+		  <p class="plan-form__hint">{{ t('payment.admin.totalQuotaHint') }}</p>
 		</div>
 	  </div>
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div><label class="input-label">{{ t('payment.admin.validity') }} <span class="text-red-500">*</span></label><input v-model.number="planForm.validity_days" type="number" min="1" class="input" required /></div>
-        <div><label class="input-label">{{ t('payment.admin.validityUnit') }} <span class="text-red-500">*</span></label><Select v-model="planForm.validity_unit" :options="validityUnitOptions" /></div>
+      <div class="plan-form__grid">
+        <UiTextField :model-value="planForm.validity_days" :label="t('payment.admin.validity')" type="number" min="1" required @update:model-value="setNumeric('validity_days', $event)" />
+        <UiSelect v-model="planForm.validity_unit" :label="t('payment.admin.validityUnit')" :options="validityUnitOptions" required />
       </div>
 	  <div>
-		<label class="input-label">{{ t('payment.admin.maxSubscriptionsPerUser') }} <span class="text-red-500">*</span></label>
-		<input v-model="planForm.max_subscriptions_per_user" type="text" inputmode="numeric" pattern="[1-9][0-9]*" class="input" required />
-		<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.maxSubscriptionsPerUserHint') }}</p>
+		<UiTextField v-model="planForm.max_subscriptions_per_user" :label="t('payment.admin.maxSubscriptionsPerUser')" inputmode="numeric" required />
+		<p class="plan-form__hint">{{ t('payment.admin.maxSubscriptionsPerUserHint') }}</p>
 	  </div>
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div><label class="input-label">{{ t('payment.admin.sortOrder') }}</label><input v-model.number="planForm.sort_order" type="number" min="0" class="input" /></div>
+      <div class="plan-form__grid">
+        <UiTextField :model-value="planForm.sort_order" :label="t('payment.admin.sortOrder')" type="number" min="0" @update:model-value="setNumeric('sort_order', $event)" />
         <div>
-          <label class="input-label">{{ t('payment.admin.currency') }}</label>
-          <input v-model="planForm.currency" type="text" maxlength="3" class="input uppercase" :placeholder="t('payment.admin.currencyPlaceholder')" />
-          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.currencyHint') }}</p>
+          <UiTextField v-model="planForm.currency" :label="t('payment.admin.currency')" :maxlength="3" :placeholder="t('payment.admin.currencyPlaceholder')" />
+		  <p class="plan-form__hint">{{ t('payment.admin.currencyHint') }}</p>
         </div>
       </div>
       <div>
-        <label class="input-label">{{ t('payment.admin.features') }}</label>
-        <textarea v-model="planFeaturesText" rows="3" class="input" :placeholder="t('payment.admin.featuresPlaceholder')"></textarea>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.featuresHint') }}</p>
+        <UiTextArea v-model="planFeaturesText" :label="t('payment.admin.features')" :rows="3" :placeholder="t('payment.admin.featuresPlaceholder')" />
+		<p class="plan-form__hint">{{ t('payment.admin.featuresHint') }}</p>
       </div>
-      <div class="flex items-center gap-3">
-        <label class="text-sm text-gray-700 dark:text-gray-300">{{ t('payment.admin.forSale') }}</label>
-        <button
-          type="button"
-          :class="[
-            'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-            planForm.for_sale ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-600'
-          ]"
-          @click="planForm.for_sale = !planForm.for_sale"
-        >
-          <span :class="[
-            'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-            planForm.for_sale ? 'translate-x-5' : 'translate-x-0'
-          ]" />
-        </button>
+      <div class="plan-form__switch-row plan-form__switch-row--compact">
+		<span class="plan-form__switch-title">{{ t('payment.admin.forSale') }}</span>
+		<UiSwitch v-model="planForm.for_sale" :label="t('payment.admin.forSale')" />
       </div>
     </form>
     <template #footer>
-      <div class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
-        <button type="button" @click="emit('close')" class="btn btn-secondary w-full sm:w-auto">{{ t('common.cancel') }}</button>
-        <button type="submit" form="plan-form" :disabled="saving" class="btn btn-primary w-full sm:w-auto">{{ saving ? t('common.saving') : t('common.save') }}</button>
+      <div class="plan-form__footer">
+		<UiButton type="button" variant="secondary" @click="emit('close')">{{ t('common.cancel') }}</UiButton>
+		<UiButton type="submit" form="plan-form" variant="primary" :loading="saving">{{ saving ? t('common.saving') : t('common.save') }}</UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
@@ -151,9 +107,16 @@ import { extractApiErrorCode, extractApiErrorMessage, extractApiErrorMetadata } 
 import { formatPaymentAmount } from '@/components/payment/currency'
 import type { SubscriptionPlan } from '@/types/payment'
 import type { AdminGroup } from '@/types'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import Select from '@/components/common/Select.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
+import {
+  UiButton,
+  UiCheckbox,
+  UiDialog,
+  UiSelect,
+  UiSwitch,
+  UiTextArea,
+  UiTextField,
+} from '@/components/ui'
 
 const props = defineProps<{
   show: boolean
@@ -193,6 +156,23 @@ const planFeaturesText = ref('')
 const initialIncludedGroupIDs = ref<number[]>([])
 const confirmGroupRemoval = ref(false)
 const affectedSubscriptions = ref<number | null>(null)
+
+type NumericField = 'price' | 'original_price' | 'five_hour_quota_usd' | 'cycle_quota_usd' | 'total_quota_usd' | 'reset_interval_days' | 'validity_days' | 'sort_order'
+
+function setNumeric(field: NumericField, value: string | number): void {
+  const numeric = Number(value)
+  const form = planForm as unknown as Record<NumericField, number | null>
+  form[field] = Number.isFinite(numeric) ? numeric : 0
+}
+
+function setNumericNullable(field: 'five_hour_quota_usd' | 'cycle_quota_usd' | 'total_quota_usd', value: string | number): void {
+  if (value === '') {
+    planForm[field] = null
+    return
+  }
+  const numeric = Number(value)
+  planForm[field] = Number.isFinite(numeric) ? numeric : null
+}
 
 const validityUnitOptions = computed(() => [
   { value: 'days', label: t('payment.admin.days') },
@@ -379,3 +359,118 @@ async function handleSavePlan() {
   finally { saving.value = false }
 }
 </script>
+
+<style scoped>
+.plan-form {
+  display: grid;
+  gap: 16px;
+}
+
+.plan-form__section {
+  display: grid;
+  gap: 12px;
+  padding-block: 16px;
+  border-block: 1px solid var(--ui-border-soft);
+}
+
+.plan-form__section-heading h3,
+.plan-form__section-heading p,
+.plan-form__hint,
+.plan-form__preview {
+  margin: 0;
+}
+
+.plan-form__section-heading h3 {
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.plan-form__section-heading p,
+.plan-form__hint {
+  margin-top: 3px;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.plan-form__group-list {
+  display: grid;
+  max-height: 208px;
+  gap: 8px;
+  overflow-y: auto;
+  padding: 8px 0;
+  border-block: 1px solid var(--ui-border-soft);
+}
+
+.plan-form__empty {
+  margin: 0;
+  padding: 8px 0;
+  color: var(--ui-text-muted);
+  font-size: 13px;
+}
+
+.plan-form__switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--ui-border-soft);
+}
+
+.plan-form__switch-row--compact {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.plan-form__switch-title {
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.plan-form__warning {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--ui-warning);
+  color: var(--ui-warning);
+  background: color-mix(in srgb, var(--ui-warning) 8%, var(--ui-surface));
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.plan-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.plan-form__preview {
+  margin-top: 4px;
+  color: var(--ui-info);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.plan-form__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .plan-form__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .plan-form__footer {
+    flex-direction: column-reverse;
+  }
+
+  .plan-form__footer > * {
+    width: 100%;
+  }
+}
+</style>
