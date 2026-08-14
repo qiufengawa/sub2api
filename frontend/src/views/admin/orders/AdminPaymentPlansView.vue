@@ -8,25 +8,23 @@
             <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ t('payment.admin.plansPageDesc') }}</p>
           </div>
           <div class="flex flex-wrap items-center justify-end gap-2 self-stretch sm:self-auto">
-            <button type="button" @click="showImportDialog = true" class="btn btn-secondary whitespace-nowrap">
-              <Icon name="upload" size="sm" class="mr-1.5" />
+            <UiButton density="compact" variant="secondary" type="button" @click="showImportDialog = true">
+              <template #icon><Icon name="upload" size="sm" /></template>
               {{ t('payment.admin.catalogImport.openButton') }}
-            </button>
-            <button type="button" @click="downloadCatalogTemplate" :disabled="catalogTemplateDownloading" class="btn btn-secondary whitespace-nowrap">
-              <Icon :name="catalogTemplateDownloading ? 'refresh' : 'document'" size="sm" class="mr-1.5" :class="catalogTemplateDownloading ? 'animate-spin' : ''" />
+            </UiButton>
+            <UiButton density="compact" variant="secondary" type="button" :loading="catalogTemplateDownloading" :disabled="catalogTemplateDownloading" @click="downloadCatalogTemplate">
+              <template #icon><Icon :name="catalogTemplateDownloading ? 'refresh' : 'document'" size="sm" /></template>
               {{ t('payment.admin.catalogImport.downloadTemplate') }}
-            </button>
-            <button type="button" @click="exportCatalog" :disabled="catalogExporting" class="btn btn-secondary whitespace-nowrap">
-              <Icon :name="catalogExporting ? 'refresh' : 'download'" size="sm" class="mr-1.5" :class="catalogExporting ? 'animate-spin' : ''" />
+            </UiButton>
+            <UiButton density="compact" variant="secondary" type="button" :loading="catalogExporting" :disabled="catalogExporting" @click="exportCatalog">
+              <template #icon><Icon :name="catalogExporting ? 'refresh' : 'download'" size="sm" /></template>
               {{ t('payment.admin.catalogImport.exportCurrent') }}
-            </button>
-            <button type="button" @click="loadPlans" :disabled="plansLoading" class="btn btn-secondary btn-icon" :title="t('common.refresh')" :aria-label="t('common.refresh')">
-              <Icon name="refresh" size="md" :class="plansLoading ? 'animate-spin' : ''" />
-            </button>
-            <button type="button" @click="openPlanEdit(null)" class="btn btn-primary">
-              <Icon name="plus" size="sm" class="mr-1.5" />
+            </UiButton>
+            <UiIconButton icon="refresh" variant="ghost" density="compact" :disabled="plansLoading" :label="t('common.refresh')" @click="loadPlans" />
+            <UiButton type="button" variant="primary" @click="openPlanEdit(null)">
+              <template #icon><Icon name="plus" size="sm" /></template>
               {{ t('payment.admin.createPlan') }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </template>
@@ -84,30 +82,12 @@
 		  <span class="font-mono text-sm tabular-nums">{{ value || 1 }}</span>
 		</template>
         <template #cell-for_sale="{ value, row }">
-          <button
-            type="button"
-            :aria-label="t('payment.admin.forSale')"
-            :aria-pressed="Boolean(value)"
-            :class="[
-              'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              value ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-600'
-            ]"
-            @click="toggleForSale(row)"
-          >
-            <span :class="[
-              'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-              value ? 'translate-x-4' : 'translate-x-0'
-            ]" />
-          </button>
+          <UiSwitch :model-value="Boolean(value)" :label="t('payment.admin.forSale')" @update:model-value="toggleForSale(row)" />
         </template>
         <template #cell-actions="{ row }">
           <div class="flex items-center gap-1">
-            <button type="button" @click="openPlanEdit(row)" class="btn btn-ghost btn-icon text-gray-500 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400" :title="t('common.edit')" :aria-label="t('common.edit')">
-              <Icon name="edit" size="sm" />
-            </button>
-            <button type="button" @click="confirmDeletePlan(row)" class="btn btn-ghost btn-icon text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400" :title="t('common.delete')" :aria-label="t('common.delete')">
-              <Icon name="trash" size="sm" />
-            </button>
+            <UiIconButton icon="edit" variant="ghost" density="compact" :label="t('common.edit')" @click="openPlanEdit(row)" />
+            <UiIconButton icon="trash" variant="danger" density="compact" :label="t('common.delete')" @click="confirmDeletePlan(row)" />
           </div>
         </template>
       </DataTable>
@@ -124,7 +104,7 @@
       @imported="handleCatalogImported"
     />
 
-    <ConfirmDialog :show="showDeletePlanDialog" :title="t('payment.admin.deletePlan')" :message="t('payment.admin.deletePlanConfirm')" :confirm-text="t('common.delete')" danger @confirm="handleDeletePlan" @cancel="showDeletePlanDialog = false" />
+    <UiConfirmDialog :show="showDeletePlanDialog" :title="t('payment.admin.deletePlan')" :message="t('payment.admin.deletePlanConfirm')" :confirm-text="t('common.delete')" danger @confirm="handleDeletePlan" @cancel="showDeletePlanDialog = false" />
   </AppLayout>
 </template>
 
@@ -142,9 +122,9 @@ import type { Column } from '@/components/common/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
+import { UiButton, UiConfirmDialog, UiIconButton, UiSwitch } from '@/components/ui'
 import PlanEditDialog from './PlanEditDialog.vue'
 import PlanImportDialog from './PlanImportDialog.vue'
 import { currencySymbol } from '@/components/payment/currency'

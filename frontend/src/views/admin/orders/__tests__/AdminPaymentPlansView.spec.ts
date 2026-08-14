@@ -110,7 +110,7 @@ describe('AdminPaymentPlansView', () => {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
           DataTable: DataTableStub,
-          ConfirmDialog: true,
+          UiConfirmDialog: true,
           GroupBadge: true,
           Icon: true,
           PlanEditDialog: true,
