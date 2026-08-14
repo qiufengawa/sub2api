@@ -55,6 +55,7 @@ async function mountHome() {
         },
         Icon: true,
         PlatformIcon: true,
+        HomeEarthAnimation: { template: '<div data-test="home-earth" />' },
       },
     },
   })
@@ -86,14 +87,15 @@ describe('HomeView', () => {
 
     const wrapper = await mountHome()
 
-    expect(wrapper.get('h1').text()).toBe('Qiu API Enterprise Gateway With A Long Name')
-    expect(wrapper.get('h2').text()).toBe('One key for every production model')
-    expect(wrapper.get('.qiu-board-logo img').attributes('src')).toBe('/uploads/qiu-logo.svg')
+    expect(wrapper.get('h1').text().replace(/\u00a0/g, ' ')).toBe('Qiu API Enterprise Gateway With A Long Name')
+    expect(wrapper.get('.qiu-hero-subtitle').text()).toBe('One key for every production model')
+    expect(wrapper.get('[data-test="site-header"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="home-earth"]').exists()).toBe(true)
     expect(wrapper.get('.qiu-code').text()).toContain('https://api.example.test/v1')
     expect(wrapper.get('.qiu-code').text()).not.toContain('/v1/')
     expect(wrapper.text()).toContain('home.sections.prompts.items.integration.text:Qiu API Enterprise Gateway With A Long Name')
     expect(wrapper.text()).toContain('home.sections.faq.items.official.question:Qiu API Enterprise Gateway With A Long Name')
-    expect(wrapper.findAll('a[href="/model-plaza"]')).toHaveLength(2)
+    expect(wrapper.findAll('a[href="/model-plaza"]')).toHaveLength(3)
     expect(wrapper.get('a[href="https://docs.example.test/start"]').attributes('rel')).toBe('noopener noreferrer')
     expect(wrapper.get('a[href="/register"]').exists()).toBe(true)
     expect(mocks.checkAuth).toHaveBeenCalledOnce()
@@ -121,7 +123,7 @@ describe('HomeView', () => {
 
     const wrapper = await mountHome()
 
-    expect(wrapper.get('.qiu-board-logo img').attributes('src')).toBe('/logo.svg')
+    expect(wrapper.find('img[src^="javascript:"]').exists()).toBe(false)
     expect(wrapper.find('a[href^="javascript:"]').exists()).toBe(false)
     expect(mocks.fetchPublicSettings).toHaveBeenCalledOnce()
   })

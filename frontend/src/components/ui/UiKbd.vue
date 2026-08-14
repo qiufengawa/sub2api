@@ -1,0 +1,2 @@
+<template><kbd class="ui-kbd"><slot/></kbd></template>
+<style scoped>.ui-kbd{display:inline-flex;min-width:22px;height:22px;align-items:center;justify-content:center;padding:0 6px;border:1px solid var(--ui-border);border-bottom-color:var(--ui-text-soft);border-radius:4px;color:var(--ui-text-muted);background:var(--ui-surface-muted);font:11px/1 var(--ui-font-sans);box-shadow:0 1px 0 var(--ui-border)}</style>

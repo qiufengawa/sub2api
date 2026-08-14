@@ -80,6 +80,7 @@ const props = withDefaults(defineProps<{
   modelValue: string
   mode?: 'image' | 'svg'
   size?: 'sm' | 'md'
+  aspect?: 'square' | 'wide'
   uploadLabel?: string
   removeLabel?: string
   hint?: string
@@ -87,6 +88,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   mode: 'image',
   size: 'md',
+  aspect: 'square',
   uploadLabel: '',
   removeLabel: '',
   hint: '',
@@ -108,7 +110,12 @@ const sanitizedValue = computed(() =>
   props.mode === 'svg' ? sanitizeSvg(props.modelValue ?? '') : ''
 )
 
-const previewSizeClass = computed(() => props.size === 'sm' ? 'h-12 w-12' : 'h-16 w-16')
+const previewSizeClass = computed(() => {
+  if (props.aspect === 'wide') {
+    return props.size === 'sm' ? 'h-10 w-40' : 'h-16 w-64 max-w-full'
+  }
+  return props.size === 'sm' ? 'h-12 w-12' : 'h-16 w-16'
+})
 const innerSizeClass = computed(() => props.size === 'sm' ? 'h-6 w-6' : 'h-9 w-9')
 const placeholderSizeClass = computed(() => props.size === 'sm' ? 'h-5 w-5' : 'h-8 w-8')
 

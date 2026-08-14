@@ -46,6 +46,7 @@ function mountHome(settings: Record<string, unknown> = {}) {
         RouterLink: RouterLinkStub,
         LocaleSwitcher: { template: '<div data-testid="locale-switcher" />' },
         Icon: { template: '<span data-testid="icon" />' },
+        HomeEarthAnimation: { template: '<div data-testid="home-earth" />' },
       },
     },
   })
@@ -98,7 +99,7 @@ describe('HomeView compact mode', () => {
 
     expect(wrapper.find('[data-testid="compact-home"]').exists()).toBe(false)
     expect(wrapper.find('.qiu-home').exists()).toBe(true)
-    expect(wrapper.find('.qiu-board').exists()).toBe(true)
+    expect(wrapper.find('.qiu-hero-earth').exists()).toBe(true)
   })
 
   it('links unauthenticated visitors to login', () => {

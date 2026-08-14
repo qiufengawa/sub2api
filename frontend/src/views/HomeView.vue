@@ -21,11 +21,12 @@
       <nav class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 sm:gap-4">
         <div class="flex min-w-0 flex-1 items-center gap-3">
           <img
-            :src="siteLogo || '/logo.svg'"
-            alt="Logo"
-            class="h-9 w-9 shrink-0 rounded-lg object-contain"
+            v-if="siteLogo"
+            :src="siteLogo"
+            :alt="siteName"
+            class="h-8 w-auto max-w-[180px] shrink-0 object-contain object-center"
           />
-          <span class="min-w-0 truncate text-base font-semibold">{{ siteName }}</span>
+          <span v-else class="min-w-0 truncate text-base font-semibold">{{ siteName }}</span>
         </div>
         <div class="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
           <LocaleSwitcher />
@@ -60,9 +61,10 @@
     <main class="flex min-w-0 flex-1 items-center justify-center px-4 py-16 sm:px-6">
       <div class="min-w-0 max-w-2xl text-center">
         <img
-          :src="siteLogo || '/logo.svg'"
-          alt="Logo"
-          class="mx-auto mb-6 h-20 w-20 rounded-2xl object-contain"
+          v-if="siteLogo"
+          :src="siteLogo"
+          :alt="siteName"
+          class="mx-auto mb-6 h-16 w-auto max-w-[280px] object-contain object-center"
         />
         <h1 class="[overflow-wrap:anywhere] text-3xl font-bold md:text-4xl">{{ siteName }}</h1>
         <p class="mt-4 whitespace-pre-wrap [overflow-wrap:anywhere] text-base text-gray-600 dark:text-dark-300">{{ siteSubtitle }}</p>
@@ -93,49 +95,71 @@
     />
 
     <main class="qiu-main">
-      <div class="qiu-wrap">
+      <div class="qiu-home-inner">
         <section class="qiu-hero" aria-labelledby="home-hero-title">
-          <div class="qiu-hero-copy">
-            <h1 id="home-hero-title">{{ siteName }}</h1>
-            <h2>{{ siteSubtitle }}</h2>
-            <p>{{ t('home.heroDescription') }}</p>
-            <div class="qiu-actions">
-              <RouterLink class="qiu-btn qiu-btn-primary" :to="primaryEntryPath">
-                {{ isAuthenticated ? t('home.goToDashboard') : t('home.getStarted') }}
-                <Icon name="arrowRight" size="sm" />
-              </RouterLink>
-              <RouterLink v-if="modelPlazaEnabled" class="qiu-btn qiu-btn-blue" to="/model-plaza">
-                {{ t('home.viewModelsAndPricing') }}
-              </RouterLink>
-              <a v-if="docUrl" class="qiu-btn qiu-btn-green" :href="docUrl" target="_blank" rel="noopener noreferrer">
-                {{ t('home.docs') }}
-                <Icon name="externalLink" size="xs" />
-              </a>
+          <div class="qiu-hero-earth" aria-hidden="true">
+            <div class="qiu-hero-earth-inner">
+              <HomeEarthAnimation />
             </div>
           </div>
 
-          <div class="qiu-board" role="img" :aria-label="t('home.gatewayPreviewLabel', { site: siteName })">
-            <div class="qiu-board-brand">
-              <span class="qiu-board-logo">
-                <img :src="siteLogo || '/logo.svg'" alt="" />
-              </span>
-              <strong>{{ siteName }}</strong>
-              <code>{{ apiBaseUrl }}</code>
-            </div>
-            <div class="qiu-provider-doodles" aria-hidden="true">
-              <span class="qiu-provider-openai"><PlatformIcon platform="openai" size="lg" /></span>
-              <span class="qiu-provider-anthropic"><PlatformIcon platform="anthropic" size="lg" /></span>
-              <span class="qiu-provider-gemini"><PlatformIcon platform="gemini" size="lg" /></span>
-              <span class="qiu-provider-grok"><PlatformIcon platform="grok" size="lg" /></span>
+          <div class="qiu-hero-content" data-cursor="hero">
+            <h1 id="home-hero-title" class="qiu-hero-title">
+              <span
+                v-for="(character, index) in siteNameCharacters"
+                :key="`${character}-${index}`"
+                class="qiu-hero-char"
+                :style="{ animationDelay: `${0.3 + index * 0.06}s` }"
+              >{{ character === ' ' ? '\u00a0' : character }}</span>
+            </h1>
+            <p class="qiu-hero-subtitle">{{ siteSubtitle }}</p>
+            <div class="qiu-hero-buttons" data-hero-buttons="true">
+              <RouterLink class="qiu-hero-button qiu-hero-button-primary" :to="primaryEntryPath">
+                <span>{{ isAuthenticated ? t('home.goToDashboard') : t('home.getStarted') }}</span>
+                <span class="qiu-hero-button-arrow" aria-hidden="true">&#8594;</span>
+              </RouterLink>
+              <RouterLink
+                v-if="modelPlazaEnabled"
+                class="qiu-hero-button qiu-hero-button-outline"
+                to="/model-plaza"
+              >
+                <span>{{ t('home.viewModelsAndPricing') }}</span>
+                <span class="qiu-hero-button-arrow" aria-hidden="true">&#8594;</span>
+              </RouterLink>
+              <a
+                v-if="docUrl"
+                class="qiu-hero-button qiu-hero-button-outline"
+                :href="docUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span>{{ t('home.docs') }}</span>
+                <span class="qiu-hero-button-arrow" aria-hidden="true">&#8594;</span>
+              </a>
             </div>
           </div>
         </section>
 
-        <div class="qiu-strip" :aria-label="t('home.coreCapabilities')">
-          <span v-for="item in coreCapabilities" :key="item">{{ item }}</span>
-        </div>
+        <div class="qiu-wrap">
+        <section class="qiu-updates" :aria-label="t('home.coreCapabilities')">
+          <div class="qiu-section-header">
+            <h2>{{ t('home.coreCapabilities') }}</h2>
+          </div>
+          <div class="qiu-updates-grid">
+            <article v-for="item in capabilityItems" :key="item.title" class="qiu-update-card">
+              <div class="qiu-update-content">
+                <h3>{{ item.title }}</h3>
+                <p>{{ item.description }}</p>
+              </div>
+              <RouterLink class="qiu-update-link" :to="primaryEntryPath">
+                <span>{{ isAuthenticated ? t('home.goToDashboard') : t('home.getStarted') }}</span>
+                <span aria-hidden="true">&#8594;</span>
+              </RouterLink>
+            </article>
+          </div>
+        </section>
 
-        <section id="advantages" class="qiu-section" aria-labelledby="advantages-title">
+        <section id="advantages" class="qiu-section qiu-section-clean" aria-labelledby="advantages-title">
           <div class="qiu-heading">
             <h3 id="advantages-title">{{ t('home.sections.why.title', { site: siteName }) }}</h3>
           </div>
@@ -157,7 +181,7 @@
           </div>
         </section>
 
-        <section class="qiu-section" aria-labelledby="prompts-title">
+        <section class="qiu-section qiu-section-clean" aria-labelledby="prompts-title">
           <div class="qiu-heading">
             <h3 id="prompts-title">{{ t('home.sections.prompts.title') }}</h3>
           </div>
@@ -170,20 +194,24 @@
           </div>
         </section>
 
-        <section id="model-coverage" class="qiu-section" aria-labelledby="models-title">
+        <section id="model-coverage" class="qiu-section qiu-section-clean" aria-labelledby="models-title">
           <div class="qiu-heading">
             <h3 id="models-title">{{ t('home.sections.models.title') }}</h3>
           </div>
           <p class="qiu-intro">{{ t('home.sections.models.description') }}</p>
           <div class="qiu-model-grid">
             <article v-for="provider in providerItems" :key="provider.name" class="qiu-model-item">
-              <span class="qiu-model-icon" :class="provider.colorClass">
-                <PlatformIcon :platform="provider.platform" size="lg" />
-              </span>
-              <div>
+              <div class="qiu-model-cover" aria-hidden="true">
+                <img :src="provider.image" alt="" />
+              </div>
+              <div class="qiu-model-body">
                 <b>{{ provider.name }}</b>
                 <strong>{{ provider.family }}</strong>
                 <p>{{ provider.description }}</p>
+                <div class="qiu-model-meta">
+                  <span>{{ t('home.sections.models.openPlaza') }}</span>
+                  <span aria-hidden="true">&#8594;</span>
+                </div>
               </div>
             </article>
           </div>
@@ -193,19 +221,27 @@
           </RouterLink>
         </section>
 
-        <section class="qiu-section" aria-labelledby="pricing-title">
-          <div class="qiu-heading">
+        <section class="qiu-section qiu-section-clean qiu-pricing" aria-labelledby="pricing-title">
+          <div class="qiu-pricing-intro">
             <h3 id="pricing-title">{{ t('home.sections.pricing.title') }}</h3>
+            <p>{{ t('home.sections.pricing.description') }}</p>
+            <RouterLink v-if="modelPlazaEnabled" to="/model-plaza" class="qiu-pricing-action">
+              {{ t('home.viewModelsAndPricing') }}
+              <span aria-hidden="true">&#8594;</span>
+            </RouterLink>
           </div>
-          <div class="qiu-price-line">
-            <article v-for="item in pricingItems" :key="item.title">
-              <strong>{{ item.title }}</strong>
-              <p>{{ item.description }}</p>
-            </article>
-          </div>
+          <ol class="qiu-pricing-list">
+            <li v-for="(item, index) in pricingItems" :key="item.title">
+              <span class="qiu-pricing-index">0{{ index + 1 }}</span>
+              <div>
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.description }}</p>
+              </div>
+            </li>
+          </ol>
         </section>
 
-        <section id="integration" class="qiu-section" aria-labelledby="integration-title">
+        <section id="integration" class="qiu-section qiu-section-clean" aria-labelledby="integration-title">
           <div class="qiu-heading">
             <h3 id="integration-title">{{ t('home.sections.integration.title') }}</h3>
           </div>
@@ -226,7 +262,7 @@ model = "{{ t('home.sections.integration.modelPlaceholder') }}"</code></pre>
           </div>
         </section>
 
-        <section class="qiu-section" aria-labelledby="launch-title">
+        <section class="qiu-section qiu-section-clean" aria-labelledby="launch-title">
           <div class="qiu-heading">
             <h3 id="launch-title">{{ t('home.sections.launch.title') }}</h3>
           </div>
@@ -241,20 +277,29 @@ model = "{{ t('home.sections.integration.modelPlaceholder') }}"</code></pre>
           </ol>
         </section>
 
-        <section class="qiu-section" aria-labelledby="capabilities-title">
-          <div class="qiu-heading">
-            <h3 id="capabilities-title">{{ t('home.sections.capabilities.title') }}</h3>
-          </div>
-          <div class="qiu-ribbon">
-            <article v-for="capability in capabilityItems" :key="capability.title">
-              <Icon :name="capability.icon" size="md" />
-              <strong>{{ capability.title }}</strong>
-              <p>{{ capability.description }}</p>
-            </article>
+        <section class="qiu-section qiu-section-clean" aria-labelledby="capabilities-title">
+          <div class="qiu-capability-layout">
+            <div class="qiu-capability-intro">
+              <h3 id="capabilities-title">{{ t('home.sections.capabilities.title') }}</h3>
+              <p>{{ t('home.sections.capabilities.description') }}</p>
+              <RouterLink :to="primaryEntryPath" class="qiu-capability-action">
+                {{ isAuthenticated ? t('home.goToDashboard') : t('home.getStarted') }}
+                <span aria-hidden="true">&#8594;</span>
+              </RouterLink>
+            </div>
+            <ol class="qiu-capability-list">
+              <li v-for="(capability, index) in capabilityItems" :key="capability.title">
+                <span class="qiu-capability-index">0{{ index + 1 }}</span>
+                <div>
+                  <strong>{{ capability.title }}</strong>
+                  <p>{{ capability.description }}</p>
+                </div>
+              </li>
+            </ol>
           </div>
         </section>
 
-        <section class="qiu-section" aria-labelledby="use-cases-title">
+        <section class="qiu-section qiu-section-clean" aria-labelledby="use-cases-title">
           <div class="qiu-heading">
             <h3 id="use-cases-title">{{ t('home.sections.useCases.title') }}</h3>
           </div>
@@ -266,25 +311,27 @@ model = "{{ t('home.sections.integration.modelPlaceholder') }}"</code></pre>
           </div>
         </section>
 
-        <section id="faq" class="qiu-section" aria-labelledby="faq-title">
-          <div class="qiu-heading">
+        <section id="faq" class="qiu-section qiu-section-clean qiu-faq-section" aria-labelledby="faq-title">
+          <div class="qiu-faq-intro">
+            <span>{{ t('home.sections.faq.eyebrow') }}</span>
             <h3 id="faq-title">{{ t('home.sections.faq.title') }}</h3>
+            <p>{{ t('home.sections.faq.description') }}</p>
           </div>
-          <div class="qiu-faq">
-            <article v-for="item in faqItems" :key="item.question">
-              <strong>{{ item.question }}</strong>
+          <div class="qiu-faq-list">
+            <details v-for="(item, index) in faqItems" :key="item.question" :open="index === 0">
+              <summary>
+                <span>{{ item.question }}</span>
+                <span class="qiu-faq-toggle" aria-hidden="true"></span>
+              </summary>
               <p>{{ item.answer }}</p>
-            </article>
+            </details>
           </div>
         </section>
 
         <footer class="qiu-footer">
           <span>&copy; {{ currentYear }} {{ siteName }}. {{ t('home.footer.allRightsReserved') }}</span>
-          <span>
-            {{ t('home.footer.poweredBy') }}
-            <a :href="githubUrl" target="_blank" rel="noopener noreferrer">Sub2API</a>
-          </span>
         </footer>
+      </div>
       </div>
     </main>
   </div>
@@ -295,9 +342,9 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
 import HomeSiteHeader from '@/components/home/HomeSiteHeader.vue'
+import HomeEarthAnimation from '@/components/home/HomeEarthAnimation.vue'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import Icon from '@/components/icons/Icon.vue'
-import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import { sanitizeUrl } from '@/utils/url'
 import type { GroupPlatform } from '@/types'
 
@@ -315,6 +362,7 @@ interface ProviderItem {
   description: string
   platform: GroupPlatform
   colorClass: string
+  image: string
 }
 
 const { t } = useI18n()
@@ -334,6 +382,7 @@ const apiBaseUrl = computed(() => {
 })
 const modelPlazaEnabled = computed(() => appStore.cachedPublicSettings?.model_plaza_enabled === true)
 const registrationEnabled = computed(() => appStore.cachedPublicSettings?.registration_enabled !== false)
+const siteNameCharacters = computed(() => Array.from(siteName.value))
 
 const isHomeContentUrl = computed(() => {
   const content = homeContent.value.trim()
@@ -349,14 +398,6 @@ const primaryEntryPath = computed(() => {
   return registrationEnabled.value ? '/register' : '/login'
 })
 const currentYear = computed(() => new Date().getFullYear())
-const githubUrl = 'https://github.com/qiufengawa/sub2api'
-
-const coreCapabilities = computed(() => [
-  t('home.core.unifiedBaseUrl'),
-  t('home.core.multiModelRelay'),
-  t('home.core.pricingReference'),
-  t('home.core.usageAnalytics'),
-])
 
 const advantageItems = computed<FeatureItem[]>(() => [
   { title: t('home.sections.why.items.pricing.title'), description: t('home.sections.why.items.pricing.description'), icon: 'dollar' },
@@ -370,12 +411,12 @@ const promptItems = computed(() => ['integration', 'migration', 'selection', 'sc
 })))
 
 const providerItems = computed<ProviderItem[]>(() => [
-  { name: 'OpenAI', family: t('home.sections.models.items.openai.family'), description: t('home.sections.models.items.openai.description'), platform: 'openai', colorClass: 'qiu-model-openai' },
-  { name: 'Anthropic', family: t('home.sections.models.items.anthropic.family'), description: t('home.sections.models.items.anthropic.description'), platform: 'anthropic', colorClass: 'qiu-model-anthropic' },
-  { name: 'Google', family: t('home.sections.models.items.gemini.family'), description: t('home.sections.models.items.gemini.description'), platform: 'gemini', colorClass: 'qiu-model-gemini' },
-  { name: 'xAI', family: t('home.sections.models.items.grok.family'), description: t('home.sections.models.items.grok.description'), platform: 'grok', colorClass: 'qiu-model-grok' },
-  { name: 'DeepSeek', family: t('home.sections.models.items.deepseek.family'), description: t('home.sections.models.items.deepseek.description'), platform: 'composite', colorClass: 'qiu-model-deepseek' },
-  { name: t('home.sections.models.items.more.name'), family: t('home.sections.models.items.more.family'), description: t('home.sections.models.items.more.description'), platform: 'composite', colorClass: 'qiu-model-more' },
+  { name: 'OpenAI', family: t('home.sections.models.items.openai.family'), description: t('home.sections.models.items.openai.description'), platform: 'openai', colorClass: 'qiu-model-openai', image: '/animations/home-earth/model-1.png' },
+  { name: 'Anthropic', family: t('home.sections.models.items.anthropic.family'), description: t('home.sections.models.items.anthropic.description'), platform: 'anthropic', colorClass: 'qiu-model-anthropic', image: '/animations/home-earth/model-2.png' },
+  { name: 'Google', family: t('home.sections.models.items.gemini.family'), description: t('home.sections.models.items.gemini.description'), platform: 'gemini', colorClass: 'qiu-model-gemini', image: '/animations/home-earth/model-3.png' },
+  { name: 'xAI', family: t('home.sections.models.items.grok.family'), description: t('home.sections.models.items.grok.description'), platform: 'grok', colorClass: 'qiu-model-grok', image: '/animations/home-earth/model-4.png' },
+  { name: 'DeepSeek', family: t('home.sections.models.items.deepseek.family'), description: t('home.sections.models.items.deepseek.description'), platform: 'composite', colorClass: 'qiu-model-deepseek', image: '/animations/home-earth/model-5.png' },
+  { name: t('home.sections.models.items.more.name'), family: t('home.sections.models.items.more.family'), description: t('home.sections.models.items.more.description'), platform: 'composite', colorClass: 'qiu-model-more', image: '/animations/home-earth/model-1.png' },
 ])
 
 const pricingItems = computed(() => ['models', 'usage', 'live'].map((key) => ({
@@ -444,14 +485,13 @@ onMounted(() => {
   --qiu-green: #9ee6a8;
   --qiu-red: #d94a38;
   --qiu-shadow: rgba(36, 30, 22, 0.18);
+  --qiu-hero-bg: #fcfaf8;
+  --qiu-hero-text: #000;
+  --qiu-hero-font: "PingFang SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   min-height: 100vh;
   color: var(--qiu-ink);
-  background-color: var(--qiu-paper);
-  background-image:
-    linear-gradient(90deg, rgba(36, 30, 22, 0.055) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(36, 30, 22, 0.045) 1px, transparent 1px);
-  background-size: 22px 22px;
-  font-family: "Comic Sans MS", "Comic Neue", "Avenir Next Rounded", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--qiu-hero-bg);
+  font-family: var(--qiu-hero-font);
   isolation: isolate;
 }
 
@@ -466,9 +506,8 @@ onMounted(() => {
   --qiu-green: #67ad72;
   --qiu-red: #ef7b68;
   --qiu-shadow: rgba(0, 0, 0, 0.42);
-  background-image:
-    linear-gradient(90deg, rgba(255, 248, 231, 0.045) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(255, 248, 231, 0.035) 1px, transparent 1px);
+  --qiu-hero-bg: #0a0a0a;
+  --qiu-hero-text: #fff;
 }
 
 .qiu-main {
@@ -477,221 +516,409 @@ onMounted(() => {
 }
 
 .qiu-main::before {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background-image:
-    linear-gradient(-7deg, transparent 0 18px, color-mix(in srgb, var(--qiu-ink) 3.5%, transparent) 19px 20px);
-  content: "";
-  pointer-events: none;
+  display: none;
 }
 
-.qiu-wrap {
-  width: min(100%, 1180px);
+.qiu-home-inner {
+  max-width: 1275px;
   margin: 0 auto;
-  padding: 24px 32px 56px;
+  overflow-x: clip;
+  color: var(--qiu-hero-text);
+  background: var(--qiu-hero-bg);
+  font-family: var(--qiu-hero-font);
 }
 
 .qiu-hero {
-  display: grid;
-  padding: 46px 0 54px;
-  grid-template-columns: minmax(0, 1.06fr) minmax(380px, 0.94fr);
-  align-items: center;
-  gap: 46px;
-}
-
-.qiu-hero-copy {
-  min-width: 0;
-}
-
-.qiu-hero h1,
-.qiu-hero h2,
-.qiu-heading h3,
-.qiu-feature-lead h4,
-.qiu-usecase-lead {
-  overflow-wrap: anywhere;
-}
-
-.qiu-hero h1 {
-  margin: 0;
-  font-size: 88px;
-  line-height: 0.9;
-  font-weight: 900;
-  text-shadow: 4px 4px 0 var(--qiu-blue);
-}
-
-.qiu-hero h2 {
-  margin: 19px 0 0;
-  font-size: 42px;
-  line-height: 1.05;
-  font-weight: 900;
-}
-
-.qiu-hero p {
-  max-width: 650px;
-  margin: 18px 0 0;
-  color: var(--qiu-muted);
-  font-size: 18px;
-  line-height: 1.6;
-}
-
-.qiu-actions {
+  position: relative;
+  z-index: 2;
+  box-sizing: border-box;
   display: flex;
-  margin-top: 26px;
-  flex-wrap: wrap;
-  gap: 12px;
+  width: calc(100% - 56px);
+  max-width: 1260px;
+  height: 100vh;
+  margin: -48px auto 0;
+  padding: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: visible;
+  text-align: left;
+  pointer-events: none;
 }
 
-.qiu-btn {
+.qiu-hero-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  width: auto;
+  max-width: none;
+  padding: 0;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  pointer-events: auto;
+}
+
+.qiu-hero-title {
+  max-width: 660px;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--qiu-hero-text);
+  font-family: var(--qiu-hero-font);
+  font-size: 120px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 120px;
+  letter-spacing: 0;
+}
+
+.qiu-hero-char {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(40px);
+  animation: qiu-hero-char-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.qiu-hero-subtitle {
+  display: inline-block;
+  max-width: none;
+  margin: 0;
+  overflow: hidden;
+  color: var(--qiu-hero-text);
+  font-family: var(--qiu-hero-font);
+  font-size: 48px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 60px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  opacity: 0;
+  animation: qiu-hero-fade-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.8s forwards;
+}
+
+.qiu-hero-buttons {
+  display: flex;
+  margin: 0;
+  flex-wrap: wrap;
+  gap: 16px;
+  opacity: 0;
+  animation: qiu-hero-fade-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) 1s forwards;
+}
+
+.qiu-hero-button {
+  box-sizing: border-box;
   display: inline-flex;
-  min-height: 44px;
-  padding: 0 18px;
+  width: 160px;
+  height: 36px;
+  padding: 5px 16px;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 3px solid var(--qiu-ink);
-  border-radius: 4px;
-  color: var(--qiu-ink);
-  background: var(--qiu-surface);
-  box-shadow: 5px 5px 0 var(--qiu-shadow);
-  font-family: Arial, sans-serif;
-  font-size: 12px;
-  font-weight: 900;
+  border: 1px solid var(--qiu-hero-text);
+  border-radius: 6px;
+  font-family: var(--qiu-hero-font);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
   text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
 }
 
-.qiu-btn-primary { background: var(--qiu-pink); transform: rotate(-1deg); }
-.qiu-btn-blue { background: var(--qiu-blue); transform: rotate(1deg); }
-.qiu-btn-green { background: var(--qiu-green); transform: rotate(-0.5deg); }
-
-.qiu-btn:active {
-  transform: translate(3px, 3px);
-  box-shadow: 2px 2px 0 var(--qiu-shadow);
+.qiu-hero-button-primary {
+  color: var(--qiu-hero-bg);
+  background: var(--qiu-hero-text);
 }
 
-.qiu-board {
-  position: relative;
-  min-height: 430px;
-  overflow: hidden;
-  transform: rotate(1deg);
-  border: 4px solid var(--qiu-ink);
-  border-radius: 4px;
-  background: var(--qiu-blue);
-  box-shadow: 12px 14px 0 var(--qiu-shadow);
+.qiu-hero-button-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.qiu-board::before,
-.qiu-board::after {
+.qiu-hero-button-outline {
+  color: var(--qiu-hero-text);
+  background: transparent;
+}
+
+.qiu-hero-button-outline:hover {
+  background: rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
+}
+
+.qiu-hero-button-arrow {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  line-height: 16px;
+}
+
+.qiu-hero-earth {
   position: absolute;
-  width: 54%;
-  height: 48%;
-  border: 3px solid var(--qiu-ink);
-  background: var(--qiu-pink);
-  content: "";
+  top: 50%;
+  right: 0;
+  z-index: 1;
+  width: 600px;
+  height: 428px;
+  transform: translateY(-50%);
+  pointer-events: auto;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.qiu-board::before { right: -14%; top: 23%; transform: rotate(-12deg); }
-.qiu-board::after { left: -20%; bottom: -22%; background: var(--qiu-yellow); transform: rotate(9deg); }
+.qiu-hero-earth-inner {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-.qiu-board-brand,
-.qiu-provider-doodles {
+.qiu-hero-earth:hover .qiu-hero-earth-inner {
+  transform: translateY(-60px);
+}
+
+.qiu-wrap {
+  box-sizing: border-box;
+  width: calc(100% - 56px);
+  max-width: 1260px;
+  margin: 0 auto;
+  padding: 72px 0 56px;
+}
+
+@keyframes qiu-hero-char-reveal {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes qiu-hero-fade-in {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+
+.qiu-updates {
   position: relative;
-  z-index: 2;
+  width: 100%;
+  padding: 0 0 72px;
 }
 
-.qiu-board-brand {
+.qiu-section-header {
+  margin-bottom: 48px;
+}
+
+.qiu-section-header h2 {
+  margin: 0;
+  color: var(--qiu-hero-text);
+  font-size: 40px;
+  font-weight: 400;
+  line-height: normal;
+  letter-spacing: 0;
+}
+
+.qiu-updates-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.qiu-update-card {
   display: flex;
   min-width: 0;
-  padding: 48px 28px 0;
+  min-height: 224px;
+  padding: 20px;
   flex-direction: column;
   align-items: flex-start;
+  gap: 24px;
+  border: 1px solid #f0ebe5;
+  border-radius: 6px;
+  background: linear-gradient(#fbfbfb, #fff);
+  transition: transform 0.3s, box-shadow 0.3s;
 }
 
-.qiu-board-logo {
-  display: grid;
-  width: 58px;
-  height: 58px;
-  margin-bottom: 18px;
-  place-items: center;
-  overflow: hidden;
-  border: 3px solid #241e16;
-  border-radius: 4px;
-  background: #fff8e7;
-  box-shadow: 5px 5px 0 rgba(36, 30, 22, 0.2);
+.qiu-update-card:hover {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
 }
 
-.qiu-board-logo img { width: 100%; height: 100%; object-fit: contain; }
-
-.qiu-board-brand strong {
-  max-width: 90%;
-  overflow-wrap: anywhere;
-  color: #fff8e7;
-  font-size: 54px;
-  line-height: 0.95;
-  text-shadow: 3px 3px 0 #241e16;
+.qiu-update-content {
+  display: flex;
+  width: 100%;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.qiu-board-brand code {
-  max-width: 80%;
-  margin-top: 15px;
-  overflow: hidden;
-  color: #241e16;
-  font-family: Consolas, monospace;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.qiu-update-content h3 {
+  margin: 0;
+  color: var(--qiu-hero-text);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: 0;
 }
 
-.qiu-provider-doodles {
-  position: absolute;
-  right: 24px;
-  bottom: 24px;
-  display: grid;
-  grid-template-columns: repeat(2, 52px);
-  gap: 11px;
+.qiu-update-content p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+  line-height: 22px;
 }
 
-.qiu-provider-doodles span {
-  display: grid;
-  height: 52px;
-  place-items: center;
-  border: 3px solid #241e16;
-  border-radius: 4px;
-  color: #241e16;
-  background: #fff8e7;
-  box-shadow: 4px 4px 0 rgba(36, 30, 22, 0.18);
+.qiu-update-link {
+  display: flex;
+  width: 100%;
+  height: 44px;
+  margin-top: auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--qiu-hero-bg);
+  background: var(--qiu-hero-text);
+  font-size: 14px;
+  text-decoration: none;
+  transition: box-shadow 0.2s;
 }
 
-.qiu-provider-openai { transform: rotate(7deg); }
-.qiu-provider-anthropic { transform: rotate(-5deg); background: var(--qiu-yellow) !important; }
-.qiu-provider-gemini { transform: rotate(-8deg); background: var(--qiu-green) !important; }
-.qiu-provider-grok { transform: rotate(4deg); background: var(--qiu-pink) !important; }
-
-.qiu-strip {
-  display: grid;
-  overflow: hidden;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  border: 3px solid var(--qiu-ink);
-  border-radius: 4px;
-  background: var(--qiu-surface);
-  box-shadow: 8px 8px 0 var(--qiu-shadow);
+.qiu-update-link:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.qiu-strip span {
-  padding: 14px 10px;
-  border-right: 3px solid var(--qiu-ink);
-  font-family: Arial, sans-serif;
-  font-size: 11px;
-  font-weight: 900;
-  text-align: center;
+.qiu-home-dark .qiu-update-card {
+  border-color: #333;
+  background: linear-gradient(#1a1a1a, #111);
 }
 
-.qiu-strip span:last-child { border-right: 0; }
+.qiu-home-dark .qiu-update-content p {
+  color: #999;
+}
 
 .qiu-section {
   padding: 52px 0;
   border-bottom: 3px dashed color-mix(in srgb, var(--qiu-ink) 38%, transparent);
   scroll-margin-top: 80px;
+}
+
+.qiu-section-clean {
+  border-bottom: 0;
+}
+
+.qiu-section-clean .qiu-heading {
+  margin-bottom: 48px;
+}
+
+.qiu-section-clean .qiu-heading h3 {
+  color: var(--qiu-hero-text);
+  font-family: var(--qiu-hero-font);
+  font-size: 40px;
+  font-weight: 400;
+  line-height: normal;
+  text-shadow: none;
+}
+
+.qiu-section-clean article,
+.qiu-section-clean .qiu-feature-lead,
+.qiu-section-clean .qiu-feature-list article,
+.qiu-section-clean .qiu-prompt,
+.qiu-section-clean .qiu-model-item,
+.qiu-section-clean .qiu-code,
+.qiu-section-clean .qiu-endpoints {
+  border-color: #f0ebe5;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: none;
+  transform: none;
+}
+
+.qiu-section-clean p,
+.qiu-section-clean .qiu-intro {
+  color: #666;
+  font-family: var(--qiu-hero-font);
+}
+
+.qiu-section-clean .qiu-feature-lead h4,
+.qiu-section-clean .qiu-usecase-lead {
+  text-shadow: none;
+}
+
+.qiu-section-clean .qiu-feature-lead,
+.qiu-section-clean .qiu-feature-list article,
+.qiu-section-clean .qiu-prompt,
+.qiu-section-clean .qiu-code,
+.qiu-section-clean .qiu-endpoints,
+.qiu-section-clean .qiu-ribbon article {
+  border: 1px solid #f0ebe5;
+  color: var(--qiu-hero-text);
+  background: linear-gradient(#fbfbfb, #fff) !important;
+  box-shadow: none;
+}
+
+.qiu-section-clean .qiu-feature-lead > svg,
+.qiu-section-clean .qiu-prompt b,
+.qiu-section-clean .qiu-method,
+.qiu-section-clean .qiu-text-link {
+  color: var(--qiu-hero-text);
+}
+
+.qiu-section-clean .qiu-dropcap::first-letter {
+  float: none;
+  margin: 0;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  text-shadow: none;
+}
+
+.qiu-section-clean .qiu-timeline::before {
+  border-left: 1px solid #f0ebe5;
+}
+
+.qiu-section-clean .qiu-timeline > li > span {
+  border: 1px solid #000;
+  color: #fff;
+  background: #000;
+  box-shadow: none;
+}
+
+.qiu-section-clean .qiu-usecase-list p {
+  border-color: #f0ebe5;
+}
+
+.qiu-home-dark .qiu-section-clean .qiu-feature-lead,
+.qiu-home-dark .qiu-section-clean .qiu-feature-list article,
+.qiu-home-dark .qiu-section-clean .qiu-prompt,
+.qiu-home-dark .qiu-section-clean .qiu-code,
+.qiu-home-dark .qiu-section-clean .qiu-endpoints,
+.qiu-home-dark .qiu-section-clean .qiu-ribbon article,
+.qiu-home-dark .qiu-model-item {
+  border-color: #333;
+  background: linear-gradient(#1a1a1a, #111);
+}
+
+.qiu-home-dark .qiu-pricing-list li,
+.qiu-home-dark .qiu-faq-list,
+.qiu-home-dark .qiu-faq-list details {
+  border-color: #333;
+}
+
+.qiu-home-dark .qiu-pricing-intro p,
+.qiu-home-dark .qiu-pricing-list p,
+.qiu-home-dark .qiu-faq-intro p,
+.qiu-home-dark .qiu-faq-list details > p {
+  color: #999;
+}
+
+.qiu-home-dark .qiu-pricing-action {
+  border-color: #fff;
+  color: #fff;
+}
+
+.qiu-home-dark .qiu-pricing-action:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .qiu-heading {
@@ -756,11 +983,9 @@ onMounted(() => {
 .qiu-feature-lead p,
 .qiu-feature-list p,
 .qiu-model-item p,
-.qiu-price-line p,
-.qiu-ribbon p,
 .qiu-timeline p,
 .qiu-usecase-list,
-.qiu-faq p {
+.qiu-faq-list p {
   color: var(--qiu-muted);
   font-size: 14px;
   line-height: 1.62;
@@ -792,6 +1017,11 @@ onMounted(() => {
   gap: 16px;
 }
 
+.qiu-model-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
+}
+
 .qiu-prompt {
   min-height: 145px;
   padding: 16px;
@@ -808,31 +1038,51 @@ onMounted(() => {
 .qiu-model-item {
   display: flex;
   min-width: 0;
-  padding: 17px;
-  gap: 14px;
-  background: var(--qiu-surface);
+  padding: 0;
+  overflow: hidden;
+  flex-direction: column;
+  border: 1px solid #f0ebe5;
+  border-radius: 6px;
+  background: #fff;
+  transition: transform 0.3s, box-shadow 0.3s;
 }
 
-.qiu-model-icon {
-  display: grid;
-  width: 42px;
-  height: 42px;
+.qiu-model-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
+}
+
+.qiu-model-cover {
+  width: 100%;
+  height: 200px;
   flex: 0 0 auto;
-  place-items: center;
-  border: 2px solid var(--qiu-ink);
-  border-radius: 4px;
-  color: #241e16;
+  overflow: hidden;
 }
 
-.qiu-model-openai { background: var(--qiu-green); }
-.qiu-model-anthropic { background: var(--qiu-yellow); }
-.qiu-model-gemini { background: var(--qiu-blue); }
-.qiu-model-grok { background: var(--qiu-pink); }
-.qiu-model-deepseek { background: color-mix(in srgb, var(--qiu-blue) 72%, var(--qiu-surface)); }
-.qiu-model-more { background: var(--qiu-surface); }
-.qiu-model-item b { display: block; color: var(--qiu-red); font-family: Arial, sans-serif; font-size: 10px; text-transform: uppercase; }
-.qiu-model-item strong { display: block; margin: 5px 0; font-size: 20px; line-height: 1.1; }
-.qiu-model-item p { margin: 0; }
+.qiu-model-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+.qiu-model-body {
+  display: flex;
+  min-height: 260px;
+  padding: 20px;
+  flex: 1;
+  flex-direction: column;
+}
+
+.qiu-model-item b { display: block; color: #999; font-family: var(--qiu-hero-font); font-size: 14px; font-weight: 400; }
+.qiu-model-item strong { display: block; margin: 8px 0; color: var(--qiu-hero-text); font-size: 16px; font-weight: 600; line-height: 24px; }
+.qiu-model-item p { margin: 0 0 24px; white-space: pre-line; }
+
+.qiu-model-meta {
+  display: flex;
+  margin-top: auto;
+  padding-top: 16px;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid #f0ebe5;
+  color: #999;
+  font-size: 14px;
+}
 
 .qiu-text-link {
   display: inline-flex;
@@ -845,15 +1095,92 @@ onMounted(() => {
   text-underline-offset: 4px;
 }
 
-.qiu-price-line {
+.qiu-pricing {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
+  grid-template-columns: minmax(300px, 0.82fr) minmax(0, 1.18fr);
+  gap: 72px;
+  align-items: start;
 }
 
-.qiu-price-line article { padding-top: 13px; border-top: 4px solid var(--qiu-ink); }
-.qiu-price-line strong { display: block; margin-bottom: 8px; font-size: 25px; line-height: 1.05; }
-.qiu-price-line p { margin: 0; }
+.qiu-pricing-intro {
+  position: sticky;
+  top: 86px;
+}
+
+.qiu-pricing-intro h3 {
+  margin: 0 0 20px;
+  color: var(--qiu-hero-text);
+  font-size: 40px;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.qiu-pricing-intro p {
+  max-width: 460px;
+  margin: 0;
+  color: #666;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.qiu-pricing-action {
+  display: inline-flex;
+  min-height: 40px;
+  margin-top: 28px;
+  padding: 8px 18px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #000;
+  border-radius: 6px;
+  color: #000;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.qiu-pricing-action:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.qiu-pricing-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qiu-pricing-list li {
+  display: grid;
+  min-height: 132px;
+  padding: 26px 0;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 20px;
+  border-top: 1px solid #f0ebe5;
+}
+
+.qiu-pricing-list li:last-child {
+  border-bottom: 1px solid #f0ebe5;
+}
+
+.qiu-pricing-index {
+  color: #999;
+  font: 13px/22px Consolas, monospace;
+}
+
+.qiu-pricing-list strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--qiu-hero-text);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+}
+
+.qiu-pricing-list p {
+  max-width: 620px;
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.72;
+}
 
 .qiu-integration-layout,
 .qiu-usecase-layout {
@@ -889,12 +1216,92 @@ onMounted(() => {
 .qiu-timeline h4 { margin: 0 0 5px; font-size: 20px; }
 .qiu-timeline p { margin: 0; }
 
-.qiu-ribbon { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 4px solid var(--qiu-ink); border-bottom: 4px solid var(--qiu-ink); background: color-mix(in srgb, var(--qiu-surface) 72%, transparent); box-shadow: 7px 7px 0 var(--qiu-shadow); }
-.qiu-ribbon article { padding: 20px 17px; border-right: 3px solid var(--qiu-ink); }
-.qiu-ribbon article:last-child { border-right: 0; }
-.qiu-ribbon svg { margin-bottom: 12px; color: var(--qiu-red); }
-.qiu-ribbon strong { display: block; margin-bottom: 8px; font-size: 20px; line-height: 1.1; }
-.qiu-ribbon p { margin: 0; }
+.qiu-capability-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  gap: 72px;
+  align-items: start;
+}
+
+.qiu-capability-intro {
+  position: sticky;
+  top: 86px;
+}
+
+.qiu-capability-intro h3 {
+  margin: 0 0 20px;
+  color: var(--qiu-hero-text);
+  font-size: 40px;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.qiu-capability-intro p {
+  max-width: 460px;
+  margin: 0;
+  color: #666;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.qiu-capability-action {
+  display: inline-flex;
+  height: 40px;
+  margin-top: 28px;
+  padding: 8px 18px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #000;
+  border-radius: 6px;
+  color: #000;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.qiu-capability-action:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.qiu-capability-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qiu-capability-list li {
+  display: grid;
+  min-height: 124px;
+  padding: 24px 0;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 20px;
+  border-top: 1px solid #f0ebe5;
+}
+
+.qiu-capability-list li:last-child {
+  border-bottom: 1px solid #f0ebe5;
+}
+
+.qiu-capability-index {
+  color: #999;
+  font: 13px/22px Consolas, monospace;
+}
+
+.qiu-capability-list strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--qiu-hero-text);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+}
+
+.qiu-capability-list p {
+  max-width: 620px;
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.72;
+}
 
 .qiu-usecase-layout { grid-template-columns: 1.1fr 0.9fr; }
 .qiu-usecase-lead { margin: 0; font-size: 42px; line-height: 1.02; font-weight: 900; text-shadow: 3px 3px 0 var(--qiu-pink); }
@@ -903,80 +1310,268 @@ onMounted(() => {
 .qiu-usecase-list p + p { padding-top: 12px; }
 .qiu-usecase-list b { margin-right: 4px; color: var(--qiu-ink); font-size: 17px; }
 
-.qiu-faq { columns: 2 320px; column-gap: 34px; }
-.qiu-faq article { break-inside: avoid; margin: 0 0 18px; padding-bottom: 16px; border-bottom: 2px dashed color-mix(in srgb, var(--qiu-ink) 34%, transparent); }
-.qiu-faq strong { display: block; margin-bottom: 8px; font-size: 19px; }
-.qiu-faq p { margin: 0; }
+.qiu-faq-section {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
+  gap: 84px;
+  align-items: start;
+}
+
+.qiu-faq-intro > span {
+  display: block;
+  margin-bottom: 16px;
+  color: #999;
+  font-size: 12px;
+  line-height: 20px;
+  text-transform: uppercase;
+}
+
+.qiu-faq-intro h3 {
+  margin: 0 0 20px;
+  color: var(--qiu-hero-text);
+  font-size: 40px;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.qiu-faq-intro p {
+  max-width: 420px;
+  margin: 0;
+  color: #666;
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.qiu-faq-list {
+  border-top: 1px solid #f0ebe5;
+}
+
+.qiu-faq-list details {
+  border-bottom: 1px solid #f0ebe5;
+}
+
+.qiu-faq-list summary {
+  display: grid;
+  min-height: 76px;
+  padding: 22px 0;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 24px;
+  color: var(--qiu-hero-text);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 26px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.qiu-faq-list summary::-webkit-details-marker { display: none; }
+
+.qiu-faq-toggle {
+  position: relative;
+  width: 18px;
+  height: 18px;
+}
+
+.qiu-faq-toggle::before,
+.qiu-faq-toggle::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 1px;
+  background: currentColor;
+  content: "";
+  transform: translate(-50%, -50%);
+  transition: transform 0.2s;
+}
+
+.qiu-faq-toggle::after { transform: translate(-50%, -50%) rotate(90deg); }
+.qiu-faq-list details[open] .qiu-faq-toggle::after { transform: translate(-50%, -50%) rotate(0); }
+
+.qiu-faq-list details > p {
+  max-width: 720px;
+  margin: -4px 48px 0 0;
+  padding: 0 0 24px;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.75;
+}
 .qiu-footer {
   display: flex;
   padding-top: 21px;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 18px;
   color: var(--qiu-muted);
   font-family: Arial, sans-serif;
   font-size: 11px;
-  font-weight: 900;
-  text-transform: uppercase;
+  font-weight: 400;
 }
 
-.qiu-footer a { color: var(--qiu-red); text-underline-offset: 3px; }
-
 @media (max-width: 980px) {
-  .qiu-wrap { padding: 20px 20px 48px; }
-  .qiu-hero { grid-template-columns: 1fr; gap: 34px; padding: 38px 0 46px; }
-  .qiu-hero h1 { font-size: 72px; }
-  .qiu-hero h2 { max-width: 720px; font-size: 36px; }
-  .qiu-board { min-height: 360px; }
+  .qiu-wrap { padding: 72px 0 48px; }
   .qiu-advantage-layout,
   .qiu-integration-layout,
-  .qiu-usecase-layout { grid-template-columns: 1fr; }
+  .qiu-usecase-layout,
+  .qiu-capability-layout,
+  .qiu-pricing,
+  .qiu-faq-section { grid-template-columns: 1fr; }
+  .qiu-capability-layout,
+  .qiu-pricing,
+  .qiu-faq-section { gap: 32px; }
+  .qiu-capability-intro,
+  .qiu-pricing-intro { position: static; }
   .qiu-prompts,
   .qiu-model-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .qiu-ribbon { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .qiu-ribbon article:nth-child(2) { border-right: 0; }
-  .qiu-ribbon article:nth-child(-n + 2) { border-bottom: 3px solid var(--qiu-ink); }
+}
+
+@media (max-width: 1279px) {
+  .qiu-updates-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .qiu-model-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1440px) {
+  .qiu-hero {
+    width: 100%;
+    padding: 0;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1280px) {
+  .qiu-hero-title {
+    max-width: 560px;
+    font-size: 96px;
+    line-height: 100px;
+  }
+
+  .qiu-hero-subtitle {
+    font-size: 36px;
+    line-height: 48px;
+  }
+
+  .qiu-hero-earth {
+    width: 480px;
+    height: 342px;
+  }
+}
+
+@media (max-width: 900px) {
+  .qiu-hero {
+    width: calc(100% - 56px);
+    height: auto;
+    min-height: 0;
+    margin-top: 0;
+    padding-top: 100px;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .qiu-hero-content {
+    gap: 8px;
+  }
+
+  .qiu-hero-title {
+    max-width: 100%;
+    font-size: 24px;
+    font-weight: 500;
+    line-height: 32px;
+  }
+
+  .qiu-hero-subtitle {
+    max-width: 100%;
+    font-size: 18px;
+    line-height: 28px;
+    white-space: normal;
+  }
+
+  .qiu-hero-buttons {
+    gap: 8px;
+  }
+
+  .qiu-hero-button {
+    width: auto;
+    height: 32px;
+    padding: 5px 12px;
+    font-size: 12px;
+    line-height: 22px;
+  }
+
+  .qiu-hero-button-arrow {
+    display: none;
+  }
+
+  .qiu-hero-earth {
+    position: static;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1200 / 855;
+    order: 1;
+    margin-top: 24px;
+    transform: none;
+  }
+
+  .qiu-hero-earth:hover {
+    transform: translateY(-60px);
+  }
 }
 
 @media (max-width: 640px) {
-  .qiu-wrap { padding: 14px 14px 42px; }
-  .qiu-hero { padding: 30px 0 38px; }
-  .qiu-hero h1 { font-size: 54px; }
-  .qiu-hero h2 { margin-top: 16px; font-size: 30px; }
-  .qiu-hero p { font-size: 16px; }
-  .qiu-actions { display: grid; grid-template-columns: 1fr; }
-  .qiu-btn { width: 100%; }
-  .qiu-board { min-height: 310px; }
-  .qiu-board-brand { padding: 30px 18px 0; }
-  .qiu-board-brand strong { font-size: 40px; }
-  .qiu-board-brand code { max-width: 72%; }
-  .qiu-provider-doodles { right: 16px; bottom: 16px; grid-template-columns: repeat(2, 44px); gap: 8px; }
-  .qiu-provider-doodles span { height: 44px; }
-  .qiu-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .qiu-strip span:nth-child(2) { border-right: 0; }
-  .qiu-strip span:nth-child(-n + 2) { border-bottom: 3px solid var(--qiu-ink); }
+  .qiu-wrap { width: calc(100% - 28px); padding: 32px 0 42px; }
+  .qiu-updates { padding-bottom: 16px; }
+  .qiu-section-header { margin-bottom: 12px; }
+  .qiu-section-header h2 { font-size: 20px; font-weight: 500; }
+  .qiu-updates-grid { grid-template-columns: 1fr; }
+  .qiu-update-card { min-height: 0; }
+  .qiu-update-content h3 { font-size: 20px; font-weight: 600; }
   .qiu-section { padding: 42px 0; }
   .qiu-heading h3 { font-size: 32px; }
   .qiu-feature-lead { min-height: 0; }
   .qiu-feature-lead h4 { margin-top: 30px; font-size: 28px; }
   .qiu-prompts,
-  .qiu-model-grid,
-  .qiu-price-line { grid-template-columns: 1fr; }
+  .qiu-model-grid { grid-template-columns: 1fr; }
   .qiu-prompt { min-height: 0; }
-  .qiu-price-line { gap: 18px; }
+  .qiu-pricing-intro h3,
+  .qiu-faq-intro h3 { font-size: 32px; }
+  .qiu-pricing-list li { grid-template-columns: 42px minmax(0, 1fr); min-height: 0; padding: 20px 0; gap: 12px; }
+  .qiu-faq-list summary { min-height: 68px; padding: 18px 0; gap: 16px; font-size: 16px; line-height: 24px; }
+  .qiu-faq-list details > p { margin-right: 36px; padding-bottom: 20px; }
   .qiu-endpoints { padding-left: 14px; }
   .qiu-endpoint { grid-template-columns: 1fr; gap: 4px; }
-  .qiu-ribbon { grid-template-columns: 1fr; }
-  .qiu-ribbon article { border-right: 0; border-bottom: 3px solid var(--qiu-ink); }
-  .qiu-ribbon article:last-child { border-bottom: 0; }
+  .qiu-capability-intro h3 { font-size: 32px; }
+  .qiu-capability-list li { grid-template-columns: 42px minmax(0, 1fr); padding: 20px 0; gap: 12px; }
   .qiu-usecase-lead { font-size: 31px; }
-  .qiu-faq { columns: 1; }
   .qiu-footer { flex-direction: column; }
+}
+
+@media (max-width: 375px) {
+  .qiu-hero-subtitle {
+    font-size: 16px;
+    line-height: 24px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .qiu-home { scroll-behavior: auto; }
-  .qiu-btn,
-  .qiu-board,
-  .qiu-prompt { transform: none; }
+  .qiu-hero-char,
+  .qiu-hero-subtitle,
+  .qiu-hero-buttons {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+
+  .qiu-hero-button,
+  .qiu-hero-earth,
+  .qiu-hero-earth-inner,
+  .qiu-prompt {
+    transform: none;
+    transition: none;
+  }
 }
 </style>

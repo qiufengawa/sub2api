@@ -1,85 +1,47 @@
 <template>
-  <AuthLayout>
-    <div>
-      <!-- Title -->
-      <div>
-        <h2 class="text-[28px] font-semibold leading-9 tracking-tight text-[#181818] dark:text-white">
-          {{ t('auth.welcomeBack') }}
-        </h2>
-        <p class="mt-2 text-sm leading-6 text-[#777777] dark:text-dark-400">
-          {{ t('auth.signInToAccount') }}
-        </p>
-      </div>
+  <AuthFormPanel :title="t('auth.welcomeBack')" :subtitle="t('auth.signInToAccount')">
       <!-- Login Form -->
-      <form @submit.prevent="handleLogin" class="mt-8 space-y-5">
+      <form @submit.prevent="handleLogin" class="auth-form">
         <!-- Email Input -->
-        <div>
-          <label for="email" class="input-label">
-            {{ t('auth.emailLabel') }}
-          </label>
-          <div class="relative">
-            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="mail" size="md" class="text-[#a6a6a6] dark:text-dark-500" />
-            </div>
-            <input
-              id="email"
-              v-model="formData.email"
-              type="email"
-              required
-              autofocus
-              autocomplete="email"
-              :disabled="authActionDisabled"
-              class="input h-10 pl-11"
-              :class="{ 'input-error': errors.email }"
-              :placeholder="t('auth.emailPlaceholder')"
-            />
-          </div>
-        </div>
+        <AuthTextField
+          id="email"
+          v-model="formData.email"
+          :label="t('auth.emailLabel')"
+          icon="mail"
+          type="email"
+          required
+          autofocus
+          autocomplete="email"
+          :disabled="authActionDisabled"
+          :error="Boolean(errors.email)"
+          :placeholder="t('auth.emailPlaceholder')"
+        />
 
         <!-- Password Input -->
-        <div>
-          <label for="password" class="input-label">
-            {{ t('auth.passwordLabel') }}
-          </label>
-          <div class="relative">
-            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="lock" size="md" class="text-[#a6a6a6] dark:text-dark-500" />
-            </div>
-            <input
-              id="password"
-              v-model="formData.password"
-              :type="showPassword ? 'text' : 'password'"
-              required
-              autocomplete="current-password"
-              :disabled="authActionDisabled"
-              class="input h-10 pl-11 pr-11"
-              :class="{ 'input-error': errors.password }"
-              :placeholder="t('auth.passwordPlaceholder')"
-            />
-            <button
-              type="button"
-              @click="showPassword = !showPassword"
-              :disabled="authActionDisabled"
-              :aria-label="t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')"
-              :title="t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')"
-              :aria-pressed="showPassword"
-              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-[#a6a6a6] transition-colors hover:text-primary-600 dark:hover:text-primary-400"
-            >
-              <Icon v-if="showPassword" name="eyeOff" size="md" />
-              <Icon v-else name="eye" size="md" />
-            </button>
-          </div>
-          <div class="mt-1 flex items-center justify-between">
-            <span></span>
+        <AuthTextField
+          id="password"
+          v-model="formData.password"
+          :label="t('auth.passwordLabel')"
+          icon="lock"
+          type="password"
+          required
+          autocomplete="current-password"
+          revealable
+          :disabled="authActionDisabled"
+          :error="Boolean(errors.password)"
+          :placeholder="t('auth.passwordPlaceholder')"
+          :show-meta="passwordResetEnabled && !backendModeEnabled"
+        >
+          <template #meta>
             <router-link
               v-if="passwordResetEnabled && !backendModeEnabled"
               to="/forgot-password"
-              class="text-sm font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+              class="auth-text-link"
             >
               {{ t('auth.forgotPassword') }}
             </router-link>
-          </div>
-        </div>
+          </template>
+        </AuthTextField>
 
         <!-- Turnstile Widget -->
         <div v-if="captchaEnabled">
@@ -104,7 +66,7 @@
         <button
           type="submit"
           :disabled="authActionDisabled || (turnstileEnabled && !turnstileToken)"
-          class="btn btn-primary mt-3 h-10 w-full"
+          class="btn btn-primary auth-primary"
         >
           <svg
             v-if="isLoading"
@@ -126,7 +88,7 @@
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             ></path>
           </svg>
-          <Icon v-else name="login" size="md" class="mr-2" />
+          <Icon v-else name="arrowRight" size="sm" />
           {{ isLoading ? t('auth.signingIn') : t('auth.signIn') }}
         </button>
 
@@ -142,23 +104,17 @@
           @open="showAgreementModal = true"
         />
 
-        <div v-if="showPasskeyLogin || showOAuthLogin" class="space-y-3 pt-1">
-          <div class="flex items-center gap-3">
-            <div class="h-px flex-1 bg-[#eeeeee] dark:bg-dark-700"></div>
-            <span class="text-xs text-[#8b8b8b] dark:text-dark-400">
-              {{ t('auth.oauthOrContinue') }}
-            </span>
-            <div class="h-px flex-1 bg-[#eeeeee] dark:bg-dark-700"></div>
-          </div>
+        <div v-if="showPasskeyLogin || showOAuthLogin" class="auth-alternatives">
+          <div class="auth-divider"><span>{{ t('auth.oauthOrContinue') }}</span></div>
 
           <button
             v-if="showPasskeyLogin"
             type="button"
-            class="btn btn-secondary w-full"
+            class="btn btn-secondary auth-secondary w-full"
             :disabled="authActionDisabled"
             @click="handlePasskeyLogin"
           >
-            <Icon name="key" size="md" class="mr-2" />
+            <Icon name="key" size="sm" />
             {{ passkeyLoading ? t('auth.passkeySigningIn') : t('auth.passkeySignIn') }}
           </button>
 
@@ -197,21 +153,18 @@
           />
         </div>
       </form>
-    </div>
-
-    <!-- Footer -->
     <template v-if="!backendModeEnabled" #footer>
-      <p class="text-[#777777] dark:text-dark-400">
+      <p class="auth-register-footer">
         {{ t('auth.dontHaveAccount') }}
         <router-link
           to="/register"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+          class="auth-text-link"
         >
           {{ t('auth.signUp') }}
         </router-link>
       </p>
     </template>
-  </AuthLayout>
+  </AuthFormPanel>
 
   <!-- 2FA Modal -->
   <TotpLoginModal
@@ -228,7 +181,8 @@
 import { computed, ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { AuthLayout } from '@/components/layout'
+import AuthFormPanel from '@/components/auth/AuthFormPanel.vue'
+import AuthTextField from '@/components/auth/AuthTextField.vue'
 import LinuxDoOAuthSection from '@/components/auth/LinuxDoOAuthSection.vue'
 import DingTalkOAuthSection from '@/components/auth/DingTalkOAuthSection.vue'
 import OidcOAuthSection from '@/components/auth/OidcOAuthSection.vue'
@@ -269,7 +223,6 @@ const appStore = useAppStore()
 const isLoading = ref<boolean>(false)
 const passkeyLoading = ref<boolean>(false)
 const errorMessage = ref<string>('')
-const showPassword = ref<boolean>(false)
 const publicSettingsLoaded = ref<boolean>(false)
 
 // Public settings

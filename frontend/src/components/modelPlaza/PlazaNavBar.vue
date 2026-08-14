@@ -1,15 +1,11 @@
 <template>
   <header class="sticky top-0 z-30 border-b border-gray-200 bg-white/95 dark:border-dark-700 dark:bg-dark-950/95">
     <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
-      <!-- 左:站点 logo + 名称 -->
+      <!-- 左:横版 Logo；未配置时回退站点名称 -->
       <div class="flex min-w-0 items-center gap-3">
         <template v-if="settings">
-          <span
-            class="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800"
-          >
-            <img :src="siteLogo || '/logo.svg'" :alt="siteName" class="h-full w-full object-contain" />
-          </span>
-          <span class="truncate text-base font-semibold text-gray-950 dark:text-white">
+          <img v-if="siteLogo" :src="siteLogo" :alt="siteName" class="h-8 w-auto max-w-[180px] object-contain object-center" />
+          <span v-else class="truncate text-base font-semibold text-gray-950 dark:text-white">
             {{ siteName }}
           </span>
         </template>

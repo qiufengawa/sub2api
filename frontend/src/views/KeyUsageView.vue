@@ -4,10 +4,8 @@
     <header class="relative z-20 px-4 py-4 sm:px-6">
       <nav class="mx-auto flex max-w-6xl items-center justify-between">
         <router-link to="/home" class="flex items-center gap-3">
-          <div class="h-10 w-10 overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900">
-            <img :src="siteLogo || '/logo.svg'" :alt="siteName" class="h-full w-full object-contain" />
-          </div>
-          <span class="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">{{ siteName }}</span>
+          <img v-if="siteLogo" :src="siteLogo" :alt="siteName" class="h-9 w-auto max-w-[180px] object-contain object-center" />
+          <span v-else class="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">{{ siteName }}</span>
         </router-link>
         <div class="flex items-center gap-3">
           <LocaleSwitcher />

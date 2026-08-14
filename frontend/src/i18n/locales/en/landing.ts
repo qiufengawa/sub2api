@@ -71,6 +71,7 @@ export default {
       },
       pricing: {
         title: 'Pricing Reference',
+        description: 'Model costs vary with capability, context, and channel. Understand the pricing structure, then verify current prices in Model Plaza.',
         items: {
           models: { title: 'Model-based pricing', description: 'Balance quality, latency, and budget per workload across different model cost profiles.' },
           usage: { title: 'Use what you need', description: 'Run prototypes, batch jobs, internal tools, and production traffic through the same gateway.' },
@@ -94,11 +95,12 @@ export default {
       },
       capabilities: {
         title: 'Platform Capabilities',
+        description: 'Organize integration, responses, output, and observability around real request flows so development and runtime status stay clear.',
         items: {
-          sdk: { title: 'SDK Compatibility', description: 'Works with common OpenAI-style SDKs and minimizes migration changes.' },
-          streaming: { title: 'Streaming Output', description: 'Supports incremental responses for chat, writing, and long generation.' },
-          structured: { title: 'Structured Output', description: 'Use JSON, tools, function calling, or schemas when supported.' },
-          tracking: { title: 'Usage Tracking', description: 'Review request logs, quota, errors, and model activity in one place.' }
+          sdk: { title: 'Unified Access', description: 'Connect different models through consistent authentication and request endpoints with less duplicate configuration.' },
+          streaming: { title: 'Live Responses', description: 'Receive incremental results when supported so conversations and long generations keep continuous feedback.' },
+          structured: { title: 'Reliable Output', description: 'Use tools, JSON, and schemas on supported models to reduce application parsing overhead.' },
+          tracking: { title: 'Runtime Observability', description: 'Review requests, quota, errors, and model activity together to identify call status quickly.' }
         }
       },
       useCases: {
@@ -113,6 +115,8 @@ export default {
       },
       faq: {
         title: 'FAQ',
+        eyebrow: 'Service guide',
+        description: 'Common guidance on service positioning, SDK integration, model coverage, and production use.',
         items: {
           official: { question: 'Is {site} an official model provider?', answer: 'No. {site} is a third-party gateway. Availability, pricing, and usage rules depend on platform settings and upstream channels.' },
           sdk: { question: 'Can I keep using my current OpenAI SDK?', answer: 'Usually yes. Replace the Base URL and API key, then adjust model, tools, streaming, and other fields as needed.' },

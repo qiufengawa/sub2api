@@ -14,11 +14,27 @@ import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { isBackendModePublicRouteAllowed } from './backendModeAccess'
 import { resolveRouteDocumentTitle } from './title'
+import AuthShellView from '@/views/auth/AuthShellView.vue'
+import LoginView from '@/views/auth/LoginView.vue'
+import RegisterView from '@/views/auth/RegisterView.vue'
 
 /**
  * Route definitions with lazy loading
  */
 const routes: RouteRecordRaw[] = [
+  ...(import.meta.env.DEV
+    ? [
+        {
+          path: '/ui-system-preview',
+          name: 'UiSystemPreview',
+          component: () => import('@/views/admin/UiSystemView.vue'),
+          meta: {
+            requiresAuth: false,
+            title: 'UI System Preview'
+          }
+        } satisfies RouteRecordRaw
+      ]
+    : []),
   // ==================== Setup Routes ====================
   {
     path: '/setup',
@@ -41,24 +57,32 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/login',
-    name: 'Login',
-    component: () => import('@/views/auth/LoginView.vue'),
-    meta: {
-      requiresAuth: false,
-      title: 'Login',
-      titleKey: 'home.login'
-    }
-  },
-  {
-    path: '/register',
-    name: 'Register',
-    component: () => import('@/views/auth/RegisterView.vue'),
-    meta: {
-      requiresAuth: false,
-      title: 'Register',
-      titleKey: 'auth.createAccount'
-    }
+    path: '/auth-entry',
+    component: AuthShellView,
+    redirect: '/login',
+    meta: { requiresAuth: false },
+    children: [
+      {
+        path: '/login',
+        name: 'Login',
+        component: LoginView,
+        meta: {
+          requiresAuth: false,
+          title: 'Login',
+          titleKey: 'home.login'
+        }
+      },
+      {
+        path: '/register',
+        name: 'Register',
+        component: RegisterView,
+        meta: {
+          requiresAuth: false,
+          title: 'Register',
+          titleKey: 'auth.createAccount'
+        }
+      }
+    ]
   },
   {
     path: '/email-verify',
@@ -425,6 +449,16 @@ const routes: RouteRecordRaw[] = [
       title: 'Admin Dashboard',
       titleKey: 'admin.dashboard.title',
       descriptionKey: 'admin.dashboard.description'
+    }
+  },
+  {
+    path: '/admin/ui-system',
+    name: 'AdminUiSystem',
+    component: () => import('@/views/admin/UiSystemView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'UI System'
     }
   },
   {

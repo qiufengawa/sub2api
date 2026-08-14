@@ -1,17 +1,17 @@
 <template>
-  <div class="relative" ref="dropdownRef">
+  <div class="locale-switcher relative" :class="{ 'locale-switcher--compact': compact }" ref="dropdownRef">
     <button
       @click="toggleDropdown"
       :disabled="switching"
-      class="flex min-h-8 items-center gap-1.5 rounded-[3px] px-2 py-1 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
+      class="locale-switcher__trigger flex min-h-8 items-center gap-1.5 rounded-[3px] px-2 py-1 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
       :title="currentLocale?.name"
     >
       <Icon name="globe" size="sm" class="text-gray-400" />
-      <span class="hidden sm:inline">{{ currentLocale?.code.toUpperCase() }}</span>
+      <span class="locale-switcher__code hidden sm:inline">{{ currentLocale?.code.toUpperCase() }}</span>
       <Icon
         name="chevronDown"
         size="xs"
-        class="text-gray-400 transition-transform duration-200"
+        class="locale-switcher__chevron text-gray-400 transition-transform duration-200"
         :class="{ 'rotate-180': isOpen }"
       />
     </button>
@@ -48,6 +48,15 @@ import Icon from '@/components/icons/Icon.vue'
 import { setLocale, availableLocales } from '@/i18n'
 
 const { locale } = useI18n()
+
+withDefaults(
+  defineProps<{
+    compact?: boolean
+  }>(),
+  {
+    compact: false
+  }
+)
 
 const isOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
@@ -90,6 +99,33 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.locale-switcher--compact .locale-switcher__trigger {
+  height: 32px;
+  min-height: 32px;
+  gap: 4px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: #4f4b47;
+  background: transparent;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.locale-switcher--compact .locale-switcher__trigger:hover {
+  border-color: #e6e0da;
+  background: #f5f1ed;
+}
+
+:global(.dark) .locale-switcher--compact .locale-switcher__trigger {
+  color: #d5d0ca;
+}
+
+:global(.dark) .locale-switcher--compact .locale-switcher__trigger:hover {
+  border-color: #393632;
+  background: #1d1b19;
+}
+
 .dropdown-enter-active,
 .dropdown-leave-active {
   transition: all 0.15s ease;

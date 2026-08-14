@@ -114,10 +114,11 @@ describe('AppSidebar header styles', () => {
     expect(sidebarBrandBlockMatch?.[0]).not.toContain('overflow: hidden;')
   })
 
-  it('gives the site name its own two-line brand area', () => {
+  it('centers the horizontal logo and keeps a text fallback', () => {
     expect(componentSource).toContain(':title="siteName"')
-    expect(componentSource).toContain('-webkit-line-clamp: 2;')
-    expect(componentSource).toContain('max-width: 100%;')
+    expect(componentSource).toContain('v-if="siteLogo"')
+    expect(componentSource).toContain('<span v-else>{{ siteName }}</span>')
+    expect(componentSource).toContain('object-position: center;')
   })
 
   it('moves the version control to the bottom tools and opens it upward', () => {

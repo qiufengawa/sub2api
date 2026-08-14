@@ -80,6 +80,7 @@ export default {
       },
       pricing: {
         title: '价格参考',
+        description: '模型成本随能力、上下文和渠道变化。先理解计价结构，再前往模型广场核对当前价格。',
         items: {
           models: { title: '按模型计价', description: '不同模型拥有不同成本结构，可针对每种工作负载平衡质量、延迟和预算。' },
           usage: { title: '按实际需求使用', description: '原型、批处理、内部工具和生产流量可以通过同一网关按需选择模型。' },
@@ -103,11 +104,12 @@ export default {
       },
       capabilities: {
         title: '平台能力',
+        description: '围绕真实调用流程组织接入、响应、输出和观测能力，让开发与运行状态保持清晰可控。',
         items: {
-          sdk: { title: 'SDK 兼容', description: '兼容常见 OpenAI 风格 SDK，减少迁移改动。' },
-          streaming: { title: '流式输出', description: '支持聊天、写作和长内容生成的增量响应。' },
-          structured: { title: '结构化输出', description: '在模型支持时使用 JSON、工具调用与 Schema 输出。' },
-          tracking: { title: '用量追踪', description: '在一个控制台查看请求日志、额度、错误和模型活动。' }
+          sdk: { title: '统一接入', description: '使用一致的鉴权与请求入口连接不同模型，减少项目中的重复配置。' },
+          streaming: { title: '实时响应', description: '按模型能力接收增量结果，让对话和长内容生成保持连续反馈。' },
+          structured: { title: '可靠输出', description: '在支持的模型上使用工具调用、JSON 和 Schema，降低业务解析成本。' },
+          tracking: { title: '运行观测', description: '集中查看请求、额度、错误和模型活动，快速定位调用状态。' }
         }
       },
       useCases: {
@@ -122,6 +124,8 @@ export default {
       },
       faq: {
         title: '常见问题',
+        eyebrow: '使用说明',
+        description: '关于服务定位、SDK 接入、模型范围和生产使用的常见说明。',
         items: {
           official: { question: '{site} 是模型厂商的官方服务吗？', answer: '不是。{site} 是第三方模型网关，模型可用性、价格和使用规则取决于平台设置与上游渠道。' },
           sdk: { question: '可以继续使用现有 OpenAI SDK 吗？', answer: '通常可以。先替换 Base URL 和 API 密钥，再按所选模型调整工具、流式输出等字段。' },

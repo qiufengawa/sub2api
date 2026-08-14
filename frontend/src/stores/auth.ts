@@ -297,6 +297,10 @@ export const useAuthStore = defineStore('auth', () => {
    * Internal helper function
    */
   function setAuthFromResponse(response: AuthResponse): void {
+    if (!response || typeof response !== 'object' || !response.user || !response.access_token) {
+      throw new Error('Invalid authentication response')
+    }
+
     // Store token and user
     token.value = response.access_token
 
@@ -307,7 +311,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     // Extract run_mode if present
-    if (response.user.run_mode) {
+    if (response.user?.run_mode) {
       runMode.value = response.user.run_mode
     }
     const { run_mode: _run_mode, ...userData } = response.user
@@ -439,8 +443,11 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       const response = await authAPI.getCurrentUser()
-      if (response.data.run_mode) {
+      if (response.data?.run_mode) {
         runMode.value = response.data.run_mode
+      }
+      if (!response.data || typeof response.data !== 'object') {
+        throw new Error('Invalid current-user response')
       }
       const { run_mode: _run_mode, ...userData } = response.data
       user.value = userData

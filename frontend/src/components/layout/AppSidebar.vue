@@ -19,7 +19,13 @@
           :title="siteName"
           @click="handleMenuItemClick(homePath)"
         >
-          {{ siteName }}
+          <img
+            v-if="siteLogo"
+            :src="siteLogo"
+            :alt="siteName"
+            class="sidebar-brand-logo"
+          />
+          <span v-else>{{ siteName }}</span>
         </router-link>
       </div>
     </div>
@@ -264,6 +270,7 @@ const expandedGroups = ref<Set<string>>(new Set())
 
 // Site settings from appStore (cached, no flicker)
 const siteName = computed(() => appStore.siteName)
+const siteLogo = computed(() => appStore.siteLogo)
 const siteVersion = computed(() => appStore.siteVersion)
 
 // SVG Icon Components
@@ -1054,13 +1061,21 @@ onBeforeUnmount(() => {
 }
 
 .sidebar-brand-title {
-  display: -webkit-box;
+  display: flex;
   width: 100%;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
   line-height: 1.25rem;
   overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+}
+
+.sidebar-brand-logo {
+  display: block;
+  width: min(164px, 100%);
+  height: 34px;
+  object-fit: contain;
+  object-position: center;
 }
 
 .sidebar-header:not(.sidebar-header-collapsed) {
