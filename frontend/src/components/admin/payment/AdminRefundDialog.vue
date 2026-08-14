@@ -1,175 +1,111 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('payment.admin.refundOrder')"
+    :close-label="t('common.close')"
     width="normal"
     @close="emit('cancel')"
   >
-    <form id="refund-form" @submit.prevent="handleSubmit" class="space-y-4">
-      <!-- Refund Request Info -->
-      <div
+    <form id="refund-form" class="admin-refund-form" @submit.prevent="handleSubmit">
+      <AppSection
         v-if="order?.refund_requested_at || order?.refund_request_reason"
-        class="rounded-lg border border-violet-200 bg-violet-50 p-3 dark:border-violet-800 dark:bg-violet-900/20"
+        :title="t('payment.admin.refundRequestInfo')"
+        divided
       >
-        <div class="flex items-center gap-2 text-sm font-medium text-violet-700 dark:text-violet-300">
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          {{ t('payment.admin.refundRequestInfo') }}
-        </div>
-        <div v-if="order?.refund_requested_at" class="mt-2 flex justify-between text-sm">
-          <span class="text-violet-600 dark:text-violet-400">{{ t('payment.admin.refundRequestedAt') }}</span>
-          <span class="text-violet-800 dark:text-violet-200">{{ formatDateTime(order.refund_requested_at) }}</span>
-        </div>
-        <div v-if="order?.refund_request_reason" class="mt-1 text-sm">
-          <span class="text-violet-600 dark:text-violet-400">{{ t('payment.admin.refundRequestReason') }}:</span>
-          <span class="ml-1 text-violet-800 dark:text-violet-200">{{ order.refund_request_reason }}</span>
-        </div>
-      </div>
+        <UiDescriptionList :items="refundRequestItems" :columns="1" />
+      </AppSection>
 
-      <!-- Order Info -->
-      <div class="rounded-lg bg-gray-50 p-3 dark:bg-dark-700">
-        <div class="flex justify-between text-sm">
-          <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.orderId') }}</span>
-          <span class="font-mono text-gray-900 dark:text-white">#{{ order?.id }}</span>
-        </div>
-        <div class="mt-1 flex justify-between text-sm">
-          <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.creditedAmount') }}</span>
-          <span class="font-medium text-gray-900 dark:text-white">{{ creditedAmountSymbol }}{{ order?.amount?.toFixed(2) }}</span>
-        </div>
-        <div class="mt-1 flex justify-between text-sm">
-          <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.payAmount') }}</span>
-          <span class="font-medium text-gray-900 dark:text-white">{{ paymentAmountSymbol }}{{ order?.pay_amount?.toFixed(2) }}</span>
-        </div>
-        <div v-if="actuallyRefunded > 0" class="mt-1 flex justify-between text-sm">
-          <span class="text-gray-500 dark:text-gray-400">{{ t('payment.admin.alreadyRefunded') }}</span>
-          <span class="font-medium text-red-600 dark:text-red-400">{{ creditedAmountSymbol }}{{ actuallyRefunded.toFixed(2) }}</span>
-        </div>
-      </div>
+      <UiDescriptionList :items="orderSummaryItems" :columns="1" />
 
-      <!-- Deduct Balance -->
-      <div>
-        <div class="flex items-center gap-2">
-          <input
-            id="deduct-balance"
-            v-model="form.deduct_balance"
-            type="checkbox"
-            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-          />
-          <label for="deduct-balance" class="text-sm text-gray-700 dark:text-gray-300">
-            {{ t('payment.admin.deductBalance') }}
-          </label>
-          <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.deductBalanceHint') }}</span>
-        </div>
+      <UiCheckbox v-model="form.deduct_balance">
+        <span class="admin-refund-checkbox-copy">
+          <strong>{{ t('payment.admin.deductBalance') }}</strong>
+          <small>{{ t('payment.admin.deductBalanceHint') }}</small>
+        </span>
+      </UiCheckbox>
 
-        <!-- User Balance Info (when deduct_balance is checked) -->
-        <div v-if="form.deduct_balance && userBalance != null" class="mt-3 grid grid-cols-2 gap-3">
-          <div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-dark-700">
-            <div class="text-gray-500 dark:text-gray-400">{{ t('payment.admin.userBalance') }}</div>
-            <div class="mt-1 font-semibold text-gray-900 dark:text-white">{{ creditedAmountSymbol }}{{ userBalance.toFixed(2) }}</div>
-          </div>
-          <div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-dark-700">
-            <div class="text-gray-500 dark:text-gray-400">{{ t('payment.admin.orderAmount') }}</div>
-            <div class="mt-1 font-semibold text-gray-900 dark:text-white">{{ creditedAmountSymbol }}{{ order?.amount?.toFixed(2) }}</div>
-          </div>
-        </div>
+      <UiDescriptionList
+        v-if="form.deduct_balance && userBalance != null"
+        :items="balanceItems"
+        :columns="2"
+      />
 
-        <!-- Insufficient balance warning -->
-        <div
-          v-if="form.deduct_balance && balanceInsufficient"
-          class="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
-        >
-          {{ t('payment.admin.insufficientBalance') }}
-        </div>
+      <UiAlert
+        v-if="form.deduct_balance && balanceInsufficient"
+        tone="warning"
+        :message="t('payment.admin.insufficientBalance')"
+      />
 
-        <!-- No deduction info -->
-        <div
-          v-if="!form.deduct_balance"
-          class="mt-2 rounded-lg bg-blue-50 p-3 text-sm text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
-        >
-          {{ t('payment.admin.noDeduction') }}
-        </div>
-      </div>
+      <UiAlert
+        v-if="!form.deduct_balance"
+        tone="info"
+        :message="t('payment.admin.noDeduction')"
+      />
 
-      <!-- Refund Amount -->
-      <div>
-        <label class="input-label">{{ t('payment.admin.refundAmount') }}</label>
-        <div class="relative">
-          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">{{ creditedAmountSymbol }}</span>
-          <input
-            v-model.number="form.amount"
-            type="number"
-            step="0.01"
-            min="0.01"
-            :max="maxRefundable"
-            class="input pl-7"
-            required
-          />
-        </div>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          {{ t('payment.admin.maxRefundable') }}: {{ creditedAmountSymbol }}{{ maxRefundable.toFixed(2) }}
-        </p>
-      </div>
-
-      <!-- Reason -->
-      <div>
-        <label class="input-label">{{ t('payment.admin.refundReason') }}</label>
-        <textarea
-          v-model="form.reason"
-          rows="3"
-          class="input"
-          :placeholder="t('payment.admin.refundReasonPlaceholder')"
-          required
-        ></textarea>
-      </div>
-
-      <!-- Warning -->
-      <div
-        v-if="warning"
-        class="rounded-lg bg-yellow-50 p-3 text-sm text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300"
+      <UiTextField
+        :model-value="form.amount"
+        type="number"
+        inputmode="decimal"
+        step="0.01"
+        min="0.01"
+        :max="maxRefundable"
+        :label="t('payment.admin.refundAmount')"
+        :description="`${t('payment.admin.maxRefundable')}: ${creditedAmountSymbol}${maxRefundable.toFixed(2)}`"
+        required
+        @update:model-value="setAmount"
       >
-        {{ warning }}
-      </div>
+        <template #prefix>{{ creditedAmountSymbol }}</template>
+      </UiTextField>
 
-      <!-- Force Refund -->
-      <div v-if="requireForce" class="flex items-center gap-2">
-        <input
-          id="force-refund"
-          v-model="form.force"
-          type="checkbox"
-          class="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
-        />
-        <label for="force-refund" class="text-sm font-medium text-red-600 dark:text-red-400">
-          {{ t('payment.admin.forceRefund') }}
-        </label>
-      </div>
+      <UiTextArea
+        v-model="form.reason"
+        :label="t('payment.admin.refundReason')"
+        :placeholder="t('payment.admin.refundReasonPlaceholder')"
+        :rows="3"
+        required
+      />
+
+      <UiAlert v-if="warning" tone="warning" :message="warning" />
+
+      <UiCheckbox v-if="requireForce" v-model="form.force">
+        {{ t('payment.admin.forceRefund') }}
+      </UiCheckbox>
     </form>
 
     <template #footer>
-      <div class="flex justify-end gap-3">
-        <button type="button" @click="emit('cancel')" class="btn btn-secondary">
-          {{ t('common.cancel') }}
-        </button>
-        <button
+      <div class="admin-refund-actions">
+        <UiButton type="button" density="compact" @click="emit('cancel')">{{ t('common.cancel') }}</UiButton>
+        <UiButton
           type="submit"
           form="refund-form"
           :disabled="submitting || form.amount <= 0 || (requireForce && !form.force)"
-          class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 dark:focus:ring-offset-dark-800"
+          :loading="submitting"
+          variant="danger"
+          density="compact"
         >
-          {{ submitting ? t('common.processing') : t('payment.admin.confirmRefund') }}
-        </button>
+          {{ t('payment.admin.confirmRefund') }}
+        </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
 import { reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import type { PaymentOrder } from '@/types/payment'
 import { formatOrderDateTime } from '@/components/payment/orderUtils'
 import { currencySymbol } from '@/components/payment/currency'
+import {
+  AppSection,
+  UiAlert,
+  UiButton,
+  UiCheckbox,
+  UiDescriptionList,
+  UiDialog,
+  UiTextArea,
+  UiTextField,
+} from '@/components/ui'
 
 const { t } = useI18n()
 
@@ -217,6 +153,36 @@ const balanceInsufficient = computed(() => {
   return props.userBalance < props.order.amount
 })
 
+const refundRequestItems = computed(() => {
+  const items: Array<{ key?: string; label: string; value: string | number }> = []
+  if (props.order?.refund_requested_at) {
+    items.push({ key: 'requestedAt', label: t('payment.admin.refundRequestedAt'), value: formatDateTime(props.order.refund_requested_at) })
+  }
+  if (props.order?.refund_request_reason) {
+    items.push({ key: 'reason', label: t('payment.admin.refundRequestReason'), value: props.order.refund_request_reason })
+  }
+  return items
+})
+
+const orderSummaryItems = computed(() => {
+  const order = props.order
+  if (!order) return []
+  const items: Array<{ key?: string; label: string; value: string | number; numeric?: boolean }> = [
+    { key: 'orderId', label: t('payment.orders.orderId'), value: `#${order.id}` },
+    { key: 'creditedAmount', label: t('payment.orders.creditedAmount'), value: `${creditedAmountSymbol}${order.amount.toFixed(2)}`, numeric: true },
+    { key: 'payAmount', label: t('payment.orders.payAmount'), value: `${paymentAmountSymbol.value}${order.pay_amount.toFixed(2)}`, numeric: true },
+  ]
+  if (actuallyRefunded.value > 0) {
+    items.push({ key: 'alreadyRefunded', label: t('payment.admin.alreadyRefunded'), value: `${creditedAmountSymbol}${actuallyRefunded.value.toFixed(2)}`, numeric: true })
+  }
+  return items
+})
+
+const balanceItems = computed(() => [
+  { key: 'userBalance', label: t('payment.admin.userBalance'), value: `${creditedAmountSymbol}${(props.userBalance || 0).toFixed(2)}`, numeric: true },
+  { key: 'orderAmount', label: t('payment.admin.orderAmount'), value: `${creditedAmountSymbol}${(props.order?.amount || 0).toFixed(2)}`, numeric: true },
+])
+
 watch(() => props.show, (val) => {
   if (val && props.order) {
     // For REFUND_REQUESTED, pre-fill with the requested amount
@@ -235,9 +201,51 @@ function formatDateTime(dateStr: string): string {
   return formatOrderDateTime(dateStr)
 }
 
+function setAmount(value: string) {
+  const amount = Number(value)
+  form.amount = Number.isFinite(amount) ? amount : 0
+}
+
 function handleSubmit() {
   if (form.amount <= 0 || form.amount > maxRefundable.value) return
   if (props.requireForce && !form.force) return
   emit('confirm', { ...form })
 }
 </script>
+
+<style scoped>
+.admin-refund-form {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-refund-checkbox-copy {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.admin-refund-checkbox-copy strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-refund-checkbox-copy small {
+  color: var(--ui-text-muted);
+  font-size: 11px;
+}
+
+.admin-refund-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 560px) {
+  .admin-refund-checkbox-copy {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0;
+  }
+}
+</style>

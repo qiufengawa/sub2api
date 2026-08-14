@@ -21,6 +21,11 @@ const BaseDialogStub = {
   template: '<div v-if="show"><slot /><slot name="footer" /></div>',
 }
 
+const UiDialogStub = {
+  props: ['show'],
+  template: '<div v-if="show"><slot /><slot name="footer" /></div>',
+}
+
 const DataTableStub = {
   props: ['data', 'columns', 'mobileTable'],
   template: `
@@ -86,7 +91,7 @@ describe('admin order currency display', () => {
       },
       global: {
         stubs: {
-          BaseDialog: BaseDialogStub,
+          UiDialog: UiDialogStub,
         },
       },
     })
@@ -97,6 +102,74 @@ describe('admin order currency display', () => {
     expect(text).toContain('$20.00')
     expect(text).toContain('$80.00')
     expect(text).toContain('$200.00')
+  })
+
+  it('preserves refund request defaults and emits a numeric payload', async () => {
+    const wrapper = mount(AdminRefundDialog, {
+      props: {
+        show: true,
+        order: orderFactory({
+          status: 'REFUND_REQUESTED',
+          refund_amount: 24.5,
+          refund_request_reason: 'Customer requested a refund',
+        }),
+      },
+      global: { stubs: { UiDialog: UiDialogStub } },
+    })
+
+    await wrapper.setProps({ show: false })
+    await wrapper.setProps({ show: true })
+    expect(wrapper.find('input[type="number"]').element).toHaveProperty('value', '24.5')
+    expect(wrapper.text()).toContain('Customer requested a refund')
+
+    await wrapper.find('input[type="number"]').setValue('12.25')
+    await wrapper.find('textarea').setValue('Approved after review')
+    await wrapper.find('form').trigger('submit')
+
+    expect(wrapper.emitted('confirm')).toEqual([[
+      { amount: 12.25, reason: 'Approved after review', deduct_balance: true, force: false },
+    ]])
+  })
+
+  it('blocks zero and over-limit refund submissions', async () => {
+    const wrapper = mount(AdminRefundDialog, {
+      props: {
+        show: true,
+        order: orderFactory({ status: 'PARTIALLY_REFUNDED', refund_amount: 80 }),
+      },
+      global: { stubs: { UiDialog: UiDialogStub } },
+    })
+
+    await wrapper.find('input[type="number"]').setValue('21')
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('confirm')).toBeUndefined()
+
+    await wrapper.find('input[type="number"]').setValue('0')
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('confirm')).toBeUndefined()
+  })
+
+  it('requires force confirmation when the backend requests it', async () => {
+    const wrapper = mount(AdminRefundDialog, {
+      props: {
+        show: true,
+        order: orderFactory(),
+        requireForce: true,
+        warning: 'Balance check required',
+      },
+      global: { stubs: { UiDialog: UiDialogStub } },
+    })
+
+    await wrapper.setProps({ show: false })
+    await wrapper.setProps({ show: true })
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('confirm')).toBeUndefined()
+
+    const checkboxes = wrapper.findAll('input[type="checkbox"]')
+    expect(checkboxes).toHaveLength(2)
+    await checkboxes[1].setValue(true)
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('confirm')).toHaveLength(1)
   })
 
   it('renders payment currency consistently in the shared order table', () => {
@@ -111,7 +184,7 @@ describe('admin order currency display', () => {
       },
       global: {
         stubs: {
-          DataTable: DataTableStub,
+          UiDataTable: DataTableStub,
           OrderStatusBadge: true,
         },
       },
@@ -133,7 +206,7 @@ describe('admin order currency display', () => {
         loading: false,
         showOrderType: true,
       },
-      global: { stubs: { DataTable: DataTableStub, OrderStatusBadge: true } },
+      global: { stubs: { UiDataTable: DataTableStub, OrderStatusBadge: true } },
     })
 
     expect(wrapper.findComponent(DataTableStub).props('columns')).toEqual(
@@ -144,11 +217,11 @@ describe('admin order currency display', () => {
   it('forwards the opt-in mobile table mode without changing the default', () => {
     const defaultWrapper = mount(OrderTable, {
       props: { orders: [orderFactory()], loading: false },
-      global: { stubs: { DataTable: DataTableStub, OrderStatusBadge: true } },
+      global: { stubs: { UiDataTable: DataTableStub, OrderStatusBadge: true } },
     })
     const mobileWrapper = mount(OrderTable, {
       props: { orders: [orderFactory()], loading: false, mobileTable: true },
-      global: { stubs: { DataTable: DataTableStub, OrderStatusBadge: true } },
+      global: { stubs: { UiDataTable: DataTableStub, OrderStatusBadge: true } },
     })
 
     expect(defaultWrapper.findComponent(DataTableStub).props('mobileTable')).toBe(false)
@@ -169,7 +242,7 @@ describe('admin order currency display', () => {
       },
       global: {
         stubs: {
-          DataTable: DataTableStub,
+          UiDataTable: DataTableStub,
           Icon: true,
           Pagination: true,
           Select: true,
