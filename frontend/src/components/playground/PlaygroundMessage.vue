@@ -38,15 +38,14 @@
             ]"
         >
           <div v-if="editing" class="space-y-2">
-            <textarea
+            <UiTextArea
               v-model="editValue"
-              rows="4"
-              class="input min-h-24 resize-y text-sm leading-6"
-              :aria-label="t('playground.actions.edit')"
-            ></textarea>
-            <div class="flex justify-end gap-2">
-              <button type="button" class="btn btn-secondary btn-sm" @click="editing = false">{{ t('common.cancel') }}</button>
-              <button type="button" class="btn btn-primary btn-sm" :disabled="!editValue.trim()" @click="saveEdit">{{ t('playground.actions.saveAndSend') }}</button>
+              :label="t('playground.actions.edit')"
+              :rows="4"
+            />
+            <div class="message-edit-actions">
+              <UiButton density="compact" variant="secondary" @click="editing = false">{{ t('common.cancel') }}</UiButton>
+              <UiButton density="compact" variant="primary" :disabled="!editValue.trim()" @click="saveEdit">{{ t('playground.actions.saveAndSend') }}</UiButton>
             </div>
           </div>
 
@@ -95,15 +94,9 @@
                   />
                 </button>
                 <div class="absolute bottom-2 right-2 flex items-center gap-1 rounded-[3px] bg-gray-950/75 p-1 text-white shadow-sm">
-                  <button type="button" class="image-action" :title="t('playground.image.preview')" :aria-label="t('playground.image.preview')" @click="previewImage = image">
-                    <Icon name="eye" size="sm" />
-                  </button>
-                  <button v-if="image.sourceUrl" type="button" class="image-action" :title="t('playground.image.copyUrl')" :aria-label="t('playground.image.copyUrl')" @click="copyImageUrl(image.sourceUrl)">
-                    <Icon :name="copiedValue === image.sourceUrl ? 'check' : 'copy'" size="sm" />
-                  </button>
-                  <button type="button" class="image-action" :title="t('playground.image.download')" :aria-label="t('playground.image.download')" @click="downloadImage(image, imageIndex)">
-                    <Icon name="download" size="sm" />
-                  </button>
+                  <UiIconButton class="image-action" :label="t('playground.image.preview')" icon="eye" variant="ghost" density="mini" @click="previewImage = image" />
+                  <UiIconButton v-if="image.sourceUrl" class="image-action" :label="t('playground.image.copyUrl')" :icon="copiedValue === image.sourceUrl ? 'check' : 'copy'" variant="ghost" density="mini" @click="copyImageUrl(image.sourceUrl)" />
+                  <UiIconButton class="image-action" :label="t('playground.image.download')" icon="download" variant="ghost" density="mini" @click="downloadImage(image, imageIndex)" />
                 </div>
               </figure>
             </div>
@@ -208,46 +201,38 @@
         </div>
 
         <div class="message-actions mt-1 flex justify-end gap-0.5">
-            <button v-if="message.content" type="button" class="message-action" :title="t('playground.actions.copy')" :aria-label="t('playground.actions.copy')" @click="copyMessage">
-              <Icon :name="copied ? 'check' : 'copy'" size="sm" />
-            </button>
-            <button v-if="message.role === 'user'" type="button" class="message-action" :disabled="disabled" :title="t('playground.actions.edit')" :aria-label="t('playground.actions.edit')" @click="startEdit">
-              <Icon name="edit" size="sm" />
-            </button>
-            <button v-else type="button" class="message-action" :disabled="disabled" :title="t('playground.actions.regenerate')" :aria-label="t('playground.actions.regenerate')" @click="emit('regenerate')">
-              <Icon name="refresh" size="sm" />
-            </button>
-            <button type="button" class="message-action message-action-danger" :disabled="disabled" :title="t('playground.actions.delete')" :aria-label="t('playground.actions.delete')" @click="emit('delete')">
-              <Icon name="trash" size="sm" />
-            </button>
+            <UiIconButton v-if="message.content" class="message-action" :label="t('playground.actions.copy')" :icon="copied ? 'check' : 'copy'" variant="ghost" density="mini" @click="copyMessage" />
+            <UiIconButton v-if="message.role === 'user'" class="message-action" :disabled="disabled" :label="t('playground.actions.edit')" icon="edit" variant="ghost" density="mini" @click="startEdit" />
+            <UiIconButton v-else class="message-action" :disabled="disabled" :label="t('playground.actions.regenerate')" icon="refresh" variant="ghost" density="mini" @click="emit('regenerate')" />
+            <UiIconButton class="message-action message-action-danger" :disabled="disabled" :label="t('playground.actions.delete')" icon="trash" variant="danger" density="mini" @click="emit('delete')" />
         </div>
       </div>
     </div>
 
-    <BaseDialog
+    <UiDialog
       :show="Boolean(previewImage)"
       :title="t('playground.image.previewTitle')"
       width="wide"
       close-on-click-outside
       @close="previewImage = null"
     >
-      <div v-if="previewImage" class="space-y-3">
-        <div class="flex max-h-[76dvh] min-h-48 items-center justify-center overflow-hidden rounded-[4px] border border-gray-200 bg-gray-50 dark:border-dark-600 dark:bg-dark-900">
-          <img :src="previewImage.url" :alt="t('playground.image.previewTitle')" class="max-h-[76dvh] max-w-full object-contain" />
+      <div v-if="previewImage" class="image-preview">
+        <div class="image-preview__media">
+          <img :src="previewImage.url" :alt="t('playground.image.previewTitle')" />
         </div>
-        <p v-if="previewImage.revisedPrompt" class="text-sm leading-6 text-gray-600 dark:text-dark-300">{{ previewImage.revisedPrompt }}</p>
-        <div class="flex justify-end gap-2">
-          <button v-if="previewImage.sourceUrl" type="button" class="btn btn-secondary btn-sm" @click="copyImageUrl(previewImage.sourceUrl)">
-            <Icon name="copy" size="sm" class="mr-1.5" />
+        <p v-if="previewImage.revisedPrompt" class="image-preview__prompt">{{ previewImage.revisedPrompt }}</p>
+        <div class="image-preview__actions">
+          <UiButton v-if="previewImage.sourceUrl" density="compact" variant="secondary" @click="copyImageUrl(previewImage.sourceUrl)">
+            <template #icon><Icon name="copy" size="sm" /></template>
             {{ t('playground.image.copyUrl') }}
-          </button>
-          <button type="button" class="btn btn-primary btn-sm" @click="downloadImage(previewImage, previewImageIndex)">
-            <Icon name="download" size="sm" class="mr-1.5" />
+          </UiButton>
+          <UiButton density="compact" variant="primary" @click="downloadImage(previewImage, previewImageIndex)">
+            <template #icon><Icon name="download" size="sm" /></template>
             {{ t('playground.image.download') }}
-          </button>
+          </UiButton>
         </div>
       </div>
-    </BaseDialog>
+    </UiDialog>
   </article>
 </template>
 
@@ -256,8 +241,8 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { UiButton, UiDialog, UiIconButton, UiTextArea } from '@/components/ui'
 import { useAppStore } from '@/stores/app'
 import type { PlaygroundImageAsset, PlaygroundMessage } from '@/types/playground'
 
@@ -457,24 +442,141 @@ function formatTimestamp(value: number | undefined): string {
 </script>
 
 <style scoped>
-.message-action { @apply flex h-7 w-7 items-center justify-center rounded-[3px] text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-dark-500 dark:hover:bg-dark-700 dark:hover:text-dark-200; }
-.message-action-danger { @apply hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400; }
-.image-action { @apply flex h-7 w-7 items-center justify-center rounded-[3px] text-white/80 transition-colors hover:bg-white/15 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50; }
-.image-skeleton { animation: playground-image-pulse 1.6s ease-in-out infinite; }
-.metric-item { @apply inline-flex min-w-0 items-center gap-1; }
-.metric-label { @apply flex-none whitespace-nowrap text-gray-400 dark:text-dark-500; }
-.metadata-copy { @apply flex h-5 w-5 flex-none items-center justify-center rounded-[3px] text-gray-400 hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-300; }
-.details-chevron { transition: transform 140ms ease; }
-details[open] .details-chevron { transform: rotate(180deg); }
+.message-edit-actions,
+.image-preview__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.image-preview {
+  display: grid;
+  gap: 12px;
+}
+
+.image-preview__media {
+  display: flex;
+  min-height: 192px;
+  max-height: 76dvh;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface-muted);
+}
+
+.image-preview__media img {
+  max-width: 100%;
+  max-height: 76dvh;
+  object-fit: contain;
+}
+
+.image-preview__prompt {
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: 13px;
+  line-height: 22px;
+}
+
+.image-skeleton {
+  animation: playground-image-pulse 1.6s var(--ui-ease-standard) infinite;
+}
+
+.metric-item {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.metric-label {
+  flex: none;
+  color: var(--ui-text-soft);
+  white-space: nowrap;
+}
+
+.metadata-copy {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ui-radius-mini);
+  color: var(--ui-text-soft);
+  background: transparent;
+  cursor: pointer;
+}
+
+.metadata-copy:hover {
+  color: var(--ui-text);
+  background: var(--ui-surface-muted);
+}
+
+.details-chevron {
+  transition: transform var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+details[open] .details-chevron {
+  transform: rotate(180deg);
+}
+
 :deep(.playground-markdown > :first-child) { margin-top: 0; }
 :deep(.playground-markdown > :last-child) { margin-bottom: 0; }
-:deep(.playground-markdown pre) { @apply relative overflow-x-auto rounded-[3px] border border-gray-200 bg-gray-950 p-4 pt-9 text-gray-100 dark:border-dark-600; }
-:deep(.playground-markdown code:not(pre code)) { @apply rounded-[3px] bg-gray-100 px-1 py-0.5 text-[0.9em] text-primary-700 dark:bg-dark-700 dark:text-primary-300; }
-:deep(.playground-code-copy) { @apply absolute right-2 top-2 rounded-[3px] border border-white/15 bg-white/10 px-2 py-1 text-[10px] text-gray-200 hover:bg-white/20; }
+:deep(.playground-markdown pre) {
+  position: relative;
+  overflow-x: auto;
+  padding: 36px 16px 16px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  color: #f5f3f0;
+  background: #1f2329;
+  font-family: var(--ui-font-mono);
+}
+
+:deep(.playground-markdown code:not(pre code)) {
+  padding: 2px 4px;
+  border-radius: var(--ui-radius-mini);
+  color: var(--ui-text);
+  background: var(--ui-surface-muted);
+  font-family: var(--ui-font-mono);
+  font-size: 0.9em;
+}
+
+:deep(.playground-code-copy) {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: var(--ui-radius-mini);
+  color: #e5e2de;
+  background: rgb(255 255 255 / 8%);
+  font: 500 10px/16px var(--ui-font-sans);
+  cursor: pointer;
+}
+
+:deep(.playground-code-copy:hover) {
+  background: rgb(255 255 255 / 14%);
+}
+
 @media (hover: hover) and (pointer: fine) {
-  .message-actions { opacity: 0; transition: opacity 140ms ease; }
+  .message-actions { opacity: 0; transition: opacity var(--ui-motion-fast) var(--ui-ease-standard); }
   article:hover .message-actions,
   article:focus-within .message-actions { opacity: 1; }
 }
 @keyframes playground-image-pulse { 0%, 100% { opacity: 0.72; } 50% { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .image-skeleton {
+    animation: none;
+  }
+
+  .details-chevron,
+  .message-actions {
+    transition: none;
+  }
+}
 </style>

@@ -1,28 +1,28 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('playground.preview.title')"
     width="wide"
     @close="emit('close')"
   >
-    <div class="overflow-hidden rounded-[4px] border border-gray-200 bg-gray-950 dark:border-dark-600">
-      <div class="flex items-center justify-between border-b border-white/10 px-3 py-2">
-        <span class="text-xs text-gray-400">JSON</span>
-        <button type="button" class="btn h-7 border-white/15 bg-white/10 px-2 text-xs text-gray-100 hover:bg-white/15" @click="copyPreview">
-          <Icon :name="copied ? 'check' : 'copy'" size="sm" class="mr-1.5" />
+    <div class="playground-preview">
+      <div class="playground-preview__toolbar">
+        <span>JSON</span>
+        <UiButton density="compact" variant="quiet" @click="copyPreview">
+          <template #icon><Icon :name="copied ? 'check' : 'copy'" size="sm" /></template>
           {{ copied ? t('playground.actions.copied') : t('playground.actions.copy') }}
-        </button>
+        </UiButton>
       </div>
-      <pre class="max-h-[62dvh] overflow-auto p-4 text-xs leading-6 text-gray-100"><code>{{ props.content }}</code></pre>
+      <pre><code>{{ props.content }}</code></pre>
     </div>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { UiButton, UiDialog } from '@/components/ui'
 import { useAppStore } from '@/stores/app'
 
 const props = defineProps<{ show: boolean; content: string }>()
@@ -41,3 +41,34 @@ async function copyPreview(): Promise<void> {
   }
 }
 </script>
+
+<style scoped>
+.playground-preview {
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface-strong);
+}
+
+.playground-preview__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--ui-border);
+  color: var(--ui-text-muted);
+  font: 600 11px/16px var(--ui-font-mono);
+}
+
+.playground-preview pre {
+  max-height: 62dvh;
+  margin: 0;
+  overflow: auto;
+  padding: 14px;
+  color: var(--ui-text);
+  background: var(--ui-surface-strong);
+  font: 12px/22px var(--ui-font-mono);
+  white-space: pre;
+}
+</style>

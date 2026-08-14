@@ -1,7 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
-import Select from '@/components/common/Select.vue'
-import Toggle from '@/components/common/Toggle.vue'
+import { UiSelect, UiSwitch } from '@/components/ui'
 import PlaygroundComposer from '../PlaygroundComposer.vue'
 
 vi.mock('vue-i18n', async () => {
@@ -43,12 +42,12 @@ const props = {
 describe('PlaygroundComposer', () => {
   it('uses one visible composer surface without a framed outer footer', () => {
     const wrapper = mount(PlaygroundComposer, { props })
-    const shell = wrapper.get('.playground-composer-shell')
+    const shell = wrapper.get('.playground-composer')
 
     expect(shell.classes()).not.toContain('border-t')
     expect(shell.classes()).not.toContain('bg-white')
-    expect(wrapper.findAll('.playground-composer-surface')).toHaveLength(1)
-    expect(wrapper.get('textarea').classes()).toContain('min-h-14')
+    expect(wrapper.findAll('.playground-composer__surface')).toHaveLength(1)
+    expect(wrapper.get('textarea').classes()).toContain('playground-composer__input')
   })
 
   it('sends with Enter and keeps Shift+Enter for a new line', async () => {
@@ -85,11 +84,11 @@ describe('PlaygroundComposer', () => {
 
   it('keeps key, group, model, mode, and utility actions inside the composer', async () => {
     const wrapper = mount(PlaygroundComposer, { props })
-    const selects = wrapper.findAllComponents(Select)
+    const selects = wrapper.findAllComponents(UiSelect)
     expect(selects).toHaveLength(2)
     selects[0].vm.$emit('update:modelValue', 2)
     selects[1].vm.$emit('update:modelValue', 'gpt-next')
-    wrapper.getComponent(Toggle).vm.$emit('update:modelValue', false)
+    wrapper.getComponent(UiSwitch).vm.$emit('update:modelValue', false)
     await wrapper.get('button[aria-label="playground.actions.requestJson"]').trigger('click')
     await wrapper.get('button[aria-label="playground.actions.newConversation"]').trigger('click')
 
