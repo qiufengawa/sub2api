@@ -5,9 +5,10 @@
       <UiServerTableWorkspace :loading="loading" :loading-text="t('common.loading')">
       <!-- Single Row: Search, Filters, and Actions -->
       <template #toolbar>
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="users-workspace-toolbar">
+        <UiTableToolbar>
           <!-- Left: Search + Active Filters -->
-          <div class="flex flex-1 flex-wrap items-center gap-3">
+          <div class="users-filter-controls">
             <!-- Search Box -->
             <div class="relative w-full md:w-64">
               <UiSearchInput v-model="searchQuery" density="compact" :placeholder="t('admin.users.searchUsers')" @search="handleSearch" />
@@ -138,7 +139,8 @@
           </div>
 
           <!-- Right: Actions and Settings -->
-          <div class="flex flex-wrap items-center justify-end gap-2">
+          <template #actions>
+          <div class="users-toolbar-actions">
             <!-- Mobile: Secondary buttons (icon only) -->
             <div class="flex items-center gap-2 md:contents">
               <!-- Refresh Button -->
@@ -189,24 +191,31 @@
               </UiButton>
             </div>
 
-            <UiButton
-              v-if="selectedCount > 0"
-              variant="secondary"
-              density="compact"
-              class="flex-1 md:flex-initial"
-              data-test="bulk-edit-limits"
-              @click="showBulkEditModal = true"
-            >
-              <template #icon><Icon name="users" size="sm" /></template>
-              {{ t('admin.users.bulkLimits.action', { count: selectedCount }) }}
-            </UiButton>
-
             <!-- Create User Button (full width on mobile, auto width on desktop) -->
             <UiButton variant="primary" density="compact" class="flex-1 md:flex-initial" @click="showCreateModal = true">
               <template #icon><Icon name="plus" size="sm" /></template>
               {{ t('admin.users.createUser') }}
             </UiButton>
           </div>
+          </template>
+        </UiTableToolbar>
+        <UiBulkActionBar
+          :selected-count="selectedCount"
+          :selection-label="t('admin.users.bulkLimits.selectedCount', { count: selectedCount })"
+          :clear-label="t('common.cancel')"
+          @clear="clearSelection"
+        >
+          <UiButton
+            v-if="selectedCount > 0"
+            variant="secondary"
+            density="dense"
+            data-test="bulk-edit-limits"
+            @click="showBulkEditModal = true"
+          >
+            <template #icon><Icon name="users" size="sm" /></template>
+            {{ t('admin.users.bulkLimits.apply') }}
+          </UiButton>
+        </UiBulkActionBar>
         </div>
       </template>
 
@@ -229,13 +238,7 @@
         >
           <template #cell-email="{ value }">
             <div class="flex items-center gap-2">
-              <div
-                class="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900/30"
-              >
-                <span class="text-sm font-medium text-primary-700 dark:text-primary-300">
-                  {{ value.charAt(0).toUpperCase() }}
-                </span>
-              </div>
+              <UiAvatar :name="value" size="md" />
               <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
             </div>
           </template>
@@ -279,61 +282,42 @@
 
           <template #cell-groups="{ row }">
             <div v-if="allGroups.length > 0" class="flex flex-col gap-1">
-              <!-- 专属分组行 -->
-              <span
+              <UiPopover
                 v-if="getUserGroups(row).exclusive.length > 0"
-                data-user-group-menu
-                class="group/ex relative inline-flex cursor-pointer items-center gap-1 whitespace-nowrap text-xs"
-                @click.stop="toggleExpandedGroup(row.id)"
+                panel-role="menu"
+                :aria-label="t('admin.users.clickToReplace')"
               >
-                <Icon name="shield" size="xs" class="h-3.5 w-3.5 text-purple-500 dark:text-purple-400" />
-                <span class="font-medium text-purple-600 dark:text-purple-400">{{ getUserGroups(row).exclusive.length }}</span>
-                <span class="text-gray-500 dark:text-dark-400">{{ t('admin.users.exclusiveLabel') }}</span>
-                <!-- Hover tooltip（操作菜单未打开时显示） -->
-                <div
-                  v-if="expandedGroupUserId !== row.id"
-                  class="pointer-events-none absolute left-0 top-full z-50 mt-1.5 rounded bg-gray-900 px-2.5 py-1.5 text-xs text-white opacity-0 shadow-lg transition-opacity duration-75 group-hover/ex:opacity-100 dark:bg-dark-600"
-                >
-                  <div class="absolute left-4 bottom-full border-4 border-transparent border-b-gray-900 dark:border-b-dark-600"></div>
-                  <div class="flex flex-col gap-0.5 whitespace-nowrap">
-                    <span v-for="g in getUserGroups(row).exclusive" :key="g.id">{{ g.name }}</span>
+                <template #trigger>
+                  <UiButton density="mini" variant="quiet">
+                    <template #icon><Icon name="shield" size="xs" /></template>
+                    {{ getUserGroups(row).exclusive.length }} {{ t('admin.users.exclusiveLabel') }}
+                  </UiButton>
+                </template>
+                <template #default="{ close }">
+                  <div class="users-group-menu">
+                    <span>{{ t('admin.users.clickToReplace') }}</span>
+                    <UiButton
+                      v-for="group in getUserGroups(row).exclusive"
+                      :key="group.id"
+                      density="dense"
+                      variant="quiet"
+                      @click="openGroupReplace(row, group); close()"
+                    >
+                      <template #icon><Icon name="swap" size="xs" /></template>
+                      {{ group.name }}
+                    </UiButton>
                   </div>
-                </div>
-                <!-- 点击展开分组操作菜单 -->
-                <div
-                  v-if="expandedGroupUserId === row.id"
-                  class="absolute left-0 top-full z-50 mt-1.5 min-w-[160px] overflow-hidden rounded-lg border border-gray-200 bg-white py-1 text-xs shadow-xl dark:border-dark-600 dark:bg-dark-700"
-                >
-                  <div class="border-b border-gray-100 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:border-dark-600 dark:text-dark-400">
-                    {{ t('admin.users.clickToReplace') }}
-                  </div>
-                  <div
-                    v-for="g in getUserGroups(row).exclusive"
-                    :key="g.id"
-                    class="flex cursor-pointer items-center gap-2 px-3 py-2 text-gray-700 transition-colors hover:bg-primary-50 hover:text-primary-600 dark:text-dark-200 dark:hover:bg-primary-900/30 dark:hover:text-primary-400"
-                    @click.stop="openGroupReplace(row, g)"
-                  >
-                    <Icon name="swap" size="xs" class="h-3.5 w-3.5 flex-shrink-0 opacity-50" />
-                    <span class="flex-1">{{ g.name }}</span>
-                  </div>
-                </div>
-              </span>
-              <!-- 公开分组行 -->
-              <span
+                </template>
+              </UiPopover>
+              <UiTooltip
                 v-if="getUserGroups(row).publicGroups.length > 0"
-                class="group/pub relative inline-flex cursor-default items-center gap-1 whitespace-nowrap text-xs"
+                :content="getUserGroups(row).publicGroups.map((group) => group.name).join(', ')"
               >
-                <Icon name="globe" size="xs" class="h-3.5 w-3.5 text-gray-400 dark:text-dark-500" />
-                <span class="font-medium text-gray-600 dark:text-dark-300">{{ getUserGroups(row).publicGroups.length }}</span>
-                <span class="text-gray-400 dark:text-dark-500">{{ t('admin.users.publicLabel') }}</span>
-                <!-- Tooltip: 向下弹出 -->
-                <div class="pointer-events-none absolute left-0 top-full z-50 mt-1.5 rounded bg-gray-900 px-2.5 py-1.5 text-xs text-white opacity-0 shadow-lg transition-opacity duration-75 group-hover/pub:opacity-100 dark:bg-dark-600">
-                  <div class="absolute left-4 bottom-full border-4 border-transparent border-b-gray-900 dark:border-b-dark-600"></div>
-                  <div class="flex flex-col gap-0.5 whitespace-nowrap">
-                    <span v-for="g in getUserGroups(row).publicGroups" :key="g.id">{{ g.name }}</span>
-                  </div>
-                </div>
-              </span>
+                <span class="users-public-groups">
+                  <Icon name="globe" size="xs" />
+                  {{ getUserGroups(row).publicGroups.length }} {{ t('admin.users.publicLabel') }}
+                </span>
+              </UiTooltip>
               <!-- 都没有 -->
               <span
                 v-if="getUserGroups(row).exclusive.length === 0 && getUserGroups(row).publicGroups.length === 0"
@@ -378,16 +362,11 @@
 
           <template #cell-balance="{ value, row }">
             <div class="flex items-center gap-2">
-              <div class="group relative">
+              <UiTooltip :content="t('admin.users.balanceHistoryTip')">
                 <UiButton density="mini" variant="quiet" @click="handleBalanceHistory(row)">
                   ${{ value.toFixed(2) }}
                 </UiButton>
-                <!-- Instant tooltip -->
-                <div class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 shadow-lg transition-opacity duration-75 group-hover:opacity-100 dark:bg-dark-600">
-                  {{ t('admin.users.balanceHistoryTip') }}
-                  <div class="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-dark-600"></div>
-                </div>
-              </div>
+              </UiTooltip>
               <UiButton density="mini" variant="quiet" @click.stop="handleDeposit(row)">
                 {{ t('admin.users.deposit') }}
               </UiButton>
@@ -475,17 +454,10 @@
           </template>
 
           <template #cell-status="{ value }">
-            <div class="flex items-center gap-1.5">
-              <span
-                :class="[
-                  'inline-block h-2 w-2 rounded-full',
-                  value === 'active' ? 'bg-green-500' : 'bg-red-500'
-                ]"
-              ></span>
-              <span class="text-sm text-gray-700 dark:text-gray-300">
-                {{ value === 'active' ? t('common.active') : t('admin.users.disabled') }}
-              </span>
-            </div>
+            <UiStatusBadge
+              :status="value === 'active' ? 'active' : 'disabled'"
+              :label="value === 'active' ? t('common.active') : t('admin.users.disabled')"
+            />
           </template>
 
           <template #cell-created_at="{ value }">
@@ -603,6 +575,8 @@ import UserBalanceHistoryModal from '@/components/admin/user/UserBalanceHistoryM
 import GroupReplaceModal from '@/components/admin/user/GroupReplaceModal.vue'
 import {
   UiBadge,
+  UiAvatar,
+  UiBulkActionBar,
   UiButton,
   UiCheckbox,
   UiColumnPicker,
@@ -617,6 +591,9 @@ import {
   UiServerTableWorkspace,
   UiSelect,
   UiTextField,
+  UiTableToolbar,
+  UiStatusBadge,
+  UiTooltip,
   AppPage,
   AppPageHeader,
 } from '@/components/ui'
@@ -1264,24 +1241,9 @@ const refreshCurrentPageSecondaryData = () => {
   void loadUsersSecondaryData(userIds, undefined, seq)
 }
 
-// Close menu when clicking outside
-const handleClickOutside = (event: MouseEvent) => {
-  const target = event.target as HTMLElement
-  // Close expanded group dropdown when clicking outside
-  if (expandedGroupUserId.value !== null && !target.closest('[data-user-group-menu]')) {
-    expandedGroupUserId.value = null
-  }
-}
-
 // Allowed groups modal state
 const showAllowedGroupsModal = ref(false)
 const allowedGroupsUser = ref<AdminUser | null>(null)
-
-// Expanded group dropdown state (click to show exclusive groups list)
-const expandedGroupUserId = ref<number | null>(null)
-const toggleExpandedGroup = (userId: number) => {
-  expandedGroupUserId.value = expandedGroupUserId.value === userId ? null : userId
-}
 
 // Group replace modal state
 const showGroupReplaceModal = ref(false)
@@ -1472,6 +1434,7 @@ const updateAttributeFilter = (attrId: number, value: string) => {
 // Apply filter and save to localStorage
 const applyFilter = () => {
   saveFiltersToStorage()
+  pagination.page = 1
   loadUsers()
 }
 
@@ -1520,7 +1483,6 @@ const closeAllowedGroupsModal = () => {
 }
 
 const openGroupReplace = (user: AdminUser, group: { id: number; name: string }) => {
-  expandedGroupUserId.value = null
   groupReplaceUser.value = user
   groupReplaceOldGroup.value = group
   showGroupReplaceModal.value = true
@@ -1603,12 +1565,14 @@ onMounted(async () => {
   if (visibleFilters.has('apiKeyGroup')) {
     loadAllGroupsForApiKeyFilter()
   }
-  document.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
   clearTimeout(searchTimeout)
   abortController?.abort()
 })
 </script>
+
+<style scoped>
+.users-workspace-toolbar{display:grid;gap:8px}.users-filter-controls{display:flex;min-width:0;flex:1;flex-wrap:wrap;align-items:center;gap:8px}.users-toolbar-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}.users-group-menu{display:grid;min-width:200px;gap:2px}.users-group-menu>span{padding:4px 8px;color:var(--ui-text-soft);font-size:11px}.users-group-menu :deep(button){justify-content:flex-start}.users-public-groups{display:inline-flex;align-items:center;gap:4px;color:var(--ui-text-muted);font-size:12px}@media(max-width:640px){.users-toolbar-actions{justify-content:stretch}.users-toolbar-actions>:deep(button){flex:1}}
+</style>

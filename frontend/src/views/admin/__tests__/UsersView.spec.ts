@@ -363,6 +363,8 @@ describe('admin UsersView', () => {
     refreshed = true
     await wrapper.get('[data-test="bulk-success"]').trigger('click')
     await flushPromises()
+    await new Promise((resolve) => setTimeout(resolve, 180))
+    await flushPromises()
 
     expect(listUsers.mock.calls.length).toBeGreaterThan(callsBeforeSuccess)
     expect(wrapper.get('[data-test="row-order"]').text()).toBe('refreshed-page-two@example.com')
