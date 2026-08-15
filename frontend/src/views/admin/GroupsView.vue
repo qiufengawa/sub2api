@@ -879,7 +879,7 @@
             <label class="input-label">{{
               t("admin.groups.claudeCode.fallbackGroup")
             }}</label>
-            <Select
+            <UiSelect
               v-model="createForm.fallback_group_id"
               :options="fallbackGroupOptions"
               :placeholder="t('admin.groups.claudeCode.noFallback')"
@@ -1311,7 +1311,7 @@
           <label class="input-label">{{
             t("admin.groups.invalidRequestFallback.title")
           }}</label>
-          <Select
+          <UiSelect
             v-model="createForm.fallback_group_id_on_invalid_request"
             :options="invalidRequestFallbackOptions"
             :placeholder="t('admin.groups.invalidRequestFallback.noFallback')"
@@ -2177,7 +2177,7 @@
             <label class="input-label">{{
               t("admin.groups.claudeCode.fallbackGroup")
             }}</label>
-            <Select
+            <UiSelect
               v-model="editForm.fallback_group_id"
               :options="fallbackGroupOptionsForEdit"
               :placeholder="t('admin.groups.claudeCode.noFallback')"
@@ -2609,7 +2609,7 @@
           <label class="input-label">{{
             t("admin.groups.invalidRequestFallback.title")
           }}</label>
-          <Select
+          <UiSelect
             v-model="editForm.fallback_group_id_on_invalid_request"
             :options="invalidRequestFallbackOptionsForEdit"
             :placeholder="t('admin.groups.invalidRequestFallback.noFallback')"
@@ -2941,18 +2941,13 @@
             <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
               {{ t("admin.groups.compositeRoutes.routes") }}
             </h3>
-            <button
-              type="button"
-              class="btn btn-secondary btn-sm"
+            <UiIconButton
+              icon="refresh"
+              density="compact"
+              :label="t('common.refresh')"
               :disabled="compositeRoutesLoading"
               @click="loadCompositeRoutes"
-            >
-              <Icon
-                name="refresh"
-                size="sm"
-                :class="compositeRoutesLoading ? 'animate-spin' : ''"
-              />
-            </button>
+            />
           </div>
 
           <div
@@ -2999,15 +2994,15 @@
                         {{ route.public_model }}
                       </div>
                       <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                        <span class="badge badge-gray">{{
-                          compositeRouteMatchLabel(route.match_type)
-                        }}</span>
-                        <span
+                        <UiBadge tone="neutral">
+                          {{ compositeRouteMatchLabel(route.match_type) }}
+                        </UiBadge>
+                        <UiBadge
                           v-if="!route.enabled"
-                          class="badge badge-danger"
+                          tone="danger"
                         >
                           {{ t("admin.accounts.status.inactive") }}
-                        </span>
+                        </UiBadge>
                       </div>
                     </td>
                     <td class="px-3 py-2">
@@ -3030,22 +3025,20 @@
                     </td>
                     <td class="px-3 py-2">
                       <div class="flex justify-end gap-1">
-                        <button
-                          type="button"
-                          class="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-400"
-                          :title="t('common.edit')"
+                        <UiIconButton
+                          icon="edit"
+                          variant="ghost"
+                          density="mini"
+                          :label="t('common.edit')"
                           @click="editCompositeRoute(route)"
-                        >
-                          <Icon name="edit" size="sm" />
-                        </button>
-                        <button
-                          type="button"
-                          class="rounded p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                          :title="t('common.delete')"
+                        />
+                        <UiIconButton
+                          icon="trash"
+                          variant="danger"
+                          density="mini"
+                          :label="t('common.delete')"
                           @click="deleteCompositeRoute(route)"
-                        >
-                          <Icon name="trash" size="sm" />
-                        </button>
+                        />
                       </div>
                     </td>
                   </tr>
@@ -3065,122 +3058,84 @@
                     : t("admin.groups.compositeRoutes.addRoute")
                 }}
               </h3>
-              <button
+              <UiButton
                 v-if="compositeRouteEditingId"
                 type="button"
-                class="text-xs font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                density="mini"
+                variant="quiet"
                 @click="resetCompositeRouteForm"
               >
                 {{ t("common.cancel") }}
-              </button>
+              </UiButton>
             </div>
 
-            <div>
-              <label class="input-label">{{
-                t("admin.groups.compositeRoutes.publicModel")
-              }}</label>
-              <input
-                v-model.trim="compositeRouteForm.public_model"
-                type="text"
-                class="input"
-                required
-                placeholder="openrouter/gpt-5"
+            <UiTextField
+              v-model="compositeRouteForm.public_model"
+              :label="t('admin.groups.compositeRoutes.publicModel')"
+              required
+              density="compact"
+              placeholder="openrouter/gpt-5"
+            />
+
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <UiSelect
+                v-model="compositeRouteForm.match_type"
+                :label="t('admin.groups.compositeRoutes.matchType')"
+                :options="compositeRouteMatchOptions"
+                density="compact"
+              />
+              <UiSelect
+                v-model="compositeRouteForm.endpoint"
+                :label="t('admin.groups.compositeRoutes.endpoint')"
+                :options="compositeRouteEndpointOptions"
+                density="compact"
               />
             </div>
 
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label class="input-label">{{
-                  t("admin.groups.compositeRoutes.matchType")
-                }}</label>
-                <Select
-                  v-model="compositeRouteForm.match_type"
-                  :options="compositeRouteMatchOptions"
-                />
-              </div>
-              <div>
-                <label class="input-label">{{
-                  t("admin.groups.compositeRoutes.endpoint")
-                }}</label>
-                <Select
-                  v-model="compositeRouteForm.endpoint"
-                  :options="compositeRouteEndpointOptions"
-                />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label class="input-label">{{
-                  t("admin.groups.compositeRoutes.targetPlatform")
-                }}</label>
-                <Select
-                  v-model="compositeRouteForm.target_platform"
-                  :options="compositeRoutePlatformOptions"
-                />
-              </div>
-              <div>
-                <label class="input-label">{{
-                  t("admin.groups.compositeRoutes.priority")
-                }}</label>
-                <input
-                  v-model.number="compositeRouteForm.priority"
-                  type="number"
-                  min="1"
-                  step="1"
-                  class="input"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label class="input-label">{{
-                t("admin.groups.compositeRoutes.upstreamModel")
-              }}</label>
-              <input
-                v-model.trim="compositeRouteForm.upstream_model"
-                type="text"
-                class="input"
-                placeholder="gpt-5"
+              <UiSelect
+                v-model="compositeRouteForm.target_platform"
+                :label="t('admin.groups.compositeRoutes.targetPlatform')"
+                :options="compositeRoutePlatformOptions"
+                density="compact"
               />
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {{ t("admin.groups.compositeRoutes.upstreamModelHint") }}
-              </p>
+              <UiTextField
+                v-model="compositeRouteForm.priority"
+                :label="t('admin.groups.compositeRoutes.priority')"
+                type="number"
+                min="1"
+                step="1"
+                density="compact"
+              />
             </div>
 
-            <div>
-              <label class="input-label">{{
-                t("admin.groups.compositeRoutes.notes")
-              }}</label>
-              <textarea
-                v-model.trim="compositeRouteForm.notes"
-                rows="2"
-                class="input"
-              ></textarea>
-            </div>
+            <UiTextField
+              v-model="compositeRouteForm.upstream_model"
+              :label="t('admin.groups.compositeRoutes.upstreamModel')"
+              :description="t('admin.groups.compositeRoutes.upstreamModelHint')"
+              density="compact"
+              placeholder="gpt-5"
+            />
+
+            <UiTextArea
+              v-model="compositeRouteForm.notes"
+              :label="t('admin.groups.compositeRoutes.notes')"
+              :rows="2"
+            />
 
             <div class="flex items-center justify-between gap-3">
-              <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <input
-                  v-model="compositeRouteForm.enabled"
-                  type="checkbox"
-                  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
-                />
-                {{ t("admin.groups.compositeRoutes.enabled") }}
-              </label>
-              <button
+              <UiCheckbox
+                v-model="compositeRouteForm.enabled"
+                :label="t('admin.groups.compositeRoutes.enabled')"
+              />
+              <UiButton
                 type="submit"
-                class="btn btn-primary"
-                :disabled="compositeRouteSaving"
+                variant="primary"
+                density="compact"
+                :loading="compositeRouteSaving"
               >
-                <Icon
-                  v-if="!compositeRouteSaving"
-                  name="check"
-                  size="sm"
-                  class="mr-2"
-                />
                 {{ compositeRouteEditingId ? t("common.update") : t("common.create") }}
-              </button>
+              </UiButton>
             </div>
           </form>
 
@@ -3189,27 +3144,26 @@
               {{ t("admin.groups.compositeRoutes.preview") }}
             </h3>
             <div class="space-y-3">
-              <input
-                v-model.trim="compositePreviewModel"
-                type="text"
-                class="input"
+              <UiTextField
+                v-model="compositePreviewModel"
+                density="compact"
                 placeholder="openrouter/gpt-5"
-                @keyup.enter="previewCompositeRoute"
+                @enter="previewCompositeRoute"
               />
               <div class="flex gap-2">
-                <Select
+                <UiSelect
                   v-model="compositePreviewEndpoint"
                   :options="compositeRouteEndpointOptions"
+                  density="compact"
                   class="min-w-0 flex-1"
                 />
-                <button
-                  type="button"
-                  class="btn btn-secondary"
+                <UiIconButton
+                  icon="play"
+                  density="compact"
+                  :label="t('admin.groups.compositeRoutes.preview')"
                   :disabled="compositePreviewLoading || !compositePreviewModel"
                   @click="previewCompositeRoute"
-                >
-                  <Icon name="play" size="sm" />
-                </button>
+                />
               </div>
 
               <div
@@ -3217,27 +3171,22 @@
                 class="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm dark:border-dark-600 dark:bg-dark-800"
               >
                 <div class="mb-2 flex items-center gap-2">
-                  <span
-                    :class="[
-                      'badge',
-                      compositePreviewDecision.matched
-                        ? 'badge-success'
-                        : 'badge-danger',
-                    ]"
+                  <UiBadge
+                    :tone="compositePreviewDecision.matched ? 'success' : 'danger'"
                   >
                     {{
                       compositePreviewDecision.matched
                         ? t("admin.groups.compositeRoutes.matched")
                         : t("admin.groups.compositeRoutes.notMatched")
                     }}
-                  </span>
-                  <span class="badge badge-gray">
+                  </UiBadge>
+                  <UiBadge tone="neutral">
                     {{
                       compositeRouteSourceLabel(
                         compositePreviewDecision.source,
                       )
                     }}
-                  </span>
+                  </UiBadge>
                 </div>
                 <div
                   v-if="compositePreviewDecision.matched"
@@ -3282,6 +3231,18 @@
       </template>
     </UiDialog>
 
+    <UiConfirmDialog
+      :show="Boolean(compositeRoutePendingDelete)"
+      :title="t('common.delete')"
+      :message="t('admin.groups.compositeRoutes.deleteConfirm')"
+      :confirm-text="t('common.delete')"
+      :cancel-text="t('common.cancel')"
+      :danger="true"
+      :pending="compositeRouteDeleting"
+      @confirm="confirmDeleteCompositeRoute"
+      @cancel="compositeRoutePendingDelete = null"
+    />
+
     <!-- Group Rate Multipliers Modal -->
     <GroupRateMultipliersModal
       :show="showRateMultipliersModal"
@@ -3323,6 +3284,7 @@ import {
   AppPageHeader,
   UiBadge,
   UiButton,
+  UiCheckbox,
   UiColumnPicker,
   UiConfirmDialog,
   UiDataTable,
@@ -3337,7 +3299,6 @@ import {
   UiTextArea,
   UiTextField,
 } from '@/components/ui';
-import Select from "@/components/common/Select.vue";
 import PlatformIcon from "@/components/common/PlatformIcon.vue";
 import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipliersModal.vue";
 import GroupRPMOverridesModal from "@/components/admin/group/GroupRPMOverridesModal.vue";
@@ -3898,6 +3859,8 @@ const compositeRoutes = ref<CompositeModelRoute[]>([]);
 const compositeRoutesLoading = ref(false);
 const compositeRouteSaving = ref(false);
 const compositeRouteEditingId = ref<number | null>(null);
+const compositeRoutePendingDelete = ref<CompositeModelRoute | null>(null);
+const compositeRouteDeleting = ref(false);
 const compositePreviewModel = ref("");
 const compositePreviewEndpoint = ref<CompositeRouteEndpoint>("any");
 const compositePreviewLoading = ref(false);
@@ -5292,6 +5255,7 @@ const closeCompositeRoutesModal = () => {
   compositeRoutesGroup.value = null;
   compositeRoutes.value = [];
   compositePreviewDecision.value = null;
+  compositeRoutePendingDelete.value = null;
   resetCompositeRouteForm();
 };
 
@@ -5344,9 +5308,14 @@ const saveCompositeRoute = async () => {
   }
 };
 
-const deleteCompositeRoute = async (route: CompositeModelRoute) => {
-  if (!compositeRoutesGroup.value) return;
-  if (!window.confirm(t("admin.groups.compositeRoutes.deleteConfirm"))) return;
+const deleteCompositeRoute = (route: CompositeModelRoute) => {
+  compositeRoutePendingDelete.value = route;
+};
+
+const confirmDeleteCompositeRoute = async () => {
+  const route = compositeRoutePendingDelete.value;
+  if (!compositeRoutesGroup.value || !route) return;
+  compositeRouteDeleting.value = true;
   try {
     await adminAPI.groups.deleteCompositeRoute(
       compositeRoutesGroup.value.id,
@@ -5356,6 +5325,7 @@ const deleteCompositeRoute = async (route: CompositeModelRoute) => {
       resetCompositeRouteForm();
     }
     appStore.showSuccess(t("admin.groups.compositeRoutes.routeDeleted"));
+    compositeRoutePendingDelete.value = null;
     await loadCompositeRoutes();
   } catch (error: any) {
     appStore.showError(
@@ -5364,6 +5334,8 @@ const deleteCompositeRoute = async (route: CompositeModelRoute) => {
         t("admin.groups.compositeRoutes.failedToDelete"),
     );
     console.error("Error deleting composite route:", error);
+  } finally {
+    compositeRouteDeleting.value = false;
   }
 };
 
