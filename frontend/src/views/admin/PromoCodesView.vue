@@ -12,41 +12,28 @@
 
       <UiServerTableWorkspace :loading="loading" :empty="false">
         <template #toolbar>
-          <UiTableToolbar>
+          <UiFilterBar :active-count="filters.status ? 1 : 0" @clear="clearFilters">
             <UiSearchInput v-model="searchQuery" density="dense" :placeholder="t('admin.promo.searchCodes')" @search="handleSearch" />
             <UiSelect v-model="filters.status" density="dense" :options="filterStatusOptions" :aria-label="t('admin.promo.status')" @change="loadCodes" />
             <template #actions><UiIconButton icon="refresh" density="dense" :label="t('common.refresh')" :disabled="loading" @click="loadCodes" /></template>
-          </UiTableToolbar>
+          </UiFilterBar>
         </template>
 
-        <UiDataTable :columns="columns" :data="codes" :loading="loading" :mobile-table="true" :aria-label="t('admin.promo.title')" :server-side-sort="true" default-sort-key="created_at" default-sort-order="desc" @sort="handleSort">
-          <template #cell-code="{ value }"><div class="promo-code-cell"><code :title="String(value)">{{ value }}</code><UiIconButton :icon="copiedCode === value ? 'check' : 'copy'" density="mini" variant="ghost" :label="copiedCode === value ? t('admin.promo.copied') : t('keys.copyToClipboard')" @click="copyToClipboard(value)" /></div></template>
-          <template #cell-bonus_amount="{ value }"><span class="ui-numeric">${{ value.toFixed(2) }}</span></template>
-          <template #cell-usage="{ row }"><span class="ui-numeric">{{ row.used_count }} / {{ row.max_uses === 0 ? '∞' : row.max_uses }}</span></template>
-          <template #cell-status="{ value, row }"><UiBadge :tone="getStatusTone(value, row)" :label="getStatusLabel(value, row)" /></template>
-          <template #cell-expires_at="{ value }"><span class="promo-muted">{{ value ? formatDateTime(value) : t('admin.promo.neverExpires') }}</span></template>
-          <template #cell-created_at="{ value }"><span class="promo-muted">{{ formatDateTime(value) }}</span></template>
-          <template #cell-actions="{ row }"><div class="promo-row-actions"><UiIconButton icon="link" density="dense" variant="ghost" :label="t('admin.promo.copyRegisterLink')" @click="copyRegisterLink(row)" /><UiIconButton icon="eye" density="dense" variant="ghost" :label="t('admin.promo.viewUsages')" @click="handleViewUsages(row)" /><UiIconButton icon="edit" density="dense" variant="ghost" :label="t('common.edit')" @click="handleEdit(row)" /><UiIconButton icon="trash" density="dense" variant="danger" :label="t('common.delete')" @click="handleDelete(row)" /></div></template>
-          <template #empty>
-            <UiErrorState
-              v-if="loadError"
-              :title="t('admin.promo.failedToLoad')"
-              :retry-text="t('common.retry')"
-              @retry="loadCodes"
-            />
-            <UiEmptyState
-              v-else
-              :title="t('admin.promo.noCodesYet')"
-              :description="t('admin.promo.createFirstCode')"
-            >
-              <template #action>
-                <UiButton density="dense" variant="primary" @click="showCreateDialog = true">
-                  {{ t('admin.promo.createCode') }}
-                </UiButton>
-              </template>
-            </UiEmptyState>
-          </template>
-        </UiDataTable>
+        <UiMobileTableScroller :label="t('admin.promo.title')" min-width="880px">
+          <UiDataTable :columns="columns" :data="codes" :loading="loading" :mobile-table="true" :aria-label="t('admin.promo.title')" :server-side-sort="true" default-sort-key="created_at" default-sort-order="desc" @sort="handleSort">
+            <template #cell-code="{ value }"><AppInline :wrap="false"><UiDataCell :value="String(value)" mono /><UiIconButton :icon="copiedCode === value ? 'check' : 'copy'" density="mini" variant="ghost" :label="copiedCode === value ? t('admin.promo.copied') : t('keys.copyToClipboard')" @click="copyToClipboard(value)" /></AppInline></template>
+            <template #cell-bonus_amount="{ value }"><UiDataCell :value="`$${value.toFixed(2)}`" mono /></template>
+            <template #cell-usage="{ row }"><UiDataCell :value="`${row.used_count} / ${row.max_uses === 0 ? '∞' : row.max_uses}`" mono /></template>
+            <template #cell-status="{ value, row }"><UiBadge :tone="getStatusTone(value, row)" :label="getStatusLabel(value, row)" /></template>
+            <template #cell-expires_at="{ value }"><UiDataCell :value="value ? formatDateTime(value) : t('admin.promo.neverExpires')" /></template>
+            <template #cell-created_at="{ value }"><UiDataCell :value="formatDateTime(value)" /></template>
+            <template #cell-actions="{ row }"><UiButtonGroup :label="t('admin.promo.columns.actions')"><UiIconButton icon="link" density="dense" variant="ghost" :label="t('admin.promo.copyRegisterLink')" @click="copyRegisterLink(row)" /><UiIconButton icon="eye" density="dense" variant="ghost" :label="t('admin.promo.viewUsages')" @click="handleViewUsages(row)" /><UiIconButton icon="edit" density="dense" variant="ghost" :label="t('common.edit')" @click="handleEdit(row)" /><UiIconButton icon="trash" density="dense" variant="danger" :label="t('common.delete')" @click="handleDelete(row)" /></UiButtonGroup></template>
+            <template #empty>
+              <UiErrorState v-if="loadError" :title="t('admin.promo.failedToLoad')" :retry-text="t('common.retry')" @retry="loadCodes" />
+              <UiEmptyState v-else :title="t('admin.promo.noCodesYet')" :description="t('admin.promo.createFirstCode')"><template #action><UiButton density="dense" variant="primary" @click="showCreateDialog = true">{{ t('admin.promo.createCode') }}</UiButton></template></UiEmptyState>
+            </template>
+          </UiDataTable>
+        </UiMobileTableScroller>
         <template #pagination><UiPagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" :reset-page-on-page-size-change="false" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" /></template>
       </UiServerTableWorkspace>
     </AppPage>
@@ -108,32 +95,13 @@
       @close="closeUsagesDialog"
     >
       <AppStack :gap="12">
-        <UiDataTable
-          :columns="usageColumns"
-          :data="usages"
-          :loading="usagesLoading"
-          :mobile-table="true"
-          :aria-label="t('admin.promo.usageRecords')"
-        >
-        <template #cell-user="{ row }">
-          <UiDataCell
-            :value="row.user?.email || t('admin.promo.userPrefix', { id: row.user_id })"
-            :meta="formatDateTime(row.used_at)"
-          />
-        </template>
-        <template #cell-bonus_amount="{ value }">
-          <span class="ui-numeric promo-usage-amount">+${{ value.toFixed(2) }}</span>
-        </template>
-        <template #empty>
-          <UiErrorState
-            v-if="usagesError"
-            :title="t('admin.promo.failedToLoadUsages')"
-            :retry-text="t('common.retry')"
-            @retry="loadUsages"
-          />
-          <UiEmptyState v-else :title="t('admin.promo.noUsages')" />
-        </template>
-        </UiDataTable>
+        <UiMobileTableScroller :label="t('admin.promo.usageRecords')" min-width="520px">
+          <UiDataTable :columns="usageColumns" :data="usages" :loading="usagesLoading" :mobile-table="true" :aria-label="t('admin.promo.usageRecords')">
+            <template #cell-user="{ row }"><UiDataCell :value="row.user?.email || t('admin.promo.userPrefix', { id: row.user_id })" :meta="formatDateTime(row.used_at)" /></template>
+            <template #cell-bonus_amount="{ value }"><UiBadge tone="success" :label="`+$${value.toFixed(2)}`" /></template>
+            <template #empty><UiErrorState v-if="usagesError" :title="t('admin.promo.failedToLoadUsages')" :retry-text="t('common.retry')" @retry="loadUsages" /><UiEmptyState v-else :title="t('admin.promo.noUsages')" /></template>
+          </UiDataTable>
+        </UiMobileTableScroller>
         <UiPagination
           v-if="usagesTotal > usagesPageSize"
           :page="usagesPage"
@@ -184,18 +152,20 @@ import {
   AppStack,
   UiBadge,
   UiButton,
+  UiButtonGroup,
   UiConfirmDialog,
   UiDataCell,
   UiDataTable,
   UiDialog,
   UiEmptyState,
   UiErrorState,
+  UiFilterBar,
   UiIconButton,
+  UiMobileTableScroller,
   UiPagination,
   UiSearchInput,
   UiSelect,
   UiServerTableWorkspace,
-  UiTableToolbar,
   UiTextArea,
   UiTextField,
 } from '@/components/ui'
@@ -357,6 +327,12 @@ const loadCodes = async () => {
 }
 
 const handleSearch = () => {
+  pagination.page = 1
+  loadCodes()
+}
+
+const clearFilters = () => {
+  filters.status = ''
   pagination.page = 1
   loadCodes()
 }
@@ -562,33 +538,3 @@ onUnmounted(() => {
   abortController?.abort()
 })
 </script>
-
-<style scoped>
-.promo-code-cell,
-.promo-row-actions,
-.promo-dialog-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.promo-code-cell code {
-  min-width: 0;
-  max-width: 220px;
-  overflow: hidden;
-  color: var(--ui-text);
-  font-family: var(--ui-font-mono);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.promo-muted {
-  color: var(--ui-text-soft);
-  font-size: 11px;
-}
-
-.promo-usage-amount {
-  color: var(--ui-success);
-}
-</style>
