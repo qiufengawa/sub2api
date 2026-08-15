@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useMediaQuery } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
-import Select from '@/components/common/Select.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
+import {
+  AppInline,
+  UiDataCell,
+  UiDataTable,
+  UiErrorState,
+  UiPagination,
+  UiSelect,
+  UiServerTableWorkspace,
+  type Column,
+} from '@/components/ui'
 import { opsAPI, type OpsOpenAITokenStatsResponse, type OpsOpenAITokenStatsTimeRange } from '@/api/admin/ops'
 import { formatNumber } from '@/utils/format'
 
@@ -21,9 +28,6 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const { t } = useI18n()
-
-// 与 DataTable 一致：< 768px 切换为卡片视图，避免宽表在移动端被截断。
-const isDesktopViewport = useMediaQuery('(min-width: 768px)')
 
 const loading = ref(false)
 const errorMessage = ref('')
@@ -68,6 +72,16 @@ const pageSizeOptions = computed(() => [
   { value: 20, label: '20' },
   { value: 50, label: '50' },
   { value: 100, label: '100' }
+])
+
+const columns = computed<Column[]>(() => [
+  { key: 'model', label: t('admin.ops.openaiTokenStats.table.model') },
+  { key: 'request_count', label: t('admin.ops.openaiTokenStats.table.requestCount') },
+  { key: 'avg_tokens_per_sec', label: t('admin.ops.openaiTokenStats.table.avgTokensPerSec') },
+  { key: 'avg_first_token_ms', label: t('admin.ops.openaiTokenStats.table.avgFirstTokenMs') },
+  { key: 'total_output_tokens', label: t('admin.ops.openaiTokenStats.table.totalOutputTokens') },
+  { key: 'avg_duration_ms', label: t('admin.ops.openaiTokenStats.table.avgDurationMs') },
+  { key: 'requests_with_first_token', label: t('admin.ops.openaiTokenStats.table.requestsWithFirstToken') },
 ])
 
 function formatRate(v?: number | null): string {
@@ -146,139 +160,110 @@ watch(
   { immediate: true }
 )
 
-function onPrevPage() {
-  if (viewMode.value !== 'pagination') return
-  if (page.value > 1) page.value -= 1
+function updatePage(value: number) {
+  if (viewMode.value === 'pagination') page.value = value
 }
 
-function onNextPage() {
+function updatePageSize(value: number) {
   if (viewMode.value !== 'pagination') return
-  if (page.value < totalPages.value) page.value += 1
+  pageSize.value = value
 }
 </script>
 
 <template>
-  <section class="rounded-[4px] border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800 md:p-5">
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <h3 class="text-sm font-bold text-gray-900 dark:text-white">
-        {{ t('admin.ops.openaiTokenStats.title') }}
-      </h3>
-      <div class="flex flex-wrap items-center gap-2">
-        <div class="w-36">
-          <Select v-model="timeRange" :options="timeRangeOptions" />
-        </div>
-        <div class="w-36">
-          <Select v-model="viewMode" :options="viewModeOptions" />
-        </div>
-        <div v-if="viewMode === 'topn'" class="w-28">
-          <Select v-model="topN" :options="topNOptions" />
-        </div>
-        <template v-else>
-          <div class="w-24">
-            <Select v-model="pageSize" :options="pageSizeOptions" />
-          </div>
-          <button
-            class="btn btn-secondary btn-sm"
-            :disabled="loading || page <= 1"
-            @click="onPrevPage"
-          >
-            {{ t('admin.ops.openaiTokenStats.prevPage') }}
-          </button>
-          <button
-            class="btn btn-secondary btn-sm"
-            :disabled="loading || page >= totalPages"
-            @click="onNextPage"
-          >
-            {{ t('admin.ops.openaiTokenStats.nextPage') }}
-          </button>
-          <span class="text-xs text-gray-500 dark:text-gray-400">
-            {{ t('admin.ops.openaiTokenStats.pageInfo', { page, total: totalPages }) }}
-          </span>
-        </template>
-      </div>
-    </div>
+  <UiServerTableWorkspace
+    :title="t('admin.ops.openaiTokenStats.title')"
+    :loading="loading"
+    :loading-text="t('admin.ops.loadingText')"
+    :empty="!errorMessage && items.length === 0"
+    :empty-title="t('common.noData')"
+    :empty-description="t('admin.ops.openaiTokenStats.empty')"
+  >
+    <template #actions>
+      <AppInline class="ops-token-stats__filters" :gap="8">
+        <UiSelect v-model="timeRange" :options="timeRangeOptions" density="compact" />
+        <UiSelect v-model="viewMode" :options="viewModeOptions" density="compact" />
+        <UiSelect
+          v-if="viewMode === 'topn'"
+          v-model="topN"
+          :options="topNOptions"
+          density="compact"
+        />
+      </AppInline>
+    </template>
 
-    <div v-if="errorMessage" class="mb-4 rounded-[4px] border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-600 dark:border-red-900/30 dark:bg-red-900/20 dark:text-red-400">
-      {{ errorMessage }}
-    </div>
-
-    <div v-if="loading" class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-      {{ t('admin.ops.loadingText') }}
-    </div>
-
-    <EmptyState
-      v-else-if="items.length === 0"
-      :title="t('common.noData')"
-      :description="t('admin.ops.openaiTokenStats.empty')"
+    <UiErrorState
+      v-if="errorMessage"
+      :title="t('admin.ops.openaiTokenStats.failedToLoad')"
+      :description="errorMessage"
+      :retry-text="t('common.retry')"
+      @retry="loadData"
     />
-
-    <div v-else class="space-y-3">
-      <div class="overflow-hidden rounded-[4px] border border-gray-200 dark:border-dark-700">
-        <div class="max-h-[520px] overflow-auto">
-          <div v-if="!isDesktopViewport" class="divide-y divide-gray-100 dark:divide-dark-800">
-            <div v-for="row in items" :key="row.model" class="space-y-2 p-3">
-              <div class="break-all text-xs font-medium text-gray-900 dark:text-gray-100">{{ row.model }}</div>
-              <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                <div class="flex items-baseline justify-between gap-2">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('admin.ops.openaiTokenStats.table.requestCount') }}</span>
-                  <span class="text-gray-700 dark:text-gray-200">{{ formatInt(row.request_count) }}</span>
-                </div>
-                <div class="flex items-baseline justify-between gap-2">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('admin.ops.openaiTokenStats.table.avgTokensPerSec') }}</span>
-                  <span class="text-gray-700 dark:text-gray-200">{{ formatRate(row.avg_tokens_per_sec) }}</span>
-                </div>
-                <div class="flex items-baseline justify-between gap-2">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('admin.ops.openaiTokenStats.table.avgFirstTokenMs') }}</span>
-                  <span class="text-gray-700 dark:text-gray-200">{{ formatRate(row.avg_first_token_ms) }}</span>
-                </div>
-                <div class="flex items-baseline justify-between gap-2">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('admin.ops.openaiTokenStats.table.totalOutputTokens') }}</span>
-                  <span class="text-gray-700 dark:text-gray-200">{{ formatInt(row.total_output_tokens) }}</span>
-                </div>
-                <div class="flex items-baseline justify-between gap-2">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('admin.ops.openaiTokenStats.table.avgDurationMs') }}</span>
-                  <span class="text-gray-700 dark:text-gray-200">{{ formatInt(row.avg_duration_ms) }}</span>
-                </div>
-                <div class="flex items-baseline justify-between gap-2">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('admin.ops.openaiTokenStats.table.requestsWithFirstToken') }}</span>
-                  <span class="text-gray-700 dark:text-gray-200">{{ formatInt(row.requests_with_first_token) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <table v-else class="min-w-full text-left text-xs md:text-sm">
-            <thead class="sticky top-0 z-10 bg-white dark:bg-dark-800">
-              <tr class="border-b border-gray-200 text-gray-500 dark:border-dark-700 dark:text-gray-400">
-                <th class="px-2 py-2 font-semibold">{{ t('admin.ops.openaiTokenStats.table.model') }}</th>
-                <th class="px-2 py-2 font-semibold">{{ t('admin.ops.openaiTokenStats.table.requestCount') }}</th>
-                <th class="px-2 py-2 font-semibold">{{ t('admin.ops.openaiTokenStats.table.avgTokensPerSec') }}</th>
-                <th class="px-2 py-2 font-semibold">{{ t('admin.ops.openaiTokenStats.table.avgFirstTokenMs') }}</th>
-                <th class="px-2 py-2 font-semibold">{{ t('admin.ops.openaiTokenStats.table.totalOutputTokens') }}</th>
-                <th class="px-2 py-2 font-semibold">{{ t('admin.ops.openaiTokenStats.table.avgDurationMs') }}</th>
-                <th class="px-2 py-2 font-semibold">{{ t('admin.ops.openaiTokenStats.table.requestsWithFirstToken') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="row in items"
-                :key="row.model"
-                class="border-b border-gray-100 text-gray-700 transition-colors last:border-b-0 hover:bg-gray-50 dark:border-dark-800 dark:text-gray-200 dark:hover:bg-dark-700/40"
-              >
-                <td class="px-2 py-2 font-medium">{{ row.model }}</td>
-                <td class="px-2 py-2">{{ formatInt(row.request_count) }}</td>
-                <td class="px-2 py-2">{{ formatRate(row.avg_tokens_per_sec) }}</td>
-                <td class="px-2 py-2">{{ formatRate(row.avg_first_token_ms) }}</td>
-                <td class="px-2 py-2">{{ formatInt(row.total_output_tokens) }}</td>
-                <td class="px-2 py-2">{{ formatInt(row.avg_duration_ms) }}</td>
-                <td class="px-2 py-2">{{ formatInt(row.requests_with_first_token) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div v-if="viewMode === 'topn'" class="mt-3 text-xs text-gray-500 dark:text-gray-400">
-        {{ t('admin.ops.openaiTokenStats.totalModels', { total }) }}
-      </div>
+    <div v-else-if="items.length" class="ops-token-stats__table">
+      <UiDataTable
+        :columns="columns"
+        :data="items"
+        :loading="false"
+        :mobile-table="true"
+        :aria-label="t('admin.ops.openaiTokenStats.title')"
+      >
+        <template #cell-model="{ row }">
+          <UiDataCell :value="row.model" mono />
+        </template>
+        <template #cell-request_count="{ row }">{{ formatInt(row.request_count) }}</template>
+        <template #cell-avg_tokens_per_sec="{ row }">{{ formatRate(row.avg_tokens_per_sec) }}</template>
+        <template #cell-avg_first_token_ms="{ row }">{{ formatRate(row.avg_first_token_ms) }}</template>
+        <template #cell-total_output_tokens="{ row }">{{ formatInt(row.total_output_tokens) }}</template>
+        <template #cell-avg_duration_ms="{ row }">{{ formatInt(row.avg_duration_ms) }}</template>
+        <template #cell-requests_with_first_token="{ row }">{{ formatInt(row.requests_with_first_token) }}</template>
+      </UiDataTable>
     </div>
-  </section>
+
+    <template #footer>
+      <span v-if="viewMode === 'topn'" class="ops-token-stats__summary">
+        {{ t('admin.ops.openaiTokenStats.totalModels', { total }) }}
+      </span>
+    </template>
+    <template v-if="viewMode === 'pagination' && total > 0" #pagination>
+      <UiPagination
+        :page="page"
+        :page-size="pageSize"
+        :page-size-options="pageSizeOptions.map((option) => Number(option.value))"
+        :total="total"
+        @update:page="updatePage"
+        @update:page-size="updatePageSize"
+      />
+    </template>
+  </UiServerTableWorkspace>
 </template>
+
+<style scoped>
+.ops-token-stats__filters > * {
+  width: 144px;
+}
+
+.ops-token-stats__filters > *:last-child {
+  width: 112px;
+}
+
+.ops-token-stats__table {
+  max-height: 520px;
+  overflow: auto;
+}
+
+.ops-token-stats__summary {
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .ops-token-stats__filters {
+    width: 100%;
+  }
+
+  .ops-token-stats__filters > * {
+    width: min(100%, 144px);
+  }
+}
+</style>

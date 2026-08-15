@@ -26,8 +26,8 @@ vi.mock('vue-i18n', async (importOriginal) => {
   }
 })
 
-const SelectStub = defineComponent({
-  name: 'SelectControlStub',
+const UiSelectStub = defineComponent({
+  name: 'UiSelect',
   props: {
     modelValue: {
       type: [String, Number],
@@ -38,14 +38,31 @@ const SelectStub = defineComponent({
   template: '<div class="select-stub" />',
 })
 
-const EmptyStateStub = defineComponent({
-  name: 'EmptyState',
+const UiEmptyStateStub = defineComponent({
+  name: 'UiEmptyState',
   props: {
     title: { type: String, default: '' },
     description: { type: String, default: '' },
   },
   template: '<div class="empty-state">{{ title }}|{{ description }}</div>',
 })
+
+const UiPaginationStub = defineComponent({
+  name: 'UiPagination',
+  props: {
+    page: { type: Number, required: true },
+    pageSize: { type: Number, required: true },
+    total: { type: Number, required: true },
+  },
+  emits: ['update:page', 'update:pageSize'],
+  template: '<div class="pagination-stub" />',
+})
+
+const uiStubs = {
+  UiSelect: UiSelectStub,
+  UiEmptyState: UiEmptyStateStub,
+  UiPagination: UiPaginationStub,
+}
 
 const sampleResponse = {
   time_range: '30d' as const,
@@ -85,10 +102,7 @@ describe('OpsOpenAITokenStatsCard', () => {
         refreshToken: 0,
       },
       global: {
-        stubs: {
-          Select: SelectStub,
-          EmptyState: EmptyStateStub,
-        },
+        stubs: uiStubs,
       },
     })
 
@@ -102,7 +116,7 @@ describe('OpsOpenAITokenStatsCard', () => {
       })
     )
 
-    const selects = wrapper.findAllComponents(SelectStub)
+    const selects = wrapper.findAllComponents(UiSelectStub)
     await selects[0].vm.$emit('update:modelValue', '1h')
     await flushPromises()
 
@@ -130,15 +144,12 @@ describe('OpsOpenAITokenStatsCard', () => {
         refreshToken: 0,
       },
       global: {
-        stubs: {
-          Select: SelectStub,
-          EmptyState: EmptyStateStub,
-        },
+        stubs: uiStubs,
       },
     })
     await flushPromises()
 
-    let selects = wrapper.findAllComponents(SelectStub)
+    let selects = wrapper.findAllComponents(UiSelectStub)
     await selects[1].vm.$emit('update:modelValue', 'pagination')
     await flushPromises()
 
@@ -149,9 +160,9 @@ describe('OpsOpenAITokenStatsCard', () => {
       })
     )
 
-    const buttons = wrapper.findAll('button')
-    expect(buttons.length).toBeGreaterThanOrEqual(2)
-    await buttons[1].trigger('click')
+    const pagination = wrapper.findComponent(UiPaginationStub)
+    expect(pagination.props()).toMatchObject({ page: 1, pageSize: 20, total: 40 })
+    await pagination.vm.$emit('update:page', 2)
     await flushPromises()
 
     expect(mockGetOpenAITokenStats).toHaveBeenCalledWith(
@@ -161,10 +172,10 @@ describe('OpsOpenAITokenStatsCard', () => {
       })
     )
 
-    selects = wrapper.findAllComponents(SelectStub)
+    selects = wrapper.findAllComponents(UiSelectStub)
     await selects[1].vm.$emit('update:modelValue', 'topn')
     await flushPromises()
-    selects = wrapper.findAllComponents(SelectStub)
+    selects = wrapper.findAllComponents(UiSelectStub)
     await selects[2].vm.$emit('update:modelValue', 50)
     await flushPromises()
 
@@ -185,10 +196,7 @@ describe('OpsOpenAITokenStatsCard', () => {
     const wrapper = mount(OpsOpenAITokenStatsCard, {
       props: { refreshToken: 0 },
       global: {
-        stubs: {
-          Select: SelectStub,
-          EmptyState: EmptyStateStub,
-        },
+        stubs: uiStubs,
       },
     })
     await flushPromises()
@@ -202,15 +210,12 @@ describe('OpsOpenAITokenStatsCard', () => {
     const wrapper = mount(OpsOpenAITokenStatsCard, {
       props: { refreshToken: 0 },
       global: {
-        stubs: {
-          Select: SelectStub,
-          EmptyState: EmptyStateStub,
-        },
+        stubs: uiStubs,
       },
     })
     await flushPromises()
 
-    expect(wrapper.find('.max-h-\\[520px\\]').exists()).toBe(true)
+    expect(wrapper.find('.ops-token-stats__table').exists()).toBe(true)
   })
 
   it('接口异常时显示错误提示', async () => {
@@ -219,10 +224,7 @@ describe('OpsOpenAITokenStatsCard', () => {
     const wrapper = mount(OpsOpenAITokenStatsCard, {
       props: { refreshToken: 0 },
       global: {
-        stubs: {
-          Select: SelectStub,
-          EmptyState: EmptyStateStub,
-        },
+        stubs: uiStubs,
       },
     })
     await flushPromises()
