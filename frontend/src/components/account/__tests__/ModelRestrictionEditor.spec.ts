@@ -51,4 +51,26 @@ describe('ModelRestrictionEditor', () => {
     await wrapper.get('button[aria-label="common.delete"]').trigger('click')
     expect(wrapper.props('modelMappings')).toEqual([])
   })
+
+  it('preserves provider-specific mapping placeholders', async () => {
+    const wrapper = mount(ModelRestrictionEditor, {
+      props: {
+        platform: 'anthropic',
+        mode: 'mapping',
+        allowedModels: [],
+        modelMappings: [{ from: '', to: '' }],
+        fromPlaceholder: 'From model',
+        toPlaceholder: 'To model'
+      },
+      global: {
+        stubs: { ModelWhitelistSelector: ModelWhitelistSelectorStub }
+      }
+    })
+
+    const inputs = wrapper.findAll('input')
+    expect(inputs.map((input) => input.attributes('placeholder'))).toEqual([
+      'From model',
+      'To model'
+    ])
+  })
 })

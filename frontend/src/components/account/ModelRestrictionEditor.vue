@@ -34,12 +34,12 @@
         >
           <UiTextField
             v-model="mapping.from"
-            :placeholder="t('admin.accounts.requestModel')"
+            :placeholder="fromPlaceholder || t('admin.accounts.requestModel')"
           />
           <Icon name="arrowRight" size="sm" class="model-restriction__arrow" />
           <UiTextField
             v-model="mapping.to"
-            :placeholder="t('admin.accounts.actualModel')"
+            :placeholder="toPlaceholder || t('admin.accounts.actualModel')"
           />
           <UiIconButton
             :label="t('common.delete')"
@@ -109,11 +109,15 @@ withDefaults(defineProps<{
   disabledMessage?: string
   supportsAll?: boolean
   presets?: ModelMappingPreset[]
+  fromPlaceholder?: string
+  toPlaceholder?: string
 }>(), {
   disabled: false,
   disabledMessage: '',
   supportsAll: false,
-  presets: () => []
+  presets: () => [],
+  fromPlaceholder: '',
+  toPlaceholder: ''
 })
 
 const mode = defineModel<'whitelist' | 'mapping'>('mode', { required: true })
