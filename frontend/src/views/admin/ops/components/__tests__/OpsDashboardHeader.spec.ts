@@ -43,6 +43,15 @@ const SelectStub = defineComponent({
   template: '<div class="select-stub" />',
 })
 
+const DialogStub = defineComponent({
+  props: {
+    show: { type: Boolean, default: false },
+    title: { type: String, default: '' },
+  },
+  emits: ['close'],
+  template: '<section v-if="show" class="dialog-stub"><slot /><footer><slot name="footer" /></footer></section>',
+})
+
 const overview = {
   start_time: '2026-07-31T00:00:00Z',
   end_time: '2026-07-31T01:00:00Z',
@@ -111,7 +120,7 @@ function mountHeader(fullscreen = false) {
       stubs: {
         UiSelect: SelectStub,
         UiFieldHelp: true,
-        UiDialog: true,
+        UiDialog: DialogStub,
         Icon: true,
       },
     },
@@ -166,6 +175,28 @@ describe('OpsDashboardHeader information hierarchy', () => {
     await flushPromises()
 
     expect(wrapper.findAll('[role="radio"]')[1].attributes('aria-checked')).toBe('true')
+  })
+
+  it('keeps the custom time range payload and confirmation events intact', async () => {
+    const wrapper = mountHeader()
+    await flushPromises()
+
+    const selects = wrapper.findAllComponents(SelectStub)
+    await selects[2].vm.$emit('update:modelValue', 'custom')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="ops-custom-start-time"]').setValue('2026-08-16T09:00')
+    await wrapper.get('[data-testid="ops-custom-end-time"]').setValue('2026-08-16T10:00')
+    await wrapper.get('[data-testid="ops-custom-time-confirm"]').trigger('click')
+
+    expect(wrapper.emitted('update:customTimeRange')).toEqual([
+      [
+        new Date('2026-08-16T09:00').toISOString(),
+        new Date('2026-08-16T10:00').toISOString(),
+      ],
+    ])
+    expect(wrapper.emitted('update:timeRange')).toEqual([['custom']])
+    expect(wrapper.find('.dialog-stub').exists()).toBe(false)
   })
 
   it('keeps every toolbar command connected to its existing event contract', async () => {

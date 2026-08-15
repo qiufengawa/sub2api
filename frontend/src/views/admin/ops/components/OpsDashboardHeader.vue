@@ -3,6 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import {
+  AppInline,
+  AppStack,
   AppToolbar,
   UiButton,
   UiDialog,
@@ -11,6 +13,7 @@ import {
   UiPulseIndicator,
   UiSegmentedControl,
   UiSelect,
+  UiTextField,
 } from '@/components/ui'
 import { adminAPI } from '@/api'
 import { opsAPI, type OpsDashboardOverview, type OpsMetricThresholds, type OpsRealtimeTrafficSummary } from '@/api/admin/ops'
@@ -1684,46 +1687,44 @@ function handleToolbarRefresh() {
       </div>
     </UiDialog>
 
-    <!-- Custom Time Range Dialog -->
     <UiDialog :show="showCustomTimeRangeDialog" :title="t('admin.ops.timeRange.custom')" width="narrow" @close="handleCustomTimeRangeCancel">
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {{ t('admin.ops.customTimeRange.startTime') }}
-          </label>
-          <input
-            v-model="customStartTimeInput"
-            type="datetime-local"
-            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-dark-600 dark:bg-dark-800 dark:text-white"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {{ t('admin.ops.customTimeRange.endTime') }}
-          </label>
-          <input
-            v-model="customEndTimeInput"
-            type="datetime-local"
-            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-dark-600 dark:bg-dark-800 dark:text-white"
-          />
-        </div>
-        <div class="flex justify-end gap-3 pt-2">
-          <button
-            type="button"
-            class="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600"
+      <AppStack :gap="16">
+        <UiTextField
+          v-model="customStartTimeInput"
+          type="datetime-local"
+          density="compact"
+          test-id="ops-custom-start-time"
+          :label="t('admin.ops.customTimeRange.startTime')"
+        />
+        <UiTextField
+          v-model="customEndTimeInput"
+          type="datetime-local"
+          density="compact"
+          test-id="ops-custom-end-time"
+          :label="t('admin.ops.customTimeRange.endTime')"
+        />
+      </AppStack>
+      <template #footer>
+        <AppInline justify="flex-end">
+          <UiButton
+            data-testid="ops-custom-time-cancel"
+            density="compact"
+            variant="secondary"
             @click="handleCustomTimeRangeCancel"
           >
             {{ t('common.cancel') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-[4px] bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
+          </UiButton>
+          <UiButton
+            data-testid="ops-custom-time-confirm"
+            density="compact"
+            variant="primary"
+            :disabled="!customStartTimeInput || !customEndTimeInput"
             @click="handleCustomTimeRangeConfirm"
           >
             {{ t('common.confirm') }}
-          </button>
-        </div>
-      </div>
+          </UiButton>
+        </AppInline>
+      </template>
     </UiDialog>
   </div>
 </template>
