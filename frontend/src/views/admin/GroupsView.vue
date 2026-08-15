@@ -1022,14 +1022,15 @@
                   <span>{{
                     t("admin.groups.openaiMessages.noExactMappings")
                   }}</span>
-                  <button
+                  <UiButton
                     type="button"
+                    density="compact"
+                    variant="quiet"
                     @click="addCreateMessagesDispatchMapping"
-                    class="flex items-center gap-1.5 text-sm font-medium text-primary-600 transition-colors hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
                   >
-                    <Icon name="plus" size="sm" />
+                    <template #icon><Icon name="plus" size="sm" /></template>
                     {{ t("admin.groups.openaiMessages.addExactMapping") }}
-                  </button>
+                  </UiButton>
                 </div>
 
                 <div v-else class="space-y-3">
@@ -1082,27 +1083,28 @@
                           />
                         </div>
                       </div>
-                      <button
+                      <UiIconButton
+                        icon="trash"
+                        variant="danger"
+                        density="compact"
+                        :label="t('admin.groups.openaiMessages.removeExactMapping')"
                         type="button"
                         @click="removeCreateMessagesDispatchMapping(row)"
-                        class="mt-6 flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                        :title="
-                          t('admin.groups.openaiMessages.removeExactMapping')
-                        "
-                      >
-                        <Icon name="trash" size="sm" />
-                      </button>
+                        class="mt-6"
+                      />
                     </div>
                   </div>
 
-                  <button
+                  <UiButton
                     type="button"
+                    block
+                    density="compact"
+                    variant="secondary"
                     @click="addCreateMessagesDispatchMapping"
-                    class="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-white py-3 text-sm font-medium text-gray-500 transition-all hover:border-primary-300 hover:bg-primary-50/50 hover:text-primary-600 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-400 dark:hover:border-primary-800 dark:hover:bg-primary-900/20 dark:hover:text-primary-400"
                   >
-                    <Icon name="plus" size="sm" />
+                    <template #icon><Icon name="plus" size="sm" /></template>
                     {{ t("admin.groups.openaiMessages.addExactMapping") }}
-                  </button>
+                  </UiButton>
                 </div>
               </div>
             </div>
@@ -1271,13 +1273,15 @@
                         class="inline-flex items-center gap-1 rounded-full bg-primary-100 px-2.5 py-1 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300"
                       >
                         {{ account.name }}
-                        <button
+                        <UiIconButton
+                          icon="x"
+                          variant="danger"
+                          density="mini"
+                          :label="t('common.remove')"
                           type="button"
                           @click="removeSelectedAccount(rule, account.id)"
-                          class="ml-0.5 text-primary-500 hover:text-primary-700 dark:hover:text-primary-200"
-                        >
-                          <Icon name="x" size="xs" />
-                        </button>
+                          class="ml-0.5"
+                        />
                       </span>
                     </div>
                     <!-- 账号搜索输入框 -->
@@ -1334,27 +1338,30 @@
                     </p>
                   </div>
                 </div>
-                <button
+                <UiIconButton
+                  icon="trash"
+                  variant="danger"
+                  density="compact"
+                  :label="t('admin.groups.modelRouting.removeRule')"
                   type="button"
                   @click="removeCreateRoutingRule(rule)"
-                  class="mt-5 p-1.5 text-gray-400 hover:text-red-500 transition-colors"
-                  :title="t('admin.groups.modelRouting.removeRule')"
-                >
-                  <Icon name="trash" size="sm" />
-                </button>
+                  class="mt-5"
+                />
               </div>
             </div>
           </div>
           <!-- 添加规则按钮（仅在启用时显示） -->
-          <button
+          <UiButton
             v-if="createForm.model_routing_enabled"
             type="button"
+            density="compact"
+            variant="quiet"
             @click="addCreateRoutingRule"
-            class="mt-3 flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+            class="mt-3"
           >
-            <Icon name="plus" size="sm" />
+            <template #icon><Icon name="plus" size="sm" /></template>
             {{ t("admin.groups.modelRouting.addRule") }}
-          </button>
+          </UiButton>
         </div>
       </form>
 
@@ -2166,14 +2173,15 @@
                   <span>{{
                     t("admin.groups.openaiMessages.noExactMappings")
                   }}</span>
-                  <button
+                  <UiButton
                     type="button"
+                    density="compact"
+                    variant="quiet"
                     @click="addEditMessagesDispatchMapping"
-                    class="flex items-center gap-1.5 text-sm font-medium text-primary-600 transition-colors hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
                   >
-                    <Icon name="plus" size="sm" />
+                    <template #icon><Icon name="plus" size="sm" /></template>
                     {{ t("admin.groups.openaiMessages.addExactMapping") }}
-                  </button>
+                  </UiButton>
                 </div>
 
                 <div v-else class="space-y-3">
@@ -2226,27 +2234,28 @@
                           />
                         </div>
                       </div>
-                      <button
+                      <UiIconButton
+                        icon="trash"
+                        variant="danger"
+                        density="compact"
+                        :label="t('admin.groups.openaiMessages.removeExactMapping')"
                         type="button"
                         @click="removeEditMessagesDispatchMapping(row)"
-                        class="mt-6 flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                        :title="
-                          t('admin.groups.openaiMessages.removeExactMapping')
-                        "
-                      >
-                        <Icon name="trash" size="sm" />
-                      </button>
+                        class="mt-6"
+                      />
                     </div>
                   </div>
 
-                  <button
+                  <UiButton
                     type="button"
+                    block
+                    density="compact"
+                    variant="secondary"
                     @click="addEditMessagesDispatchMapping"
-                    class="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-white py-3 text-sm font-medium text-gray-500 transition-all hover:border-primary-300 hover:bg-primary-50/50 hover:text-primary-600 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-400 dark:hover:border-primary-800 dark:hover:bg-primary-900/20 dark:hover:text-primary-400"
                   >
-                    <Icon name="plus" size="sm" />
+                    <template #icon><Icon name="plus" size="sm" /></template>
                     {{ t("admin.groups.openaiMessages.addExactMapping") }}
-                  </button>
+                  </UiButton>
                 </div>
               </div>
             </div>
@@ -2415,13 +2424,15 @@
                         class="inline-flex items-center gap-1 rounded-full bg-primary-100 px-2.5 py-1 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300"
                       >
                         {{ account.name }}
-                        <button
+                        <UiIconButton
+                          icon="x"
+                          variant="danger"
+                          density="mini"
+                          :label="t('common.remove')"
                           type="button"
                           @click="removeSelectedAccount(rule, account.id, true)"
-                          class="ml-0.5 text-primary-500 hover:text-primary-700 dark:hover:text-primary-200"
-                        >
-                          <Icon name="x" size="xs" />
-                        </button>
+                          class="ml-0.5"
+                        />
                       </span>
                     </div>
                     <!-- 账号搜索输入框 -->
@@ -2478,27 +2489,30 @@
                     </p>
                   </div>
                 </div>
-                <button
+                <UiIconButton
+                  icon="trash"
+                  variant="danger"
+                  density="compact"
+                  :label="t('admin.groups.modelRouting.removeRule')"
                   type="button"
                   @click="removeEditRoutingRule(rule)"
-                  class="mt-5 p-1.5 text-gray-400 hover:text-red-500 transition-colors"
-                  :title="t('admin.groups.modelRouting.removeRule')"
-                >
-                  <Icon name="trash" size="sm" />
-                </button>
+                  class="mt-5"
+                />
               </div>
             </div>
           </div>
           <!-- 添加规则按钮（仅在启用时显示） -->
-          <button
+          <UiButton
             v-if="editForm.model_routing_enabled"
             type="button"
+            density="compact"
+            variant="quiet"
             @click="addEditRoutingRule"
-            class="mt-3 flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+            class="mt-3"
           >
-            <Icon name="plus" size="sm" />
+            <template #icon><Icon name="plus" size="sm" /></template>
             {{ t("admin.groups.modelRouting.addRule") }}
-          </button>
+          </UiButton>
         </div>
       </form>
 
