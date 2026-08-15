@@ -638,122 +638,19 @@
         </div>
 
         <!-- 模型路由配置（仅 anthropic 平台） -->
-        <div v-if="createForm.platform === 'anthropic'" class="border-t pt-4">
-          <div class="mb-1.5 flex items-center gap-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t("admin.groups.modelRouting.title") }}
-            </label>
-            <UiFieldHelp :content="t('admin.groups.modelRouting.tooltip')" />
-          </div>
-          <!-- 启用开关 -->
-          <div class="flex items-center gap-3 mb-3">
-            <UiSwitch
-              v-model="createForm.model_routing_enabled"
-              :label="t('admin.groups.modelRouting.title')"
-            />
-            <span class="text-sm text-gray-500 dark:text-gray-400">
-              {{
-                createForm.model_routing_enabled
-                  ? t("admin.groups.modelRouting.enabled")
-                  : t("admin.groups.modelRouting.disabled")
-              }}
-            </span>
-          </div>
-          <p
-            v-if="!createForm.model_routing_enabled"
-            class="text-xs text-gray-500 dark:text-gray-400 mb-3"
-          >
-            {{ t("admin.groups.modelRouting.disabledHint") }}
-          </p>
-          <p v-else class="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            {{ t("admin.groups.modelRouting.noRulesHint") }}
-          </p>
-          <!-- 路由规则列表（仅在启用时显示） -->
-          <div v-if="createForm.model_routing_enabled" class="space-y-3">
-            <div
-              v-for="rule in createModelRoutingRules"
-              :key="getCreateRuleRenderKey(rule)"
-              class="rounded-lg border border-gray-200 p-3 dark:border-dark-600"
-            >
-              <div class="flex items-start gap-3">
-                <div class="flex-1 space-y-2">
-                  <UiTextField
-                    v-model="rule.pattern"
-                    :label="t('admin.groups.modelRouting.modelPattern')"
-                    :placeholder="t('admin.groups.modelRouting.modelPatternPlaceholder')"
-                    density="compact"
-                    monospace
-                  />
-                  <div>
-                    <p class="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">
-                      {{ t("admin.groups.modelRouting.accounts") }}
-                    </p>
-                    <!-- 已选账号标签 -->
-                    <div
-                      v-if="rule.accounts.length > 0"
-                      class="flex flex-wrap gap-1.5 mb-2"
-                    >
-                      <span
-                        v-for="account in rule.accounts"
-                        :key="account.id"
-                        class="inline-flex items-center gap-1 rounded-full bg-primary-100 px-2.5 py-1 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300"
-                      >
-                        {{ account.name }}
-                        <UiIconButton
-                          icon="x"
-                          variant="danger"
-                          density="mini"
-                          :label="t('common.remove')"
-                          type="button"
-                          @click="removeSelectedAccount(rule, account.id)"
-                          class="ml-0.5"
-                        />
-                      </span>
-                    </div>
-                    <!-- 账号搜索输入框 -->
-                    <UiAsyncEntityPicker
-                      :key="`${getCreateRuleSearchKey(rule)}-${rule.accounts.length}`"
-                      :model-value="null"
-                      :items="accountPickerOptions(rule, false)"
-                      :placeholder="t('admin.groups.modelRouting.searchAccountPlaceholder')"
-                      :empty-text="t('common.noData')"
-                      :loading-text="t('common.loading')"
-                      search-on-focus
-                      show-results-without-query
-                      clear-after-select
-                      @search="searchAccountsByRule(rule, false, $event)"
-                      @select="selectAccountOption(rule, $event, false)"
-                    />
-                    <p class="text-xs text-gray-400 mt-1">
-                      {{ t("admin.groups.modelRouting.accountsHint") }}
-                    </p>
-                  </div>
-                </div>
-                <UiIconButton
-                  icon="trash"
-                  variant="danger"
-                  density="compact"
-                  :label="t('admin.groups.modelRouting.removeRule')"
-                  type="button"
-                  @click="removeCreateRoutingRule(rule)"
-                  class="mt-5"
-                />
-              </div>
-            </div>
-          </div>
-          <!-- 添加规则按钮（仅在启用时显示） -->
-          <UiButton
-            v-if="createForm.model_routing_enabled"
-            type="button"
-            density="compact"
-            variant="quiet"
-            @click="addCreateRoutingRule"
-            class="mt-3"
-          >
-            <template #icon><Icon name="plus" size="sm" /></template>
-            {{ t("admin.groups.modelRouting.addRule") }}
-          </UiButton>
-        </div>
+        <GroupModelRoutingFields
+          v-if="createForm.platform === 'anthropic'"
+          v-model:enabled="createForm.model_routing_enabled"
+          :rules="createModelRoutingRules"
+          :row-key="getCreateRuleRenderKey"
+          :search-key="getCreateRuleSearchKey"
+          :account-options="createAccountPickerOptions"
+          @add="addCreateRoutingRule"
+          @remove-rule="removeCreateRoutingRule"
+          @remove-account="removeSelectedAccount"
+          @search="searchCreateRoutingAccounts"
+          @select="selectCreateRoutingAccount"
+        />
         </AppStack>
       </form>
 
@@ -1234,122 +1131,19 @@
         </div>
 
         <!-- 模型路由配置（仅 anthropic 平台） -->
-        <div v-if="editForm.platform === 'anthropic'" class="border-t pt-4">
-          <div class="mb-1.5 flex items-center gap-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t("admin.groups.modelRouting.title") }}
-            </label>
-            <UiFieldHelp :content="t('admin.groups.modelRouting.tooltip')" />
-          </div>
-          <!-- 启用开关 -->
-          <div class="flex items-center gap-3 mb-3">
-            <UiSwitch
-              v-model="editForm.model_routing_enabled"
-              :label="t('admin.groups.modelRouting.title')"
-            />
-            <span class="text-sm text-gray-500 dark:text-gray-400">
-              {{
-                editForm.model_routing_enabled
-                  ? t("admin.groups.modelRouting.enabled")
-                  : t("admin.groups.modelRouting.disabled")
-              }}
-            </span>
-          </div>
-          <p
-            v-if="!editForm.model_routing_enabled"
-            class="text-xs text-gray-500 dark:text-gray-400 mb-3"
-          >
-            {{ t("admin.groups.modelRouting.disabledHint") }}
-          </p>
-          <p v-else class="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            {{ t("admin.groups.modelRouting.noRulesHint") }}
-          </p>
-          <!-- 路由规则列表（仅在启用时显示） -->
-          <div v-if="editForm.model_routing_enabled" class="space-y-3">
-            <div
-              v-for="rule in editModelRoutingRules"
-              :key="getEditRuleRenderKey(rule)"
-              class="rounded-lg border border-gray-200 p-3 dark:border-dark-600"
-            >
-              <div class="flex items-start gap-3">
-                <div class="flex-1 space-y-2">
-                  <UiTextField
-                    v-model="rule.pattern"
-                    :label="t('admin.groups.modelRouting.modelPattern')"
-                    :placeholder="t('admin.groups.modelRouting.modelPatternPlaceholder')"
-                    density="compact"
-                    monospace
-                  />
-                  <div>
-                    <p class="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">
-                      {{ t("admin.groups.modelRouting.accounts") }}
-                    </p>
-                    <!-- 已选账号标签 -->
-                    <div
-                      v-if="rule.accounts.length > 0"
-                      class="flex flex-wrap gap-1.5 mb-2"
-                    >
-                      <span
-                        v-for="account in rule.accounts"
-                        :key="account.id"
-                        class="inline-flex items-center gap-1 rounded-full bg-primary-100 px-2.5 py-1 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300"
-                      >
-                        {{ account.name }}
-                        <UiIconButton
-                          icon="x"
-                          variant="danger"
-                          density="mini"
-                          :label="t('common.remove')"
-                          type="button"
-                          @click="removeSelectedAccount(rule, account.id, true)"
-                          class="ml-0.5"
-                        />
-                      </span>
-                    </div>
-                    <!-- 账号搜索输入框 -->
-                    <UiAsyncEntityPicker
-                      :key="`${getEditRuleSearchKey(rule)}-${rule.accounts.length}`"
-                      :model-value="null"
-                      :items="accountPickerOptions(rule, true)"
-                      :placeholder="t('admin.groups.modelRouting.searchAccountPlaceholder')"
-                      :empty-text="t('common.noData')"
-                      :loading-text="t('common.loading')"
-                      search-on-focus
-                      show-results-without-query
-                      clear-after-select
-                      @search="searchAccountsByRule(rule, true, $event)"
-                      @select="selectAccountOption(rule, $event, true)"
-                    />
-                    <p class="text-xs text-gray-400 mt-1">
-                      {{ t("admin.groups.modelRouting.accountsHint") }}
-                    </p>
-                  </div>
-                </div>
-                <UiIconButton
-                  icon="trash"
-                  variant="danger"
-                  density="compact"
-                  :label="t('admin.groups.modelRouting.removeRule')"
-                  type="button"
-                  @click="removeEditRoutingRule(rule)"
-                  class="mt-5"
-                />
-              </div>
-            </div>
-          </div>
-          <!-- 添加规则按钮（仅在启用时显示） -->
-          <UiButton
-            v-if="editForm.model_routing_enabled"
-            type="button"
-            density="compact"
-            variant="quiet"
-            @click="addEditRoutingRule"
-            class="mt-3"
-          >
-            <template #icon><Icon name="plus" size="sm" /></template>
-            {{ t("admin.groups.modelRouting.addRule") }}
-          </UiButton>
-        </div>
+        <GroupModelRoutingFields
+          v-if="editForm.platform === 'anthropic'"
+          v-model:enabled="editForm.model_routing_enabled"
+          :rules="editModelRoutingRules"
+          :row-key="getEditRuleRenderKey"
+          :search-key="getEditRuleSearchKey"
+          :account-options="editAccountPickerOptions"
+          @add="addEditRoutingRule"
+          @remove-rule="removeEditRoutingRule"
+          @remove-account="removeSelectedAccount"
+          @search="searchEditRoutingAccounts"
+          @select="selectEditRoutingAccount"
+        />
         </AppStack>
       </form>
 
@@ -1735,7 +1529,6 @@ import {
   AppPageHeader,
   AppSection,
   AppStack,
-  UiAsyncEntityPicker,
   UiBadge,
   UiButton,
   UiButtonGroup,
@@ -1773,6 +1566,11 @@ import GroupSortList from "@/components/admin/group/GroupSortList.vue";
 import GroupMessagesDispatchFields from "@/components/admin/group/GroupMessagesDispatchFields.vue";
 import GroupPricingPreview from "@/components/admin/group/GroupPricingPreview.vue";
 import GroupAccountFiltersFields from "@/components/admin/group/GroupAccountFiltersFields.vue";
+import GroupModelRoutingFields from "@/components/admin/group/GroupModelRoutingFields.vue";
+import type {
+  GroupModelRoutingRule as ModelRoutingRule,
+  GroupRoutingAccount as SimpleAccount,
+} from "@/components/admin/group/groupModelRoutingTypes";
 import ReasoningEffortPolicyFields from "@/components/admin/group/ReasoningEffortPolicyFields.vue";
 import PricingEntryCard from "@/components/admin/channel/PricingEntryCard.vue";
 import type { PricingFormEntry } from "@/components/admin/channel/types";
@@ -2428,18 +2226,6 @@ const createForm = reactive({
   reasoning_effort_mappings: [] as ReasoningEffortMappingRow[],
 });
 
-// 简单账号类型（用于模型路由选择）
-interface SimpleAccount {
-  id: number;
-  name: string;
-}
-
-// 模型路由规则类型
-interface ModelRoutingRule {
-  pattern: string;
-  accounts: SimpleAccount[]; // 选中的账号对象数组
-}
-
 // 创建表单的模型路由规则
 const createModelRoutingRules = ref<ModelRoutingRule[]>([]);
 
@@ -2543,6 +2329,20 @@ const accountPickerOptions = (
     }));
 };
 
+const createAccountPickerOptions = (rule: ModelRoutingRule) =>
+  accountPickerOptions(rule, false);
+const editAccountPickerOptions = (rule: ModelRoutingRule) =>
+  accountPickerOptions(rule, true);
+
+const searchCreateRoutingAccounts = (
+  rule: ModelRoutingRule,
+  query: string,
+) => searchAccountsByRule(rule, false, query);
+const searchEditRoutingAccounts = (
+  rule: ModelRoutingRule,
+  query: string,
+) => searchAccountsByRule(rule, true, query);
+
 // 选择账号
 const selectAccount = (
   rule: ModelRoutingRule,
@@ -2572,6 +2372,15 @@ const selectAccountOption = (
     isEdit,
   );
 };
+
+const selectCreateRoutingAccount = (
+  rule: ModelRoutingRule,
+  option: UiEntityOption,
+) => selectAccountOption(rule, option, false);
+const selectEditRoutingAccount = (
+  rule: ModelRoutingRule,
+  option: UiEntityOption,
+) => selectAccountOption(rule, option, true);
 
 // 移除已选账号
 const removeSelectedAccount = (
