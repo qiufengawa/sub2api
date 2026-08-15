@@ -687,6 +687,9 @@ export default {
       // Settings Dropdowns
       filterSettings: 'Filter Settings',
       advancedFilters: 'Advanced filters',
+      appliedFilters: 'Applied filters',
+      clearFilters: 'Clear all',
+      removeFilter: 'Remove filter',
       columnSettings: 'Column Settings',
       filterValue: 'Enter value',
       // User Attributes

@@ -199,6 +199,14 @@
           </div>
           </template>
         </UiTableToolbar>
+        <UiFilterChips
+          :items="appliedFilterChips"
+          :applied-label="t('admin.users.appliedFilters')"
+          :clear-label="t('admin.users.clearFilters')"
+          :remove-label="t('admin.users.removeFilter')"
+          @remove="removeAppliedFilter"
+          @clear="clearAppliedFilters"
+        />
         <UiBulkActionBar
           :selected-count="selectedCount"
           :selection-label="t('admin.users.bulkLimits.selectedCount', { count: selectedCount })"
@@ -584,6 +592,7 @@ import {
   UiDataTable,
   UiDropdownMenu,
   UiEmptyState,
+  UiFilterChips,
   UiIconButton,
   UiPopover,
   UiPagination,
@@ -917,6 +926,28 @@ const advancedFilterCount = computed(() => [
   filters.apiKeyGroup,
   ...Object.values(activeAttributeFilters)
 ].filter(value => value !== '' && value !== null && value !== undefined).length)
+
+const appliedFilterChips = computed(() => {
+  const items: Array<{ key: string; label: string; value?: string }> = []
+  if (filters.role) {
+    items.push({ key: 'role', label: t('admin.users.columns.role'), value: t(`admin.users.roles.${filters.role}`) })
+  }
+  if (filters.status) {
+    items.push({ key: 'status', label: t('admin.users.columns.status'), value: filters.status === 'active' ? t('common.active') : t('admin.users.disabled') })
+  }
+  if (filters.group) {
+    items.push({ key: 'group', label: t('admin.users.authorizedGroupFilter'), value: filters.group })
+  }
+  if (filters.apiKeyGroup != null) {
+    const option = apiKeyGroupFilterOptions.value.find((item) => Number(item.value) === filters.apiKeyGroup)
+    items.push({ key: 'apiKeyGroup', label: t('admin.users.apiKeyGroupFilter'), value: option?.label || String(filters.apiKeyGroup) })
+  }
+  Object.entries(activeAttributeFilters).forEach(([attrId, value]) => {
+    if (!value) return
+    items.push({ key: `attr_${attrId}`, label: getAttributeDefinitionName(Number(attrId)), value })
+  })
+  return items
+})
 
 // Visible filters tracking (which filters are shown in the UI)
 // Keys: 'role', 'status', 'attr_${id}'
@@ -1436,6 +1467,24 @@ const applyFilter = () => {
   saveFiltersToStorage()
   pagination.page = 1
   loadUsers()
+}
+
+const removeAppliedFilter = (key: string) => {
+  if (key === 'role') filters.role = ''
+  else if (key === 'status') filters.status = ''
+  else if (key === 'group') filters.group = ''
+  else if (key === 'apiKeyGroup') filters.apiKeyGroup = null
+  else if (key.startsWith('attr_')) delete activeAttributeFilters[Number(key.slice(5))]
+  applyFilter()
+}
+
+const clearAppliedFilters = () => {
+  filters.role = ''
+  filters.status = ''
+  filters.group = ''
+  filters.apiKeyGroup = null
+  Object.keys(activeAttributeFilters).forEach((key) => delete activeAttributeFilters[Number(key)])
+  applyFilter()
 }
 
 const handleEdit = (user: AdminUser) => {

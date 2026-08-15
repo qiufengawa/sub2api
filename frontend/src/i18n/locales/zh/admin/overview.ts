@@ -684,6 +684,9 @@ export default {
       // Settings Dropdowns
       filterSettings: '筛选设置',
       advancedFilters: '高级筛选',
+      appliedFilters: '已应用筛选',
+      clearFilters: '全部清除',
+      removeFilter: '移除筛选',
       columnSettings: '列设置',
       filterValue: '输入值',
       // User Attributes

@@ -371,4 +371,53 @@ describe('admin UsersView', () => {
     expect(wrapper.find('[data-test="bulk-edit-limits"]').exists()).toBe(false)
     expect(wrapper.get('[data-test="selected-keys"]').text()).toBe('')
   })
+
+  it('shows applied filters and removes one condition without clearing the others', async () => {
+    const wrapper = mount(UsersView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          UiDataTable: DataTableStub,
+          UiPagination: true,
+          UiConfirmDialog: true,
+          UserAttributesConfigModal: true,
+          UserConcurrencyCell: true,
+          UserCreateModal: true,
+          UserEditModal: true,
+          BulkEditUserModal: BulkEditUserModalStub,
+          UserPlatformQuotaModal: true,
+          UserApiKeysModal: true,
+          UserAllowedGroupsModal: true,
+          UserBalanceModal: true,
+          UserBalanceHistoryModal: true,
+          GroupReplaceModal: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    vm.filters.role = 'admin'
+    vm.filters.group = 'priority'
+    await flushPromises()
+
+    expect(wrapper.get('.ui-filter-chips').text()).toContain('admin.users.roles.admin')
+    expect(wrapper.get('.ui-filter-chips').text()).toContain('priority')
+
+    const roleChip = wrapper.findAll('.ui-filter-chips > button')
+      .find((button) => button.text().includes('admin.users.roles.admin'))
+    await roleChip!.trigger('click')
+    await flushPromises()
+
+    expect(vm.filters.role).toBe('')
+    expect(vm.filters.group).toBe('priority')
+    expect(listUsers).toHaveBeenLastCalledWith(
+      1,
+      20,
+      expect.objectContaining({ role: '', group_name: 'priority' }),
+      expect.any(Object)
+    )
+  })
 })
