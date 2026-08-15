@@ -2,7 +2,15 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
-import { UiDialog, UiFieldHelp, UiSelect } from '@/components/ui'
+import {
+  AppToolbar,
+  UiButton,
+  UiDialog,
+  UiFieldHelp,
+  UiIconButton,
+  UiPulseIndicator,
+  UiSelect,
+} from '@/components/ui'
 import { adminAPI } from '@/api'
 import { opsAPI, type OpsDashboardOverview, type OpsMetricThresholds, type OpsRealtimeTrafficSummary } from '@/api/admin/ops'
 import type { OpsRequestDetailsPreset } from './OpsRequestDetailsModal.vue'
@@ -890,40 +898,31 @@ function handleToolbarRefresh() {
 
 <template>
   <div :class="['flex flex-col gap-3 rounded-[4px] border border-gray-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-800', props.fullscreen ? 'p-6' : 'p-4 sm:p-5']">
-    <!-- Top Toolbar -->
-    <div class="ops-toolbar flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3 dark:border-dark-700">
-      <div class="ops-toolbar-status min-w-0">
-        <h1 v-if="props.fullscreen" class="flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white">
-          <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-            />
-          </svg>
+    <AppToolbar class="ops-toolbar">
+      <div class="ops-toolbar-status">
+        <h1 v-if="props.fullscreen" class="ops-toolbar__title">
+          <Icon name="chart" size="lg" />
           {{ t('admin.ops.title') }}
         </h1>
 
-        <div v-if="!props.fullscreen" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-          <span class="flex items-center gap-1.5" :title="props.loading ? t('admin.ops.loadingText') : t('admin.ops.ready')">
-            <span class="relative flex h-2 w-2">
-              <span class="relative inline-flex h-2 w-2 rounded-full" :class="props.loading ? 'bg-gray-400' : 'bg-green-500'"></span>
-            </span>
-            {{ props.loading ? t('admin.ops.loadingText') : t('admin.ops.ready') }}
-          </span>
-
-          <span>·</span>
+        <div v-if="!props.fullscreen" class="ops-toolbar__status-line">
+          <UiPulseIndicator
+            :label="props.loading ? t('admin.ops.loadingText') : t('admin.ops.ready')"
+            :tone="props.loading ? 'info' : 'success'"
+            :animated="props.loading"
+          />
+          <span aria-hidden="true">·</span>
           <span>{{ t('common.refresh') }}: {{ props.lastUpdated ? props.lastUpdated.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\//g, '-') : t('common.unknown') }}</span>
 
           <template v-if="props.autoRefreshEnabled && props.autoRefreshCountdown !== undefined">
-            <span>·</span>
+            <span aria-hidden="true">·</span>
             <span>{{ t('admin.ops.autoRefreshRemaining', { seconds: props.autoRefreshCountdown }) }}</span>
           </template>
         </div>
       </div>
 
-      <div class="ops-toolbar-controls flex flex-1 flex-wrap items-center justify-end gap-2">
+      <template #actions>
+        <div class="ops-toolbar-controls">
         <template v-if="!props.fullscreen">
           <UiSelect
             :model-value="platform"
@@ -941,7 +940,7 @@ function handleToolbarRefresh() {
             @update:model-value="handleGroupChange"
           />
 
-          <div class="mx-1 hidden h-4 w-px bg-gray-200 dark:bg-dark-700 sm:block"></div>
+          <span class="ops-toolbar__separator" aria-hidden="true"></span>
 
           <UiSelect
             :model-value="timeRange"
@@ -961,69 +960,56 @@ function handleToolbarRefresh() {
           @update:model-value="handleQueryModeChange"
         />
 
-        <button
+        <UiIconButton
           v-if="!props.fullscreen"
-          type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-[4px] bg-gray-100 text-gray-500 transition-colors hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-400 dark:hover:bg-dark-600"
+          data-testid="ops-toolbar-refresh"
+          :label="t('common.refresh')"
+          variant="ghost"
           :disabled="loading"
-          :title="t('common.refresh')"
           @click="handleToolbarRefresh"
         >
-          <svg class="h-4 w-4" :class="{ 'animate-spin': loading }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-        </button>
+          <Icon name="refresh" size="sm" :class="{ 'ops-toolbar__refresh-icon--loading': loading }" />
+        </UiIconButton>
 
-        <div v-if="!props.fullscreen" class="mx-1 hidden h-4 w-px bg-gray-200 dark:bg-dark-700 sm:block"></div>
+        <span v-if="!props.fullscreen" class="ops-toolbar__separator" aria-hidden="true"></span>
 
-        <!-- Alert Rules Button (hidden in fullscreen) -->
-        <button
+        <UiButton
           v-if="!props.fullscreen"
-          type="button"
-          class="flex h-8 items-center gap-1.5 rounded-[4px] bg-blue-50 px-2.5 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50"
+          data-testid="ops-toolbar-alert-rules"
+          density="compact"
+          variant="secondary"
+          :aria-label="t('admin.ops.alertRules.title')"
           :title="t('admin.ops.alertRules.title')"
           @click="emit('openAlertRules')"
         >
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-          </svg>
-          <span class="hidden sm:inline">{{ t('admin.ops.alertRules.manage') }}</span>
-        </button>
+          <template #icon><Icon name="bell" size="sm" /></template>
+          <span class="ops-toolbar__button-label">{{ t('admin.ops.alertRules.manage') }}</span>
+        </UiButton>
 
-        <!-- Settings Button (hidden in fullscreen) -->
-        <button
+        <UiButton
           v-if="!props.fullscreen"
-          type="button"
-          class="flex h-8 items-center gap-1.5 rounded-[4px] bg-gray-100 px-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600"
+          data-testid="ops-toolbar-settings"
+          density="compact"
+          variant="secondary"
+          :aria-label="t('admin.ops.settings.title')"
           :title="t('admin.ops.settings.title')"
           @click="emit('openSettings')"
         >
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          <span class="hidden sm:inline">{{ t('common.settings') }}</span>
-        </button>
+          <template #icon><Icon name="cog" size="sm" /></template>
+          <span class="ops-toolbar__button-label">{{ t('common.settings') }}</span>
+        </UiButton>
 
-        <!-- Enter Fullscreen Button (hidden in fullscreen mode) -->
-        <button
+        <UiIconButton
           v-if="!props.fullscreen"
-          type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-[4px] bg-gray-100 text-gray-700 transition-colors hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600"
-          :title="t('admin.ops.fullscreen.enter')"
+          data-testid="ops-toolbar-fullscreen"
+          icon="grid"
+          variant="ghost"
+          :label="t('admin.ops.fullscreen.enter')"
           @click="emit('enterFullscreen')"
-        >
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-          </svg>
-        </button>
-      </div>
-    </div>
+        />
+        </div>
+      </template>
+    </AppToolbar>
 
     <div
       v-if="overview && !props.fullscreen && diagnosisReport[0]"
@@ -1752,6 +1738,62 @@ function handleToolbarRefresh() {
   border-bottom: 0;
 }
 
+.ops-toolbar {
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--ui-border-soft);
+}
+
+.ops-toolbar-status {
+  min-width: 0;
+}
+
+.ops-toolbar__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.ops-toolbar__status-line,
+.ops-toolbar-controls {
+  display: flex;
+  align-items: center;
+}
+
+.ops-toolbar__status-line {
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+.ops-toolbar-controls {
+  flex: 1;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ops-toolbar__separator {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--ui-border);
+}
+
+.ops-toolbar__refresh-icon--loading {
+  animation: ops-toolbar-spin 0.8s linear infinite;
+}
+
+@keyframes ops-toolbar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 :global(.dark) .ops-kpi-cell,
 :global(.dark) .ops-resource-cell {
   border-color: rgb(55 65 81);
@@ -1824,6 +1866,19 @@ function handleToolbarRefresh() {
   .ops-toolbar-controls {
     flex: none;
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 639px) {
+  .ops-toolbar__separator,
+  .ops-toolbar__button-label {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ops-toolbar__refresh-icon--loading {
+    animation: none;
   }
 }
 

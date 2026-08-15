@@ -154,6 +154,21 @@ describe('OpsDashboardHeader information hierarchy', () => {
     expect(wrapper.emitted('openRequestDetails')).toHaveLength(1)
   })
 
+  it('keeps every toolbar command connected to its existing event contract', async () => {
+    const wrapper = mountHeader()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="ops-toolbar-refresh"]').trigger('click')
+    await wrapper.get('[data-testid="ops-toolbar-alert-rules"]').trigger('click')
+    await wrapper.get('[data-testid="ops-toolbar-settings"]').trigger('click')
+    await wrapper.get('[data-testid="ops-toolbar-fullscreen"]').trigger('click')
+
+    expect(wrapper.emitted('refresh')).toHaveLength(1)
+    expect(wrapper.emitted('openAlertRules')).toHaveLength(1)
+    expect(wrapper.emitted('openSettings')).toHaveLength(1)
+    expect(wrapper.emitted('enterFullscreen')).toHaveLength(1)
+  })
+
   it('shows a local title only in fullscreen mode', () => {
     const wrapper = mountHeader(true)
     expect(wrapper.get('h1').text()).toContain('admin.ops.title')
