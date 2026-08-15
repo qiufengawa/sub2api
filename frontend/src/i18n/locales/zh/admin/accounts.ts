@@ -1627,6 +1627,7 @@ export default {
       todayCost: "今日费用",
       usageTrend: "30天费用与请求趋势",
       noData: "该账号暂无使用数据",
+      loadFailed: "账号使用统计加载失败",
     },
   },
 

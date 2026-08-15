@@ -1624,6 +1624,7 @@ export default {
       todayCost: "Today Cost",
       usageTrend: "30-Day Cost & Request Trend",
       noData: "No usage data available for this account",
+      loadFailed: "Failed to load account usage statistics",
     },
     usageWindow: {
       statsTitle: "5-Hour Window Usage Statistics",
