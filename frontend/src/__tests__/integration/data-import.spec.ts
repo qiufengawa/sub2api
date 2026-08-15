@@ -33,7 +33,7 @@ const mountModal = () =>
     props: { show: true },
     global: {
       stubs: {
-        BaseDialog: { template: '<div><slot /><slot name="footer" /></div>' }
+        Teleport: true
       }
     }
   })
@@ -211,8 +211,9 @@ describe('ImportDataModal', () => {
     expect(showError).toHaveBeenCalledWith('admin.accounts.dataImportCompletedWithErrors')
     expect(wrapper.emitted('imported')).toBeUndefined()
 
-    // 第二个 btn-secondary 是 footer 的取消按钮(第一个是选择文件)
-    await wrapper.findAll('button.btn-secondary')[1]!.trigger('click')
+    const cancelButton = wrapper.findAll('button').find(button => button.text().includes('common.cancel'))
+    expect(cancelButton).toBeDefined()
+    await cancelButton!.trigger('click')
 
     expect(wrapper.emitted('imported')).toHaveLength(1)
     expect(wrapper.emitted('close')).toHaveLength(1)

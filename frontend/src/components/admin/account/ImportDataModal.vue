@@ -6,119 +6,53 @@
     close-on-click-outside
     @close="handleClose"
   >
-    <form
-      id="import-data-form"
-      class="space-y-4"
-      @submit.prevent="handleImport"
-    >
-      <div class="text-sm text-gray-600 dark:text-dark-300">
+    <form id="import-data-form" class="import-data" @submit.prevent="handleImport">
+      <p class="import-data__intro">
         {{ t("admin.accounts.dataImportHint") }}
-      </div>
-      <div
-        class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-600 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400"
-      >
+      </p>
+      <UiAlert tone="warning">
         {{ t("admin.accounts.dataImportWarning") }}
-      </div>
-      <div
-        class="rounded-lg border border-primary-200 bg-primary-50 p-3 text-xs text-primary-700 dark:border-primary-800 dark:bg-primary-900/20 dark:text-primary-300"
-      >
+      </UiAlert>
+      <UiAlert tone="info">
         {{ t("admin.accounts.dataImportPriorityCompatibility") }}
-      </div>
-      <div
-        v-if="legacyPreview"
-        class="border-l-2 border-amber-400 pl-3 text-xs text-amber-700 dark:text-amber-300"
-      >
+      </UiAlert>
+      <UiAlert v-if="legacyPreview" tone="warning">
         {{ t("admin.accounts.dataImportLegacyPriorityPreview") }}
-      </div>
+      </UiAlert>
 
-      <div>
-        <label class="input-label">{{
-          t("admin.accounts.dataImportFile")
-        }}</label>
-        <div
-          class="flex items-center justify-between gap-3 rounded-lg border border-dashed px-4 py-3 transition-colors"
-          :class="
-            dragActive
-              ? 'border-primary-400 bg-primary-50/70 dark:border-primary-500 dark:bg-primary-900/20'
-              : 'border-gray-300 bg-gray-50 dark:border-dark-600 dark:bg-dark-800'
-          "
-          @dragenter.prevent="handleDragEnter"
-          @dragover.prevent
-          @dragleave.prevent="handleDragLeave"
-          @drop.prevent="handleDrop"
-        >
-          <div class="min-w-0">
-            <div
-              class="truncate text-sm text-gray-700 dark:text-dark-200"
-              :title="fileListTitle"
-            >
-              {{
-                selectedFilesLabel || t("admin.accounts.dataImportSelectFile")
-              }}
-            </div>
-            <div class="text-xs text-gray-500 dark:text-dark-400">
-              JSON (.json)
-              <span v-if="files.length > 1"> · {{ fileListTitle }}</span>
-            </div>
-          </div>
-          <UiButton
-            type="button"
-            variant="secondary"
-            class="shrink-0"
-            @click="openFilePicker"
-          >
-            {{ t("common.chooseFile") }}
-          </UiButton>
-        </div>
-        <input
-          ref="fileInput"
-          type="file"
-          class="hidden"
-          accept="application/json,.json"
-          multiple
-          @change="handleFileChange"
+      <UiFileUpload
+        :label="t('admin.accounts.dataImportFile')"
+        :description="selectedFilesLabel || t('admin.accounts.dataImportSelectFile')"
+        :button-text="t('common.chooseFile')"
+        accept="application/json,.json"
+        accept-text="JSON (.json)"
+        multiple
+        :disabled="importing"
+        @select="setSelectedFiles"
+      />
+      <UiDescriptionList
+        v-if="files.length"
+        :columns="1"
+        :items="[{ label: t('admin.accounts.dataImportFile'), value: fileListTitle }]"
+      />
+
+      <AppStack v-if="result" :gap="10">
+        <UiReviewSummary
+          :title="t('admin.accounts.dataImportResult')"
+          :description="t('admin.accounts.dataImportResultSummary', result)"
+          :valid="errorItems.length === 0"
+          :items="resultSummaryItems"
         />
-      </div>
-
-      <div
-        v-if="result"
-        class="space-y-2 rounded-xl border border-gray-200 p-4 dark:border-dark-700"
-      >
-        <div class="text-sm font-medium text-gray-900 dark:text-white">
-          {{ t("admin.accounts.dataImportResult") }}
-        </div>
-        <div class="text-sm text-gray-700 dark:text-dark-300">
-          {{ t("admin.accounts.dataImportResultSummary", result) }}
-        </div>
-        <div
-          v-if="result.legacy_priority_migrated"
-          class="rounded-lg border border-primary-200 bg-primary-50 p-3 text-xs text-primary-700 dark:border-primary-800 dark:bg-primary-900/20 dark:text-primary-300"
-        >
+        <UiAlert v-if="result.legacy_priority_migrated" tone="info">
           {{ t("admin.accounts.dataImportLegacyPriorityMigrated") }}
-        </div>
+        </UiAlert>
 
-        <div v-if="errorItems.length" class="mt-2">
-          <div class="text-sm font-medium text-red-600 dark:text-red-400">
-            {{ t("admin.accounts.dataImportErrors") }}
-          </div>
-          <div
-            class="mt-2 max-h-48 overflow-auto rounded-lg bg-gray-50 p-3 font-mono text-xs dark:bg-dark-800"
-          >
-            <div
-              v-for="(item, idx) in errorItems"
-              :key="idx"
-              class="whitespace-pre-wrap"
-            >
-              {{ item.kind }} {{ item.name || item.proxy_key || "-" }} —
-              {{ item.message }}
-            </div>
-          </div>
-        </div>
-      </div>
+        <UiCodeBlock v-if="errorItems.length" :label="t('admin.accounts.dataImportErrors')" :code="errorDetails" />
+      </AppStack>
     </form>
 
     <template #footer>
-      <div class="flex justify-end gap-3">
+      <div class="import-data__actions">
         <UiButton
           type="button"
           :disabled="importing"
@@ -146,7 +80,16 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { UiButton, UiDialog } from "@/components/ui";
+import {
+  AppStack,
+  UiAlert,
+  UiButton,
+  UiCodeBlock,
+  UiDescriptionList,
+  UiDialog,
+  UiFileUpload,
+  UiReviewSummary,
+} from "@/components/ui";
 import { adminAPI } from "@/api/admin";
 import { useAppStore } from "@/stores/app";
 import type { AdminDataImportResult, AdminDataPayload } from "@/types";
@@ -168,13 +111,10 @@ const appStore = useAppStore();
 
 const importing = ref(false);
 const files = ref<File[]>([]);
-const dragDepth = ref(0);
-const dragActive = computed(() => dragDepth.value > 0);
 const hasCreatedData = ref(false);
 const result = ref<AdminDataImportResult | null>(null);
 const legacyPreview = ref(false);
 
-const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFilesLabel = computed(() => {
   if (files.value.length === 0) return "";
   if (files.value.length === 1) return files.value[0]?.name || "";
@@ -185,32 +125,27 @@ const fileListTitle = computed(() =>
 );
 
 const errorItems = computed(() => result.value?.errors || []);
+const resultSummaryItems = computed(() => result.value ? [
+  { label: "account_created", value: result.value.account_created, numeric: true },
+  { label: "account_failed", value: result.value.account_failed, numeric: true },
+  { label: "proxy_created", value: result.value.proxy_created, numeric: true },
+  { label: "proxy_reused", value: result.value.proxy_reused, numeric: true },
+] : []);
+const errorDetails = computed(() => errorItems.value.map((item) =>
+  `${item.kind} ${item.name || item.proxy_key || "-"} - ${item.message}`,
+).join("\n"));
 
 watch(
   () => props.show,
   (open) => {
     if (open) {
       files.value = [];
-      dragDepth.value = 0;
       hasCreatedData.value = false;
       result.value = null;
       legacyPreview.value = false;
-      if (fileInput.value) {
-        fileInput.value.value = "";
-      }
     }
   },
 );
-
-const openFilePicker = () => {
-  fileInput.value?.click();
-};
-
-const handleFileChange = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  setSelectedFiles(target.files);
-  target.value = "";
-};
 
 const handleClose = () => {
   if (importing.value) return;
@@ -247,20 +182,6 @@ const setSelectedFiles = (
   result.value = null;
 };
 
-const handleDragEnter = () => {
-  if (importing.value) return;
-  dragDepth.value += 1;
-};
-
-const handleDragLeave = () => {
-  dragDepth.value = Math.max(0, dragDepth.value - 1);
-};
-
-const handleDrop = (event: DragEvent) => {
-  dragDepth.value = 0;
-  if (importing.value) return;
-  setSelectedFiles(event.dataTransfer?.files);
-};
 
 const readFileAsText = async (sourceFile: File): Promise<string> => {
   if (typeof sourceFile.text === "function") {
@@ -451,3 +372,8 @@ const handleImport = async () => {
   }
 };
 </script>
+
+<style scoped>
+.import-data{display:flex;min-width:0;flex-direction:column;gap:12px}.import-data__intro{margin:0;color:var(--ui-text-muted);font-size:13px;line-height:21px}.import-data__actions{display:flex;width:100%;justify-content:flex-end;gap:8px}
+@media(max-width:520px){.import-data__actions{display:grid;grid-template-columns:1fr 1fr}.import-data__actions :deep(.ui-button){width:100%}}
+</style>
