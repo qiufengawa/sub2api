@@ -1,3 +1,5 @@
+@import './styles/ui-tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -12,7 +14,8 @@
   }
 
   body {
-    @apply bg-[#f3f3f3] text-[#181818] dark:bg-dark-950 dark:text-gray-100;
+    background: var(--ui-bg);
+    color: var(--ui-text);
     @apply min-h-screen;
   }
 
@@ -153,6 +156,15 @@
     @apply min-h-8 rounded-[3px] p-1.5;
   }
 
+  /* Shared compact control scale. See docs/FRONTEND_DESIGN_GUIDELINES.md. */
+  .btn-compact {
+    @apply h-8 min-h-8 px-3 py-0;
+  }
+
+  .btn-dense {
+    @apply h-7 min-h-7 px-2.5 py-0;
+  }
+
   /* ============ 输入框样式 ============ */
   .input {
     @apply min-h-8 w-full rounded-[3px] px-3 py-1.5 text-sm;
@@ -164,6 +176,14 @@
     @apply hover:border-[#a6a6a6];
     @apply focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-600/10;
     @apply disabled:cursor-not-allowed disabled:bg-[#f3f3f3] dark:disabled:bg-dark-900;
+  }
+
+  .input-compact {
+    @apply h-8 min-h-8 py-0;
+  }
+
+  .input-dense {
+    @apply h-7 min-h-7 py-0;
   }
 
   .dark .input[type='date'],
@@ -376,61 +396,6 @@
     @apply flex items-center gap-2;
   }
 
-  /* ============ 模态框 ============ */
-  .modal-overlay {
-    @apply fixed inset-0 z-50;
-    @apply bg-black/40;
-    @apply flex items-center justify-center p-2 sm:p-4;
-    padding-top: max(0.5rem, env(safe-area-inset-top));
-    padding-right: max(0.5rem, env(safe-area-inset-right));
-    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
-    padding-left: max(0.5rem, env(safe-area-inset-left));
-  }
-
-  .modal-content {
-    @apply w-full;
-    @apply max-h-[95vh] sm:max-h-[90vh];
-    @apply bg-white dark:bg-dark-800;
-    @apply rounded-[4px] shadow-xl;
-    @apply border border-gray-200 dark:border-dark-700;
-    @apply flex flex-col;
-    max-height: calc(100dvh - 1rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-  }
-
-  @media (min-width: 640px) {
-    .modal-overlay {
-      padding-top: max(1rem, env(safe-area-inset-top));
-      padding-right: max(1rem, env(safe-area-inset-right));
-      padding-bottom: max(1rem, env(safe-area-inset-bottom));
-      padding-left: max(1rem, env(safe-area-inset-left));
-    }
-
-    .modal-content {
-      max-height: calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-    }
-  }
-
-  .modal-header {
-    @apply border-b border-gray-200 px-4 py-3 dark:border-dark-700;
-    @apply flex items-center justify-between;
-    @apply flex-shrink-0;
-  }
-
-  .modal-title {
-    @apply text-base font-semibold text-gray-900 dark:text-white;
-  }
-
-  .modal-body {
-    @apply px-4 py-3;
-    @apply flex-1 overflow-y-auto;
-  }
-
-  .modal-footer {
-    @apply border-t border-gray-200 px-4 py-3 dark:border-dark-700;
-    @apply flex items-center justify-end gap-3;
-    @apply flex-shrink-0;
-  }
-
   /* 防止body滚动的工具类 */
   body.modal-open {
     overflow: hidden;
@@ -438,54 +403,6 @@
 
   body.sidebar-open {
     overflow: hidden;
-  }
-
-  .modal-enter-active {
-    transition: opacity 250ms ease-out;
-  }
-
-  .modal-leave-active {
-    transition: opacity 200ms ease-in;
-  }
-
-  .modal-enter-from,
-  .modal-leave-to {
-    opacity: 0;
-  }
-
-  .modal-enter-active .modal-content {
-    transition: transform 250ms ease-out, opacity 250ms ease-out;
-  }
-
-  .modal-leave-active .modal-content {
-    transition: transform 200ms ease-in, opacity 200ms ease-in;
-  }
-
-  .modal-enter-from .modal-content,
-  .modal-leave-to .modal-content {
-    transform: scale(0.95);
-    opacity: 0;
-  }
-
-  .modal-enter-to .modal-content,
-  .modal-leave-from .modal-content {
-    transform: scale(1);
-    opacity: 1;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .modal-enter-active,
-    .modal-leave-active,
-    .modal-enter-active .modal-content,
-    .modal-leave-active .modal-content {
-      transition-duration: 1ms;
-      transition-delay: 0ms;
-    }
-
-    .modal-enter-from .modal-content,
-    .modal-leave-to .modal-content {
-      transform: none;
-    }
   }
 
   /* ============ Dialog ============ */

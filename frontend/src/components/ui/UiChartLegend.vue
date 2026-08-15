@@ -1,0 +1,3 @@
+<template><ul class="ui-legend"><li v-for="item in items" :key="item.label"><i :style="{background:item.color}"/><span>{{ item.label }}</span><b v-if="item.value!==undefined" class="ui-numeric">{{ item.value }}</b></li></ul></template>
+<script setup lang="ts">defineProps<{items:Array<{label:string;color:string;value?:string|number}>}>();</script>
+<style scoped>.ui-legend{display:flex;gap:12px;margin:0;padding:0;list-style:none;flex-wrap:wrap}.ui-legend li{display:flex;align-items:center;gap:5px;color:var(--ui-text-muted);font-size:11px}.ui-legend i{width:8px;height:8px;border-radius:2px}.ui-legend b{color:var(--ui-text);font-weight:500}</style>

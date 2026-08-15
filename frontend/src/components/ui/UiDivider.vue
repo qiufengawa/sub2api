@@ -1,0 +1,3 @@
+<template><div class="ui-divider" :class="`ui-divider--${direction}`" role="separator" :aria-orientation="direction==='horizontal'?'horizontal':'vertical'"><span v-if="$slots.default"><slot/></span></div></template>
+<script setup lang="ts">withDefaults(defineProps<{direction?:'horizontal'|'vertical'}>(),{direction:'horizontal'});</script>
+<style scoped>.ui-divider{color:var(--ui-text-soft);font-size:11px}.ui-divider--horizontal{display:flex;align-items:center;gap:10px;width:100%;margin:8px 0}.ui-divider--horizontal:before,.ui-divider--horizontal:after{height:1px;flex:1;background:var(--ui-border-soft);content:""}.ui-divider--vertical{display:inline-block;width:1px;height:20px;background:var(--ui-border-soft)}</style>

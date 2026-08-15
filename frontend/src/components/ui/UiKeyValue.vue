@@ -1,0 +1,3 @@
+<template><div class="ui-key-value"><span>{{ label }}</span><strong :class="{'ui-numeric':numeric}">{{ value }}</strong><slot name="action"/></div></template>
+<script setup lang="ts">defineProps<{label:string;value:string|number;numeric?:boolean}>();</script>
+<style scoped>.ui-key-value{display:grid;grid-template-columns:minmax(90px,auto) minmax(0,1fr) auto;align-items:center;gap:12px;min-height:36px;border-bottom:1px solid var(--ui-border-soft);font-size:13px}.ui-key-value>span{color:var(--ui-text-muted)}.ui-key-value>strong{min-width:0;color:var(--ui-text);font-weight:400;overflow-wrap:anywhere}</style>

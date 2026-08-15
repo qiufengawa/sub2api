@@ -1,0 +1,148 @@
+:root {
+  --ui-font-latin: Inter, "SF Pro Text", "Segoe UI", Arial, sans-serif;
+  --ui-font-sans: Inter, "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  --ui-font-mono: "SFMono-Regular", "Cascadia Code", "Roboto Mono", Consolas, "Liberation Mono", monospace;
+  --ui-bg: #fcfaf8;
+  --ui-surface: #ffffff;
+  --ui-surface-muted: #faf7f3;
+  --ui-surface-strong: #f7f3ef;
+  --ui-text: #1f2329;
+  --ui-text-strong: #000000;
+  --ui-text-muted: #646a73;
+  --ui-text-soft: #8f959e;
+  --ui-border: #dee0e3;
+  --ui-border-warm: #f0ebe5;
+  --ui-border-soft: #f0ebe5;
+  --ui-focus: #3370ff;
+  --ui-inverse: #ffffff;
+  --ui-link: #249aff;
+  --ui-success: #1f9d55;
+  --ui-warning: #b26a00;
+  --ui-danger: #f04438;
+  --ui-info: #3370ff;
+  --ui-radius-mini: 4px;
+  --ui-radius-dense: 4px;
+  --ui-radius: 6px;
+  --ui-radius-panel: 8px;
+  --ui-control-mini: 24px;
+  --ui-control-dense: 28px;
+  --ui-control-compact: 32px;
+  --ui-control-default: 36px;
+  --ui-control-large: 40px;
+  --ui-motion-instant: 100ms;
+  --ui-motion-fast: 140ms;
+  --ui-motion-base: 180ms;
+  --ui-motion-slow: 240ms;
+  --ui-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ui-ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ui-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  color-scheme: light;
+}
+
+.dark {
+  --ui-bg: #0a0a0a;
+  --ui-surface: #111110;
+  --ui-surface-muted: #1c1a18;
+  --ui-surface-strong: #24211e;
+  --ui-text: #f5f3f0;
+  --ui-text-strong: #ffffff;
+  --ui-text-muted: #aaa49d;
+  --ui-text-soft: #77716b;
+  --ui-border: #393632;
+  --ui-border-soft: #2c2926;
+  --ui-focus: #f5f3f0;
+  --ui-inverse: #0a0a0a;
+  --ui-success: #69c58f;
+  --ui-warning: #e5ad57;
+  --ui-danger: #f08076;
+  --ui-info: #79b7d7;
+  color-scheme: dark;
+}
+
+/* Shared visual contract. Component-local rules can specialize behaviour, but
+   all controls inherit the same MiMo/Qiu geometry and semantic surfaces. */
+.ui-button--mini,.ui-text-input--mini { height: var(--ui-control-mini) !important; }
+.ui-button--dense,.ui-text-input--dense { height: var(--ui-control-dense) !important; }
+.ui-button--compact,.ui-text-input--compact { height: var(--ui-control-compact) !important; }
+.ui-button--default,.ui-text-input--default { height: var(--ui-control-default) !important; }
+.ui-button--large,.ui-text-input--large { height: var(--ui-control-large) !important; }
+.ui-button { gap: 4px; border-radius: var(--ui-radius); font-size: 13px; font-weight: 500; }
+.ui-button,.ui-icon-button,.ui-nav-item,.ui-badge,.ui-status,
+.ui-text-input,.ui-textarea,.select-trigger,.ui-segmented button,
+.ui-tabs button,.ui-menu button,.ui-sort-header {
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    border-color var(--ui-motion-fast) var(--ui-ease-standard),
+    box-shadow var(--ui-motion-fast) var(--ui-ease-standard),
+    opacity var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-standard);
+}
+.ui-button:active:not(:disabled),.ui-icon-button:active:not(:disabled) { transform: translateY(1px); }
+.ui-tabs button::after { transition: background-color var(--ui-motion-fast), transform var(--ui-motion-fast) var(--ui-ease-enter); }
+.ui-tabs button:not(.is-active)::after { transform: scaleX(0); }
+.ui-tabs button.is-active::after { transform: scaleX(1); }
+.ui-data-table tbody tr { transition: background-color var(--ui-motion-fast) var(--ui-ease-standard); }
+.ui-data-table tbody tr:hover { background: var(--ui-surface-muted); }
+.ui-enter { animation: ui-fade-slide-in var(--ui-motion-base) var(--ui-ease-enter) both; }
+.ui-scale-enter { animation: ui-scale-in var(--ui-motion-base) var(--ui-ease-enter) both; }
+@keyframes ui-fade-slide-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ui-scale-in { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: scale(1); } }
+.ui-text-input { font-size: 13px; line-height: 22px; border-radius: var(--ui-radius); }
+.ui-text-input:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-focus) 16%, transparent) !important; }
+.ui-badge { border-radius: var(--ui-radius-mini) !important; font-size: 11px !important; line-height: 16px !important; }
+.ui-focus-ring:focus-visible { outline: 2px solid color-mix(in srgb, var(--ui-focus) 26%, transparent); outline-offset: 1px; }
+.ui-numeric { font-variant-numeric: tabular-nums; }
+
+/* Legacy common wrappers still used by Select and DateRangePicker. */
+.select-trigger, .date-range-trigger, .date-input {
+  min-height: var(--ui-control-default) !important;
+  height: var(--ui-control-default) !important;
+  border-radius: var(--ui-radius) !important;
+  border-color: var(--ui-border) !important;
+  background: var(--ui-surface) !important;
+  box-shadow: none !important;
+}
+.table th { color: var(--ui-text-muted); background: var(--ui-surface-muted); font-size: 12px; font-weight: 500; }
+.table td { font-size: 13px; border-color: var(--ui-border-warm); }
+
+html,
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--ui-font-sans);
+  letter-spacing: 0;
+}
+
+.ui-numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-code {
+  font-family: var(--ui-font-mono);
+}
+
+.ui-focus-ring:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ui-focus) 24%, transparent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+
+  .ui-motion {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .ui-enter,
+  .ui-scale-enter {
+    animation: none !important;
+  }
+}
