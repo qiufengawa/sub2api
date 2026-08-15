@@ -1,362 +1,115 @@
 <template>
   <AppLayout>
-    <TablePageLayout>
-      <template #filters>
-        <div class="flex flex-wrap items-center gap-3">
-          <!-- Left: Search + Filters -->
-          <div class="flex-1 sm:max-w-64">
-            <input
-              v-model="searchQuery"
-              type="text"
-              :placeholder="t('admin.promo.searchCodes')"
-              class="input"
-              @input="handleSearch"
-            />
-          </div>
-          <Select
-            v-model="filters.status"
-            :options="filterStatusOptions"
-            class="w-36"
-            @change="loadCodes"
-          />
+    <AppPage density="compact">
+      <AppPageHeader :title="t('admin.promo.title')" :description="t('admin.promo.description')">
+        <template #actions>
+          <UiButton density="dense" variant="primary" @click="showCreateDialog = true">
+            <template #icon><Icon name="plus" size="sm" /></template>
+            {{ t('admin.promo.createCode') }}
+          </UiButton>
+        </template>
+      </AppPageHeader>
 
-          <!-- Right: Action buttons -->
-          <div class="flex flex-1 flex-wrap items-center justify-end gap-2">
-            <button
-              @click="loadCodes"
-              :disabled="loading"
-              class="btn btn-secondary"
-              :title="t('common.refresh')"
-            >
-              <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
-            </button>
-            <button @click="showCreateDialog = true" class="btn btn-primary">
-              <Icon name="plus" size="md" class="mr-1" />
-              {{ t('admin.promo.createCode') }}
-            </button>
-          </div>
-        </div>
-      </template>
+      <UiServerTableWorkspace :loading="loading" :empty="false">
+        <template #toolbar>
+          <UiTableToolbar>
+            <UiSearchInput v-model="searchQuery" density="dense" :placeholder="t('admin.promo.searchCodes')" @search="handleSearch" />
+            <UiSelect v-model="filters.status" density="dense" :options="filterStatusOptions" :aria-label="t('admin.promo.status')" @change="loadCodes" />
+            <template #actions><UiIconButton icon="refresh" density="dense" :label="t('common.refresh')" :disabled="loading" @click="loadCodes" /></template>
+          </UiTableToolbar>
+        </template>
 
-      <template #table>
-        <DataTable
-          :columns="columns"
-          :data="codes"
-          :loading="loading"
-          :server-side-sort="true"
-          default-sort-key="created_at"
-          default-sort-order="desc"
-          @sort="handleSort"
-        >
-          <template #cell-code="{ value }">
-            <div class="flex max-w-[18rem] min-w-0 items-center gap-2">
-              <code class="min-w-0 flex-1 truncate font-mono text-sm text-gray-900 dark:text-gray-100" :title="String(value)">{{ value }}</code>
-              <button
-                type="button"
-                @click="copyToClipboard(value)"
-                :class="[
-                  'flex items-center transition-colors',
-                  copiedCode === value
-                    ? 'text-green-500'
-                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-                ]"
-                :title="copiedCode === value ? t('admin.promo.copied') : t('keys.copyToClipboard')"
-                :aria-label="copiedCode === value ? t('admin.promo.copied') : t('keys.copyToClipboard')"
-              >
-                <Icon v-if="copiedCode !== value" name="copy" size="sm" :stroke-width="2" />
-                <Icon v-else name="check" size="sm" :stroke-width="2" />
-              </button>
-            </div>
-          </template>
-
-          <template #cell-bonus_amount="{ value }">
-            <span class="text-sm font-medium text-gray-900 dark:text-white">
-              ${{ value.toFixed(2) }}
-            </span>
-          </template>
-
-          <template #cell-usage="{ row }">
-            <span class="text-sm text-gray-600 dark:text-gray-300">
-              {{ row.used_count }} / {{ row.max_uses === 0 ? '∞' : row.max_uses }}
-            </span>
-          </template>
-
-          <template #cell-status="{ value, row }">
-            <span
-              :class="[
-                'badge',
-                getStatusClass(value, row)
-              ]"
-            >
-              {{ getStatusLabel(value, row) }}
-            </span>
-          </template>
-
-          <template #cell-expires_at="{ value }">
-            <span class="text-sm text-gray-500 dark:text-dark-400">
-              {{ value ? formatDateTime(value) : t('admin.promo.neverExpires') }}
-            </span>
-          </template>
-
-          <template #cell-created_at="{ value }">
-            <span class="text-sm text-gray-500 dark:text-dark-400">
-              {{ formatDateTime(value) }}
-            </span>
-          </template>
-
-          <template #cell-actions="{ row }">
-            <div class="flex items-center space-x-1">
-              <button
-                type="button"
-                @click="copyRegisterLink(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20 dark:hover:text-green-400"
-                :title="t('admin.promo.copyRegisterLink')"
-                :aria-label="t('admin.promo.copyRegisterLink')"
-              >
-                <Icon name="link" size="sm" />
-              </button>
-              <button
-                type="button"
-                @click="handleViewUsages(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
-                :title="t('admin.promo.viewUsages')"
-                :aria-label="t('admin.promo.viewUsages')"
-              >
-                <Icon name="eye" size="sm" />
-              </button>
-              <button
-                type="button"
-                @click="handleEdit(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                :title="t('common.edit')"
-                :aria-label="t('common.edit')"
-              >
-                <Icon name="edit" size="sm" />
-              </button>
-              <button
-                type="button"
-                @click="handleDelete(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                :title="t('common.delete')"
-                :aria-label="t('common.delete')"
-              >
-                <Icon name="trash" size="sm" />
-              </button>
-            </div>
-          </template>
-        </DataTable>
-      </template>
-
-      <template #pagination>
-        <Pagination
-          v-if="pagination.total > 0"
-          :page="pagination.page"
-          :total="pagination.total"
-          :page-size="pagination.page_size"
-          @update:page="handlePageChange"
-          @update:pageSize="handlePageSizeChange"
-        />
-      </template>
-    </TablePageLayout>
+        <UiDataTable :columns="columns" :data="codes" :loading="loading" :mobile-table="true" :aria-label="t('admin.promo.title')" :server-side-sort="true" default-sort-key="created_at" default-sort-order="desc" @sort="handleSort">
+          <template #cell-code="{ value }"><div class="promo-code-cell"><code :title="String(value)">{{ value }}</code><UiIconButton :icon="copiedCode === value ? 'check' : 'copy'" density="mini" variant="ghost" :label="copiedCode === value ? t('admin.promo.copied') : t('keys.copyToClipboard')" @click="copyToClipboard(value)" /></div></template>
+          <template #cell-bonus_amount="{ value }"><span class="ui-numeric">${{ value.toFixed(2) }}</span></template>
+          <template #cell-usage="{ row }"><span class="ui-numeric">{{ row.used_count }} / {{ row.max_uses === 0 ? '∞' : row.max_uses }}</span></template>
+          <template #cell-status="{ value, row }"><UiBadge :tone="getStatusTone(value, row)" :label="getStatusLabel(value, row)" /></template>
+          <template #cell-expires_at="{ value }"><span class="promo-muted">{{ value ? formatDateTime(value) : t('admin.promo.neverExpires') }}</span></template>
+          <template #cell-created_at="{ value }"><span class="promo-muted">{{ formatDateTime(value) }}</span></template>
+          <template #cell-actions="{ row }"><div class="promo-row-actions"><UiIconButton icon="link" density="dense" variant="ghost" :label="t('admin.promo.copyRegisterLink')" @click="copyRegisterLink(row)" /><UiIconButton icon="eye" density="dense" variant="ghost" :label="t('admin.promo.viewUsages')" @click="handleViewUsages(row)" /><UiIconButton icon="edit" density="dense" variant="ghost" :label="t('common.edit')" @click="handleEdit(row)" /><UiIconButton icon="trash" density="dense" variant="danger" :label="t('common.delete')" @click="handleDelete(row)" /></div></template>
+          <template #empty><UiEmptyState :title="t('empty.noData')" :description="t('admin.promo.failedToLoad')"><template #action><UiButton density="dense" variant="primary" @click="showCreateDialog = true">{{ t('admin.promo.createCode') }}</UiButton></template></UiEmptyState></template>
+        </UiDataTable>
+        <template #pagination><UiPagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" :reset-page-on-page-size-change="false" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" /></template>
+      </UiServerTableWorkspace>
+    </AppPage>
 
     <!-- Create Dialog -->
-    <BaseDialog
+    <UiDialog
       :show="showCreateDialog"
       :title="t('admin.promo.createCode')"
       width="normal"
       @close="showCreateDialog = false"
     >
       <form id="create-promo-form" @submit.prevent="handleCreate" class="space-y-4">
-        <div>
-          <label class="input-label">
-            {{ t('admin.promo.code') }}
-            <span class="ml-1 text-xs font-normal text-gray-400">({{ t('admin.promo.autoGenerate') }})</span>
-          </label>
-          <input
-            v-model="createForm.code"
-            type="text"
-            class="input font-mono uppercase"
-            :placeholder="t('admin.promo.codePlaceholder')"
-          />
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.promo.bonusAmount') }}</label>
-          <input
-            v-model.number="createForm.bonus_amount"
-            type="number"
-            step="0.01"
-            min="0"
-            required
-            class="input"
-          />
-        </div>
-        <div>
-          <label class="input-label">
-            {{ t('admin.promo.maxUses') }}
-            <span class="ml-1 text-xs font-normal text-gray-400">({{ t('admin.promo.zeroUnlimited') }})</span>
-          </label>
-          <input
-            v-model.number="createForm.max_uses"
-            type="number"
-            min="0"
-            class="input"
-          />
-        </div>
-        <div>
-          <label class="input-label">
-            {{ t('admin.promo.expiresAt') }}
-            <span class="ml-1 text-xs font-normal text-gray-400">({{ t('common.optional') }})</span>
-          </label>
-          <input
-            v-model="createForm.expires_at_str"
-            type="datetime-local"
-            class="input"
-          />
-        </div>
-        <div>
-          <label class="input-label">
-            {{ t('admin.promo.notes') }}
-            <span class="ml-1 text-xs font-normal text-gray-400">({{ t('common.optional') }})</span>
-          </label>
-          <textarea
-            v-model="createForm.notes"
-            rows="2"
-            class="input"
-            :placeholder="t('admin.promo.notesPlaceholder')"
-          ></textarea>
-        </div>
+        <UiTextField v-model="createForm.code" :label="t('admin.promo.code')" :description="t('admin.promo.autoGenerate')" :placeholder="t('admin.promo.codePlaceholder')" monospace />
+        <UiTextField :model-value="createForm.bonus_amount" type="number" :label="t('admin.promo.bonusAmount')" min="0" step="0.01" required @update:model-value="createForm.bonus_amount = Number($event)" />
+        <UiTextField :model-value="createForm.max_uses" type="number" :label="t('admin.promo.maxUses')" :description="t('admin.promo.zeroUnlimited')" min="0" @update:model-value="createForm.max_uses = Number($event)" />
+        <UiTextField v-model="createForm.expires_at_str" type="datetime-local" :label="t('admin.promo.expiresAt')" :description="t('common.optional')" />
+        <UiTextArea v-model="createForm.notes" :label="t('admin.promo.notes')" :description="t('common.optional')" :placeholder="t('admin.promo.notesPlaceholder')" :rows="2" />
       </form>
       <template #footer>
-        <div class="flex justify-end gap-3">
-          <button type="button" @click="showCreateDialog = false" class="btn btn-secondary">
-            {{ t('common.cancel') }}
-          </button>
-          <button type="submit" form="create-promo-form" :disabled="creating" class="btn btn-primary">
-            {{ creating ? t('common.creating') : t('common.create') }}
-          </button>
+        <div class="promo-dialog-actions">
+          <UiButton type="button" density="dense" @click="showCreateDialog = false">{{ t('common.cancel') }}</UiButton>
+          <UiButton type="submit" form="create-promo-form" density="dense" variant="primary" :loading="creating">{{ t('common.create') }}</UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
     <!-- Edit Dialog -->
-    <BaseDialog
+    <UiDialog
       :show="showEditDialog"
       :title="t('admin.promo.editCode')"
       width="normal"
       @close="closeEditDialog"
     >
       <form id="edit-promo-form" @submit.prevent="handleUpdate" class="space-y-4">
-        <div>
-          <label class="input-label">{{ t('admin.promo.code') }}</label>
-          <input
-            v-model="editForm.code"
-            type="text"
-            class="input font-mono uppercase"
-          />
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.promo.bonusAmount') }}</label>
-          <input
-            v-model.number="editForm.bonus_amount"
-            type="number"
-            step="0.01"
-            min="0"
-            required
-            class="input"
-          />
-        </div>
-        <div>
-          <label class="input-label">
-            {{ t('admin.promo.maxUses') }}
-            <span class="ml-1 text-xs font-normal text-gray-400">({{ t('admin.promo.zeroUnlimited') }})</span>
-          </label>
-          <input
-            v-model.number="editForm.max_uses"
-            type="number"
-            min="0"
-            class="input"
-          />
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.promo.status') }}</label>
-          <Select v-model="editForm.status" :options="statusOptions" />
-        </div>
-        <div>
-          <label class="input-label">
-            {{ t('admin.promo.expiresAt') }}
-            <span class="ml-1 text-xs font-normal text-gray-400">({{ t('common.optional') }})</span>
-          </label>
-          <input
-            v-model="editForm.expires_at_str"
-            type="datetime-local"
-            class="input"
-          />
-        </div>
-        <div>
-          <label class="input-label">
-            {{ t('admin.promo.notes') }}
-            <span class="ml-1 text-xs font-normal text-gray-400">({{ t('common.optional') }})</span>
-          </label>
-          <textarea
-            v-model="editForm.notes"
-            rows="2"
-            class="input"
-          ></textarea>
-        </div>
+        <UiTextField v-model="editForm.code" :label="t('admin.promo.code')" monospace />
+        <UiTextField :model-value="editForm.bonus_amount" type="number" :label="t('admin.promo.bonusAmount')" min="0" step="0.01" required @update:model-value="editForm.bonus_amount = Number($event)" />
+        <UiTextField :model-value="editForm.max_uses" type="number" :label="t('admin.promo.maxUses')" :description="t('admin.promo.zeroUnlimited')" min="0" @update:model-value="editForm.max_uses = Number($event)" />
+        <UiSelect v-model="editForm.status" :label="t('admin.promo.status')" :options="statusOptions" />
+        <UiTextField v-model="editForm.expires_at_str" type="datetime-local" :label="t('admin.promo.expiresAt')" :description="t('common.optional')" />
+        <UiTextArea v-model="editForm.notes" :label="t('admin.promo.notes')" :description="t('common.optional')" :rows="2" />
       </form>
       <template #footer>
-        <div class="flex justify-end gap-3">
-          <button type="button" @click="closeEditDialog" class="btn btn-secondary">
-            {{ t('common.cancel') }}
-          </button>
-          <button type="submit" form="edit-promo-form" :disabled="updating" class="btn btn-primary">
-            {{ updating ? t('common.saving') : t('common.save') }}
-          </button>
+        <div class="promo-dialog-actions">
+          <UiButton type="button" density="dense" @click="closeEditDialog">{{ t('common.cancel') }}</UiButton>
+          <UiButton type="submit" form="edit-promo-form" density="dense" variant="primary" :loading="updating">{{ t('common.save') }}</UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
     <!-- Usages Dialog -->
-    <BaseDialog
+    <UiDialog
       :show="showUsagesDialog"
       :title="t('admin.promo.usageRecords')"
       width="wide"
       @close="showUsagesDialog = false"
     >
-      <div v-if="usagesLoading" class="flex items-center justify-center py-8">
-        <Icon name="refresh" size="lg" class="animate-spin text-gray-400" />
-      </div>
-      <div v-else-if="usages.length === 0" class="py-8 text-center text-gray-500 dark:text-gray-400">
-        {{ t('admin.promo.noUsages') }}
-      </div>
-      <div v-else class="space-y-3">
+      <div v-if="usagesLoading" class="promo-usage-loading"><UiSpinner size="md" /></div>
+      <UiEmptyState v-else-if="usages.length === 0" :title="t('admin.promo.noUsages')" />
+      <div v-else class="promo-usage-list">
         <div
           v-for="usage in usages"
           :key="usage.id"
-          class="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-dark-600"
+          class="promo-usage-row"
         >
-          <div class="flex items-center gap-3">
-            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-              <Icon name="user" size="sm" class="text-green-600 dark:text-green-400" />
-            </div>
+          <div class="promo-usage-user">
+            <Icon name="user" size="sm" />
             <div>
-              <p class="text-sm font-medium text-gray-900 dark:text-white">
+              <p>
                 {{ usage.user?.email || t('admin.promo.userPrefix', { id: usage.user_id }) }}
               </p>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
+              <p class="promo-muted">
                 {{ formatDateTime(usage.used_at) }}
               </p>
             </div>
           </div>
-          <div class="text-right">
-            <span class="text-sm font-medium text-green-600 dark:text-green-400">
-              +${{ usage.bonus_amount.toFixed(2) }}
-            </span>
+          <div class="ui-numeric promo-usage-amount">+${{ usage.bonus_amount.toFixed(2) }}
           </div>
         </div>
         <!-- Usages Pagination -->
         <div v-if="usagesTotal > usagesPageSize" class="mt-4">
-          <Pagination
+          <UiPagination
             :page="usagesPage"
             :total="usagesTotal"
             :page-size="usagesPageSize"
@@ -366,16 +119,14 @@
         </div>
       </div>
       <template #footer>
-        <div class="flex justify-end">
-          <button type="button" @click="showUsagesDialog = false" class="btn btn-secondary">
-            {{ t('common.close') }}
-          </button>
+        <div class="promo-dialog-actions">
+          <UiButton type="button" density="dense" @click="showUsagesDialog = false">{{ t('common.close') }}</UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
     <!-- Delete Confirmation Dialog -->
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showDeleteDialog"
       :title="t('admin.promo.deleteCode')"
       :message="t('admin.promo.deleteCodeConfirm')"
@@ -397,15 +148,28 @@ import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { adminAPI } from '@/api/admin'
 import { formatDateTime, formatDateTimeLocalInput } from '@/utils/format'
 import type { PromoCode, PromoCodeUsage } from '@/types'
-import type { Column } from '@/components/common/types'
+import type { Column } from '@/components/ui'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import TablePageLayout from '@/components/layout/TablePageLayout.vue'
-import DataTable from '@/components/common/DataTable.vue'
-import Pagination from '@/components/common/Pagination.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  AppPage,
+  AppPageHeader,
+  UiBadge,
+  UiButton,
+  UiConfirmDialog,
+  UiDataTable,
+  UiDialog,
+  UiEmptyState,
+  UiIconButton,
+  UiPagination,
+  UiSearchInput,
+  UiSelect,
+  UiServerTableWorkspace,
+  UiSpinner,
+  UiTableToolbar,
+  UiTextArea,
+  UiTextField,
+} from '@/components/ui'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -491,16 +255,6 @@ const columns = computed<Column[]>(() => [
 ])
 
 // Helpers
-const getStatusClass = (status: string, row: PromoCode) => {
-  if (row.expires_at && new Date(row.expires_at) < new Date()) {
-    return 'badge-danger'
-  }
-  if (row.max_uses > 0 && row.used_count >= row.max_uses) {
-    return 'badge-gray'
-  }
-  return status === 'active' ? 'badge-success' : 'badge-gray'
-}
-
 const getStatusLabel = (status: string, row: PromoCode) => {
   if (row.expires_at && new Date(row.expires_at) < new Date()) {
     return t('admin.promo.statusExpired')
@@ -509,6 +263,12 @@ const getStatusLabel = (status: string, row: PromoCode) => {
     return t('admin.promo.statusMaxUsed')
   }
   return status === 'active' ? t('admin.promo.statusActive') : t('admin.promo.statusDisabled')
+}
+
+const getStatusTone = (status: string, row: PromoCode): 'neutral' | 'success' | 'warning' | 'danger' => {
+  if (row.expires_at && new Date(row.expires_at) < new Date()) return 'danger'
+  if (row.max_uses > 0 && row.used_count >= row.max_uses) return 'neutral'
+  return status === 'active' ? 'success' : 'neutral'
 }
 
 // API calls
@@ -557,13 +317,9 @@ const loadCodes = async () => {
   }
 }
 
-let searchTimeout: ReturnType<typeof setTimeout>
 const handleSearch = () => {
-  clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => {
-    pagination.page = 1
-    loadCodes()
-  }, 300)
+  pagination.page = 1
+  loadCodes()
 }
 
 const handlePageChange = (page: number) => {
@@ -744,7 +500,79 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  clearTimeout(searchTimeout)
   abortController?.abort()
 })
 </script>
+
+<style scoped>
+.promo-code-cell,
+.promo-row-actions,
+.promo-dialog-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.promo-code-cell code {
+  min-width: 0;
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--ui-text);
+  font-family: var(--ui-font-mono);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.promo-muted {
+  color: var(--ui-text-soft);
+  font-size: 11px;
+}
+
+.promo-dialog-actions {
+  justify-content: flex-end;
+}
+
+.promo-usage-loading {
+  display: grid;
+  min-height: 112px;
+  place-items: center;
+  color: var(--ui-text-soft);
+}
+
+.promo-usage-list {
+  display: grid;
+  gap: 8px;
+}
+
+.promo-usage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border-soft);
+  border-radius: var(--ui-radius);
+}
+
+.promo-usage-user {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  color: var(--ui-success);
+}
+
+.promo-usage-user p {
+  margin: 0;
+  overflow: hidden;
+  color: var(--ui-text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.promo-usage-amount {
+  color: var(--ui-success);
+}
+</style>
