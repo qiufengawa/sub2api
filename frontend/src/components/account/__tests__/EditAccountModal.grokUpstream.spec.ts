@@ -56,8 +56,8 @@ vi.mock('vue-i18n', async () => {
 
 import EditAccountModal from '../EditAccountModal.vue'
 
-const BaseDialogStub = defineComponent({
-  name: 'BaseDialog',
+const UiDialogStub = defineComponent({
+  name: 'UiDialog',
   props: {
     show: {
       type: Boolean,
@@ -105,7 +105,7 @@ function mountModal(account: any) {
     },
     global: {
       stubs: {
-        BaseDialog: BaseDialogStub,
+        UiDialog: UiDialogStub,
         Select: true,
         Icon: true,
         ProxySelector: true,
