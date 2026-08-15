@@ -1,94 +1,59 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.accounts.testAccountConnection')"
     width="normal"
     @close="handleClose"
   >
     <div class="space-y-4">
-      <!-- Account Info Card -->
-      <div
-        v-if="account"
-        class="flex items-center justify-between rounded-xl border border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 p-3 dark:border-dark-500 dark:from-dark-700 dark:to-dark-600"
-      >
-        <div class="flex items-center gap-3">
-          <div
-            class="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-600"
-          >
-            <Icon name="play" size="md" class="text-white" :stroke-width="2" />
-          </div>
-          <div>
-            <div class="font-semibold text-gray-900 dark:text-gray-100">{{ account.name }}</div>
-            <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-              <span
-                class="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-medium uppercase dark:bg-dark-500"
-              >
-                {{ account.type }}
-              </span>
-              <span>{{ t('admin.accounts.account') }}</span>
-            </div>
+      <header v-if="account" class="account-test__header">
+        <div>
+          <strong>{{ account.name }}</strong>
+          <div class="account-test__meta">
+            <UiBadge :label="account.type" />
+            <span>{{ t('admin.accounts.account') }}</span>
           </div>
         </div>
-        <span
-          :class="[
-            'rounded-full px-2.5 py-1 text-xs font-semibold',
-            account.status === 'active'
-              ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400'
-              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-          ]"
-        >
-          {{ account.status }}
-        </span>
-      </div>
+        <UiStatusBadge :status="account.status" :label="account.status" />
+      </header>
 
       <!-- Grok: mode first, then optional model / mode params -->
-      <div v-if="isGrokAccount" class="space-y-1.5">
-        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-          {{ t('admin.accounts.grok.testMode') }}
-        </label>
-        <Select
+      <UiSelect
+        v-if="isGrokAccount"
           v-model="grokTestMode"
+          :label="t('admin.accounts.grok.testMode')"
+          :description="t('admin.accounts.grok.testModeHint')"
           :options="grokTestModeOptions"
           :disabled="status === 'connecting'"
-        />
-        <p class="text-xs text-gray-500 dark:text-gray-400">
-          {{ t('admin.accounts.grok.testModeHint') }}
-        </p>
-      </div>
+      />
 
-      <div v-if="showModelSelect" class="space-y-1.5">
-        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-          {{ t('admin.accounts.selectTestModel') }}
-        </label>
-        <Select
+      <UiSelect
+        v-if="showModelSelect"
           v-model="selectedModelId"
+          :label="t('admin.accounts.selectTestModel')"
           :options="modelOptionsForMode"
           :disabled="loadingModels || status === 'connecting'"
           value-key="id"
           label-key="display_name"
           :placeholder="loadingModels ? t('common.loading') + '...' : t('admin.accounts.selectTestModel')"
-        />
-      </div>
+      />
 
-      <div v-if="isOpenAIAccount" class="space-y-1.5">
-        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-          {{ t('admin.accounts.openai.testMode') }}
-        </label>
-        <Select
+      <UiSelect
+        v-if="isOpenAIAccount"
           v-model="testMode"
+          :label="t('admin.accounts.openai.testMode')"
           :options="openAITestModeOptions"
           :disabled="status === 'connecting'"
-        />
-      </div>
+      />
 
-      <div v-if="supportsPromptInput" class="space-y-1.5">
-        <TextArea
+      <div v-if="supportsPromptInput">
+        <UiTextArea
           v-model="testPrompt"
           :label="promptInputLabel"
           :placeholder="promptInputPlaceholder"
-          :hint="promptInputHint"
+          :description="promptInputHint"
           :disabled="status === 'connecting'"
-          rows="3"
+          :rows="3"
         />
       </div>
       <p
@@ -99,36 +64,19 @@
       </p>
 
       <!-- Optional media uploads for real generation / transcription -->
-      <div v-if="supportsImageUpload" class="space-y-1.5">
-        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-          {{ imageUploadLabel }}
-        </label>
-        <div class="flex items-center gap-3">
-          <button
-            type="button"
-            class="btn btn-secondary btn-sm shrink-0"
-            :disabled="status === 'connecting'"
-            @click="imageFileInput?.click()"
-          >
-            {{ t('admin.accounts.grok.chooseImageFile') }}
-          </button>
-          <span class="min-w-0 truncate text-xs text-gray-500 dark:text-gray-400">
-            {{
-              uploadImageName
-                ? t('common.selectedFile', { name: uploadImageName })
-                : t('common.noFileSelected')
-            }}
-          </span>
-          <input
-            ref="imageFileInput"
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
-            class="hidden"
-            :disabled="status === 'connecting'"
-            @change="onImageFileChange"
-          />
-        </div>
-        <p class="text-xs text-gray-500 dark:text-gray-400">{{ imageUploadHint }}</p>
+      <div v-if="supportsImageUpload" class="space-y-2">
+        <UiFileUpload
+          :label="imageUploadLabel"
+          :description="imageUploadHint"
+          :button-text="t('admin.accounts.grok.chooseImageFile')"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          accept-text="PNG, JPEG, WebP, GIF · 6 MiB"
+          :disabled="status === 'connecting'"
+          @select="onImageFilesSelected"
+        />
+        <p v-if="uploadImageName" class="account-test__file-name">
+          {{ t('common.selectedFile', { name: uploadImageName }) }}
+        </p>
         <div v-if="uploadImagePreview" class="overflow-hidden rounded-lg border border-gray-200 dark:border-dark-500">
           <img
             :src="uploadImagePreview"
@@ -138,36 +86,19 @@
         </div>
       </div>
 
-      <div v-if="supportsAudioUpload" class="space-y-1.5">
-        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-          {{ t('admin.accounts.grok.audioUploadLabel') }}
-        </label>
-        <div class="flex items-center gap-3">
-          <button
-            type="button"
-            class="btn btn-secondary btn-sm shrink-0"
-            :disabled="status === 'connecting'"
-            @click="audioFileInput?.click()"
-          >
-            {{ t('admin.accounts.grok.chooseAudioFile') }}
-          </button>
-          <span class="min-w-0 truncate text-xs text-gray-500 dark:text-gray-400">
-            {{
-              uploadAudioName
-                ? t('common.selectedFile', { name: uploadAudioName })
-                : t('common.noFileSelected')
-            }}
-          </span>
-          <input
-            ref="audioFileInput"
-            type="file"
-            accept="audio/*,.wav,.mp3,.m4a,.ogg,.webm"
-            class="hidden"
-            :disabled="status === 'connecting'"
-            @change="onAudioFileChange"
-          />
-        </div>
-        <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.grok.audioUploadHint') }}</p>
+      <div v-if="supportsAudioUpload" class="space-y-2">
+        <UiFileUpload
+          :label="t('admin.accounts.grok.audioUploadLabel')"
+          :description="t('admin.accounts.grok.audioUploadHint')"
+          :button-text="t('admin.accounts.grok.chooseAudioFile')"
+          accept="audio/*,.wav,.mp3,.m4a,.ogg,.webm"
+          accept-text="WAV, MP3, M4A, OGG, WebM · 6 MiB"
+          :disabled="status === 'connecting'"
+          @select="onAudioFilesSelected"
+        />
+        <p v-if="uploadAudioName" class="account-test__file-name">
+          {{ t('common.selectedFile', { name: uploadAudioName }) }}
+        </p>
       </div>
 
       <!-- Terminal Output -->
@@ -214,14 +145,16 @@
         </div>
 
         <!-- Copy Button -->
-        <button
+        <UiIconButton
           v-if="outputLines.length > 0"
           @click="copyOutput"
-          class="absolute right-2 top-2 rounded-lg bg-gray-800/80 p-1.5 text-gray-400 opacity-0 transition-all hover:bg-gray-700 hover:text-white group-hover:opacity-100"
-          :title="t('admin.accounts.copyOutput')"
+          class="absolute right-2 top-2"
+          variant="ghost"
+          density="mini"
+          :label="t('admin.accounts.copyOutput')"
         >
-          <Icon name="link" size="sm" :stroke-width="2" />
-        </button>
+          <Icon name="copy" size="sm" :stroke-width="2" />
+        </UiIconButton>
       </div>
 
       <div v-if="generatedImages.length > 0" class="space-y-2">
@@ -229,10 +162,12 @@
           {{ t('admin.accounts.imagePreview') }}
         </div>
         <div class="flex flex-wrap justify-center gap-3">
-          <div
+          <button
             v-for="(image, index) in generatedImages"
             :key="`${image.url}-${index}`"
-            class="group/img relative cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:border-primary-300 hover:shadow-md dark:border-dark-500 dark:bg-dark-700"
+            type="button"
+            class="account-test__image"
+            :aria-label="t('admin.accounts.imagePreviewAlt', { index: index + 1 })"
             @click="previewImageUrl = image.url"
           >
             <img
@@ -240,13 +175,10 @@
               :alt="t('admin.accounts.imagePreviewAlt', { index: index + 1 })"
               class="max-h-[360px] w-full object-contain"
             />
-            <div class="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover/img:bg-black/20">
-              <Icon name="eye" size="lg" class="text-white opacity-0 drop-shadow-lg transition-opacity group-hover/img:opacity-100" :stroke-width="2" />
-            </div>
-            <div class="border-t border-gray-100 px-3 py-1.5 text-xs text-gray-500 dark:border-dark-500 dark:text-gray-300">
+            <div class="account-test__media-type">
               {{ image.mimeType || 'image/*' }}
             </div>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -280,28 +212,12 @@
         </div>
       </div>
 
-      <!-- Image Lightbox -->
-      <Teleport to="body">
-        <Transition name="fade">
-          <div
-            v-if="previewImageUrl"
-            class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
-            @click.self="previewImageUrl = ''"
-          >
-            <button
-              class="absolute right-4 top-4 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70"
-              @click="previewImageUrl = ''"
-            >
-              <Icon name="x" size="lg" :stroke-width="2" />
-            </button>
-            <img
-              :src="previewImageUrl"
-              :alt="t('admin.accounts.imageLightboxAlt')"
-              class="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
-            />
-          </div>
-        </Transition>
-      </Teleport>
+      <UiImagePreview
+        :show="Boolean(previewImageUrl)"
+        :src="previewImageUrl"
+        :alt="t('admin.accounts.imageLightboxAlt')"
+        @close="previewImageUrl = ''"
+      />
 
       <!-- Test Info -->
       <div class="flex items-center justify-between px-1 text-xs text-gray-500 dark:text-gray-400">
@@ -320,34 +236,16 @@
 
     <template #footer>
       <div class="flex justify-end gap-3">
-        <button
-          @click="handleClose"
-          class="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-300 dark:hover:bg-dark-500"
-        >
+        <UiButton variant="secondary" @click="handleClose">
           {{ t('common.close') }}
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           @click="startTest"
           :disabled="!canStartTest"
-          :class="[
-            'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-            !canStartTest
-              ? 'cursor-not-allowed bg-primary-400 text-white'
-              : status === 'success'
-                ? 'bg-green-500 text-white hover:bg-green-600'
-                : status === 'error'
-                  ? 'bg-orange-500 text-white hover:bg-orange-600'
-                  : 'bg-primary-500 text-white hover:bg-primary-600'
-          ]"
+          variant="primary"
+          :loading="status === 'connecting'"
         >
-          <Icon
-            v-if="status === 'connecting'"
-            name="refresh"
-            size="sm"
-            class="animate-spin"
-            :stroke-width="2"
-          />
-          <Icon v-else-if="status === 'idle'" name="play" size="sm" :stroke-width="2" />
+          <Icon v-if="status === 'idle'" name="play" size="sm" :stroke-width="2" />
           <Icon v-else name="refresh" size="sm" :stroke-width="2" />
           <span>
             {{
@@ -358,19 +256,27 @@
                   : t('admin.accounts.retry')
             }}
           </span>
-        </button>
+        </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import Select from '@/components/common/Select.vue'
-import TextArea from '@/components/common/TextArea.vue'
 import { Icon } from '@/components/icons'
+import {
+  UiBadge,
+  UiButton,
+  UiDialog,
+  UiFileUpload,
+  UiIconButton,
+  UiImagePreview,
+  UiSelect,
+  UiStatusBadge,
+  UiTextArea
+} from '@/components/ui'
 import { useClipboard } from '@/composables/useClipboard'
 import { buildApiUrl } from '@/api/client'
 import { ADMIN_UI_REQUEST_HEADER } from '@/api/adminUIRequest'
@@ -409,6 +315,7 @@ const selectedModelId = ref('')
 const testPrompt = ref('')
 const loadingModels = ref(false)
 let abortController: AbortController | null = null
+let streamSequence = 0
 const generatedImages = ref<PreviewMedia[]>([])
 const generatedAudios = ref<PreviewMedia[]>([])
 const generatedVideos = ref<PreviewMedia[]>([])
@@ -420,8 +327,6 @@ const uploadImagePreview = ref('')
 const uploadImageName = ref('')
 const uploadAudioDataURL = ref('')
 const uploadAudioName = ref('')
-const imageFileInput = ref<HTMLInputElement | null>(null)
-const audioFileInput = ref<HTMLInputElement | null>(null)
 const isOpenAIAccount = computed(() => props.account?.platform === 'openai')
 const isGrokAccount = computed(() => props.account?.platform === 'grok')
 const openAITestModeOptions = computed(() => [
@@ -532,9 +437,8 @@ const readFileAsDataURL = (file: File): Promise<string> =>
     reader.readAsDataURL(file)
   })
 
-const onImageFileChange = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
+const onImageFilesSelected = async (files: File[]) => {
+  const file = files[0]
   if (!file) {
     uploadImageDataURL.value = ''
     uploadImagePreview.value = ''
@@ -544,7 +448,6 @@ const onImageFileChange = async (event: Event) => {
   if (file.size > 6 * 1024 * 1024) {
     errorMessage.value = t('admin.accounts.grok.mediaTooLarge')
     status.value = 'error'
-    input.value = ''
     return
   }
   try {
@@ -561,9 +464,8 @@ const onImageFileChange = async (event: Event) => {
   }
 }
 
-const onAudioFileChange = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
+const onAudioFilesSelected = async (files: File[]) => {
+  const file = files[0]
   if (!file) {
     uploadAudioDataURL.value = ''
     uploadAudioName.value = ''
@@ -572,7 +474,6 @@ const onAudioFileChange = async (event: Event) => {
   if (file.size > 6 * 1024 * 1024) {
     errorMessage.value = t('admin.accounts.grok.mediaTooLarge')
     status.value = 'error'
-    input.value = ''
     return
   }
   try {
@@ -592,8 +493,6 @@ const clearMediaUploads = () => {
   uploadImageName.value = ''
   uploadAudioDataURL.value = ''
   uploadAudioName.value = ''
-  if (imageFileInput.value) imageFileInput.value.value = ''
-  if (audioFileInput.value) audioFileInput.value.value = ''
 }
 
 const promptInputLabel = computed(() => {
@@ -807,6 +706,7 @@ const handleClose = () => {
 }
 
 const abortStream = () => {
+  streamSequence += 1
   if (abortController) {
     abortController.abort()
     abortController = null
@@ -840,8 +740,9 @@ const startTest = async () => {
   addLine('', 'text-gray-300')
 
   abortStream()
-
-  abortController = new AbortController()
+  const sequence = ++streamSequence
+  const controller = new AbortController()
+  abortController = controller
 
   try {
     const requestBody: {
@@ -889,7 +790,7 @@ const startTest = async () => {
         [ADMIN_UI_REQUEST_HEADER]: '1'
       },
       body: JSON.stringify(requestBody),
-      signal: abortController.signal
+      signal: controller.signal
     })
 
     if (!response.ok) {
@@ -913,28 +814,39 @@ const startTest = async () => {
       buffer = lines.pop() || ''
 
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const jsonStr = line.slice(6).trim()
-          if (jsonStr) {
-            try {
-              const event = JSON.parse(jsonStr)
-              handleEvent(event)
-            } catch (e) {
-              console.error('Failed to parse SSE event:', e)
-            }
-          }
-        }
+        processSSELine(line)
       }
+    }
+    buffer += decoder.decode()
+    processSSELine(buffer)
+    if (sequence === streamSequence && status.value === 'connecting') {
+      status.value = 'error'
+      errorMessage.value = t('admin.accounts.testFailed')
+      addLine(t('admin.accounts.errorPrefix', { message: errorMessage.value }), 'text-red-400')
     }
   } catch (error: unknown) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      status.value = 'idle'
+      if (sequence === streamSequence) status.value = 'idle'
       return
     }
+    if (sequence !== streamSequence) return
     status.value = 'error'
     const msg = error instanceof Error ? error.message : t('common.unknownError')
     errorMessage.value = msg
     addLine(t('admin.accounts.errorPrefix', { message: msg }), 'text-red-400')
+  } finally {
+    if (abortController === controller) abortController = null
+  }
+}
+
+const processSSELine = (line: string) => {
+  if (!line.startsWith('data: ')) return
+  const json = line.slice(6).trim()
+  if (!json) return
+  try {
+    handleEvent(JSON.parse(json))
+  } catch (error) {
+    console.error('Failed to parse SSE event:', error)
   }
 }
 
@@ -1051,15 +963,17 @@ const copyOutput = () => {
   const text = outputLines.value.map((l) => l.text).join('\n')
   copyToClipboard(text, t('admin.accounts.outputCopied'))
 }
+
+onBeforeUnmount(abortStream)
 </script>
 
-<style>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
+<style scoped>
+.account-test__header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:12px;border-bottom:1px solid var(--ui-border-soft)}
+.account-test__header strong{display:block;color:var(--ui-text);font-size:14px;font-weight:600;overflow-wrap:anywhere}
+.account-test__meta{display:flex;align-items:center;gap:8px;margin-top:4px;color:var(--ui-text-muted);font-size:11px}
+.account-test__file-name{margin:0;color:var(--ui-text-muted);font-size:11px;overflow-wrap:anywhere}
+.account-test__image{position:relative;max-width:260px;overflow:hidden;padding:0;border:1px solid var(--ui-border);border-radius:var(--ui-radius);background:var(--ui-surface);cursor:zoom-in}
+.account-test__image:focus-visible{outline:2px solid var(--ui-focus);outline-offset:2px}
+.account-test__image img{display:block;max-height:220px;width:100%;object-fit:contain}
+.account-test__media-type{padding:5px 8px;border-top:1px solid var(--ui-border-soft);color:var(--ui-text-muted);font-family:var(--ui-font-mono);font-size:10px;text-align:left}
 </style>

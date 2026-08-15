@@ -76,13 +76,15 @@ function mountModal(account: Record<string, unknown> = {
     } as any,
     global: {
       stubs: {
-        BaseDialog: { template: '<div><slot /><slot name="footer" /></div>' },
-        Select: { template: '<div class="select-stub"></div>' },
-        TextArea: {
+        UiDialog: { template: '<div><slot /><slot name="footer" /></div>' },
+        UiSelect: { template: '<div class="select-stub"></div>' },
+        UiTextArea: {
           props: ['modelValue'],
           emits: ['update:modelValue'],
           template: '<textarea class="textarea-stub" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />'
         },
+        UiFileUpload: true,
+        UiImagePreview: true,
         Icon: true
       }
     }
@@ -219,5 +221,22 @@ describe('AccountTestModal', () => {
       prompt: '',
       mode: 'compact'
     })
+  })
+
+  it('缺少终态事件时结束为错误而不是持续连接中', async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      createStreamResponse([
+        'data: {"type":"test_start","model":"gemini-3.1-flash-image"}\n'
+      ])
+    ) as any
+
+    const wrapper = mountModal()
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+    await (wrapper.vm as any).startTest()
+    await flushPromises()
+
+    expect((wrapper.vm as any).status).toBe('error')
+    expect((wrapper.vm as any).errorMessage).toBe('admin.accounts.testFailed')
   })
 })
