@@ -16,9 +16,8 @@
       <span>{{ t('admin.accounts.serviceStatus.unavailable') }}</span>
     </div>
 
-    <HelpTooltip v-else class="!ml-0" width-class="w-72" trigger="hover">
-      <template #trigger>
-        <div class="w-[184px] cursor-help" data-test="account-service-status">
+    <UiTooltip v-else class="!ml-0" width-class="w-72" trigger="hover">
+      <div class="w-[184px] cursor-help" data-test="account-service-status">
           <div class="mb-1 flex min-w-0 items-center justify-between gap-2 text-[11px] leading-4">
             <span class="flex min-w-0 items-center gap-1.5 font-medium" :class="summaryTextClass">
               <span class="h-2 w-2 flex-none rounded-full" :class="summaryDotClass"></span>
@@ -55,49 +54,50 @@
               <span>{{ t('admin.accounts.serviceStatus.now') }}</span>
             </div>
           </div>
-        </div>
-      </template>
+      </div>
 
-      <div class="space-y-2 text-left">
-        <div>
-          <div class="font-semibold text-white">{{ tooltipTitle }}</div>
-          <div class="mt-0.5 text-[11px] text-gray-300">
-            {{ t('admin.accounts.serviceStatus.passiveHint') }}
+      <template #content>
+        <div class="space-y-2 text-left">
+          <div>
+            <div class="font-semibold text-white">{{ tooltipTitle }}</div>
+            <div class="mt-0.5 text-[11px] text-gray-300">
+              {{ t('admin.accounts.serviceStatus.passiveHint') }}
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-x-3 gap-y-1 border-t border-white/10 pt-2 tabular-nums">
+            <span class="text-gray-300">{{ tooltipStatusTitle }}</span>
+            <span class="text-right font-medium text-white">{{ tooltipStatusLabel }}</span>
+            <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.successRate') }}</span>
+            <span class="text-right font-medium text-white">{{ tooltipSuccessRate }}</span>
+            <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.requests') }}</span>
+            <span class="text-right font-medium text-white">{{ tooltipMetrics?.request_count ?? 0 }}</span>
+            <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.successFailure') }}</span>
+            <span class="text-right font-medium text-white">
+              {{ tooltipMetrics?.success_count ?? 0 }} / {{ tooltipMetrics?.failure_count ?? 0 }}
+            </span>
+            <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.averageFirstToken') }}</span>
+            <span class="text-right font-medium text-white">{{ formatLatency(tooltipMetrics?.average_first_token_ms) }}</span>
+            <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.averageSpeed') }}</span>
+            <span class="text-right font-medium text-white">{{ formatSpeed(tooltipMetrics?.average_tokens_per_second) }}</span>
+            <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.lastCall') }}</span>
+            <span class="text-right font-medium text-white">{{ formatTimestamp(tooltipMetrics?.last_call_at) }}</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/10 pt-2 text-[10px] text-gray-300">
+            <span v-for="item in legendItems" :key="item.status" class="inline-flex items-center gap-1">
+              <span class="h-1.5 w-1.5 rounded-full" :class="bucketColorClass(item.status)"></span>
+              {{ item.label }}
+            </span>
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-x-3 gap-y-1 border-t border-white/10 pt-2 tabular-nums">
-          <span class="text-gray-300">{{ tooltipStatusTitle }}</span>
-          <span class="text-right font-medium text-white">{{ tooltipStatusLabel }}</span>
-          <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.successRate') }}</span>
-          <span class="text-right font-medium text-white">{{ tooltipSuccessRate }}</span>
-          <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.requests') }}</span>
-          <span class="text-right font-medium text-white">{{ tooltipMetrics?.request_count ?? 0 }}</span>
-          <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.successFailure') }}</span>
-          <span class="text-right font-medium text-white">
-            {{ tooltipMetrics?.success_count ?? 0 }} / {{ tooltipMetrics?.failure_count ?? 0 }}
-          </span>
-          <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.averageFirstToken') }}</span>
-          <span class="text-right font-medium text-white">{{ formatLatency(tooltipMetrics?.average_first_token_ms) }}</span>
-          <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.averageSpeed') }}</span>
-          <span class="text-right font-medium text-white">{{ formatSpeed(tooltipMetrics?.average_tokens_per_second) }}</span>
-          <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.lastCall') }}</span>
-          <span class="text-right font-medium text-white">{{ formatTimestamp(tooltipMetrics?.last_call_at) }}</span>
-        </div>
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/10 pt-2 text-[10px] text-gray-300">
-          <span v-for="item in legendItems" :key="item.status" class="inline-flex items-center gap-1">
-            <span class="h-1.5 w-1.5 rounded-full" :class="bucketColorClass(item.status)"></span>
-            {{ item.label }}
-          </span>
-        </div>
-      </div>
-    </HelpTooltip>
+      </template>
+    </UiTooltip>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import HelpTooltip from '@/components/common/HelpTooltip.vue'
+import { UiTooltip } from '@/components/ui'
 import type {
   AccountServiceStatus,
   AccountServiceStatusBucket,

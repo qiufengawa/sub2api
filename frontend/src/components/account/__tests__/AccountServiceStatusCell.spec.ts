@@ -21,8 +21,8 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
-const HelpTooltipStub = {
-  template: '<div><slot name="trigger" /><div data-test="service-tooltip"><slot /></div></div>'
+const UiTooltipStub = {
+  template: '<div><slot /><div data-test="service-tooltip"><slot name="content" /></div></div>'
 }
 
 function makeBucket(index: number, status: AccountServiceStatusLevel): AccountServiceStatusBucket {
@@ -66,7 +66,7 @@ function mountCell(props: { status?: AccountServiceStatus | null; loading?: bool
     props,
     global: {
       stubs: {
-        HelpTooltip: HelpTooltipStub
+        UiTooltip: UiTooltipStub
       }
     }
   })

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import UpstreamBillingRateCell from '../UpstreamBillingRateCell.vue'
-import HelpTooltip from '@/components/common/HelpTooltip.vue'
+import { UiTooltip } from '@/components/ui'
 import type { Account } from '@/types'
 
 vi.mock('vue-i18n', async () => {
@@ -184,7 +184,7 @@ describe('UpstreamBillingRateCell', () => {
       }
     })
 
-    expect(wrapper.getComponent(HelpTooltip).props('widthClass')).toBe('w-max max-w-[calc(100vw-2rem)]')
+    expect(wrapper.getComponent(UiTooltip).props('widthClass')).toBe('w-max max-w-[calc(100vw-2rem)]')
     await wrapper.get('[data-testid="upstream-billing-details"]').trigger('mouseenter')
     await flushPromises()
 
