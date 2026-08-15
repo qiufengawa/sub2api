@@ -1,35 +1,21 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.accounts.bulkEdit.title')"
+    :close-label="t('common.close')"
     width="wide"
     @close="handleClose"
   >
     <form id="bulk-edit-account-form" class="space-y-5" @submit.prevent="() => handleSubmit()">
       <!-- Info -->
-      <div class="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
-        <p class="text-sm text-blue-700 dark:text-blue-400">
-          <svg class="mr-1.5 inline h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
+      <UiAlert tone="info">
           {{ t('admin.accounts.bulkEdit.selectionInfo', { count: targetMode === 'filtered' ? targetPreviewCount : accountIds.length }) }}
-        </p>
-      </div>
+      </UiAlert>
 
       <!-- Mixed platform warning -->
-      <div v-if="isMixedPlatform" class="rounded-lg bg-amber-50 p-4 dark:bg-amber-900/20">
-        <p class="text-sm text-amber-700 dark:text-amber-400">
-          <svg class="mr-1.5 inline h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
+      <UiAlert v-if="isMixedPlatform" tone="warning">
           {{ t('admin.accounts.bulkEdit.mixedPlatformWarning', { platforms: targetSelectedPlatforms.join(', ') }) }}
-        </p>
-      </div>
+      </UiAlert>
 
       <!-- OpenAI passthrough -->
       <div
@@ -49,12 +35,11 @@
               {{ t('admin.accounts.openai.oauthPassthroughDesc') }}
             </p>
           </div>
-          <input
+          <UiCheckbox
             v-model="enableOpenAIPassthrough"
             id="bulk-edit-openai-passthrough-enabled"
-            type="checkbox"
+            :aria-label="t('admin.accounts.openai.oauthPassthrough')"
             aria-controls="bulk-edit-openai-passthrough-body"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
         <div
@@ -63,22 +48,11 @@
           role="group"
           aria-labelledby="bulk-edit-openai-passthrough-label"
         >
-          <button
+          <UiSwitch
             id="bulk-edit-openai-passthrough-toggle"
-            type="button"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              openaiPassthroughEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-            @click="openaiPassthroughEnabled = !openaiPassthroughEnabled"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                openaiPassthroughEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+            v-model="openaiPassthroughEnabled"
+            :label="t('admin.accounts.openai.oauthPassthrough')"
+          />
         </div>
       </div>
 
@@ -100,12 +74,11 @@
               {{ t('admin.accounts.openai.flattenNamespacesDesc') }}
             </p>
           </div>
-          <input
+          <UiCheckbox
             v-model="enableOpenAIFlattenNamespaces"
             id="bulk-edit-openai-flatten-namespaces-enabled"
-            type="checkbox"
+            :aria-label="t('admin.accounts.openai.flattenNamespaces')"
             aria-controls="bulk-edit-openai-flatten-namespaces-body"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
         <div
@@ -114,22 +87,11 @@
           role="group"
           aria-labelledby="bulk-edit-openai-flatten-namespaces-label"
         >
-          <button
+          <UiSwitch
             id="bulk-edit-openai-flatten-namespaces-toggle"
-            type="button"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              openaiFlattenNamespacesEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-            @click="openaiFlattenNamespacesEnabled = !openaiFlattenNamespacesEnabled"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                openaiFlattenNamespacesEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+            v-model="openaiFlattenNamespacesEnabled"
+            :label="t('admin.accounts.openai.flattenNamespaces')"
+          />
         </div>
       </div>
 
@@ -143,23 +105,17 @@
           >
             {{ t('admin.accounts.baseUrl') }}
           </label>
-          <input
+          <UiCheckbox
             v-model="enableBaseUrl"
             id="bulk-edit-base-url-enabled"
-            type="checkbox"
             aria-controls="bulk-edit-base-url"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
-        <input
+        <UiTextField
           v-model="baseUrl"
           id="bulk-edit-base-url"
-          type="text"
           :disabled="!enableBaseUrl"
-          class="input"
-          :class="!enableBaseUrl && 'cursor-not-allowed opacity-50'"
           :placeholder="t('admin.accounts.bulkEdit.baseUrlPlaceholder')"
-          aria-labelledby="bulk-edit-base-url-label"
         />
         <GrokBaseUrlPresets
           v-if="allTargetsGrok"
@@ -181,12 +137,10 @@
           >
             {{ t('admin.accounts.modelRestriction') }}
           </label>
-          <input
+          <UiCheckbox
             v-model="enableModelRestriction"
             id="bulk-edit-model-restriction-enabled"
-            type="checkbox"
             aria-controls="bulk-edit-model-restriction-body"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
 
@@ -207,79 +161,18 @@
 
           <template v-else>
             <!-- Mode Toggle -->
-            <div class="mb-4 flex gap-2">
-              <button
-                type="button"
-                :class="[
-                  'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-                  modelRestrictionMode === 'whitelist'
-                    ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
-                ]"
-                @click="modelRestrictionMode = 'whitelist'"
-              >
-                <svg
-                  class="mr-1.5 inline h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                {{ t('admin.accounts.modelWhitelist') }}
-              </button>
-              <button
-                type="button"
-                :class="[
-                  'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-                  modelRestrictionMode === 'mapping'
-                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
-                ]"
-                @click="modelRestrictionMode = 'mapping'"
-              >
-                <svg
-                  class="mr-1.5 inline h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-                  />
-                </svg>
-                {{ t('admin.accounts.modelMapping') }}
-              </button>
-            </div>
+            <UiSegmentedControl
+              v-model="modelRestrictionMode"
+              class="mb-4"
+              :label="t('admin.accounts.modelRestriction')"
+              :options="modelRestrictionOptions"
+            />
 
             <!-- Whitelist Mode -->
             <div v-if="modelRestrictionMode === 'whitelist'">
-              <div class="mb-3 rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-                <p class="text-xs text-blue-700 dark:text-blue-400">
-                  <svg
-                    class="mr-1 inline h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
+              <UiAlert class="mb-3" tone="info">
                   {{ t('admin.accounts.selectAllowedModels') }}
-                </p>
-              </div>
+              </UiAlert>
 
               <ModelWhitelistSelector
                 v-model="allowedModels"
@@ -296,24 +189,9 @@
 
             <!-- Mapping Mode -->
             <div v-else>
-              <div class="mb-3 rounded-lg bg-purple-50 p-3 dark:bg-purple-900/20">
-                <p class="text-xs text-purple-700 dark:text-purple-400">
-                  <svg
-                    class="mr-1 inline h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
+              <UiAlert class="mb-3" tone="info">
                   {{ t('admin.accounts.mapRequestModels') }}
-                </p>
-              </div>
+              </UiAlert>
 
               <!-- Model Mapping List -->
               <div v-if="modelMappings.length > 0" class="mb-3 space-y-2">
@@ -322,68 +200,37 @@
                   :key="index"
                   class="flex items-center gap-2"
                 >
-                  <input
+                  <UiTextField
                     v-model="mapping.from"
-                    type="text"
-                    class="input flex-1"
+                    class="flex-1"
                     :placeholder="t('admin.accounts.requestModel')"
                   />
-                  <svg
-                    class="h-4 w-4 flex-shrink-0 text-gray-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M14 5l7 7m0 0l-7 7m7-7H3"
-                    />
-                  </svg>
-                  <input
+                  <Icon name="arrowRight" size="sm" class="flex-shrink-0 text-gray-400" />
+                  <UiTextField
                     v-model="mapping.to"
-                    type="text"
-                    class="input flex-1"
+                    class="flex-1"
                     :placeholder="t('admin.accounts.actualModel')"
                   />
-                  <button
-                    type="button"
-                    class="rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                  <UiIconButton
+                    :label="t('common.delete')"
+                    variant="danger"
+                    density="dense"
                     @click="removeModelMapping(index)"
                   >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                  </button>
+                    <Icon name="trash" size="sm" />
+                  </UiIconButton>
                 </div>
               </div>
 
-              <button
-                type="button"
-                class="mb-3 w-full rounded-lg border-2 border-dashed border-gray-300 px-4 py-2 text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-700 dark:border-dark-500 dark:text-gray-400 dark:hover:border-dark-400 dark:hover:text-gray-300"
+              <UiButton
+                class="mb-3"
+                block
+                variant="secondary"
                 @click="addModelMapping"
               >
-                <svg
-                  class="mr-1 inline h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
+                <template #icon><Icon name="plus" size="sm" /></template>
                 {{ t('admin.accounts.addMapping') }}
-              </button>
+              </UiButton>
 
               <!-- Quick Add Buttons -->
               <div class="flex flex-wrap gap-2">
@@ -417,12 +264,10 @@
               {{ t('admin.accounts.customErrorCodesHint') }}
             </p>
           </div>
-          <input
+          <UiCheckbox
             v-model="enableCustomErrorCodes"
             id="bulk-edit-custom-error-codes-enabled"
-            type="checkbox"
             aria-controls="bulk-edit-custom-error-codes-body"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
 
@@ -454,27 +299,21 @@
 
           <!-- Manual input -->
           <div class="flex items-center gap-2">
-            <input
+            <UiTextField
               v-model="customErrorCodeInput"
               id="bulk-edit-custom-error-code-input"
               type="number"
               min="100"
               max="599"
-              class="input flex-1"
+              class="flex-1"
               :placeholder="t('admin.accounts.enterErrorCode')"
-              aria-labelledby="bulk-edit-custom-error-codes-label"
-              @keyup.enter="addCustomErrorCode"
+              @enter="addCustomErrorCode"
             />
-            <button type="button" class="btn btn-secondary px-3" @click="addCustomErrorCode">
-              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-            </button>
+            <UiIconButton
+              :label="t('common.add')"
+              icon="plus"
+              @click="addCustomErrorCode"
+            />
           </div>
 
           <!-- Selected codes summary -->
@@ -515,30 +354,17 @@
               {{ t('admin.accounts.interceptWarmupRequestsDesc') }}
             </p>
           </div>
-          <input
+          <UiCheckbox
             v-model="enableInterceptWarmup"
             id="bulk-edit-intercept-warmup-enabled"
-            type="checkbox"
             aria-controls="bulk-edit-intercept-warmup-body"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
         <div v-if="enableInterceptWarmup" id="bulk-edit-intercept-warmup-body" class="mt-3">
-          <button
-            type="button"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              interceptWarmupRequests ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-            @click="interceptWarmupRequests = !interceptWarmupRequests"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                interceptWarmupRequests ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+          <UiSwitch
+            v-model="interceptWarmupRequests"
+            :label="t('admin.accounts.interceptWarmupRequests')"
+          />
         </div>
       </div>
 
@@ -557,30 +383,17 @@
               {{ t('admin.accounts.headerOverride.hint') }}
             </p>
           </div>
-          <input
+          <UiCheckbox
             v-model="enableHeaderOverride"
             id="bulk-edit-header-override-enabled"
-            type="checkbox"
             aria-controls="bulk-edit-header-override-body"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
         <div v-if="enableHeaderOverride" id="bulk-edit-header-override-body" class="mt-3 space-y-3">
-          <button
-            type="button"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              headerOverrideEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-            @click="headerOverrideEnabled = !headerOverrideEnabled"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                headerOverrideEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+          <UiSwitch
+            v-model="headerOverrideEnabled"
+            :label="t('admin.accounts.headerOverride.title')"
+          />
 
           <div v-if="headerOverrideEnabled" class="space-y-3">
             <div class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
@@ -615,12 +428,10 @@
           >
             {{ t('admin.accounts.proxy') }}
           </label>
-          <input
+          <UiCheckbox
             v-model="enableProxy"
             id="bulk-edit-proxy-enabled"
-            type="checkbox"
             aria-controls="bulk-edit-proxy-body"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
         <div id="bulk-edit-proxy-body" :class="!enableProxy && 'pointer-events-none opacity-50'">
@@ -643,23 +454,18 @@
             >
               {{ t('admin.accounts.concurrency') }}
             </label>
-            <input
+            <UiCheckbox
               v-model="enableConcurrency"
               id="bulk-edit-concurrency-enabled"
-              type="checkbox"
               aria-controls="bulk-edit-concurrency"
-              class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
           </div>
-          <input
+          <UiTextField
             v-model.number="concurrency"
             id="bulk-edit-concurrency"
             type="number"
             min="1"
             :disabled="!enableConcurrency"
-            class="input"
-            :class="!enableConcurrency && 'cursor-not-allowed opacity-50'"
-            aria-labelledby="bulk-edit-concurrency-label"
             @input="concurrency = Math.max(1, concurrency || 1)"
           />
         </div>
@@ -672,23 +478,18 @@
             >
               {{ t('admin.accounts.loadFactor') }}
             </label>
-            <input
+            <UiCheckbox
               v-model="enableLoadFactor"
               id="bulk-edit-load-factor-enabled"
-              type="checkbox"
               aria-controls="bulk-edit-load-factor"
-              class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
           </div>
-          <input
+          <UiTextField
             v-model.number="loadFactor"
             id="bulk-edit-load-factor"
             type="number"
             min="1"
             :disabled="!enableLoadFactor"
-            class="input"
-            :class="!enableLoadFactor && 'cursor-not-allowed opacity-50'"
-            aria-labelledby="bulk-edit-load-factor-label"
             @input="loadFactor = (loadFactor &amp;&amp; loadFactor >= 1) ? loadFactor : null"
           />
           <p class="input-hint">{{ t('admin.accounts.loadFactorHint') }}</p>
@@ -702,25 +503,19 @@
             >
               {{ t('admin.accounts.priority') }}
             </label>
-            <input
+            <UiCheckbox
               v-model="enablePriority"
               id="bulk-edit-priority-enabled"
-              type="checkbox"
               aria-controls="bulk-edit-priority"
-              class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
           </div>
-          <input
+          <UiTextField
             v-model="priorityInput"
             id="bulk-edit-priority"
-            type="text"
             inputmode="numeric"
             autocomplete="off"
             min="0"
             :disabled="!enablePriority"
-            class="input"
-            :class="!enablePriority && 'cursor-not-allowed opacity-50'"
-            aria-labelledby="bulk-edit-priority-label"
           />
           <p class="input-hint">{{ t('admin.accounts.priorityHint') }}</p>
         </div>
@@ -733,24 +528,19 @@
             >
               {{ t('admin.accounts.billingRateMultiplier') }}
             </label>
-            <input
+            <UiCheckbox
               v-model="enableRateMultiplier"
               id="bulk-edit-rate-multiplier-enabled"
-              type="checkbox"
               aria-controls="bulk-edit-rate-multiplier"
-              class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
           </div>
-          <input
+          <UiTextField
             v-model.number="rateMultiplier"
             id="bulk-edit-rate-multiplier"
             type="number"
             min="0"
             step="0.01"
             :disabled="!enableRateMultiplier"
-            class="input"
-            :class="!enableRateMultiplier && 'cursor-not-allowed opacity-50'"
-            aria-labelledby="bulk-edit-rate-multiplier-label"
           />
           <p class="input-hint">{{ t('admin.accounts.billingRateMultiplierHint') }}</p>
           <p
@@ -774,16 +564,14 @@
           >
             {{ t('common.status') }}
           </label>
-          <input
+          <UiCheckbox
             v-model="enableStatus"
             id="bulk-edit-status-enabled"
-            type="checkbox"
             aria-controls="bulk-edit-status"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
         <div id="bulk-edit-status" :class="!enableStatus && 'pointer-events-none opacity-50'">
-          <Select
+          <UiSelect
             v-model="status"
             :options="statusOptions"
             aria-labelledby="bulk-edit-status-label"
@@ -801,12 +589,10 @@
           >
             {{ t('admin.accounts.openai.wsMode') }}
           </label>
-          <input
+          <UiCheckbox
             v-model="enableOpenAIWSMode"
             id="bulk-edit-openai-ws-mode-enabled"
-            type="checkbox"
             aria-controls="bulk-edit-openai-ws-mode"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
         <div
@@ -819,7 +605,7 @@
           <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
             {{ t(openAIWSModeConcurrencyHintKey) }}
           </p>
-          <Select
+          <UiSelect
             v-model="openaiOAuthResponsesWebSocketV2Mode"
             data-testid="bulk-edit-openai-ws-mode-select"
             :options="openAIWSModeOptions"
@@ -838,12 +624,10 @@
           >
             {{ t('admin.accounts.openai.codexCLIOnly') }}
           </label>
-          <input
+          <UiCheckbox
             v-model="enableCodexCLIOnly"
             id="bulk-edit-openai-codex-cli-only-enabled"
-            type="checkbox"
             aria-controls="bulk-edit-openai-codex-cli-only"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
         <div
@@ -853,22 +637,11 @@
           <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
             {{ t('admin.accounts.openai.codexCLIOnlyDesc') }}
           </p>
-          <button
+          <UiSwitch
             id="bulk-edit-openai-codex-cli-only-toggle"
-            type="button"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              codexCLIOnlyEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-            @click="codexCLIOnlyEnabled = !codexCLIOnlyEnabled"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                codexCLIOnlyEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+            v-model="codexCLIOnlyEnabled"
+            :label="t('admin.accounts.openai.codexCLIOnly')"
+          />
         </div>
       </div>
 
@@ -882,12 +655,10 @@
           >
             {{ t('admin.accounts.openai.codexCLIOnlyAppServer') }}
           </label>
-          <input
+          <UiCheckbox
             v-model="enableCodexCLIOnlyAppServer"
             id="bulk-edit-openai-codex-app-server-enabled"
-            type="checkbox"
             aria-controls="bulk-edit-openai-codex-app-server"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
         <div
@@ -897,22 +668,11 @@
           <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
             {{ t('admin.accounts.openai.codexCLIOnlyAppServerDesc') }}
           </p>
-          <button
+          <UiSwitch
             id="bulk-edit-openai-codex-app-server-toggle"
-            type="button"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              codexCLIOnlyAppServerEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-            @click="codexCLIOnlyAppServerEnabled = !codexCLIOnlyAppServerEnabled"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                codexCLIOnlyAppServerEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+            v-model="codexCLIOnlyAppServerEnabled"
+            :label="t('admin.accounts.openai.codexCLIOnlyAppServer')"
+          />
         </div>
       </div>
 
@@ -920,17 +680,16 @@
       <div v-if="allOpenAIOAuth" class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
           <label class="input-label mb-0">{{ t('admin.accounts.openai.codexFingerprintMode') }}</label>
-          <input
+          <UiCheckbox
             v-model="enableCodexFingerprintMode"
-            type="checkbox"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            :aria-label="t('admin.accounts.openai.codexFingerprintMode')"
           />
         </div>
         <div :class="!enableCodexFingerprintMode && 'pointer-events-none opacity-50'">
           <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">
             {{ t('admin.accounts.openai.codexFingerprintModeDesc') }}
           </p>
-          <Select v-model="codexFingerprintMode" data-testid="bulk-codex-fingerprint-mode-select" :options="codexFingerprintModeOptions" />
+          <UiSelect v-model="codexFingerprintMode" data-testid="bulk-codex-fingerprint-mode-select" :options="codexFingerprintModeOptions" />
         </div>
       </div>
 
@@ -949,12 +708,10 @@
               {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
             </p>
           </div>
-          <input
+          <UiCheckbox
             v-model="enableUpstreamBillingAutoProbe"
             id="bulk-edit-upstream-billing-auto-probe-enabled"
-            type="checkbox"
             aria-controls="bulk-edit-upstream-billing-auto-probe"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
         <div
@@ -963,7 +720,7 @@
           role="group"
           aria-labelledby="bulk-edit-upstream-billing-auto-probe-label"
         >
-          <Select
+          <UiSelect
             v-model="upstreamBillingAutoProbeMode"
             :disabled="!enableUpstreamBillingAutoProbe"
             data-testid="bulk-edit-upstream-billing-auto-probe-select"
@@ -983,12 +740,10 @@
           >
             {{ t('admin.accounts.openai.wsMode') }}
           </label>
-          <input
+          <UiCheckbox
             v-model="enableOpenAIAPIKeyWSMode"
             id="bulk-edit-openai-apikey-ws-mode-enabled"
-            type="checkbox"
             aria-controls="bulk-edit-openai-apikey-ws-mode"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
         <div
@@ -1001,7 +756,7 @@
           <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
             {{ t(openAIAPIKeyWSModeConcurrencyHintKey) }}
           </p>
-          <Select
+          <UiSelect
             v-model="openaiAPIKeyResponsesWebSocketV2Mode"
             data-testid="bulk-edit-openai-apikey-ws-mode-select"
             :options="openAIWSModeOptions"
@@ -1025,19 +780,17 @@
               {{ t('admin.accounts.openai.compactModeDesc') }}
             </p>
           </div>
-          <input
+          <UiCheckbox
             v-model="enableOpenAICompactMode"
             id="bulk-edit-openai-compact-mode-enabled"
-            type="checkbox"
             aria-controls="bulk-edit-openai-compact-mode"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
         <div
           id="bulk-edit-openai-compact-mode"
           :class="!enableOpenAICompactMode && 'pointer-events-none opacity-50'"
         >
-          <Select
+          <UiSelect
             v-model="openAICompactMode"
             data-testid="bulk-edit-openai-compact-mode-select"
             :options="openAICompactModeOptions"
@@ -1061,12 +814,10 @@
               {{ t('admin.accounts.openai.compactModelMappingDesc') }}
             </p>
           </div>
-          <input
+          <UiCheckbox
             v-model="enableOpenAICompactModelMapping"
             id="bulk-edit-openai-compact-model-mapping-enabled"
-            type="checkbox"
             aria-controls="bulk-edit-openai-compact-model-mapping"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
         <div
@@ -1079,20 +830,18 @@
               :key="index"
               class="flex items-center gap-2"
             >
-              <input
+              <UiTextField
                 v-model="mapping.from"
-                type="text"
-                class="input flex-1"
+                class="flex-1"
                 :placeholder="t('admin.accounts.fromModel')"
-                data-testid="bulk-edit-openai-compact-model-mapping-input"
+                test-id="bulk-edit-openai-compact-model-mapping-input"
               />
               <span class="text-gray-400">→</span>
-              <input
+              <UiTextField
                 v-model="mapping.to"
-                type="text"
-                class="input flex-1"
+                class="flex-1"
                 :placeholder="t('admin.accounts.toModel')"
-                data-testid="bulk-edit-openai-compact-model-mapping-input"
+                test-id="bulk-edit-openai-compact-model-mapping-input"
               />
               <button
                 type="button"
@@ -1124,12 +873,10 @@
           >
             {{ t('admin.accounts.quotaControl.rpmLimit.label') }}
           </label>
-          <input
+          <UiCheckbox
             v-model="enableRpmLimit"
             id="bulk-edit-rpm-limit-enabled"
-            type="checkbox"
             aria-controls="bulk-edit-rpm-limit-body"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
 
@@ -1141,33 +888,21 @@
         >
           <div class="mb-3 flex items-center justify-between">
             <span class="text-sm text-gray-700 dark:text-gray-300">{{ t('admin.accounts.quotaControl.rpmLimit.hint') }}</span>
-            <button
-              type="button"
-              @click="rpmLimitEnabled = !rpmLimitEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                rpmLimitEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                  rpmLimitEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
+            <UiSwitch
+              v-model="rpmLimitEnabled"
+              :label="t('admin.accounts.quotaControl.rpmLimit.label')"
+            />
           </div>
 
           <div v-if="rpmLimitEnabled" class="space-y-3">
             <div>
               <label class="input-label text-xs">{{ t('admin.accounts.quotaControl.rpmLimit.baseRpm') }}</label>
-              <input
+              <UiTextField
                 v-model.number="bulkBaseRpm"
                 type="number"
                 min="1"
                 max="1000"
                 step="1"
-                class="input"
                 :placeholder="t('admin.accounts.quotaControl.rpmLimit.baseRpmPlaceholder')"
               />
               <p class="input-hint">{{ t('admin.accounts.quotaControl.rpmLimit.baseRpmHint') }}</p>
@@ -1205,12 +940,11 @@
 
             <div v-if="bulkRpmStrategy === 'tiered'">
               <label class="input-label text-xs">{{ t('admin.accounts.quotaControl.rpmLimit.stickyBuffer') }}</label>
-              <input
+              <UiTextField
                 v-model.number="bulkRpmStickyBuffer"
                 type="number"
                 min="1"
                 step="1"
-                class="input"
                 :placeholder="t('admin.accounts.quotaControl.rpmLimit.stickyBufferPlaceholder')"
               />
               <p class="input-hint">{{ t('admin.accounts.quotaControl.rpmLimit.stickyBufferHint') }}</p>
@@ -1250,12 +984,10 @@
           >
             {{ t('nav.groups') }}
           </label>
-          <input
+          <UiCheckbox
             v-model="enableGroups"
             id="bulk-edit-groups-enabled"
-            type="checkbox"
             aria-controls="bulk-edit-groups"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
         </div>
         <div id="bulk-edit-groups" :class="!enableGroups && 'pointer-events-none opacity-50'">
@@ -1270,44 +1002,24 @@
 
     <template #footer>
       <div class="flex justify-end gap-3">
-        <button type="button" class="btn btn-secondary" @click="handleClose">
+        <UiButton type="button" variant="secondary" @click="handleClose">
           {{ t('common.cancel') }}
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           type="submit"
           form="bulk-edit-account-form"
-          :disabled="submitting"
-          class="btn btn-primary"
+          variant="primary"
+          :loading="submitting"
         >
-          <svg
-            v-if="submitting"
-            class="-ml-1 mr-2 h-4 w-4 animate-spin"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            />
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            />
-          </svg>
           {{
             submitting ? t('admin.accounts.bulkEdit.updating') : t('admin.accounts.bulkEdit.submit')
           }}
-        </button>
+        </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 
-  <ConfirmDialog
+  <UiConfirmDialog
     :show="showMixedChannelWarning"
     :title="t('admin.accounts.mixedChannelWarningTitle')"
     :message="mixedChannelWarningMessage"
@@ -1325,13 +1037,22 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { Proxy as ProxyConfig, AdminGroup, AccountPlatform, AccountType, OpenAICompactMode } from '@/types'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import Select from '@/components/common/Select.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  UiAlert,
+  UiButton,
+  UiCheckbox,
+  UiConfirmDialog,
+  UiDialog,
+  UiIconButton,
+  UiSegmentedControl,
+  UiSelect,
+  UiSwitch,
+  UiTextField
+} from '@/components/ui'
 import { parseAccountPriority } from '@/utils/accountPriority'
 import {
   buildModelMappingObject as buildModelMappingPayload,
@@ -1380,6 +1101,10 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const modelRestrictionOptions = computed(() => [
+  { value: 'whitelist', label: t('admin.accounts.modelWhitelist') },
+  { value: 'mapping', label: t('admin.accounts.modelMapping') }
+])
 
 // Platform awareness
 const targetMode = computed(() => props.target?.mode ?? 'selected')

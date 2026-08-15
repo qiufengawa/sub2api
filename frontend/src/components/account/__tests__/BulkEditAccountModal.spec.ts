@@ -52,9 +52,9 @@ function mountModal(extraProps: Record<string, unknown> = {}) {
     } as any,
     global: {
       stubs: {
-        BaseDialog: { template: '<div><slot /><slot name="footer" /></div>' },
-        ConfirmDialog: true,
-        Select: {
+        UiDialog: { template: '<div><slot /><slot name="footer" /></div>' },
+        UiConfirmDialog: true,
+        UiSelect: {
           props: ['modelValue', 'options'],
           emits: ['update:modelValue'],
           template: `
