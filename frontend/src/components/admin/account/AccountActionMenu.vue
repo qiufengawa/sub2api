@@ -10,50 +10,50 @@
       >
         <div class="py-1">
           <template v-if="account">
-            <button @click="$emit('test', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-dark-700">
-              <Icon name="play" size="sm" class="text-green-500" :stroke-width="2" />
+            <UiButton block density="compact" variant="quiet" class="justify-start" @click="$emit('test', account); $emit('close')">
+              <template #icon><Icon name="play" size="sm" class="text-green-500" :stroke-width="2" /></template>
               {{ t('admin.accounts.testConnection') }}
-            </button>
-            <button @click="$emit('stats', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-dark-700">
-              <Icon name="chart" size="sm" class="text-indigo-500" />
+            </UiButton>
+            <UiButton block density="compact" variant="quiet" class="justify-start" @click="$emit('stats', account); $emit('close')">
+              <template #icon><Icon name="chart" size="sm" class="text-indigo-500" /></template>
               {{ t('admin.accounts.viewStats') }}
-            </button>
-            <button @click="$emit('schedule', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-dark-700">
-              <Icon name="clock" size="sm" class="text-orange-500" />
+            </UiButton>
+            <UiButton block density="compact" variant="quiet" class="justify-start" @click="$emit('schedule', account); $emit('close')">
+              <template #icon><Icon name="clock" size="sm" class="text-orange-500" /></template>
               {{ t('admin.scheduledTests.schedule') }}
-            </button>
-            <button v-if="canDuplicate" @click="$emit('duplicate', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-dark-700">
-              <Icon name="copy" size="sm" class="text-sky-500" />
+            </UiButton>
+            <UiButton v-if="canDuplicate" block density="compact" variant="quiet" class="justify-start" @click="$emit('duplicate', account); $emit('close')">
+              <template #icon><Icon name="copy" size="sm" class="text-sky-500" /></template>
               {{ t('admin.accounts.duplicateAccount') }}
-            </button>
+            </UiButton>
             <!-- 影子账号不持凭据:重授权/刷新 token 对其无效(后端拒绝),故隐藏(外审 G4)。 -->
             <template v-if="(account.type === 'oauth' || account.type === 'setup-token') && !isShadow">
-              <button @click="$emit('reauth', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:bg-gray-100 dark:hover:bg-dark-700">
-                <Icon name="link" size="sm" />
+              <UiButton block density="compact" variant="quiet" class="justify-start text-blue-600" @click="$emit('reauth', account); $emit('close')">
+                <template #icon><Icon name="link" size="sm" /></template>
                 {{ t('admin.accounts.reAuthorize') }}
-              </button>
-              <button @click="$emit('refresh-token', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-purple-600 hover:bg-gray-100 dark:hover:bg-dark-700">
-                <Icon name="refresh" size="sm" />
+              </UiButton>
+              <UiButton block density="compact" variant="quiet" class="justify-start text-purple-600" @click="$emit('refresh-token', account); $emit('close')">
+                <template #icon><Icon name="refresh" size="sm" /></template>
                 {{ t('admin.accounts.refreshToken') }}
-              </button>
+              </UiButton>
             </template>
-            <button v-if="isOpenAIOAuthParent" @click="$emit('create-spark-shadow', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-gray-100 dark:hover:bg-dark-700">
-              <Icon name="sparkles" size="sm" />
+            <UiButton v-if="isOpenAIOAuthParent" block density="compact" variant="quiet" class="justify-start text-amber-600" @click="$emit('create-spark-shadow', account); $emit('close')">
+              <template #icon><Icon name="sparkles" size="sm" /></template>
               {{ t('admin.accounts.createSparkShadow') }}
-            </button>
-            <button v-if="supportsPrivacy" @click="$emit('set-privacy', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-emerald-600 hover:bg-gray-100 dark:hover:bg-dark-700">
-              <Icon name="shield" size="sm" />
+            </UiButton>
+            <UiButton v-if="supportsPrivacy" block density="compact" variant="quiet" class="justify-start text-emerald-600" @click="$emit('set-privacy', account); $emit('close')">
+              <template #icon><Icon name="shield" size="sm" /></template>
               {{ t('admin.accounts.setPrivacy') }}
-            </button>
+            </UiButton>
             <div v-if="hasRecoverableState" class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
-            <button v-if="hasRecoverableState" @click="$emit('recover-state', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-emerald-600 hover:bg-gray-100 dark:hover:bg-dark-700">
-              <Icon name="sync" size="sm" />
+            <UiButton v-if="hasRecoverableState" block density="compact" variant="quiet" class="justify-start text-emerald-600" @click="$emit('recover-state', account); $emit('close')">
+              <template #icon><Icon name="sync" size="sm" /></template>
               {{ t('admin.accounts.recoverState') }}
-            </button>
-            <button v-if="hasQuotaLimit" @click="$emit('reset-quota', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-teal-600 hover:bg-gray-100 dark:hover:bg-dark-700">
-              <Icon name="refresh" size="sm" />
+            </UiButton>
+            <UiButton v-if="hasQuotaLimit" block density="compact" variant="quiet" class="justify-start text-teal-600" @click="$emit('reset-quota', account); $emit('close')">
+              <template #icon><Icon name="refresh" size="sm" /></template>
               {{ t('admin.accounts.resetQuota') }}
-            </button>
+            </UiButton>
           </template>
         </div>
       </div>
@@ -66,6 +66,7 @@ import { computed, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Icon } from '@/components/icons'
 import type { Account } from '@/types'
+import { UiButton } from '@/components/ui'
 
 const props = defineProps<{ show: boolean; account: Account | null; position: { top: number; left: number } | null }>()
 const emit = defineEmits(['close', 'test', 'stats', 'schedule', 'duplicate', 'reauth', 'refresh-token', 'recover-state', 'reset-quota', 'set-privacy', 'create-spark-shadow'])
