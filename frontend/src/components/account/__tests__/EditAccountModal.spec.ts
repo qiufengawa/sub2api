@@ -301,7 +301,7 @@ function mountModal(account = buildAccount()) {
     global: {
       stubs: {
         UiDialog: UiDialogStub,
-        Select: SelectStub,
+        UiSelect: SelectStub,
         Icon: true,
         ProxySelector: true,
         GroupSelector: GroupSelectorStub,

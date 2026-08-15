@@ -106,7 +106,7 @@ function mountModal(account: any) {
     global: {
       stubs: {
         UiDialog: UiDialogStub,
-        Select: true,
+        UiSelect: true,
         Icon: true,
         ProxySelector: true,
         GroupSelector: true,

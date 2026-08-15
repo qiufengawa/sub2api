@@ -440,10 +440,10 @@
               {{ t('admin.accounts.grokClientToolCache.hint') }}
             </p>
           </div>
-          <Toggle
+          <UiSwitch
             v-model="grokClientToolCacheEnabled"
             data-testid="grok-client-tool-cache-toggle"
-            :aria-label="t('admin.accounts.grokClientToolCache.title')"
+            :label="t('admin.accounts.grokClientToolCache.title')"
           />
         </div>
       </div>
@@ -1508,10 +1508,10 @@
                 {{ t('admin.accounts.upstreamBilling.syncRateHint') }}
               </p>
             </div>
-            <Toggle
+            <UiSwitch
               :model-value="upstreamBillingRateSyncEnabled"
               data-testid="upstream-billing-rate-sync"
-              :aria-label="t('admin.accounts.upstreamBilling.syncRate')"
+              :label="t('admin.accounts.upstreamBilling.syncRate')"
               @update:model-value="handleUpstreamBillingRateSyncChange"
             />
           </div>
@@ -1660,7 +1660,7 @@
             </p>
           </div>
           <div class="w-52">
-            <Select v-model="openaiResponsesWebSocketV2Mode" data-testid="edit-openai-ws-mode-select" :options="openAIWSModeOptions" />
+            <UiSelect v-model="openaiResponsesWebSocketV2Mode" data-testid="edit-openai-ws-mode-select" :options="openAIWSModeOptions" />
           </div>
         </div>
       </div>
@@ -1678,7 +1678,7 @@
             </p>
           </div>
           <div class="w-56">
-            <Select
+            <UiSelect
               v-model="openAIResponsesMode"
               :options="openAIResponsesModeOptions"
               :disabled="!openAITextGenerationCapabilityEnabled"
@@ -1731,10 +1731,10 @@
             {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
           </p>
         </div>
-        <Toggle
+        <UiSwitch
           :model-value="upstreamBillingAutoProbeEnabled"
           data-testid="upstream-billing-auto-probe"
-          :aria-label="t('admin.accounts.upstreamBilling.autoProbe')"
+          :label="t('admin.accounts.upstreamBilling.autoProbe')"
           @update:model-value="handleUpstreamBillingAutoProbeChange"
         />
       </div>
@@ -2017,7 +2017,7 @@
             </p>
           </div>
           <div class="w-52 flex-shrink-0">
-            <Select v-model="codexFingerprintMode" data-testid="edit-codex-fingerprint-mode-select" :options="codexFingerprintModeOptions" />
+            <UiSelect v-model="codexFingerprintMode" data-testid="edit-codex-fingerprint-mode-select" :options="codexFingerprintModeOptions" />
           </div>
         </div>
       </div>
@@ -2035,7 +2035,7 @@
             </p>
           </div>
           <div class="w-44 flex-shrink-0">
-            <Select v-model="editPlanType" :options="planTypeOptions" />
+            <UiSelect v-model="editPlanType" :options="planTypeOptions" />
           </div>
         </div>
       </div>
@@ -2052,7 +2052,7 @@
             </p>
           </div>
           <div class="w-44">
-            <Select v-model="openAICompactMode" :options="openAICompactModeOptions" />
+            <UiSelect v-model="openAICompactMode" :options="openAICompactModeOptions" />
           </div>
         </div>
         <div class="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-dark-700 dark:text-gray-300">
@@ -2587,7 +2587,7 @@
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div>
           <label class="input-label">{{ t('common.status') }}</label>
-          <Select v-model="form.status" :options="statusOptions" />
+          <UiSelect v-model="form.status" :options="statusOptions" />
         </div>
 
         <!-- Mixed Scheduling (only for antigravity accounts, read-only in edit mode) -->
@@ -2709,10 +2709,16 @@ import type {
   OpenAIEndpointCapability,
   OllamaCloudUsageState
 } from '@/types'
-import Select from '@/components/common/Select.vue'
-import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { UiButton, UiConfirmDialog, UiDialog, UiTextArea, UiTextField } from '@/components/ui'
+import {
+  UiButton,
+  UiConfirmDialog,
+  UiDialog,
+  UiSelect,
+  UiSwitch,
+  UiTextArea,
+  UiTextField
+} from '@/components/ui'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import ProxyAdBanner from '@/components/common/ProxyAdBanner.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'

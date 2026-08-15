@@ -890,10 +890,10 @@
               {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
             </p>
           </div>
-          <Toggle
+          <UiSwitch
             v-model="upstreamBillingAutoProbeEnabled"
             data-testid="upstream-billing-auto-probe-antigravity"
-            :aria-label="t('admin.accounts.upstreamBilling.autoProbe')"
+            :label="t('admin.accounts.upstreamBilling.autoProbe')"
           />
         </div>
       </div>
@@ -1161,10 +1161,10 @@
               {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
             </p>
           </div>
-          <Toggle
+          <UiSwitch
             v-model="upstreamBillingAutoProbeEnabled"
             data-testid="upstream-billing-auto-probe"
-            :aria-label="t('admin.accounts.upstreamBilling.autoProbe')"
+            :label="t('admin.accounts.upstreamBilling.autoProbe')"
           />
         </div>
 
@@ -2838,7 +2838,7 @@
             </p>
           </div>
           <div class="w-52">
-            <Select v-model="openaiResponsesWebSocketV2Mode" :options="openAIWSModeOptions" />
+            <UiSelect v-model="openaiResponsesWebSocketV2Mode" :options="openAIWSModeOptions" />
           </div>
         </div>
       </div>
@@ -3012,7 +3012,7 @@
             </p>
           </div>
           <div class="w-52 flex-shrink-0">
-            <Select v-model="codexFingerprintMode" data-testid="create-codex-fingerprint-mode-select" :options="codexFingerprintModeOptions" />
+            <UiSelect v-model="codexFingerprintMode" data-testid="create-codex-fingerprint-mode-select" :options="codexFingerprintModeOptions" />
           </div>
         </div>
       </div>
@@ -3030,7 +3030,7 @@
             </p>
           </div>
           <div class="w-44">
-            <Select v-model="openAICompactMode" :options="openAICompactModeOptions" />
+            <UiSelect v-model="openAICompactMode" :options="openAICompactModeOptions" />
           </div>
         </div>
         <div>
@@ -3069,7 +3069,7 @@
             </p>
           </div>
           <div class="w-56">
-            <Select
+            <UiSelect
               v-model="openAIResponsesMode"
               :options="openAIResponsesModeOptions"
               :disabled="!openAITextGenerationCapabilityEnabled"
@@ -3555,16 +3555,22 @@ import type {
   OpenAIResponsesMode,
   OpenAIEndpointCapability
 } from '@/types'
-import Select from '@/components/common/Select.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { UiButton, UiConfirmDialog, UiDialog, UiTextArea, UiTextField } from '@/components/ui'
+import {
+  UiButton,
+  UiConfirmDialog,
+  UiDialog,
+  UiSelect,
+  UiSwitch,
+  UiTextArea,
+  UiTextField
+} from '@/components/ui'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import ProxyAdBanner from '@/components/common/ProxyAdBanner.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
-import Toggle from '@/components/common/Toggle.vue'
 import GrokBaseUrlPresets from '@/components/account/GrokBaseUrlPresets.vue'
 import HeaderOverrideEditor from '@/components/account/HeaderOverrideEditor.vue'
 import {

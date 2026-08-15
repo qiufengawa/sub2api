@@ -92,7 +92,7 @@ function mountModal() {
         UiDialog: UiDialogStub,
         OAuthAuthorizationFlow: OAuthAuthorizationFlowStub,
         UiConfirmDialog: true,
-        Select: true,
+        UiSelect: true,
         Icon: true,
         PlatformIcon: true,
         ProxySelector: true,
