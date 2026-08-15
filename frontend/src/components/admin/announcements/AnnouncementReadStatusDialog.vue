@@ -1,57 +1,59 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.announcements.readStatus')"
     width="extra-wide"
     @close="handleClose"
   >
     <div class="space-y-4">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex-1">
-          <input
-            v-model="search"
-            type="text"
-            class="input"
-            :placeholder="t('admin.announcements.searchUsers')"
-            @input="handleSearch"
-          />
-        </div>
-        <button @click="load" :disabled="loading" class="btn btn-secondary" :title="t('common.refresh')">
-          <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
-        </button>
-      </div>
+      <UiTableToolbar>
+        <UiSearchInput
+          v-model="search"
+          density="compact"
+          :placeholder="t('admin.announcements.searchUsers')"
+          @search="handleSearch"
+        />
+        <template #actions>
+          <UiIconButton icon="refresh" density="compact" :label="t('common.refresh')" :disabled="loading" @click="load" />
+        </template>
+      </UiTableToolbar>
 
-      <DataTable
+      <UiDataTable
         :columns="columns"
         :data="items"
         :loading="loading"
+        mobile-table
         :server-side-sort="true"
         default-sort-key="email"
         default-sort-order="asc"
         @sort="handleSort"
       >
         <template #cell-email="{ value }">
-          <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
+          <strong>{{ value }}</strong>
         </template>
 
         <template #cell-balance="{ value }">
-          <span class="font-medium text-gray-900 dark:text-white">${{ Number(value ?? 0).toFixed(2) }}</span>
+          <strong class="ui-numeric">${{ Number(value ?? 0).toFixed(2) }}</strong>
         </template>
 
         <template #cell-eligible="{ value }">
-          <span :class="['badge', value ? 'badge-success' : 'badge-gray']">
-            {{ value ? t('admin.announcements.eligible') : t('common.no') }}
-          </span>
+          <UiStatusBadge
+            :status="value ? 'active' : 'inactive'"
+            :label="value ? t('admin.announcements.eligible') : t('common.no')"
+          />
         </template>
 
         <template #cell-read_at="{ value }">
-          <span class="text-sm text-gray-500 dark:text-dark-400">
+          <span class="announcement-read-status__time ui-numeric">
             {{ value ? formatDateTime(value) : t('admin.announcements.unread') }}
           </span>
         </template>
-      </DataTable>
+        <template #empty>
+          <UiEmptyState :title="t('empty.noData')" />
+        </template>
+      </UiDataTable>
 
-      <Pagination
+      <UiPagination
         v-if="pagination.total > 0"
         :page="pagination.page"
         :total="pagination.total"
@@ -63,10 +65,10 @@
 
     <template #footer>
       <div class="flex justify-end">
-        <button type="button" class="btn btn-secondary" @click="handleClose">{{ t('common.close') }}</button>
+        <UiButton type="button" density="compact" @click="handleClose">{{ t('common.close') }}</UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
@@ -76,13 +78,20 @@ import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import { formatDateTime } from '@/utils/format'
 import type { AnnouncementUserReadStatus } from '@/types'
-import type { Column } from '@/components/common/types'
+import type { Column } from '@/components/ui'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import DataTable from '@/components/common/DataTable.vue'
-import Pagination from '@/components/common/Pagination.vue'
-import Icon from '@/components/icons/Icon.vue'
+import {
+  UiButton,
+  UiDataTable,
+  UiDialog,
+  UiEmptyState,
+  UiIconButton,
+  UiPagination,
+  UiSearchInput,
+  UiStatusBadge,
+  UiTableToolbar,
+} from '@/components/ui'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -251,3 +260,10 @@ onUnmounted(() => {
   cancelPendingLoad()
 })
 </script>
+
+<style scoped>
+.announcement-read-status__time {
+  color: var(--ui-text-soft);
+  font-size: 12px;
+}
+</style>

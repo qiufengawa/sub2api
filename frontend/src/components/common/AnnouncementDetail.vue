@@ -1,17 +1,17 @@
 <template>
-  <div class="min-w-0">
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-500 dark:text-dark-400">
-      <span class="inline-flex items-center gap-1.5">
+  <div class="announcement-detail">
+    <div class="announcement-detail__meta">
+      <span>
         <Icon name="clock" size="sm" aria-hidden="true" />
         <time :datetime="announcement.created_at">{{ formatRelativeWithDateTime(announcement.created_at) }}</time>
       </span>
-      <span v-if="readState" class="inline-flex items-center gap-1.5">
+      <span v-if="readState">
         <Icon name="eye" size="sm" aria-hidden="true" />
         {{ readState === 'read' ? t('announcements.read') : t('announcements.unread') }}
       </span>
     </div>
 
-    <div class="mt-4 border-l-2 border-primary-500 pl-3 sm:pl-4">
+    <div class="announcement-detail__content">
       <div
         class="markdown-body prose prose-sm max-w-none break-words dark:prose-invert"
         v-html="renderedContent"
@@ -49,3 +49,10 @@ const renderedContent = computed(() => {
   return DOMPurify.sanitize(html)
 })
 </script>
+
+<style scoped>
+.announcement-detail { min-width: 0; }
+.announcement-detail__meta { display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--ui-text-soft); font-size: 12px; }
+.announcement-detail__meta span { display: inline-flex; align-items: center; gap: 6px; }
+.announcement-detail__content { margin-top: 14px; }
+</style>

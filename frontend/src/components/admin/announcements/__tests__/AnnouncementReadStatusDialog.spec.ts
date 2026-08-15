@@ -36,7 +36,7 @@ vi.mock('@/composables/usePersistedPageSize', () => ({
   getPersistedPageSize: () => 20,
 }))
 
-const BaseDialogStub = {
+const UiDialogStub = {
   props: ['show', 'title', 'width'],
   emits: ['close'],
   template: '<div><slot /><slot name="footer" /></div>',
@@ -63,9 +63,9 @@ describe('AnnouncementReadStatusDialog', () => {
       },
       global: {
         stubs: {
-          BaseDialog: BaseDialogStub,
-          DataTable: true,
-          Pagination: true,
+          UiDialog: UiDialogStub,
+          UiDataTable: true,
+          UiPagination: true,
           Icon: true,
         },
       },

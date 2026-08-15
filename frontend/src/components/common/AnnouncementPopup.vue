@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="Boolean(displayedAnnouncement)"
     :title="displayedAnnouncement?.title || t('announcements.title')"
     width="normal"
@@ -15,17 +15,18 @@
     />
 
     <template #footer>
-      <button
+      <UiButton
         type="button"
         data-testid="announcement-popup-dismiss"
-        class="btn btn-primary btn-sm w-full sm:w-auto"
+        variant="primary"
+        density="compact"
         @click="handleDismiss"
       >
-        <Icon :name="preview ? 'x' : 'check'" size="sm" />
+        <template #icon><Icon :name="preview ? 'x' : 'check'" size="sm" /></template>
         {{ preview ? t('common.close') : t('announcements.markRead') }}
-      </button>
+      </UiButton>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
@@ -34,7 +35,7 @@ import { useI18n } from 'vue-i18n'
 import { useAnnouncementStore } from '@/stores/announcements'
 import type { Announcement, UserAnnouncement } from '@/types'
 import Icon from '@/components/icons/Icon.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
+import { UiButton, UiDialog } from '@/components/ui'
 import AnnouncementDetail from '@/components/common/AnnouncementDetail.vue'
 
 type PreviewAnnouncement = Pick<Announcement | UserAnnouncement, 'title' | 'content' | 'created_at'>
