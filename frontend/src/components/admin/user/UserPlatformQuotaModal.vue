@@ -5,7 +5,7 @@
     width="wide"
     @close="$emit('close')"
   >
-    <div v-if="user" class="space-y-4">
+    <div v-if="user" class="platform-quota">
       <UiAlert v-if="hasActiveSubscription" tone="warning">
         {{ t('admin.users.platformQuota.subscriptionWarning') }}
       </UiAlert>
@@ -24,13 +24,34 @@
           <span class="platform-quota__platform">{{ row.platform }}</span>
         </template>
         <template #cell-daily="{ row }">
-          <QuotaLimitControl :row="row" quota-window="daily" />
+          <PlatformQuotaLimitControl
+            :model-value="row.daily_limit_usd"
+            :placeholder="t('admin.users.platformQuota.placeholder')"
+            :reset-label="t('admin.users.platformQuota.reset.button')"
+            :resetting="!!resetting[`${row.platform}.daily`]"
+            @update:model-value="updateLimit(row, 'daily', String($event))"
+            @reset="onReset(row.platform, 'daily')"
+          />
         </template>
         <template #cell-weekly="{ row }">
-          <QuotaLimitControl :row="row" quota-window="weekly" />
+          <PlatformQuotaLimitControl
+            :model-value="row.weekly_limit_usd"
+            :placeholder="t('admin.users.platformQuota.placeholder')"
+            :reset-label="t('admin.users.platformQuota.reset.button')"
+            :resetting="!!resetting[`${row.platform}.weekly`]"
+            @update:model-value="updateLimit(row, 'weekly', String($event))"
+            @reset="onReset(row.platform, 'weekly')"
+          />
         </template>
         <template #cell-monthly="{ row }">
-          <QuotaLimitControl :row="row" quota-window="monthly" />
+          <PlatformQuotaLimitControl
+            :model-value="row.monthly_limit_usd"
+            :placeholder="t('admin.users.platformQuota.placeholder')"
+            :reset-label="t('admin.users.platformQuota.reset.button')"
+            :resetting="!!resetting[`${row.platform}.monthly`]"
+            @update:model-value="updateLimit(row, 'monthly', String($event))"
+            @reset="onReset(row.platform, 'monthly')"
+          />
         </template>
         <template #cell-usage="{ row }">
           <span class="platform-quota__usage">
@@ -46,14 +67,10 @@
       </div>
     </div>
     <template #footer>
-      <div class="flex justify-end gap-3">
-        <UiButton type="button" @click="$emit('close')">
-          {{ t('admin.users.platformQuota.cancel') }}
-        </UiButton>
-        <UiButton type="button" variant="primary" :loading="submitting" :disabled="loading" @click="onSave">
-          {{ submitting ? t('admin.users.platformQuota.saving') : t('admin.users.platformQuota.save') }}
-        </UiButton>
-      </div>
+      <UiButton density="compact" type="button" @click="$emit('close')">{{ t('admin.users.platformQuota.cancel') }}</UiButton>
+      <UiButton density="compact" type="button" variant="primary" :loading="submitting" :disabled="loading" @click="onSave">
+        {{ submitting ? t('admin.users.platformQuota.saving') : t('admin.users.platformQuota.save') }}
+      </UiButton>
     </template>
   </UiDialog>
 
@@ -71,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, reactive, ref, watch, type PropType } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
@@ -82,10 +99,9 @@ import {
   UiConfirmDialog,
   UiDataTable,
   UiDialog,
-  UiIconButton,
-  UiTextField,
   type Column,
 } from '@/components/ui'
+import PlatformQuotaLimitControl from './PlatformQuotaLimitControl.vue'
 
 const props = defineProps<{ show: boolean; user: AdminUser | null }>()
 const emit = defineEmits(['close', 'success'])
@@ -132,34 +148,6 @@ const columns = computed<Column[]>(() => [
   { key: 'monthly', label: t('admin.users.platformQuota.columns.monthly'), class: 'min-w-[190px]' },
   { key: 'usage', label: t('admin.users.platformQuota.columns.usage'), class: 'min-w-[210px]' },
 ])
-
-const QuotaLimitControl = defineComponent({
-  props: {
-    row: { type: Object as PropType<QuotaRow>, required: true },
-    quotaWindow: { type: String as PropType<'daily' | 'weekly' | 'monthly'>, required: true },
-  },
-  setup(controlProps) {
-    return () => h('div', { class: 'platform-quota__limit' }, [
-      h(UiTextField, {
-        density: 'compact',
-        type: 'number',
-        min: '0',
-        step: '0.01',
-        modelValue: controlProps.row[`${controlProps.quotaWindow}_limit_usd`] ?? '',
-        placeholder: t('admin.users.platformQuota.placeholder'),
-        'onUpdate:modelValue': (value: string | number) => updateLimit(controlProps.row, controlProps.quotaWindow, String(value)),
-      }),
-      h(UiIconButton, {
-        icon: 'refresh',
-        density: 'mini',
-        variant: 'ghost',
-        disabled: !!resetting[`${controlProps.row.platform}.${controlProps.quotaWindow}`],
-        label: t('admin.users.platformQuota.reset.button'),
-        onClick: () => onReset(controlProps.row.platform, controlProps.quotaWindow),
-      }),
-    ])
-  },
-})
 
 function emptyRow(p: PlatformQuotaPlatform): QuotaRow {
   return {
@@ -327,5 +315,5 @@ async function resetQuotaWindow(
 </script>
 
 <style scoped>
-.platform-quota__subtitle{margin:0;color:var(--ui-text-muted);font-size:13px;line-height:20px}.platform-quota__platform{font-family:var(--font-mono);font-size:12px}.platform-quota__limit{display:flex;min-width:176px;align-items:center;gap:4px}.platform-quota__limit :deep(.ui-form-field){min-width:0;flex:1}.platform-quota__usage{color:var(--ui-text-muted);font-family:var(--font-mono);font-size:12px;white-space:nowrap}.platform-quota__tools{display:flex;align-items:center;justify-content:space-between;gap:12px}.platform-quota__tools p{margin:0;color:var(--ui-text-soft);font-size:12px;line-height:18px}@media(max-width:640px){.platform-quota__tools{align-items:stretch;flex-direction:column}.platform-quota__tools :deep(button){align-self:flex-start}}
+.platform-quota{display:grid;gap:16px}.platform-quota__subtitle{margin:0;color:var(--ui-text-muted);font-size:13px;line-height:20px}.platform-quota__platform{font-family:var(--ui-font-mono);font-size:12px}.platform-quota__usage{color:var(--ui-text-muted);font-family:var(--ui-font-mono);font-size:12px;white-space:nowrap}.platform-quota__tools{display:flex;align-items:center;justify-content:space-between;gap:12px}.platform-quota__tools p{margin:0;color:var(--ui-text-soft);font-size:12px;line-height:18px}@media(max-width:640px){.platform-quota__tools{align-items:stretch;flex-direction:column}.platform-quota__tools :deep(button){align-self:flex-start}}
 </style>
