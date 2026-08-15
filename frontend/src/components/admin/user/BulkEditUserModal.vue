@@ -1,9 +1,9 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.users.bulkLimits.title')"
     width="normal"
-    @close="emit('close')"
+    @close="closeModal"
   >
     <form id="bulk-edit-user-limits-form" class="space-y-5" @submit.prevent="handleSubmit">
       <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -75,7 +75,7 @@
 
     <template #footer>
       <div class="flex justify-end gap-3">
-        <UiButton type="button" @click="emit('close')">
+        <UiButton type="button" @click="closeModal">
           {{ t('common.cancel') }}
         </UiButton>
         <UiButton
@@ -90,7 +90,19 @@
         </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
+
+  <UiConfirmDialog
+    :show="confirmOpen"
+    :title="t('admin.users.bulkLimits.title')"
+    :message="confirmMessage"
+    :confirm-text="t('admin.users.bulkLimits.apply')"
+    :cancel-text="t('common.cancel')"
+    :pending="submitting"
+    danger
+    @confirm="applyPendingRequest"
+    @cancel="cancelConfirmation"
+  />
 </template>
 
 <script setup lang="ts">
@@ -99,8 +111,7 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { BatchUpdateUserLimitsRequest } from '@/api/admin/users'
 import { useAppStore } from '@/stores/app'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import { UiButton, UiSwitch, UiTextField } from '@/components/ui'
+import { UiButton, UiConfirmDialog, UiDialog, UiSwitch, UiTextField } from '@/components/ui'
 
 const props = defineProps<{
   show: boolean
@@ -119,6 +130,9 @@ const enableRPMLimit = ref(false)
 const concurrencyValue = ref<string | number>('')
 const rpmLimitValue = ref<string | number>('')
 const submitting = ref(false)
+const confirmOpen = ref(false)
+const confirmMessage = ref('')
+const pendingRequest = ref<BatchUpdateUserLimitsRequest | null>(null)
 const MAX_BATCH_USER_IDS = 500
 
 const parseLimit = (value: string | number): number | null | undefined => {
@@ -157,6 +171,9 @@ const reset = () => {
   concurrencyValue.value = ''
   rpmLimitValue.value = ''
   submitting.value = false
+  confirmOpen.value = false
+  confirmMessage.value = ''
+  pendingRequest.value = null
 }
 
 watch(
@@ -166,7 +183,21 @@ watch(
   }
 )
 
-const handleSubmit = async () => {
+const closeModal = () => {
+  if (submitting.value) return
+  confirmOpen.value = false
+  pendingRequest.value = null
+  emit('close')
+}
+
+const cancelConfirmation = () => {
+  if (submitting.value) return
+  confirmOpen.value = false
+  confirmMessage.value = ''
+  pendingRequest.value = null
+}
+
+const handleSubmit = () => {
   if (!canSubmit.value) return
 
   const request: BatchUpdateUserLimitsRequest = {
@@ -189,13 +220,17 @@ const handleSubmit = async () => {
     )
   }
 
-  const confirmed = window.confirm(
-    t('admin.users.bulkLimits.confirm', {
-      count: props.selectedIds.length,
-      fields: fields.join(', ')
-    })
-  )
-  if (!confirmed) return
+  pendingRequest.value = request
+  confirmMessage.value = t('admin.users.bulkLimits.confirm', {
+    count: props.selectedIds.length,
+    fields: fields.join(', ')
+  })
+  confirmOpen.value = true
+}
+
+const applyPendingRequest = async () => {
+  const request = pendingRequest.value
+  if (!request || submitting.value) return
 
   submitting.value = true
   try {
@@ -203,6 +238,8 @@ const handleSubmit = async () => {
     appStore.showSuccess(
       t('admin.users.bulkLimits.success', { count: result.affected })
     )
+    confirmOpen.value = false
+    pendingRequest.value = null
     emit('success', result.affected)
     emit('close')
   } catch (error: any) {

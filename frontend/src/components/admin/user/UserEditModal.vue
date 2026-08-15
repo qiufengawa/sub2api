@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.users.editUser')"
     width="normal"
@@ -23,7 +23,7 @@
         </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 
   <!-- 角色提升为管理员时后端要求 step-up 2FA，弹出 TOTP 验证后自动重试 -->
   <TotpStepUpDialog :controller="stepUp" />
@@ -36,9 +36,8 @@ import { useAppStore } from '@/stores/app'
 import { useClipboard } from '@/composables/useClipboard'
 import { adminAPI } from '@/api/admin'
 import type { AdminUser, UserAttributeValuesMap } from '@/types'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import UserAttributeForm from '@/components/user/UserAttributeForm.vue'
-import { UiButton, UiIconButton, UiSelect, UiTextArea, UiTextField } from '@/components/ui'
+import { UiButton, UiDialog, UiIconButton, UiSelect, UiTextArea, UiTextField } from '@/components/ui'
 import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/composables/useStepUp'
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
 

@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.users.createUser')"
     width="normal"
@@ -30,7 +30,7 @@
         </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 
   <!-- 创建管理员账号时后端要求 step-up 2FA，弹出 TOTP 验证后自动重试 -->
   <TotpStepUpDialog :controller="stepUp" />
@@ -40,8 +40,7 @@
 import { reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'; import { adminAPI } from '@/api/admin'
 import { useAppStore } from '@/stores/app'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import { UiButton, UiIconButton, UiSelect, UiTextField } from '@/components/ui'
+import { UiButton, UiDialog, UiIconButton, UiSelect, UiTextField } from '@/components/ui'
 import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/composables/useStepUp'
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
 
