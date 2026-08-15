@@ -314,95 +314,17 @@
           />
           <p class="input-hint">{{ t("admin.groups.platformHint") }}</p>
         </div>
-        <!-- 从分组复制账号 -->
-        <div v-if="copyAccountsGroupOptions.length > 0">
-          <div class="mb-1.5 flex items-center gap-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t("admin.groups.copyAccounts.title") }}
-            </label>
-            <div class="group relative inline-flex">
-              <Icon
-                name="questionCircle"
-                size="sm"
-                :stroke-width="2"
-                class="cursor-help text-gray-400 transition-colors hover:text-primary-500 dark:text-gray-500 dark:hover:text-primary-400"
-              />
-              <div
-                class="pointer-events-none absolute bottom-full left-0 z-50 mb-2 w-72 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100"
-              >
-                <div
-                  class="rounded-lg bg-gray-900 p-3 text-white shadow-lg dark:bg-gray-800"
-                >
-                  <p class="text-xs leading-relaxed text-gray-300">
-                    {{ t("admin.groups.copyAccounts.tooltip") }}
-                  </p>
-                  <div
-                    class="absolute -bottom-1.5 left-3 h-3 w-3 rotate-45 bg-gray-900 dark:bg-gray-800"
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- 已选分组标签 -->
-          <div
-            v-if="createForm.copy_accounts_from_group_ids.length > 0"
-            class="flex flex-wrap gap-1.5 mb-2"
-          >
-            <span
-              v-for="groupId in createForm.copy_accounts_from_group_ids"
-              :key="groupId"
-              class="inline-flex items-center gap-1 rounded-full bg-primary-100 px-2.5 py-1 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300"
-            >
-              {{
-                copyAccountsGroupOptions.find((o) => o.value === groupId)
-                  ?.label || `#${groupId}`
-              }}
-              <button
-                type="button"
-                @click="
-                  createForm.copy_accounts_from_group_ids =
-                    createForm.copy_accounts_from_group_ids.filter(
-                      (id) => id !== groupId,
-                    )
-                "
-                class="ml-0.5 text-primary-500 hover:text-primary-700 dark:hover:text-primary-200"
-              >
-                <Icon name="x" size="xs" />
-              </button>
-            </span>
-          </div>
-          <!-- 分组选择下拉 -->
-          <select
-            class="input"
-            @change="
-              (e) => {
-                const val = Number((e.target as HTMLSelectElement).value);
-                if (
-                  val &&
-                  !createForm.copy_accounts_from_group_ids.includes(val)
-                ) {
-                  createForm.copy_accounts_from_group_ids.push(val);
-                }
-                (e.target as HTMLSelectElement).value = '';
-              }
-            "
-          >
-            <option value="">
-              {{ t("admin.groups.copyAccounts.selectPlaceholder") }}
-            </option>
-            <option
-              v-for="opt in copyAccountsGroupOptions"
-              :key="opt.value"
-              :value="opt.value"
-              :disabled="
-                createForm.copy_accounts_from_group_ids.includes(opt.value)
-              "
-            >
-              {{ opt.label }}
-            </option>
-          </select>
-          <p class="input-hint">{{ t("admin.groups.copyAccounts.hint") }}</p>
-        </div>
+        <GroupCopyAccountsPicker
+          v-if="copyAccountsGroupOptions.length"
+          :selected-ids="createForm.copy_accounts_from_group_ids"
+          :options="copyAccountsGroupOptions"
+          :label="t('admin.groups.copyAccounts.title')"
+          :tooltip="t('admin.groups.copyAccounts.tooltip')"
+          :placeholder="t('admin.groups.copyAccounts.selectPlaceholder')"
+          :hint="t('admin.groups.copyAccounts.hint')"
+          :remove-label="t('common.remove')"
+          @update:selected-ids="createForm.copy_accounts_from_group_ids = $event"
+        />
         <div>
           <label class="input-label">{{
             t("admin.groups.form.rateMultiplier")
@@ -1793,97 +1715,17 @@
           />
           <p class="input-hint">{{ t("admin.groups.platformNotEditable") }}</p>
         </div>
-        <!-- 从分组复制账号（编辑时） -->
-        <div v-if="copyAccountsGroupOptionsForEdit.length > 0">
-          <div class="mb-1.5 flex items-center gap-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t("admin.groups.copyAccounts.title") }}
-            </label>
-            <div class="group relative inline-flex">
-              <Icon
-                name="questionCircle"
-                size="sm"
-                :stroke-width="2"
-                class="cursor-help text-gray-400 transition-colors hover:text-primary-500 dark:text-gray-500 dark:hover:text-primary-400"
-              />
-              <div
-                class="pointer-events-none absolute bottom-full left-0 z-50 mb-2 w-72 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100"
-              >
-                <div
-                  class="rounded-lg bg-gray-900 p-3 text-white shadow-lg dark:bg-gray-800"
-                >
-                  <p class="text-xs leading-relaxed text-gray-300">
-                    {{ t("admin.groups.copyAccounts.tooltipEdit") }}
-                  </p>
-                  <div
-                    class="absolute -bottom-1.5 left-3 h-3 w-3 rotate-45 bg-gray-900 dark:bg-gray-800"
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- 已选分组标签 -->
-          <div
-            v-if="editForm.copy_accounts_from_group_ids.length > 0"
-            class="flex flex-wrap gap-1.5 mb-2"
-          >
-            <span
-              v-for="groupId in editForm.copy_accounts_from_group_ids"
-              :key="groupId"
-              class="inline-flex items-center gap-1 rounded-full bg-primary-100 px-2.5 py-1 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300"
-            >
-              {{
-                copyAccountsGroupOptionsForEdit.find((o) => o.value === groupId)
-                  ?.label || `#${groupId}`
-              }}
-              <button
-                type="button"
-                @click="
-                  editForm.copy_accounts_from_group_ids =
-                    editForm.copy_accounts_from_group_ids.filter(
-                      (id) => id !== groupId,
-                    )
-                "
-                class="ml-0.5 text-primary-500 hover:text-primary-700 dark:hover:text-primary-200"
-              >
-                <Icon name="x" size="xs" />
-              </button>
-            </span>
-          </div>
-          <!-- 分组选择下拉 -->
-          <select
-            class="input"
-            @change="
-              (e) => {
-                const val = Number((e.target as HTMLSelectElement).value);
-                if (
-                  val &&
-                  !editForm.copy_accounts_from_group_ids.includes(val)
-                ) {
-                  editForm.copy_accounts_from_group_ids.push(val);
-                }
-                (e.target as HTMLSelectElement).value = '';
-              }
-            "
-          >
-            <option value="">
-              {{ t("admin.groups.copyAccounts.selectPlaceholder") }}
-            </option>
-            <option
-              v-for="opt in copyAccountsGroupOptionsForEdit"
-              :key="opt.value"
-              :value="opt.value"
-              :disabled="
-                editForm.copy_accounts_from_group_ids.includes(opt.value)
-              "
-            >
-              {{ opt.label }}
-            </option>
-          </select>
-          <p class="input-hint">
-            {{ t("admin.groups.copyAccounts.hintEdit") }}
-          </p>
-        </div>
+        <GroupCopyAccountsPicker
+          v-if="copyAccountsGroupOptionsForEdit.length"
+          :selected-ids="editForm.copy_accounts_from_group_ids"
+          :options="copyAccountsGroupOptionsForEdit"
+          :label="t('admin.groups.copyAccounts.title')"
+          :tooltip="t('admin.groups.copyAccounts.tooltipEdit')"
+          :placeholder="t('admin.groups.copyAccounts.selectPlaceholder')"
+          :hint="t('admin.groups.copyAccounts.hintEdit')"
+          :remove-label="t('common.remove')"
+          @update:selected-ids="editForm.copy_accounts_from_group_ids = $event"
+        />
         <div>
           <label class="input-label">{{
             t("admin.groups.form.rateMultiplier")
@@ -3748,6 +3590,7 @@ import PlatformIcon from "@/components/common/PlatformIcon.vue";
 import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipliersModal.vue";
 import GroupRPMOverridesModal from "@/components/admin/group/GroupRPMOverridesModal.vue";
 import GroupModelsListEditor from "@/components/admin/group/GroupModelsListEditor.vue";
+import GroupCopyAccountsPicker from "@/components/admin/group/GroupCopyAccountsPicker.vue";
 import GroupCapacityBadge from "@/components/common/GroupCapacityBadge.vue";
 import ReasoningEffortPolicyFields from "@/components/admin/group/ReasoningEffortPolicyFields.vue";
 import PricingEntryCard from "@/components/admin/channel/PricingEntryCard.vue";
