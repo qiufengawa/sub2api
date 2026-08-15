@@ -1,18 +1,17 @@
 <template>
   <div>
-    <button
-      type="button"
-      class="relative flex h-8 w-8 items-center justify-center rounded-[3px] text-gray-600 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:text-gray-400 dark:hover:bg-dark-800"
-      :class="{ 'text-primary-600 dark:text-primary-400': unreadCount > 0 }"
-      :aria-label="t('announcements.title')"
-      :aria-expanded="isModalOpen"
-      @click="openModal"
-    >
-      <Icon name="bell" size="md" />
-      <span v-if="unreadCount > 0" class="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500"></span>
-    </button>
+    <UiNotificationDot :count="unreadCount" dot>
+      <UiIconButton
+        icon="bell"
+        variant="ghost"
+        density="compact"
+        :label="t('announcements.title')"
+        :aria-expanded="isModalOpen"
+        @click="openModal"
+      />
+    </UiNotificationDot>
 
-    <BaseDialog
+    <UiDialog
       :show="isModalOpen"
       :title="dialogTitle"
       :width="selectedAnnouncement ? 'wide' : 'normal'"
@@ -25,90 +24,83 @@
         :read-state="selectedAnnouncement.read_at ? 'read' : 'unread'"
       />
 
-      <div v-else class="-mx-4 -my-3 sm:-mx-4">
+      <div v-else class="announcement-center">
         <div
           v-if="unreadCount > 0"
-          class="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-2.5 dark:border-dark-700"
+          class="announcement-center__summary"
         >
-          <p class="text-xs text-gray-500 dark:text-dark-400">
+          <p>
             {{ t('announcements.newCount', { count: unreadCount }) }}
           </p>
-          <button
-            type="button"
-            class="btn btn-ghost btn-sm shrink-0"
+          <UiButton
+            variant="quiet"
+            density="dense"
             :disabled="loading"
             @click="markAllAsRead"
           >
             {{ t('announcements.markAllRead') }}
-          </button>
+          </UiButton>
         </div>
 
-        <div v-if="loading" class="flex min-h-40 items-center justify-center" role="status">
-          <span class="spinner h-6 w-6 text-primary-600" aria-hidden="true"></span>
-          <span class="sr-only">{{ t('common.loading') }}</span>
+        <div v-if="loading" class="announcement-center__loading">
+          <UiSpinner size="lg" :label="t('common.loading')" />
         </div>
 
-        <div v-else-if="announcements.length > 0" class="divide-y divide-gray-100 dark:divide-dark-700">
+        <div v-else-if="announcements.length > 0" class="announcement-center__list">
           <button
             v-for="item in announcements"
             :key="item.id"
             type="button"
-            class="group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/30 dark:hover:bg-dark-700/50"
+            class="announcement-center__item ui-focus-ring"
             @click="openDetail(item)"
           >
-            <span class="min-w-0">
-              <span class="flex min-w-0 items-center gap-2">
+            <span class="announcement-center__copy">
+              <span class="announcement-center__title">
                 <span
                   v-if="!item.read_at"
-                  class="h-2 w-2 shrink-0 rounded-full bg-primary-500"
+                  class="announcement-center__unread"
                   aria-hidden="true"
                 ></span>
-                <span class="truncate text-sm font-medium text-gray-900 dark:text-white" :title="item.title">
+                <span :title="item.title">
                   {{ item.title }}
                 </span>
               </span>
-              <span class="mt-1 line-clamp-2 block text-xs leading-5 text-gray-500 dark:text-dark-400">
+              <span class="announcement-center__excerpt">
                 {{ item.content }}
               </span>
-              <time :datetime="item.created_at" class="mt-1 block text-[11px] text-gray-400 dark:text-dark-500">
+              <time :datetime="item.created_at" class="announcement-center__time ui-numeric">
                 {{ formatRelativeTime(item.created_at) }}
               </time>
             </span>
             <Icon
               name="chevronRight"
               size="sm"
-              class="mt-1 text-gray-400 transition-transform group-hover:translate-x-0.5 group-hover:text-primary-600"
+              class="announcement-center__chevron"
               aria-hidden="true"
             />
           </button>
         </div>
 
-        <div v-else class="flex min-h-48 flex-col items-center justify-center px-4 py-8 text-center">
-          <Icon name="inbox" size="xl" class="mb-3 text-gray-300 dark:text-dark-600" aria-hidden="true" />
-          <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('announcements.empty') }}</p>
-          <p class="mt-1 max-w-sm text-xs text-gray-500 dark:text-dark-400">
-            {{ t('announcements.emptyDescription') }}
-          </p>
-        </div>
+        <UiEmptyState v-else :title="t('announcements.empty')" :description="t('announcements.emptyDescription')" />
       </div>
 
       <template #footer>
-        <div class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button
+        <div class="announcement-center__footer">
+          <UiButton
             v-if="selectedAnnouncement"
             type="button"
-            class="btn btn-secondary btn-sm w-full sm:w-auto"
+            density="compact"
             @click="selectedAnnouncement = null"
           >
-            <Icon name="chevronLeft" size="sm" />
+            <template #icon><Icon name="chevronLeft" size="sm" /></template>
             {{ t('common.back') }}
-          </button>
-          <button type="button" class="btn btn-primary btn-sm w-full sm:w-auto" @click="closeModal">
+          </UiButton>
+          <UiButton type="button" variant="primary" density="compact" @click="closeModal">
             {{ t('common.close') }}
-          </button>
+          </UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
   </div>
 </template>
 
@@ -121,8 +113,15 @@ import { useAnnouncementStore } from '@/stores/announcements'
 import { formatRelativeTime } from '@/utils/format'
 import type { UserAnnouncement } from '@/types'
 import Icon from '@/components/icons/Icon.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import AnnouncementDetail from '@/components/common/AnnouncementDetail.vue'
+import {
+  UiButton,
+  UiDialog,
+  UiEmptyState,
+  UiIconButton,
+  UiNotificationDot,
+  UiSpinner,
+} from '@/components/ui'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -167,3 +166,25 @@ async function markAllAsRead() {
   }
 }
 </script>
+
+<style scoped>
+.announcement-center { margin: -8px -4px; }
+.announcement-center__summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--ui-border-soft); }
+.announcement-center__summary p { margin: 0; color: var(--ui-text-soft); font-size: 12px; }
+.announcement-center__loading { display: grid; min-height: 160px; place-items: center; }
+.announcement-center__list { display: grid; }
+.announcement-center__item { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 11px 12px; border: 0; border-bottom: 1px solid var(--ui-border-soft); color: var(--ui-text); background: transparent; text-align: left; cursor: pointer; transition: background var(--ui-motion-fast); }
+.announcement-center__item:hover { background: var(--ui-surface-muted); }
+.announcement-center__copy { min-width: 0; }
+.announcement-center__title { display: flex; min-width: 0; align-items: center; gap: 7px; }
+.announcement-center__title > span:last-child { overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.announcement-center__unread { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--ui-info); }
+.announcement-center__excerpt { display: -webkit-box; margin-top: 4px; overflow: hidden; color: var(--ui-text-muted); font-size: 12px; line-height: 18px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.announcement-center__time { display: block; margin-top: 4px; color: var(--ui-text-soft); font-size: 10px; }
+.announcement-center__chevron { margin-top: 2px; color: var(--ui-text-soft); }
+.announcement-center__footer { display: flex; width: 100%; justify-content: flex-end; gap: 8px; }
+@media (max-width: 640px) {
+  .announcement-center__footer { flex-direction: column-reverse; }
+  .announcement-center__footer :deep(.ui-button) { width: 100%; }
+}
+</style>
