@@ -79,6 +79,7 @@ export default {
       hidePassword: 'Hide password',
       urlCopied: 'Proxy URL copied',
       searchProxies: 'Search proxies...',
+      selectProxy: 'Select proxy {name}',
       allProtocols: 'All Protocols',
       allStatus: 'All Status',
       protocols: {
@@ -195,6 +196,7 @@ export default {
       batchQualityEmpty: 'No proxies available for quality check',
       qualityReportTitle: 'Proxy Quality Report',
       qualityGrade: 'Grade {grade}',
+      qualityScoreGrade: 'Score / grade',
       qualityExitIP: 'Exit IP',
       qualityCountry: 'Exit Region',
       qualityBaseLatency: 'Base Latency',

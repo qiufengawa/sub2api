@@ -8,6 +8,7 @@ import UiNumberStepper from '../UiNumberStepper.vue'
 import UiProgressBar from '../UiProgressBar.vue'
 import UiSegmentedControl from '../UiSegmentedControl.vue'
 import UiTextField from '../UiTextField.vue'
+import UiTextArea from '../UiTextArea.vue'
 
 const iconStub = { template: '<i />' }
 
@@ -53,6 +54,14 @@ describe('Qiu UI primitive contracts', () => {
     })
 
     expect(wrapper.get('input').attributes('pattern')).toBe('^[a-z][a-z0-9_]*$')
+  })
+
+  it('uses the shared monospace font for structured multiline values', () => {
+    const wrapper = mount(UiTextArea, {
+      props: { modelValue: 'socks5://HOST:PORT', monospace: true }
+    })
+
+    expect(wrapper.get('textarea').classes()).toContain('ui-textarea--mono')
   })
 
   it('emits the selected segmented value', async () => {

@@ -115,6 +115,7 @@ export default {
       allProtocols: '全部协议',
       allStatus: '全部状态',
       searchProxies: '搜索代理...',
+      selectProxy: '选择代理 {name}',
       protocols: {
         http: 'HTTP',
         https: 'HTTPS',
@@ -194,6 +195,7 @@ export default {
       batchQualityEmpty: '暂无可检测质量的代理',
       qualityReportTitle: '代理质量检测报告',
       qualityGrade: '等级 {grade}',
+      qualityScoreGrade: '评分 / 等级',
       qualityExitIP: '出口 IP',
       qualityCountry: '出口地区',
       qualityBaseLatency: '基础延迟',
