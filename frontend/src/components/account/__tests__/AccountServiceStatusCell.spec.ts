@@ -78,12 +78,16 @@ describe('AccountServiceStatusCell', () => {
     const buckets = wrapper.findAll('[data-status]')
 
     expect(buckets).toHaveLength(60)
-    expect(buckets[0].classes()).toContain('bg-emerald-500')
-    expect(buckets[1].classes()).toContain('bg-amber-500')
-    expect(buckets[2].classes()).toContain('bg-red-500')
-    expect(buckets[3].classes()).toContain('bg-gray-300')
-    expect(buckets[0].classes()).toContain('w-[2px]')
-    expect(buckets[0].classes()).toContain('h-5')
+    expect(buckets.slice(0, 4).map((bucket) => bucket.attributes('data-status'))).toEqual([
+      'operational',
+      'degraded',
+      'failed',
+      'unknown'
+    ])
+    expect(buckets[0].classes()).toContain('is-operational')
+    expect(buckets[1].classes()).toContain('is-degraded')
+    expect(buckets[2].classes()).toContain('is-failed')
+    expect(buckets[3].classes()).toContain('is-unknown')
     expect(buckets[59].attributes('data-current')).toBe('true')
     expect(wrapper.text()).toContain('admin.accounts.serviceStatus.degraded 90.0%')
     expect(wrapper.text()).toContain('100 次')

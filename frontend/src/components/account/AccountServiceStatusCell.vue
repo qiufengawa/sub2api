@@ -1,36 +1,22 @@
 <template>
-  <div class="w-[184px] min-w-[184px]">
-    <div v-if="loading && !status" class="space-y-1.5" aria-busy="true">
-      <div class="h-3 w-20 animate-pulse rounded-[3px] bg-gray-200 dark:bg-dark-700"></div>
-      <div class="flex h-5 w-[179px] items-stretch gap-px">
-        <span
-          v-for="index in BUCKET_COUNT"
-          :key="index"
-          class="h-5 w-[2px] flex-none animate-pulse rounded-[1px] bg-gray-200 dark:bg-dark-700"
-        ></span>
-      </div>
+  <div class="service-status-cell">
+    <div v-if="loading && !status" class="service-status-cell__loading" aria-busy="true">
+      <UiSkeleton variant="text" width="80px" />
+      <UiSkeleton variant="rect" width="179px" height="20px" />
     </div>
 
-    <div v-else-if="error" class="flex h-8 items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-      <span class="h-2 w-2 flex-none rounded-full bg-gray-300 dark:bg-dark-600"></span>
-      <span>{{ t('admin.accounts.serviceStatus.unavailable') }}</span>
-    </div>
+    <UiStatusBadge v-else-if="error" status="neutral" :label="t('admin.accounts.serviceStatus.unavailable')" />
 
-    <UiTooltip v-else class="!ml-0" width-class="w-72" trigger="hover">
-      <div class="w-[184px] cursor-help" data-test="account-service-status">
-          <div class="mb-1 flex min-w-0 items-center justify-between gap-2 text-[11px] leading-4">
-            <span class="flex min-w-0 items-center gap-1.5 font-medium" :class="summaryTextClass">
-              <span class="h-2 w-2 flex-none rounded-full" :class="summaryDotClass"></span>
-              <span class="truncate">{{ summaryLabel }}</span>
-            </span>
-            <span class="flex-none tabular-nums text-gray-400 dark:text-gray-500">
-              {{ requestSummary }}
-            </span>
-          </div>
+    <UiTooltip v-else width-class="w-72" trigger="hover">
+      <div class="service-status-cell__trigger" data-test="account-service-status">
+          <AppInline justify="space-between" :wrap="false">
+            <UiStatusBadge :status="summaryStatus" :label="summaryLabel" />
+            <UiBadge :label="requestSummary" />
+          </AppInline>
 
-          <div class="space-y-0.5">
+          <div class="service-status-cell__history">
             <div
-              class="flex h-5 w-[179px] items-stretch gap-px"
+              class="service-status-cell__timeline"
               :aria-label="t('admin.accounts.serviceStatus.historyLabel')"
               @mousemove="handleTimelinePointerMove"
               @mouseleave="activeBucket = null"
@@ -38,10 +24,10 @@
               <span
                 v-for="(bucket, index) in displayBuckets"
                 :key="`${bucket.start_time}-${index}`"
-                class="h-5 w-[2px] flex-none rounded-[1px] transition-opacity"
+                class="service-status-cell__bucket"
                 :class="[
-                  bucketColorClass(bucket.status),
-                  activeBucket === bucket ? 'opacity-70' : ''
+                  `is-${bucket.status}`,
+                  { 'is-active': activeBucket === bucket }
                 ]"
                 :title="bucketTitle(bucket)"
                 :data-status="bucket.status"
@@ -49,46 +35,25 @@
                 @mouseenter="activeBucket = bucket"
               ></span>
             </div>
-            <div class="flex w-[179px] justify-between text-[9px] leading-3 text-gray-400 dark:text-gray-500">
+            <AppInline class="service-status-cell__axis" justify="space-between" :wrap="false">
               <span>{{ t('admin.accounts.serviceStatus.hourAgo') }}</span>
               <span>{{ t('admin.accounts.serviceStatus.now') }}</span>
-            </div>
+            </AppInline>
           </div>
       </div>
 
       <template #content>
-        <div class="space-y-2 text-left">
-          <div>
-            <div class="font-semibold text-white">{{ tooltipTitle }}</div>
-            <div class="mt-0.5 text-[11px] text-gray-300">
-              {{ t('admin.accounts.serviceStatus.passiveHint') }}
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-x-3 gap-y-1 border-t border-white/10 pt-2 tabular-nums">
-            <span class="text-gray-300">{{ tooltipStatusTitle }}</span>
-            <span class="text-right font-medium text-white">{{ tooltipStatusLabel }}</span>
-            <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.successRate') }}</span>
-            <span class="text-right font-medium text-white">{{ tooltipSuccessRate }}</span>
-            <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.requests') }}</span>
-            <span class="text-right font-medium text-white">{{ tooltipMetrics?.request_count ?? 0 }}</span>
-            <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.successFailure') }}</span>
-            <span class="text-right font-medium text-white">
-              {{ tooltipMetrics?.success_count ?? 0 }} / {{ tooltipMetrics?.failure_count ?? 0 }}
-            </span>
-            <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.averageFirstToken') }}</span>
-            <span class="text-right font-medium text-white">{{ formatLatency(tooltipMetrics?.average_first_token_ms) }}</span>
-            <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.averageSpeed') }}</span>
-            <span class="text-right font-medium text-white">{{ formatSpeed(tooltipMetrics?.average_tokens_per_second) }}</span>
-            <span class="text-gray-300">{{ t('admin.accounts.serviceStatus.lastCall') }}</span>
-            <span class="text-right font-medium text-white">{{ formatTimestamp(tooltipMetrics?.last_call_at) }}</span>
-          </div>
-          <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/10 pt-2 text-[10px] text-gray-300">
-            <span v-for="item in legendItems" :key="item.status" class="inline-flex items-center gap-1">
-              <span class="h-1.5 w-1.5 rounded-full" :class="bucketColorClass(item.status)"></span>
-              {{ item.label }}
-            </span>
-          </div>
-        </div>
+        <AppStack class="service-status-cell__tooltip" :gap="8">
+          <div><strong>{{ tooltipTitle }}</strong><small>{{ t('admin.accounts.serviceStatus.passiveHint') }}</small></div>
+          <dl class="service-status-cell__metrics">
+            <template v-for="item in tooltipFacts" :key="item.label">
+              <dt>{{ item.label }}</dt><dd>{{ item.value }}</dd>
+            </template>
+          </dl>
+          <AppInline :gap="6">
+            <UiBadge v-for="item in legendItems" :key="item.status" :tone="legendTone(item.status)" :label="item.label" />
+          </AppInline>
+        </AppStack>
       </template>
     </UiTooltip>
   </div>
@@ -97,7 +62,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { UiTooltip } from '@/components/ui'
+import { AppInline, AppStack, UiBadge, UiSkeleton, UiStatusBadge, UiTooltip } from '@/components/ui'
 import type {
   AccountServiceStatus,
   AccountServiceStatusBucket,
@@ -178,19 +143,12 @@ const tooltipStatusTitle = computed(() =>
 
 const tooltipSuccessRate = computed(() => formatPercent(tooltipMetrics.value?.success_rate))
 
-const summaryDotClass = computed(() => bucketColorClass(props.status?.status ?? 'unknown'))
-const summaryTextClass = computed(() => {
-  switch (props.status?.status) {
-    case 'operational':
-      return 'text-emerald-700 dark:text-emerald-400'
-    case 'degraded':
-      return 'text-amber-700 dark:text-amber-400'
-    case 'failed':
-      return 'text-red-700 dark:text-red-400'
-    default:
-      return 'text-gray-500 dark:text-gray-400'
-  }
-})
+const summaryStatus = computed(() => ({
+  operational: 'active',
+  degraded: 'warning',
+  failed: 'error',
+  unknown: 'neutral',
+})[props.status?.status ?? 'unknown'])
 
 const legendItems = computed(() => ([
   { status: 'operational' as const, label: t('admin.accounts.serviceStatus.operational') },
@@ -199,17 +157,21 @@ const legendItems = computed(() => ([
   { status: 'unknown' as const, label: t('admin.accounts.serviceStatus.noSamples') }
 ]))
 
-function bucketColorClass(status: AccountServiceStatusLevel): string {
-  switch (status) {
-    case 'operational':
-      return 'bg-emerald-500'
-    case 'degraded':
-      return 'bg-amber-500'
-    case 'failed':
-      return 'bg-red-500'
-    default:
-      return 'bg-gray-300 dark:bg-dark-600'
-  }
+const tooltipFacts = computed(() => [
+  { label: tooltipStatusTitle.value, value: tooltipStatusLabel.value },
+  { label: t('admin.accounts.serviceStatus.successRate'), value: tooltipSuccessRate.value },
+  { label: t('admin.accounts.serviceStatus.requests'), value: tooltipMetrics.value?.request_count ?? 0 },
+  { label: t('admin.accounts.serviceStatus.successFailure'), value: `${tooltipMetrics.value?.success_count ?? 0} / ${tooltipMetrics.value?.failure_count ?? 0}` },
+  { label: t('admin.accounts.serviceStatus.averageFirstToken'), value: formatLatency(tooltipMetrics.value?.average_first_token_ms) },
+  { label: t('admin.accounts.serviceStatus.averageSpeed'), value: formatSpeed(tooltipMetrics.value?.average_tokens_per_second) },
+  { label: t('admin.accounts.serviceStatus.lastCall'), value: formatTimestamp(tooltipMetrics.value?.last_call_at) },
+])
+
+function legendTone(status: AccountServiceStatusLevel): 'success' | 'warning' | 'danger' | 'neutral' {
+  if (status === 'operational') return 'success'
+  if (status === 'degraded') return 'warning'
+  if (status === 'failed') return 'danger'
+  return 'neutral'
 }
 
 function formatPercent(value: number | null | undefined): string {
@@ -274,3 +236,7 @@ function handleTimelinePointerMove(event: MouseEvent): void {
   activeBucket.value = displayBuckets.value[index] ?? null
 }
 </script>
+
+<style scoped>
+.service-status-cell{width:184px;min-width:184px}.service-status-cell__loading{display:grid;gap:6px}.service-status-cell__trigger{width:184px;cursor:help}.service-status-cell__history{display:grid;gap:2px;margin-top:4px}.service-status-cell__timeline{display:flex;width:179px;height:20px;align-items:stretch;gap:1px}.service-status-cell__bucket{width:2px;height:20px;flex:none;border-radius:1px;background:var(--ui-surface-strong);transition:opacity var(--ui-motion-fast)}.service-status-cell__bucket.is-operational{background:var(--ui-success)}.service-status-cell__bucket.is-degraded{background:var(--ui-warning)}.service-status-cell__bucket.is-failed{background:var(--ui-danger)}.service-status-cell__bucket.is-active{opacity:.65}.service-status-cell__axis{width:179px;color:var(--ui-text-soft);font-size:9px;line-height:12px}.service-status-cell__tooltip{text-align:left}.service-status-cell__tooltip strong,.service-status-cell__tooltip small{display:block}.service-status-cell__tooltip small{margin-top:2px;color:#d4d4d4;font-size:11px}.service-status-cell__metrics{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;margin:0;padding-top:8px;border-top:1px solid rgb(255 255 255/.12);font-variant-numeric:tabular-nums}.service-status-cell__metrics dt,.service-status-cell__metrics dd{margin:0}.service-status-cell__metrics dt{color:#d4d4d4}.service-status-cell__metrics dd{color:#fff;font-weight:500;text-align:right}
+</style>
