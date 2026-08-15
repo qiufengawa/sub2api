@@ -155,9 +155,9 @@ describe('admin UsersView', () => {
           TablePageLayout: {
             template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
           },
-          DataTable: DataTableStub,
-          Pagination: true,
-          ConfirmDialog: true,
+          UiDataTable: DataTableStub,
+          UiPagination: true,
+          UiConfirmDialog: true,
           EmptyState: true,
           GroupBadge: true,
           Select: true,
@@ -241,9 +241,9 @@ describe('admin UsersView', () => {
           TablePageLayout: {
             template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
           },
-          DataTable: DataTableStub,
-          Pagination: true,
-          ConfirmDialog: true,
+          UiDataTable: DataTableStub,
+          UiPagination: true,
+          UiConfirmDialog: true,
           EmptyState: true,
           GroupBadge: true,
           Select: true,
@@ -319,9 +319,9 @@ describe('admin UsersView', () => {
           TablePageLayout: {
             template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
           },
-          DataTable: DataTableStub,
-          Pagination: PaginationStub,
-          ConfirmDialog: true,
+          UiDataTable: DataTableStub,
+          UiPagination: PaginationStub,
+          UiConfirmDialog: true,
           EmptyState: true,
           GroupBadge: true,
           Select: true,

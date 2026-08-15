@@ -1,8 +1,10 @@
 <template>
   <AppLayout>
-    <TablePageLayout>
+    <AppPage density="compact">
+      <AppPageHeader :title="t('admin.users.title')" :description="t('admin.users.description')" />
+      <UiServerTableWorkspace :loading="loading" :loading-text="t('common.loading')">
       <!-- Single Row: Search, Filters, and Actions -->
-      <template #filters>
+      <template #toolbar>
         <div class="flex flex-wrap items-center gap-3">
           <!-- Left: Search + Active Filters -->
           <div class="flex flex-1 flex-wrap items-center gap-3">
@@ -142,102 +144,38 @@
               <!-- Refresh Button -->
               <UiIconButton icon="refresh" density="compact" :disabled="loading" :label="t('common.refresh')" @click="loadUsers" />
               <!-- Filter Settings Dropdown -->
-              <div class="relative" ref="filterDropdownRef">
-                <UiButton
-                  type="button"
-                  variant="secondary"
-                  density="compact"
-                  @click="showFilterDropdown = !showFilterDropdown"
-                  :title="t('admin.users.filterSettings')"
-                >
-                  <template #icon><Icon name="filter" size="sm" /></template>
-                  <span class="hidden md:inline">{{ t('admin.users.filterSettings') }}</span>
-                </UiButton>
-                <!-- Dropdown menu -->
-                <div
-                  v-if="showFilterDropdown"
-                  class="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
-                >
-                  <!-- Built-in filters -->
-                  <button
+              <UiPopover placement="bottom-end">
+                <template #trigger>
+                  <UiButton type="button" variant="secondary" density="compact" :title="t('admin.users.filterSettings')">
+                    <template #icon><Icon name="filter" size="sm" /></template>
+                    <span class="hidden md:inline">{{ t('admin.users.filterSettings') }}</span>
+                  </UiButton>
+                </template>
+                <div class="grid min-w-48 gap-2 p-1">
+                  <UiCheckbox
                     v-for="filter in builtInFilters"
                     :key="filter.key"
-                    @click="toggleBuiltInFilter(filter.key)"
-                    class="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
-                  >
-                    <span>{{ filter.name }}</span>
-                    <Icon
-                      v-if="visibleFilters.has(filter.key)"
-                      name="check"
-                      size="sm"
-                      class="text-primary-500"
-                      :stroke-width="2"
-                    />
-                  </button>
-                  <!-- Divider if custom attributes exist -->
-                  <div
-                    v-if="filterableAttributes.length > 0"
-                    class="my-1 border-t border-gray-100 dark:border-dark-700"
-                  ></div>
-                  <!-- Custom attribute filters -->
-                  <button
+                    :model-value="visibleFilters.has(filter.key)"
+                    :label="filter.name"
+                    @update:model-value="toggleBuiltInFilter(filter.key)"
+                  />
+                  <div v-if="filterableAttributes.length > 0" class="border-t border-gray-100 dark:border-dark-700"></div>
+                  <UiCheckbox
                     v-for="attr in filterableAttributes"
                     :key="attr.id"
-                    @click="toggleAttributeFilter(attr)"
-                    class="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
-                  >
-                    <span>{{ attr.name }}</span>
-                    <Icon
-                      v-if="visibleFilters.has(`attr_${attr.id}`)"
-                      name="check"
-                      size="sm"
-                      class="text-primary-500"
-                      :stroke-width="2"
-                    />
-                  </button>
+                    :model-value="visibleFilters.has(`attr_${attr.id}`)"
+                    :label="attr.name"
+                    @update:model-value="toggleAttributeFilter(attr)"
+                  />
                 </div>
-              </div>
+              </UiPopover>
               <!-- Column Settings Dropdown -->
-              <div class="relative" ref="columnDropdownRef">
-                <UiButton
-                  type="button"
-                  variant="secondary"
-                  density="compact"
-                  @click="showColumnDropdown = !showColumnDropdown"
-                  :title="t('admin.users.columnSettings')"
-                >
-                  <template #icon><Icon name="grid" size="sm" /></template>
-                  <span class="hidden md:inline">{{ t('admin.users.columnSettings') }}</span>
-                </UiButton>
-                <!-- Dropdown menu -->
-                <div
-                  v-if="showColumnDropdown"
-                  class="absolute right-0 top-full z-50 mt-1 max-h-80 w-48 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
-                >
-                  <button
-                    v-for="col in toggleableColumns"
-                    :key="col.key"
-                    :disabled="isForcedVisibleColumn(col.key)"
-                    @click="toggleColumn(col.key)"
-                    :class="[
-                      'flex w-full items-center justify-between px-4 py-2 text-left text-sm',
-                      isForcedVisibleColumn(col.key)
-                        ? 'cursor-not-allowed text-gray-400 dark:text-gray-500'
-                        : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700'
-                    ]"
-                    :title="isForcedVisibleColumn(col.key) ? t('admin.users.columnAlwaysVisible') : ''"
-                  >
-                    <span>{{ col.label }}</span>
-                    <Icon
-                      v-if="isColumnVisible(col.key)"
-                      name="check"
-                      size="sm"
-                      :class="isForcedVisibleColumn(col.key) ? 'text-gray-400 dark:text-gray-500' : 'text-primary-500'"
-                      :stroke-width="2"
-                    />
-                  </button>
-                </div>
-              </div>
+              <UiColumnPicker
+                :model-value="visibleColumnKeys"
+                :columns="columnPickerOptions"
+                :label="t('admin.users.columnSettings')"
+                @update:model-value="updateVisibleColumns"
+              />
               <!-- Attributes Config Button -->
               <UiButton
                 type="button"
@@ -273,11 +211,10 @@
       </template>
 
       <!-- Users Table -->
-      <template #table>
-        <DataTable
+      <UiDataTable
           :columns="columns"
           :data="sortedUsers"
-          :loading="loading"
+          :loading="false"
           row-key="id"
           selectable
           :selected-keys="selectedIds"
@@ -345,6 +282,7 @@
               <!-- 专属分组行 -->
               <span
                 v-if="getUserGroups(row).exclusive.length > 0"
+                data-user-group-menu
                 class="group/ex relative inline-flex cursor-pointer items-center gap-1 whitespace-nowrap text-xs"
                 @click.stop="toggleExpandedGroup(row.id)"
               >
@@ -472,74 +410,36 @@
           >
             <div class="flex items-center gap-1.5">
               <span>{{ column.label }}</span>
-              <div class="usage-sort-trigger relative">
-                <button
-                  type="button"
-                  class="flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-gray-200 dark:hover:bg-dark-700"
-                  :class="usageSort && usageSort.key === usageKey
-                    ? 'text-primary-600 dark:text-primary-400'
-                    : 'text-gray-400 dark:text-dark-500'"
+              <UiPopover placement="bottom-end">
+                <template #trigger><UiButton
+                  density="mini"
+                  variant="quiet"
                   :title="t('admin.users.sortBy')"
                   :data-test="`usage-sort-trigger-${usageKey}`"
-                  @click.stop="toggleUsageSortMenu(usageKey)"
                 >
                   <span
                     v-if="usageSort && usageSort.key === usageKey"
                     class="text-[10px] normal-case font-medium tracking-normal"
                   >{{ usageSort.metric === 'today' ? t('admin.users.today') : t('admin.users.total') }}</span>
-                  <svg
-                    v-if="usageSort && usageSort.key === usageKey"
-                    class="h-3.5 w-3.5"
-                    :class="{ 'rotate-180': usageSort.order === 'desc' }"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fill-rule="evenodd"
-                      d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
-                  <svg v-else class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10 3l-4 5h8l-4-5zM10 17l4-5H6l4 5z" />
-                  </svg>
-                </button>
-                <!-- 弹出菜单：今日 / 近30天，点击进行三态循环切换。 -->
-                <div
-                  v-if="openUsageSortMenu === usageKey"
-                  class="absolute right-0 top-full z-50 mt-1 min-w-[120px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
-                >
-                  <button
+                  <Icon :name="usageSortIcon(usageKey)" size="xs" />
+                </UiButton></template>
+                <template #default="{ close }"><div class="grid min-w-32 gap-1">
+                  <UiButton
                     v-for="metric in (['today', 'total'] as const)"
                     :key="metric"
-                    type="button"
-                    class="flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left text-xs normal-case tracking-normal hover:bg-gray-100 dark:hover:bg-dark-700"
-                    :class="isUsageSortActive(usageKey, metric)
-                      ? 'font-medium text-primary-600 dark:text-primary-400'
-                      : 'text-gray-700 dark:text-gray-300'"
+                    density="dense"
+                    variant="quiet"
                     :data-test="`usage-sort-${usageKey}-${metric}`"
-                    @click.stop="toggleUsageSort(usageKey, metric)"
+                    @click="toggleUsageSort(usageKey, metric); close()"
                   >
                     <span>{{ metric === 'today' ? t('admin.users.today') : t('admin.users.total') }}</span>
-                    <svg
-                      v-if="getUsageSortOrder(usageKey, metric)"
-                      class="h-3 w-3"
-                      :class="{ 'rotate-180': getUsageSortOrder(usageKey, metric) === 'desc' }"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fill-rule="evenodd"
-                        d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"
-                        clip-rule="evenodd"
-                      />
-                    </svg>
-                  </button>
+                    <Icon :name="usageMetricIcon(usageKey, metric)" size="xs" />
+                  </UiButton>
                   <div class="mt-1 border-t border-gray-100 px-3 py-1 text-[10px] normal-case tracking-normal text-gray-400 dark:border-dark-700 dark:text-dark-500">
                     {{ t('admin.users.sortCurrentPageOnly') }}
                   </div>
-                </div>
-              </div>
+                </div></template>
+              </UiPopover>
             </div>
           </template>
 
@@ -619,7 +519,9 @@
               />
 
               <!-- More Actions Menu Trigger -->
-              <UiIconButton icon="more" density="compact" variant="ghost" :label="t('common.more')" @click="openActionMenu(row, $event)" />
+              <UiDropdownMenu :items="userActionItems(row)" @select="handleUserAction(row, $event.key)">
+                <template #trigger><UiIconButton icon="more" density="compact" variant="ghost" :label="t('common.more')" /></template>
+              </UiDropdownMenu>
             </div>
           </template>
 
@@ -628,12 +530,11 @@
               <template #action><UiButton density="compact" variant="primary" @click="showCreateModal = true">{{ t('admin.users.createUser') }}</UiButton></template>
             </UiEmptyState>
           </template>
-        </DataTable>
-      </template>
+      </UiDataTable>
 
       <!-- Pagination -->
       <template #pagination>
-      <Pagination
+      <UiPagination
         v-if="pagination.total > 0"
         :page="pagination.page"
         :total="pagination.total"
@@ -642,94 +543,10 @@
         @update:pageSize="handlePageSizeChange"
       />
       </template>
-    </TablePageLayout>
+      </UiServerTableWorkspace>
+    </AppPage>
 
-    <!-- Action Menu (Teleported) -->
-    <Teleport to="body">
-      <div
-        v-if="activeMenuId !== null && menuPosition"
-        class="action-menu-content fixed z-[9999] w-48 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-black/5 dark:bg-dark-800 dark:ring-white/10"
-        :style="{ top: menuPosition.top + 'px', left: menuPosition.left + 'px' }"
-      >
-        <div class="py-1">
-          <template v-for="user in users" :key="user.id">
-            <template v-if="user.id === activeMenuId">
-              <!-- View API Keys -->
-              <button
-                @click="handleViewApiKeys(user); closeActionMenu()"
-                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
-              >
-                <Icon name="key" size="sm" class="text-gray-400" :stroke-width="2" />
-                {{ t('admin.users.apiKeys') }}
-              </button>
-
-              <!-- Allowed Groups -->
-              <button
-                @click="handleAllowedGroups(user); closeActionMenu()"
-                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
-              >
-                <Icon name="users" size="sm" class="text-gray-400" :stroke-width="2" />
-                {{ t('admin.users.groups') }}
-              </button>
-
-              <div class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
-
-              <!-- Deposit -->
-              <button
-                @click="handleDeposit(user); closeActionMenu()"
-                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
-              >
-                <Icon name="plus" size="sm" class="text-emerald-500" :stroke-width="2" />
-                {{ t('admin.users.deposit') }}
-              </button>
-
-              <!-- Withdraw -->
-              <button
-                @click="handleWithdraw(user); closeActionMenu()"
-                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
-              >
-                <svg class="h-4 w-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
-                </svg>
-                {{ t('admin.users.withdraw') }}
-              </button>
-
-              <!-- Platform Quotas -->
-              <button
-                @click="handlePlatformQuota(user); closeActionMenu()"
-                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
-              >
-                <Icon name="chartBar" size="sm" class="text-gray-400" :stroke-width="2" />
-                {{ t('admin.users.platformQuota.menuItem') }}
-              </button>
-
-              <!-- Balance History -->
-              <button
-                @click="handleBalanceHistory(user); closeActionMenu()"
-                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
-              >
-                <Icon name="dollar" size="sm" class="text-gray-400" :stroke-width="2" />
-                {{ t('admin.users.balanceHistory') }}
-              </button>
-
-              <div class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
-
-              <!-- Delete (not for admin) -->
-              <button
-                v-if="user.role !== 'admin'"
-                @click="handleDelete(user); closeActionMenu()"
-                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-              >
-                <Icon name="trash" size="sm" :stroke-width="2" />
-                {{ t('common.delete') }}
-              </button>
-            </template>
-          </template>
-        </div>
-      </div>
-    </Teleport>
-
-    <ConfirmDialog :show="showDeleteDialog" :title="t('admin.users.deleteUser')" :message="t('admin.users.deleteConfirm', { email: deletingUser?.email })" :danger="true" @confirm="confirmDelete" @cancel="showDeleteDialog = false" />
+    <UiConfirmDialog :show="showDeleteDialog" :title="t('admin.users.deleteUser')" :message="t('admin.users.deleteConfirm', { email: deletingUser?.email })" danger @confirm="confirmDelete" @cancel="showDeleteDialog = false" />
     <UserCreateModal :show="showCreateModal" @close="showCreateModal = false" @success="loadUsers" />
     <UserEditModal :show="showEditModal" :user="editingUser" @close="closeEditModal" @success="loadUsers" />
     <BulkEditUserModal
@@ -764,16 +581,11 @@ import Icon from '@/components/icons/Icon.vue'
 
 const { t } = useI18n()
 import { adminAPI } from '@/api/admin'
-import type { AdminUser, AdminGroup, UserAttributeDefinition, UserSubscription } from '@/types'
+import type { AdminUser, AdminGroup, SelectOption, UserAttributeDefinition, UserSubscription } from '@/types'
 import type { BatchUserUsageStats } from '@/api/admin/dashboard'
 import type { PlatformQuotaItem } from '@/api/admin/users'
-import type { Column } from '@/components/common/types'
-import type { SelectOption } from '@/components/common/Select.vue'
+import type { Column, UiMenuItem } from '@/components/ui'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import TablePageLayout from '@/components/layout/TablePageLayout.vue'
-import DataTable from '@/components/common/DataTable.vue'
-import Pagination from '@/components/common/Pagination.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { buildApiKeyGroupFilterOptions } from './apiKeyGroupFilterOptions'
 import UserAttributesConfigModal from '@/components/user/UserAttributesConfigModal.vue'
 import UserConcurrencyCell from '@/components/user/UserConcurrencyCell.vue'
@@ -789,7 +601,25 @@ import UserAllowedGroupsModal from '@/components/admin/user/UserAllowedGroupsMod
 import UserBalanceModal from '@/components/admin/user/UserBalanceModal.vue'
 import UserBalanceHistoryModal from '@/components/admin/user/UserBalanceHistoryModal.vue'
 import GroupReplaceModal from '@/components/admin/user/GroupReplaceModal.vue'
-import { UiBadge, UiButton, UiEmptyState, UiIconButton, UiSearchInput, UiSelect, UiTextField } from '@/components/ui'
+import {
+  UiBadge,
+  UiButton,
+  UiCheckbox,
+  UiColumnPicker,
+  UiConfirmDialog,
+  UiDataTable,
+  UiDropdownMenu,
+  UiEmptyState,
+  UiIconButton,
+  UiPopover,
+  UiPagination,
+  UiSearchInput,
+  UiServerTableWorkspace,
+  UiSelect,
+  UiTextField,
+  AppPage,
+  AppPageHeader,
+} from '@/components/ui'
 
 const appStore = useAppStore()
 
@@ -869,6 +699,12 @@ const allColumns = computed<Column[]>(() => [
 const toggleableColumns = computed(() =>
   allColumns.value.filter(col => col.key !== 'email' && col.key !== 'actions')
 )
+const visibleColumnKeys = computed(() => toggleableColumns.value.filter((column) => !hiddenColumns.has(column.key)).map((column) => column.key))
+const columnPickerOptions = computed(() => toggleableColumns.value.map((column) => ({
+  key: column.key,
+  label: column.label,
+  required: FORCED_VISIBLE_COLUMNS.has(column.key),
+})))
 
 // Hidden columns (stored in Set - columns NOT in this set are visible)
 // This way, new columns are visible by default
@@ -945,7 +781,6 @@ const saveColumnsToStorage = () => {
 }
 
 // Toggle column visibility
-const isForcedVisibleColumn = (key: string) => FORCED_VISIBLE_COLUMNS.has(key)
 const toggleColumn = (key: string) => {
   // 强制可见列(如 last_active_at)在加载时会被恢复成可见，
   // 这里阻止用户在当前会话隐藏它，避免"取消勾选 → 刷新又恢复"的反直觉行为。
@@ -965,6 +800,13 @@ const toggleColumn = (key: string) => {
   }
   if (wasHidden && key === 'groups') {
     loadAllGroups()
+  }
+}
+
+const updateVisibleColumns = (keys: string[]) => {
+  const next = new Set(keys)
+  for (const column of toggleableColumns.value) {
+    if (isColumnVisible(column.key) !== next.has(column.key)) toggleColumn(column.key)
   }
 }
 
@@ -1103,14 +945,6 @@ const advancedFilterCount = computed(() => [
 // Keys: 'role', 'status', 'attr_${id}'
 const visibleFilters = reactive<Set<string>>(new Set())
 
-// Dropdown states
-const showFilterDropdown = ref(false)
-const showColumnDropdown = ref(false)
-
-// Dropdown refs for click outside detection
-const filterDropdownRef = ref<HTMLElement | null>(null)
-const columnDropdownRef = ref<HTMLElement | null>(null)
-
 // localStorage keys
 const FILTER_VALUES_KEY = 'user-filter-values'
 const VISIBLE_FILTERS_KEY = 'user-visible-filters'
@@ -1190,8 +1024,6 @@ const getPlatformUsage = (userId: number, platform: string) =>
 type UsageMetric = 'today' | 'total'
 type UsageSortState = { key: string; metric: UsageMetric; order: 'asc' | 'desc' } | null
 const USAGE_SORT_STORAGE_KEY = 'admin-users-usage-sort'
-// 列头排序按钮点击后弹出的"今日/近30天"选择菜单，同时只允许一个列展开。
-const openUsageSortMenu = ref<string | null>(null)
 
 const loadInitialUsageSort = (): UsageSortState => {
   try {
@@ -1221,7 +1053,6 @@ const persistUsageSort = () => {
 const clearUsageSort = () => {
   if (!usageSort.value) return
   usageSort.value = null
-  openUsageSortMenu.value = null
   persistUsageSort()
 }
 
@@ -1229,6 +1060,14 @@ const isUsageSortActive = (key: string, metric: UsageMetric) =>
   !!usageSort.value && usageSort.value.key === key && usageSort.value.metric === metric
 const getUsageSortOrder = (key: string, metric: UsageMetric): 'asc' | 'desc' | null =>
   isUsageSortActive(key, metric) ? usageSort.value!.order : null
+const usageSortIcon = (key: string): 'sort' | 'arrowUp' | 'arrowDown' => {
+  if (!usageSort.value || usageSort.value.key !== key) return 'sort'
+  return usageSort.value.order === 'desc' ? 'arrowDown' : 'arrowUp'
+}
+const usageMetricIcon = (key: string, metric: UsageMetric): 'sort' | 'arrowUp' | 'arrowDown' => {
+  const order = getUsageSortOrder(key, metric)
+  return order === 'desc' ? 'arrowDown' : order === 'asc' ? 'arrowUp' : 'sort'
+}
 
 // 三态循环：desc → asc → off。选完即关闭菜单（用户大多希望"选中即应用"，
 // 想再切换 order 时重新打开菜单点同一项即可）。
@@ -1240,12 +1079,6 @@ const toggleUsageSort = (key: string, metric: UsageMetric) => {
     usageSort.value = { key, metric, order: 'desc' }
   }
   persistUsageSort()
-  openUsageSortMenu.value = null
-}
-
-// 点击图标本身不触发排序，仅开关菜单；首次排序由用户在菜单内选择 metric 触发（默认 desc，详见 toggleUsageSort）。
-const toggleUsageSortMenu = (key: string) => {
-  openUsageSortMenu.value = openUsageSortMenu.value === key ? null : key
 }
 
 const getUsageValue = (userId: number, key: string, metric: UsageMetric): number => {
@@ -1323,6 +1156,26 @@ const handlePlatformQuota = (user: AdminUser) => {
 const closePlatformQuotaModal = () => {
   showPlatformQuotaModal.value = false
   platformQuotaUser.value = null
+}
+
+const userActionItems = (user: AdminUser): UiMenuItem[] => [
+  { key: 'api-keys', label: t('admin.users.apiKeys'), icon: 'key' },
+  { key: 'groups', label: t('admin.users.groups'), icon: 'users' },
+  { key: 'deposit', label: t('admin.users.deposit'), icon: 'plus' },
+  { key: 'withdraw', label: t('admin.users.withdraw'), icon: 'minus' },
+  { key: 'platform-quota', label: t('admin.users.platformQuota.menuItem'), icon: 'chartBar' },
+  { key: 'balance-history', label: t('admin.users.balanceHistory'), icon: 'dollar' },
+  ...(user.role === 'admin' ? [] : [{ key: 'delete', label: t('common.delete'), icon: 'trash' as const, danger: true }]),
+]
+
+const handleUserAction = (user: AdminUser, action: string) => {
+  if (action === 'api-keys') handleViewApiKeys(user)
+  else if (action === 'groups') handleAllowedGroups(user)
+  else if (action === 'deposit') handleDeposit(user)
+  else if (action === 'withdraw') handleWithdraw(user)
+  else if (action === 'platform-quota') handlePlatformQuota(user)
+  else if (action === 'balance-history') handleBalanceHistory(user)
+  else if (action === 'delete') handleDelete(user)
 }
 let abortController: AbortController | null = null
 let secondaryDataSeq = 0
@@ -1411,88 +1264,11 @@ const refreshCurrentPageSecondaryData = () => {
   void loadUsersSecondaryData(userIds, undefined, seq)
 }
 
-// Action Menu State
-const activeMenuId = ref<number | null>(null)
-const menuPosition = ref<{ top: number; left: number } | null>(null)
-
-const openActionMenu = (user: AdminUser, e: MouseEvent) => {
-  if (activeMenuId.value === user.id) {
-    closeActionMenu()
-  } else {
-    const target = e.currentTarget as HTMLElement
-    if (!target) {
-      closeActionMenu()
-      return
-    }
-
-    const rect = target.getBoundingClientRect()
-    const menuWidth = 200
-    const menuHeight = 240
-    const padding = 8
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
-
-    let left, top
-
-    if (viewportWidth < 768) {
-      // 居中显示,水平位置
-      left = Math.max(padding, Math.min(
-        rect.left + rect.width / 2 - menuWidth / 2,
-        viewportWidth - menuWidth - padding
-      ))
-
-      // 优先显示在按钮下方
-      top = rect.bottom + 4
-
-      // 如果下方空间不够,显示在上方
-      if (top + menuHeight > viewportHeight - padding) {
-        top = rect.top - menuHeight - 4
-        // 如果上方也不够,就贴在视口顶部
-        if (top < padding) {
-          top = padding
-        }
-      }
-    } else {
-      left = Math.max(padding, Math.min(
-        e.clientX - menuWidth,
-        viewportWidth - menuWidth - padding
-      ))
-      top = e.clientY
-      if (top + menuHeight > viewportHeight - padding) {
-        top = viewportHeight - menuHeight - padding
-      }
-    }
-
-    menuPosition.value = { top, left }
-    activeMenuId.value = user.id
-  }
-}
-
-const closeActionMenu = () => {
-  activeMenuId.value = null
-  menuPosition.value = null
-}
-
 // Close menu when clicking outside
 const handleClickOutside = (event: MouseEvent) => {
   const target = event.target as HTMLElement
-  if (!target.closest('.action-menu-trigger') && !target.closest('.action-menu-content')) {
-    closeActionMenu()
-  }
-  // Close filter dropdown when clicking outside
-  if (filterDropdownRef.value && !filterDropdownRef.value.contains(target)) {
-    showFilterDropdown.value = false
-  }
-  // Close column dropdown when clicking outside
-  if (columnDropdownRef.value && !columnDropdownRef.value.contains(target)) {
-    showColumnDropdown.value = false
-  }
-  // Close usage sort dropdown when clicking outside any usage-sort-trigger
-  if (openUsageSortMenu.value !== null && !target.closest('.usage-sort-trigger')) {
-    openUsageSortMenu.value = null
-  }
   // Close expanded group dropdown when clicking outside
-  if (expandedGroupUserId.value !== null) {
+  if (expandedGroupUserId.value !== null && !target.closest('[data-user-group-menu]')) {
     expandedGroupUserId.value = null
   }
 }
@@ -1816,11 +1592,6 @@ const handleWithdrawFromHistory = () => {
   }
 }
 
-// 滚动时关闭菜单
-const handleScroll = () => {
-  closeActionMenu()
-}
-
 onMounted(async () => {
   await loadAttributeDefinitions()
   loadSavedFilters()
@@ -1833,12 +1604,10 @@ onMounted(async () => {
     loadAllGroupsForApiKeyFilter()
   }
   document.addEventListener('click', handleClickOutside)
-  window.addEventListener('scroll', handleScroll, true)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
-  window.removeEventListener('scroll', handleScroll, true)
   clearTimeout(searchTimeout)
   abortController?.abort()
 })
