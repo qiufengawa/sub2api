@@ -179,7 +179,7 @@ export async function getStats(): Promise<{
  */
 export async function exportCodes(filters?: {
   type?: RedeemCodeType
-  status?: 'used' | 'expired' | 'unused' | 'disabled'
+  status?: 'active' | 'used' | 'expired' | 'unused' | 'disabled'
   search?: string
   sort_by?: string
   sort_order?: 'asc' | 'desc'

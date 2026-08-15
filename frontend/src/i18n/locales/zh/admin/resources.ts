@@ -281,6 +281,7 @@ export default {
       batchUpdate: '批量修改',
       batchUpdateTitle: '批量修改兑换码',
       selectedCount: '已选择 {count} 个兑换码',
+      selectCode: '选择兑换码 {code}',
       clearSelection: '清空选择',
       selectCodesFirst: '请先选择兑换码',
       noBatchFieldsSelected: '请至少勾选一个要修改的字段',
@@ -328,6 +329,7 @@ export default {
       planRequired: '请选择订阅套餐',
       days: '天',
       status: {
+        active: '可用',
         unused: '未使用',
         used: '已使用',
         expired: '已过期',

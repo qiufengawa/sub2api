@@ -274,6 +274,7 @@ export default {
       batchUpdate: 'Batch Update',
       batchUpdateTitle: 'Batch Update Redeem Codes',
       selectedCount: '{count} redeem code(s) selected',
+      selectCode: 'Select redeem code {code}',
       clearSelection: 'Clear selection',
       selectCodesFirst: 'Select redeem codes first',
       noBatchFieldsSelected: 'Select at least one field to update',
@@ -337,6 +338,7 @@ export default {
       planRequired: 'Please select a subscription plan',
       days: ' days',
       status: {
+        active: 'Active',
         unused: 'Unused',
         used: 'Used',
         expired: 'Expired',
