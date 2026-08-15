@@ -217,23 +217,19 @@
             </template>
             <template #cell-name="{ row, value }">
               <div class="flex flex-col">
-                <HelpTooltip
+                <UiTooltip
                   v-if="accountHomepageUrl(row)"
                   :content="accountHomepageUrl(row)"
                   width-class="w-max max-w-sm break-all"
-                  class="-ml-1 self-start"
                 >
-                  <template #trigger>
                     <a
                       :href="accountHomepageUrl(row)"
                       target="_blank"
                       rel="noopener noreferrer"
-                      class="border-b border-dotted border-gray-300 font-medium text-gray-900 dark:border-dark-600 dark:text-white"
                     >
                       {{ value }}
                     </a>
-                  </template>
-                </HelpTooltip>
+                </UiTooltip>
                 <span
                   v-else
                   class="font-medium text-gray-900 dark:text-white"
@@ -256,10 +252,12 @@
             <template #header-service_status="{ column }">
               <div class="flex items-center">
                 <span>{{ column.label }}</span>
-                <HelpTooltip
+                <UiTooltip
                   :content="t('admin.accounts.serviceStatus.passiveHint')"
                   width-class="w-72"
-                />
+                >
+                  <span tabindex="0" :aria-label="t('admin.accounts.serviceStatus.passiveHint')"><Icon name="infoCircle" size="sm" /></span>
+                </UiTooltip>
               </div>
             </template>
             <template #cell-service_status="{ row }">
@@ -272,10 +270,12 @@
             <template #header-priority="{ column }">
               <div class="flex items-center gap-1">
                 <span>{{ column.label }}</span>
-                <HelpTooltip
+                <UiTooltip
                   :content="t('admin.accounts.priorityColumnHint')"
                   width-class="w-80"
-                />
+                >
+                  <span tabindex="0" :aria-label="t('admin.accounts.priorityColumnHint')"><Icon name="infoCircle" size="sm" /></span>
+                </UiTooltip>
               </div>
             </template>
             <template #cell-priority="{ row }">
@@ -395,10 +395,12 @@
             <template #header-usage="{ column }">
               <div class="flex items-center">
                 <span>{{ column.label }}</span>
-                <HelpTooltip
+                <UiTooltip
                   :content="t('admin.accounts.usageWindowsHint')"
                   width-class="w-72"
-                />
+                >
+                  <span tabindex="0" :aria-label="t('admin.accounts.usageWindowsHint')"><Icon name="infoCircle" size="sm" /></span>
+                </UiTooltip>
               </div>
             </template>
             <template #cell-usage="{ row }">
@@ -482,10 +484,12 @@
               <div class="flex items-center gap-1">
                 <span>{{ column.label }}</span>
                 <span @click.stop>
-                  <HelpTooltip
+                  <UiTooltip
                     :content="t('admin.accounts.upstreamBilling.trustWarning')"
                     width-class="w-80"
-                  />
+                  >
+                    <span tabindex="0" :aria-label="t('admin.accounts.upstreamBilling.trustWarning')"><Icon name="infoCircle" size="sm" /></span>
+                  </UiTooltip>
                 </span>
               </div>
             </template>
@@ -501,10 +505,12 @@
             <template #header-scheduler_score="{ column }">
               <div class="flex items-center">
                 <span>{{ column.label }}</span>
-                <HelpTooltip
+                <UiTooltip
                   :content="t('admin.accounts.schedulerScore.hint')"
                   width-class="w-80"
-                />
+                >
+                  <span tabindex="0" :aria-label="t('admin.accounts.schedulerScore.hint')"><Icon name="infoCircle" size="sm" /></span>
+                </UiTooltip>
               </div>
             </template>
             <template #cell-scheduler_score="{ row }">
@@ -601,7 +607,7 @@
           </UiDataTable>
         </div>
       <template #pagination
-        ><Pagination
+        ><UiPagination
           v-if="pagination.total > 0"
           :page="pagination.page"
           :total="pagination.total"
@@ -691,7 +697,7 @@
       @close="showTempUnsched = false"
       @reset="handleTempUnschedReset"
     />
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showDeleteDialog"
       :title="t('admin.accounts.deleteAccount')"
       :message="t('admin.accounts.deleteConfirm', { name: deletingAcc?.name })"
@@ -701,7 +707,7 @@
       @confirm="confirmDelete"
       @cancel="showDeleteDialog = false"
     />
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showCreateShadowDialog"
       :title="t('admin.accounts.createSparkShadow')"
       :message="
@@ -712,7 +718,7 @@
       @confirm="confirmCreateSparkShadow"
       @cancel="showCreateShadowDialog = false"
     />
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showExportDataDialog"
       :title="t('admin.accounts.dataExport')"
       :message="t('admin.accounts.dataExportConfirmMessage')"
@@ -725,7 +731,7 @@
         v-model="includeProxyOnExport"
         :label="t('admin.accounts.dataExportIncludeProxies')"
       />
-    </ConfirmDialog>
+    </UiConfirmDialog>
     <ErrorPassthroughRulesModal
       :show="showErrorPassthrough"
       @close="showErrorPassthrough = false"
@@ -767,8 +773,6 @@ import {
 } from "@/composables/useStepUp";
 import TotpStepUpDialog from "@/components/auth/TotpStepUpDialog.vue";
 import AppLayout from "@/components/layout/AppLayout.vue";
-import HelpTooltip from "@/components/common/HelpTooltip.vue";
-import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import {
   AppPage,
   AppPageHeader,
@@ -776,6 +780,7 @@ import {
   UiButton,
   UiBanner,
   UiCheckbox,
+  UiConfirmDialog,
   UiDataTable,
   UiDivider,
   UiIconButton,
@@ -786,6 +791,7 @@ import {
   UiServerTableWorkspace,
   UiSwitch,
   UiTableToolbar,
+  UiTooltip,
 } from "@/components/ui";
 import {
   CreateAccountModal,
@@ -803,7 +809,7 @@ import ReAuthAccountModal from "@/components/admin/account/ReAuthAccountModal.vu
 import AccountTestModal from "@/components/admin/account/AccountTestModal.vue";
 import AccountStatsModal from "@/components/admin/account/AccountStatsModal.vue";
 import ScheduledTestsPanel from "@/components/admin/account/ScheduledTestsPanel.vue";
-import type { SelectOption } from "@/components/common/Select.vue";
+import type { SelectOption } from "@/components/ui";
 import AccountStatusIndicator from "@/components/account/AccountStatusIndicator.vue";
 import AccountUsageCell from "@/components/account/AccountUsageCell.vue";
 import AccountTodayStatsCell from "@/components/account/AccountTodayStatsCell.vue";
@@ -844,10 +850,6 @@ import type {
   ClaudeModel,
   UpstreamBillingProbeSnapshot,
 } from "@/types";
-
-// Keep the legacy local component names so existing account-view test fixtures
-// can stub the page boundary while the implementation comes from the UI system.
-const Pagination = Object.assign({}, UiPagination, { name: "Pagination" });
 
 const { t } = useI18n();
 const appStore = useAppStore();

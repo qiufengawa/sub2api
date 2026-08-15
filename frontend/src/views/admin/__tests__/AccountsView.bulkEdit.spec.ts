@@ -114,7 +114,7 @@ const AccountBulkActionsBarStub = {
   `
 }
 
-const PaginationStub = {
+const UiPaginationStub = {
   emits: ['update:page'],
   template: '<button data-test="next-page" @click="$emit(\'update:page\', 2)">next</button>'
 }
@@ -170,8 +170,8 @@ describe('admin AccountsView bulk edit scope', () => {
             template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
           },
           UiDataTable: DataTableStub,
-          Pagination: true,
-          ConfirmDialog: true,
+          UiPagination: true,
+          UiConfirmDialog: true,
           AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
           AccountTableFilters: { template: '<div></div>' },
           AccountBulkActionsBar: AccountBulkActionsBarStub,
@@ -235,8 +235,8 @@ describe('admin AccountsView bulk edit scope', () => {
             template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
           },
           UiDataTable: DataTableStub,
-          Pagination: true,
-          ConfirmDialog: true,
+          UiPagination: true,
+          UiConfirmDialog: true,
           AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
           AccountTableFilters: { template: '<div></div>' },
           AccountBulkActionsBar: AccountBulkActionsBarStub,
@@ -309,8 +309,8 @@ describe('admin AccountsView bulk edit scope', () => {
             props: ['globalProbeEnabled'],
             template: '<span data-test="upstream-billing-cell" :data-global-enabled="String(globalProbeEnabled)"></span>'
           },
-          Pagination: true,
-          ConfirmDialog: true,
+          UiPagination: true,
+          UiConfirmDialog: true,
           AccountTableActions: true,
           AccountTableFilters: true,
           AccountBulkActionsBar: true,
@@ -365,8 +365,8 @@ describe('admin AccountsView bulk edit scope', () => {
           AppLayout: { template: '<div><slot /></div>' },
           TablePageLayout: { template: '<div><slot name="table" /><slot name="pagination" /></div>' },
           UiDataTable: DataTableStub,
-          Pagination: PaginationStub,
-          ConfirmDialog: true,
+          UiPagination: UiPaginationStub,
+          UiConfirmDialog: true,
           AccountTableActions: true,
           AccountTableFilters: true,
           AccountBulkActionsBar: AccountBulkActionsBarStub,
@@ -443,8 +443,8 @@ describe('admin AccountsView bulk edit scope', () => {
           AccountTableActions: true,
           AccountTableFilters: true,
           AccountActionMenu: true,
-          Pagination: PaginationStub,
-          ConfirmDialog: true,
+          UiPagination: UiPaginationStub,
+          UiConfirmDialog: true,
           ImportDataModal: true,
           ReAuthAccountModal: true,
           AccountTestModal: true,
@@ -519,8 +519,8 @@ describe('admin AccountsView bulk edit scope', () => {
           AccountTableActions: true,
           AccountTableFilters: true,
           AccountActionMenu: true,
-          Pagination: true,
-          ConfirmDialog: true,
+          UiPagination: true,
+          UiConfirmDialog: true,
           ImportDataModal: true,
           ReAuthAccountModal: true,
           AccountTestModal: true,
@@ -590,8 +590,8 @@ describe('admin AccountsView bulk edit scope', () => {
           AccountTableActions: true,
           AccountTableFilters: true,
           AccountActionMenu: true,
-          Pagination: true,
-          ConfirmDialog: true,
+          UiPagination: true,
+          UiConfirmDialog: true,
           ImportDataModal: true,
           ReAuthAccountModal: true,
           AccountTestModal: true,

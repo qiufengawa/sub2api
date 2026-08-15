@@ -4,8 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import AccountsView from '../AccountsView.vue'
 import AccountActionMenu from '@/components/admin/account/AccountActionMenu.vue'
 import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import HelpTooltip from '@/components/common/HelpTooltip.vue'
+import { UiConfirmDialog, UiTooltip } from '@/components/ui'
 
 // 外审 F2:AccountActionMenu emit 'create-spark-shadow',但 AccountsView 此前未监听,
 // 导致按钮点击无效。本测试通过真实组件引用 emit 该事件,断言父页面接线调用 API。
@@ -78,8 +77,8 @@ const mountView = () =>
           template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
         },
         UiDataTable: true,
-        Pagination: true,
-        ConfirmDialog: true,
+        UiPagination: true,
+        UiConfirmDialog: true,
         AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
         AccountTableFilters: { template: '<div></div>' },
         AccountBulkActionsBar: true,
@@ -183,7 +182,7 @@ describe('admin AccountsView — 外审 F2:spark 影子创建接线', () => {
     await flushPromises()
 
     // 不再用原生 confirm,改用应用内 ConfirmDialog:先弹出,点确认才调 API
-    const dialog = wrapper.findAllComponents(ConfirmDialog).find(d => d.props('show'))
+    const dialog = wrapper.findAllComponents(UiConfirmDialog).find(d => d.props('show'))
     expect(dialog).toBeTruthy()
     dialog?.vm.$emit('confirm')
     await flushPromises()
@@ -202,7 +201,7 @@ describe('admin AccountsView — 外审 F2:spark 影子创建接线', () => {
     await flushPromises()
 
     // 弹出 ConfirmDialog 后点取消,不应调用 API
-    const dialog = wrapper.findAllComponents(ConfirmDialog).find(d => d.props('show'))
+    const dialog = wrapper.findAllComponents(UiConfirmDialog).find(d => d.props('show'))
     expect(dialog).toBeTruthy()
     dialog?.vm.$emit('cancel')
     await flushPromises()
@@ -231,8 +230,8 @@ const mountViewWithRow = () =>
             </div>
           </div>`
         },
-        Pagination: true,
-        ConfirmDialog: true,
+        UiPagination: true,
+        UiConfirmDialog: true,
         AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
         AccountTableFilters: { template: '<div></div>' },
         AccountBulkActionsBar: true,
@@ -337,16 +336,9 @@ describe('admin AccountsView — 账号行展示', () => {
       target: '_blank',
       rel: 'noopener noreferrer',
     })
-    expect(link.classes()).toEqual(expect.arrayContaining([
-      'border-dotted',
-      'text-gray-900',
-      'dark:text-white',
-    ]))
-    expect(link.classes()).not.toContain('text-primary-600')
-    const tooltip = wrapper.findComponent(HelpTooltip)
+    const tooltip = wrapper.findComponent(UiTooltip)
     expect(tooltip.props('content')).toBe('https://relay.example.com')
     expect(tooltip.props('widthClass')).toBe('w-max max-w-sm break-all')
-    expect(tooltip.classes()).toEqual(expect.arrayContaining(['self-start']))
     expect(wrapper.text()).toContain('oauth-account')
     expect(wrapper.text()).toContain('invalid-url')
 

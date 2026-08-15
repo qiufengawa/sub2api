@@ -88,8 +88,8 @@ const DataTableStub = {
   `
 }
 
-// Expose the content passed to HelpTooltip without dealing with its <Teleport>.
-const HelpTooltipStub = {
+// Expose the content passed to UiTooltip without dealing with its <Teleport>.
+const UiTooltipStub = {
   props: ['content', 'widthClass'],
   template: '<span data-test="usage-windows-hint">{{ content }}</span>'
 }
@@ -103,9 +103,9 @@ function mountView() {
           template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
         },
         UiDataTable: DataTableStub,
-        HelpTooltip: HelpTooltipStub,
-        Pagination: true,
-        ConfirmDialog: true,
+        UiTooltip: UiTooltipStub,
+        UiPagination: true,
+        UiConfirmDialog: true,
         AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
         AccountTableFilters: { template: '<div></div>' },
         AccountBulkActionsBar: true,
