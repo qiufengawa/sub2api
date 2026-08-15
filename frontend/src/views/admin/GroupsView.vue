@@ -274,138 +274,62 @@
         />
 
         <!-- 图片生成计费配置 -->
-        <div
+        <GroupImagePricingFields
           v-if="supportsImagePricingPlatform(createForm.platform)"
-          class="border-t pt-4"
-        >
-          <label
-            class="block mb-2 font-medium text-gray-700 dark:text-gray-300"
-          >
-            {{ t(imagePricingI18nKey(createForm.platform, "title")) }}
-          </label>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            {{ t(imagePricingI18nKey(createForm.platform, "description")) }}
-          </p>
-          <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-            <UiCheckbox
-              v-model="createForm.allow_image_generation"
-              :label="t(imagePricingI18nKey(createForm.platform, 'allowImageGeneration'))"
-            />
-            <UiCheckbox
-              v-model="createForm.image_rate_independent"
-              :label="t(imagePricingI18nKey(createForm.platform, 'independentMultiplier'))"
-            />
-          </div>
-          <div
-            v-if="createForm.image_rate_independent"
-            class="mb-4"
-          >
-            <UiTextField
-              v-model.number="createForm.image_rate_multiplier"
-              type="number"
-              step="0.0001"
-              min="0"
-              density="compact"
-              :label="t(imagePricingI18nKey(createForm.platform, 'imageMultiplier'))"
-              placeholder="1"
-            />
-          </div>
-          <div class="grid grid-cols-3 gap-3">
-            <UiTextField v-model.number="createForm.image_price_1k" type="number" step="0.001" min="0" density="compact" label="1K ($)" :placeholder="getImagePricePlaceholder(createForm.platform, 'image_price_1k')" />
-            <UiTextField v-model.number="createForm.image_price_2k" type="number" step="0.001" min="0" density="compact" label="2K ($)" :placeholder="getImagePricePlaceholder(createForm.platform, 'image_price_2k')" />
-            <UiTextField v-model.number="createForm.image_price_4k" type="number" step="0.001" min="0" density="compact" label="4K ($)" :placeholder="getImagePricePlaceholder(createForm.platform, 'image_price_4k')" />
-          </div>
-          <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
-            {{ t(imagePricingI18nKey(createForm.platform, "modeHint")) }}
-          </p>
-          <GroupPricingPreview
-            :title="t(imagePricingI18nKey(createForm.platform, 'finalPricePreview'))"
-            :items="createImageFinalPricePreview"
-          />
-          <div v-if="createForm.platform === 'gemini' && createForm.allow_image_generation" class="mt-4 border-t border-dashed border-gray-200 pt-4 dark:border-dark-700">
-            <UiCheckbox
-              v-model="createForm.allow_batch_image_generation"
-              :label="t('admin.groups.imagePricing.allowBatchImageGeneration')"
-            />
-            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              {{ t("admin.groups.imagePricing.batchSectionHint") }}
-            </p>
-            <div
-              v-if="createForm.allow_batch_image_generation"
-              class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2"
-            >
-              <UiTextField v-model.number="createForm.batch_image_discount_multiplier" type="number" step="0.0001" min="0" density="compact" :label="t('admin.groups.imagePricing.batchDiscountMultiplier')" placeholder="0.5" />
-              <UiTextField v-model.number="createForm.batch_image_hold_multiplier" type="number" step="0.0001" min="0" density="compact" :label="t('admin.groups.imagePricing.batchHoldMultiplier')" placeholder="0.6" />
-            </div>
-          </div>
-          <p
-            v-else-if="createForm.platform !== 'gemini'"
-            class="mt-4 border-t border-dashed border-gray-200 pt-4 text-xs text-gray-500 dark:border-dark-700 dark:text-gray-400"
-          >
-            {{ t("admin.groups.imagePricing.batchGeminiOnlyHint") }}
-          </p>
-        </div>
-
+          :platform="createForm.platform"
+          v-model:allow-image-generation="createForm.allow_image_generation"
+          v-model:allow-batch-image-generation="createForm.allow_batch_image_generation"
+          v-model:image-rate-independent="createForm.image_rate_independent"
+          v-model:image-rate-multiplier="createForm.image_rate_multiplier"
+          v-model:batch-discount-multiplier="createForm.batch_image_discount_multiplier"
+          v-model:batch-hold-multiplier="createForm.batch_image_hold_multiplier"
+          v-model:price-1k="createForm.image_price_1k"
+          v-model:price-2k="createForm.image_price_2k"
+          v-model:price-4k="createForm.image_price_4k"
+          :preview="createImageFinalPricePreview"
+        />
         <!-- 视频生成计费配置（仅 Grok 平台） -->
-        <div
+        <GroupVideoPricingFields
           v-if="supportsVideoPricingPlatform(createForm.platform)"
-          class="border-t pt-4"
+          :platform="createForm.platform"
+          v-model:video-rate-independent="createForm.video_rate_independent"
+          v-model:video-rate-multiplier="createForm.video_rate_multiplier"
+          v-model:price-480p="createForm.video_price_480p"
+          v-model:price-720p="createForm.video_price_720p"
+          v-model:price-1080p="createForm.video_price_1080p"
+          :preview="createVideoFinalPricePreview"
         >
-          <label
-            class="block mb-2 font-medium text-gray-700 dark:text-gray-300"
-          >
-            {{ t(videoPricingI18nKey("title")) }}
-          </label>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            {{ t(videoPricingI18nKey("description")) }}
-          </p>
-          <div class="mb-4">
-            <UiCheckbox
-              v-model="createForm.video_rate_independent"
-              :label="t(videoPricingI18nKey('independentMultiplier'))"
-            />
-          </div>
-          <div
-            v-if="createForm.video_rate_independent"
-            class="mb-4"
-          >
-            <UiTextField
-              v-model.number="createForm.video_rate_multiplier"
-              type="number"
-              step="0.0001"
-              min="0"
-              density="compact"
-              :label="t(videoPricingI18nKey('videoMultiplier'))"
-              placeholder="1"
-            />
-          </div>
-          <div class="grid grid-cols-3 gap-3">
-            <UiTextField v-model.number="createForm.video_price_480p" type="number" step="0.001" min="0" density="compact" label="480p ($/s)" :placeholder="getVideoPricePlaceholder(createForm.platform, 'video_price_480p')" />
-            <UiTextField v-model.number="createForm.video_price_720p" type="number" step="0.001" min="0" density="compact" label="720p ($/s)" :placeholder="getVideoPricePlaceholder(createForm.platform, 'video_price_720p')" />
-            <UiTextField v-model.number="createForm.video_price_1080p" type="number" step="0.001" min="0" density="compact" label="1080p ($/s)" :placeholder="getVideoPricePlaceholder(createForm.platform, 'video_price_1080p')" />
-          </div>
-          <div
-            class="mt-4 border-t border-dashed border-gray-200 pt-4 dark:border-dark-700"
-            data-testid="create-grok-video-model-prices"
-          >
-            <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t("admin.groups.videoPricing.modelOverridesTitle") }}</p>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t("admin.groups.videoPricing.modelOverridesDescription") }}</p>
-            <div class="mt-3 space-y-3">
-              <div v-for="family in videoModelPriceFamilyRows(createForm.video_model_prices)" :key="family.key" class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,7rem))] sm:items-end">
-                <div class="min-w-0 pb-1 font-mono text-xs text-gray-700 dark:text-gray-300">{{ family.label }}</div>
-                <UiTextField v-for="resolution in grokVideoPriceResolutions" :key="resolution.key" v-model.number="createForm.video_model_prices[family.key][resolution.key]" type="number" step="0.001" min="0" density="compact" :label="`${resolution.label} ($/s)`" :test-id="`create-grok-video-price-${family.key}-${resolution.key}`" />
-              </div>
-            </div>
-          </div>
-          <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
-            {{ t(videoPricingI18nKey("modeHint")) }}
-          </p>
-          <GroupPricingPreview
-            :title="t(videoPricingI18nKey('finalPricePreview'))"
-            :items="createVideoFinalPricePreview"
-          />
-        </div>
-
+          <template #model-overrides>
+            <AppSection
+              :title="t('admin.groups.videoPricing.modelOverridesTitle')"
+              :description="t('admin.groups.videoPricing.modelOverridesDescription')"
+              divided
+              data-testid="create-grok-video-model-prices"
+            >
+              <AppStack :gap="8">
+                <AppGrid
+                  v-for="family in videoModelPriceFamilyRows(createForm.video_model_prices)"
+                  :key="family.key"
+                  min="120px"
+                  :gap="8"
+                >
+                  <UiBadge tone="neutral" :label="family.label" />
+                  <UiTextField
+                    v-for="resolution in grokVideoPriceResolutions"
+                    :key="resolution.key"
+                    v-model.number="createForm.video_model_prices[family.key][resolution.key]"
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    density="compact"
+                    :label="`${resolution.label} ($/s)`"
+                    :test-id="`create-grok-video-price-${family.key}-${resolution.key}`"
+                  />
+                </AppGrid>
+              </AppStack>
+            </AppSection>
+          </template>
+        </GroupVideoPricingFields>
         <!-- 高峰时段倍率配置 -->
         <div class="border-t pt-4">
           <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -767,138 +691,62 @@
         />
 
         <!-- 图片生成计费配置 -->
-        <div
+        <GroupImagePricingFields
           v-if="supportsImagePricingPlatform(editForm.platform)"
-          class="border-t pt-4"
-        >
-          <label
-            class="block mb-2 font-medium text-gray-700 dark:text-gray-300"
-          >
-            {{ t(imagePricingI18nKey(editForm.platform, "title")) }}
-          </label>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            {{ t(imagePricingI18nKey(editForm.platform, "description")) }}
-          </p>
-          <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-            <UiCheckbox
-              v-model="editForm.allow_image_generation"
-              :label="t(imagePricingI18nKey(editForm.platform, 'allowImageGeneration'))"
-            />
-            <UiCheckbox
-              v-model="editForm.image_rate_independent"
-              :label="t(imagePricingI18nKey(editForm.platform, 'independentMultiplier'))"
-            />
-          </div>
-          <div
-            v-if="editForm.image_rate_independent"
-            class="mb-4"
-          >
-            <UiTextField
-              v-model.number="editForm.image_rate_multiplier"
-              type="number"
-              step="0.0001"
-              min="0"
-              density="compact"
-              :label="t(imagePricingI18nKey(editForm.platform, 'imageMultiplier'))"
-              placeholder="1"
-            />
-          </div>
-          <div class="grid grid-cols-3 gap-3">
-            <UiTextField v-model.number="editForm.image_price_1k" type="number" step="0.001" min="0" density="compact" label="1K ($)" :placeholder="getImagePricePlaceholder(editForm.platform, 'image_price_1k')" />
-            <UiTextField v-model.number="editForm.image_price_2k" type="number" step="0.001" min="0" density="compact" label="2K ($)" :placeholder="getImagePricePlaceholder(editForm.platform, 'image_price_2k')" />
-            <UiTextField v-model.number="editForm.image_price_4k" type="number" step="0.001" min="0" density="compact" label="4K ($)" :placeholder="getImagePricePlaceholder(editForm.platform, 'image_price_4k')" />
-          </div>
-          <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
-            {{ t(imagePricingI18nKey(editForm.platform, "modeHint")) }}
-          </p>
-          <GroupPricingPreview
-            :title="t(imagePricingI18nKey(editForm.platform, 'finalPricePreview'))"
-            :items="editImageFinalPricePreview"
-          />
-          <div v-if="editForm.platform === 'gemini' && editForm.allow_image_generation" class="mt-4 border-t border-dashed border-gray-200 pt-4 dark:border-dark-700">
-            <UiCheckbox
-              v-model="editForm.allow_batch_image_generation"
-              :label="t('admin.groups.imagePricing.allowBatchImageGeneration')"
-            />
-            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              {{ t("admin.groups.imagePricing.batchSectionHint") }}
-            </p>
-            <div
-              v-if="editForm.allow_batch_image_generation"
-              class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2"
-            >
-              <UiTextField v-model.number="editForm.batch_image_discount_multiplier" type="number" step="0.0001" min="0" density="compact" :label="t('admin.groups.imagePricing.batchDiscountMultiplier')" placeholder="0.5" />
-              <UiTextField v-model.number="editForm.batch_image_hold_multiplier" type="number" step="0.0001" min="0" density="compact" :label="t('admin.groups.imagePricing.batchHoldMultiplier')" placeholder="0.6" />
-            </div>
-          </div>
-          <p
-            v-else-if="editForm.platform !== 'gemini'"
-            class="mt-4 border-t border-dashed border-gray-200 pt-4 text-xs text-gray-500 dark:border-dark-700 dark:text-gray-400"
-          >
-            {{ t("admin.groups.imagePricing.batchGeminiOnlyHint") }}
-          </p>
-        </div>
-
+          :platform="editForm.platform"
+          v-model:allow-image-generation="editForm.allow_image_generation"
+          v-model:allow-batch-image-generation="editForm.allow_batch_image_generation"
+          v-model:image-rate-independent="editForm.image_rate_independent"
+          v-model:image-rate-multiplier="editForm.image_rate_multiplier"
+          v-model:batch-discount-multiplier="editForm.batch_image_discount_multiplier"
+          v-model:batch-hold-multiplier="editForm.batch_image_hold_multiplier"
+          v-model:price-1k="editForm.image_price_1k"
+          v-model:price-2k="editForm.image_price_2k"
+          v-model:price-4k="editForm.image_price_4k"
+          :preview="editImageFinalPricePreview"
+        />
         <!-- 视频生成计费配置（仅 Grok 平台） -->
-        <div
+        <GroupVideoPricingFields
           v-if="supportsVideoPricingPlatform(editForm.platform)"
-          class="border-t pt-4"
+          :platform="editForm.platform"
+          v-model:video-rate-independent="editForm.video_rate_independent"
+          v-model:video-rate-multiplier="editForm.video_rate_multiplier"
+          v-model:price-480p="editForm.video_price_480p"
+          v-model:price-720p="editForm.video_price_720p"
+          v-model:price-1080p="editForm.video_price_1080p"
+          :preview="editVideoFinalPricePreview"
         >
-          <label
-            class="block mb-2 font-medium text-gray-700 dark:text-gray-300"
-          >
-            {{ t(videoPricingI18nKey("title")) }}
-          </label>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            {{ t(videoPricingI18nKey("description")) }}
-          </p>
-          <div class="mb-4">
-            <UiCheckbox
-              v-model="editForm.video_rate_independent"
-              :label="t(videoPricingI18nKey('independentMultiplier'))"
-            />
-          </div>
-          <div
-            v-if="editForm.video_rate_independent"
-            class="mb-4"
-          >
-            <UiTextField
-              v-model.number="editForm.video_rate_multiplier"
-              type="number"
-              step="0.0001"
-              min="0"
-              density="compact"
-              :label="t(videoPricingI18nKey('videoMultiplier'))"
-              placeholder="1"
-            />
-          </div>
-          <div class="grid grid-cols-3 gap-3">
-            <UiTextField v-model.number="editForm.video_price_480p" type="number" step="0.001" min="0" density="compact" label="480p ($/s)" :placeholder="getVideoPricePlaceholder(editForm.platform, 'video_price_480p')" />
-            <UiTextField v-model.number="editForm.video_price_720p" type="number" step="0.001" min="0" density="compact" label="720p ($/s)" :placeholder="getVideoPricePlaceholder(editForm.platform, 'video_price_720p')" />
-            <UiTextField v-model.number="editForm.video_price_1080p" type="number" step="0.001" min="0" density="compact" label="1080p ($/s)" :placeholder="getVideoPricePlaceholder(editForm.platform, 'video_price_1080p')" />
-          </div>
-          <div
-            class="mt-4 border-t border-dashed border-gray-200 pt-4 dark:border-dark-700"
-            data-testid="edit-grok-video-model-prices"
-          >
-            <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t("admin.groups.videoPricing.modelOverridesTitle") }}</p>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t("admin.groups.videoPricing.modelOverridesDescription") }}</p>
-            <div class="mt-3 space-y-3">
-              <div v-for="family in videoModelPriceFamilyRows(editForm.video_model_prices)" :key="family.key" class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,7rem))] sm:items-end">
-                <div class="min-w-0 pb-1 font-mono text-xs text-gray-700 dark:text-gray-300">{{ family.label }}</div>
-                <UiTextField v-for="resolution in grokVideoPriceResolutions" :key="resolution.key" v-model.number="editForm.video_model_prices[family.key][resolution.key]" type="number" step="0.001" min="0" density="compact" :label="`${resolution.label} ($/s)`" :test-id="`edit-grok-video-price-${family.key}-${resolution.key}`" />
-              </div>
-            </div>
-          </div>
-          <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
-            {{ t(videoPricingI18nKey("modeHint")) }}
-          </p>
-          <GroupPricingPreview
-            :title="t(videoPricingI18nKey('finalPricePreview'))"
-            :items="editVideoFinalPricePreview"
-          />
-        </div>
-
+          <template #model-overrides>
+            <AppSection
+              :title="t('admin.groups.videoPricing.modelOverridesTitle')"
+              :description="t('admin.groups.videoPricing.modelOverridesDescription')"
+              divided
+              data-testid="edit-grok-video-model-prices"
+            >
+              <AppStack :gap="8">
+                <AppGrid
+                  v-for="family in videoModelPriceFamilyRows(editForm.video_model_prices)"
+                  :key="family.key"
+                  min="120px"
+                  :gap="8"
+                >
+                  <UiBadge tone="neutral" :label="family.label" />
+                  <UiTextField
+                    v-for="resolution in grokVideoPriceResolutions"
+                    :key="resolution.key"
+                    v-model.number="editForm.video_model_prices[family.key][resolution.key]"
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    density="compact"
+                    :label="`${resolution.label} ($/s)`"
+                    :test-id="`edit-grok-video-price-${family.key}-${resolution.key}`"
+                  />
+                </AppGrid>
+              </AppStack>
+            </AppSection>
+          </template>
+        </GroupVideoPricingFields>
         <!-- 高峰时段倍率配置 -->
         <div class="border-t pt-4">
           <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -1567,6 +1415,8 @@ import GroupMessagesDispatchFields from "@/components/admin/group/GroupMessagesD
 import GroupPricingPreview from "@/components/admin/group/GroupPricingPreview.vue";
 import GroupAccountFiltersFields from "@/components/admin/group/GroupAccountFiltersFields.vue";
 import GroupModelRoutingFields from "@/components/admin/group/GroupModelRoutingFields.vue";
+import GroupImagePricingFields from "@/components/admin/group/GroupImagePricingFields.vue";
+import GroupVideoPricingFields from "@/components/admin/group/GroupVideoPricingFields.vue";
 import type {
   GroupModelRoutingRule as ModelRoutingRule,
   GroupRoutingAccount as SimpleAccount,
@@ -1618,12 +1468,8 @@ import {
 import {
   getDefaultImagePreviewPrice,
   getDefaultVideoPreviewPrice,
-  getImagePricePlaceholder,
-  getVideoPricePlaceholder,
-  imagePricingI18nKey,
   supportsImagePricingPlatform,
   supportsVideoPricingPlatform,
-  videoPricingI18nKey,
 } from "./groupsImagePricing";
 import {
   createVideoModelPricesForm,
