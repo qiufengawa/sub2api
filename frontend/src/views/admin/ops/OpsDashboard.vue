@@ -1,12 +1,7 @@
 <template>
-  <component :is="isFullscreen ? 'div' : AppLayout" :class="isFullscreen ? 'flex min-h-screen flex-col justify-center bg-gray-50 dark:bg-dark-950' : ''">
-    <div :class="[isFullscreen ? 'p-4 md:p-6' : '', 'w-full min-w-0 space-y-4 pb-10 lg:space-y-5']">
-      <div
-        v-if="errorMessage"
-        class="rounded-[4px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/60 dark:bg-red-900/20 dark:text-red-400"
-      >
-        {{ errorMessage }}
-      </div>
+  <component :is="isFullscreen ? 'div' : AppLayout" :class="{ 'ops-dashboard-shell--fullscreen': isFullscreen }">
+    <AppPage class="ops-dashboard" width="full" density="compact">
+      <UiAlert v-if="errorMessage" tone="danger" :message="errorMessage" />
 
       <OpsDashboardSkeleton v-if="loading && !hasLoadedOnce" :fullscreen="isFullscreen" />
 
@@ -39,19 +34,15 @@
         @exit-fullscreen="exitFullscreen"
       />
 
-      <section v-if="opsEnabled && !(loading && !hasLoadedOnce)" class="space-y-3" aria-labelledby="ops-traffic-heading" data-ops-section="traffic">
-        <div class="px-0.5">
-          <h2 id="ops-traffic-heading" class="text-sm font-semibold text-gray-900 dark:text-white">
-            {{ t('admin.ops.sections.trafficCapacity') }}
-          </h2>
-          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-            {{ t('admin.ops.sections.trafficCapacityDescription') }}
-          </p>
-        </div>
-
-        <div class="grid grid-cols-1 gap-4 xl:grid-cols-12">
-          <div class="grid min-w-0 gap-4 xl:col-span-7 xl:grid-rows-[minmax(340px,1fr)_190px]">
-            <div class="min-h-[340px] min-w-0">
+      <AppSection
+        v-if="opsEnabled && !(loading && !hasLoadedOnce)"
+        :title="t('admin.ops.sections.trafficCapacity')"
+        :description="t('admin.ops.sections.trafficCapacityDescription')"
+        data-ops-section="traffic"
+      >
+        <div class="ops-dashboard__traffic-grid">
+          <div class="ops-dashboard__traffic-trends">
+            <div class="ops-dashboard__throughput">
               <OpsThroughputTrendChart
                 :points="throughputTrend?.points ?? []"
                 :by-platform="throughputTrend?.by_platform ?? []"
@@ -64,7 +55,7 @@
                 @open-details="handleOpenRequestDetails"
               />
             </div>
-            <div class="h-[190px] min-w-0">
+            <div class="ops-dashboard__switch-rate">
               <OpsSwitchRateTrendChart
                 :points="switchTrend?.points ?? []"
                 :loading="loadingSwitchTrend"
@@ -74,7 +65,7 @@
             </div>
           </div>
 
-          <div class="min-h-[420px] xl:col-span-5 xl:min-h-[546px]">
+          <div class="ops-dashboard__concurrency">
             <OpsConcurrencyCard
               :platform-filter="platform"
               :group-id-filter="groupId"
@@ -82,20 +73,16 @@
             />
           </div>
         </div>
-      </section>
+      </AppSection>
 
-      <section v-if="opsEnabled && !(loading && !hasLoadedOnce)" class="space-y-3" aria-labelledby="ops-quality-heading" data-ops-section="quality">
-        <div class="px-0.5">
-          <h2 id="ops-quality-heading" class="text-sm font-semibold text-gray-900 dark:text-white">
-            {{ t('admin.ops.sections.qualityAnalysis') }}
-          </h2>
-          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-            {{ t('admin.ops.sections.qualityAnalysisDescription') }}
-          </p>
-        </div>
-
-        <div class="grid grid-cols-1 gap-4 xl:h-[456px] xl:grid-cols-12">
-          <div class="min-h-[360px] min-w-0 xl:col-span-7 xl:h-[456px] xl:min-h-0">
+      <AppSection
+        v-if="opsEnabled && !(loading && !hasLoadedOnce)"
+        :title="t('admin.ops.sections.qualityAnalysis')"
+        :description="t('admin.ops.sections.qualityAnalysisDescription')"
+        data-ops-section="quality"
+      >
+        <div class="ops-dashboard__quality-grid">
+          <div class="ops-dashboard__error-trend">
             <OpsErrorTrendChart
               :points="errorTrend?.points ?? []"
               :loading="loadingErrorTrend"
@@ -104,11 +91,11 @@
               @open-upstream-errors="openErrorDetails('upstream')"
             />
           </div>
-          <div class="grid min-w-0 gap-4 md:grid-cols-2 xl:col-span-5 xl:h-[456px] xl:grid-cols-1 xl:grid-rows-2">
-            <div class="min-h-[220px] min-w-0 xl:min-h-0">
+          <div class="ops-dashboard__quality-side">
+            <div class="ops-dashboard__quality-panel">
               <OpsLatencyChart :latency-data="latencyHistogram" :loading="loadingLatency" />
             </div>
-            <div class="min-h-[220px] min-w-0 xl:min-h-0">
+            <div class="ops-dashboard__quality-panel">
               <OpsErrorDistributionChart
                 :data="errorDistribution"
                 :loading="loadingErrorDistribution"
@@ -117,13 +104,13 @@
             </div>
           </div>
         </div>
-      </section>
+      </AppSection>
 
       <!-- Alert Events -->
       <OpsAlertEventsCard v-if="opsEnabled && showAlertEvents && !(loading && !hasLoadedOnce)" data-ops-section="alerts" />
 
       <!-- OpenAI Token Stats -->
-      <div v-if="opsEnabled && showOpenAITokenStats && !(loading && !hasLoadedOnce)" class="grid grid-cols-1 gap-4" data-ops-section="tokens">
+      <div v-if="opsEnabled && showOpenAITokenStats && !(loading && !hasLoadedOnce)" data-ops-section="tokens">
         <OpsOpenAITokenStatsCard
           :platform-filter="platform"
           :group-id-filter="groupId"
@@ -143,9 +130,9 @@
       <template v-if="!isFullscreen">
         <OpsSettingsDialog :show="showSettingsDialog" @close="showSettingsDialog = false" @saved="onSettingsSaved" />
 
-        <BaseDialog :show="showAlertRulesCard" :title="t('admin.ops.alertRules.title')" width="extra-wide" @close="showAlertRulesCard = false">
+        <UiDialog :show="showAlertRulesCard" :title="t('admin.ops.alertRules.title')" width="extra-wide" @close="showAlertRulesCard = false">
           <OpsAlertRulesCard />
-        </BaseDialog>
+        </UiDialog>
 
         <OpsErrorDetailsModal
           :show="showErrorDetails"
@@ -170,7 +157,7 @@
           @openErrorDetail="openError"
         />
       </template>
-    </div>
+    </AppPage>
   </component>
 </template>
 
@@ -180,7 +167,7 @@ import { useDebounceFn, useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
+import { AppPage, AppSection, UiAlert, UiDialog } from '@/components/ui'
 import {
   opsAPI,
   type OpsDashboardOverview,
@@ -868,3 +855,7 @@ watch(showSettingsDialog, async (show) => {
   }
 })
 </script>
+
+<style scoped>
+.ops-dashboard-shell--fullscreen{min-height:100dvh;background:var(--ui-surface-muted)}.ops-dashboard{display:grid;min-width:0;gap:8px;padding-bottom:40px}.ops-dashboard__traffic-grid,.ops-dashboard__quality-grid{display:grid;min-width:0;grid-template-columns:minmax(0,1fr);gap:16px}.ops-dashboard__traffic-trends{display:grid;min-width:0;grid-template-rows:minmax(340px,1fr) 190px;gap:16px}.ops-dashboard__throughput{min-width:0;min-height:340px}.ops-dashboard__switch-rate{min-width:0;height:190px}.ops-dashboard__concurrency{min-height:420px}.ops-dashboard__error-trend{min-width:0;min-height:360px}.ops-dashboard__quality-side{display:grid;min-width:0;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.ops-dashboard__quality-panel{min-width:0;min-height:220px}@media(min-width:1280px){.ops-dashboard__traffic-grid,.ops-dashboard__quality-grid{grid-template-columns:minmax(0,7fr) minmax(0,5fr)}.ops-dashboard__concurrency{min-height:546px}.ops-dashboard__quality-grid,.ops-dashboard__error-trend,.ops-dashboard__quality-side{height:456px}.ops-dashboard__error-trend{min-height:0}.ops-dashboard__quality-side{grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(2,minmax(0,1fr))}.ops-dashboard__quality-panel{min-height:0}}@media(max-width:767px){.ops-dashboard__quality-side{grid-template-columns:minmax(0,1fr)}}
+</style>

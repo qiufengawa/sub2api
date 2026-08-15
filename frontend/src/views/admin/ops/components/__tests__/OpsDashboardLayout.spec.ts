@@ -17,8 +17,9 @@ describe('OpsDashboard command-center layout contract', () => {
     expect(alerts).toBeGreaterThan(quality)
     expect(tokens).toBeGreaterThan(alerts)
     expect(logs).toBeGreaterThan(tokens)
-    expect(dashboardSource).toContain('xl:col-span-7')
-    expect(dashboardSource).toContain('xl:col-span-5')
+    expect(dashboardSource).toContain('ops-dashboard__traffic-grid')
+    expect(dashboardSource).toContain('ops-dashboard__quality-grid')
+    expect(dashboardSource).toContain('grid-template-columns:minmax(0,7fr) minmax(0,5fr)')
   })
 
   it('mirrors alert, token and log structures in skeleton order', () => {
@@ -32,6 +33,6 @@ describe('OpsDashboard command-center layout contract', () => {
     ])
     expect(wrapper.element.className).toContain('w-full')
     expect(wrapper.element.className).toContain('min-w-0')
-    expect(dashboardSource).toContain('w-full min-w-0 space-y-4')
+    expect(dashboardSource).toContain('<AppPage class="ops-dashboard"')
   })
 })
