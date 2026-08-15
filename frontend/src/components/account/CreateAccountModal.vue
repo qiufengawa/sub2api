@@ -1,7 +1,8 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.accounts.createAccount')"
+    :close-label="t('common.close')"
     width="wide"
     @close="handleClose"
   >
@@ -45,27 +46,20 @@
       @submit.prevent="handleSubmit"
       class="space-y-5"
     >
-      <div>
-        <label class="input-label">{{ t('admin.accounts.accountName') }}</label>
-        <input
-          v-model="form.name"
-          type="text"
-          :required="!isGrokSSOInputMethod"
-          class="input"
-          :placeholder="t('admin.accounts.enterAccountName')"
-          data-tour="account-form-name"
-        />
-      </div>
-      <div>
-        <label class="input-label">{{ t('admin.accounts.notes') }}</label>
-        <textarea
-          v-model="form.notes"
-          rows="3"
-          class="input"
-          :placeholder="t('admin.accounts.notesPlaceholder')"
-        ></textarea>
-        <p class="input-hint">{{ t('admin.accounts.notesHint') }}</p>
-      </div>
+      <UiTextField
+        v-model="form.name"
+        :label="t('admin.accounts.accountName')"
+        :required="!isGrokSSOInputMethod"
+        :placeholder="t('admin.accounts.enterAccountName')"
+        data-tour="account-form-name"
+      />
+      <UiTextArea
+        v-model="form.notes"
+        :label="t('admin.accounts.notes')"
+        :description="t('admin.accounts.notesHint')"
+        :placeholder="t('admin.accounts.notesPlaceholder')"
+        :rows="3"
+      />
 
       <!-- Platform Selection - Segmented Control Style -->
       <div>
@@ -3252,36 +3246,16 @@
 
     <template #footer>
       <div v-if="step === 1" class="flex justify-end gap-3">
-        <button @click="handleClose" type="button" class="btn btn-secondary">
+        <UiButton type="button" variant="secondary" @click="handleClose">
           {{ t('common.cancel') }}
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           type="submit"
           form="create-account-form"
-          :disabled="submitting"
-          class="btn btn-primary"
+          variant="primary"
+          :loading="submitting"
           data-tour="account-form-submit"
         >
-          <svg
-            v-if="submitting"
-            class="-ml-1 mr-2 h-4 w-4 animate-spin"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            ></circle>
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
           {{
             isOAuthFlow
               ? t('common.next')
@@ -3289,53 +3263,35 @@
                 ? t('admin.accounts.creating')
                 : t('common.create')
           }}
-        </button>
+        </UiButton>
       </div>
       <div v-else class="flex justify-between gap-3">
-        <button type="button" class="btn btn-secondary" @click="goBackToBasicInfo">
+        <UiButton type="button" variant="secondary" @click="goBackToBasicInfo">
           {{ t('common.back') }}
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           v-if="isManualInputMethod"
           type="button"
           :disabled="!canExchangeCode"
-          class="btn btn-primary"
+          variant="primary"
+          :loading="currentOAuthLoading"
           @click="handleExchangeCode"
         >
-          <svg
-            v-if="currentOAuthLoading"
-            class="-ml-1 mr-2 h-4 w-4 animate-spin"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            ></circle>
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
           {{
             currentOAuthLoading
               ? t('admin.accounts.oauth.verifying')
               : t('admin.accounts.oauth.completeAuth')
           }}
-        </button>
+        </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 
   <!-- Gemini Help Dialog -->
-  <BaseDialog
+  <UiDialog
     :show="showGeminiHelpDialog"
     :title="t('admin.accounts.gemini.helpDialog.title')"
+    :close-label="t('common.close')"
     width="wide"
     @close="showGeminiHelpDialog = false"
   >
@@ -3542,15 +3498,15 @@
 
     <template #footer>
       <div class="flex justify-end">
-        <button @click="showGeminiHelpDialog = false" type="button" class="btn btn-primary">
+        <UiButton type="button" variant="primary" @click="showGeminiHelpDialog = false">
           {{ t('common.close') }}
-        </button>
+        </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 
   <!-- Mixed Channel Warning Dialog -->
-  <ConfirmDialog
+  <UiConfirmDialog
     :show="showMixedChannelWarning"
     :title="t('admin.accounts.mixedChannelWarningTitle')"
     :message="mixedChannelWarningMessageText"
@@ -3599,11 +3555,10 @@ import type {
   OpenAIResponsesMode,
   OpenAIEndpointCapability
 } from '@/types'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select from '@/components/common/Select.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { UiButton, UiConfirmDialog, UiDialog, UiTextArea, UiTextField } from '@/components/ui'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import ProxyAdBanner from '@/components/common/ProxyAdBanner.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'

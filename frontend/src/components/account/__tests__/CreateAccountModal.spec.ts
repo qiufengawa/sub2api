@@ -59,8 +59,8 @@ vi.mock('vue-i18n', async () => {
 
 import CreateAccountModal from '../CreateAccountModal.vue'
 
-const BaseDialogStub = defineComponent({
-  name: 'BaseDialog',
+const UiDialogStub = defineComponent({
+  name: 'UiDialog',
   props: { show: { type: Boolean, default: false } },
   template: '<div v-if="show"><slot /><slot name="footer" /></div>',
 })
@@ -89,9 +89,9 @@ function mountModal() {
     props: { show: true, proxies: [], groups: [] },
     global: {
       stubs: {
-        BaseDialog: BaseDialogStub,
+        UiDialog: UiDialogStub,
         OAuthAuthorizationFlow: OAuthAuthorizationFlowStub,
-        ConfirmDialog: true,
+        UiConfirmDialog: true,
         Select: true,
         Icon: true,
         PlatformIcon: true,
