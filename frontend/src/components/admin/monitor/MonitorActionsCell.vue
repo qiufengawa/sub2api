@@ -1,6 +1,14 @@
 <template>
   <UiButtonGroup :label="t('admin.channelMonitor.columns.actions')">
-    <UiIconButton density="dense" variant="ghost" :label="t('admin.channelMonitor.runNow')" :disabled="running" @click="emit('run', row)">
+    <UiIconButton
+      v-if="canRun"
+      data-testid="monitor-run"
+      density="dense"
+      variant="ghost"
+      :label="t('admin.channelMonitor.runNow')"
+      :disabled="running"
+      @click="emit('run', row)"
+    >
       <Icon name="refresh" size="sm" :class="running ? 'animate-spin' : ''" />
     </UiIconButton>
     <UiIconButton
@@ -24,11 +32,12 @@ import type { ChannelMonitor } from '@/api/admin/channelMonitor'
 import Icon from '@/components/icons/Icon.vue'
 import { UiButtonGroup, UiIconButton } from '@/components/ui'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   row: ChannelMonitor
   running: boolean
   duplicating: boolean
-}>()
+  canRun?: boolean
+}>(), { canRun: true })
 
 const emit = defineEmits<{
   (e: 'run', row: ChannelMonitor): void

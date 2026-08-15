@@ -59,6 +59,7 @@
               :row="row"
               :running="runningId === row.id"
               :duplicating="duplicatingIds.has(row.id)"
+              :can-run="isV1Mode"
               @run="handleRunNow"
               @duplicate="handleDuplicate"
               @edit="openEditDialog"

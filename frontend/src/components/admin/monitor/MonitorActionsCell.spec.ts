@@ -39,6 +39,26 @@ function makeMonitor(overrides: Partial<ChannelMonitor> = {}): ChannelMonitor {
 }
 
 describe('MonitorActionsCell duplicate action', () => {
+  it('keeps the run action available and emits the selected monitor in V1 mode', async () => {
+    const row = makeMonitor()
+    const wrapper = mount(MonitorActionsCell, {
+      props: { row, running: false, duplicating: false, canRun: true },
+    })
+
+    await wrapper.get('[data-testid="monitor-run"]').trigger('click')
+
+    expect(wrapper.emitted('run')).toEqual([[row]])
+  })
+
+  it('hides the unsupported run action for V2 history rows', () => {
+    const wrapper = mount(MonitorActionsCell, {
+      props: { row: makeMonitor(), running: false, duplicating: false, canRun: false },
+    })
+
+    expect(wrapper.find('[data-testid="monitor-run"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="monitor-duplicate"]').exists()).toBe(true)
+  })
+
   it('emits the selected monitor when duplicate is clicked', async () => {
     const row = makeMonitor()
     const wrapper = mount(MonitorActionsCell, {
