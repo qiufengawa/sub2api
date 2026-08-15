@@ -754,37 +754,27 @@
 
         <!-- Tier selection (used as fallback when auto-detection is unavailable/fails) -->
         <div v-if="accountCategory !== 'service_account'" class="mt-4">
-          <label class="input-label">{{ t('admin.accounts.gemini.tier.label') }}</label>
-          <div class="mt-2">
-            <select
-              v-if="geminiOAuthType === 'google_one'"
-              v-model="geminiTierGoogleOne"
-              class="input"
-            >
-              <option value="google_one_free">{{ t('admin.accounts.gemini.tier.googleOne.free') }}</option>
-              <option value="google_ai_pro">{{ t('admin.accounts.gemini.tier.googleOne.pro') }}</option>
-              <option value="google_ai_ultra">{{ t('admin.accounts.gemini.tier.googleOne.ultra') }}</option>
-            </select>
-
-            <select
-              v-else-if="geminiOAuthType === 'code_assist'"
-              v-model="geminiTierGcp"
-              class="input"
-            >
-              <option value="gcp_standard">{{ t('admin.accounts.gemini.tier.gcp.standard') }}</option>
-              <option value="gcp_enterprise">{{ t('admin.accounts.gemini.tier.gcp.enterprise') }}</option>
-            </select>
-
-            <select
-              v-else
-              v-model="geminiTierAIStudio"
-              class="input"
-            >
-              <option value="aistudio_free">{{ t('admin.accounts.gemini.tier.aiStudio.free') }}</option>
-              <option value="aistudio_paid">{{ t('admin.accounts.gemini.tier.aiStudio.paid') }}</option>
-            </select>
-          </div>
-          <p class="input-hint">{{ t('admin.accounts.gemini.tier.hint') }}</p>
+          <UiSelect
+            v-if="geminiOAuthType === 'google_one'"
+            v-model="geminiTierGoogleOne"
+            :label="t('admin.accounts.gemini.tier.label')"
+            :description="t('admin.accounts.gemini.tier.hint')"
+            :options="geminiGoogleOneTierOptions"
+          />
+          <UiSelect
+            v-else-if="geminiOAuthType === 'code_assist'"
+            v-model="geminiTierGcp"
+            :label="t('admin.accounts.gemini.tier.label')"
+            :description="t('admin.accounts.gemini.tier.hint')"
+            :options="geminiGcpTierOptions"
+          />
+          <UiSelect
+            v-else
+            v-model="geminiTierAIStudio"
+            :label="t('admin.accounts.gemini.tier.label')"
+            :description="t('admin.accounts.gemini.tier.hint')"
+            :options="geminiAIStudioTierOptions"
+          />
         </div>
       </div>
 
@@ -1169,14 +1159,13 @@
         </div>
 
         <!-- Gemini API Key tier selection -->
-        <div v-if="form.platform === 'gemini'">
-          <label class="input-label">{{ t('admin.accounts.gemini.tier.label') }}</label>
-          <select v-model="geminiTierAIStudio" class="input">
-            <option value="aistudio_free">{{ t('admin.accounts.gemini.tier.aiStudio.free') }}</option>
-            <option value="aistudio_paid">{{ t('admin.accounts.gemini.tier.aiStudio.paid') }}</option>
-          </select>
-          <p class="input-hint">{{ t('admin.accounts.gemini.tier.aiStudioHint') }}</p>
-        </div>
+        <UiSelect
+          v-if="form.platform === 'gemini'"
+          v-model="geminiTierAIStudio"
+          :label="t('admin.accounts.gemini.tier.label')"
+          :description="t('admin.accounts.gemini.tier.aiStudioHint')"
+          :options="geminiAIStudioTierOptions"
+        />
 
         <!-- Model Restriction Section -->
         <ModelRestrictionEditor
@@ -2405,18 +2394,12 @@
         v-if="form.platform === 'anthropic' && accountCategory === 'apikey'"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.anthropic.apiKeyAuthScheme') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.anthropic.apiKeyAuthSchemeDesc') }}
-            </p>
-          </div>
-          <select v-model="anthropicAPIKeyAuthScheme" class="input w-52 text-sm">
-            <option value="x_api_key">{{ t('admin.accounts.anthropic.apiKeyAuthSchemeXApiKey') }}</option>
-            <option value="authorization_bearer">{{ t('admin.accounts.anthropic.apiKeyAuthSchemeBearer') }}</option>
-          </select>
-        </div>
+        <UiSelect
+          v-model="anthropicAPIKeyAuthScheme"
+          :label="t('admin.accounts.anthropic.apiKeyAuthScheme')"
+          :description="t('admin.accounts.anthropic.apiKeyAuthSchemeDesc')"
+          :options="anthropicAPIKeyAuthSchemeOptions"
+        />
       </div>
 
       <!-- Anthropic API Key: Web Search Emulation (hidden when global disabled) -->
@@ -2424,19 +2407,12 @@
         v-if="form.platform === 'anthropic' && accountCategory === 'apikey' && webSearchGlobalEnabled"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
-        <div class="flex items-center justify-between">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.anthropic.webSearchEmulation') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.anthropic.webSearchEmulationDesc') }}
-            </p>
-          </div>
-          <select v-model="webSearchEmulationMode" class="input w-24 text-sm">
-            <option value="default">{{ t('admin.accounts.anthropic.webSearchDefault') }}</option>
-            <option value="enabled">{{ t('admin.accounts.anthropic.webSearchEnabled') }}</option>
-            <option value="disabled">{{ t('admin.accounts.anthropic.webSearchDisabled') }}</option>
-          </select>
-        </div>
+        <UiSelect
+          v-model="webSearchEmulationMode"
+          :label="t('admin.accounts.anthropic.webSearchEmulation')"
+          :description="t('admin.accounts.anthropic.webSearchEmulationDesc')"
+          :options="webSearchEmulationOptions"
+        />
       </div>
 
       <!-- OpenAI OAuth Codex 官方客户端限制开关 -->
@@ -3307,6 +3283,15 @@ const anthropicPassthroughEnabled = ref(false)
 const anthropicAPIKeyAuthScheme = ref<AnthropicAPIKeyAuthScheme>('x_api_key')
 const webSearchEmulationMode = ref('default')
 const webSearchGlobalEnabled = ref(false)
+const anthropicAPIKeyAuthSchemeOptions = computed(() => [
+  { value: 'x_api_key' as AnthropicAPIKeyAuthScheme, label: t('admin.accounts.anthropic.apiKeyAuthSchemeXApiKey') },
+  { value: 'authorization_bearer' as AnthropicAPIKeyAuthScheme, label: t('admin.accounts.anthropic.apiKeyAuthSchemeBearer') }
+])
+const webSearchEmulationOptions = computed(() => [
+  { value: 'default', label: t('admin.accounts.anthropic.webSearchDefault') },
+  { value: 'enabled', label: t('admin.accounts.anthropic.webSearchEnabled') },
+  { value: 'disabled', label: t('admin.accounts.anthropic.webSearchDisabled') }
+])
 
 const toggleOpenAILongContextBilling = () => {
   openAILongContextBillingEnabled.value = !openAILongContextBillingEnabled.value
@@ -3471,6 +3456,19 @@ const customBaseUrl = ref('')
 const geminiTierGoogleOne = ref<'google_one_free' | 'google_ai_pro' | 'google_ai_ultra'>('google_one_free')
 const geminiTierGcp = ref<'gcp_standard' | 'gcp_enterprise'>('gcp_standard')
 const geminiTierAIStudio = ref<'aistudio_free' | 'aistudio_paid'>('aistudio_free')
+const geminiGoogleOneTierOptions = computed(() => [
+  { value: 'google_one_free', label: t('admin.accounts.gemini.tier.googleOne.free') },
+  { value: 'google_ai_pro', label: t('admin.accounts.gemini.tier.googleOne.pro') },
+  { value: 'google_ai_ultra', label: t('admin.accounts.gemini.tier.googleOne.ultra') }
+])
+const geminiGcpTierOptions = computed(() => [
+  { value: 'gcp_standard', label: t('admin.accounts.gemini.tier.gcp.standard') },
+  { value: 'gcp_enterprise', label: t('admin.accounts.gemini.tier.gcp.enterprise') }
+])
+const geminiAIStudioTierOptions = computed(() => [
+  { value: 'aistudio_free', label: t('admin.accounts.gemini.tier.aiStudio.free') },
+  { value: 'aistudio_paid', label: t('admin.accounts.gemini.tier.aiStudio.paid') }
+])
 
 const geminiSelectedTier = computed(() => {
   if (form.platform !== 'gemini') return ''

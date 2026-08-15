@@ -1142,18 +1142,12 @@
         v-if="account?.platform === 'anthropic' && account?.type === 'apikey'"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.anthropic.apiKeyAuthScheme') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.anthropic.apiKeyAuthSchemeDesc') }}
-            </p>
-          </div>
-          <select v-model="anthropicAPIKeyAuthScheme" class="input w-52 text-sm">
-            <option value="x_api_key">{{ t('admin.accounts.anthropic.apiKeyAuthSchemeXApiKey') }}</option>
-            <option value="authorization_bearer">{{ t('admin.accounts.anthropic.apiKeyAuthSchemeBearer') }}</option>
-          </select>
-        </div>
+        <UiSelect
+          v-model="anthropicAPIKeyAuthScheme"
+          :label="t('admin.accounts.anthropic.apiKeyAuthScheme')"
+          :description="t('admin.accounts.anthropic.apiKeyAuthSchemeDesc')"
+          :options="anthropicAPIKeyAuthSchemeOptions"
+        />
       </div>
 
       <!-- Anthropic API Key: Web Search Emulation (hidden when global disabled) -->
@@ -1161,19 +1155,12 @@
         v-if="account?.platform === 'anthropic' && account?.type === 'apikey' && webSearchGlobalEnabled"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
-        <div class="flex items-center justify-between">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.anthropic.webSearchEmulation') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.anthropic.webSearchEmulationDesc') }}
-            </p>
-          </div>
-          <select v-model="webSearchEmulationMode" class="input w-24 text-sm">
-            <option value="default">{{ t('admin.accounts.anthropic.webSearchDefault') }}</option>
-            <option value="enabled">{{ t('admin.accounts.anthropic.webSearchEnabled') }}</option>
-            <option value="disabled">{{ t('admin.accounts.anthropic.webSearchDisabled') }}</option>
-          </select>
-        </div>
+        <UiSelect
+          v-model="webSearchEmulationMode"
+          :label="t('admin.accounts.anthropic.webSearchEmulation')"
+          :description="t('admin.accounts.anthropic.webSearchEmulationDesc')"
+          :options="webSearchEmulationOptions"
+        />
       </div>
 
       <!-- 配额控制 (Anthropic apikey/bedrock: 配额限制 + 亲和) -->
@@ -2190,6 +2177,15 @@ const anthropicPassthroughEnabled = ref(false)
 const anthropicAPIKeyAuthScheme = ref<AnthropicAPIKeyAuthScheme>('x_api_key')
 const webSearchEmulationMode = ref('default')
 const webSearchGlobalEnabled = ref(false)
+const anthropicAPIKeyAuthSchemeOptions = computed(() => [
+  { value: 'x_api_key' as AnthropicAPIKeyAuthScheme, label: t('admin.accounts.anthropic.apiKeyAuthSchemeXApiKey') },
+  { value: 'authorization_bearer' as AnthropicAPIKeyAuthScheme, label: t('admin.accounts.anthropic.apiKeyAuthSchemeBearer') }
+])
+const webSearchEmulationOptions = computed(() => [
+  { value: 'default', label: t('admin.accounts.anthropic.webSearchDefault') },
+  { value: 'enabled', label: t('admin.accounts.anthropic.webSearchEnabled') },
+  { value: 'disabled', label: t('admin.accounts.anthropic.webSearchDisabled') }
+])
 const {
   globalEnabled: quotaNotifyGlobalEnabled,
   state: quotaNotifyState,
