@@ -1,18 +1,19 @@
 <template>
-  <div class="flex h-full min-h-0 flex-col">
-    <div class="flex min-h-0 flex-1 flex-col overflow-hidden" :class="flat ? '' : 'card'">
+  <div class="ops-error-log">
+    <div class="ops-error-log__table" :class="{ 'ops-error-log__table--framed': !flat }">
       <IpGeoBatchToolbar :ips="rows.map((r) => r.client_ip)" @failed="emit('ipGeoBatchFailed')" />
 
-      <DataTable
+      <UiDataTable
         :columns="columns"
         :data="rows"
         :loading="loading"
+        :mobile-table="true"
         clickable-rows
         server-side-sort
         default-sort-key="created_at"
         default-sort-order="desc"
         @sort="onSort"
-        @rowClick="(row) => emit('openErrorDetail', row.id)"
+        @row-click="(row) => emit('openErrorDetail', row.id)"
       >
         <template #cell-created_at="{ row }">
           <span
@@ -22,9 +23,7 @@
         </template>
 
         <template #cell-type="{ row }">
-          <span class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium" :class="getTypeBadge(row).className">
-            {{ getTypeBadge(row).label }}
-          </span>
+          <UiBadge :tone="getTypeBadge(row).tone" :label="getTypeBadge(row).label" />
         </template>
 
         <template #cell-endpoint="{ row }">
@@ -54,13 +53,12 @@
         </template>
 
         <template #cell-group="{ row }">
-          <span
+          <UiBadge
             v-if="row.group_id"
-            class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200"
+            tone="info"
+            :label="row.group_name || '#' + row.group_id"
             :title="t('admin.ops.errorLog.id') + ' ' + row.group_id"
-          >
-            {{ row.group_name || '#' + row.group_id }}
-          </span>
+          />
           <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
         </template>
 
@@ -68,7 +66,7 @@
           <div v-if="row.user_id" class="text-sm">
             <button
               v-if="userClickable && row.user_email"
-              class="font-medium text-primary-600 underline decoration-dashed underline-offset-2 transition-colors hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+              class="ops-error-log__user-button"
               :title="t('admin.usage.clickToViewBalance')"
               @click.stop="emit('userClick', row.user_id, row.user_email)"
             >
@@ -83,10 +81,12 @@
         <template #cell-api_key="{ row }">
           <div v-if="row.api_key_id || row.api_key_name" class="text-sm">
             <span class="text-gray-900 dark:text-white">{{ row.api_key_name || '#' + row.api_key_id }}</span>
-            <span
+            <UiBadge
               v-if="row.api_key_deleted"
-              class="ml-1 inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-rose-100 text-rose-600 ring-1 ring-inset ring-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:ring-rose-500/30"
-            >{{ t('admin.ops.errorLog.keyDeletedBadge') }}</span>
+              class="ops-error-log__inline-badge"
+              tone="danger"
+              :label="t('admin.ops.errorLog.keyDeletedBadge')"
+            />
           </div>
           <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
         </template>
@@ -108,17 +108,17 @@
 
         <template #cell-status="{ row }">
           <div class="flex items-center gap-1.5">
-            <span class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium" :class="getStatusClass(row.status_code)">
-              {{ row.status_code }}
-            </span>
-            <span
+            <UiBadge :tone="getStatusTone(row.status_code)" :label="String(row.status_code)" />
+            <UiBadge
               v-if="row.severity"
-              :class="['rounded px-1.5 py-0.5 text-[10px] font-medium', getSeverityClass(row.severity)]"
-            >{{ row.severity }}</span>
-            <span
+              :tone="getSeverityTone(row.severity)"
+              :label="row.severity"
+            />
+            <UiBadge
               v-if="row.request_type != null && row.request_type > 0"
-              class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-800 dark:bg-dark-700 dark:text-gray-200"
-            >{{ formatRequestType(row.request_type) }}</span>
+              tone="neutral"
+              :label="formatRequestType(row.request_type)"
+            />
           </div>
         </template>
 
@@ -151,28 +151,29 @@
         </template>
 
         <template #cell-actions="{ row }">
-          <button
-            type="button"
-            class="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-600 dark:hover:text-primary-400"
-            :title="t('admin.ops.errorLog.details')"
+          <UiIconButton
+            icon="document"
+            density="dense"
+            variant="ghost"
+            :label="t('admin.ops.errorLog.details')"
             @click.stop="emit('openErrorDetail', row.id)"
-          >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-          </button>
+          />
         </template>
 
-        <template #empty><EmptyState :message="t('admin.ops.errorLog.noErrors')" /></template>
-      </DataTable>
+        <template #empty><UiEmptyState :title="t('admin.ops.errorLog.noErrors')" /></template>
+      </UiDataTable>
     </div>
 
-    <div class="flex-shrink-0">
-      <Pagination
+    <div class="ops-error-log__pagination">
+      <UiPagination
         v-if="total > 0"
         :total="total"
         :page="page"
         :page-size="pageSize"
+        :page-size-options="pageSizeOptions"
+        :reset-page-on-page-size-change="false"
         @update:page="emit('update:page', $event)"
-        @update:pageSize="emit('update:pageSize', $event)"
+        @update:page-size="onPageSizeChange"
       />
     </div>
   </div>
@@ -181,16 +182,22 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import DataTable from '@/components/common/DataTable.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
-import Pagination from '@/components/common/Pagination.vue'
 import IpGeoCell from '@/components/common/IpGeoCell.vue'
 import IpGeoBatchToolbar from '@/components/common/IpGeoBatchToolbar.vue'
 import type { OpsErrorLog } from '@/api/admin/ops'
-import type { Column } from '@/components/common/types'
-import { getSeverityClass, formatDateTime } from '../utils/opsFormatters'
+import {
+  UiBadge,
+  UiDataTable,
+  UiEmptyState,
+  UiIconButton,
+  UiPagination,
+  type Column,
+} from '@/components/ui'
+import { formatDateTime } from '../utils/opsFormatters'
 import { mapErrorCategory } from '@/utils/errorCategory'
-import { mapErrorSortKey, statusCodeBadgeClass } from '@/utils/errorBadges'
+import { mapErrorSortKey } from '@/utils/errorBadges'
+import { getConfiguredTablePageSizeOptions, normalizeTablePageSize } from '@/utils/tablePreferences'
+import { setPersistedPageSize } from '@/composables/usePersistedPageSize'
 
 const { t } = useI18n()
 
@@ -251,31 +258,33 @@ function formatRequestType(type: number | null | undefined): string {
 }
 
 // 徽章配色对齐用量明细(UsageTable)的 bg-X-100/text-X-800 体系
-function getTypeBadge(log: OpsErrorLog): { label: string; className: string } {
+type BadgeTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info'
+
+function getTypeBadge(log: OpsErrorLog): { label: string; tone: BadgeTone } {
   const phase = String(log.phase || '').toLowerCase()
   const owner = String(log.error_owner || '').toLowerCase()
 
   if (isUpstreamRow(log)) {
-    return { label: t('admin.ops.errorLog.typeUpstream'), className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' }
+    return { label: t('admin.ops.errorLog.typeUpstream'), tone: 'danger' }
   }
   if (phase === 'request' && owner === 'client') {
-    return { label: t('admin.ops.errorLog.typeRequest'), className: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' }
+    return { label: t('admin.ops.errorLog.typeRequest'), tone: 'warning' }
   }
   if (phase === 'auth' && owner === 'client') {
-    return { label: t('admin.ops.errorLog.typeAuth'), className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' }
+    return { label: t('admin.ops.errorLog.typeAuth'), tone: 'info' }
   }
   if (phase === 'account_auth') {
-    return { label: t('admin.ops.errorLog.typeAccountAuth'), className: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' }
+    return { label: t('admin.ops.errorLog.typeAccountAuth'), tone: 'warning' }
   }
   if (phase === 'routing' && owner === 'platform') {
-    return { label: t('admin.ops.errorLog.typeRouting'), className: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' }
+    return { label: t('admin.ops.errorLog.typeRouting'), tone: 'info' }
   }
   if (phase === 'internal' && owner === 'platform') {
-    return { label: t('admin.ops.errorLog.typeInternal'), className: 'bg-gray-100 text-gray-800 dark:bg-dark-700 dark:text-gray-200' }
+    return { label: t('admin.ops.errorLog.typeInternal'), tone: 'neutral' }
   }
 
   const fallback = phase || owner || t('common.unknown')
-  return { label: fallback, className: 'bg-gray-100 text-gray-800 dark:bg-dark-700 dark:text-gray-200' }
+  return { label: fallback, tone: 'neutral' }
 }
 
 interface Props {
@@ -303,12 +312,33 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+const pageSizeOptions = computed(() => Array.from(new Set([
+  ...getConfiguredTablePageSizeOptions(),
+  normalizeTablePageSize(props.pageSize),
+])).sort((a, b) => a - b))
 
 function onSort(key: string, order: 'asc' | 'desc') {
   emit('sort', mapErrorSortKey(key), order)
 }
 
-const getStatusClass = statusCodeBadgeClass
+function getStatusTone(code: number): BadgeTone {
+  if (code >= 500) return 'danger'
+  if (code === 429) return 'info'
+  if (code >= 400) return 'warning'
+  return 'neutral'
+}
+
+function getSeverityTone(severity: string): BadgeTone {
+  if (severity === 'P0') return 'danger'
+  if (severity === 'P1' || severity === 'P2') return 'warning'
+  return 'info'
+}
+
+function onPageSizeChange(value: number) {
+  const normalized = normalizeTablePageSize(value)
+  setPersistedPageSize(normalized)
+  emit('update:pageSize', normalized)
+}
 
 function formatSmartMessage(msg: string): string {
   if (!msg) return ''
@@ -332,3 +362,50 @@ function formatSmartMessage(msg: string): string {
   return msg.length > 200 ? msg.substring(0, 200) + '...' : msg
 }
 </script>
+
+<style scoped>
+.ops-error-log {
+  display: flex;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+}
+
+.ops-error-log__table {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ops-error-log__table--framed {
+  border: 1px solid var(--ui-border-soft);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-surface);
+}
+
+.ops-error-log__pagination {
+  flex-shrink: 0;
+}
+
+.ops-error-log__user-button {
+  padding: 0;
+  border: 0;
+  color: var(--ui-text);
+  background: transparent;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--ui-border);
+  text-decoration-style: dashed;
+  text-underline-offset: 3px;
+}
+
+.ops-error-log__user-button:hover {
+  text-decoration-color: currentColor;
+}
+
+.ops-error-log__inline-badge {
+  margin-left: 4px;
+}
+</style>

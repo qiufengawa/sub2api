@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import OpsErrorLogTable from '../OpsErrorLogTable.vue'
+import { UiDataTable, UiPagination } from '@/components/ui'
 import zhLocale from '@/i18n/locales/zh'
 import enLocale from '@/i18n/locales/en'
 import type { OpsErrorLog } from '@/api/admin/ops'
@@ -45,6 +46,10 @@ function mountTable(row: Partial<OpsErrorLog>) {
 }
 
 describe('OpsErrorLogTable user/api-key/account columns', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
   // 回归:上游错误行(phase=upstream, owner=provider)以前在单一「用户」列里只显示账号、
   // 丢失用户;现在用户/API Key/账号各占独立列,三者同时可见。
   it('renders user, api key and account in separate columns for an upstream row', () => {
@@ -72,6 +77,28 @@ describe('OpsErrorLogTable user/api-key/account columns', () => {
 
     expect(wrapper.text()).toContain('old-key')
     expect(wrapper.text()).toContain('admin.ops.errorLog.keyDeletedBadge')
+  })
+
+  it('keeps the dense mobile experience as a horizontally scrollable table', () => {
+    const wrapper = mountTable({})
+
+    expect(wrapper.getComponent(UiDataTable).props('mobileTable')).toBe(true)
+  })
+
+  it('keeps server sort keys and pagination preferences compatible', async () => {
+    const wrapper = mountTable({})
+    const table = wrapper.getComponent(UiDataTable)
+    const pagination = wrapper.getComponent(UiPagination)
+
+    table.vm.$emit('sort', 'status', 'asc')
+    pagination.vm.$emit('update:page', 2)
+    pagination.vm.$emit('update:pageSize', 33)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.emitted('sort')).toEqual([['status_code', 'asc']])
+    expect(wrapper.emitted('update:page')).toEqual([[2]])
+    expect(wrapper.emitted('update:pageSize')).toEqual([[50]])
+    expect(localStorage.getItem('table-page-size')).toBe('50')
   })
 })
 
