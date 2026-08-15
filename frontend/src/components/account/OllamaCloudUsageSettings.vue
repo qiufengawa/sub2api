@@ -1,134 +1,119 @@
 <template>
-  <section v-if="state?.eligible" class="space-y-4 border-t border-gray-200 pt-4 dark:border-dark-600" data-testid="ollama-cloud-usage-settings">
-    <div class="flex items-start justify-between gap-4">
+  <section v-if="state?.eligible" class="ollama-usage" data-testid="ollama-cloud-usage-settings">
+    <div class="ollama-usage__header">
       <div>
-        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+        <h3>
           {{ t('admin.accounts.ollamaCloud.title') }}
         </h3>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        <p>
           {{ t('admin.accounts.ollamaCloud.sessionSecurityHint') }}
         </p>
       </div>
-      <span
-        class="whitespace-nowrap rounded px-2 py-1 text-xs font-medium"
-        :class="state.configured
-          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-          : 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300'"
-      >
-        {{ state.configured ? t('admin.accounts.ollamaCloud.configured') : t('admin.accounts.ollamaCloud.notConfigured') }}
-      </span>
+      <UiBadge
+        :tone="state.configured ? 'success' : 'neutral'"
+        :label="state.configured ? t('admin.accounts.ollamaCloud.configured') : t('admin.accounts.ollamaCloud.notConfigured')"
+        dot
+      />
     </div>
 
-    <div v-if="loading" class="flex h-20 items-center justify-center text-gray-400">
-      <Icon name="refresh" size="sm" class="animate-spin" />
+    <div v-if="loading" class="ollama-usage__loading">
+      <UiSpinner :label="t('common.loading')" />
     </div>
-    <template v-else>
-      <div v-if="!state.encryption_key_configured" class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-200">
+    <AppStack v-else :gap="14">
+      <UiAlert v-if="!state.encryption_key_configured" tone="warning">
         {{ t('admin.accounts.ollamaCloud.encryptionKeyRequired') }}
-      </div>
+      </UiAlert>
 
       <div
         v-if="snapshot"
-        class="border-y border-gray-100 py-3 dark:border-dark-700"
         data-testid="ollama-cloud-usage-details"
       >
-        <div class="grid grid-cols-[minmax(4rem,auto)_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-xs">
-          <span class="text-gray-500 dark:text-gray-400">{{ t('admin.accounts.ollamaCloud.plan') }}</span>
-          <span class="break-words text-gray-900 dark:text-white">{{ snapshot.data?.plan || '-' }}</span>
-          <span class="text-gray-500 dark:text-gray-400">{{ t('admin.accounts.ollamaCloud.fiveHour') }}</span>
-          <span class="break-words text-gray-900 dark:text-white">{{ windowSummary(snapshot.data?.five_hour) }}</span>
-          <span class="text-gray-500 dark:text-gray-400">{{ t('admin.accounts.ollamaCloud.sevenDay') }}</span>
-          <span class="break-words text-gray-900 dark:text-white">{{ windowSummary(snapshot.data?.seven_day) }}</span>
-          <span class="text-gray-500 dark:text-gray-400">{{ t('admin.accounts.ollamaCloud.balance') }}</span>
-          <span class="break-words text-gray-900 dark:text-white">{{ snapshot.data?.balance || '-' }}</span>
-          <span class="text-gray-500 dark:text-gray-400">{{ t('admin.accounts.ollamaCloud.models') }}</span>
-          <span class="break-words text-gray-900 dark:text-white">{{ modelSummary }}</span>
-          <span class="text-gray-500 dark:text-gray-400">{{ t('admin.accounts.ollamaCloud.status') }}</span>
-          <span class="break-words font-medium text-gray-900 dark:text-white">{{ statusLabel }}</span>
-          <span class="text-gray-500 dark:text-gray-400">{{ t('admin.accounts.ollamaCloud.updatedAt') }}</span>
-          <span class="break-words text-gray-900 dark:text-white">{{ formatDate(snapshot.fetched_at || snapshot.last_attempt_at) }}</span>
-        </div>
-        <p v-if="snapshot.last_error" class="mt-2 break-words border-t border-gray-100 pt-2 text-xs text-amber-700 dark:border-dark-700 dark:text-amber-300">
+        <UiDescriptionList :items="detailItems" :columns="1">
+          <template #status>
+            <UiStatusBadge :status="statusTone" :label="statusLabel" />
+          </template>
+        </UiDescriptionList>
+        <UiAlert v-if="snapshot.last_error" class="ollama-usage__error" tone="warning">
           {{ t(`admin.accounts.ollamaCloud.errors.${snapshot.last_error}`, snapshot.last_error) }}
-        </p>
+        </UiAlert>
       </div>
 
-      <div>
-        <label class="input-label" for="ollama-cloud-session">{{ t('admin.accounts.ollamaCloud.sessionLabel') }}</label>
-        <textarea
-          id="ollama-cloud-session"
-          v-model="session"
-          rows="3"
-          class="input font-mono text-xs"
-          autocomplete="new-password"
-          data-1p-ignore
-          data-lpignore="true"
-          data-bwignore="true"
-          :placeholder="t('admin.accounts.ollamaCloud.sessionPlaceholder')"
-        />
-        <p class="input-hint">{{ t('admin.accounts.ollamaCloud.writeOnlyHint') }}</p>
-      </div>
+      <UiTextArea
+        id="ollama-cloud-session"
+        v-model="session"
+        :rows="3"
+        :label="t('admin.accounts.ollamaCloud.sessionLabel')"
+        :description="t('admin.accounts.ollamaCloud.writeOnlyHint')"
+        :placeholder="t('admin.accounts.ollamaCloud.sessionPlaceholder')"
+        autocomplete="new-password"
+        data-1p-ignore
+        data-lpignore="true"
+        data-bwignore="true"
+        monospace
+      />
 
-      <div class="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          class="btn btn-primary btn-sm"
+      <AppInline :gap="8">
+        <UiButton
+          variant="primary"
+          density="compact"
+          :loading="saving"
           :disabled="saving || !session.trim() || !state.encryption_key_configured"
           data-testid="ollama-cloud-session-save"
           @click="saveSession"
         >
-          <Icon name="check" size="xs" class="mr-1.5" />
+          <template #icon><Icon name="check" size="xs" /></template>
           {{ t('common.save') }}
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           v-if="state.configured"
-          type="button"
-          class="btn btn-secondary btn-sm text-red-600 dark:text-red-400"
+          variant="danger"
+          density="compact"
           :disabled="saving"
           data-testid="ollama-cloud-session-delete"
           @click="showDeleteConfirm = true"
         >
-          <Icon name="trash" size="xs" class="mr-1.5" />
+          <template #icon><Icon name="trash" size="xs" /></template>
           {{ t('admin.accounts.ollamaCloud.deleteSession') }}
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           v-if="state.configured"
-          type="button"
-          class="btn btn-secondary btn-sm"
-          :disabled="refreshing"
+          density="compact"
+          :loading="refreshing"
           data-testid="ollama-cloud-refresh"
           @click="refreshUsage"
         >
-          <Icon name="refresh" size="xs" class="mr-1.5" :class="{ 'animate-spin': refreshing }" />
+          <template #icon><Icon v-if="!refreshing" name="refresh" size="xs" /></template>
           {{ t('admin.accounts.ollamaCloud.refreshNow') }}
-        </button>
-      </div>
+        </UiButton>
+      </AppInline>
 
-      <div v-if="state.configured" class="flex items-center justify-between gap-4 border-t border-gray-100 pt-4 dark:border-dark-700">
+      <div v-if="state.configured" class="ollama-usage__switch-row">
         <div>
-          <label class="text-sm font-medium text-gray-900 dark:text-white">
+          <strong>
             {{ t('admin.accounts.ollamaCloud.autoRefresh') }}
-          </label>
-          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          </strong>
+          <p>
             {{ t('admin.accounts.ollamaCloud.autoRefreshHint') }}
           </p>
         </div>
-        <Toggle
+        <UiSwitch
           :model-value="state.auto_refresh_enabled"
+          :label="t('admin.accounts.ollamaCloud.autoRefresh')"
           :disabled="saving"
           data-testid="ollama-cloud-auto-refresh"
           @update:model-value="setAutoRefresh"
         />
       </div>
-    </template>
+    </AppStack>
 
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showDeleteConfirm"
       :title="t('admin.accounts.ollamaCloud.deleteSession')"
       :message="t('admin.accounts.ollamaCloud.deleteConfirm')"
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
       :danger="true"
+      :pending="saving"
       @confirm="deleteSession"
       @cancel="showDeleteConfirm = false"
     />
@@ -142,9 +127,20 @@ import { adminAPI } from '@/api/admin'
 import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import type { Account, OllamaCloudUsageState, OllamaCloudUsageWindow } from '@/types'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  AppInline,
+  AppStack,
+  UiAlert,
+  UiBadge,
+  UiButton,
+  UiConfirmDialog,
+  UiDescriptionList,
+  UiSpinner,
+  UiStatusBadge,
+  UiSwitch,
+  UiTextArea
+} from '@/components/ui'
 
 const props = defineProps<{ account: Account }>()
 const emit = defineEmits<{ updated: [state: OllamaCloudUsageState] }>()
@@ -162,6 +158,13 @@ const statusLabel = computed(() => {
   if (snapshot.value.status === 'unauthorized') return t('admin.accounts.ollamaCloud.unauthorized')
   if (snapshot.value.status === 'failed') return t('admin.accounts.ollamaCloud.failed')
   return t('admin.accounts.ollamaCloud.ok')
+})
+const statusTone = computed(() => {
+  if (!snapshot.value) return 'neutral'
+  if (snapshot.value.status === 'ok') return 'success'
+  if (snapshot.value.status === 'unauthorized') return 'warning'
+  if (snapshot.value.status === 'failed') return 'failed'
+  return 'neutral'
 })
 const modelSummary = computed(() => snapshot.value?.data?.models?.map(model => {
   const window = model.window === 'five_hour'
@@ -185,6 +188,15 @@ const windowSummary = (window?: OllamaCloudUsageWindow) => {
     ? t('admin.accounts.ollamaCloud.windowWithReset', { percent: formatPercent(window.used_percent), reset })
     : formatPercent(window.used_percent)
 }
+const detailItems = computed(() => [
+  { key: 'plan', label: t('admin.accounts.ollamaCloud.plan'), value: snapshot.value?.data?.plan || '-' },
+  { key: 'fiveHour', label: t('admin.accounts.ollamaCloud.fiveHour'), value: windowSummary(snapshot.value?.data?.five_hour) },
+  { key: 'sevenDay', label: t('admin.accounts.ollamaCloud.sevenDay'), value: windowSummary(snapshot.value?.data?.seven_day) },
+  { key: 'balance', label: t('admin.accounts.ollamaCloud.balance'), value: snapshot.value?.data?.balance || '-' },
+  { key: 'models', label: t('admin.accounts.ollamaCloud.models'), value: modelSummary.value },
+  { key: 'status', label: t('admin.accounts.ollamaCloud.status'), value: statusLabel.value },
+  { key: 'updatedAt', label: t('admin.accounts.ollamaCloud.updatedAt'), value: formatDate(snapshot.value?.fetched_at || snapshot.value?.last_attempt_at) }
+])
 
 const applyState = (next: OllamaCloudUsageState) => {
   state.value = next
@@ -268,3 +280,14 @@ onMounted(() => {
   if (!state.value) void load()
 })
 </script>
+
+<style scoped>
+.ollama-usage{display:flex;min-width:0;flex-direction:column;gap:14px;padding-top:16px;border-top:1px solid var(--ui-border-soft)}
+.ollama-usage__header,.ollama-usage__switch-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.ollama-usage__header h3,.ollama-usage__switch-row strong{margin:0;color:var(--ui-text);font-size:13px;font-weight:600;line-height:20px}
+.ollama-usage__header p,.ollama-usage__switch-row p{margin:2px 0 0;color:var(--ui-text-muted);font-size:12px;line-height:20px}
+.ollama-usage__loading{display:flex;min-height:80px;align-items:center;justify-content:center;color:var(--ui-text-soft)}
+.ollama-usage__error{margin-top:10px}
+.ollama-usage__switch-row{align-items:center;padding-top:14px;border-top:1px solid var(--ui-border-soft)}
+@media(max-width:520px){.ollama-usage__header{align-items:flex-start}.ollama-usage__switch-row{gap:12px}}
+</style>

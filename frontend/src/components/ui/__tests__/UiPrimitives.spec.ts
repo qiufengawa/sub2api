@@ -64,6 +64,25 @@ describe('Qiu UI primitive contracts', () => {
     expect(wrapper.get('textarea').classes()).toContain('ui-textarea--mono')
   })
 
+  it('forwards native and password-manager attributes to the textarea element', () => {
+    const wrapper = mount(UiTextArea, {
+      props: { modelValue: '' },
+      attrs: {
+        autocomplete: 'new-password',
+        'data-1p-ignore': '',
+        'data-lpignore': 'true',
+        'aria-label': 'Session'
+      }
+    })
+
+    const textarea = wrapper.get('textarea')
+    expect(textarea.attributes('autocomplete')).toBe('new-password')
+    expect(textarea.attributes('data-1p-ignore')).toBe('')
+    expect(textarea.attributes('data-lpignore')).toBe('true')
+    expect(textarea.attributes('aria-label')).toBe('Session')
+    expect(wrapper.get('.ui-form-field').attributes('autocomplete')).toBeUndefined()
+  })
+
   it('emits the selected segmented value', async () => {
     const wrapper = mount(UiSegmentedControl, { props: { modelValue: 'list', label: '视图', options: [{ label: '列表', value: 'list' }, { label: '图表', value: 'chart' }] } })
     await wrapper.findAll('button')[1].trigger('click')

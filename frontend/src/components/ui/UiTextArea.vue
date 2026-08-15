@@ -1,8 +1,9 @@
-<template><UiFormField :for-id="id" :label="label" :description="description" :error="error" :required="required"><div class="ui-textarea-shell"><textarea ref="textarea" :id="id" :value="modelValue ?? ''" :rows="rows" :maxlength="maxlength" :placeholder="placeholder" :disabled="disabled" :readonly="readonly" :required="required" class="ui-textarea ui-focus-ring" :class="{'ui-textarea--mono':monospace}" @input="onInput" @change="emit('change',($event.target as HTMLTextAreaElement).value)" @blur="emit('blur',$event)" @focus="emit('focus',$event)"/><span v-if="maxlength" class="ui-textarea__count ui-numeric">{{ String(modelValue??'').length }}/{{ maxlength }}</span></div></UiFormField></template>
+<template><UiFormField :for-id="id" :label="label" :description="description" :error="error" :required="required"><div class="ui-textarea-shell"><textarea ref="textarea" v-bind="nativeAttrs" :id="id" :value="modelValue ?? ''" :rows="rows" :maxlength="maxlength" :placeholder="placeholder" :disabled="disabled" :readonly="readonly" :required="required" class="ui-textarea ui-focus-ring" :class="{'ui-textarea--mono':monospace}" @input="onInput" @change="emit('change',($event.target as HTMLTextAreaElement).value)" @blur="emit('blur',$event)" @focus="emit('focus',$event)"/><span v-if="maxlength" class="ui-textarea__count ui-numeric">{{ String(modelValue??'').length }}/{{ maxlength }}</span></div></UiFormField></template>
 <script setup lang="ts">
 
-import { ref } from 'vue';
+import { computed, ref, useAttrs } from 'vue';
 import UiFormField from './UiFormField.vue';
+defineOptions({ inheritAttrs: false });
 withDefaults(defineProps<{modelValue?:string|null;
 id?:string;
 label?:string;
@@ -17,6 +18,8 @@ maxlength?:number;
 monospace?:boolean}>(),{rows:3,monospace:false});
 const emit=defineEmits<{ 'update:modelValue':[string];change:[string];blur:[FocusEvent];focus:[FocusEvent]}>();
 const textarea=ref<HTMLTextAreaElement>();
+const attrs=useAttrs();
+const nativeAttrs=computed(()=>Object.fromEntries(Object.entries(attrs).filter(([key])=>key!=='class'&&key!=='style')));
 function onInput(event:Event){emit('update:modelValue',(event.target as HTMLTextAreaElement).value)}
 defineExpose({focus:()=>textarea.value?.focus(),select:()=>textarea.value?.select()})
 
