@@ -1,40 +1,20 @@
 <template>
-  <div class="flex items-center gap-1">
-    <button
-      @click="$emit('run', row)"
-      :disabled="running"
-      class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-400"
-    >
+  <UiButtonGroup :label="t('admin.channelMonitor.columns.actions')">
+    <UiIconButton density="dense" variant="ghost" :label="t('admin.channelMonitor.runNow')" :disabled="running" @click="emit('run', row)">
       <Icon name="refresh" size="sm" :class="running ? 'animate-spin' : ''" />
-      <span class="text-xs">{{ t('admin.channelMonitor.runNow') }}</span>
-    </button>
-    <button
+    </UiIconButton>
+    <UiIconButton
       data-testid="monitor-duplicate"
-      :title="duplicateTitle"
+      icon="copy"
+      density="dense"
+      variant="ghost"
+      :label="duplicateTitle"
       :disabled="duplicating || Boolean(row.api_key_decrypt_failed)"
-      @click="$emit('duplicate', row)"
-      class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-dark-700 dark:hover:text-primary-400"
-    >
-      <Icon name="copy" size="sm" />
-      <span class="text-xs">
-        {{ duplicating ? t('admin.channelMonitor.duplicating') : t('admin.channelMonitor.duplicate') }}
-      </span>
-    </button>
-    <button
-      @click="$emit('edit', row)"
-      class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-400"
-    >
-      <Icon name="edit" size="sm" />
-      <span class="text-xs">{{ t('common.edit') }}</span>
-    </button>
-    <button
-      @click="$emit('delete', row)"
-      class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-    >
-      <Icon name="trash" size="sm" />
-      <span class="text-xs">{{ t('common.delete') }}</span>
-    </button>
-  </div>
+      @click="emit('duplicate', row)"
+    />
+    <UiIconButton icon="edit" density="dense" variant="ghost" :label="t('common.edit')" @click="emit('edit', row)" />
+    <UiIconButton icon="trash" density="dense" variant="danger" :label="t('common.delete')" @click="emit('delete', row)" />
+  </UiButtonGroup>
 </template>
 
 <script setup lang="ts">
@@ -42,6 +22,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ChannelMonitor } from '@/api/admin/channelMonitor'
 import Icon from '@/components/icons/Icon.vue'
+import { UiButtonGroup, UiIconButton } from '@/components/ui'
 
 const props = defineProps<{
   row: ChannelMonitor
@@ -49,7 +30,7 @@ const props = defineProps<{
   duplicating: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'run', row: ChannelMonitor): void
   (e: 'duplicate', row: ChannelMonitor): void
   (e: 'edit', row: ChannelMonitor): void

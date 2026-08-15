@@ -1,71 +1,49 @@
 <template>
-  <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
-    <!-- Left: Search + Filters -->
-    <div class="flex flex-1 flex-wrap items-center gap-3">
-      <div class="relative w-full sm:w-64">
-        <Icon
-          name="search"
-          size="md"
-          class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
-        />
-        <input
-          v-model="search"
-          type="text"
-          :placeholder="t('admin.channelMonitor.searchPlaceholder')"
-          class="input pl-10"
-          @input="$emit('search-input')"
-        />
-      </div>
+  <UiFilterBar :active-count="activeFilterCount" @clear="clearFilters">
+    <UiSearchInput
+      v-model="search"
+      density="compact"
+      :debounce-ms="0"
+      :placeholder="t('admin.channelMonitor.searchPlaceholder')"
+      @search="emit('search-input')"
+    />
+    <UiSelect
+      v-model="provider"
+      :options="providerFilterOptions"
+      density="compact"
+      :aria-label="t('admin.channelMonitor.allProviders')"
+      @change="emit('reload')"
+    />
+    <UiSelect
+      v-model="enabled"
+      :options="enabledFilterOptions"
+      density="compact"
+      :aria-label="t('admin.channelMonitor.enabledFilter')"
+      @change="emit('reload')"
+    />
 
-      <Select
-        v-model="provider"
-        :options="providerFilterOptions"
-        :placeholder="t('admin.channelMonitor.allProviders')"
-        class="w-44"
-        @change="$emit('reload')"
-      />
-
-      <Select
-        v-model="enabled"
-        :options="enabledFilterOptions"
-        :placeholder="t('admin.channelMonitor.enabledFilter')"
-        class="w-40"
-        @change="$emit('reload')"
-      />
-    </div>
-
-    <!-- Right: Actions -->
-    <div class="flex w-full flex-shrink-0 flex-wrap items-center justify-end gap-3 lg:w-auto">
-      <button
-        @click="$emit('reload')"
-        :disabled="loading"
-        class="btn btn-secondary"
-        :title="t('common.refresh')"
-      >
-        <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
-      </button>
-      <button
-        @click="$emit('manage-templates')"
-        class="btn btn-secondary"
-        :title="t('admin.channelMonitor.template.manageButton')"
-      >
-        <Icon name="cog" size="md" class="mr-2" />
-        {{ t('admin.channelMonitor.template.manageButton') }}
-      </button>
-      <button @click="$emit('create')" class="btn btn-primary">
-        <Icon name="plus" size="md" class="mr-2" />
-        {{ t('admin.channelMonitor.createButton') }}
-      </button>
-    </div>
-  </div>
+    <template #actions>
+      <AppInline>
+        <UiIconButton icon="refresh" density="compact" :label="t('common.refresh')" :disabled="loading" @click="emit('reload')" />
+        <UiButton density="compact" @click="emit('manage-templates')">
+          <template #icon><Icon name="cog" size="sm" /></template>
+          {{ t('admin.channelMonitor.template.manageButton') }}
+        </UiButton>
+        <UiButton density="compact" variant="primary" @click="emit('create')">
+          <template #icon><Icon name="plus" size="sm" /></template>
+          {{ t('admin.channelMonitor.createButton') }}
+        </UiButton>
+      </AppInline>
+    </template>
+  </UiFilterBar>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Provider } from '@/api/admin/channelMonitor'
-import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { AppInline, UiButton, UiFilterBar, UiIconButton, UiSearchInput, UiSelect } from '@/components/ui'
 import {
   PROVIDER_OPENAI,
   PROVIDER_ANTHROPIC,
@@ -73,11 +51,9 @@ import {
   PROVIDER_GROK,
 } from '@/constants/channelMonitor'
 
-defineProps<{
-  loading: boolean
-}>()
+defineProps<{ loading: boolean }>()
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'reload'): void
   (e: 'create'): void
   (e: 'manage-templates'): void
@@ -89,6 +65,7 @@ const provider = defineModel<Provider | ''>('provider', { required: true })
 const enabled = defineModel<'' | 'true' | 'false'>('enabled', { required: true })
 
 const { t } = useI18n()
+const activeFilterCount = computed(() => Number(Boolean(provider.value)) + Number(Boolean(enabled.value)))
 
 const providerFilterOptions = computed(() => [
   { value: '', label: t('admin.channelMonitor.allProviders') },
@@ -103,4 +80,10 @@ const enabledFilterOptions = computed(() => [
   { value: 'true', label: t('admin.channelMonitor.onlyEnabled') },
   { value: 'false', label: t('admin.channelMonitor.onlyDisabled') },
 ])
+
+function clearFilters() {
+  provider.value = ''
+  enabled.value = ''
+  emit('reload')
+}
 </script>

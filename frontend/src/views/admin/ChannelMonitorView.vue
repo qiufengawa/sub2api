@@ -1,83 +1,41 @@
 <template>
   <AppLayout>
-    <div class="w-full min-w-0 space-y-6 pb-8">
-      <header
-        class="page-header mb-0 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-gray-900/5 dark:bg-dark-800 dark:ring-dark-700 sm:p-6"
-      >
-        <h1 class="page-title flex items-center gap-2 text-xl font-black text-gray-900 dark:text-white">
-          <span class="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-500 dark:bg-blue-900/30 dark:text-blue-400">
-            <Icon name="chart" size="sm" />
-          </span>
-          {{ t('admin.channelMonitor.title') }}
-        </h1>
-        <p class="page-description mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-          {{
+    <AppPage density="compact">
+      <AppPageHeader
+        :title="t('admin.channelMonitor.title')"
+        :description="
             isV1Mode
               ? t('channelMonitorV2.admin.descriptionV1')
               : t('channelMonitorV2.admin.descriptionV2')
-          }}
-        </p>
-        <div class="mt-4 border-t border-gray-100 pt-4 dark:border-dark-700">
-          <div
-            class="tabs inline-flex w-full max-w-xl flex-wrap sm:w-auto"
-            role="tablist"
-            :aria-label="t('channelMonitorV2.admin.tabAria')"
-          >
-            <button
-              type="button"
-              role="tab"
-              class="tab flex-1 sm:flex-none"
-              :class="adminMonitorTab === 'v2' ? 'tab-active' : ''"
-              :aria-selected="adminMonitorTab === 'v2'"
-              @click="adminMonitorTab = 'v2'"
-            >
-              {{ t('channelMonitorV2.admin.tabV2') }}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              class="tab flex-1 sm:flex-none"
-              :class="adminMonitorTab === 'legacy' ? 'tab-active' : ''"
-              :aria-selected="adminMonitorTab === 'legacy'"
-              @click="adminMonitorTab = 'legacy'"
-            >
-              {{ isV1Mode ? t('channelMonitorV2.admin.tabV1Active') : t('channelMonitorV2.admin.tabV1History') }}
-            </button>
-          </div>
-        </div>
-      </header>
+        "
+      />
+
+      <UiTabs v-model="adminMonitorTab" :tabs="monitorTabs" :label="t('channelMonitorV2.admin.tabAria')" />
 
       <MonitorSettingsPanel v-if="adminMonitorTab === 'v2'" />
 
-      <TablePageLayout v-else>
-      <template #filters>
-        <MonitorFiltersBar
-          v-model:search="searchQuery"
-          v-model:provider="providerFilter"
-          v-model:enabled="enabledFilter"
-          :loading="loading"
-          @reload="reload"
-          @create="openCreateDialog"
-          @manage-templates="showTemplateManager = true"
-          @search-input="handleSearch"
-        />
-      </template>
+      <UiServerTableWorkspace v-else :loading="loading">
+        <template #filters>
+          <MonitorFiltersBar
+            v-model:search="searchQuery"
+            v-model:provider="providerFilter"
+            v-model:enabled="enabledFilter"
+            :loading="loading"
+            @reload="reload"
+            @create="openCreateDialog"
+            @manage-templates="showTemplateManager = true"
+            @search-input="handleSearch"
+          />
+        </template>
 
-      <template #table>
-        <DataTable :columns="columns" :data="monitors" :loading="loading">
+        <UiMobileTableScroller :label="t('admin.channelMonitor.title')" min-width="860px">
+        <UiDataTable :columns="columns" :data="monitors" :loading="loading" mobile-table :aria-label="t('admin.channelMonitor.title')">
           <template #cell-name="{ row, value }">
-            <div class="flex items-center gap-1.5">
-              <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
-              <HelpTooltip v-if="row.api_key_decrypt_failed" :content="t('admin.channelMonitor.apiKeyDecryptFailed')">
-                <Icon name="exclamationTriangle" size="sm" class="text-red-500" />
-              </HelpTooltip>
-            </div>
+            <UiDataCell :value="String(value)" :meta="row.api_key_decrypt_failed ? t('admin.channelMonitor.apiKeyDecryptFailed') : undefined" />
           </template>
 
           <template #cell-provider="{ row }">
-            <span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium" :class="providerBadgeClass(row.provider)">
-              {{ providerLabel(row.provider) }}
-            </span>
+            <UiBadge :tone="providerTone(row.provider)" :label="providerLabel(row.provider)" />
           </template>
 
           <template #cell-primary_model="{ row }">
@@ -85,15 +43,15 @@
           </template>
 
           <template #cell-availability_7d="{ row }">
-            <span class="text-sm text-gray-900 dark:text-gray-100">{{ formatAvailability(row) }}</span>
+            <UiDataCell :value="formatAvailability(row)" mono />
           </template>
 
           <template #cell-latency="{ row }">
-            <span class="text-sm text-gray-900 dark:text-gray-100">{{ formatLatency(row.primary_latency_ms) }}</span>
+            <UiDataCell :value="formatLatency(row.primary_latency_ms)" mono />
           </template>
 
           <template #cell-enabled="{ row }">
-            <Toggle :modelValue="row.enabled" @update:modelValue="toggleEnabled(row)" />
+            <UiSwitch :model-value="row.enabled" :label="t('admin.channelMonitor.columns.enabled')" @update:model-value="toggleEnabled(row)" />
           </template>
 
           <template #cell-actions="{ row }">
@@ -109,18 +67,16 @@
           </template>
 
           <template #empty>
-            <EmptyState
+            <UiEmptyState
               :title="t('admin.channelMonitor.noMonitorsYet')"
               :description="t('admin.channelMonitor.createFirstMonitor')"
-              :action-text="t('admin.channelMonitor.createButton')"
-              @action="openCreateDialog"
-            />
+            ><template #action><UiButton density="dense" variant="primary" @click="openCreateDialog">{{ t('admin.channelMonitor.createButton') }}</UiButton></template></UiEmptyState>
           </template>
-        </DataTable>
-      </template>
+        </UiDataTable>
+        </UiMobileTableScroller>
 
       <template #pagination>
-        <Pagination
+        <UiPagination
           v-if="pagination.total > 0"
           :page="pagination.page"
           :total="pagination.total"
@@ -129,8 +85,8 @@
           @update:pageSize="onPageSizeChange"
         />
       </template>
-      </TablePageLayout>
-    </div>
+      </UiServerTableWorkspace>
+    </AppPage>
 
     <MonitorFormDialog
       :show="showDialog"
@@ -151,7 +107,7 @@
       @close="showRunResult = false"
     />
 
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showDeleteDialog"
       :title="t('common.delete')"
       :message="deleteConfirmMessage"
@@ -176,16 +132,23 @@ import type {
   ListParams,
   Provider,
 } from '@/api/admin/channelMonitor'
-import type { Column } from '@/components/common/types'
+import type { Column } from '@/components/ui'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import TablePageLayout from '@/components/layout/TablePageLayout.vue'
-import DataTable from '@/components/common/DataTable.vue'
-import Pagination from '@/components/common/Pagination.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
-import HelpTooltip from '@/components/common/HelpTooltip.vue'
-import Icon from '@/components/icons/Icon.vue'
-import Toggle from '@/components/common/Toggle.vue'
+import {
+  AppPage,
+  AppPageHeader,
+  UiBadge,
+  UiButton,
+  UiConfirmDialog,
+  UiDataCell,
+  UiDataTable,
+  UiEmptyState,
+  UiMobileTableScroller,
+  UiPagination,
+  UiServerTableWorkspace,
+  UiSwitch,
+  UiTabs,
+} from '@/components/ui'
 import MonitorFiltersBar from '@/components/admin/monitor/MonitorFiltersBar.vue'
 import MonitorFormDialog from '@/components/admin/monitor/MonitorFormDialog.vue'
 import MonitorTemplateManagerDialog from '@/components/admin/monitor/MonitorTemplateManagerDialog.vue'
@@ -203,10 +166,20 @@ const isV1Mode = computed(() => isChannelMonitorV1Mode())
 const adminMonitorTab = ref<'v2' | 'legacy'>(isChannelMonitorV1Mode() ? 'legacy' : 'v2')
 const {
   providerLabel,
-  providerBadgeClass,
   formatLatency,
   formatAvailability,
 } = useChannelMonitorFormat()
+
+const monitorTabs = computed(() => [
+  { value: 'v2', label: t('channelMonitorV2.admin.tabV2') },
+  { value: 'legacy', label: isV1Mode.value ? t('channelMonitorV2.admin.tabV1Active') : t('channelMonitorV2.admin.tabV1History') },
+])
+
+function providerTone(provider: Provider): 'neutral' | 'info' | 'warning' {
+  if (provider === 'openai') return 'info'
+  if (provider === 'anthropic') return 'warning'
+  return 'neutral'
+}
 
 const monitors = ref<ChannelMonitor[]>([])
 const loading = ref(false)
