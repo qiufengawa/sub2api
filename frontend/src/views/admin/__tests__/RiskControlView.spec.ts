@@ -13,6 +13,7 @@ const {
   listLogs,
   getGroups,
   getProxies,
+  clearFlaggedHashes,
   showError,
   showSuccess,
 } = vi.hoisted(() => ({
@@ -22,6 +23,7 @@ const {
   listLogs: vi.fn(),
   getGroups: vi.fn(),
   getProxies: vi.fn(),
+  clearFlaggedHashes: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn(),
 }))
@@ -35,7 +37,7 @@ vi.mock('@/api/admin', () => ({
       listLogs,
       testAPIKeys: vi.fn(),
       deleteFlaggedHash: vi.fn(),
-      clearFlaggedHashes: vi.fn(),
+      clearFlaggedHashes,
       unbanUser: vi.fn(),
     },
     groups: {
@@ -197,6 +199,8 @@ describe('admin RiskControlView', () => {
     getStatus.mockReset()
     listLogs.mockReset()
     getGroups.mockReset()
+    getProxies.mockReset()
+    clearFlaggedHashes.mockReset()
     showError.mockReset()
     showSuccess.mockReset()
 
@@ -205,6 +209,7 @@ describe('admin RiskControlView', () => {
     listLogs.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, pages: 1 })
     getGroups.mockResolvedValue([])
     getProxies.mockResolvedValue([])
+    clearFlaggedHashes.mockResolvedValue({ deleted: 3 })
     updateConfig.mockImplementation(async (payload: UpdateContentModerationConfig) => ({
       ...baseConfig(),
       ...payload,
@@ -271,7 +276,7 @@ describe('admin RiskControlView', () => {
 
     await findButtonByText(wrapper, 'admin.riskControl.openSettings').trigger('click')
     await findButtonByText(wrapper, 'admin.riskControl.tabs.scope').trigger('click')
-    await findButtonByText(wrapper, 'admin.riskControl.modelFilterInclude').trigger('click')
+    await wrapper.get('input[name="risk-model-filter"][value="include"]').setValue(true)
     await wrapper.get('[data-test="model-filter-input"]').setValue('gpt-5.5, gpt-5.4')
     await findButtonByText(wrapper, 'admin.riskControl.saveConfig').trigger('click')
     await flushPromises()
@@ -283,6 +288,68 @@ describe('admin RiskControlView', () => {
       },
     }))
     expect(showError).not.toHaveBeenCalled()
+  })
+
+  it('keeps API key write mode disabled while stored keys are marked for clearing', async () => {
+    getConfig.mockResolvedValue({
+      ...baseConfig(),
+      api_key_configured: true,
+      api_key_count: 1,
+      api_key_masks: ['sk-...test'],
+    })
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          UiDialog: BaseDialogStub,
+          Icon: true,
+          Pagination: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: true,
+        },
+      },
+    })
+
+    await flushPromises()
+    await findButtonByText(wrapper, 'admin.riskControl.openSettings').trigger('click')
+    await findButtonByText(wrapper, 'admin.riskControl.clearApiKey').trigger('click')
+
+    const writeModeButtons = wrapper.findAll('[role="radio"]').filter((item) =>
+      item.text().includes('admin.riskControl.apiKeysMode')
+    )
+    expect(writeModeButtons).toHaveLength(2)
+    expect(writeModeButtons.every((item) => item.attributes('disabled') !== undefined)).toBe(true)
+  })
+
+  it('clears all flagged hashes only after confirmation', async () => {
+    getStatus.mockResolvedValue({ ...runtimeStatus(), flagged_hash_count: 3 })
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          UiDialog: BaseDialogStub,
+          Icon: true,
+          Pagination: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: true,
+        },
+      },
+    })
+
+    await flushPromises()
+    await findButtonByText(wrapper, 'admin.riskControl.openSettings').trigger('click')
+    await findButtonByText(wrapper, 'admin.riskControl.tabs.runtime').trigger('click')
+    await findButtonByText(wrapper, 'admin.riskControl.clearFlaggedHashes').trigger('click')
+    expect(clearFlaggedHashes).not.toHaveBeenCalled()
+
+    const confirmButtons = wrapper.findAll<HTMLButtonElement>('button').filter((item) =>
+      item.text().includes('admin.riskControl.clearFlaggedHashes')
+    )
+    await confirmButtons.at(-1)!.trigger('click')
+    await flushPromises()
+
+    expect(clearFlaggedHashes).toHaveBeenCalledTimes(1)
+    expect(showSuccess).toHaveBeenCalledWith('admin.riskControl.flaggedHashesCleared')
   })
 
   it('submits edited risk control thresholds when saving moderation config', async () => {

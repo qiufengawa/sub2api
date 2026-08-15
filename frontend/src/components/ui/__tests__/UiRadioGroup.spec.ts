@@ -11,14 +11,32 @@ describe('UiRadioGroup', () => {
         name: 'group',
         layout: 'stacked',
         options: [
-          { value: 1, label: 'Primary' },
+          { value: 1, label: 'Primary', description: 'Stable route' },
           { value: 2, label: 'Fast' }
         ]
       }
     })
 
     expect(wrapper.classes()).toContain('ui-radio-group--stacked')
+    expect(wrapper.text()).toContain('Stable route')
     await wrapper.findAll('input')[1].setValue(true)
     expect(wrapper.emitted('update:modelValue')).toEqual([[2]])
+  })
+
+  it('supports compact grid layout for described choices', () => {
+    const wrapper = mount(UiRadioGroup, {
+      props: {
+        modelValue: 'all',
+        name: 'scope',
+        layout: 'grid',
+        options: [
+          { value: 'all', label: 'All', description: 'Every route' },
+          { value: 'selected', label: 'Selected', description: 'Chosen routes' }
+        ]
+      }
+    })
+
+    expect(wrapper.classes()).toContain('ui-radio-group--grid')
+    expect(wrapper.text()).toContain('Every route')
   })
 })

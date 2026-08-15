@@ -345,11 +345,9 @@
               <UiTextField v-model.number="configForm.timeout_ms" type="number" min="500" max="30000" density="compact" :label="t('admin.riskControl.timeoutMs')" />
               <UiTextField v-model.number="configForm.retry_count" type="number" min="0" max="5" density="compact" :label="t('admin.riskControl.retryCount')" />
               <UiTextField v-model.number="configForm.sample_rate" type="number" min="0" max="100" step="1" density="compact" :label="t('admin.riskControl.sampleRate')" />
-              <div>
-                <label class="input-label">{{ t('admin.riskControl.proxy') }}</label>
+              <UiFormField :label="t('admin.riskControl.proxy')" :description="t('admin.riskControl.proxyHint')">
                 <ProxySelector v-model="configForm.proxy_id" :proxies="proxies" />
-                <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.proxyHint') }}</p>
-              </div>
+              </UiFormField>
             </div>
 
             <section data-test="risk-api-keys-section" class="space-y-4 border-t border-gray-100 pt-5 dark:border-dark-700">
@@ -366,33 +364,31 @@
                   </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    class="btn btn-secondary inline-flex items-center gap-2"
+                  <UiButton
+                    density="compact"
+                    :loading="apiKeyTesting"
                     :disabled="apiKeyTesting || inputApiKeyCount === 0 || configForm.clear_api_key"
                     @click="testApiKeys(true)"
                   >
-                    <Icon name="beaker" size="sm" :class="apiKeyTesting ? 'animate-pulse' : ''" />
+                    <template #icon><Icon name="beaker" size="sm" /></template>
                     {{ apiKeyTesting ? t('admin.riskControl.testingApiKeys') : t('admin.riskControl.testInputApiKeys') }}
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-secondary inline-flex items-center gap-2"
+                  </UiButton>
+                  <UiButton
+                    density="compact"
                     :disabled="apiKeyTesting || effectiveStoredApiKeyCount === 0 || pendingDeletedApiKeyCount > 0 || configForm.clear_api_key || configForm.api_keys_mode === 'replace'"
                     @click="testApiKeys(false)"
                   >
-                    <Icon name="shield" size="sm" />
+                    <template #icon><Icon name="shield" size="sm" /></template>
                     {{ storedApiKeyTestButtonText }}
-                  </button>
-                  <button
+                  </UiButton>
+                  <UiButton
                     v-if="configForm.api_key_configured"
-                    type="button"
-                    class="btn btn-secondary inline-flex items-center gap-2"
+                    density="compact"
                     @click="toggleClearApiKey"
                   >
-                    <Icon :name="configForm.clear_api_key ? 'x' : 'trash'" size="sm" />
+                    <template #icon><Icon :name="configForm.clear_api_key ? 'x' : 'trash'" size="sm" /></template>
                     {{ configForm.clear_api_key ? t('admin.riskControl.keepApiKey') : t('admin.riskControl.clearApiKey') }}
-                  </button>
+                  </UiButton>
                 </div>
               </div>
 
@@ -403,34 +399,22 @@
                       <span class="font-medium text-gray-700 dark:text-gray-200">{{ t('admin.riskControl.apiKeysWriteMode') }}</span>
                       <span class="ml-2">{{ apiKeysModeHint }}</span>
                     </div>
-                    <div class="inline-flex rounded-lg bg-white p-1 shadow-sm dark:bg-dark-800">
-                      <button
-                        type="button"
-                        class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-                        :class="configForm.api_keys_mode === 'append' ? 'bg-primary-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700'"
-                        :disabled="configForm.clear_api_key"
-                        @click="setAPIKeysMode('append')"
-                      >
-                        {{ t('admin.riskControl.apiKeysModeAppend') }}
-                      </button>
-                      <button
-                        type="button"
-                        class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-                        :class="configForm.api_keys_mode === 'replace' ? 'bg-amber-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700'"
-                        :disabled="configForm.clear_api_key"
-                        @click="setAPIKeysMode('replace')"
-                      >
-                        {{ t('admin.riskControl.apiKeysModeReplace') }}
-                      </button>
-                    </div>
+                    <UiSegmentedControl
+                      :model-value="configForm.api_keys_mode"
+                      :options="apiKeyModeOptions"
+                      :label="t('admin.riskControl.apiKeysWriteMode')"
+                      @update:model-value="setAPIKeysModeValue"
+                    />
                   </div>
-                  <textarea
+                  <UiTextArea
                     v-model="configForm.api_keys_text"
-                    class="input min-h-44 resize-y font-mono text-sm"
+                    :rows="7"
+                    monospace
+                    :label="t('admin.riskControl.apiKeys')"
+                    :description="apiKeysModeHint"
                     :placeholder="apiKeysPlaceholder"
-                    autocomplete="new-password"
                     :disabled="configForm.clear_api_key"
-                  ></textarea>
+                  />
                   <div class="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                     <span class="inline-flex rounded-md bg-gray-100 px-2 py-1 dark:bg-dark-700">
                       {{ t('admin.riskControl.inputApiKeyCount', { count: inputApiKeyCount }) }}
@@ -455,40 +439,30 @@
                         <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.riskControl.auditTestInput') }}</p>
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.auditTestInputHint') }}</p>
                       </div>
-                      <button
+                      <UiButton
                         v-if="moderationTestPrompt || moderationTestImages.length > 0 || moderationTestResult"
-                        type="button"
-                        class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 hover:bg-white hover:text-gray-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-white"
+                        density="mini"
+                        variant="quiet"
                         @click="clearModerationTestInput"
                       >
-                        <Icon name="x" size="xs" />
+                        <template #icon><Icon name="x" size="xs" /></template>
                         {{ t('admin.riskControl.clearAuditTest') }}
-                      </button>
+                      </UiButton>
                     </div>
-                    <textarea
+                    <UiTextArea
                       v-model="moderationTestPrompt"
-                      class="input min-h-24 resize-y text-sm"
+                      :rows="4"
                       :placeholder="t('admin.riskControl.auditTestPromptPlaceholder')"
-                    ></textarea>
-                    <div
-                      class="mt-3 rounded-lg border border-dashed border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-800"
-                      @dragover.prevent
-                      @drop.prevent="handleModerationImageDrop"
-                    >
-                      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div class="flex items-start gap-2">
-                          <Icon name="upload" size="md" class="mt-0.5 text-gray-400" />
-                          <div>
-                            <p class="text-sm font-medium text-gray-800 dark:text-gray-100">{{ t('admin.riskControl.auditTestImages') }}</p>
-                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.auditTestImagesHint') }}</p>
-                          </div>
-                        </div>
-                        <label class="btn btn-secondary inline-flex cursor-pointer items-center gap-2">
-                          <Icon name="plus" size="sm" />
-                          {{ t('admin.riskControl.addAuditTestImage') }}
-                          <input type="file" accept="image/*" multiple class="sr-only" @change="handleModerationImageUpload" />
-                        </label>
-                      </div>
+                    />
+                    <div class="mt-3">
+                      <UiFileUpload
+                        accept="image/*"
+                        multiple
+                        :label="t('admin.riskControl.auditTestImages')"
+                        :description="t('admin.riskControl.auditTestImagesHint')"
+                        :button-text="t('admin.riskControl.addAuditTestImage')"
+                        @select="addModerationTestFiles"
+                      />
                       <div v-if="moderationTestImages.length > 0" class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                         <div
                           v-for="(image, index) in moderationTestImages"
@@ -496,13 +470,13 @@
                           class="group relative aspect-square overflow-hidden rounded-lg border border-gray-100 bg-gray-100 dark:border-dark-700 dark:bg-dark-700"
                         >
                           <img :src="image" alt="" class="h-full w-full object-cover" />
-                          <button
-                            type="button"
-                            class="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                          <UiIconButton
+                            class="absolute right-1.5 top-1.5"
+                            variant="danger"
+                            density="dense"
+                            :label="t('common.delete')"
                             @click="removeModerationTestImage(index)"
-                          >
-                            <Icon name="x" size="xs" :stroke-width="2" />
-                          </button>
+                          ><Icon name="x" size="xs" /></UiIconButton>
                         </div>
                       </div>
                     </div>
@@ -551,15 +525,15 @@
                               <span class="h-1.5 w-1.5 rounded-full" :class="apiKeyStatusDotClass(row.status)"></span>
                               {{ apiKeyStatusLabel(row.status) }}
                             </span>
-                            <button
+                            <UiIconButton
                               v-if="row.configured && !configForm.clear_api_key"
-                              type="button"
-                              class="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-dark-700 dark:hover:text-gray-200"
-                              :title="isStoredApiKeyPendingDelete(row) ? t('admin.riskControl.undoDeleteApiKey') : t('admin.riskControl.deleteApiKey')"
+                              density="dense"
+                              :variant="isStoredApiKeyPendingDelete(row) ? 'ghost' : 'danger'"
+                              :label="isStoredApiKeyPendingDelete(row) ? t('admin.riskControl.undoDeleteApiKey') : t('admin.riskControl.deleteApiKey')"
                               @click="toggleDeleteStoredApiKey(row)"
                             >
                               <Icon :name="isStoredApiKeyPendingDelete(row) ? 'refresh' : 'trash'" size="xs" />
-                            </button>
+                            </UiIconButton>
                           </div>
                         </div>
                         <p v-if="row.last_error" class="mt-1.5 rounded-md bg-amber-50 px-2 py-1.5 text-xs leading-5 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
@@ -572,14 +546,14 @@
                       <span class="min-w-0 truncate">
                         {{ apiKeyRowsExpanded ? t('admin.riskControl.apiKeyRowsExpanded', { count: apiKeyRows.length }) : t('admin.riskControl.apiKeyRowsCollapsed', { count: hiddenApiKeyRowCount }) }}
                       </span>
-                      <button
-                        type="button"
-                        class="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-medium text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700 dark:text-primary-300 dark:hover:bg-primary-900/20"
+                      <UiButton
+                        density="mini"
+                        variant="quiet"
                         @click="apiKeyRowsExpanded = !apiKeyRowsExpanded"
                       >
-                        <Icon :name="apiKeyRowsExpanded ? 'chevronUp' : 'chevronDown'" size="xs" />
+                        <template #icon><Icon :name="apiKeyRowsExpanded ? 'chevronUp' : 'chevronDown'" size="xs" /></template>
                         {{ apiKeyRowsExpanded ? t('admin.riskControl.collapseApiKeyRows') : t('admin.riskControl.expandApiKeyRows') }}
-                      </button>
+                      </UiButton>
                     </div>
                   </div>
 
@@ -627,51 +601,38 @@
                 <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('admin.riskControl.groupScope') }}</h3>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.groupScopeHint') }}</p>
               </div>
-              <div class="inline-flex rounded-lg bg-gray-100 p-1 dark:bg-dark-700">
-                <button
-                  type="button"
-                  class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-                  :class="configForm.all_groups ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-800 dark:text-white' : 'text-gray-500 dark:text-gray-400'"
-                  @click="configForm.all_groups = true"
-                >
-                  {{ t('admin.riskControl.allGroups') }}
-                </button>
-                <button
-                  type="button"
-                  class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-                  :class="!configForm.all_groups ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-800 dark:text-white' : 'text-gray-500 dark:text-gray-400'"
-                  @click="configForm.all_groups = false"
-                >
-                  {{ t('admin.riskControl.selectedGroups') }}
-                </button>
-              </div>
+              <UiSegmentedControl
+                :model-value="configForm.all_groups ? 'all' : 'selected'"
+                :options="groupScopeOptions"
+                :label="t('admin.riskControl.groupScope')"
+                @update:model-value="setGroupScope"
+              />
             </div>
 
             <div v-if="!configForm.all_groups" class="space-y-4">
-              <div class="relative">
-                <Icon name="search" size="sm" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input v-model.trim="groupSearch" type="search" class="input pl-9" :placeholder="t('admin.riskControl.searchGroups')" />
-              </div>
+              <UiSearchInput
+                v-model="groupSearch"
+                density="compact"
+                :debounce-ms="0"
+                :placeholder="t('admin.riskControl.searchGroups')"
+                :aria-label="t('admin.riskControl.searchGroups')"
+              />
               <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:max-h-[420px] xl:grid-cols-3 xl:overflow-y-auto xl:pr-1">
-                <button
+                <div
                   v-for="group in filteredGroups"
                   :key="group.id"
-                  type="button"
-                  class="flex min-h-20 items-center justify-between rounded-lg border p-4 text-left transition-colors"
-                  :class="isGroupSelected(group.id) ? 'border-primary-300 bg-primary-50 dark:border-primary-700 dark:bg-primary-900/20' : 'border-gray-100 hover:bg-gray-50 dark:border-dark-700 dark:hover:bg-dark-700/60'"
-                  @click="toggleGroup(group.id)"
+                  class="flex min-h-16 items-center justify-between gap-3 border-b border-gray-100 px-1 py-3 dark:border-dark-700"
                 >
                   <span class="min-w-0">
                     <span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">{{ group.name }}</span>
                     <span class="mt-1 inline-flex rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-dark-700 dark:text-gray-400">{{ group.platform }}</span>
                   </span>
-                  <span
-                    class="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border"
-                    :class="isGroupSelected(group.id) ? 'border-primary-500 bg-primary-500 text-white' : 'border-gray-300 text-transparent dark:border-dark-500'"
-                  >
-                    <Icon name="check" size="xs" :stroke-width="2" />
-                  </span>
-                </button>
+                  <UiCheckbox
+                    :model-value="isGroupSelected(group.id)"
+                    :label="group.name"
+                    @update:model-value="toggleGroup(group.id)"
+                  ><span class="sr-only">{{ group.name }}</span></UiCheckbox>
+                </div>
                 <p v-if="filteredGroups.length === 0" class="text-sm text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.noGroups') }}</p>
               </div>
             </div>
@@ -687,57 +648,34 @@
                 </span>
               </div>
 
-              <div class="grid grid-cols-1 gap-2 md:grid-cols-3">
-                <button
-                  v-for="option in modelFilterOptions"
-                  :key="option.value"
-                  type="button"
-                  class="rounded-lg border p-3 text-left transition-colors"
-                  :class="configForm.model_filter_type === option.value
-                    ? 'border-primary-300 bg-primary-50 text-primary-900 shadow-sm dark:border-primary-700 dark:bg-primary-900/20 dark:text-primary-100'
-                    : 'border-gray-100 hover:bg-gray-50 dark:border-dark-700 dark:hover:bg-dark-700/60'"
-                  @click="setModelFilterType(option.value)"
-                >
-                  <div class="flex items-center justify-between gap-2">
-                    <span class="text-sm font-semibold">{{ option.label }}</span>
-                    <span
-                      class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border"
-                      :class="configForm.model_filter_type === option.value
-                        ? 'border-primary-500 bg-primary-500 text-white'
-                        : 'border-gray-300 text-transparent dark:border-dark-500'"
-                    >
-                      <Icon name="check" size="xs" :stroke-width="2" />
-                    </span>
-                  </div>
-                  <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ option.description }}</p>
-                </button>
-              </div>
+              <UiRadioGroup
+                :model-value="configForm.model_filter_type"
+                :options="modelFilterOptions"
+                name="risk-model-filter"
+                layout="grid"
+                :label="t('admin.riskControl.modelFilter')"
+                @update:model-value="setModelFilterTypeValue"
+              />
 
-              <div v-if="configForm.model_filter_type !== 'all'" class="space-y-2">
-                <label class="input-label">{{ t('admin.riskControl.modelFilterModels') }}</label>
+              <UiFormField
+                v-if="configForm.model_filter_type !== 'all'"
+                :label="t('admin.riskControl.modelFilterModels')"
+                :description="t('admin.riskControl.modelFilterModelCount', { count: modelFilterModelCount })"
+              >
                 <ModelWhitelistSelector v-model="configForm.model_filter_models" />
-                <p class="text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('admin.riskControl.modelFilterModelCount', { count: modelFilterModelCount }) }}
-                </p>
-              </div>
+              </UiFormField>
             </section>
           </div>
 
           <div v-else-if="activeSettingsTab === 'runtime'" class="grid grid-cols-1 gap-5 pt-5 lg:grid-cols-2">
-            <div>
-              <label class="input-label">{{ t('admin.riskControl.workerCount') }}</label>
-              <input v-model.number="configForm.worker_count" type="number" min="1" max="32" class="input" />
-            </div>
-            <div>
-              <label class="input-label">{{ t('admin.riskControl.queueSize') }}</label>
-              <input v-model.number="configForm.queue_size" type="number" min="100" max="100000" class="input" />
-            </div>
+            <UiTextField v-model.number="configForm.worker_count" type="number" min="1" max="32" density="compact" :label="t('admin.riskControl.workerCount')" />
+            <UiTextField v-model.number="configForm.queue_size" type="number" min="100" max="100000" density="compact" :label="t('admin.riskControl.queueSize')" />
             <div class="flex items-center justify-between border-t border-gray-100 py-4 dark:border-dark-700 lg:col-span-2">
               <div>
                 <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.riskControl.recordNonHits') }}</p>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.recordNonHitsHint') }}</p>
               </div>
-              <Toggle v-model="configForm.record_non_hits" />
+              <UiSwitch v-model="configForm.record_non_hits" :label="t('admin.riskControl.recordNonHits')" />
             </div>
             <div class="space-y-4 border-t border-gray-100 pt-4 dark:border-dark-700 lg:col-span-2">
               <div class="flex items-center justify-between gap-4">
@@ -745,7 +683,7 @@
                   <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.riskControl.preHashCheck') }}</p>
                   <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.preHashCheckHint') }}</p>
                 </div>
-                <Toggle v-model="configForm.pre_hash_check_enabled" />
+                <UiSwitch v-model="configForm.pre_hash_check_enabled" :label="t('admin.riskControl.preHashCheck')" />
               </div>
               <div class="border-l-2 border-gray-200 pl-3 dark:border-dark-600">
                 <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -755,32 +693,32 @@
                     </p>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.flaggedHashHint') }}</p>
                   </div>
-                  <button
-                    type="button"
-                    class="btn btn-secondary inline-flex items-center justify-center gap-2 text-red-600 hover:text-red-700 dark:text-red-300"
+                  <UiButton
+                    variant="danger"
+                    density="compact"
                     :disabled="hashActionLoading || (status?.flagged_hash_count ?? 0) === 0"
-                    @click="clearFlaggedHashes"
+                    @click="clearHashesConfirmOpen = true"
                   >
-                    <Icon name="trash" size="sm" :class="hashActionLoading ? 'animate-pulse' : ''" />
+                    <template #icon><Icon name="trash" size="sm" /></template>
                     {{ t('admin.riskControl.clearFlaggedHashes') }}
-                  </button>
+                  </UiButton>
                 </div>
                 <div class="mt-3 flex flex-col gap-2 sm:flex-row">
-                  <input
+                  <UiTextField
                     v-model.trim="flaggedHashInput"
-                    type="text"
-                    class="input font-mono text-sm"
+                    monospace
+                    density="compact"
+                    :label="t('admin.riskControl.deleteFlaggedHash')"
                     :placeholder="t('admin.riskControl.flaggedHashPlaceholder')"
                   />
-                  <button
-                    type="button"
-                    class="btn btn-secondary inline-flex items-center justify-center gap-2"
+                  <UiButton
+                    density="compact"
                     :disabled="hashActionLoading || !isFlaggedHashInputValid"
                     @click="deleteFlaggedHash"
                   >
-                    <Icon name="trash" size="sm" />
+                    <template #icon><Icon name="trash" size="sm" /></template>
                     {{ t('admin.riskControl.deleteFlaggedHash') }}
-                  </button>
+                  </UiButton>
                 </div>
               </div>
             </div>
@@ -788,43 +726,31 @@
 
           <div v-else-if="activeSettingsTab === 'response'" class="space-y-5 pt-5">
             <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
-              <div>
-                <label class="input-label">{{ t('admin.riskControl.blockStatus') }}</label>
-                <input v-model.number="configForm.block_status" type="number" min="400" max="599" class="input" />
-              </div>
-              <div>
-                <label class="input-label">{{ t('admin.riskControl.blockMessage') }}</label>
-                <input v-model.trim="configForm.block_message" type="text" class="input" />
-              </div>
+              <UiTextField v-model.number="configForm.block_status" type="number" min="400" max="599" density="compact" :label="t('admin.riskControl.blockStatus')" />
+              <UiTextField v-model.trim="configForm.block_message" density="compact" :label="t('admin.riskControl.blockMessage')" />
               <div data-test="risk-response-option" class="flex items-center justify-between gap-4 border-t border-gray-100 py-4 dark:border-dark-700 lg:col-span-2">
                 <div>
                   <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.riskControl.emailOnHit') }}</p>
                   <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.emailOnHitHint') }}</p>
                 </div>
-                <Toggle v-model="configForm.email_on_hit" />
+                <UiSwitch v-model="configForm.email_on_hit" :label="t('admin.riskControl.emailOnHit')" />
               </div>
               <div data-test="risk-response-option" class="flex items-center justify-between gap-4 border-t border-gray-100 py-4 dark:border-dark-700 lg:col-span-2">
                 <div>
                   <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.riskControl.autoBan') }}</p>
                   <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.autoBanHint') }}</p>
                 </div>
-                <Toggle v-model="configForm.auto_ban_enabled" />
+                <UiSwitch v-model="configForm.auto_ban_enabled" :label="t('admin.riskControl.autoBan')" />
               </div>
               <div data-test="risk-response-option" class="flex items-center justify-between gap-4 border-t border-gray-100 py-4 dark:border-dark-700 lg:col-span-2">
                 <div>
                   <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.riskControl.cyberPolicyExcludeBan') }}</p>
                   <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.cyberPolicyExcludeBanHint') }}</p>
                 </div>
-                <Toggle v-model="configForm.cyber_policy_exclude_from_ban_count" />
+                <UiSwitch v-model="configForm.cyber_policy_exclude_from_ban_count" :label="t('admin.riskControl.cyberPolicyExcludeBan')" />
               </div>
-              <div>
-                <label class="input-label">{{ t('admin.riskControl.banThreshold') }}</label>
-                <input v-model.number="configForm.ban_threshold" type="number" min="1" max="1000" class="input" />
-              </div>
-              <div>
-                <label class="input-label">{{ t('admin.riskControl.violationWindowHours') }}</label>
-                <input v-model.number="configForm.violation_window_hours" type="number" min="1" max="8760" class="input" />
-              </div>
+              <UiTextField v-model.number="configForm.ban_threshold" type="number" min="1" max="1000" density="compact" :label="t('admin.riskControl.banThreshold')" />
+              <UiTextField v-model.number="configForm.violation_window_hours" type="number" min="1" max="8760" density="compact" :label="t('admin.riskControl.violationWindowHours')" />
             </div>
           </div>
 
@@ -834,14 +760,13 @@
                 <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('admin.riskControl.riskThresholds') }}</h3>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.riskThresholdsHint') }}</p>
               </div>
-              <button
-                type="button"
-                class="btn btn-secondary inline-flex items-center justify-center gap-2"
+              <UiButton
+                density="compact"
                 @click="resetRiskThresholds"
               >
-                <Icon name="refresh" size="sm" />
+                <template #icon><Icon name="refresh" size="sm" /></template>
                 {{ t('admin.riskControl.riskThresholdReset') }}
-              </button>
+              </UiButton>
             </div>
 
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -864,22 +789,17 @@
                   </span>
                 </div>
                 <div class="mt-3">
-                  <label class="sr-only" :for="`risk-threshold-${row.category}`">
-                    {{ t('admin.riskControl.riskThresholdPercent') }}
-                  </label>
-                  <div class="relative">
-                    <input
-                      :id="`risk-threshold-${row.category}`"
-                      v-model.number="configForm.thresholds[row.category]"
-                      :data-test="`risk-threshold-${row.category}`"
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.1"
-                      class="input pr-8 font-mono"
-                    />
-                    <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
-                  </div>
+                  <UiTextField
+                    :id="`risk-threshold-${row.category}`"
+                    v-model.number="configForm.thresholds[row.category]"
+                    :data-test="`risk-threshold-${row.category}`"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    monospace
+                    density="compact"
+                  ><template #suffix>%</template></UiTextField>
                 </div>
               </div>
             </div>
@@ -901,48 +821,30 @@
               </div>
             </div>
 
-            <div class="space-y-2">
-              <label class="input-label">{{ t('admin.riskControl.keywordBlockingMode') }}</label>
-              <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <button
-                  v-for="option in keywordBlockingModeOptions"
-                  :key="option.value"
-                  type="button"
-                  class="rounded-lg border p-3 text-left transition-colors"
-                  :class="configForm.keyword_blocking_mode === option.value
-                    ? 'border-primary-300 bg-primary-50 text-primary-900 shadow-sm dark:border-primary-700 dark:bg-primary-900/20 dark:text-primary-100'
-                    : 'border-gray-100 hover:bg-gray-50 dark:border-dark-700 dark:hover:bg-dark-700/60'"
-                  @click="configForm.keyword_blocking_mode = option.value"
-                >
-                  <div class="flex items-center justify-between gap-2">
-                    <span class="text-sm font-semibold">{{ option.label }}</span>
-                    <span
-                      class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border"
-                      :class="configForm.keyword_blocking_mode === option.value
-                        ? 'border-primary-500 bg-primary-500 text-white'
-                        : 'border-gray-300 text-transparent dark:border-dark-500'"
-                    >
-                      <Icon name="check" size="xs" :stroke-width="2" />
-                    </span>
-                  </div>
-                  <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ option.description }}</p>
-                </button>
-              </div>
-            </div>
+            <UiRadioGroup
+              :model-value="configForm.keyword_blocking_mode"
+              :options="keywordBlockingModeOptions"
+              name="risk-keyword-mode"
+              layout="grid"
+              :label="t('admin.riskControl.keywordBlockingMode')"
+              @update:model-value="setKeywordBlockingMode"
+            />
 
             <div>
               <div class="mb-2 flex items-center justify-between">
-                <label class="input-label mb-0">{{ t('admin.riskControl.blockedKeywords') }}</label>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('admin.riskControl.blockedKeywords') }}</span>
                 <span class="inline-flex rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-500 dark:bg-dark-700 dark:text-gray-300">
                   {{ t('admin.riskControl.blockedKeywordCount', { count: blockedKeywordCount }) }}
                 </span>
               </div>
-              <textarea
+              <UiTextArea
                 v-model="configForm.blocked_keywords_text"
-                class="input min-h-52 resize-y font-mono text-sm"
+                :rows="9"
+                monospace
+                :label="t('admin.riskControl.blockedKeywords')"
                 :placeholder="t('admin.riskControl.blockedKeywordsPlaceholder')"
                 :disabled="configForm.keyword_blocking_mode === 'api_only'"
-              ></textarea>
+              />
               <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.riskControl.blockedKeywordsLimit', { max: blockedKeywordMax }) }}
               </p>
@@ -950,14 +852,8 @@
           </div>
 
           <div v-else class="grid grid-cols-1 gap-5 pt-5 lg:grid-cols-2">
-            <div>
-              <label class="input-label">{{ t('admin.riskControl.hitRetentionDays') }}</label>
-              <input v-model.number="configForm.hit_retention_days" type="number" min="1" max="3650" class="input" />
-            </div>
-            <div>
-              <label class="input-label">{{ t('admin.riskControl.nonHitRetentionDays') }}</label>
-              <input v-model.number="configForm.non_hit_retention_days" type="number" min="1" max="3" class="input" />
-            </div>
+            <UiTextField v-model.number="configForm.hit_retention_days" type="number" min="1" max="3650" density="compact" :label="t('admin.riskControl.hitRetentionDays')" />
+            <UiTextField v-model.number="configForm.non_hit_retention_days" type="number" min="1" max="3" density="compact" :label="t('admin.riskControl.nonHitRetentionDays')" />
             <div class="rounded-lg border border-gray-100 p-4 text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400 lg:col-span-2">
               <div class="flex flex-wrap items-center gap-3">
                 <Icon name="database" size="md" class="text-gray-400" />
@@ -976,6 +872,18 @@
           </div>
         </template>
       </UiDialog>
+
+      <UiConfirmDialog
+        :show="clearHashesConfirmOpen"
+        :title="t('admin.riskControl.clearFlaggedHashes')"
+        :message="t('admin.riskControl.clearFlaggedHashesConfirm')"
+        :confirm-text="t('admin.riskControl.clearFlaggedHashes')"
+        :cancel-text="t('common.cancel')"
+        danger
+        :pending="hashActionLoading"
+        @confirm="clearFlaggedHashes"
+        @cancel="clearHashesConfirmOpen = false"
+      />
 
       <UiDialog
         :show="inputDetailRow !== null"
@@ -1004,7 +912,6 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
-import Toggle from '@/components/common/Toggle.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import type { Column } from '@/components/ui'
@@ -1012,19 +919,27 @@ import {
   AppPageHeader,
   UiBadge,
   UiButton,
+  UiCheckbox,
   UiCodeBlock,
+  UiConfirmDialog,
   UiDataTable,
   UiDescriptionList,
   UiDialog,
   UiEmptyState,
+  UiFileUpload,
+  UiFormField,
+  UiIconButton,
   UiPagination,
+  UiRadioGroup,
   UiSearchInput,
+  UiSegmentedControl,
   UiSelect,
   UiSpinner,
   UiStatMetric,
   UiStatusBadge,
   UiSwitch,
   UiTabs,
+  UiTextArea,
   UiTextField
 } from '@/components/ui'
 import { adminAPI } from '@/api/admin'
@@ -1103,6 +1018,7 @@ const logsLoading = ref(false)
 const statusLoading = ref(false)
 const apiKeyTesting = ref(false)
 const hashActionLoading = ref(false)
+const clearHashesConfirmOpen = ref(false)
 const unbanningUserID = ref<number | null>(null)
 const settingsOpen = ref(false)
 const activeSettingsTab = ref<SettingsTab>('basic')
@@ -1198,6 +1114,14 @@ const modeOptions = computed<SelectOption[]>(() => [
   { value: 'pre_block', label: t('admin.riskControl.modePreBlock') },
   { value: 'observe', label: t('admin.riskControl.modeObserve') },
   { value: 'off', label: t('admin.riskControl.modeOff') },
+])
+const apiKeyModeOptions = computed(() => [
+  { value: 'append', label: t('admin.riskControl.apiKeysModeAppend'), disabled: configForm.clear_api_key },
+  { value: 'replace', label: t('admin.riskControl.apiKeysModeReplace'), disabled: configForm.clear_api_key }
+])
+const groupScopeOptions = computed(() => [
+  { value: 'all', label: t('admin.riskControl.allGroups') },
+  { value: 'selected', label: t('admin.riskControl.selectedGroups') }
 ])
 
 const keywordBlockingModeOptions = computed<Array<{ value: KeywordBlockingMode; label: string; description: string }>>(() => [
@@ -1862,12 +1786,11 @@ async function deleteFlaggedHash() {
 
 async function clearFlaggedHashes() {
   if (hashActionLoading.value) return
-  const confirmed = window.confirm(t('admin.riskControl.clearFlaggedHashesConfirm'))
-  if (!confirmed) return
   hashActionLoading.value = true
   try {
     const result = await adminAPI.riskControl.clearFlaggedHashes()
     await loadStatus(true)
+    clearHashesConfirmOpen.value = false
     appStore.showSuccess(t('admin.riskControl.flaggedHashesCleared', { count: result.deleted }))
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.flaggedHashesClearFailed')))
@@ -1908,9 +1831,22 @@ function toggleClearApiKey() {
 }
 
 function setAPIKeysMode(mode: APIKeysWriteMode) {
+  if (configForm.clear_api_key) return
   configForm.api_keys_mode = mode
   if (mode === 'replace') {
     pendingDeleteApiKeyHashes.value = []
+  }
+}
+
+function setAPIKeysModeValue(value: string | number) {
+  if (value === 'append' || value === 'replace') {
+    setAPIKeysMode(value)
+  }
+}
+
+function setGroupScope(value: string | number) {
+  if (value === 'all' || value === 'selected') {
+    configForm.all_groups = value === 'all'
   }
 }
 
@@ -1918,6 +1854,18 @@ function setModelFilterType(type: ContentModerationModelFilterType) {
   configForm.model_filter_type = type
   if (type === 'all') {
     configForm.model_filter_models = []
+  }
+}
+
+function setModelFilterTypeValue(value: string | number) {
+  if (value === 'all' || value === 'include' || value === 'exclude') {
+    setModelFilterType(value)
+  }
+}
+
+function setKeywordBlockingMode(value: string | number) {
+  if (value === 'keyword_and_api' || value === 'keyword_only' || value === 'api_only') {
+    configForm.keyword_blocking_mode = value
   }
 }
 
@@ -1991,16 +1939,6 @@ function clearModerationTestInput() {
 
 function removeModerationTestImage(index: number) {
   moderationTestImages.value.splice(index, 1)
-}
-
-async function handleModerationImageUpload(event: Event) {
-  const input = event.target as HTMLInputElement
-  await addModerationTestFiles(input.files)
-  input.value = ''
-}
-
-async function handleModerationImageDrop(event: DragEvent) {
-  await addModerationTestFiles(event.dataTransfer?.files ?? null)
 }
 
 async function handleModerationImagePaste(event: ClipboardEvent) {
