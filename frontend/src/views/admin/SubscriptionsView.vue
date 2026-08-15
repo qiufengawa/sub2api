@@ -2,7 +2,6 @@
   <AppLayout>
     <AppPage density="compact">
       <AppPageHeader
-        class="subscriptions-header"
         :title="t('admin.subscriptions.title')"
         :description="t('admin.subscriptions.description')"
       />
@@ -15,7 +14,7 @@
       >
         <template #toolbar>
           <UiTableToolbar>
-            <div class="subscription-toolbar__filters">
+            <UiFilterBar>
               <UiAsyncEntityPicker
                 :model-value="filters.user_id"
                 :items="filterUserOptions"
@@ -46,7 +45,7 @@
                 {{ t('admin.subscriptions.advancedFilters') }}
                 <UiBadge v-if="advancedFilterCount > 0" :label="String(advancedFilterCount)" />
               </UiButton>
-            </div>
+            </UiFilterBar>
 
             <template #actions>
               <UiSegmentedControl
@@ -83,9 +82,8 @@
         </template>
 
         <template #filters>
-          <div
+          <UiFilterBar
             v-if="advancedFiltersExpanded || advancedFilterCount > 0"
-            class="subscription-advanced-filters"
             data-testid="subscription-advanced-filters"
           >
             <UiSelect
@@ -104,11 +102,12 @@
               density="compact"
               @change="applyFilters"
             />
-          </div>
+          </UiFilterBar>
         </template>
 
       <!-- Subscriptions Table -->
       <template #default>
+        <UiMobileTableScroller :label="t('admin.subscriptions.title')" min-width="1040px">
         <UiDataTable
           :columns="columns"
           :data="subscriptions"
@@ -248,7 +247,7 @@
           </template>
 
           <template #cell-actions="{ row }">
-            <div class="subscription-row-actions">
+            <UiButtonGroup>
               <UiIconButton
                 v-if="row.status === 'active' || row.status === 'expired'"
                 icon="calendar"
@@ -281,7 +280,7 @@
                 :label="t('admin.subscriptions.restore')"
                 @click="handleRestore(row)"
               />
-            </div>
+            </UiButtonGroup>
           </template>
 
           <template #empty>
@@ -297,6 +296,7 @@
             </UiEmptyState>
           </template>
         </UiDataTable>
+        </UiMobileTableScroller>
       </template>
 
       <!-- Pagination -->
@@ -518,15 +518,18 @@ import {
   UiAvatar,
   UiBadge,
   UiButton,
+  UiButtonGroup,
   UiColumnPicker,
   UiConfirmDialog,
   UiDataTable,
   UiDescriptionList,
   UiDialog,
   UiEmptyState,
+  UiFilterBar,
   UiIconButton,
   UiLink,
   UiNumberStepper,
+  UiMobileTableScroller,
   UiPagination,
   UiProgressBar,
   UiSegmentedControl,
@@ -1261,37 +1264,8 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.subscriptions-header {
-  margin-bottom: 16px;
-}
-
 .subscriptions-workspace {
   min-width: 0;
-}
-
-.subscription-toolbar__filters {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.subscription-toolbar__filters > :first-child {
-  width: min(280px, 32vw);
-}
-
-.subscription-toolbar__filters > :nth-child(2) {
-  width: 156px;
-}
-
-.subscription-advanced-filters {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(180px, 240px));
-  gap: 10px;
-  padding: 10px 12px;
-  border-top: 1px solid var(--ui-border-soft);
-  background: var(--ui-surface-muted);
 }
 
 .subscription-user-cell {
@@ -1406,13 +1380,6 @@ onUnmounted(() => {
   color: var(--ui-warning);
 }
 
-.subscription-row-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 2px;
-}
-
 .subscription-plan-option {
   display: grid;
   min-width: 0;
@@ -1468,14 +1435,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 900px) {
-  .subscription-toolbar__filters {
-    flex-wrap: wrap;
-  }
-
-  .subscription-toolbar__filters > :first-child {
-    width: min(100%, 320px);
-  }
-
   .subscription-plan-cell,
   .subscription-quota-cell {
     width: auto;
@@ -1483,16 +1442,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 640px) {
-  .subscription-toolbar__filters,
-  .subscription-toolbar__filters > :first-child,
-  .subscription-toolbar__filters > :nth-child(2) {
-    width: 100%;
-  }
-
-  .subscription-advanced-filters {
-    grid-template-columns: 1fr;
-  }
-
   .subscription-quota-cell {
     min-width: 260px;
   }
