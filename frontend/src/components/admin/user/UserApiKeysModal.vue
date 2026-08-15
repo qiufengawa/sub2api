@@ -1,220 +1,189 @@
 <template>
-  <BaseDialog :show="show" :title="t('admin.users.userApiKeys')" width="wide" @close="handleClose">
-    <div v-if="user" class="space-y-4">
-      <div class="flex items-center gap-3 rounded-xl bg-gray-50 p-4 dark:bg-dark-700">
-        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900/30">
-          <span class="text-lg font-medium text-primary-700 dark:text-primary-300">{{ user.email.charAt(0).toUpperCase() }}</span>
-        </div>
-        <div><p class="font-medium text-gray-900 dark:text-white">{{ user.email }}</p><p class="text-sm text-gray-500 dark:text-dark-400">{{ user.username }}</p></div>
-      </div>
-      <div v-if="loading" class="flex justify-center py-8"><svg class="h-8 w-8 animate-spin text-primary-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></div>
-      <div v-else-if="apiKeys.length === 0" class="py-8 text-center"><p class="text-sm text-gray-500">{{ t('admin.users.noApiKeys') }}</p></div>
-      <div v-else ref="scrollContainerRef" class="max-h-96 space-y-3 overflow-y-auto" @scroll="closeGroupSelector">
-        <div v-for="key in apiKeys" :key="key.id" class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-600 dark:bg-dark-800">
-          <div class="flex items-start justify-between">
-            <div class="min-w-0 flex-1">
-              <div class="mb-1 flex items-center gap-2"><span class="font-medium text-gray-900 dark:text-white">{{ key.name }}</span><UiBadge :tone="key.status === 'active' ? 'success' : 'danger'">{{ key.status }}</UiBadge></div>
-              <p class="truncate font-mono text-sm text-gray-500">{{ key.key.substring(0, 20) }}...{{ key.key.substring(key.key.length - 8) }}</p>
-            </div>
-          </div>
-          <div class="mt-3 flex flex-wrap gap-4 text-xs text-gray-500">
-            <div class="flex items-center gap-1">
-              <span>{{ t('admin.users.group') }}:</span>
-              <button
-                :ref="(el) => setGroupButtonRef(key.id, el)"
-                @click="openGroupSelector(key)"
-                class="-mx-1 -my-0.5 flex cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-gray-100 dark:hover:bg-dark-700"
-                :disabled="updatingKeyIds.has(key.id)"
-              >
-                <GroupBadge
-                  v-if="key.group_id && key.group"
-                  :name="key.group.name"
-                  :platform="key.group.platform"
-                  :rate-multiplier="key.group.rate_multiplier"
-                  :peak-rate-enabled="key.group.peak_rate_enabled"
-                  :peak-start="key.group.peak_start"
-                  :peak-end="key.group.peak_end"
-                  :peak-rate-multiplier="key.group.peak_rate_multiplier"
-                />
-                <span v-else class="text-gray-400 italic">{{ t('admin.users.none') }}</span>
-                <Icon v-if="updatingKeyIds.has(key.id)" name="refresh" size="xs" class="animate-spin text-primary-500" />
-                <Icon v-else name="arrowsUpDown" size="xs" class="text-gray-400" />
-              </button>
-            </div>
-            <div class="flex items-center gap-1"><span>{{ t('admin.users.columns.created') }}: {{ formatDateTime(key.created_at) }}</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </BaseDialog>
+  <UiDialog :show="show" :title="t('admin.users.userApiKeys')" width="wide" @close="handleClose">
+    <div v-if="user" class="user-api-keys">
+      <header class="user-api-keys__header">
+        <strong>{{ user.email }}</strong>
+        <span v-if="user.username">{{ user.username }}</span>
+      </header>
 
-  <!-- Group Selector Dropdown -->
-  <Teleport to="body">
-    <div
-      v-if="groupSelectorKeyId !== null && dropdownPosition"
-      ref="dropdownRef"
-      class="animate-in fade-in slide-in-from-top-2 fixed z-[100000020] w-64 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-black/5 duration-200 dark:bg-dark-800 dark:ring-white/10"
-      :style="{ top: dropdownPosition.top + 'px', left: dropdownPosition.left + 'px' }"
-    >
-      <div class="max-h-64 overflow-y-auto p-1.5">
-        <!-- Unbind option -->
-        <button
-          @click="changeGroup(selectedKeyForGroup!, null)"
-          :class="[
-            'flex w-full items-center rounded-lg px-3 py-2 text-sm transition-colors',
-            !selectedKeyForGroup?.group_id
-              ? 'bg-primary-50 dark:bg-primary-900/20'
-              : 'hover:bg-gray-100 dark:hover:bg-dark-700'
-          ]"
+      <UiErrorState
+        v-if="loadError"
+        :title="t('admin.users.failedToLoadApiKeys')"
+        :retry-text="t('common.retry')"
+        @retry="load"
+      />
+      <template v-else>
+        <UiDataTable
+          :columns="columns"
+          :data="apiKeys"
+          :loading="loading"
+          :mobile-table="true"
+          row-key="id"
+          :aria-label="t('admin.users.userApiKeys')"
         >
-          <span class="text-gray-500 italic">{{ t('admin.users.none') }}</span>
-          <Icon v-if="!selectedKeyForGroup?.group_id" name="check" size="sm" class="ml-auto text-primary-600 dark:text-primary-400" />
-        </button>
-        <!-- Group options -->
-        <button
-          v-for="group in allGroups"
-          :key="group.id"
-          @click="changeGroup(selectedKeyForGroup!, group.id)"
-          :class="[
-            'flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors',
-            selectedKeyForGroup?.group_id === group.id
-              ? 'bg-primary-50 dark:bg-primary-900/20'
-              : 'hover:bg-gray-100 dark:hover:bg-dark-700'
-          ]"
-        >
-          <GroupOptionItem
-            :name="group.name"
-            :platform="group.platform"
-            :rate-multiplier="group.rate_multiplier"
-            :peak-rate-enabled="group.peak_rate_enabled"
-            :peak-start="group.peak_start"
-            :peak-end="group.peak_end"
-            :peak-rate-multiplier="group.peak_rate_multiplier"
-            :description="group.description"
-            :selected="selectedKeyForGroup?.group_id === group.id"
-          />
-        </button>
-      </div>
+          <template #cell-name="{ row }">
+            <div class="user-api-keys__name">
+              <strong>{{ row.name }}</strong>
+              <code>{{ maskKey(row.key) }}</code>
+            </div>
+          </template>
+          <template #cell-status="{ row }">
+            <UiStatusBadge :status="row.status" :label="row.status" />
+          </template>
+          <template #cell-group="{ row }">
+            <UiSelect
+              :model-value="row.group_id ?? null"
+              :options="groupOptionsFor(row)"
+              density="dense"
+              :disabled="loading || !!loadError || updatingKeyIds.has(row.id)"
+              :aria-label="t('admin.users.group')"
+              @change="(value) => changeGroup(row, value === null ? null : Number(value))"
+            />
+          </template>
+          <template #cell-created_at="{ row }">
+            <span class="user-api-keys__date">{{ formatDateTime(row.created_at) }}</span>
+          </template>
+          <template #empty>
+            <UiEmptyState :title="t('admin.users.noApiKeys')" />
+          </template>
+        </UiDataTable>
+
+        <UiPagination
+          v-if="total > pageSize"
+          :total="total"
+          :page="page"
+          :page-size="pageSize"
+          @update:page="changePage"
+          @update:page-size="changePageSize"
+        />
+      </template>
     </div>
-  </Teleport>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
+import { useAppStore } from '@/stores/app'
+import type { AdminGroup, AdminUser, ApiKey } from '@/types'
 import { formatDateTime } from '@/utils/format'
-import type { AdminUser, AdminGroup, ApiKey } from '@/types'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import GroupBadge from '@/components/common/GroupBadge.vue'
-import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
-import Icon from '@/components/icons/Icon.vue'
-import { UiBadge } from '@/components/ui'
+import {
+  UiDataTable,
+  UiDialog,
+  UiEmptyState,
+  UiErrorState,
+  UiPagination,
+  UiSelect,
+  UiStatusBadge,
+  type Column,
+  type SelectOptionLike,
+} from '@/components/ui'
 
 const props = defineProps<{ show: boolean; user: AdminUser | null }>()
-const emit = defineEmits(['close'])
+const emit = defineEmits<{ close: []; success: [] }>()
 const { t } = useI18n()
 const appStore = useAppStore()
 
 const apiKeys = ref<ApiKey[]>([])
 const allGroups = ref<AdminGroup[]>([])
 const loading = ref(false)
+const loadError = ref<unknown>(null)
 const updatingKeyIds = ref(new Set<number>())
-const groupSelectorKeyId = ref<number | null>(null)
-const dropdownPosition = ref<{ top: number; left: number } | null>(null)
-const dropdownRef = ref<HTMLElement | null>(null)
-const scrollContainerRef = ref<HTMLElement | null>(null)
-const groupButtonRefs = ref<Map<number, HTMLElement>>(new Map())
+const page = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
+let loadSequence = 0
 
-const selectedKeyForGroup = computed(() => {
-  if (groupSelectorKeyId.value === null) return null
-  return apiKeys.value.find((k) => k.id === groupSelectorKeyId.value) || null
-})
+const columns = computed<Column[]>(() => [
+  { key: 'name', label: t('admin.users.apiKeys'), class: 'min-w-[220px]' },
+  { key: 'status', label: t('admin.users.columns.status'), class: 'min-w-[100px]' },
+  { key: 'group', label: t('admin.users.group'), class: 'min-w-[280px]' },
+  { key: 'created_at', label: t('admin.users.columns.created'), class: 'min-w-[160px]' },
+])
 
-const setGroupButtonRef = (keyId: number, el: Element | ComponentPublicInstance | null) => {
-  if (el instanceof HTMLElement) {
-    groupButtonRefs.value.set(keyId, el)
-  } else {
-    groupButtonRefs.value.delete(keyId)
-  }
-}
-
-watch(() => props.show, (v) => {
-  if (v && props.user) {
-    load()
-    loadGroups()
-  } else {
-    closeGroupSelector()
-  }
-})
-
-const load = async () => {
-  if (!props.user) return
-  loading.value = true
-  groupButtonRefs.value.clear()
-  try {
-    const res = await adminAPI.users.getUserApiKeys(props.user.id)
-    apiKeys.value = res.items || []
-  } catch (error) {
-    console.error('Failed to load API keys:', error)
-  } finally {
-    loading.value = false
-  }
-}
-
-const loadGroups = async () => {
-  try {
-    const groups = await adminAPI.groups.getAll()
-    allGroups.value = groups
-  } catch (error) {
-    console.error('Failed to load groups:', error)
-  }
-}
-
-const DROPDOWN_HEIGHT = 272 // max-h-64 = 16rem = 256px + padding
-const DROPDOWN_GAP = 4
-
-const openGroupSelector = (key: ApiKey) => {
-  if (groupSelectorKeyId.value === key.id) {
-    closeGroupSelector()
-  } else {
-    const buttonEl = groupButtonRefs.value.get(key.id)
-    if (buttonEl) {
-      const rect = buttonEl.getBoundingClientRect()
-      const spaceBelow = window.innerHeight - rect.bottom
-      const openUpward = spaceBelow < DROPDOWN_HEIGHT && rect.top > spaceBelow
-      dropdownPosition.value = {
-        top: openUpward ? rect.top - DROPDOWN_HEIGHT - DROPDOWN_GAP : rect.bottom + DROPDOWN_GAP,
-        left: rect.left
-      }
+watch(
+  [() => props.show, () => props.user?.id],
+  ([show, userId], previous) => {
+    if (show && userId) {
+      if (!previous || previous[1] !== userId) page.value = 1
+      load()
+    } else if (!show) {
+      loadSequence += 1
+      clearState()
     }
-    groupSelectorKeyId.value = key.id
+  },
+  { immediate: true },
+)
+
+function clearState() {
+  apiKeys.value = []
+  allGroups.value = []
+  total.value = 0
+  loadError.value = null
+  updatingKeyIds.value = new Set()
+}
+
+async function load() {
+  const userId = props.user?.id
+  if (!userId) return
+  const sequence = ++loadSequence
+  clearState()
+  loading.value = true
+  try {
+    const [keysResponse, groupsResponse] = await Promise.all([
+      adminAPI.users.getUserApiKeys(userId, page.value, pageSize.value),
+      adminAPI.groups.getAll(),
+    ])
+    if (sequence !== loadSequence || !props.show || props.user?.id !== userId) return
+    apiKeys.value = keysResponse.items || []
+    total.value = keysResponse.total || 0
+    allGroups.value = groupsResponse
+  } catch (error) {
+    if (sequence !== loadSequence) return
+    loadError.value = error
+    appStore.showError(t('admin.users.failedToLoadApiKeys'))
+  } finally {
+    if (sequence === loadSequence) loading.value = false
   }
 }
 
-const closeGroupSelector = () => {
-  groupSelectorKeyId.value = null
-  dropdownPosition.value = null
+function groupOptionsFor(key: ApiKey): SelectOptionLike[] {
+  const options: SelectOptionLike[] = [
+    { value: null, label: t('admin.users.none') },
+    ...allGroups.value.map((group) => ({
+      value: group.id,
+      label: `${group.name} · ${group.platform} · ${group.rate_multiplier}x`,
+    })),
+  ]
+  if (key.group_id && key.group && !allGroups.value.some((group) => group.id === key.group_id)) {
+    options.splice(1, 0, {
+      value: key.group_id,
+      label: `${key.group.name} · ${key.group.platform} · ${key.group.rate_multiplier}x`,
+      disabled: true,
+    })
+  }
+  return options
 }
 
-const changeGroup = async (key: ApiKey, newGroupId: number | null) => {
-  closeGroupSelector()
-  if (key.group_id === newGroupId || (!key.group_id && newGroupId === null)) return
+function maskKey(value: string): string {
+  if (value.length <= 16) return value
+  return `${value.slice(0, 12)}...${value.slice(-6)}`
+}
 
+async function changeGroup(key: ApiKey, newGroupId: number | null) {
+  if (key.group_id === newGroupId || (!key.group_id && newGroupId === null)) return
   updatingKeyIds.value.add(key.id)
   try {
     const result = await adminAPI.apiKeys.updateApiKeyGroup(key.id, newGroupId)
-    // Update local data
-    const idx = apiKeys.value.findIndex((k) => k.id === key.id)
-    if (idx !== -1) {
-      apiKeys.value[idx] = result.api_key
-    }
+    const index = apiKeys.value.findIndex((item) => item.id === key.id)
+    if (index !== -1) apiKeys.value[index] = result.api_key
     if (result.auto_granted_group_access && result.granted_group_name) {
       appStore.showSuccess(t('admin.users.groupChangedWithGrant', { group: result.granted_group_name }))
     } else {
       appStore.showSuccess(t('admin.users.groupChangedSuccess'))
     }
+    emit('success')
   } catch (error: any) {
     appStore.showError(error?.message || t('admin.users.groupChangeFailed'))
   } finally {
@@ -222,36 +191,23 @@ const changeGroup = async (key: ApiKey, newGroupId: number | null) => {
   }
 }
 
-const handleKeyDown = (event: KeyboardEvent) => {
-  if (event.key === 'Escape' && groupSelectorKeyId.value !== null) {
-    event.stopPropagation()
-    closeGroupSelector()
-  }
+function changePage(value: number) {
+  page.value = value
+  load()
 }
 
-const handleClickOutside = (event: MouseEvent) => {
-  const target = event.target as HTMLElement
-  if (dropdownRef.value && !dropdownRef.value.contains(target)) {
-    // Check if the click is on one of the group trigger buttons
-    for (const el of groupButtonRefs.value.values()) {
-      if (el.contains(target)) return
-    }
-    closeGroupSelector()
-  }
+function changePageSize(value: number) {
+  pageSize.value = value
+  page.value = 1
+  load()
 }
 
-const handleClose = () => {
-  closeGroupSelector()
+function handleClose() {
+  if (updatingKeyIds.value.size > 0) return
   emit('close')
 }
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-  document.addEventListener('keydown', handleKeyDown, true)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-  document.removeEventListener('keydown', handleKeyDown, true)
-})
 </script>
+
+<style scoped>
+.user-api-keys{display:grid;gap:16px}.user-api-keys__header{display:flex;align-items:baseline;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--ui-border-soft)}.user-api-keys__header strong{font-size:14px;font-weight:600}.user-api-keys__header span{color:var(--ui-text-muted);font-size:12px}.user-api-keys__name{display:grid;gap:2px}.user-api-keys__name strong{font-size:13px;font-weight:600}.user-api-keys__name code{color:var(--ui-text-muted);font-family:var(--font-mono);font-size:11px}.user-api-keys__date{color:var(--ui-text-muted);font-size:12px;white-space:nowrap}
+</style>
