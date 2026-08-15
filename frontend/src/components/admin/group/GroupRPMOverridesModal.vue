@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog :show="show" :title="t('admin.groups.rpmOverridesTitle')" width="wide" @close="handleClose">
+  <UiDialog :show="show" :title="t('admin.groups.rpmOverridesTitle')" width="wide" @close="handleClose">
     <div v-if="group" class="space-y-4">
       <!-- 分组信息 -->
       <div class="flex flex-wrap items-center gap-3 rounded-lg bg-gray-50 px-4 py-2.5 text-sm dark:bg-dark-700">
@@ -104,60 +104,45 @@
         </div>
 
         <div v-else>
-          <div class="overflow-hidden rounded-lg border border-gray-200 dark:border-dark-600">
-            <div class="max-h-[420px] overflow-auto">
-              <table class="w-full min-w-max text-sm">
-                <thead class="sticky top-0 z-[1]">
-                  <tr class="border-b border-gray-200 bg-gray-50 dark:border-dark-600 dark:bg-dark-700">
-                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('admin.groups.columns.userEmail') }}</th>
-                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">ID</th>
-                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('admin.groups.columns.userName') }}</th>
-                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('admin.groups.columns.userNotes') }}</th>
-                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('admin.groups.columns.userStatus') }}</th>
-                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400" :title="t('admin.groups.columns.rpmOverrideHint')">{{ t('admin.groups.columns.rpmOverride') }}</th>
-                    <th class="w-10 px-2 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-dark-600">
-                  <tr
-                    v-for="entry in paginatedLocalEntries"
-                    :key="entry.user_id"
-                    class="hover:bg-gray-50 dark:hover:bg-dark-700/50"
-                  >
-                    <td class="px-3 py-2 text-gray-600 dark:text-gray-400">{{ entry.user_email }}</td>
-                    <td class="whitespace-nowrap px-3 py-2 text-gray-400 dark:text-gray-500">{{ entry.user_id }}</td>
-                    <td class="whitespace-nowrap px-3 py-2 text-gray-900 dark:text-white">{{ entry.user_name || '-' }}</td>
-                    <td class="max-w-[160px] truncate px-3 py-2 text-gray-500 dark:text-gray-400" :title="entry.user_notes">{{ entry.user_notes || '-' }}</td>
-                    <td class="whitespace-nowrap px-3 py-2">
-                      <UiStatusBadge :status="entry.user_status" :label="entry.user_status" />
-                    </td>
-                    <td class="whitespace-nowrap px-3 py-2">
-                      <UiTextField
-                        type="number"
-                        step="1"
-                        min="0"
-                        autocomplete="off"
-                        :model-value="entry.rpm_override"
-                        density="dense"
-                        text-align="center"
-                        @change="updateLocalRpm(entry.user_id, $event)"
-                      />
-                    </td>
-                    <td class="px-2 py-2">
-                      <UiIconButton
-                        :label="t('common.delete')"
-                        variant="danger"
-                        density="dense"
-                        @click="removeLocal(entry.user_id)"
-                      >
-                        <Icon name="trash" size="sm" />
-                      </UiIconButton>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <UiDataTable
+            :columns="rpmColumns"
+            :data="paginatedLocalEntries"
+            row-key="user_id"
+            mobile-table
+            :aria-label="t('admin.groups.rpmOverrides')"
+          >
+            <template #cell-user_name="{ row }">{{ row.user_name || '-' }}</template>
+            <template #cell-user_notes="{ row }">
+              <span class="block max-w-[160px] truncate" :title="row.user_notes">{{ row.user_notes || '-' }}</span>
+            </template>
+            <template #cell-user_status="{ row }">
+              <UiStatusBadge :status="row.user_status" :label="row.user_status" />
+            </template>
+            <template #cell-rpm_override="{ row }">
+              <div class="w-24">
+                <UiTextField
+                  type="number"
+                  step="1"
+                  min="0"
+                  autocomplete="off"
+                  :model-value="row.rpm_override"
+                  density="dense"
+                  text-align="center"
+                  @change="updateLocalRpm(row.user_id, $event)"
+                />
+              </div>
+            </template>
+            <template #cell-actions="{ row }">
+              <UiIconButton
+                :label="t('common.delete')"
+                variant="danger"
+                density="dense"
+                @click="removeLocal(row.user_id)"
+              >
+                <Icon name="trash" size="sm" />
+              </UiIconButton>
+            </template>
+          </UiDataTable>
 
           <UiPagination
             :total="localEntries.length"
@@ -201,7 +186,7 @@
         </div>
       </div>
     </div>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
@@ -211,16 +196,18 @@ import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { GroupRPMOverrideEntry } from '@/api/admin/groups'
 import type { AdminGroup, AdminUser } from '@/types'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import {
   UiButton,
+  UiDataTable,
+  UiDialog,
   UiIconButton,
   UiPagination,
   UiSpinner,
   UiStatusBadge,
-  UiTextField
+  UiTextField,
+  type Column,
 } from '@/components/ui'
 
 interface LocalEntry extends GroupRPMOverrideEntry {}
@@ -249,6 +236,16 @@ const selectedUser = ref<AdminUser | null>(null)
 const newRpm = ref<number | null>(null)
 const currentPage = ref(1)
 const pageSize = ref(10)
+
+const rpmColumns = computed<Column[]>(() => [
+  { key: 'user_email', label: t('admin.groups.columns.userEmail') },
+  { key: 'user_id', label: 'ID' },
+  { key: 'user_name', label: t('admin.groups.columns.userName') },
+  { key: 'user_notes', label: t('admin.groups.columns.userNotes') },
+  { key: 'user_status', label: t('admin.groups.columns.userStatus') },
+  { key: 'rpm_override', label: t('admin.groups.columns.rpmOverride') },
+  { key: 'actions', label: '' },
+])
 
 let searchTimeout: ReturnType<typeof setTimeout>
 let loadRequestId = 0

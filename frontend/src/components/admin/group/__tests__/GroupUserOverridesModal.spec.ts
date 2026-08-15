@@ -54,7 +54,7 @@ const group = {
   rpm_limit: 120
 } as AdminGroup
 
-const BaseDialogStub = {
+const UiDialogStub = {
   props: ['show', 'title'],
   emits: ['close'],
   template: '<section v-if="show"><slot /><slot name="footer" /></section>'
@@ -62,12 +62,12 @@ const BaseDialogStub = {
 
 const mountRateModal = () => mount(GroupRateMultipliersModal, {
   props: { show: true, group },
-  global: { stubs: { BaseDialog: BaseDialogStub, PlatformIcon: true } }
+  global: { stubs: { UiDialog: UiDialogStub, PlatformIcon: true } }
 })
 
 const mountRpmModal = () => mount(GroupRPMOverridesModal, {
   props: { show: true, group },
-  global: { stubs: { BaseDialog: BaseDialogStub, PlatformIcon: true } }
+  global: { stubs: { UiDialog: UiDialogStub, PlatformIcon: true } }
 })
 
 describe('group user override dialogs', () => {
