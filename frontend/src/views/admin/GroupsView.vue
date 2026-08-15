@@ -353,52 +353,20 @@
             v-if="createForm.image_rate_independent"
             class="mb-4"
           >
-            <label class="input-label">{{
-              t(imagePricingI18nKey(createForm.platform, "imageMultiplier"))
-            }}</label>
-            <input
+            <UiTextField
               v-model.number="createForm.image_rate_multiplier"
               type="number"
               step="0.0001"
               min="0"
-              class="input"
+              density="compact"
+              :label="t(imagePricingI18nKey(createForm.platform, 'imageMultiplier'))"
               placeholder="1"
             />
           </div>
           <div class="grid grid-cols-3 gap-3">
-            <div>
-              <label class="input-label">1K ($)</label>
-              <input
-                v-model.number="createForm.image_price_1k"
-                type="number"
-                step="0.001"
-                min="0"
-                class="input"
-                :placeholder="getImagePricePlaceholder(createForm.platform, 'image_price_1k')"
-              />
-            </div>
-            <div>
-              <label class="input-label">2K ($)</label>
-              <input
-                v-model.number="createForm.image_price_2k"
-                type="number"
-                step="0.001"
-                min="0"
-                class="input"
-                :placeholder="getImagePricePlaceholder(createForm.platform, 'image_price_2k')"
-              />
-            </div>
-            <div>
-              <label class="input-label">4K ($)</label>
-              <input
-                v-model.number="createForm.image_price_4k"
-                type="number"
-                step="0.001"
-                min="0"
-                class="input"
-                :placeholder="getImagePricePlaceholder(createForm.platform, 'image_price_4k')"
-              />
-            </div>
+            <UiTextField v-model.number="createForm.image_price_1k" type="number" step="0.001" min="0" density="compact" label="1K ($)" :placeholder="getImagePricePlaceholder(createForm.platform, 'image_price_1k')" />
+            <UiTextField v-model.number="createForm.image_price_2k" type="number" step="0.001" min="0" density="compact" label="2K ($)" :placeholder="getImagePricePlaceholder(createForm.platform, 'image_price_2k')" />
+            <UiTextField v-model.number="createForm.image_price_4k" type="number" step="0.001" min="0" density="compact" label="4K ($)" :placeholder="getImagePricePlaceholder(createForm.platform, 'image_price_4k')" />
           </div>
           <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
             {{ t(imagePricingI18nKey(createForm.platform, "modeHint")) }}
@@ -428,32 +396,8 @@
               v-if="createForm.allow_batch_image_generation"
               class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2"
             >
-              <div>
-                <label class="input-label">{{
-                  t("admin.groups.imagePricing.batchDiscountMultiplier")
-                }}</label>
-                <input
-                  v-model.number="createForm.batch_image_discount_multiplier"
-                  type="number"
-                  step="0.0001"
-                  min="0"
-                  class="input"
-                  placeholder="0.5"
-                />
-              </div>
-              <div>
-                <label class="input-label">{{
-                  t("admin.groups.imagePricing.batchHoldMultiplier")
-                }}</label>
-                <input
-                  v-model.number="createForm.batch_image_hold_multiplier"
-                  type="number"
-                  step="0.0001"
-                  min="0"
-                  class="input"
-                  placeholder="0.6"
-                />
-              </div>
+              <UiTextField v-model.number="createForm.batch_image_discount_multiplier" type="number" step="0.0001" min="0" density="compact" :label="t('admin.groups.imagePricing.batchDiscountMultiplier')" placeholder="0.5" />
+              <UiTextField v-model.number="createForm.batch_image_hold_multiplier" type="number" step="0.0001" min="0" density="compact" :label="t('admin.groups.imagePricing.batchHoldMultiplier')" placeholder="0.6" />
             </div>
           </div>
           <p
@@ -487,52 +431,20 @@
             v-if="createForm.video_rate_independent"
             class="mb-4"
           >
-            <label class="input-label">{{
-              t(videoPricingI18nKey("videoMultiplier"))
-            }}</label>
-            <input
+            <UiTextField
               v-model.number="createForm.video_rate_multiplier"
               type="number"
               step="0.0001"
               min="0"
-              class="input"
+              density="compact"
+              :label="t(videoPricingI18nKey('videoMultiplier'))"
               placeholder="1"
             />
           </div>
           <div class="grid grid-cols-3 gap-3">
-            <div>
-              <label class="input-label">480p ($/s)</label>
-              <input
-                v-model.number="createForm.video_price_480p"
-                type="number"
-                step="0.001"
-                min="0"
-                class="input"
-                :placeholder="getVideoPricePlaceholder(createForm.platform, 'video_price_480p')"
-              />
-            </div>
-            <div>
-              <label class="input-label">720p ($/s)</label>
-              <input
-                v-model.number="createForm.video_price_720p"
-                type="number"
-                step="0.001"
-                min="0"
-                class="input"
-                :placeholder="getVideoPricePlaceholder(createForm.platform, 'video_price_720p')"
-              />
-            </div>
-            <div>
-              <label class="input-label">1080p ($/s)</label>
-              <input
-                v-model.number="createForm.video_price_1080p"
-                type="number"
-                step="0.001"
-                min="0"
-                class="input"
-                :placeholder="getVideoPricePlaceholder(createForm.platform, 'video_price_1080p')"
-              />
-            </div>
+            <UiTextField v-model.number="createForm.video_price_480p" type="number" step="0.001" min="0" density="compact" label="480p ($/s)" :placeholder="getVideoPricePlaceholder(createForm.platform, 'video_price_480p')" />
+            <UiTextField v-model.number="createForm.video_price_720p" type="number" step="0.001" min="0" density="compact" label="720p ($/s)" :placeholder="getVideoPricePlaceholder(createForm.platform, 'video_price_720p')" />
+            <UiTextField v-model.number="createForm.video_price_1080p" type="number" step="0.001" min="0" density="compact" label="1080p ($/s)" :placeholder="getVideoPricePlaceholder(createForm.platform, 'video_price_1080p')" />
           </div>
           <div
             class="mt-4 border-t border-dashed border-gray-200 pt-4 dark:border-dark-700"
@@ -543,10 +455,7 @@
             <div class="mt-3 space-y-3">
               <div v-for="family in videoModelPriceFamilyRows(createForm.video_model_prices)" :key="family.key" class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,7rem))] sm:items-end">
                 <div class="min-w-0 pb-1 font-mono text-xs text-gray-700 dark:text-gray-300">{{ family.label }}</div>
-                <label v-for="resolution in grokVideoPriceResolutions" :key="resolution.key" class="block">
-                  <span class="mb-1 block text-xs text-gray-500 dark:text-gray-400">{{ resolution.label }} ($/s)</span>
-                  <input v-model.number="createForm.video_model_prices[family.key][resolution.key]" type="number" step="0.001" min="0" class="input" :data-testid="`create-grok-video-price-${family.key}-${resolution.key}`" />
-                </label>
+                <UiTextField v-for="resolution in grokVideoPriceResolutions" :key="resolution.key" v-model.number="createForm.video_model_prices[family.key][resolution.key]" type="number" step="0.001" min="0" density="compact" :label="`${resolution.label} ($/s)`" :test-id="`create-grok-video-price-${family.key}-${resolution.key}`" />
               </div>
             </div>
           </div>
@@ -580,34 +489,9 @@
             v-if="createForm.peak_rate_enabled"
             class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3"
           >
-            <div>
-              <label class="input-label">{{ t("admin.groups.peakRate.peakStart") }}</label>
-              <input
-                v-model="createForm.peak_start"
-                type="time"
-                class="input"
-              />
-            </div>
-            <div>
-              <label class="input-label">{{ t("admin.groups.peakRate.peakEnd") }}</label>
-              <input
-                v-model="createForm.peak_end"
-                type="time"
-                class="input"
-              />
-            </div>
-            <div>
-              <label class="input-label">{{ t("admin.groups.peakRate.peakMultiplier") }}</label>
-              <input
-                v-model.number="createForm.peak_rate_multiplier"
-                type="number"
-                step="0.001"
-                min="0"
-                class="input"
-                placeholder="1"
-                :title="t('admin.groups.peakRate.multiplierHint')"
-              />
-            </div>
+            <UiTextField v-model="createForm.peak_start" type="time" density="compact" :label="t('admin.groups.peakRate.peakStart')" />
+            <UiTextField v-model="createForm.peak_end" type="time" density="compact" :label="t('admin.groups.peakRate.peakEnd')" />
+            <UiTextField v-model.number="createForm.peak_rate_multiplier" type="number" step="0.001" min="0" density="compact" :label="t('admin.groups.peakRate.peakMultiplier')" :help="t('admin.groups.peakRate.multiplierHint')" placeholder="1" />
           </div>
         </div>
 
@@ -628,32 +512,8 @@
             v-if="createForm.profit_control_enabled"
             class="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2"
           >
-            <div>
-              <label class="input-label">{{ t("admin.groups.profitControl.minMargin") }}</label>
-              <input
-                v-model.number="createForm.profit_min_margin_percent"
-                type="number"
-                step="0.1"
-                min="0"
-                max="99.99"
-                class="input"
-                placeholder="0"
-                :title="t('admin.groups.profitControl.minMarginHint')"
-              />
-            </div>
-            <div>
-              <label class="input-label">{{ t("admin.groups.profitControl.safetyBuffer") }}</label>
-              <input
-                v-model.number="createForm.profit_safety_buffer_percent"
-                type="number"
-                step="0.1"
-                min="0"
-                max="99.99"
-                class="input"
-                placeholder="0"
-                :title="t('admin.groups.profitControl.safetyBufferHint')"
-              />
-            </div>
+            <UiTextField v-model.number="createForm.profit_min_margin_percent" type="number" step="0.1" min="0" max="99.99" density="compact" :label="t('admin.groups.profitControl.minMargin')" :help="t('admin.groups.profitControl.minMarginHint')" placeholder="0" />
+            <UiTextField v-model.number="createForm.profit_safety_buffer_percent" type="number" step="0.1" min="0" max="99.99" density="compact" :label="t('admin.groups.profitControl.safetyBuffer')" :help="t('admin.groups.profitControl.safetyBufferHint')" placeholder="0" />
           </div>
         </div>
 
@@ -798,17 +658,14 @@
           </div>
           <!-- 降级分组选择（仅当启用 claude_code_only 时显示） -->
           <div v-if="createForm.claude_code_only" class="mt-3">
-            <label class="input-label">{{
-              t("admin.groups.claudeCode.fallbackGroup")
-            }}</label>
             <UiSelect
               v-model="createForm.fallback_group_id"
               :options="fallbackGroupOptions"
+              :label="t('admin.groups.claudeCode.fallbackGroup')"
+              :description="t('admin.groups.claudeCode.fallbackHint')"
               :placeholder="t('admin.groups.claudeCode.noFallback')"
+              density="compact"
             />
-            <p class="input-hint">
-              {{ t("admin.groups.claudeCode.fallbackHint") }}
-            </p>
           </div>
         </div>
 
@@ -821,20 +678,7 @@
             {{ t("admin.groups.webSearchPricing.title") }}
           </h4>
           <div>
-            <label class="input-label">{{
-              t("admin.groups.webSearchPricing.pricePerCall")
-            }}</label>
-            <input
-              v-model.number="createForm.web_search_price_per_call"
-              type="number"
-              step="0.001"
-              min="0"
-              placeholder="0.01"
-              class="input"
-            />
-            <p class="input-hint">
-              {{ t("admin.groups.webSearchPricing.pricePerCallHint") }}
-            </p>
+            <UiTextField v-model.number="createForm.web_search_price_per_call" type="number" step="0.001" min="0" density="compact" :label="t('admin.groups.webSearchPricing.pricePerCall')" :description="t('admin.groups.webSearchPricing.pricePerCallHint')" placeholder="0.01" />
             <div
               class="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600 dark:bg-dark-700 dark:text-gray-300"
             >
@@ -870,10 +714,10 @@
           <h4 class="mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">{{ t("admin.groups.explicitPricing.title") }}</h4>
           <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">{{ t("admin.groups.explicitPricing.description") }}</p>
           <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div><label class="input-label">{{ t("admin.groups.explicitPricing.searchPricePer1k") }}</label><input v-model.number="createForm.search_price_per_1k" type="number" step="0.000001" min="0" class="input" :placeholder="t('admin.groups.explicitPricing.pricePlaceholder')" data-testid="create-search-price" /></div>
-            <div><label class="input-label">{{ t("admin.groups.voicePricing.audioRealtimePerMin") }}</label><input v-model.number="createForm.audio_realtime_price_per_min" type="number" step="0.000001" min="0" class="input" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" data-testid="create-audio-realtime-price" /></div>
-            <div><label class="input-label">{{ t("admin.groups.voicePricing.audioTtsPerMillionChars") }}</label><input v-model.number="createForm.audio_tts_price_per_million_chars" type="number" step="0.000001" min="0" class="input" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" data-testid="create-audio-tts-price" /></div>
-            <div><label class="input-label">{{ t("admin.groups.voicePricing.audioSttPerHour") }}</label><input v-model.number="createForm.audio_stt_price_per_hour" type="number" step="0.000001" min="0" class="input" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" data-testid="create-audio-stt-price" /></div>
+            <UiTextField v-model.number="createForm.search_price_per_1k" type="number" step="0.000001" min="0" density="compact" :label="t('admin.groups.explicitPricing.searchPricePer1k')" :placeholder="t('admin.groups.explicitPricing.pricePlaceholder')" test-id="create-search-price" />
+            <UiTextField v-model.number="createForm.audio_realtime_price_per_min" type="number" step="0.000001" min="0" density="compact" :label="t('admin.groups.voicePricing.audioRealtimePerMin')" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" test-id="create-audio-realtime-price" />
+            <UiTextField v-model.number="createForm.audio_tts_price_per_million_chars" type="number" step="0.000001" min="0" density="compact" :label="t('admin.groups.voicePricing.audioTtsPerMillionChars')" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" test-id="create-audio-tts-price" />
+            <UiTextField v-model.number="createForm.audio_stt_price_per_hour" type="number" step="0.000001" min="0" density="compact" :label="t('admin.groups.voicePricing.audioSttPerHour')" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" test-id="create-audio-stt-price" />
           </div>
         </div>
 
@@ -1118,17 +962,14 @@
           v-if="['anthropic', 'antigravity'].includes(createForm.platform)"
           class="border-t pt-4"
         >
-          <label class="input-label">{{
-            t("admin.groups.invalidRequestFallback.title")
-          }}</label>
           <UiSelect
             v-model="createForm.fallback_group_id_on_invalid_request"
             :options="invalidRequestFallbackOptions"
+            :label="t('admin.groups.invalidRequestFallback.title')"
+            :description="t('admin.groups.invalidRequestFallback.hint')"
             :placeholder="t('admin.groups.invalidRequestFallback.noFallback')"
+            density="compact"
           />
-          <p class="input-hint">
-            {{ t("admin.groups.invalidRequestFallback.hint") }}
-          </p>
         </div>
 
         <!-- 模型路由配置（仅 anthropic 平台） -->
@@ -1201,9 +1042,9 @@
                     monospace
                   />
                   <div>
-                    <label class="input-label text-xs">{{
-                      t("admin.groups.modelRouting.accounts")
-                    }}</label>
+                    <p class="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">
+                      {{ t("admin.groups.modelRouting.accounts") }}
+                    </p>
                     <!-- 已选账号标签 -->
                     <div
                       v-if="rule.accounts.length > 0"
@@ -1445,52 +1286,20 @@
             v-if="editForm.image_rate_independent"
             class="mb-4"
           >
-            <label class="input-label">{{
-              t(imagePricingI18nKey(editForm.platform, "imageMultiplier"))
-            }}</label>
-            <input
+            <UiTextField
               v-model.number="editForm.image_rate_multiplier"
               type="number"
               step="0.0001"
               min="0"
-              class="input"
+              density="compact"
+              :label="t(imagePricingI18nKey(editForm.platform, 'imageMultiplier'))"
               placeholder="1"
             />
           </div>
           <div class="grid grid-cols-3 gap-3">
-            <div>
-              <label class="input-label">1K ($)</label>
-              <input
-                v-model.number="editForm.image_price_1k"
-                type="number"
-                step="0.001"
-                min="0"
-                class="input"
-                :placeholder="getImagePricePlaceholder(editForm.platform, 'image_price_1k')"
-              />
-            </div>
-            <div>
-              <label class="input-label">2K ($)</label>
-              <input
-                v-model.number="editForm.image_price_2k"
-                type="number"
-                step="0.001"
-                min="0"
-                class="input"
-                :placeholder="getImagePricePlaceholder(editForm.platform, 'image_price_2k')"
-              />
-            </div>
-            <div>
-              <label class="input-label">4K ($)</label>
-              <input
-                v-model.number="editForm.image_price_4k"
-                type="number"
-                step="0.001"
-                min="0"
-                class="input"
-                :placeholder="getImagePricePlaceholder(editForm.platform, 'image_price_4k')"
-              />
-            </div>
+            <UiTextField v-model.number="editForm.image_price_1k" type="number" step="0.001" min="0" density="compact" label="1K ($)" :placeholder="getImagePricePlaceholder(editForm.platform, 'image_price_1k')" />
+            <UiTextField v-model.number="editForm.image_price_2k" type="number" step="0.001" min="0" density="compact" label="2K ($)" :placeholder="getImagePricePlaceholder(editForm.platform, 'image_price_2k')" />
+            <UiTextField v-model.number="editForm.image_price_4k" type="number" step="0.001" min="0" density="compact" label="4K ($)" :placeholder="getImagePricePlaceholder(editForm.platform, 'image_price_4k')" />
           </div>
           <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
             {{ t(imagePricingI18nKey(editForm.platform, "modeHint")) }}
@@ -1520,32 +1329,8 @@
               v-if="editForm.allow_batch_image_generation"
               class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2"
             >
-              <div>
-                <label class="input-label">{{
-                  t("admin.groups.imagePricing.batchDiscountMultiplier")
-                }}</label>
-                <input
-                  v-model.number="editForm.batch_image_discount_multiplier"
-                  type="number"
-                  step="0.0001"
-                  min="0"
-                  class="input"
-                  placeholder="0.5"
-                />
-              </div>
-              <div>
-                <label class="input-label">{{
-                  t("admin.groups.imagePricing.batchHoldMultiplier")
-                }}</label>
-                <input
-                  v-model.number="editForm.batch_image_hold_multiplier"
-                  type="number"
-                  step="0.0001"
-                  min="0"
-                  class="input"
-                  placeholder="0.6"
-                />
-              </div>
+              <UiTextField v-model.number="editForm.batch_image_discount_multiplier" type="number" step="0.0001" min="0" density="compact" :label="t('admin.groups.imagePricing.batchDiscountMultiplier')" placeholder="0.5" />
+              <UiTextField v-model.number="editForm.batch_image_hold_multiplier" type="number" step="0.0001" min="0" density="compact" :label="t('admin.groups.imagePricing.batchHoldMultiplier')" placeholder="0.6" />
             </div>
           </div>
           <p
@@ -1579,52 +1364,20 @@
             v-if="editForm.video_rate_independent"
             class="mb-4"
           >
-            <label class="input-label">{{
-              t(videoPricingI18nKey("videoMultiplier"))
-            }}</label>
-            <input
+            <UiTextField
               v-model.number="editForm.video_rate_multiplier"
               type="number"
               step="0.0001"
               min="0"
-              class="input"
+              density="compact"
+              :label="t(videoPricingI18nKey('videoMultiplier'))"
               placeholder="1"
             />
           </div>
           <div class="grid grid-cols-3 gap-3">
-            <div>
-              <label class="input-label">480p ($/s)</label>
-              <input
-                v-model.number="editForm.video_price_480p"
-                type="number"
-                step="0.001"
-                min="0"
-                class="input"
-                :placeholder="getVideoPricePlaceholder(editForm.platform, 'video_price_480p')"
-              />
-            </div>
-            <div>
-              <label class="input-label">720p ($/s)</label>
-              <input
-                v-model.number="editForm.video_price_720p"
-                type="number"
-                step="0.001"
-                min="0"
-                class="input"
-                :placeholder="getVideoPricePlaceholder(editForm.platform, 'video_price_720p')"
-              />
-            </div>
-            <div>
-              <label class="input-label">1080p ($/s)</label>
-              <input
-                v-model.number="editForm.video_price_1080p"
-                type="number"
-                step="0.001"
-                min="0"
-                class="input"
-                :placeholder="getVideoPricePlaceholder(editForm.platform, 'video_price_1080p')"
-              />
-            </div>
+            <UiTextField v-model.number="editForm.video_price_480p" type="number" step="0.001" min="0" density="compact" label="480p ($/s)" :placeholder="getVideoPricePlaceholder(editForm.platform, 'video_price_480p')" />
+            <UiTextField v-model.number="editForm.video_price_720p" type="number" step="0.001" min="0" density="compact" label="720p ($/s)" :placeholder="getVideoPricePlaceholder(editForm.platform, 'video_price_720p')" />
+            <UiTextField v-model.number="editForm.video_price_1080p" type="number" step="0.001" min="0" density="compact" label="1080p ($/s)" :placeholder="getVideoPricePlaceholder(editForm.platform, 'video_price_1080p')" />
           </div>
           <div
             class="mt-4 border-t border-dashed border-gray-200 pt-4 dark:border-dark-700"
@@ -1635,10 +1388,7 @@
             <div class="mt-3 space-y-3">
               <div v-for="family in videoModelPriceFamilyRows(editForm.video_model_prices)" :key="family.key" class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,7rem))] sm:items-end">
                 <div class="min-w-0 pb-1 font-mono text-xs text-gray-700 dark:text-gray-300">{{ family.label }}</div>
-                <label v-for="resolution in grokVideoPriceResolutions" :key="resolution.key" class="block">
-                  <span class="mb-1 block text-xs text-gray-500 dark:text-gray-400">{{ resolution.label }} ($/s)</span>
-                  <input v-model.number="editForm.video_model_prices[family.key][resolution.key]" type="number" step="0.001" min="0" class="input" :data-testid="`edit-grok-video-price-${family.key}-${resolution.key}`" />
-                </label>
+                <UiTextField v-for="resolution in grokVideoPriceResolutions" :key="resolution.key" v-model.number="editForm.video_model_prices[family.key][resolution.key]" type="number" step="0.001" min="0" density="compact" :label="`${resolution.label} ($/s)`" :test-id="`edit-grok-video-price-${family.key}-${resolution.key}`" />
               </div>
             </div>
           </div>
@@ -1672,34 +1422,9 @@
             v-if="editForm.peak_rate_enabled"
             class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3"
           >
-            <div>
-              <label class="input-label">{{ t("admin.groups.peakRate.peakStart") }}</label>
-              <input
-                v-model="editForm.peak_start"
-                type="time"
-                class="input"
-              />
-            </div>
-            <div>
-              <label class="input-label">{{ t("admin.groups.peakRate.peakEnd") }}</label>
-              <input
-                v-model="editForm.peak_end"
-                type="time"
-                class="input"
-              />
-            </div>
-            <div>
-              <label class="input-label">{{ t("admin.groups.peakRate.peakMultiplier") }}</label>
-              <input
-                v-model.number="editForm.peak_rate_multiplier"
-                type="number"
-                step="0.001"
-                min="0"
-                class="input"
-                placeholder="1"
-                :title="t('admin.groups.peakRate.multiplierHint')"
-              />
-            </div>
+            <UiTextField v-model="editForm.peak_start" type="time" density="compact" :label="t('admin.groups.peakRate.peakStart')" />
+            <UiTextField v-model="editForm.peak_end" type="time" density="compact" :label="t('admin.groups.peakRate.peakEnd')" />
+            <UiTextField v-model.number="editForm.peak_rate_multiplier" type="number" step="0.001" min="0" density="compact" :label="t('admin.groups.peakRate.peakMultiplier')" :help="t('admin.groups.peakRate.multiplierHint')" placeholder="1" />
           </div>
         </div>
 
@@ -1720,32 +1445,8 @@
             v-if="editForm.profit_control_enabled"
             class="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2"
           >
-            <div>
-              <label class="input-label">{{ t("admin.groups.profitControl.minMargin") }}</label>
-              <input
-                v-model.number="editForm.profit_min_margin_percent"
-                type="number"
-                step="0.1"
-                min="0"
-                max="99.99"
-                class="input"
-                placeholder="0"
-                :title="t('admin.groups.profitControl.minMarginHint')"
-              />
-            </div>
-            <div>
-              <label class="input-label">{{ t("admin.groups.profitControl.safetyBuffer") }}</label>
-              <input
-                v-model.number="editForm.profit_safety_buffer_percent"
-                type="number"
-                step="0.1"
-                min="0"
-                max="99.99"
-                class="input"
-                placeholder="0"
-                :title="t('admin.groups.profitControl.safetyBufferHint')"
-              />
-            </div>
+            <UiTextField v-model.number="editForm.profit_min_margin_percent" type="number" step="0.1" min="0" max="99.99" density="compact" :label="t('admin.groups.profitControl.minMargin')" :help="t('admin.groups.profitControl.minMarginHint')" placeholder="0" />
+            <UiTextField v-model.number="editForm.profit_safety_buffer_percent" type="number" step="0.1" min="0" max="99.99" density="compact" :label="t('admin.groups.profitControl.safetyBuffer')" :help="t('admin.groups.profitControl.safetyBufferHint')" placeholder="0" />
           </div>
         </div>
 
@@ -1890,17 +1591,14 @@
           </div>
           <!-- 降级分组选择（仅当启用 claude_code_only 时显示） -->
           <div v-if="editForm.claude_code_only" class="mt-3">
-            <label class="input-label">{{
-              t("admin.groups.claudeCode.fallbackGroup")
-            }}</label>
             <UiSelect
               v-model="editForm.fallback_group_id"
               :options="fallbackGroupOptionsForEdit"
+              :label="t('admin.groups.claudeCode.fallbackGroup')"
+              :description="t('admin.groups.claudeCode.fallbackHint')"
               :placeholder="t('admin.groups.claudeCode.noFallback')"
+              density="compact"
             />
-            <p class="input-hint">
-              {{ t("admin.groups.claudeCode.fallbackHint") }}
-            </p>
           </div>
         </div>
 
@@ -1913,20 +1611,7 @@
             {{ t("admin.groups.webSearchPricing.title") }}
           </h4>
           <div>
-            <label class="input-label">{{
-              t("admin.groups.webSearchPricing.pricePerCall")
-            }}</label>
-            <input
-              v-model.number="editForm.web_search_price_per_call"
-              type="number"
-              step="0.001"
-              min="0"
-              placeholder="0.01"
-              class="input"
-            />
-            <p class="input-hint">
-              {{ t("admin.groups.webSearchPricing.pricePerCallHint") }}
-            </p>
+            <UiTextField v-model.number="editForm.web_search_price_per_call" type="number" step="0.001" min="0" density="compact" :label="t('admin.groups.webSearchPricing.pricePerCall')" :description="t('admin.groups.webSearchPricing.pricePerCallHint')" placeholder="0.01" />
             <div
               class="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600 dark:bg-dark-700 dark:text-gray-300"
             >
@@ -1962,10 +1647,10 @@
           <h4 class="mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">{{ t("admin.groups.explicitPricing.title") }}</h4>
           <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">{{ t("admin.groups.explicitPricing.description") }}</p>
           <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div><label class="input-label">{{ t("admin.groups.explicitPricing.searchPricePer1k") }}</label><input v-model.number="editForm.search_price_per_1k" type="number" step="0.000001" min="0" class="input" :placeholder="t('admin.groups.explicitPricing.pricePlaceholder')" data-testid="edit-search-price" /></div>
-            <div><label class="input-label">{{ t("admin.groups.voicePricing.audioRealtimePerMin") }}</label><input v-model.number="editForm.audio_realtime_price_per_min" type="number" step="0.000001" min="0" class="input" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" data-testid="edit-audio-realtime-price" /></div>
-            <div><label class="input-label">{{ t("admin.groups.voicePricing.audioTtsPerMillionChars") }}</label><input v-model.number="editForm.audio_tts_price_per_million_chars" type="number" step="0.000001" min="0" class="input" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" data-testid="edit-audio-tts-price" /></div>
-            <div><label class="input-label">{{ t("admin.groups.voicePricing.audioSttPerHour") }}</label><input v-model.number="editForm.audio_stt_price_per_hour" type="number" step="0.000001" min="0" class="input" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" data-testid="edit-audio-stt-price" /></div>
+            <UiTextField v-model.number="editForm.search_price_per_1k" type="number" step="0.000001" min="0" density="compact" :label="t('admin.groups.explicitPricing.searchPricePer1k')" :placeholder="t('admin.groups.explicitPricing.pricePlaceholder')" test-id="edit-search-price" />
+            <UiTextField v-model.number="editForm.audio_realtime_price_per_min" type="number" step="0.000001" min="0" density="compact" :label="t('admin.groups.voicePricing.audioRealtimePerMin')" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" test-id="edit-audio-realtime-price" />
+            <UiTextField v-model.number="editForm.audio_tts_price_per_million_chars" type="number" step="0.000001" min="0" density="compact" :label="t('admin.groups.voicePricing.audioTtsPerMillionChars')" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" test-id="edit-audio-tts-price" />
+            <UiTextField v-model.number="editForm.audio_stt_price_per_hour" type="number" step="0.000001" min="0" density="compact" :label="t('admin.groups.voicePricing.audioSttPerHour')" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" test-id="edit-audio-stt-price" />
           </div>
         </div>
 
@@ -2210,17 +1895,14 @@
           v-if="['anthropic', 'antigravity'].includes(editForm.platform)"
           class="border-t pt-4"
         >
-          <label class="input-label">{{
-            t("admin.groups.invalidRequestFallback.title")
-          }}</label>
           <UiSelect
             v-model="editForm.fallback_group_id_on_invalid_request"
             :options="invalidRequestFallbackOptionsForEdit"
+            :label="t('admin.groups.invalidRequestFallback.title')"
+            :description="t('admin.groups.invalidRequestFallback.hint')"
             :placeholder="t('admin.groups.invalidRequestFallback.noFallback')"
+            density="compact"
           />
-          <p class="input-hint">
-            {{ t("admin.groups.invalidRequestFallback.hint") }}
-          </p>
         </div>
 
         <!-- 模型路由配置（仅 anthropic 平台） -->
@@ -2293,9 +1975,9 @@
                     monospace
                   />
                   <div>
-                    <label class="input-label text-xs">{{
-                      t("admin.groups.modelRouting.accounts")
-                    }}</label>
+                    <p class="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">
+                      {{ t("admin.groups.modelRouting.accounts") }}
+                    </p>
                     <!-- 已选账号标签 -->
                     <div
                       v-if="rule.accounts.length > 0"
