@@ -344,64 +344,10 @@
           v-model:max-effort="createForm.max_reasoning_effort"
           v-model:mappings="createForm.reasoning_effort_mappings"
         />
-        <div data-tour="group-form-exclusive">
-          <div class="mb-1.5 flex items-center gap-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t("admin.groups.form.exclusive") }}
-            </label>
-            <!-- Help Tooltip -->
-            <div class="group relative inline-flex">
-              <Icon
-                name="questionCircle"
-                size="sm"
-                :stroke-width="2"
-                class="cursor-help text-gray-400 transition-colors hover:text-primary-500 dark:text-gray-500 dark:hover:text-primary-400"
-              />
-              <!-- Tooltip Popover -->
-              <div
-                class="pointer-events-none absolute bottom-full left-0 z-50 mb-2 w-72 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100"
-              >
-                <div
-                  class="rounded-lg bg-gray-900 p-3 text-white shadow-lg dark:bg-gray-800"
-                >
-                  <p class="mb-2 text-xs font-medium">
-                    {{ t("admin.groups.exclusiveTooltip.title") }}
-                  </p>
-                  <p class="mb-2 text-xs leading-relaxed text-gray-300">
-                    {{ t("admin.groups.exclusiveTooltip.description") }}
-                  </p>
-                  <div class="rounded bg-gray-800 p-2 dark:bg-gray-700">
-                    <p class="text-xs leading-relaxed text-gray-300">
-                      <span
-                        class="inline-flex items-center gap-1 text-primary-400"
-                        ><Icon name="lightbulb" size="xs" />
-                        {{ t("admin.groups.exclusiveTooltip.example") }}</span
-                      >
-                      {{ t("admin.groups.exclusiveTooltip.exampleContent") }}
-                    </p>
-                  </div>
-                  <!-- Arrow -->
-                  <div
-                    class="absolute -bottom-1.5 left-3 h-3 w-3 rotate-45 bg-gray-900 dark:bg-gray-800"
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="flex items-center gap-3">
-            <UiSwitch
-              v-model="createForm.is_exclusive"
-              :label="t('admin.groups.form.exclusive')"
-            />
-            <span class="text-sm text-gray-500 dark:text-gray-400">
-              {{
-                createForm.is_exclusive
-                  ? t("admin.groups.exclusive")
-                  : t("admin.groups.public")
-              }}
-            </span>
-          </div>
-        </div>
+        <GroupExclusiveField
+          v-model="createForm.is_exclusive"
+          data-tour="group-form-exclusive"
+        />
 
         <GroupModelsListEditor
           :state="createModelsListState"
@@ -1715,64 +1661,7 @@
           v-model:max-effort="editForm.max_reasoning_effort"
           v-model:mappings="editForm.reasoning_effort_mappings"
         />
-        <div>
-          <div class="mb-1.5 flex items-center gap-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t("admin.groups.form.exclusive") }}
-            </label>
-            <!-- Help Tooltip -->
-            <div class="group relative inline-flex">
-              <Icon
-                name="questionCircle"
-                size="sm"
-                :stroke-width="2"
-                class="cursor-help text-gray-400 transition-colors hover:text-primary-500 dark:text-gray-500 dark:hover:text-primary-400"
-              />
-              <!-- Tooltip Popover -->
-              <div
-                class="pointer-events-none absolute bottom-full left-0 z-50 mb-2 w-72 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100"
-              >
-                <div
-                  class="rounded-lg bg-gray-900 p-3 text-white shadow-lg dark:bg-gray-800"
-                >
-                  <p class="mb-2 text-xs font-medium">
-                    {{ t("admin.groups.exclusiveTooltip.title") }}
-                  </p>
-                  <p class="mb-2 text-xs leading-relaxed text-gray-300">
-                    {{ t("admin.groups.exclusiveTooltip.description") }}
-                  </p>
-                  <div class="rounded bg-gray-800 p-2 dark:bg-gray-700">
-                    <p class="text-xs leading-relaxed text-gray-300">
-                      <span
-                        class="inline-flex items-center gap-1 text-primary-400"
-                        ><Icon name="lightbulb" size="xs" />
-                        {{ t("admin.groups.exclusiveTooltip.example") }}</span
-                      >
-                      {{ t("admin.groups.exclusiveTooltip.exampleContent") }}
-                    </p>
-                  </div>
-                  <!-- Arrow -->
-                  <div
-                    class="absolute -bottom-1.5 left-3 h-3 w-3 rotate-45 bg-gray-900 dark:bg-gray-800"
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="flex items-center gap-3">
-            <UiSwitch
-              v-model="editForm.is_exclusive"
-              :label="t('admin.groups.form.exclusive')"
-            />
-            <span class="text-sm text-gray-500 dark:text-gray-400">
-              {{
-                editForm.is_exclusive
-                  ? t("admin.groups.exclusive")
-                  : t("admin.groups.public")
-              }}
-            </span>
-          </div>
-        </div>
+        <GroupExclusiveField v-model="editForm.is_exclusive" />
         <UiSelect
           v-model="editForm.status"
           :options="editStatusOptions"
@@ -3528,13 +3417,14 @@ import Pagination from "@/components/common/Pagination.vue";
 import BaseDialog from "@/components/common/BaseDialog.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import Icon from "@/components/icons/Icon.vue";
-import { UiBadge, UiButton, UiEmptyState, UiIconButton, UiSearchInput, UiSelect, UiStatusBadge, UiSwitch, UiTextArea, UiTextField } from '@/components/ui';
+import { UiBadge, UiButton, UiEmptyState, UiIconButton, UiSearchInput, UiSelect, UiStatusBadge, UiTextArea, UiTextField } from '@/components/ui';
 import Select from "@/components/common/Select.vue";
 import PlatformIcon from "@/components/common/PlatformIcon.vue";
 import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipliersModal.vue";
 import GroupRPMOverridesModal from "@/components/admin/group/GroupRPMOverridesModal.vue";
 import GroupModelsListEditor from "@/components/admin/group/GroupModelsListEditor.vue";
 import GroupCopyAccountsPicker from "@/components/admin/group/GroupCopyAccountsPicker.vue";
+import GroupExclusiveField from "@/components/admin/group/GroupExclusiveField.vue";
 import GroupCapacityBadge from "@/components/common/GroupCapacityBadge.vue";
 import ReasoningEffortPolicyFields from "@/components/admin/group/ReasoningEffortPolicyFields.vue";
 import PricingEntryCard from "@/components/admin/channel/PricingEntryCard.vue";
