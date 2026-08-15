@@ -321,20 +321,14 @@
         </div>
       </template>
 
-      <BaseDialog :show="settingsOpen" :title="t('admin.riskControl.settingsTitle')" width="extra-wide" @close="settingsOpen = false">
+      <UiDialog :show="settingsOpen" :title="t('admin.riskControl.settingsTitle')" width="extra-wide" @close="settingsOpen = false">
         <div data-test="risk-settings-surface" class="min-w-0">
-          <div class="flex gap-2 overflow-x-auto border-b border-gray-100 pb-3 dark:border-dark-700">
-            <button
-              v-for="tab in settingsTabs"
-              :key="tab.id"
-              type="button"
-              class="inline-flex whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors"
-              :class="activeSettingsTab === tab.id ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-dark-700 dark:hover:text-white'"
-              @click="activeSettingsTab = tab.id"
-            >
-              {{ tab.label }}
-            </button>
-          </div>
+          <UiTabs
+            :model-value="activeSettingsTab"
+            :tabs="settingsTabOptions"
+            :label="t('admin.riskControl.settingsTitle')"
+            @update:model-value="setSettingsTab"
+          />
 
           <div v-if="activeSettingsTab === 'basic'" class="space-y-5 pt-5">
             <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -343,36 +337,14 @@
                   <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.riskControl.enabled') }}</p>
                   <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.enabledHint') }}</p>
                 </div>
-                <Toggle v-model="configForm.enabled" />
+                <UiSwitch v-model="configForm.enabled" :label="t('admin.riskControl.enabled')" />
               </div>
-              <div>
-                <label class="input-label">{{ t('admin.riskControl.mode') }}</label>
-                <Select v-model="configForm.mode" :options="modeOptions" />
-                <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ modeDescription(configForm.mode) }}</p>
-              </div>
-              <div>
-                <label class="input-label">{{ t('admin.riskControl.baseUrl') }}</label>
-                <input v-model.trim="configForm.base_url" type="url" class="input" placeholder="https://api.openai.com" />
-              </div>
-              <div>
-                <label class="input-label">{{ t('admin.riskControl.model') }}</label>
-                <input v-model.trim="configForm.model" type="text" class="input" placeholder="omni-moderation-latest" />
-              </div>
-              <div>
-                <label class="input-label">{{ t('admin.riskControl.timeoutMs') }}</label>
-                <input v-model.number="configForm.timeout_ms" type="number" min="500" max="30000" class="input" />
-              </div>
-              <div>
-                <label class="input-label">{{ t('admin.riskControl.retryCount') }}</label>
-                <input v-model.number="configForm.retry_count" type="number" min="0" max="5" class="input" />
-              </div>
-              <div>
-                <label class="input-label">{{ t('admin.riskControl.sampleRate') }}</label>
-                <div class="relative">
-                  <input v-model.number="configForm.sample_rate" type="number" min="0" max="100" step="1" class="input pr-8" />
-                  <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
-                </div>
-              </div>
+              <UiSelect v-model="configForm.mode" :options="modeOptions" density="compact" :label="t('admin.riskControl.mode')" :description="modeDescription(configForm.mode)" />
+              <UiTextField v-model.trim="configForm.base_url" type="url" density="compact" :label="t('admin.riskControl.baseUrl')" placeholder="https://api.openai.com" />
+              <UiTextField v-model.trim="configForm.model" density="compact" :label="t('admin.riskControl.model')" placeholder="omni-moderation-latest" />
+              <UiTextField v-model.number="configForm.timeout_ms" type="number" min="500" max="30000" density="compact" :label="t('admin.riskControl.timeoutMs')" />
+              <UiTextField v-model.number="configForm.retry_count" type="number" min="0" max="5" density="compact" :label="t('admin.riskControl.retryCount')" />
+              <UiTextField v-model.number="configForm.sample_rate" type="number" min="0" max="100" step="1" density="compact" :label="t('admin.riskControl.sampleRate')" />
               <div>
                 <label class="input-label">{{ t('admin.riskControl.proxy') }}</label>
                 <ProxySelector v-model="configForm.proxy_id" :proxies="proxies" />
@@ -997,72 +969,32 @@
 
         <template #footer>
           <div class="flex justify-end gap-2">
-            <button type="button" class="btn btn-secondary" @click="settingsOpen = false">{{ t('common.cancel') }}</button>
-            <button type="button" class="btn btn-primary inline-flex items-center gap-2" :disabled="saving" @click="saveConfig">
-              <Icon v-if="saving" name="refresh" size="sm" class="animate-spin" />
-              <Icon v-else name="check" size="sm" />
+            <UiButton density="compact" @click="settingsOpen = false">{{ t('common.cancel') }}</UiButton>
+            <UiButton density="compact" variant="primary" :loading="saving" :disabled="saving" @click="saveConfig">
               {{ saving ? t('common.saving') : t('admin.riskControl.saveConfig') }}
-            </button>
+            </UiButton>
           </div>
         </template>
-      </BaseDialog>
+      </UiDialog>
 
-      <BaseDialog
+      <UiDialog
         :show="inputDetailRow !== null"
         :title="t('admin.riskControl.inputDetailTitle')"
         width="wide"
         @close="closeInputDetail"
       >
         <div v-if="inputDetailRow" class="space-y-5">
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div class="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-dark-700 dark:bg-dark-800/70">
-              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.table.time') }}</p>
-              <p class="mt-1 truncate text-sm font-semibold text-gray-900 dark:text-white">{{ formatDateTime(inputDetailRow.created_at) }}</p>
-            </div>
-            <div class="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-dark-700 dark:bg-dark-800/70">
-              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.table.user') }}</p>
-              <p class="mt-1 truncate text-sm font-semibold text-gray-900 dark:text-white">{{ inputDetailRow.user_email || '-' }}</p>
-            </div>
-            <div class="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-dark-700 dark:bg-dark-800/70">
-              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.table.result') }}</p>
-              <span class="mt-1 inline-flex rounded-md px-2 py-1 text-xs font-medium" :class="resultBadgeClass(inputDetailRow)">
-                {{ resultLabel(inputDetailRow) }}
-              </span>
-            </div>
-            <div class="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-dark-700 dark:bg-dark-800/70">
-              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.table.highest') }}</p>
-              <p class="mt-1 truncate text-sm font-semibold text-gray-900 dark:text-white">
-                {{ inputDetailRow.highest_category || '-' }} / {{ percent(inputDetailRow.highest_score) }}
-              </p>
-            </div>
-            <div v-if="inputDetailRow.matched_keyword" class="rounded-lg border border-red-100 bg-red-50 p-4 dark:border-red-900/60 dark:bg-red-900/20">
-              <p class="text-xs font-medium text-red-500 dark:text-red-300">{{ t('admin.riskControl.matchedKeyword') }}</p>
-              <p class="mt-1 truncate text-sm font-semibold text-red-700 dark:text-red-200" :title="inputDetailRow.matched_keyword">{{ inputDetailRow.matched_keyword }}</p>
-            </div>
-          </div>
-
-          <div class="rounded-xl border border-gray-100 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.riskControl.inputDetailContent') }}</p>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {{ inputDetailRow.endpoint || '-' }} · {{ inputDetailRow.provider || '-' }} / {{ inputDetailRow.model || '-' }}
-                </p>
-              </div>
-              <span v-if="inputDetailRow.group_name" class="inline-flex rounded-md bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 dark:bg-sky-900/20 dark:text-sky-300">
-                {{ inputDetailRow.group_name }}
-              </span>
-            </div>
-            <pre class="mt-4 max-h-[420px] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-gray-950 p-4 text-sm leading-6 text-gray-100 shadow-inner dark:bg-black/50">{{ inputDetailText }}</pre>
-          </div>
+          <UiStatusBadge :status="resultStatusTone(inputDetailRow)" :label="resultLabel(inputDetailRow)" />
+          <UiDescriptionList :items="inputDetailFacts" :columns="2" />
+          <UiCodeBlock :label="t('admin.riskControl.inputDetailContent')" :code="inputDetailText" />
         </div>
 
         <template #footer>
           <div class="flex justify-end">
-            <button type="button" class="btn btn-secondary" @click="closeInputDetail">{{ t('common.close') }}</button>
+            <UiButton density="compact" @click="closeInputDetail">{{ t('common.close') }}</UiButton>
           </div>
         </template>
-      </BaseDialog>
+      </UiDialog>
     </div>
   </AppLayout>
 </template>
@@ -1071,9 +1003,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
-import Select from '@/components/common/Select.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
@@ -1082,7 +1012,10 @@ import {
   AppPageHeader,
   UiBadge,
   UiButton,
+  UiCodeBlock,
   UiDataTable,
+  UiDescriptionList,
+  UiDialog,
   UiEmptyState,
   UiPagination,
   UiSearchInput,
@@ -1090,6 +1023,8 @@ import {
   UiSpinner,
   UiStatMetric,
   UiStatusBadge,
+  UiSwitch,
+  UiTabs,
   UiTextField
 } from '@/components/ui'
 import { adminAPI } from '@/api/admin'
@@ -1250,6 +1185,14 @@ const settingsTabs = computed<Array<{ id: SettingsTab; label: string }>>(() => [
   { id: 'keywords', label: t('admin.riskControl.tabs.keywords') },
   { id: 'retention', label: t('admin.riskControl.tabs.retention') },
 ])
+const settingsTabOptions = computed(() =>
+  settingsTabs.value.map((tab) => ({ value: tab.id, label: tab.label }))
+)
+const setSettingsTab = (value: string | number) => {
+  if (settingsTabs.value.some((tab) => tab.id === value)) {
+    activeSettingsTab.value = value as SettingsTab
+  }
+}
 
 const modeOptions = computed<SelectOption[]>(() => [
   { value: 'pre_block', label: t('admin.riskControl.modePreBlock') },
@@ -1563,6 +1506,18 @@ const riskThresholdRows = computed<RiskThresholdRow[]>(() => (
 const inputDetailText = computed(() => {
   if (!inputDetailRow.value) return '-'
   return inputDetailRow.value.input_excerpt || inputDetailRow.value.error || '-'
+})
+const inputDetailFacts = computed(() => {
+  const row = inputDetailRow.value
+  if (!row) return []
+  return [
+    { label: t('admin.riskControl.table.time'), value: formatDateTime(row.created_at) },
+    { label: t('admin.riskControl.table.user'), value: row.user_email || '-' },
+    { label: t('admin.riskControl.table.group'), value: row.group_name || '-' },
+    { label: t('admin.riskControl.table.endpoint'), value: `${row.endpoint || '-'} · ${row.provider || '-'} / ${row.model || '-'}` },
+    { label: t('admin.riskControl.table.highest'), value: `${row.highest_category || '-'} / ${percent(row.highest_score)}` },
+    { label: t('admin.riskControl.matchedKeyword'), value: row.matched_keyword || '-' }
+  ]
 })
 
 const queueUsagePercent = computed(() => `${Math.min(100, Math.max(0, status.value?.queue_usage_percent ?? 0)).toFixed(1)}%`)
@@ -2118,13 +2073,6 @@ function resultLabel(row: ContentModerationLog): string {
   if (row.action === 'error' || row.error) return t('admin.riskControl.action.error')
   if (row.flagged) return t('admin.riskControl.result.hit')
   return t('admin.riskControl.result.pass')
-}
-
-function resultBadgeClass(row: ContentModerationLog): string {
-  if (row.action === 'block' || row.action === 'keyword_block' || row.action === 'cyber_policy') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-  if (row.action === 'error' || row.error) return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-  if (row.flagged) return 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300'
-  return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
 }
 
 function resultStatusTone(row: ContentModerationLog): 'success' | 'warning' | 'danger' {

@@ -222,7 +222,7 @@ describe('admin RiskControlView', () => {
       global: {
         stubs: {
           AppLayout: AppLayoutStub,
-          BaseDialog: BaseDialogStub,
+          UiDialog: BaseDialogStub,
           Icon: true,
           Select: true,
           Toggle: true,
@@ -256,7 +256,7 @@ describe('admin RiskControlView', () => {
       global: {
         stubs: {
           AppLayout: AppLayoutStub,
-          BaseDialog: BaseDialogStub,
+          UiDialog: BaseDialogStub,
           Icon: true,
           Select: true,
           Toggle: true,
@@ -290,7 +290,7 @@ describe('admin RiskControlView', () => {
       global: {
         stubs: {
           AppLayout: AppLayoutStub,
-          BaseDialog: BaseDialogStub,
+          UiDialog: BaseDialogStub,
           Icon: true,
           Select: true,
           Toggle: true,
@@ -331,7 +331,7 @@ describe('admin RiskControlView', () => {
       global: {
         stubs: {
           AppLayout: AppLayoutStub,
-          BaseDialog: BaseDialogStub,
+          UiDialog: BaseDialogStub,
           Icon: true,
           Select: true,
           Toggle: true,
@@ -399,7 +399,7 @@ describe('admin RiskControlView', () => {
       global: {
         stubs: {
           AppLayout: AppLayoutStub,
-          BaseDialog: BaseDialogStub,
+          UiDialog: BaseDialogStub,
           Icon: true,
           Select: true,
           Toggle: true,
