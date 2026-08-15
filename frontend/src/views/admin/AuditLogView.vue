@@ -1,10 +1,18 @@
 <template>
   <AppLayout>
-    <UiServerTableWorkspace :loading="loading">
-      <!-- Filters -->
-      <template #filters>
-        <div class="space-y-3 p-3" data-testid="audit-filter-workspace">
-          <div class="grid grid-cols-1 gap-2 md:grid-cols-[minmax(240px,1fr)_160px_180px_auto]">
+    <AppPage density="compact">
+      <AppPageHeader :title="t('admin.audit.title')" :description="t('admin.audit.description')">
+        <template #actions>
+          <UiButton density="compact" variant="danger" @click="openClearDialog">
+            <template #icon><Icon name="trash" size="sm" /></template>
+            {{ t('admin.audit.clearAll') }}
+          </UiButton>
+        </template>
+      </AppPageHeader>
+
+      <UiServerTableWorkspace :loading="loading">
+        <template #toolbar>
+          <UiTableToolbar>
             <UiSearchInput
               v-model="filters.q"
               density="compact"
@@ -12,6 +20,33 @@
               :placeholder="t('admin.audit.filters.qPlaceholder')"
               @search="search"
             />
+            <template #actions>
+              <UiButton
+                density="compact"
+                :aria-expanded="advancedFiltersExpanded"
+                data-testid="audit-advanced-toggle"
+                @click="advancedFiltersExpanded = !advancedFiltersExpanded"
+              >
+                <template #icon><Icon name="filter" size="sm" /></template>
+                {{ t('admin.audit.filters.advanced') }}{{ advancedFilterCount ? ` (${advancedFilterCount})` : '' }}
+              </UiButton>
+              <UiIconButton
+                icon="refresh"
+                density="compact"
+                :label="t('common.refresh')"
+                :disabled="loading"
+                @click="fetchLogs"
+              />
+            </template>
+          </UiTableToolbar>
+        </template>
+
+        <template #filters>
+          <UiFilterBar
+            data-testid="audit-filter-workspace"
+            :active-count="activeFilterCount"
+            @clear="resetFilters"
+          >
             <UiSelect
               v-model="filters.success"
               :options="resultOptions"
@@ -26,33 +61,17 @@
               :label="t('admin.dashboard.timeRange')"
               @update:model-value="handleTimeRangeChange"
             />
-            <UiButton
-              density="compact"
-              :aria-expanded="advancedFiltersExpanded"
-              data-testid="audit-advanced-toggle"
-              @click="advancedFiltersExpanded = !advancedFiltersExpanded"
-            >
-              <template #icon><Icon name="filter" size="sm" /></template>
-              {{ t('admin.audit.filters.advanced') }}{{ advancedFilterCount ? ` (${advancedFilterCount})` : '' }}
-            </UiButton>
-          </div>
+            <template #actions>
+              <UiButton density="compact" variant="primary" :disabled="loading" @click="search">
+                {{ t('common.search') }}
+              </UiButton>
+            </template>
+          </UiFilterBar>
 
-          <div class="flex flex-wrap items-center gap-2">
-            <UiButton density="compact" variant="primary" :disabled="loading" @click="search">
-              {{ t('common.search') }}
-            </UiButton>
-            <UiButton density="compact" :disabled="loading" @click="resetFilters">
-              {{ t('common.reset') }}
-            </UiButton>
-            <UiButton class="ml-auto" density="compact" variant="danger" @click="openClearDialog">
-              <template #icon><Icon name="trash" size="sm" /></template>
-              {{ t('admin.audit.clearAll') }}
-            </UiButton>
-          </div>
-
-          <div
+          <AppGrid
             v-if="advancedFiltersExpanded || advancedFilterCount > 0"
-            class="grid grid-cols-1 gap-2 border-t border-gray-100 pt-3 sm:grid-cols-2 xl:grid-cols-5 dark:border-dark-700"
+            min="180px"
+            :gap="8"
             data-testid="audit-advanced-filters"
           >
             <UiTextField v-model="filters.actor_email" density="compact" :label="t('admin.audit.filters.actorEmail')" @enter="search" />
@@ -60,9 +79,8 @@
             <UiTextField v-model="filters.client_ip" density="compact" monospace :label="t('admin.audit.filters.clientIp')" @enter="search" />
             <UiSelect v-model="filters.method" :options="methodOptions" density="compact" :label="t('admin.audit.filters.method')" @change="search" />
             <UiSelect v-model="filters.auth_method" :options="authMethodOptions" density="compact" :label="t('admin.audit.filters.authMethod')" @change="search" />
-          </div>
-        </div>
-      </template>
+          </AppGrid>
+        </template>
 
       <!-- Table -->
       <UiDataTable
@@ -73,29 +91,18 @@
         :aria-label="t('admin.audit.title')"
       >
           <template #cell-created_at="{ value }">
-            <span class="whitespace-nowrap text-gray-600 dark:text-gray-300">{{ formatTime(value) }}</span>
+            <time class="ui-numeric">{{ formatTime(value) }}</time>
           </template>
 
           <template #cell-actor="{ row }">
-            <div class="min-w-0 max-w-[220px]">
-              <div class="truncate font-medium text-gray-900 dark:text-white" :title="row.actor_email">
-                {{ row.actor_email || '—' }}
-              </div>
-              <div class="mt-0.5 truncate text-xs text-gray-400">
-                {{ row.actor_role }}<span v-if="row.auth_method"> · {{ authMethodLabel(row.auth_method) }}</span>
-              </div>
-            </div>
+            <UiDataCell
+              :value="row.actor_email || '—'"
+              :meta="[row.actor_role, row.auth_method ? authMethodLabel(row.auth_method) : ''].filter(Boolean).join(' · ')"
+            />
           </template>
 
           <template #cell-action="{ row }">
-            <div class="min-w-0 max-w-xs">
-              <div class="truncate font-mono text-sm text-gray-800 dark:text-gray-200" :title="row.action">
-                {{ row.action }}
-              </div>
-              <div class="mt-0.5 truncate font-mono text-xs text-gray-400" :title="`${row.method} ${row.path}`">
-                {{ row.method }} {{ row.path }}
-              </div>
-            </div>
+            <UiDataCell :value="row.action" :meta="`${row.method} ${row.path}`" mono />
           </template>
 
           <template #cell-status_code="{ row }">
@@ -103,11 +110,11 @@
           </template>
 
           <template #cell-latency_ms="{ value }">
-            <span class="whitespace-nowrap text-gray-500 dark:text-gray-400">{{ value }} ms</span>
+            <span class="ui-numeric">{{ value }} ms</span>
           </template>
 
           <template #cell-client_ip="{ value }">
-            <span class="whitespace-nowrap font-mono text-gray-600 dark:text-gray-300">{{ value || '—' }}</span>
+            <UiDataCell :value="value || '—'" mono />
           </template>
 
           <template #cell-actions="{ row }">
@@ -121,7 +128,14 @@
           </template>
 
           <template #empty>
-            <UiEmptyState :title="emptyStateTitle" />
+            <UiErrorState
+              v-if="loadError"
+              data-testid="audit-list-error"
+              :title="t('admin.audit.loadFailed')"
+              :retry-text="t('common.retry')"
+              @retry="fetchLogs"
+            />
+            <UiEmptyState v-else :title="emptyStateTitle" />
           </template>
       </UiDataTable>
 
@@ -136,11 +150,13 @@
           :page-size-label="t('pagination.perPage')"
           :previous-label="t('pagination.previous')"
           :next-label="t('pagination.next')"
+          :reset-page-on-page-size-change="false"
           @update:page="onPageChange"
           @update:pageSize="onPageSizeChange"
         />
       </template>
-    </UiServerTableWorkspace>
+      </UiServerTableWorkspace>
+    </AppPage>
 
     <!-- Detail dialog -->
     <UiDrawer
@@ -148,21 +164,29 @@
       :title="t('admin.audit.detail.title')"
       @close="closeDetail"
     >
-      <div v-if="detailLoading" class="flex items-center justify-center py-16">
-        <div class="flex flex-col items-center gap-3">
-          <UiSpinner />
-          <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('common.loading') }}</div>
-        </div>
-      </div>
+      <AppStack v-if="detailLoading" :gap="12">
+        <UiSkeleton width="160px" height="24px" />
+        <UiSkeleton height="64px" />
+        <UiSkeleton height="180px" />
+        <UiSkeleton height="96px" />
+      </AppStack>
 
-      <div v-else-if="detail" class="space-y-5 py-2">
-        <div class="flex flex-wrap items-center gap-3">
+      <UiErrorState
+        v-else-if="detailError"
+        data-testid="audit-detail-error"
+        :title="t('admin.audit.detail.loadFailed')"
+        :retry-text="t('common.retry')"
+        @retry="retryDetail"
+      />
+
+      <AppStack v-else-if="detail" :gap="20">
+        <AppInline :gap="12">
           <UiStatusBadge
             :status="statusTone(detail.status_code)"
             :label="`${detail.status_code} ${statusText(detail.status_code)}`"
           />
-          <span class="break-all font-mono text-sm font-semibold">{{ detail.action }}</span>
-        </div>
+          <UiDataCell :value="detail.action" mono />
+        </AppInline>
 
         <UiCodeBlock :label="t('admin.audit.detail.methodPath')" :code="`${detail.method} ${detail.path}`" />
         <UiDescriptionList :items="detailFacts" :columns="1" />
@@ -181,7 +205,7 @@
           :label="t('admin.audit.detail.extra')"
           :code="JSON.stringify(detail.extra, null, 2)"
         />
-      </div>
+      </AppStack>
     </UiDrawer>
 
     <!-- Custom time range dialog (与 /admin/ops 时间下拉一致的自定义范围，支持时分) -->
@@ -191,22 +215,25 @@
       width="narrow"
       @close="handleCustomTimeRangeCancel"
     >
-      <div class="space-y-4 py-2">
+      <AppStack :gap="12">
         <UiTextField v-model="customStartTimeInput" type="datetime-local" density="compact" :label="t('admin.ops.customTimeRange.startTime')" />
         <UiTextField v-model="customEndTimeInput" type="datetime-local" density="compact" :label="t('admin.ops.customTimeRange.endTime')" />
-      </div>
+        <UiAlert v-if="customRangeError" tone="danger" :message="t('admin.audit.filters.invalidTimeRange')" />
+      </AppStack>
       <template #footer>
-        <UiButton density="compact" @click="handleCustomTimeRangeCancel">
-          {{ t('common.cancel') }}
-        </UiButton>
-        <UiButton
-          density="compact"
-          variant="primary"
-          :disabled="!customStartTimeInput || !customEndTimeInput"
-          @click="handleCustomTimeRangeConfirm"
-        >
-          {{ t('common.confirm') }}
-        </UiButton>
+        <AppInline justify="flex-end">
+          <UiButton density="compact" @click="handleCustomTimeRangeCancel">
+            {{ t('common.cancel') }}
+          </UiButton>
+          <UiButton
+            density="compact"
+            variant="primary"
+            :disabled="Boolean(customRangeError)"
+            @click="handleCustomTimeRangeConfirm"
+          >
+            {{ t('common.confirm') }}
+          </UiButton>
+        </AppInline>
       </template>
     </UiDialog>
 
@@ -227,38 +254,38 @@
       :show="clearTotpVisible"
       :title="t('admin.audit.clearConfirm.totpTitle')"
       width="narrow"
-      :z-index="60"
       @close="cancelClearTotp"
     >
-      <div class="py-2">
-        <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('admin.audit.clearConfirm.totpHint') }}</p>
+      <AppStack :gap="12">
+        <UiAlert :message="t('admin.audit.clearConfirm.totpHint')" />
         <UiTextField
           v-model.trim="clearTotpCode"
           type="text"
           inputmode="numeric"
           :maxlength="6"
           autocomplete="one-time-code"
-          class="mt-4"
           density="compact"
           monospace
           text-align="center"
           placeholder="••••••"
           @enter="submitClear"
         />
-      </div>
+      </AppStack>
       <template #footer>
-        <UiButton density="compact" :disabled="clearing" @click="cancelClearTotp">
-          {{ t('common.cancel') }}
-        </UiButton>
-        <UiButton
-          density="compact"
-          variant="danger"
-          :loading="clearing"
-          :disabled="clearing || clearTotpCode.length !== 6"
-          @click="submitClear"
-        >
-          {{ clearing ? t('common.loading') : t('admin.audit.clearAll') }}
-        </UiButton>
+        <AppInline justify="flex-end">
+          <UiButton density="compact" :disabled="clearing" @click="cancelClearTotp">
+            {{ t('common.cancel') }}
+          </UiButton>
+          <UiButton
+            density="compact"
+            variant="danger"
+            :loading="clearing"
+            :disabled="clearing || clearTotpCode.length !== 6"
+            @click="submitClear"
+          >
+            {{ clearing ? t('common.loading') : t('admin.audit.clearAll') }}
+          </UiButton>
+        </AppInline>
       </template>
     </UiDialog>
   </AppLayout>
@@ -273,21 +300,31 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import type { Column } from '@/components/ui'
 import {
+  AppGrid,
+  AppInline,
+  AppPage,
+  AppPageHeader,
+  AppStack,
+  UiAlert,
   UiButton,
   UiCodeBlock,
   UiConfirmDialog,
+  UiDataCell,
   UiDataTable,
   UiDescriptionList,
   UiDialog,
   UiDrawer,
   UiEmptyState,
+  UiErrorState,
+  UiFilterBar,
   UiIconButton,
   UiPagination,
   UiSearchInput,
   UiSelect,
   UiServerTableWorkspace,
-  UiSpinner,
+  UiSkeleton,
   UiStatusBadge,
+  UiTableToolbar,
   UiTextField
 } from '@/components/ui'
 import { useAppStore } from '@/stores'
@@ -296,6 +333,7 @@ const { t } = useI18n()
 const appStore = useAppStore()
 
 const loading = ref(false)
+const loadError = ref(false)
 const logs = ref<AuditLog[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -318,6 +356,12 @@ const advancedFilterCount = computed(() => [
   filters.method,
   filters.auth_method
 ].filter(Boolean).length)
+const activeFilterCount = computed(() =>
+  Number(Boolean(filters.q)) +
+  Number(Boolean(filters.success)) +
+  Number(Boolean(timeRange.value)) +
+  advancedFilterCount.value
+)
 const hasActiveFilters = computed(() => Boolean(
   filters.q || filters.success || timeRange.value || advancedFilterCount.value
 ))
@@ -332,6 +376,17 @@ const customEndTime = ref('')
 const showCustomTimeRangeDialog = ref(false)
 const customStartTimeInput = ref('')
 const customEndTimeInput = ref('')
+const customRangeError = computed(() => {
+  if (!customStartTimeInput.value || !customEndTimeInput.value) {
+    return 'required'
+  }
+  const start = new Date(customStartTimeInput.value).getTime()
+  const end = new Date(customEndTimeInput.value).getTime()
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start > end) {
+    return 'invalid'
+  }
+  return ''
+})
 
 const TIME_RANGE_MINUTES: Record<string, number> = {
   '30m': 30,
@@ -389,7 +444,7 @@ function handleTimeRangeChange(val: string | number | boolean | null) {
 }
 
 function handleCustomTimeRangeConfirm() {
-  if (!customStartTimeInput.value || !customEndTimeInput.value) return
+  if (customRangeError.value) return
   customStartTime.value = customStartTimeInput.value
   customEndTime.value = customEndTimeInput.value
   timeRange.value = 'custom'
@@ -424,7 +479,8 @@ const methodOptions = computed(() => [
 const authMethodOptions = computed(() => [
   { value: '', label: t('admin.audit.filters.all') },
   { value: 'jwt', label: 'JWT' },
-  { value: 'admin_api_key', label: 'Admin API Key' }
+  { value: 'admin_api_key', label: 'Admin API Key' },
+  { value: 'passkey', label: 'Passkey' }
 ])
 
 const resultOptions = computed(() => [
@@ -477,13 +533,16 @@ let listRequestId = 0
 async function fetchLogs() {
   const requestId = ++listRequestId
   loading.value = true
+  loadError.value = false
   try {
     const res = await adminAPI.audit.list(buildQuery())
     if (requestId !== listRequestId) return
     logs.value = res.items
     total.value = res.total
+    loadError.value = false
   } catch (err: any) {
     if (requestId !== listRequestId) return
+    loadError.value = true
     appStore.showError(err?.message || t('admin.audit.loadFailed'))
   } finally {
     if (requestId === listRequestId) loading.value = false
@@ -523,7 +582,9 @@ function onPageSizeChange(ps: number) {
 // Detail dialog
 const detailVisible = ref(false)
 const detailLoading = ref(false)
+const detailError = ref(false)
 const detail = ref<AuditLog | null>(null)
+const detailId = ref<number | null>(null)
 const detailFacts = computed(() => {
   const item = detail.value
   if (!item) return []
@@ -542,8 +603,10 @@ let detailRequestId = 0
 
 async function openDetail(id: number) {
   const requestId = ++detailRequestId
+  detailId.value = id
   detailVisible.value = true
   detailLoading.value = true
+  detailError.value = false
   detail.value = null
   try {
     const response = await adminAPI.audit.get(id)
@@ -551,8 +614,8 @@ async function openDetail(id: number) {
     detail.value = response
   } catch (err: any) {
     if (requestId !== detailRequestId) return
+    detailError.value = true
     appStore.showError(err?.message || t('admin.audit.loadFailed'))
-    detailVisible.value = false
   } finally {
     if (requestId === detailRequestId) detailLoading.value = false
   }
@@ -562,7 +625,13 @@ function closeDetail() {
   detailRequestId++
   detailVisible.value = false
   detailLoading.value = false
+  detailError.value = false
+  detailId.value = null
   detail.value = null
+}
+
+function retryDetail() {
+  if (detailId.value !== null) openDetail(detailId.value)
 }
 
 function prettyBody(body: string): string {

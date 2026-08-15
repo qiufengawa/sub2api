@@ -20,7 +20,8 @@ export default {
       resultSuccess: 'Success',
       resultFailure: 'Failure',
       startTime: 'Start Time',
-      endTime: 'End Time'
+      endTime: 'End Time',
+      invalidTimeRange: 'Choose a valid range with the start time no later than the end time.'
     },
     columns: {
       time: 'Time',
@@ -40,7 +41,8 @@ export default {
       credential: 'Credential (masked)',
       userAgent: 'User-Agent',
       requestBody: 'Request Body (redacted)',
-      extra: 'Extra'
+      extra: 'Extra',
+      loadFailed: 'Failed to load audit log details'
     },
     clearConfirm: {
       title: 'Clear All Audit Logs',

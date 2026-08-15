@@ -67,10 +67,22 @@ const mountView = () => mount(AuditLogView, {
       UiServerTableWorkspace: {
         template: '<section><slot name="filters"/><slot/><slot name="pagination"/></section>'
       },
-      UiDataTable: true,
-      UiDrawer: true,
+      UiDataTable: {
+        props: ['data'],
+        template: '<div><slot v-if="!data.length" name="empty"/></div>'
+      },
+      UiDrawer: {
+        props: ['show'],
+        template: '<aside v-if="show"><slot/></aside>'
+      },
       UiDialog: true,
       UiConfirmDialog: true,
+      UiErrorState: {
+        inheritAttrs: false,
+        props: ['title'],
+        emits: ['retry'],
+        template: '<div v-bind="$attrs">{{ title }}<button data-testid="retry" @click="$emit(\'retry\')">retry</button></div>'
+      },
       Teleport: true
     }
   }
@@ -85,9 +97,11 @@ describe('AuditLogView contracts', () => {
   })
 
   it('loads the stable server-side audit query on mount', async () => {
-    mountView()
+    const wrapper = mountView()
     await flushPromises()
 
+    expect(wrapper.get('main.app-page').classes()).toContain('app-page--compact')
+    expect(wrapper.get('h1').text()).toBe('admin.audit.title')
     expect(list).toHaveBeenCalledWith({
       page: 1,
       page_size: 20,
@@ -99,6 +113,36 @@ describe('AuditLogView contracts', () => {
       auth_method: undefined,
       success: undefined
     })
+    expect((wrapper.vm as any).authMethodOptions).toContainEqual({ value: 'passkey', label: 'Passkey' })
+  })
+
+  it('rejects an invalid custom time range before changing the applied query', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    list.mockClear()
+    const vm = wrapper.vm as any
+
+    vm.customStartTimeInput = '2026-08-15T10:00'
+    vm.customEndTimeInput = '2026-08-15T09:00'
+    vm.handleCustomTimeRangeConfirm()
+
+    expect(vm.customRangeError).toBe('invalid')
+    expect(vm.timeRange).toBe('')
+    expect(list).not.toHaveBeenCalled()
+  })
+
+  it('shows a retryable list error and reloads in place', async () => {
+    list.mockRejectedValueOnce(new Error('network'))
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="audit-list-error"]').text()).toContain('admin.audit.loadFailed')
+    expect(showError).toHaveBeenCalledWith('network')
+
+    list.mockResolvedValueOnce({ items: [makeLog(2)], total: 1, page: 1, page_size: 20, pages: 1 })
+    await wrapper.get('[data-testid="audit-list-error"] [data-testid="retry"]').trigger('click')
+    await flushPromises()
+    expect((wrapper.vm as any).logs[0].id).toBe(2)
   })
 
   it('converts the confirmed local custom range to RFC3339', async () => {
@@ -135,6 +179,36 @@ describe('AuditLogView contracts', () => {
 
     expect(vm.detail.id).toBe(2)
     expect(vm.detailLoading).toBe(false)
+  })
+
+  it('keeps a failed detail drawer open and retries the same log', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    get.mockRejectedValueOnce(new Error('detail failed'))
+    const vm = wrapper.vm as any
+
+    await vm.openDetail(7)
+    await flushPromises()
+    expect(vm.detailVisible).toBe(true)
+    expect(vm.detailError).toBe(true)
+    expect(wrapper.get('[data-testid="audit-detail-error"]').text()).toContain('admin.audit.detail.loadFailed')
+
+    get.mockResolvedValueOnce(makeLog(7))
+    await wrapper.get('[data-testid="audit-detail-error"] [data-testid="retry"]').trigger('click')
+    await flushPromises()
+    expect(get).toHaveBeenLastCalledWith(7)
+    expect(vm.detail.id).toBe(7)
+  })
+
+  it('requests exactly once when the page size changes', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    list.mockClear()
+
+    await (wrapper.vm as any).onPageSizeChange(50)
+
+    expect(list).toHaveBeenCalledTimes(1)
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 50 }))
   })
 
   it('keeps the TOTP gate and clear payload intact', async () => {

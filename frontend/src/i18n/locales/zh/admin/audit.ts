@@ -20,7 +20,8 @@ export default {
       resultSuccess: '成功',
       resultFailure: '失败',
       startTime: '开始时间',
-      endTime: '结束时间'
+      endTime: '结束时间',
+      invalidTimeRange: '请选择有效时间，且开始时间不能晚于结束时间。'
     },
     columns: {
       time: '时间',
@@ -40,7 +41,8 @@ export default {
       credential: '凭证（掩码）',
       userAgent: 'User-Agent',
       requestBody: '请求体（已脱敏）',
-      extra: '附加信息'
+      extra: '附加信息',
+      loadFailed: '加载操作日志详情失败'
     },
     clearConfirm: {
       title: '清理全部操作日志',
