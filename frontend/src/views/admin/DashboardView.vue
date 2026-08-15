@@ -1,34 +1,29 @@
 <template>
   <AppLayout>
-    <div class="mx-auto w-full min-w-0 max-w-[1600px] space-y-4">
-      <header class="dashboard-header">
-        <div>
-          <h1 class="text-xl font-semibold tracking-tight text-[#181818] dark:text-white">
-            {{ t('admin.dashboard.title') }}
-          </h1>
-          <p class="mt-1 text-sm text-[#777777] dark:text-dark-400">
-            {{ t('admin.dashboard.description') }}
-          </p>
-        </div>
-        <button
-          type="button"
-          class="btn btn-secondary h-8 px-3"
-          :disabled="loading || chartsLoading"
-          @click="loadDashboardStats"
-        >
-          <Icon name="refresh" size="sm" :class="{ 'animate-spin': loading || chartsLoading }" />
-          {{ t('common.refresh') }}
-        </button>
-      </header>
+    <AppPage width="full" density="compact" class="dashboard-page">
+      <AppPageHeader :title="t('admin.dashboard.title')" :description="t('admin.dashboard.description')">
+        <template #actions>
+          <UiButton
+            type="button"
+            density="compact"
+            :loading="loading || chartsLoading"
+            :disabled="loading || chartsLoading"
+            @click="loadDashboardStats"
+          >
+            <template #icon><Icon name="refresh" size="sm" /></template>
+            {{ t('common.refresh') }}
+          </UiButton>
+        </template>
+      </AppPageHeader>
 
       <!-- Loading State -->
-      <div v-if="loading" class="dashboard-panel flex min-h-[320px] items-center justify-center">
-        <LoadingSpinner />
-      </div>
+      <AppGrid v-if="loading" min="210px" :gap="8" aria-live="polite">
+        <UiSkeleton v-for="index in 8" :key="index" height="96px" />
+      </AppGrid>
 
       <template v-else-if="stats">
         <!-- Dashboard Stats -->
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <AppGrid min="210px" :gap="8">
           <!-- Total API Keys -->
           <div class="dashboard-stat-card">
             <div class="flex items-center gap-3">
@@ -231,81 +226,55 @@
               </div>
             </div>
           </div>
-        </div>
+        </AppGrid>
 
         <!-- Quick Actions -->
-        <div class="dashboard-panel p-4">
-          <div class="mb-3 flex items-center justify-between">
-            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">
-              {{ t('admin.dashboard.quickActions') }}
-            </h2>
-          </div>
+        <AppSection :title="t('admin.dashboard.quickActions')" divided>
           <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-            <button
+            <UiButton
               v-if="canUseBatchImage"
-              type="button"
               class="dashboard-action group"
-              @click="router.push('/batch-image')"
+              to="/batch-image"
             >
-              <span class="dashboard-action-icon">
-                <Icon name="sparkles" size="md" :stroke-width="2" />
-              </span>
-              <span class="min-w-0 flex-1">
-                <span class="block text-sm font-medium text-gray-900 dark:text-white">
-                  {{ t('admin.dashboard.batchImage') }}
-                </span>
-                <span class="block text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.batchImageDesc') }}
-                </span>
-              </span>
-              <Icon name="chevronRight" size="sm" class="text-gray-400 group-hover:text-primary-600" />
-            </button>
-            <button
-              type="button"
+              <template #icon><Icon name="sparkles" size="sm" /></template>
+              {{ t('admin.dashboard.batchImage') }}
+            </UiButton>
+            <UiButton
               class="dashboard-action group"
-              @click="router.push('/admin/groups')"
+              to="/admin/groups"
             >
-              <span class="dashboard-action-icon">
-                <Icon name="grid" size="md" :stroke-width="2" />
-              </span>
-              <span class="min-w-0 flex-1">
-                <span class="block text-sm font-medium text-gray-900 dark:text-white">
-                  {{ t('admin.dashboard.groupPricing') }}
-                </span>
-                <span class="block text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.groupPricingDesc') }}
-                </span>
-              </span>
-              <Icon name="chevronRight" size="sm" class="text-gray-400 group-hover:text-primary-600" />
-            </button>
+              <template #icon><Icon name="grid" size="sm" /></template>
+              {{ t('admin.dashboard.groupPricing') }}
+            </UiButton>
           </div>
-        </div>
+        </AppSection>
 
         <!-- Charts Section -->
         <div class="space-y-4">
           <!-- Date Range Filter -->
-          <div class="dashboard-panel px-4 py-3">
+          <AppToolbar>
             <div class="flex flex-wrap items-center gap-3">
               <div class="flex items-center gap-2">
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300"
                   >{{ t('admin.dashboard.timeRange') }}:</span
                 >
-                <DateRangePicker
+                <UiDateRangePicker
                   v-model:start-date="startDate"
                   v-model:end-date="endDate"
                   @change="onDateRangeChange"
                 />
               </div>
-              <button @click="loadDashboardStats" :disabled="chartsLoading" class="btn btn-secondary h-8 px-3">
-                <Icon name="refresh" size="sm" :class="{ 'animate-spin': chartsLoading }" />
+              <UiButton density="compact" :loading="chartsLoading" :disabled="chartsLoading" @click="loadDashboardStats">
+                <template #icon><Icon name="refresh" size="sm" /></template>
                 {{ t('common.refresh') }}
-              </button>
+              </UiButton>
               <div class="ml-auto flex items-center gap-2">
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300"
                   >{{ t('admin.dashboard.granularity') }}:</span
                 >
                 <div class="w-28">
-                  <Select
+                  <UiSelect
+                    density="compact"
                     v-model="granularity"
                     :options="granularityOptions"
                     @change="loadChartData"
@@ -313,7 +282,7 @@
                 </div>
               </div>
             </div>
-          </div>
+          </AppToolbar>
 
           <!-- Charts Grid -->
           <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -335,26 +304,19 @@
           </div>
 
           <!-- User Usage Trend (Full Width) -->
-          <div class="dashboard-panel p-4">
-            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
-              {{ t('admin.dashboard.recentUsage') }} (Top 12)
-            </h3>
+          <UiChartFrame
+            :title="`${t('admin.dashboard.recentUsage')} (Top 12)`"
+            :loading="userTrendLoading"
+            :empty="!userTrendChartData"
+            :height="288"
+          >
             <div class="h-72">
-              <div v-if="userTrendLoading" class="flex h-full items-center justify-center">
-                <LoadingSpinner size="md" />
-              </div>
-              <Line v-else-if="userTrendChartData" :data="userTrendChartData" :options="lineOptions" />
-              <div
-                v-else
-                class="flex h-full items-center justify-center text-sm text-gray-500 dark:text-gray-400"
-              >
-                {{ t('admin.dashboard.noDataAvailable') }}
-              </div>
+              <Line v-if="userTrendChartData" :data="userTrendChartData" :options="lineOptions" />
             </div>
-          </div>
+          </UiChartFrame>
         </div>
       </template>
-    </div>
+    </AppPage>
   </AppLayout>
 </template>
 
@@ -374,13 +336,22 @@ import type {
   UserSpendingRankingItem
 } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import Icon from '@/components/icons/Icon.vue'
-import DateRangePicker from '@/components/common/DateRangePicker.vue'
-import Select from '@/components/common/Select.vue'
 import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'
 import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
+import {
+  AppGrid,
+  AppPage,
+  AppPageHeader,
+  AppSection,
+  AppToolbar,
+  UiButton,
+  UiChartFrame,
+  UiDateRangePicker,
+  UiSelect,
+  UiSkeleton,
+} from '@/components/ui'
 
 import {
   Chart as ChartJS,
@@ -773,44 +744,5 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.dashboard-header {
-  @apply flex flex-col gap-3 rounded-[4px] border border-[#e7e7e7] bg-white px-5 py-4 dark:border-dark-700 dark:bg-dark-900 sm:flex-row sm:items-center sm:justify-between;
-}
-
-.dashboard-panel {
-  @apply rounded-[4px] border border-[#e7e7e7] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] dark:border-dark-700 dark:bg-dark-900;
-}
-
-.dashboard-stat-card {
-  @apply dashboard-panel relative overflow-hidden p-4;
-}
-
-.dashboard-stat-card::before {
-  content: '';
-  @apply absolute inset-x-0 top-0 h-0.5 bg-primary-600;
-}
-
-.dashboard-stat-card-secondary::before {
-  @apply bg-primary-200 dark:bg-primary-800;
-}
-
-.dashboard-stat-icon {
-  @apply flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[3px] bg-primary-50 dark:bg-primary-950/40;
-}
-
-.dashboard-stat-icon-muted {
-  @apply bg-[#f3f3f3] dark:bg-dark-800;
-}
-
-.dashboard-stat-value {
-  @apply mt-0.5 text-xl font-semibold leading-7 tracking-tight text-[#181818] dark:text-white;
-}
-
-.dashboard-action {
-  @apply flex items-center gap-3 rounded-[3px] border border-[#e7e7e7] bg-[#fafafa] p-3 text-left transition-colors hover:border-primary-200 hover:bg-primary-50 dark:border-dark-700 dark:bg-dark-800/60 dark:hover:border-primary-800 dark:hover:bg-primary-950/20;
-}
-
-.dashboard-action-icon {
-  @apply flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[3px] bg-primary-100 text-primary-600 dark:bg-primary-950/50 dark:text-primary-400;
-}
+.dashboard-page{display:grid;gap:16px}.dashboard-stat-card{min-height:96px;padding:12px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius);background:var(--ui-surface-muted)}.dashboard-stat-icon{display:flex;flex:none;align-items:center;justify-content:center;color:var(--ui-text-muted)}.dashboard-stat-icon :deep(svg){color:currentColor!important}.dashboard-stat-value{margin-top:2px;color:var(--ui-text);font-size:22px;font-weight:500;line-height:28px;font-variant-numeric:tabular-nums;letter-spacing:0}.dashboard-action{justify-content:flex-start;width:100%}
 </style>

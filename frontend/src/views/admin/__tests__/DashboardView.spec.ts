@@ -27,11 +27,13 @@ vi.mock('@/stores/app', () => ({
   })
 }))
 
-vi.mock('vue-router', () => ({
-  useRouter: () => ({
-    push: vi.fn()
-  })
-}))
+vi.mock('vue-router', async () => {
+  const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
+  return {
+    ...actual,
+    useRouter: () => ({ push: vi.fn() })
+  }
+})
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
@@ -116,14 +118,17 @@ describe('admin DashboardView', () => {
   })
 
   it('uses last 24 hours as default dashboard range', async () => {
-    mount(DashboardView, {
+    const wrapper = mount(DashboardView, {
       global: {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
-          LoadingSpinner: true,
+          RouterLink: {
+            props: ['to'],
+            template: '<a :data-to="String(to)"><slot /></a>'
+          },
           Icon: true,
-          DateRangePicker: true,
-          Select: true,
+          UiDateRangePicker: true,
+          UiSelect: true,
           ModelDistributionChart: true,
           TokenUsageTrend: true,
           Line: true
@@ -142,5 +147,6 @@ describe('admin DashboardView', () => {
       end_date: formatLocalDate(now),
       granularity: 'hour'
     }))
+    expect(wrapper.find('[data-to="/admin/groups"]').exists()).toBe(true)
   })
 })
