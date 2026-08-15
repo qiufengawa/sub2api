@@ -843,23 +843,26 @@
                 :placeholder="t('admin.accounts.toModel')"
                 test-id="bulk-edit-openai-compact-model-mapping-input"
               />
-              <button
-                type="button"
-                class="rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+              <UiIconButton
+                :label="t('common.delete')"
+                variant="danger"
+                density="dense"
                 @click="removeOpenAICompactModelMapping(index)"
               >
                 <Icon name="trash" size="sm" />
-              </button>
+              </UiIconButton>
             </div>
           </div>
-          <button
-            type="button"
-            class="mb-3 w-full rounded-lg border-2 border-dashed border-gray-300 px-4 py-2 text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-700 dark:border-dark-500 dark:text-gray-400 dark:hover:border-dark-400 dark:hover:text-gray-300"
+          <UiButton
+            class="mb-3"
+            block
+            variant="secondary"
             data-testid="bulk-edit-openai-compact-model-mapping-add"
             @click="addOpenAICompactModelMapping"
           >
-            + {{ t('admin.accounts.addMapping') }}
-          </button>
+            <template #icon><Icon name="plus" size="sm" /></template>
+            {{ t('admin.accounts.addMapping') }}
+          </UiButton>
         </div>
       </div>
 
@@ -910,32 +913,11 @@
 
             <div>
               <label class="input-label text-xs">{{ t('admin.accounts.quotaControl.rpmLimit.strategy') }}</label>
-              <div class="flex gap-2">
-                <button
-                  type="button"
-                  @click="bulkRpmStrategy = 'tiered'"
-                  :class="[
-                    'flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all',
-                    bulkRpmStrategy === 'tiered'
-                      ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
-                  ]"
-                >
-                  {{ t('admin.accounts.quotaControl.rpmLimit.strategyTiered') }}
-                </button>
-                <button
-                  type="button"
-                  @click="bulkRpmStrategy = 'sticky_exempt'"
-                  :class="[
-                    'flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all',
-                    bulkRpmStrategy === 'sticky_exempt'
-                      ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
-                  ]"
-                >
-                  {{ t('admin.accounts.quotaControl.rpmLimit.strategyStickyExempt') }}
-                </button>
-              </div>
+              <UiSegmentedControl
+                v-model="bulkRpmStrategy"
+                :label="t('admin.accounts.quotaControl.rpmLimit.strategy')"
+                :options="rpmStrategyOptions"
+              />
             </div>
 
             <div v-if="bulkRpmStrategy === 'tiered'">
@@ -1104,6 +1086,16 @@ const appStore = useAppStore()
 const modelRestrictionOptions = computed(() => [
   { value: 'whitelist', label: t('admin.accounts.modelWhitelist') },
   { value: 'mapping', label: t('admin.accounts.modelMapping') }
+])
+const rpmStrategyOptions = computed(() => [
+  {
+    value: 'tiered',
+    label: t('admin.accounts.quotaControl.rpmLimit.strategyTiered')
+  },
+  {
+    value: 'sticky_exempt',
+    label: t('admin.accounts.quotaControl.rpmLimit.strategyStickyExempt')
+  }
 ])
 
 // Platform awareness
