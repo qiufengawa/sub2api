@@ -419,6 +419,8 @@ export default {
         availableQuotaAfter: '提取后可提',
         frozenQuotaAfter: '提取后冻结',
         historyQuotaAfter: '提取后历史返利',
+        invalidDateRange: '开始日期不能晚于结束日期。',
+        empty: '暂无符合条件的返利记录',
         invitedAt: '邀请时间',
         rebatedAt: '返利时间',
         transferredAt: '提取时间'
@@ -430,7 +432,8 @@ export default {
         invitedCount: '邀请人数',
         rebatedInviteeCount: '已产生返利人数',
         availableQuota: '可提余额',
-        historyQuota: '历史返利'
+        historyQuota: '历史返利',
+        loadFailed: '加载用户返利概览失败'
       }
     },
 

@@ -419,6 +419,8 @@ export default {
         availableQuotaAfter: 'Available After',
         frozenQuotaAfter: 'Frozen After',
         historyQuotaAfter: 'Historical Rebate After',
+        invalidDateRange: 'The start date cannot be later than the end date.',
+        empty: 'No affiliate records match the current filters',
         invitedAt: 'Invited At',
         rebatedAt: 'Rebated At',
         transferredAt: 'Transferred At'
@@ -430,7 +432,8 @@ export default {
         invitedCount: 'Invited Users',
         rebatedInviteeCount: 'Rebated Invitees',
         availableQuota: 'Available Quota',
-        historyQuota: 'Historical Rebate'
+        historyQuota: 'Historical Rebate',
+        loadFailed: 'Failed to load the affiliate user overview'
       }
     },
 
