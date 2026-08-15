@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { AppStack, UiIconButton, UiSwitch } from '@/components/ui'
 import QuotaDimensionRow from './QuotaDimensionRow.vue'
 import type { QuotaThresholdType, QuotaResetMode } from '@/constants/account'
 
@@ -131,39 +132,30 @@ const dailyFixedHint = computed(() =>
 </script>
 
 <template>
-  <div class="rounded-lg border border-gray-200 dark:border-dark-600">
-      <!-- Header: toggle + collapse -->
-      <div class="flex items-center justify-between p-4" :class="{ 'pb-0': localEnabled && !collapsed }">
-        <div class="flex items-center gap-2 flex-1 cursor-pointer" @click="localEnabled && (collapsed = !collapsed)">
-          <svg v-if="localEnabled" class="h-4 w-4 text-gray-400 transition-transform" :class="{ '-rotate-90': collapsed }" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-          </svg>
-          <div>
-            <label class="input-label mb-0 cursor-pointer">{{ t('admin.accounts.quotaLimitToggle') }}</label>
-            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.quotaLimitToggleHint') }}
-            </p>
-          </div>
+  <AppStack :gap="8" class="quota-limit">
+      <div class="quota-limit__header">
+        <UiIconButton
+          v-if="localEnabled"
+          :label="t('admin.accounts.quotaLimitToggle')"
+          icon="chevronDown"
+          variant="ghost"
+          density="dense"
+          :aria-expanded="!collapsed"
+          :class="{ 'quota-limit__collapse--closed': collapsed }"
+          @click="collapsed = !collapsed"
+        />
+        <div class="quota-limit__heading">
+          <strong>{{ t('admin.accounts.quotaLimitToggle') }}</strong>
+          <p>{{ t('admin.accounts.quotaLimitToggleHint') }}</p>
         </div>
-        <button
-          type="button"
-          @click="localEnabled = !localEnabled"
-          :class="[
-            'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-            localEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-          ]"
-        >
-          <span
-            :class="[
-              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-              localEnabled ? 'translate-x-5' : 'translate-x-0'
-            ]"
-          />
-        </button>
+        <UiSwitch
+          v-model="localEnabled"
+          :label="t('admin.accounts.quotaLimitToggle')"
+        />
       </div>
 
       <!-- Collapsible content -->
-      <div v-if="localEnabled && !collapsed" class="space-y-2 p-4 pt-3">
+      <AppStack v-if="localEnabled && !collapsed" :gap="0" class="quota-limit__content">
         <!-- Daily quota -->
         <QuotaDimensionRow
           dim="daily"
@@ -241,6 +233,18 @@ const dailyFixedHint = computed(() =>
           @update:notify-threshold="emit('update:quotaNotifyTotalThreshold', $event)"
           @update:notify-threshold-type="emit('update:quotaNotifyTotalThresholdType', $event)"
         />
-      </div>
-  </div>
+      </AppStack>
+  </AppStack>
 </template>
+
+<style scoped>
+.quota-limit{min-width:0;padding:10px 0;border-block:1px solid var(--ui-border)}
+.quota-limit__header{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px}
+.quota-limit__heading{display:grid;gap:2px;min-width:0}
+.quota-limit__heading strong{font-size:13px;font-weight:600;line-height:20px}
+.quota-limit__heading p{margin:0;color:var(--ui-text-soft);font-size:12px;line-height:18px}
+.quota-limit__collapse--closed{transform:rotate(-90deg)}
+.quota-limit__content{padding-left:36px}
+@media(max-width:540px){.quota-limit__content{padding-left:0}}
+@media(prefers-reduced-motion:reduce){.quota-limit__collapse--closed{transition:none}}
+</style>
