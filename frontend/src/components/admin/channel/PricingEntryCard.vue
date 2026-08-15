@@ -1,7 +1,14 @@
 <template>
   <section class="channel-pricing-entry">
-    <header class="channel-pricing-entry__header" @click="collapsed = !collapsed">
-      <Icon :name="collapsed ? 'chevronRight' : 'chevronDown'" size="sm" class="channel-pricing-entry__chevron" />
+    <header class="channel-pricing-entry__header">
+      <UiIconButton
+        :icon="collapsed ? 'chevronRight' : 'chevronDown'"
+        :label="collapsed ? t('common.expand') : t('common.collapse')"
+        variant="ghost"
+        density="mini"
+        :aria-expanded="!collapsed"
+        @click="collapsed = !collapsed"
+      />
       <div class="channel-pricing-entry__summary">
         <div v-if="collapsed" class="channel-pricing-entry__models">
           <span v-for="model in entry.models.slice(0, 3)" :key="model" class="channel-pricing-entry__model">{{ model }}</span>
@@ -11,7 +18,7 @@
         <span v-else class="channel-pricing-entry__title">{{ t('admin.channels.form.pricingEntry') }}</span>
         <UiBadge :label="billingModeLabel" tone="neutral" />
       </div>
-      <UiIconButton icon="trash" :label="t('common.delete')" variant="danger" density="mini" @click.stop="emit('remove')" />
+      <UiIconButton icon="trash" :label="t('common.delete')" variant="danger" density="mini" @click="emit('remove')" />
     </header>
 
     <Transition name="ui-collapse"><div v-if="!collapsed" class="channel-pricing-entry__body">
@@ -89,5 +96,5 @@ async function onModelsUpdate(models: string[]) {
 </script>
 
 <style scoped>
-.channel-pricing-entry{border:1px solid var(--ui-border);border-radius:var(--ui-radius-panel);background:var(--ui-surface);overflow:hidden}.channel-pricing-entry__header{display:flex;align-items:center;gap:8px;min-height:38px;padding:6px 8px;cursor:pointer}.channel-pricing-entry__header:hover{background:var(--ui-surface-muted)}.channel-pricing-entry__chevron{color:var(--ui-text-soft)}.channel-pricing-entry__summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;flex:1}.channel-pricing-entry__models{display:flex;align-items:center;gap:4px;min-width:0;overflow:hidden}.channel-pricing-entry__model{max-width:180px;overflow:hidden;padding:2px 6px;border-radius:4px;background:var(--ui-surface-muted);font-family:var(--ui-font-mono);font-size:11px;text-overflow:ellipsis;white-space:nowrap}.channel-pricing-entry__more,.channel-pricing-entry__title{color:var(--ui-text-soft);font-size:12px}.channel-pricing-entry__body{display:grid;gap:14px;padding:12px;border-top:1px solid var(--ui-border);background:var(--ui-surface-muted)}.channel-pricing-entry__topline{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:10px}.channel-pricing-entry__section-title,.channel-pricing-entry__subhead{display:flex;align-items:center;justify-content:space-between;color:var(--ui-text-soft);font-size:12px;font-weight:600}.channel-pricing-entry__section-title span,.channel-pricing-entry__subhead small{font-weight:400}.channel-pricing-entry__price-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.channel-pricing-entry__subsection{display:grid;gap:8px}.channel-pricing-entry__intervals{display:grid;gap:8px}@media(max-width:720px){.channel-pricing-entry__topline,.channel-pricing-entry__price-grid{grid-template-columns:1fr}.channel-pricing-entry__model{max-width:120px}}
+.channel-pricing-entry{border:1px solid var(--ui-border);border-radius:var(--ui-radius-panel);background:var(--ui-surface);overflow:hidden}.channel-pricing-entry__header{display:flex;align-items:center;gap:8px;min-height:38px;padding:6px 8px}.channel-pricing-entry__summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;flex:1}.channel-pricing-entry__models{display:flex;align-items:center;gap:4px;min-width:0;overflow:hidden}.channel-pricing-entry__model{max-width:180px;overflow:hidden;padding:2px 6px;border-radius:4px;background:var(--ui-surface-muted);font-family:var(--ui-font-mono);font-size:11px;text-overflow:ellipsis;white-space:nowrap}.channel-pricing-entry__more,.channel-pricing-entry__title{color:var(--ui-text-soft);font-size:12px}.channel-pricing-entry__body{display:grid;gap:14px;padding:12px;border-top:1px solid var(--ui-border);background:var(--ui-surface-muted)}.channel-pricing-entry__topline{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:10px}.channel-pricing-entry__section-title,.channel-pricing-entry__subhead{display:flex;align-items:center;justify-content:space-between;color:var(--ui-text-soft);font-size:12px;font-weight:600}.channel-pricing-entry__section-title span,.channel-pricing-entry__subhead small{font-weight:400}.channel-pricing-entry__price-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.channel-pricing-entry__subsection{display:grid;gap:8px}.channel-pricing-entry__intervals{display:grid;gap:8px}@media(max-width:720px){.channel-pricing-entry__topline,.channel-pricing-entry__price-grid{grid-template-columns:1fr}.channel-pricing-entry__model{max-width:120px}}
 </style>
