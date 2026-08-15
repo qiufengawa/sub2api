@@ -9,6 +9,7 @@ import {
   UiFieldHelp,
   UiIconButton,
   UiPulseIndicator,
+  UiSegmentedControl,
   UiSelect,
 } from '@/components/ui'
 import { adminAPI } from '@/api'
@@ -81,6 +82,16 @@ const availableRealtimeWindows = computed(() => {
   const toolbarMinutes = TOOLBAR_RANGE_MINUTES[props.timeRange] ?? 60
   return (['1min', '5min', '30min', '1h'] as const).filter((w) => REALTIME_WINDOW_MINUTES[w] <= toolbarMinutes)
 })
+
+const realtimeWindowOptions = computed(() =>
+  availableRealtimeWindows.value.map((window) => ({ value: window, label: window }))
+)
+
+function handleRealtimeWindowChange(value: string | number) {
+  if (availableRealtimeWindows.value.includes(value as RealtimeWindow)) {
+    realtimeWindow.value = value as RealtimeWindow
+  }
+}
 
 watch(
   () => props.timeRange,
@@ -1173,28 +1184,21 @@ function handleToolbarRefresh() {
               <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.qps')" />
             </div>
             <div class="flex items-center gap-1">
-              <button
-                v-for="window in availableRealtimeWindows"
-                :key="window"
-                type="button"
-                class="rounded-[3px] px-1.5 py-0.5 text-[9px] font-bold transition-colors"
-                :class="realtimeWindow === window
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-400 dark:hover:bg-dark-600'"
-                @click="realtimeWindow = window"
-              >
-                {{ window }}
-              </button>
-              <button
+              <UiSegmentedControl
+                :model-value="realtimeWindow"
+                :options="realtimeWindowOptions"
+                :label="t('admin.ops.overviewSections.traffic')"
+                @update:model-value="handleRealtimeWindowChange"
+              />
+              <UiIconButton
                 v-if="!props.fullscreen"
                 data-testid="ops-traffic-details"
-                type="button"
-                class="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-[3px] text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
-                :title="t('admin.ops.requestDetails.details')"
+                icon="eye"
+                density="mini"
+                variant="ghost"
+                :label="t('admin.ops.requestDetails.details')"
                 @click="openDetails({ title: t('admin.ops.requestDetails.title') })"
-              >
-                <Icon name="eye" size="xs" />
-              </button>
+              />
             </div>
           </div>
 
@@ -1258,15 +1262,14 @@ function handleToolbarRefresh() {
               <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.sla')" />
               <span class="h-1.5 w-1.5 rounded-full" :class="getSLAThresholdLevel(slaPercent) === 'critical' ? 'bg-red-500' : getSLAThresholdLevel(slaPercent) === 'warning' ? 'bg-yellow-500' : 'bg-green-500'"></span>
             </div>
-            <button
+            <UiIconButton
               v-if="!props.fullscreen"
-              class="inline-flex h-6 w-6 items-center justify-center rounded-[3px] text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
-              type="button"
-              :title="t('admin.ops.requestDetails.details')"
+              icon="eye"
+              density="mini"
+              variant="ghost"
+              :label="t('admin.ops.requestDetails.details')"
               @click="openDetails({ title: t('admin.ops.requestDetails.title'), kind: 'error' })"
-            >
-              <Icon name="eye" size="xs" />
-            </button>
+            />
           </div>
           <div class="mt-2 text-3xl font-black" :class="getThresholdColorClass(getSLAThresholdLevel(slaPercent))">
             {{ slaPercent == null ? '-' : `${slaPercent.toFixed(3)}%` }}
@@ -1291,15 +1294,14 @@ function handleToolbarRefresh() {
               <span class="text-[10px] font-semibold text-gray-400">{{ t('admin.ops.latencyDuration') }}</span>
               <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.latency')" />
             </div>
-            <button
+            <UiIconButton
               v-if="!props.fullscreen"
-              class="inline-flex h-6 w-6 items-center justify-center rounded-[3px] text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
-              type="button"
-              :title="t('admin.ops.requestDetails.details')"
+              icon="eye"
+              density="mini"
+              variant="ghost"
+              :label="t('admin.ops.requestDetails.details')"
               @click="openDetails({ title: t('admin.ops.latencyDuration'), sort: 'duration_desc' })"
-            >
-              <Icon name="eye" size="xs" />
-            </button>
+            />
           </div>
           <div class="mt-2 flex items-baseline gap-2">
             <div class="text-3xl font-black text-purple-600 dark:text-purple-400">
@@ -1343,15 +1345,14 @@ function handleToolbarRefresh() {
               <span class="text-[10px] font-bold uppercase text-gray-400">TTFT</span>
               <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.ttft')" />
             </div>
-            <button
+            <UiIconButton
               v-if="!props.fullscreen"
-              class="inline-flex h-6 w-6 items-center justify-center rounded-[3px] text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
-              type="button"
-              :title="t('admin.ops.requestDetails.details')"
+              icon="eye"
+              density="mini"
+              variant="ghost"
+              :label="t('admin.ops.requestDetails.details')"
               @click="openDetails({ title: t('admin.ops.ttftLabel'), sort: 'duration_desc' })"
-            >
-              <Icon name="eye" size="xs" />
-            </button>
+            />
           </div>
           <div class="mt-2 flex items-baseline gap-2">
             <div class="text-3xl font-black" :class="getThresholdColorClass(getTTFTThresholdLevel(ttftP99Ms))">
@@ -1395,9 +1396,14 @@ function handleToolbarRefresh() {
               <span class="text-[10px] font-bold uppercase text-gray-400">{{ t('admin.ops.requestErrors') }}</span>
               <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.errors')" />
             </div>
-            <button v-if="!props.fullscreen" class="inline-flex h-6 w-6 items-center justify-center rounded-[3px] text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20" type="button" :title="t('admin.ops.requestDetails.details')" @click="openErrorDetails('request')">
-              <Icon name="eye" size="xs" />
-            </button>
+            <UiIconButton
+              v-if="!props.fullscreen"
+              icon="eye"
+              density="mini"
+              variant="ghost"
+              :label="t('admin.ops.requestDetails.details')"
+              @click="openErrorDetails('request')"
+            />
           </div>
           <div class="mt-2 text-3xl font-black" :class="getThresholdColorClass(getRequestErrorRateThresholdLevel(errorRatePercent))">
             {{ errorRatePercent == null ? '-' : `${errorRatePercent.toFixed(2)}%` }}
@@ -1421,9 +1427,14 @@ function handleToolbarRefresh() {
               <span class="text-[10px] font-bold uppercase text-gray-400">{{ t('admin.ops.upstreamErrors') }}</span>
               <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.upstreamErrors')" />
             </div>
-            <button v-if="!props.fullscreen" class="inline-flex h-6 w-6 items-center justify-center rounded-[3px] text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20" type="button" :title="t('admin.ops.requestDetails.details')" @click="openErrorDetails('upstream')">
-              <Icon name="eye" size="xs" />
-            </button>
+            <UiIconButton
+              v-if="!props.fullscreen"
+              icon="eye"
+              density="mini"
+              variant="ghost"
+              :label="t('admin.ops.requestDetails.details')"
+              @click="openErrorDetails('upstream')"
+            />
           </div>
           <div class="mt-2 text-3xl font-black" :class="getThresholdColorClass(getUpstreamErrorRateThresholdLevel(upstreamErrorRatePercent))">
             {{ upstreamErrorRatePercent == null ? '-' : `${upstreamErrorRatePercent.toFixed(2)}%` }}
@@ -1608,9 +1619,14 @@ function handleToolbarRefresh() {
               <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.jobs') }}</div>
               <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.jobs')" />
             </div>
-            <button v-if="!props.fullscreen" class="inline-flex h-6 w-6 items-center justify-center rounded-[3px] text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20" type="button" :title="t('admin.ops.requestDetails.details')" @click="openJobsDetails">
-              <Icon name="eye" size="xs" />
-            </button>
+            <UiIconButton
+              v-if="!props.fullscreen"
+              icon="eye"
+              density="mini"
+              variant="ghost"
+              :label="t('admin.ops.requestDetails.details')"
+              @click="openJobsDetails"
+            />
           </div>
 
           <div class="mt-3 flex items-center justify-between gap-2">

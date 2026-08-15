@@ -154,6 +154,20 @@ describe('OpsDashboardHeader information hierarchy', () => {
     expect(wrapper.emitted('openRequestDetails')).toHaveLength(1)
   })
 
+  it('uses a keyboard-navigable realtime window control', async () => {
+    const wrapper = mountHeader()
+    await flushPromises()
+
+    const options = wrapper.findAll('[role="radio"]')
+    expect(options).toHaveLength(4)
+    expect(options[0].attributes('aria-checked')).toBe('true')
+
+    await options[1].trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('[role="radio"]')[1].attributes('aria-checked')).toBe('true')
+  })
+
   it('keeps every toolbar command connected to its existing event contract', async () => {
     const wrapper = mountHeader()
     await flushPromises()
