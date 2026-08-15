@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 
 import UsageStatsCards from '../UsageStatsCards.vue'
@@ -47,8 +47,13 @@ const stats = {
 }
 
 describe('UsageStatsCards', () => {
-  it('shows cache token breakdown values', () => {
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('shows cache token breakdown values from the keyboard-accessible tooltip', async () => {
     const wrapper = mount(UsageStatsCards, {
+      attachTo: document.body,
       props: {
         stats,
       },
@@ -59,17 +64,21 @@ describe('UsageStatsCards', () => {
       },
     })
 
-    const text = wrapper.text()
-    expect(text).toContain('Cache: 34')
-    expect(text).toContain('Cache Token Breakdown')
-    expect(text).toContain('Cache Creation')
-    expect(text).toContain('12')
-    expect(text).toContain('Cache Read')
-    expect(text).toContain('22')
+    expect(wrapper.text()).toContain('Cache: 34')
+    await wrapper.get('.usage-stats__cache-trigger').trigger('focusin')
+
+    const tooltip = document.body.querySelector('[role="tooltip"]')
+    expect(tooltip?.textContent).toContain('Cache Token Breakdown')
+    expect(tooltip?.textContent).toContain('Cache Creation')
+    expect(tooltip?.textContent).toContain('12')
+    expect(tooltip?.textContent).toContain('Cache Read')
+    expect(tooltip?.textContent).toContain('22')
+    expect(tooltip?.textContent).not.toContain('Cache read / all prompt tokens')
   })
 
-  it('shows the aggregate cache token reuse rate only when explicitly enabled', () => {
+  it('shows the aggregate cache token reuse rate only when explicitly enabled', async () => {
     const wrapper = mount(UsageStatsCards, {
+      attachTo: document.body,
       props: {
         stats,
         showCacheHitRate: true,
@@ -83,6 +92,21 @@ describe('UsageStatsCards', () => {
     })
 
     expect(wrapper.text()).toContain('Cache 16.4%')
-    expect(wrapper.text()).toContain('Cache read / all prompt tokens')
+    await wrapper.get('.usage-stats__cache-trigger').trigger('focusin')
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent)
+      .toContain('Cache read / all prompt tokens')
+  })
+
+  it('preserves account cost visibility and standard-cost strike-through', () => {
+    const wrapper = mount(UsageStatsCards, {
+      props: {
+        stats,
+        showAccountCost: false,
+        strikeStandardCost: true,
+      },
+    })
+
+    expect(wrapper.text()).not.toContain('Cost $0.0010')
+    expect(wrapper.get('.usage-stats__struck').text()).toBe('$0.0010')
   })
 })
