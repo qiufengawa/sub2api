@@ -658,6 +658,12 @@ export default {
       platformBreakdownHint: '悬浮查看各平台用量',
       platformOther: '其他',
       balanceHistoryTitle: '用户充值和并发变动记录',
+      balanceHistoryColumns: {
+        type: '变动类型',
+        value: '变动值',
+        source: '来源',
+        time: '时间'
+      },
       noBalanceHistory: '暂无变动记录',
       allTypes: '全部类型',
       typeBalance: '余额（兑换码）',

@@ -657,6 +657,12 @@ export default {
       platformBreakdownHint: 'Hover for per-platform usage',
       platformOther: 'Other',
       balanceHistoryTitle: 'User Recharge & Concurrency History',
+      balanceHistoryColumns: {
+        type: 'Change Type',
+        value: 'Change',
+        source: 'Source',
+        time: 'Time'
+      },
       noBalanceHistory: 'No records found for this user',
       allTypes: 'All Types',
       typeBalance: 'Balance (Redeem)',

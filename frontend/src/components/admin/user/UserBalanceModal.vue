@@ -1,21 +1,15 @@
 <template>
-  <BaseDialog :show="show" :title="operation === 'add' ? t('admin.users.deposit') : t('admin.users.withdraw')" width="narrow" @close="$emit('close')">
+  <UiDialog :show="show" :title="operation === 'add' ? t('admin.users.deposit') : t('admin.users.withdraw')" width="narrow" @close="$emit('close')">
     <form v-if="user" id="balance-form" @submit.prevent="handleBalanceSubmit" class="space-y-5">
-      <div class="flex items-center gap-3 rounded-xl bg-gray-50 p-4 dark:bg-dark-700">
-        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100"><span class="text-lg font-medium text-primary-700">{{ user.email.charAt(0).toUpperCase() }}</span></div>
-        <div class="flex-1"><p class="font-medium text-gray-900 dark:text-gray-100">{{ user.email }}</p><p class="text-sm text-gray-500 dark:text-gray-400">{{ t('admin.users.currentBalance') }}: ${{ formatBalance(user.balance) }}</p></div>
-      </div>
-      <div>
-        <label class="input-label">{{ operation === 'add' ? t('admin.users.depositAmount') : t('admin.users.withdrawAmount') }}</label>
-        <div class="relative flex gap-2">
-          <UiTextField :model-value="form.amount" @update:model-value="form.amount = Number($event)" type="number" step="any" min="0" required density="compact">
+      <UiDescriptionList :columns="1" :items="balanceSummary" />
+      <div class="balance-modal__amount">
+          <UiTextField :model-value="form.amount" @update:model-value="form.amount = Number($event)" type="number" step="any" min="0" required density="compact" :label="operation === 'add' ? t('admin.users.depositAmount') : t('admin.users.withdrawAmount')">
             <template #prefix>$</template>
           </UiTextField>
           <UiButton v-if="operation === 'subtract'" type="button" density="compact" @click="fillAllBalance">{{ t('admin.users.withdrawAll') }}</UiButton>
-        </div>
       </div>
       <UiTextArea v-model="form.notes" :label="t('admin.users.notes')" :rows="3" />
-      <div v-if="form.amount > 0" class="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950"><div class="flex items-center justify-between text-sm"><span class="text-gray-700 dark:text-gray-300">{{ t('admin.users.newBalance') }}:</span><span class="font-bold text-gray-900 dark:text-gray-100">${{ formatBalance(calculateNewBalance()) }}</span></div></div>
+      <UiDescriptionList v-if="form.amount > 0" :columns="1" :items="newBalanceSummary" />
     </form>
     <template #footer>
       <div class="flex justify-end gap-3">
@@ -23,17 +17,16 @@
         <UiButton type="submit" form="balance-form" :disabled="submitting || !form.amount" :loading="submitting" :variant="operation === 'add' ? 'primary' : 'danger'">{{ submitting ? t('common.saving') : t('common.confirm') }}</UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { AdminUser } from '@/types'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import { UiButton, UiTextArea, UiTextField } from '@/components/ui'
+import { UiButton, UiDescriptionList, UiDialog, UiTextArea, UiTextField } from '@/components/ui'
 
 const props = defineProps<{ show: boolean, user: AdminUser | null, operation: 'add' | 'subtract' }>()
 const emit = defineEmits(['close', 'success']); const { t } = useI18n(); const appStore = useAppStore()
@@ -66,6 +59,13 @@ const calculateNewBalance = () => {
   // 避免浮点数精度问题导致的 -0.00 显示
   return Math.abs(result) < 1e-10 ? 0 : result
 }
+const balanceSummary = computed(() => [
+  { label: t('admin.users.email'), value: props.user?.email || '' },
+  { label: t('admin.users.currentBalance'), value: `$${formatBalance(props.user?.balance || 0)}`, numeric: true },
+])
+const newBalanceSummary = computed(() => [
+  { label: t('admin.users.newBalance'), value: `$${formatBalance(calculateNewBalance())}`, numeric: true },
+])
 const handleBalanceSubmit = async () => {
   if (!props.user) return
   if (!form.amount || form.amount <= 0) {
@@ -87,3 +87,7 @@ const handleBalanceSubmit = async () => {
   } finally { submitting.value = false }
 }
 </script>
+
+<style scoped>
+.balance-modal__amount{display:flex;align-items:end;gap:8px}.balance-modal__amount>.ui-form-field{min-width:0;flex:1}@media(max-width:440px){.balance-modal__amount{align-items:stretch;flex-direction:column}}
+</style>

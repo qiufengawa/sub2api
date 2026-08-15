@@ -1,26 +1,21 @@
 <template>
-  <BaseDialog :show="show" :title="t('admin.users.replaceGroupTitle')" width="narrow" @close="$emit('close')">
-    <div v-if="oldGroup" class="space-y-4">
-      <!-- 提示信息 -->
-      <p class="text-sm text-gray-600 dark:text-gray-400">
+  <UiDialog :show="show" :title="t('admin.users.replaceGroupTitle')" width="narrow" @close="$emit('close')">
+    <div v-if="oldGroup" class="group-replace">
+      <p class="group-replace__hint">
         {{ t('admin.users.replaceGroupHint', { old: oldGroup.name }) }}
       </p>
 
-      <!-- 当前分组 -->
-      <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-dark-600 dark:bg-dark-800">
-        <div class="flex items-center gap-2">
-          <Icon name="shield" size="sm" class="text-purple-500" />
-          <span class="font-medium text-gray-900 dark:text-white">{{ oldGroup.name }}</span>
-          <Icon name="arrowRight" size="sm" class="ml-auto text-gray-400" />
-          <span v-if="selectedGroupId" class="font-medium text-primary-600 dark:text-primary-400">
+      <div class="group-replace__route">
+          <Icon name="shield" size="sm" />
+          <span>{{ oldGroup.name }}</span>
+          <Icon name="arrowRight" size="sm" />
+          <strong v-if="selectedGroupId">
             {{ availableGroups.find(g => g.id === selectedGroupId)?.name }}
-          </span>
-          <span v-else class="text-sm text-gray-400">?</span>
-        </div>
+          </strong>
+          <span v-else>?</span>
       </div>
 
-      <!-- 可选分组列表 -->
-      <div v-if="availableGroups.length > 0" class="max-h-64 overflow-y-auto">
+      <div v-if="availableGroups.length > 0" class="group-replace__options">
         <UiRadioGroup
           :model-value="selectedGroupId ?? 0"
           @update:model-value="selectedGroupId = Number($event)"
@@ -33,10 +28,7 @@
         />
       </div>
 
-      <!-- 无可选分组 -->
-      <div v-else class="py-6 text-center text-sm text-gray-400">
-        {{ t('admin.users.noOtherGroups') }}
-      </div>
+      <UiEmptyState v-else :title="t('admin.users.noOtherGroups')" />
     </div>
 
     <template #footer>
@@ -51,7 +43,7 @@
         </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
@@ -60,9 +52,8 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { AdminUser, AdminGroup } from '@/types'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { UiButton, UiRadioGroup } from '@/components/ui'
+import { UiButton, UiDialog, UiEmptyState, UiRadioGroup } from '@/components/ui'
 
 interface Props {
   show: boolean
@@ -104,8 +95,13 @@ const handleReplace = async () => {
     emit('close')
   } catch (error) {
     console.error('Failed to replace group:', error)
+    appStore.showError(t('common.error'))
   } finally {
     submitting.value = false
   }
 }
 </script>
+
+<style scoped>
+.group-replace{display:grid;gap:16px}.group-replace__hint{margin:0;color:var(--ui-text-muted);font-size:13px;line-height:21px}.group-replace__route{display:grid;grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:center;padding-block:10px;border-block:1px solid var(--ui-border-soft);font-size:13px}.group-replace__route>svg{color:var(--ui-text-soft)}.group-replace__route strong{font-weight:600}.group-replace__options{max-height:256px;overflow-y:auto}
+</style>
