@@ -169,7 +169,7 @@ describe('admin AccountsView bulk edit scope', () => {
           TablePageLayout: {
             template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
           },
-          DataTable: DataTableStub,
+          UiDataTable: DataTableStub,
           Pagination: true,
           ConfirmDialog: true,
           AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
@@ -234,7 +234,7 @@ describe('admin AccountsView bulk edit scope', () => {
           TablePageLayout: {
             template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
           },
-          DataTable: DataTableStub,
+          UiDataTable: DataTableStub,
           Pagination: true,
           ConfirmDialog: true,
           AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
@@ -301,7 +301,7 @@ describe('admin AccountsView bulk edit scope', () => {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
           TablePageLayout: { template: '<div><slot name="table" /></div>' },
-          DataTable: {
+          UiDataTable: {
             props: ['data'],
             template: '<div><div v-for="row in data" :key="row.id"><slot name="cell-upstream_billing_rate" :row="row" /></div></div>'
           },
@@ -364,7 +364,7 @@ describe('admin AccountsView bulk edit scope', () => {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
           TablePageLayout: { template: '<div><slot name="table" /><slot name="pagination" /></div>' },
-          DataTable: DataTableStub,
+          UiDataTable: DataTableStub,
           Pagination: PaginationStub,
           ConfirmDialog: true,
           AccountTableActions: true,
@@ -438,7 +438,7 @@ describe('admin AccountsView bulk edit scope', () => {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
           TablePageLayout: { template: '<div><slot name="table" /><slot name="pagination" /></div>' },
-          DataTable: DataTableStub,
+          UiDataTable: DataTableStub,
           AccountBulkActionsBar: AccountBulkActionsBarStub,
           AccountTableActions: true,
           AccountTableFilters: true,
@@ -514,7 +514,7 @@ describe('admin AccountsView bulk edit scope', () => {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
           TablePageLayout: { template: '<div><slot name="table" /></div>' },
-          DataTable: DataTableStub,
+          UiDataTable: DataTableStub,
           AccountBulkActionsBar: AccountBulkActionsBarStub,
           AccountTableActions: true,
           AccountTableFilters: true,
@@ -585,7 +585,7 @@ describe('admin AccountsView bulk edit scope', () => {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
           TablePageLayout: { template: '<div><slot name="table" /></div>' },
-          DataTable: ProbeDataTableStub,
+          UiDataTable: ProbeDataTableStub,
           AccountBulkActionsBar: true,
           AccountTableActions: true,
           AccountTableFilters: true,

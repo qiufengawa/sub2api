@@ -77,7 +77,7 @@ const mountView = () =>
         TablePageLayout: {
           template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
         },
-        DataTable: true,
+        UiDataTable: true,
         Pagination: true,
         ConfirmDialog: true,
         AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
@@ -222,7 +222,7 @@ const mountViewWithRow = () =>
           template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
         },
         // 使用能透传 row 数据的自定义 DataTable stub，以便渲染 cell 插槽
-        DataTable: {
+        UiDataTable: {
           props: ['data', 'columns', 'loading'],
           template: `<div>
             <div v-for="(row, idx) in (data || [])" :key="idx">

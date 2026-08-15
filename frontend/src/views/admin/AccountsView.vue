@@ -292,7 +292,7 @@
           ref="accountTableRef"
           class="flex min-h-0 flex-1 flex-col overflow-hidden"
         >
-          <DataTable
+          <UiDataTable
             ref="dataTableRef"
             :columns="cols"
             :data="accounts"
@@ -307,7 +307,7 @@
             :estimate-row-height="156"
             :overscan="5"
             :virtualize-threshold="50"
-            :mobile-table="false"
+            :mobile-table="true"
           >
             <template #header-select>
               <UiCheckbox
@@ -737,7 +737,7 @@
                 />
               </div>
             </template>
-          </DataTable>
+          </UiDataTable>
         </div>
       <template #pagination
         ><Pagination
@@ -981,7 +981,6 @@ import type {
 
 // Keep the legacy local component names so existing account-view test fixtures
 // can stub the page boundary while the implementation comes from the UI system.
-const DataTable = Object.assign({}, UiDataTable, { name: "DataTable" });
 const Pagination = Object.assign({}, UiPagination, { name: "Pagination" });
 
 const { t } = useI18n();

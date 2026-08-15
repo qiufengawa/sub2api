@@ -66,7 +66,7 @@ function mountView() {
       stubs: {
         AppLayout: { template: '<div><slot /></div>' },
         TablePageLayout: { template: '<div><slot name="filters" /><slot name="table" /></div>' },
-        DataTable: DataTableStub,
+        UiDataTable: DataTableStub,
         Pagination: true,
         ConfirmDialog: true,
         AccountTableActions: { template: '<div><slot name="after" /></div>' },

@@ -20,8 +20,12 @@
 - `vue-tsc --noEmit`: passed.
 - ESLint for all files in this batch: passed.
 - `git diff --check`: passed.
+- Browser QA at desktop, 900px, and 390px viewports: passed.
+- The 390px account list remains a dense table with internal horizontal scrolling (`324px` viewport region, `2344px` table content) and no document-level horizontal overflow.
+- The 390px create dialog stays within the viewport with a scrollable body and footer anchored inside the dialog.
 
 ## Notes
 
 - The account test spec now stubs the shared `UiDialog`, `UiSelect`, and `UiTextArea` component names. This keeps the existing SSE behavior assertion valid after removing the legacy component imports.
+- Account view specs now stub `UiDataTable` directly; the compatibility clone was removed because it discarded runtime prop metadata and accidentally enabled mobile card rendering.
 - `AccountServiceStatusCell` retains the `HelpTooltip` compatibility adapter because the adapter already delegates to `UiTooltip` and preserves its established trigger/content slot contract.

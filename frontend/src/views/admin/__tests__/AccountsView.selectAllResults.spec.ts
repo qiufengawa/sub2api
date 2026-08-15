@@ -107,7 +107,7 @@ const mountView = () => mount(AccountsView, {
       TablePageLayout: {
         template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
       },
-      DataTable: { props: ['data'], template: '<div data-test="data-table"></div>' },
+      UiDataTable: { props: ['data'], template: '<div data-test="data-table"></div>' },
       Pagination: true,
       ConfirmDialog: true,
       AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },

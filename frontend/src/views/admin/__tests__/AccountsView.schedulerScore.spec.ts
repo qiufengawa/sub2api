@@ -85,7 +85,7 @@ function mountView() {
         TablePageLayout: {
           template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
         },
-        DataTable: DataTableStub,
+        UiDataTable: DataTableStub,
         HelpTooltip: true,
         Pagination: true,
         ConfirmDialog: true,
