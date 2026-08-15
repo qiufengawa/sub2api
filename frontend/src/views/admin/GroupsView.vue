@@ -8,34 +8,26 @@
           <!-- Left: fuzzy search + filters (can wrap to multiple lines) -->
           <div class="flex flex-1 flex-wrap items-center gap-3">
             <div class="relative w-full sm:w-64">
-              <Icon
-                name="search"
-                size="md"
-                class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
-              />
-              <input
-                v-model="searchQuery"
-                type="text"
-                :placeholder="t('admin.groups.searchGroups')"
-                class="input pl-10"
-                @input="handleSearch"
-              />
+              <UiSearchInput v-model="searchQuery" density="compact" :placeholder="t('admin.groups.searchGroups')" @search="handleSearch" />
             </div>
-            <Select
+            <UiSelect
+              density="compact"
               v-model="filters.platform"
               :options="platformFilterOptions"
               :placeholder="t('admin.groups.allPlatforms')"
               class="w-44"
               @change="loadGroups"
             />
-            <Select
+            <UiSelect
+              density="compact"
               v-model="filters.status"
               :options="statusOptions"
               :placeholder="t('admin.groups.allStatus')"
               class="w-40"
               @change="loadGroups"
             />
-            <Select
+            <UiSelect
+              density="compact"
               v-model="filters.is_exclusive"
               :options="exclusiveOptions"
               :placeholder="t('admin.groups.allGroups')"
@@ -48,33 +40,21 @@
           <div
             class="flex w-full flex-shrink-0 flex-wrap items-center justify-end gap-3 lg:w-auto"
           >
-            <button
-              type="button"
-              @click="loadGroups"
-              :disabled="loading"
-              class="btn btn-secondary btn-icon"
-              :title="t('common.refresh')"
-              :aria-label="t('common.refresh')"
-            >
-              <Icon
-                name="refresh"
-                size="md"
-                :class="loading ? 'animate-spin' : ''"
-              />
-            </button>
+            <UiIconButton icon="refresh" density="compact" :disabled="loading" :label="t('common.refresh')" @click="loadGroups" />
             <div class="relative" ref="columnDropdownRef">
-              <button
+              <UiButton
                 type="button"
+                variant="secondary"
+                density="compact"
                 @click="showColumnDropdown = !showColumnDropdown"
-                class="btn btn-secondary px-2 md:px-3"
                 :title="t('admin.groups.columnSettings')"
                 :aria-label="t('admin.groups.columnSettings')"
               >
-                <Icon name="grid" size="md" class="mr-2" />
+                <template #icon><Icon name="grid" size="sm" /></template>
                 <span class="hidden md:inline">{{
                   t("admin.groups.columnSettings")
                 }}</span>
-              </button>
+              </UiButton>
               <div
                 v-if="showColumnDropdown"
                 class="absolute right-0 top-full z-50 mt-1 max-h-[min(20rem,calc(100dvh-5rem))] w-56 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-[4px] border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
@@ -97,25 +77,27 @@
                 </button>
               </div>
             </div>
-            <button
+            <UiButton
               type="button"
-              @click="openSortModal"
-              class="btn btn-secondary"
+              variant="secondary"
+              density="compact"
               :title="t('admin.groups.sortOrder')"
               :aria-label="t('admin.groups.sortOrder')"
+              @click="openSortModal"
             >
-              <Icon name="arrowsUpDown" size="md" class="md:mr-2" />
+              <template #icon><Icon name="arrowsUpDown" size="sm" /></template>
               <span class="hidden md:inline">{{ t("admin.groups.sortOrder") }}</span>
-            </button>
-            <button
+            </UiButton>
+            <UiButton
               type="button"
-              @click="openCreateModal"
-              class="btn btn-primary"
+              variant="primary"
+              density="compact"
               data-tour="groups-create-btn"
+              @click="openCreateModal"
             >
-              <Icon name="plus" size="md" class="mr-2" />
+              <template #icon><Icon name="plus" size="sm" /></template>
               {{ t("admin.groups.createGroup") }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </template>
@@ -141,23 +123,7 @@
           </template>
 
           <template #cell-platform="{ value }">
-            <span
-              :class="[
-                'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium',
-                value === 'anthropic'
-                  ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-                  : value === 'openai'
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                    : value === 'antigravity'
-                      ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                      : value === 'grok'
-                        ? 'bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100'
-                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-              ]"
-            >
-              <PlatformIcon :platform="value" size="xs" />
-              {{ t("admin.groups.platforms." + value) }}
-            </span>
+            <UiBadge tone="info" :label="t('admin.groups.platforms.' + value, value)" />
           </template>
 
           <template #cell-rate_multiplier="{ value }">
@@ -167,11 +133,7 @@
           </template>
 
           <template #cell-is_exclusive="{ value }">
-            <span :class="['badge', value ? 'badge-primary' : 'badge-gray']">
-              {{
-                value ? t("admin.groups.exclusive") : t("admin.groups.public")
-              }}
-            </span>
+            <UiBadge :tone="value ? 'info' : 'neutral'" :label="value ? t('admin.groups.exclusive') : t('admin.groups.public')" />
           </template>
 
           <template #cell-account_count="{ row }">
@@ -258,89 +220,38 @@
           </template>
 
           <template #cell-status="{ value }">
-            <span
-              :class="[
-                'badge',
-                value === 'active' ? 'badge-success' : 'badge-danger',
-              ]"
-            >
-              {{ t("admin.accounts.status." + value) }}
-            </span>
+            <UiStatusBadge :status="value" :label="t('admin.accounts.status.' + value, value)" />
           </template>
 
           <template #cell-actions="{ row }">
             <div class="flex items-center gap-1">
-              <button
-                type="button"
-                @click="handleEdit(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:text-primary-600 dark:hover:text-primary-400"
-                :title="t('common.edit')"
-                :aria-label="t('common.edit')"
-              >
-                <Icon name="edit" size="sm" />
-              </button>
-              <button
+              <UiIconButton icon="edit" density="compact" variant="ghost" :label="t('common.edit')" @click="handleEdit(row)" />
+              <UiIconButton
                 data-testid="group-duplicate"
-                type="button"
                 :title="
                   duplicatingGroupIds.has(row.id)
                     ? t('admin.groups.duplicating')
                     : t('admin.groups.duplicate')
                 "
                 :disabled="duplicatingGroupIds.has(row.id)"
+                variant="ghost"
+                density="compact"
+                icon="copy"
+                :label="duplicatingGroupIds.has(row.id) ? t('admin.groups.duplicating') : t('admin.groups.duplicate')"
                 @click="handleDuplicate(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-primary-400"
                 :aria-label="duplicatingGroupIds.has(row.id) ? t('admin.groups.duplicating') : t('admin.groups.duplicate')"
-              >
-                <Icon name="copy" size="sm" />
-              </button>
-              <button
+              />
+              <UiIconButton
                 v-if="row.platform === 'composite'"
-                type="button"
-                @click="handleCompositeRoutes(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:text-cyan-600 dark:hover:text-cyan-400"
-                :title="t('admin.groups.compositeRoutes.action')"
-                :aria-label="t('admin.groups.compositeRoutes.action')"
-              >
-                <Icon name="swap" size="sm" />
-              </button>
-              <button
-                type="button"
-                @click="handleRateMultipliers(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:text-purple-600 dark:hover:text-purple-400"
-                :title="t('admin.groups.rateMultipliers')"
-                :aria-label="t('admin.groups.rateMultipliers')"
-              >
-                <Icon name="dollar" size="sm" />
-              </button>
-              <button
-                type="button"
-                @click="handleRPMOverrides(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:text-orange-600 dark:hover:text-orange-400"
-                :title="t('admin.groups.rpmOverrides')"
-                :aria-label="t('admin.groups.rpmOverrides')"
-              >
-                <Icon name="bolt" size="sm" />
-              </button>
-              <button
-                type="button"
-                @click="handleDelete(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                :title="t('common.delete')"
-                :aria-label="t('common.delete')"
-              >
-                <Icon name="trash" size="sm" />
-              </button>
+                icon="swap" variant="ghost" density="compact" :label="t('admin.groups.compositeRoutes.action')" @click="handleCompositeRoutes(row)" />
+              <UiIconButton icon="dollar" variant="ghost" density="compact" :label="t('admin.groups.rateMultipliers')" @click="handleRateMultipliers(row)" />
+              <UiIconButton icon="bolt" variant="ghost" density="compact" :label="t('admin.groups.rpmOverrides')" @click="handleRPMOverrides(row)" />
+              <UiIconButton icon="trash" variant="danger" density="compact" :label="t('common.delete')" @click="handleDelete(row)" />
             </div>
           </template>
 
           <template #empty>
-            <EmptyState
-              :title="t('admin.groups.noGroupsYet')"
-              :description="t('admin.groups.createFirstGroup')"
-              :action-text="t('admin.groups.createGroup')"
-              @action="openCreateModal"
-            />
+            <UiEmptyState :title="t('admin.groups.noGroupsYet')" :description="t('admin.groups.createFirstGroup')"><template #action><UiButton density="compact" variant="primary" @click="openCreateModal">{{ t('admin.groups.createGroup') }}</UiButton></template></UiEmptyState>
           </template>
         </DataTable>
       </template>
@@ -4032,10 +3943,10 @@ import DataTable from "@/components/common/DataTable.vue";
 import Pagination from "@/components/common/Pagination.vue";
 import BaseDialog from "@/components/common/BaseDialog.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
-import EmptyState from "@/components/common/EmptyState.vue";
+import Icon from "@/components/icons/Icon.vue";
+import { UiBadge, UiButton, UiEmptyState, UiIconButton, UiSearchInput, UiSelect, UiStatusBadge } from '@/components/ui';
 import Select from "@/components/common/Select.vue";
 import PlatformIcon from "@/components/common/PlatformIcon.vue";
-import Icon from "@/components/icons/Icon.vue";
 import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipliersModal.vue";
 import GroupRPMOverridesModal from "@/components/admin/group/GroupRPMOverridesModal.vue";
 import GroupCapacityBadge from "@/components/common/GroupCapacityBadge.vue";
