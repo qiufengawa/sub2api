@@ -4,8 +4,7 @@
       <AppPageHeader :title="t('admin.redeem.title')" :description="t('admin.redeem.description')" />
       <UiServerTableWorkspace :loading="loading">
       <template #filters>
-        <div class="flex flex-col gap-2 p-3 xl:flex-row xl:items-center">
-          <div class="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-[minmax(240px,1fr)_144px_144px]">
+        <UiFilterBar :active-count="activeFilterCount" @clear="clearFilters">
           <UiSearchInput
             v-model="searchQuery"
             density="compact"
@@ -25,9 +24,8 @@
             density="compact"
             @change="applyFilters"
           />
-          </div>
-
-          <div class="flex items-center gap-2 overflow-x-auto pb-1 xl:overflow-visible xl:pb-0">
+          <template #actions>
+            <AppInline>
             <UiIconButton
               @click="loadCodes"
               :disabled="loading"
@@ -54,11 +52,13 @@
               <template #icon><Icon name="plus" size="sm" /></template>
               {{ t('admin.redeem.generateCodes') }}
             </UiButton>
-          </div>
-        </div>
+            </AppInline>
+          </template>
+        </UiFilterBar>
       </template>
 
-        <UiDataTable
+        <UiMobileTableScroller :label="t('admin.redeem.title')" min-width="980px">
+          <UiDataTable
           :columns="columns"
           :data="codes"
           :loading="loading"
@@ -86,8 +86,8 @@
           </template>
 
           <template #cell-code="{ value }">
-            <div class="flex max-w-[18rem] min-w-0 items-center gap-2">
-              <code class="min-w-0 flex-1 truncate font-mono text-sm text-gray-900 dark:text-gray-100" :title="String(value)">{{ value }}</code>
+            <AppInline :wrap="false">
+              <UiDataCell :value="String(value)" mono />
               <UiIconButton
                 variant="ghost"
                 density="mini"
@@ -97,7 +97,7 @@
                 <Icon v-if="copiedCode !== value" name="copy" size="sm" :stroke-width="2" />
                 <Icon v-else name="check" size="sm" :stroke-width="2" />
               </UiIconButton>
-            </div>
+            </AppInline>
           </template>
 
           <template #cell-type="{ value }">
@@ -107,16 +107,17 @@
           </template>
 
           <template #cell-value="{ value, row }">
-            <span class="text-sm font-medium text-gray-900 dark:text-white">
-              <template v-if="row.type === 'balance'">${{ value.toFixed(2) }}</template>
-              <template v-else-if="row.type === 'subscription'">
-                {{ row.validity_days || 30 }} {{ t('admin.redeem.days') }}
-                <span v-if="row.plan_name" class="ml-1 text-xs text-gray-500 dark:text-gray-400"
-                  >({{ row.plan_name }})</span
-                >
-              </template>
-              <template v-else>{{ value }}</template>
-            </span>
+            <UiDataCell
+              v-if="row.type === 'balance'"
+              :value="`$${value.toFixed(2)}`"
+              mono
+            />
+            <UiDataCell
+              v-else-if="row.type === 'subscription'"
+              :value="`${row.validity_days || 30} ${t('admin.redeem.days')}`"
+              :meta="row.plan_name || undefined"
+            />
+            <UiDataCell v-else :value="String(value)" />
           </template>
 
           <template #cell-status="{ value }">
@@ -124,44 +125,29 @@
           </template>
 
           <template #cell-used_by="{ value, row }">
-            <span class="block max-w-[16rem] truncate text-sm text-gray-500 dark:text-dark-400" :title="row.user?.email || ''">
-              {{ row.user?.email || (value ? t('admin.redeem.userPrefix', { id: value }) : '-') }}
-            </span>
+            <UiDataCell :value="row.user?.email || (value ? t('admin.redeem.userPrefix', { id: value }) : '-')" />
           </template>
 
           <template #cell-used_at="{ value }">
-            <span class="text-sm text-gray-500 dark:text-dark-400">{{
-              value ? formatDateTime(value) : '-'
-            }}</span>
+            <UiDataCell :value="value ? formatDateTime(value) : '-'" />
           </template>
 
           <template #cell-expires_at="{ value, row }">
-            <span
-              :class="[
-                'text-sm',
-                row.status === 'expired'
-                  ? 'text-red-600 dark:text-red-400'
-                  : 'text-gray-500 dark:text-dark-400'
-              ]"
-            >
-              {{ value ? formatDateTime(value) : t('admin.redeem.neverExpires') }}
-            </span>
+            <UiStatusBadge
+              v-if="row.status === 'expired'"
+              status="danger"
+              :label="value ? formatDateTime(value) : t('admin.redeem.neverExpires')"
+            />
+            <UiDataCell v-else :value="value ? formatDateTime(value) : t('admin.redeem.neverExpires')" />
           </template>
 
           <template #cell-actions="{ row }">
-            <div class="flex items-center space-x-2">
-              <UiIconButton
-                v-if="row.status === 'unused'"
-                icon="trash"
-                variant="danger"
-                density="compact"
-                :label="t('common.delete')"
-                @click="handleDelete(row)"
-              />
-              <span v-else class="text-gray-400 dark:text-dark-500">-</span>
-            </div>
+            <UiButtonGroup :label="t('admin.redeem.columns.actions')">
+              <UiIconButton v-if="row.status === 'unused'" icon="trash" variant="danger" density="compact" :label="t('common.delete')" @click="handleDelete(row)" />
+            </UiButtonGroup>
           </template>
-        </UiDataTable>
+          </UiDataTable>
+        </UiMobileTableScroller>
 
       <template #pagination>
         <UiBulkActionBar
@@ -191,11 +177,11 @@
         />
 
         <!-- Batch Actions -->
-        <div v-if="filters.status === 'unused'" class="flex justify-end">
+        <AppInline v-if="filters.status === 'unused'" justify="flex-end">
           <UiButton density="compact" variant="danger" @click="showDeleteUnusedDialog = true">
             {{ t('admin.redeem.deleteAllUnused') }}
           </UiButton>
-        </div>
+        </AppInline>
       </template>
       </UiServerTableWorkspace>
     </AppPage>
@@ -231,7 +217,8 @@
       width="normal"
       @close="showGenerateDialog = false"
     >
-          <form @submit.prevent="handleGenerateCodes" class="space-y-4">
+      <form id="generate-redeem-form" @submit.prevent="handleGenerateCodes">
+        <AppStack :gap="12">
             <UiSelect v-model="generateForm.type" :options="typeOptions" density="compact" :label="t('admin.redeem.codeType')" />
             <!-- 余额/并发类型：显示数值输入 -->
             <UiTextField
@@ -252,8 +239,7 @@
             <UiAlert v-if="generateForm.type === 'invitation'" :message="t('admin.redeem.invitationHint')" />
             <!-- Subscription codes bind to a plan; routing groups remain plan metadata. -->
             <template v-if="generateForm.type === 'subscription'">
-              <div>
-                <UiSelect
+              <UiSelect
                   v-model="generateForm.plan_id"
                   :options="planOptions"
                   density="compact"
@@ -261,28 +247,16 @@
                   :placeholder="t('admin.redeem.selectPlanPlaceholder')"
                 >
                   <template #selected="{ option }">
-                    <span v-if="option" class="font-medium text-gray-900 dark:text-white">
-                      {{ (option as unknown as PlanOption).label }}
-                    </span>
-                    <span v-else class="text-gray-400">{{
-                      t('admin.redeem.selectPlanPlaceholder')
-                    }}</span>
+                    <UiDataCell v-if="option" :value="(option as unknown as PlanOption).label" />
+                    <span v-else>{{ t('admin.redeem.selectPlanPlaceholder') }}</span>
                   </template>
                   <template #option="{ option }">
-                    <div class="min-w-0 py-0.5">
-                      <p class="truncate text-sm font-medium text-gray-900 dark:text-white">
-                        {{ (option as unknown as PlanOption).label }}
-                      </p>
-                      <p class="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
-                        {{ (option as unknown as PlanOption).groupSummary }}
-                      </p>
-                    </div>
+                    <UiDataCell :value="(option as unknown as PlanOption).label" :meta="(option as unknown as PlanOption).groupSummary" />
                   </template>
                 </UiSelect>
-              </div>
               <UiTextField v-model.number="generateForm.validity_days" type="number" min="1" max="365" required density="compact" :label="t('admin.redeem.validityDays')" />
             </template>
-            <div>
+            <AppStack :gap="8">
               <UiSegmentedControl
                 :model-value="generateForm.expiry_option"
                 :options="redeemCodeExpiryOptions"
@@ -296,21 +270,23 @@
                 min="1"
                 max="3650"
                 required
-                class="mt-2"
                 density="compact"
                 :placeholder="t('admin.redeem.customExpiryDays')"
               />
-            </div>
+            </AppStack>
             <UiTextField v-model.number="generateForm.count" type="number" min="1" max="100" required density="compact" :label="t('admin.redeem.count')" />
-            <div class="flex justify-end gap-3 pt-2">
+        </AppStack>
+      </form>
+      <template #footer>
+            <AppInline justify="flex-end">
               <UiButton density="compact" @click="showGenerateDialog = false">
                 {{ t('common.cancel') }}
               </UiButton>
-              <UiButton type="submit" density="compact" variant="primary" :loading="generating" :disabled="generating">
+              <UiButton type="submit" form="generate-redeem-form" density="compact" variant="primary" :loading="generating" :disabled="generating">
                 {{ generating ? t('admin.redeem.generating') : t('admin.redeem.generate') }}
               </UiButton>
-            </div>
-          </form>
+            </AppInline>
+      </template>
     </UiDialog>
 
     <!-- Batch Update Dialog -->
@@ -320,10 +296,12 @@
       width="normal"
       @close="closeBatchUpdateDialog"
     >
-          <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">{{ t('admin.redeem.selectedCount', { count: selectedCount }) }}</p>
+      <AppStack :gap="12">
+          <UiAlert :message="t('admin.redeem.selectedCount', { count: selectedCount })" />
 
-          <form data-test="batch-update-form" class="space-y-4" @submit.prevent="handleBatchUpdate">
-            <div class="space-y-2">
+          <form id="batch-update-redeem-form" data-test="batch-update-form" @submit.prevent="handleBatchUpdate">
+            <AppStack :gap="12">
+            <AppStack :gap="8">
               <UiCheckbox data-test="batch-field-status" v-model="batchUpdateForm.update_status" :label="t('admin.redeem.batchFields.status')" />
               <UiSelect
                 v-if="batchUpdateForm.update_status"
@@ -332,9 +310,9 @@
                 :options="batchStatusOptions"
                 density="compact"
               />
-            </div>
+            </AppStack>
 
-            <div class="space-y-2">
+            <AppStack :gap="8">
               <UiCheckbox v-model="batchUpdateForm.update_expires_at" :label="t('admin.redeem.batchFields.expiresAt')" />
               <template v-if="batchUpdateForm.update_expires_at">
                 <UiSelect v-model="batchUpdateForm.expires_mode" :options="batchExpiryModeOptions" density="compact" />
@@ -345,9 +323,9 @@
                   density="compact"
                 />
               </template>
-            </div>
+            </AppStack>
 
-            <div class="space-y-2">
+            <AppStack :gap="8">
               <UiCheckbox data-test="batch-field-notes" v-model="batchUpdateForm.update_notes" :label="t('admin.redeem.batchFields.notes')" />
               <UiTextArea
                 v-if="batchUpdateForm.update_notes"
@@ -356,9 +334,9 @@
                 :rows="3"
                 :placeholder="t('admin.redeem.batchNotesPlaceholder')"
               />
-            </div>
+            </AppStack>
 
-            <div v-if="selectedCodesAreSubscription" class="space-y-2">
+            <AppStack v-if="selectedCodesAreSubscription" :gap="8">
               <UiCheckbox v-model="batchUpdateForm.update_plan_id" :label="t('admin.redeem.batchFields.plan')" />
               <UiSelect
                 v-if="batchUpdateForm.update_plan_id"
@@ -367,15 +345,19 @@
                 density="compact"
                 :placeholder="t('admin.redeem.selectPlanPlaceholder')"
               />
-            </div>
-
-            <div class="flex justify-end gap-3 pt-2">
+            </AppStack>
+            </AppStack>
+          </form>
+      </AppStack>
+      <template #footer>
+            <AppInline justify="flex-end">
               <UiButton density="compact" @click="closeBatchUpdateDialog">
                 {{ t('common.cancel') }}
               </UiButton>
               <UiButton
                 data-test="batch-update-submit"
                 type="submit"
+                form="batch-update-redeem-form"
                 density="compact"
                 variant="primary"
                 :loading="batchUpdating"
@@ -383,8 +365,8 @@
               >
                 {{ batchUpdating ? t('common.submitting') : t('admin.redeem.batchUpdate') }}
               </UiButton>
-            </div>
-          </form>
+            </AppInline>
+      </template>
     </UiDialog>
 
     <!-- Generated Codes Result Dialog -->
@@ -394,23 +376,21 @@
       width="normal"
       @close="closeResultDialog"
     >
-      <UiAlert tone="success" :message="t('admin.redeem.codesCreated', { count: generatedCodes.length })" />
-      <UiTextArea
-        class="mt-3"
-        :model-value="generatedCodesText"
-        :rows="Math.min(Math.max(generatedCodes.length, 3), 10)"
-        readonly
-        monospace
-      />
+      <AppStack :gap="12">
+        <UiAlert tone="success" :message="t('admin.redeem.codesCreated', { count: generatedCodes.length })" />
+        <UiTextArea :model-value="generatedCodesText" :rows="Math.min(Math.max(generatedCodes.length, 3), 10)" readonly monospace />
+      </AppStack>
       <template #footer>
-        <UiButton density="compact" @click="copyGeneratedCodes">
-          <template #icon><Icon :name="copiedAll ? 'check' : 'copy'" size="sm" /></template>
-          {{ copiedAll ? t('admin.redeem.copied') : t('admin.redeem.copyAll') }}
-        </UiButton>
-        <UiButton density="compact" variant="primary" @click="downloadGeneratedCodes">
-          <template #icon><Icon name="download" size="sm" /></template>
-          {{ t('admin.redeem.download') }}
-        </UiButton>
+        <AppInline justify="flex-end">
+          <UiButton density="compact" @click="copyGeneratedCodes">
+            <template #icon><Icon :name="copiedAll ? 'check' : 'copy'" size="sm" /></template>
+            {{ copiedAll ? t('admin.redeem.copied') : t('admin.redeem.copyAll') }}
+          </UiButton>
+          <UiButton density="compact" variant="primary" @click="downloadGeneratedCodes">
+            <template #icon><Icon name="download" size="sm" /></template>
+            {{ t('admin.redeem.download') }}
+          </UiButton>
+        </AppInline>
       </template>
     </UiDialog>
   </AppLayout>
@@ -435,23 +415,29 @@ import type { Column } from '@/components/ui'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import {
+  AppInline,
   AppPage,
   AppPageHeader,
+  AppStack,
   UiAlert,
   UiBadge,
   UiButton,
   UiBulkActionBar,
   UiCheckbox,
   UiConfirmDialog,
+  UiDataCell,
   UiDataTable,
   UiDialog,
+  UiFilterBar,
   UiIconButton,
+  UiMobileTableScroller,
   UiPagination,
   UiSearchInput,
   UiSegmentedControl,
   UiSelect,
   UiServerTableWorkspace,
   UiStatusBadge,
+  UiButtonGroup,
   UiTextArea,
   UiTextField
 } from '@/components/ui'
@@ -565,6 +551,8 @@ const filterStatusOptions = computed(() => [
   { value: 'expired', label: t('admin.redeem.status.expired') },
   { value: 'disabled', label: t('admin.redeem.status.disabled') }
 ])
+
+const activeFilterCount = computed(() => Number(Boolean(filters.type)) + Number(Boolean(filters.status)))
 
 const batchStatusOptions = computed(() => [
   { value: 'unused', label: t('admin.redeem.status.unused') },
@@ -743,6 +731,13 @@ const handleSearch = () => {
 }
 
 const applyFilters = () => {
+  pagination.page = 1
+  loadCodes()
+}
+
+const clearFilters = () => {
+  filters.type = ''
+  filters.status = ''
   pagination.page = 1
   loadCodes()
 }
