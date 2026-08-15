@@ -53,6 +53,7 @@
           :total="total"
           :page="page"
           :page-size="pageSize"
+          :reset-page-on-page-size-change="false"
           @update:page="changePage"
           @update:page-size="changePageSize"
         />
@@ -209,5 +210,5 @@ function handleClose() {
 </script>
 
 <style scoped>
-.user-api-keys{display:grid;gap:16px}.user-api-keys__header{display:flex;align-items:baseline;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--ui-border-soft)}.user-api-keys__header strong{font-size:14px;font-weight:600}.user-api-keys__header span{color:var(--ui-text-muted);font-size:12px}.user-api-keys__name{display:grid;gap:2px}.user-api-keys__name strong{font-size:13px;font-weight:600}.user-api-keys__name code{color:var(--ui-text-muted);font-family:var(--font-mono);font-size:11px}.user-api-keys__date{color:var(--ui-text-muted);font-size:12px;white-space:nowrap}
+.user-api-keys{display:grid;gap:16px}.user-api-keys__header{display:flex;align-items:baseline;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--ui-border-soft)}.user-api-keys__header strong{font-size:14px;font-weight:600}.user-api-keys__header span{color:var(--ui-text-muted);font-size:12px}.user-api-keys__name{display:grid;gap:2px}.user-api-keys__name strong{font-size:13px;font-weight:600}.user-api-keys__name code{color:var(--ui-text-muted);font-family:var(--ui-font-mono);font-size:11px}.user-api-keys__date{color:var(--ui-text-muted);font-size:12px;white-space:nowrap}
 </style>

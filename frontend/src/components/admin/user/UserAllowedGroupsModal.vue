@@ -83,10 +83,8 @@
     </div>
 
     <template #footer>
-      <div class="flex justify-end gap-3">
-        <UiButton @click="$emit('close')">{{ t('common.cancel') }}</UiButton>
-        <UiButton @click="handleSave" :disabled="submitting || loading || !!loadError || !loaded" :loading="submitting" variant="primary">{{ submitting ? t('common.saving') : t('common.save') }}</UiButton>
-      </div>
+      <UiButton density="compact" @click="$emit('close')">{{ t('common.cancel') }}</UiButton>
+      <UiButton density="compact" @click="handleSave" :disabled="submitting || loading || !!loadError || !loaded" :loading="submitting" variant="primary">{{ submitting ? t('common.saving') : t('common.save') }}</UiButton>
     </template>
   </UiDialog>
 </template>
