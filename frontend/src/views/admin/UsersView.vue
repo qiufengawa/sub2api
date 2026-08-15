@@ -8,23 +8,13 @@
           <div class="flex flex-1 flex-wrap items-center gap-3">
             <!-- Search Box -->
             <div class="relative w-full md:w-64">
-              <Icon
-                name="search"
-                size="md"
-                class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
-              <input
-                v-model="searchQuery"
-                type="text"
-                :placeholder="t('admin.users.searchUsers')"
-                class="input pl-10"
-                @input="handleSearch"
-              />
+              <UiSearchInput v-model="searchQuery" density="compact" :placeholder="t('admin.users.searchUsers')" @search="handleSearch" />
             </div>
 
             <!-- Role Filter (visible when enabled) -->
             <div v-if="visibleFilters.has('role')" class="w-full sm:w-32">
-              <Select
+              <UiSelect
+                density="compact"
                 v-model="filters.role"
                 :options="[
                   { value: '', label: t('admin.users.allRoles') },
@@ -37,7 +27,8 @@
 
             <!-- Status Filter (visible when enabled) -->
             <div v-if="visibleFilters.has('status')" class="w-full sm:w-32">
-              <Select
+              <UiSelect
+                density="compact"
                 v-model="filters.status"
                 :options="[
                   { value: '', label: t('admin.users.allStatus') },
@@ -48,23 +39,19 @@
               />
             </div>
 
-            <button
+            <UiButton
               type="button"
-              class="btn btn-secondary w-full sm:w-auto"
+              variant="secondary"
+              density="compact"
               :aria-expanded="advancedFiltersExpanded"
               data-testid="users-advanced-toggle"
               @click="advancedFiltersExpanded = !advancedFiltersExpanded"
             >
-              <Icon name="filter" size="sm" class="mr-1.5" />
+              <template #icon><Icon name="filter" size="sm" /></template>
               {{ t('admin.users.advancedFilters') }}
-              <span
-                v-if="advancedFilterCount > 0"
-                class="ml-1 inline-flex min-w-5 justify-center rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 dark:bg-primary-900/40 dark:text-primary-300"
-              >
-                {{ advancedFilterCount }}
-              </span>
+              <UiBadge v-if="advancedFilterCount > 0" :label="String(advancedFilterCount)" />
               <Icon :name="advancedFiltersExpanded ? 'chevronUp' : 'chevronDown'" size="xs" class="ml-1" />
-            </button>
+            </UiButton>
 
             <div
               v-if="advancedFiltersExpanded || advancedFilterCount > 0"
@@ -73,7 +60,8 @@
             >
               <!-- Group Filter (visible when enabled) -->
               <div v-if="visibleFilters.has('group')" class="w-full sm:w-44">
-                <Select
+                <UiSelect
+                  density="compact"
                   v-model="filters.group"
                   :options="groupFilterOptions"
                   searchable
@@ -86,7 +74,8 @@
 
               <!-- API Key Group Filter (visible when enabled) -->
               <div v-if="visibleFilters.has('apiKeyGroup')" class="w-full sm:w-44">
-                <Select
+                <UiSelect
+                  density="compact"
                   v-model="filters.apiKeyGroup"
                   :options="apiKeyGroupFilterOptions"
                   searchable
@@ -102,28 +91,28 @@
                 class="relative w-full sm:w-36"
               >
                 <!-- Text/Email/URL/Textarea/Date type: styled input -->
-                <input
+                <UiTextField
                   v-if="['text', 'textarea', 'email', 'url', 'date'].includes(getAttributeDefinition(Number(attrId))?.type || 'text')"
-                  :value="value"
-                  @input="(e) => updateAttributeFilter(Number(attrId), (e.target as HTMLInputElement).value)"
-                  @keyup.enter="applyFilter"
+                  :model-value="value"
+                  :type="getAttributeDefinition(Number(attrId))?.type === 'date' ? 'date' : 'text'"
+                  @update:model-value="updateAttributeFilter(Number(attrId), String($event))"
+                  @enter="applyFilter"
                   :placeholder="getAttributeDefinitionName(Number(attrId))"
-                  class="input w-full"
                 />
                 <!-- Number type: number input -->
-                <input
+                <UiTextField
                   v-else-if="getAttributeDefinition(Number(attrId))?.type === 'number'"
-                  :value="value"
                   type="number"
-                  @input="(e) => updateAttributeFilter(Number(attrId), (e.target as HTMLInputElement).value)"
-                  @keyup.enter="applyFilter"
+                  :model-value="value"
+                  @update:model-value="updateAttributeFilter(Number(attrId), String($event))"
+                  @enter="applyFilter"
                   :placeholder="getAttributeDefinitionName(Number(attrId))"
-                  class="input w-full"
                 />
                 <!-- Select/Multi-select type -->
                 <template v-else-if="['select', 'multi_select'].includes(getAttributeDefinition(Number(attrId))?.type || '')">
                   <div class="w-full">
-                    <Select
+                    <UiSelect
+                      density="compact"
                       :model-value="value"
                       :options="[
                         { value: '', label: getAttributeDefinitionName(Number(attrId)) },
@@ -134,13 +123,12 @@
                   </div>
                 </template>
                 <!-- Fallback -->
-                <input
+                <UiTextField
                   v-else
-                  :value="value"
-                  @input="(e) => updateAttributeFilter(Number(attrId), (e.target as HTMLInputElement).value)"
-                  @keyup.enter="applyFilter"
+                  :model-value="value"
+                  @update:model-value="updateAttributeFilter(Number(attrId), String($event))"
+                  @enter="applyFilter"
                   :placeholder="getAttributeDefinitionName(Number(attrId))"
-                  class="input w-full"
                 />
               </div>
               </template>
@@ -152,24 +140,19 @@
             <!-- Mobile: Secondary buttons (icon only) -->
             <div class="flex items-center gap-2 md:contents">
               <!-- Refresh Button -->
-              <button
-                @click="loadUsers"
-                :disabled="loading"
-                class="btn btn-secondary px-2 md:px-3"
-                :title="t('common.refresh')"
-              >
-                <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
-              </button>
+              <UiIconButton icon="refresh" density="compact" :disabled="loading" :label="t('common.refresh')" @click="loadUsers" />
               <!-- Filter Settings Dropdown -->
               <div class="relative" ref="filterDropdownRef">
-                <button
+                <UiButton
+                  type="button"
+                  variant="secondary"
+                  density="compact"
                   @click="showFilterDropdown = !showFilterDropdown"
-                  class="btn btn-secondary px-2 md:px-3"
                   :title="t('admin.users.filterSettings')"
                 >
-                  <Icon name="filter" size="sm" class="md:mr-1.5" />
+                  <template #icon><Icon name="filter" size="sm" /></template>
                   <span class="hidden md:inline">{{ t('admin.users.filterSettings') }}</span>
-                </button>
+                </UiButton>
                 <!-- Dropdown menu -->
                 <div
                   v-if="showFilterDropdown"
@@ -216,16 +199,16 @@
               </div>
               <!-- Column Settings Dropdown -->
               <div class="relative" ref="columnDropdownRef">
-                <button
+                <UiButton
+                  type="button"
+                  variant="secondary"
+                  density="compact"
                   @click="showColumnDropdown = !showColumnDropdown"
-                  class="btn btn-secondary px-2 md:px-3"
                   :title="t('admin.users.columnSettings')"
                 >
-                  <svg class="h-4 w-4 md:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125z" />
-                  </svg>
+                  <template #icon><Icon name="grid" size="sm" /></template>
                   <span class="hidden md:inline">{{ t('admin.users.columnSettings') }}</span>
-                </button>
+                </UiButton>
                 <!-- Dropdown menu -->
                 <div
                   v-if="showColumnDropdown"
@@ -256,31 +239,35 @@
                 </div>
               </div>
               <!-- Attributes Config Button -->
-              <button
+              <UiButton
+                type="button"
+                variant="secondary"
+                density="compact"
                 @click="showAttributesModal = true"
-                class="btn btn-secondary px-2 md:px-3"
                 :title="t('admin.users.attributes.configButton')"
               >
-                <Icon name="cog" size="sm" class="md:mr-1.5" />
+                <template #icon><Icon name="cog" size="sm" /></template>
                 <span class="hidden md:inline">{{ t('admin.users.attributes.configButton') }}</span>
-              </button>
+              </UiButton>
             </div>
 
-            <button
+            <UiButton
               v-if="selectedCount > 0"
-              class="btn btn-secondary flex-1 md:flex-initial"
+              variant="secondary"
+              density="compact"
+              class="flex-1 md:flex-initial"
               data-test="bulk-edit-limits"
               @click="showBulkEditModal = true"
             >
-              <Icon name="users" size="md" class="mr-2" />
+              <template #icon><Icon name="users" size="sm" /></template>
               {{ t('admin.users.bulkLimits.action', { count: selectedCount }) }}
-            </button>
+            </UiButton>
 
             <!-- Create User Button (full width on mobile, auto width on desktop) -->
-            <button @click="showCreateModal = true" class="btn btn-primary flex-1 md:flex-initial">
-              <Icon name="plus" size="md" class="mr-2" />
+            <UiButton variant="primary" density="compact" class="flex-1 md:flex-initial" @click="showCreateModal = true">
+              <template #icon><Icon name="plus" size="sm" /></template>
               {{ t('admin.users.createUser') }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </template>
@@ -825,7 +812,6 @@ import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
-import Select from '@/components/common/Select.vue'
 import { buildApiKeyGroupFilterOptions } from './apiKeyGroupFilterOptions'
 import UserAttributesConfigModal from '@/components/user/UserAttributesConfigModal.vue'
 import UserConcurrencyCell from '@/components/user/UserConcurrencyCell.vue'
@@ -841,6 +827,7 @@ import UserAllowedGroupsModal from '@/components/admin/user/UserAllowedGroupsMod
 import UserBalanceModal from '@/components/admin/user/UserBalanceModal.vue'
 import UserBalanceHistoryModal from '@/components/admin/user/UserBalanceHistoryModal.vue'
 import GroupReplaceModal from '@/components/admin/user/GroupReplaceModal.vue'
+import { UiBadge, UiButton, UiIconButton, UiSearchInput, UiSelect, UiTextField } from '@/components/ui'
 
 const appStore = useAppStore()
 
