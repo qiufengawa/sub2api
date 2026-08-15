@@ -1,54 +1,47 @@
 <template>
-  <DataTable :columns="columns" :data="orders" :loading="loading" :mobile-table="mobileTable">
+  <UiMobileTableScroller :label="t('payment.orders.title')" min-width="980px">
+  <UiDataTable :columns="columns" :data="orders" :loading="loading" :mobile-table="mobileTable" :aria-label="t('payment.orders.title')">
     <template #cell-id="{ value }">
-      <span class="font-mono text-sm">#{{ value }}</span>
+      <UiDataCell :value="`#${value}`" mono />
     </template>
     <template #cell-out_trade_no="{ value }">
-      <span class="text-sm text-gray-900 dark:text-white">{{ value }}</span>
+      <UiDataCell :value="String(value)" mono />
     </template>
     <template v-if="showUser" #cell-user_email="{ value, row }">
-      <div class="text-sm">
-        <span class="text-gray-900 dark:text-white">{{ value || row.user_name || '#' + row.user_id }}</span>
-        <span v-if="row.user_notes" class="ml-1 text-xs text-gray-400">({{ row.user_notes }})</span>
-      </div>
+      <UiDataCell :value="value || row.user_name || '#' + row.user_id" :meta="row.user_notes || undefined" />
     </template>
     <template #cell-pay_amount="{ value, row }">
-      <div class="text-sm">
-        <span class="font-medium text-gray-900 dark:text-white">{{ paymentAmountSymbol(row) }}{{ value.toFixed(2) }}</span>
-        <span v-if="row.fee_rate > 0" class="ml-1 text-xs text-gray-400" :title="t('payment.orders.fee') + ': ' + row.fee_rate + '%'">
-          ({{ t('payment.orders.fee') }} {{ row.fee_rate }}%)
-        </span>
-        <div v-if="row.amount !== row.pay_amount" class="text-xs text-gray-500">
-          {{ t('payment.orders.creditedAmount') }}: {{ creditedAmountSymbol }}{{ row.amount.toFixed(2) }}
-        </div>
-      </div>
+      <UiDataCell
+        :value="`${paymentAmountSymbol(row)}${value.toFixed(2)}`"
+        :meta="paymentMeta(row)"
+        mono
+      />
     </template>
     <template #cell-payment_type="{ value }">
-      <span class="text-sm text-gray-700 dark:text-gray-300">{{ t('payment.methods.' + value, value) }}</span>
+      <UiDataCell :value="t('payment.methods.' + value, value)" />
     </template>
     <template #cell-order_type="{ value }">
-      <span class="inline-flex rounded-[3px] border border-primary-100 bg-primary-50 px-1.5 py-0.5 text-[11px] font-medium text-primary-700 dark:border-primary-900 dark:bg-primary-950/30 dark:text-primary-300">
-        {{ value === 'subscription' ? t('payment.tabSubscribe') : t('payment.tabTopUp') }}
-      </span>
+      <UiBadge tone="info" :label="value === 'subscription' ? t('payment.tabSubscribe') : t('payment.tabTopUp')" />
     </template>
     <template #cell-status="{ value }">
       <OrderStatusBadge :status="value" />
     </template>
     <template #cell-created_at="{ value }">
-      <span class="text-xs text-gray-500 dark:text-gray-400">{{ formatDate(value) }}</span>
+      <UiDataCell :value="formatDate(value)" />
     </template>
     <template #cell-actions="{ row }">
       <slot name="actions" :row="row" />
     </template>
-  </DataTable>
+  </UiDataTable>
+  </UiMobileTableScroller>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { PaymentOrder } from '@/types/payment'
-import type { Column } from '@/components/common/types'
-import DataTable from '@/components/common/DataTable.vue'
+import type { Column } from '@/components/ui'
+import { UiBadge, UiDataCell, UiDataTable, UiMobileTableScroller } from '@/components/ui'
 import OrderStatusBadge from '@/components/payment/OrderStatusBadge.vue'
 import { currencySymbol } from '@/components/payment/currency'
 
@@ -68,6 +61,15 @@ const creditedAmountSymbol = currencySymbol('USD')
 
 function paymentAmountSymbol(order: PaymentOrder): string {
   return currencySymbol(order.currency)
+}
+
+function paymentMeta(order: PaymentOrder): string | undefined {
+  const details = []
+  if (order.fee_rate > 0) details.push(`${t('payment.orders.fee')} ${order.fee_rate}%`)
+  if (order.amount !== order.pay_amount) {
+    details.push(`${t('payment.orders.creditedAmount')}: ${creditedAmountSymbol}${order.amount.toFixed(2)}`)
+  }
+  return details.join(' · ') || undefined
 }
 
 const columns = computed((): Column[] => {

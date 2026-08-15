@@ -6,7 +6,8 @@
     width="normal"
     @close="emit('cancel')"
   >
-    <form id="refund-form" class="admin-refund-form" @submit.prevent="handleSubmit">
+    <form id="refund-form" @submit.prevent="handleSubmit">
+      <AppStack :gap="16">
       <AppSection
         v-if="order?.refund_requested_at || order?.refund_request_reason"
         :title="t('payment.admin.refundRequestInfo')"
@@ -18,10 +19,7 @@
       <UiDescriptionList :items="orderSummaryItems" :columns="1" />
 
       <UiCheckbox v-model="form.deduct_balance">
-        <span class="admin-refund-checkbox-copy">
-          <strong>{{ t('payment.admin.deductBalance') }}</strong>
-          <small>{{ t('payment.admin.deductBalanceHint') }}</small>
-        </span>
+        <UiDataCell :value="t('payment.admin.deductBalance')" :meta="t('payment.admin.deductBalanceHint')" />
       </UiCheckbox>
 
       <UiDescriptionList
@@ -70,10 +68,11 @@
       <UiCheckbox v-if="requireForce" v-model="form.force">
         {{ t('payment.admin.forceRefund') }}
       </UiCheckbox>
+      </AppStack>
     </form>
 
     <template #footer>
-      <div class="admin-refund-actions">
+      <AppInline justify="flex-end">
         <UiButton type="button" density="compact" @click="emit('cancel')">{{ t('common.cancel') }}</UiButton>
         <UiButton
           type="submit"
@@ -85,7 +84,7 @@
         >
           {{ t('payment.admin.confirmRefund') }}
         </UiButton>
-      </div>
+      </AppInline>
     </template>
   </UiDialog>
 </template>
@@ -97,10 +96,13 @@ import type { PaymentOrder } from '@/types/payment'
 import { formatOrderDateTime } from '@/components/payment/orderUtils'
 import { currencySymbol } from '@/components/payment/currency'
 import {
+  AppInline,
   AppSection,
+  AppStack,
   UiAlert,
   UiButton,
   UiCheckbox,
+  UiDataCell,
   UiDescriptionList,
   UiDialog,
   UiTextArea,
@@ -212,40 +214,3 @@ function handleSubmit() {
   emit('confirm', { ...form })
 }
 </script>
-
-<style scoped>
-.admin-refund-form {
-  display: grid;
-  gap: 16px;
-}
-
-.admin-refund-checkbox-copy {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.admin-refund-checkbox-copy strong {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.admin-refund-checkbox-copy small {
-  color: var(--ui-text-muted);
-  font-size: 11px;
-}
-
-.admin-refund-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-@media (max-width: 560px) {
-  .admin-refund-checkbox-copy {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0;
-  }
-}
-</style>

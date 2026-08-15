@@ -95,7 +95,10 @@ describe('AdminOrdersView', () => {
           UiDescriptionList: { template: '<dl><slot /></dl>' },
           UiDialog: { props: ['show'], template: '<div v-if="show"><slot /><slot name="footer" /></div>' },
           UiTimeline: { template: '<ol />' },
-          OrderTable: { template: '<div><slot name="actions" :row="{}" /></div>' },
+          OrderTable: {
+            props: ['orders'],
+            template: '<div data-testid="order-rows">{{ orders.map(order => order.id).join(",") }}<slot name="actions" :row="{}" /></div>',
+          },
           AdminRefundDialog: true,
           OrderStatusBadge: true,
           Icon: true,
@@ -135,5 +138,22 @@ describe('AdminOrdersView', () => {
     await flushPromises()
 
     expect(getOrders).toHaveBeenLastCalledWith(expect.objectContaining({ keyword: 'order-1' }))
+  })
+
+  it('does not let an older list response replace newer search results', async () => {
+    let resolveInitial: ((value: { data: { items: PaymentOrder[]; total: number } }) => void) | undefined
+    getOrders
+      .mockReturnValueOnce(new Promise(resolve => { resolveInitial = resolve }))
+      .mockResolvedValueOnce({ data: { items: [{ ...order, id: 7 }], total: 1 } })
+    const wrapper = mountView()
+    await vi.waitFor(() => expect(getOrders).toHaveBeenCalledTimes(1))
+
+    await wrapper.get('[data-testid="order-search"]').setValue('newer')
+    await vi.waitFor(() => expect(getOrders).toHaveBeenCalledTimes(2))
+    resolveInitial?.({ data: { items: [{ ...order, id: 2 }], total: 1 } })
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="order-rows"]').text()).toContain('7')
+    expect(wrapper.get('[data-testid="order-rows"]').text()).not.toContain('2')
   })
 })

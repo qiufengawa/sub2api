@@ -9,53 +9,21 @@
         :empty-title="t('payment.admin.noData')"
       >
         <template #filters>
-          <div class="admin-orders-filters">
-            <div class="admin-orders-filters__primary">
-              <UiSearchInput
-                v-model="orderSearch"
-                class="admin-orders-filters__search"
-                :placeholder="t('payment.admin.searchOrders')"
-                density="compact"
-                @search="loadOrders"
-              />
-              <UiSelect
-                v-model="orderFilters.status"
-                class="admin-orders-filters__status"
-                :label="t('payment.orders.status')"
-                :options="statusFilterOptions"
-                density="compact"
-                @change="loadOrders"
-              />
-              <div class="admin-orders-filters__actions">
-                <UiButton
-                  type="button"
-                  variant="secondary"
-                  density="compact"
-                  :aria-expanded="advancedFiltersOpen"
-                  data-testid="admin-orders-advanced-toggle"
-                  @click="advancedFiltersOpen = !advancedFiltersOpen"
-                >
-                  <template #icon><Icon name="filter" size="sm" /></template>
-                  {{ t('payment.admin.advancedFilters') }}
-                  <UiBadge v-if="activeAdvancedFilterCount > 0" :label="String(activeAdvancedFilterCount)" />
-                  <Icon :name="advancedFiltersOpen ? 'chevronUp' : 'chevronDown'" size="xs" />
-                </UiButton>
-                <UiIconButton
-                  icon="refresh"
-                  variant="ghost"
-                  density="compact"
-                  :disabled="ordersLoading"
-                  :label="t('common.refresh')"
-                  @click="loadOrders"
-                />
-              </div>
-            </div>
-
-            <div
-              v-if="advancedFiltersOpen || activeAdvancedFilterCount > 0"
-              class="admin-orders-filters__advanced"
-              data-testid="admin-orders-advanced-filters"
-            >
+          <UiFilterBar :active-count="activeAdvancedFilterCount" @clear="clearAdvancedFilters">
+            <UiSearchInput
+              v-model="orderSearch"
+              :placeholder="t('payment.admin.searchOrders')"
+              density="compact"
+              @search="loadOrders"
+            />
+            <UiSelect
+              v-model="orderFilters.status"
+              :label="t('payment.orders.status')"
+              :options="statusFilterOptions"
+              density="compact"
+              @change="loadOrders"
+            />
+            <template v-if="advancedFiltersOpen || activeAdvancedFilterCount > 0">
               <UiSelect
                 v-model="orderFilters.payment_type"
                 :label="t('payment.orders.paymentMethod')"
@@ -70,13 +38,35 @@
                 density="compact"
                 @change="loadOrders"
               />
-            </div>
-          </div>
+            </template>
+            <template #actions>
+              <UiButton
+                type="button"
+                variant="secondary"
+                density="compact"
+                :aria-expanded="advancedFiltersOpen"
+                data-testid="admin-orders-advanced-toggle"
+                @click="advancedFiltersOpen = !advancedFiltersOpen"
+              >
+                <template #icon><Icon name="filter" size="sm" /></template>
+                {{ t('payment.admin.advancedFilters') }}
+                <Icon :name="advancedFiltersOpen ? 'chevronUp' : 'chevronDown'" size="xs" />
+              </UiButton>
+              <UiIconButton
+                icon="refresh"
+                variant="ghost"
+                density="compact"
+                :disabled="ordersLoading"
+                :label="t('common.refresh')"
+                @click="loadOrders"
+              />
+            </template>
+          </UiFilterBar>
         </template>
 
         <OrderTable :orders="orders" :loading="false" show-user mobile-table>
           <template #actions="{ row }">
-            <div class="admin-orders-actions">
+            <AppInline justify="flex-end" :wrap="false">
               <UiIconButton icon="eye" variant="ghost" density="compact" :label="t('common.view')" @click="showOrderDetail(row)" />
               <UiIconButton v-if="row.status === 'PENDING'" icon="x" variant="danger" density="compact" :label="t('payment.orders.cancel')" @click="handleCancelOrder(row)" />
               <UiIconButton v-if="row.status === 'FAILED'" icon="refresh" variant="ghost" density="compact" :label="t('payment.admin.retry')" @click="handleRetryOrder(row)" />
@@ -93,10 +83,10 @@
                 :label="t('payment.admin.queryRefundStatus')"
                 @click="handleQueryRefund(row)"
               >
-                <Icon name="refresh" size="sm" :class="{ 'admin-orders-spin': refundQueryingIds.has(row.id) }" />
+                <UiSpinner size="sm" />
               </UiIconButton>
               <UiIconButton v-else-if="row.status === 'COMPLETED' || row.status === 'PARTIALLY_REFUNDED'" icon="dollar" variant="danger" density="compact" :label="t('payment.admin.refund')" @click="openRefundDialog(row)" />
-            </div>
+            </AppInline>
           </template>
         </OrderTable>
 
@@ -119,7 +109,7 @@
       :title="t('payment.admin.orderDetail')"
       :close-label="t('common.close')"
       width="wide"
-      @close="showDetailDialog = false"
+      @close="closeOrderDetail"
     >
       <AppStack v-if="selectedOrder" :gap="16">
         <UiDescriptionList :items="orderDetailItems" :columns="2" data-testid="order-detail-grid">
@@ -131,9 +121,7 @@
         </AppSection>
 
         <AppSection v-if="orderAuditLogs.length > 0" :title="t('payment.admin.auditLogs')">
-          <div class="admin-orders-audit-scroll">
-            <UiTimeline :items="orderAuditTimelineItems" />
-          </div>
+          <UiTimeline :items="orderAuditTimelineItems" />
         </AppSection>
       </AppStack>
     </UiDialog>
@@ -159,17 +147,20 @@ import { currencySymbol } from '@/components/payment/currency'
 import {
   AppPage,
   AppPageHeader,
+  AppInline,
   AppSection,
   AppStack,
   UiBadge,
   UiButton,
   UiDescriptionList,
   UiDialog,
+  UiFilterBar,
   UiIconButton,
   UiPagination,
   UiSearchInput,
   UiSelect,
   UiServerTableWorkspace,
+  UiSpinner,
   UiTimeline,
 } from '@/components/ui'
 
@@ -202,6 +193,8 @@ const creditedAmountSymbol = currencySymbol('USD')
 const activeAdvancedFilterCount = computed(() =>
   Number(Boolean(orderFilters.payment_type)) + Number(Boolean(orderFilters.order_type))
 )
+let ordersRequestId = 0
+let detailRequestId = 0
 
 const orderDetailItems = computed(() => {
   const order = selectedOrder.value
@@ -248,6 +241,7 @@ function paymentAmountSymbol(order: PaymentOrder | null | undefined): string {
 }
 
 async function loadOrders() {
+  const requestId = ++ordersRequestId
   ordersLoading.value = true
   try {
     const res = await adminPaymentAPI.getOrders({
@@ -255,15 +249,26 @@ async function loadOrders() {
       keyword: orderSearch.value || undefined, status: orderFilters.status || undefined,
       payment_type: orderFilters.payment_type || undefined, order_type: orderFilters.order_type || undefined,
     })
+    if (requestId !== ordersRequestId) return
     orders.value = res.data.items || []
     orderPagination.total = res.data.total || 0
   } catch (err: unknown) {
+    if (requestId !== ordersRequestId) return
     appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
-  } finally { ordersLoading.value = false }
+  } finally {
+    if (requestId === ordersRequestId) ordersLoading.value = false
+  }
 }
 
 function handleOrderPageChange(page: number) { orderPagination.page = page; loadOrders() }
 function handleOrderPageSizeChange(size: number) { orderPagination.page_size = size; orderPagination.page = 1; loadOrders() }
+
+function clearAdvancedFilters() {
+  orderFilters.payment_type = ''
+  orderFilters.order_type = ''
+  orderPagination.page = 1
+  loadOrders()
+}
 
 const statusFilterOptions = computed(() => [
   { value: '', label: t('payment.admin.allStatuses') },
@@ -294,15 +299,22 @@ const orderTypeFilterOptions = computed(() => [
 ])
 
 async function showOrderDetail(order: PaymentOrder) {
+  const requestId = ++detailRequestId
   selectedOrder.value = order
   orderAuditLogs.value = []
   showDetailDialog.value = true
   try {
     const res = await adminPaymentAPI.getOrder(order.id)
     const data = res.data as unknown as Record<string, unknown>
+    if (requestId !== detailRequestId) return
     if (data.order) selectedOrder.value = data.order as PaymentOrder
     orderAuditLogs.value = ((data.auditLogs || data.audit_logs || []) as unknown) as AuditLog[]
   } catch (_err: unknown) { /* keep cached order data */ }
+}
+
+function closeOrderDetail() {
+  detailRequestId += 1
+  showDetailDialog.value = false
 }
 
 async function handleCancelOrder(order: PaymentOrder) {
@@ -387,79 +399,3 @@ function formatDateTime(dateStr: string): string { return formatOrderDateTime(da
 
 onMounted(() => loadOrders())
 </script>
-
-<style scoped>
-.admin-orders-filters {
-  display: grid;
-  gap: 10px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--ui-border-soft);
-}
-
-.admin-orders-filters__primary {
-  display: grid;
-  grid-template-columns: minmax(240px, 1fr) minmax(150px, 220px) auto;
-  align-items: end;
-  gap: 8px;
-}
-
-.admin-orders-filters__search {
-  align-self: end;
-}
-
-.admin-orders-filters__actions,
-.admin-orders-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  white-space: nowrap;
-}
-
-.admin-orders-filters__advanced {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(160px, 220px));
-  gap: 8px;
-  padding-top: 10px;
-  border-top: 1px solid var(--ui-border-soft);
-}
-
-.admin-orders-audit-scroll {
-  max-height: 240px;
-  padding-right: 4px;
-  overflow-y: auto;
-}
-
-.admin-orders-spin {
-  animation: admin-orders-spin 700ms linear infinite;
-}
-
-@keyframes admin-orders-spin {
-  to { transform: rotate(360deg); }
-}
-
-@media (max-width: 820px) {
-  .admin-orders-filters__primary {
-    grid-template-columns: minmax(0, 1fr) minmax(140px, 180px);
-  }
-
-  .admin-orders-filters__actions {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 560px) {
-  .admin-orders-filters__primary,
-  .admin-orders-filters__advanced {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .admin-orders-filters__actions {
-    grid-column: auto;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .admin-orders-spin { animation: none; }
-}
-</style>
