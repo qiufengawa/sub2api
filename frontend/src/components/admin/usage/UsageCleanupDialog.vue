@@ -1,6 +1,13 @@
 <template>
-  <BaseDialog :show="show" :title="t('admin.usage.cleanup.title')" width="wide" @close="handleClose">
-    <div class="space-y-4">
+  <UiDialog
+    :show="show"
+    :title="t('admin.usage.cleanup.title')"
+    width="wide"
+    :close-label="t('common.close')"
+    :z-index="50"
+    @close="handleClose"
+  >
+    <div class="usage-cleanup">
       <UsageFilters
         v-model="localFilters"
         v-model:startDate="localStartDate"
@@ -10,91 +17,92 @@
         @change="noop"
       />
 
-      <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+      <UiAlert tone="warning">
         {{ t('admin.usage.cleanup.warning') }}
-      </div>
+      </UiAlert>
 
-      <div class="rounded-xl border border-gray-200 p-4 dark:border-dark-700">
-        <div class="flex items-center justify-between">
-          <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200">
+      <section class="usage-cleanup__tasks">
+        <header class="usage-cleanup__tasks-header">
+          <h3>
             {{ t('admin.usage.cleanup.recentTasks') }}
-          </h4>
-          <button type="button" class="btn btn-ghost btn-sm" @click="loadTasks">
-            {{ t('common.refresh') }}
-          </button>
-        </div>
+          </h3>
+          <UiIconButton
+            icon="refresh"
+            variant="ghost"
+            density="dense"
+            :label="t('common.refresh')"
+            :disabled="tasksLoading"
+            @click="loadTasks"
+          />
+        </header>
 
-        <div class="mt-3 space-y-2">
-          <div v-if="tasksLoading" class="text-sm text-gray-500 dark:text-gray-400">
-            {{ t('admin.usage.cleanup.loadingTasks') }}
-          </div>
-          <div v-else-if="tasks.length === 0" class="text-sm text-gray-500 dark:text-gray-400">
-            {{ t('admin.usage.cleanup.noTasks') }}
-          </div>
-          <div v-else class="space-y-2">
-            <div
-              v-for="task in tasks"
-              :key="task.id"
-              class="flex flex-col gap-2 rounded-lg border border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-dark-700 dark:text-gray-300"
-            >
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <div class="flex items-center gap-2">
-                  <span :class="statusClass(task.status)" class="rounded-full px-2 py-0.5 text-xs font-semibold">
-                    {{ statusLabel(task.status) }}
-                  </span>
-                  <span class="text-xs text-gray-400">#{{ task.id }}</span>
-                  <button
-                    v-if="canCancel(task)"
-                    type="button"
-                    class="btn btn-ghost btn-xs text-rose-600 hover:text-rose-700 dark:text-rose-300"
-                    @click="openCancelConfirm(task)"
-                  >
-                    {{ t('admin.usage.cleanup.cancel') }}
-                  </button>
-                </div>
-                <div class="text-xs text-gray-400">
-                  {{ formatDateTime(task.created_at) }}
-                </div>
-              </div>
-              <div class="flex flex-wrap items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                <span>{{ t('admin.usage.cleanup.range') }}: {{ formatRange(task) }}</span>
-                <span>{{ t('admin.usage.cleanup.deletedRows') }}: {{ task.deleted_rows.toLocaleString() }}</span>
-              </div>
-              <div v-if="task.error_message" class="text-xs text-rose-500">
-                {{ task.error_message }}
-              </div>
-            </div>
-          </div>
-        </div>
+        <UiMobileTableScroller min-width="720px" :label="t('admin.usage.cleanup.recentTasks')">
+          <UiDataTable
+            :columns="taskColumns"
+            :data="tasks"
+            :loading="tasksLoading"
+            row-key="id"
+            mobile-table
+          >
+            <template #cell-status="{ row }">
+              <UiBadge :tone="statusTone(row.status)">{{ statusLabel(row.status) }}</UiBadge>
+            </template>
+            <template #cell-id="{ row }">
+              <UiDataCell :value="`#${row.id}`" mono />
+            </template>
+            <template #cell-range="{ row }">
+              <span class="usage-cleanup__range">{{ formatRange(row) }}</span>
+            </template>
+            <template #cell-deleted_rows="{ row }">
+              <span class="ui-numeric">{{ row.deleted_rows.toLocaleString() }}</span>
+            </template>
+            <template #cell-created_at="{ row }">
+              <span class="usage-cleanup__date">{{ formatDateTime(row.created_at) }}</span>
+            </template>
+            <template #cell-error_message="{ row }">
+              <span v-if="row.error_message" class="usage-cleanup__error">{{ row.error_message }}</span>
+              <span v-else>-</span>
+            </template>
+            <template #cell-actions="{ row }">
+              <UiButton
+                v-if="canCancel(row)"
+                density="mini"
+                variant="danger"
+                @click="openCancelConfirm(row)"
+              >
+                {{ t('admin.usage.cleanup.cancel') }}
+              </UiButton>
+            </template>
+            <template #empty>
+              <UiEmptyState :title="t('admin.usage.cleanup.noTasks')" />
+            </template>
+          </UiDataTable>
+        </UiMobileTableScroller>
 
-        <Pagination
+        <UiPagination
           v-if="tasksTotal > tasksPageSize"
-          class="mt-4"
           :total="tasksTotal"
           :page="tasksPage"
           :page-size="tasksPageSize"
           :page-size-options="[5]"
           :show-page-size-selector="false"
           :show-jump="true"
+          :reset-page-on-page-size-change="false"
           @update:page="handleTaskPageChange"
           @update:pageSize="handleTaskPageSizeChange"
         />
-      </div>
+      </section>
     </div>
 
     <template #footer>
-      <div class="flex justify-end gap-3">
-        <button type="button" class="btn btn-secondary" @click="handleClose">
-          {{ t('common.cancel') }}
-        </button>
-        <button type="button" class="btn btn-danger" :disabled="submitting" @click="openConfirm">
-          {{ submitting ? t('admin.usage.cleanup.submitting') : t('admin.usage.cleanup.submit') }}
-        </button>
-      </div>
+      <UiButton density="compact" @click="handleClose">{{ t('common.cancel') }}</UiButton>
+      <UiButton density="compact" variant="danger" :loading="submitting" @click="openConfirm">
+        {{ t('admin.usage.cleanup.submit') }}
+      </UiButton>
     </template>
-  </BaseDialog>
+  </UiDialog>
 
-  <ConfirmDialog
+  <UiConfirmDialog
     :show="confirmVisible"
     :title="t('admin.usage.cleanup.confirmTitle')"
     :message="t('admin.usage.cleanup.confirmMessage')"
@@ -104,7 +112,7 @@
     @cancel="confirmVisible = false"
   />
 
-  <ConfirmDialog
+  <UiConfirmDialog
     :show="cancelConfirmVisible"
     :title="t('admin.usage.cleanup.cancelConfirmTitle')"
     :message="t('admin.usage.cleanup.cancelConfirmMessage')"
@@ -119,10 +127,21 @@
 import { ref, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import Pagination from '@/components/common/Pagination.vue'
 import UsageFilters from '@/components/admin/usage/UsageFilters.vue'
+import {
+  UiAlert,
+  UiBadge,
+  UiButton,
+  UiConfirmDialog,
+  UiDataCell,
+  UiDataTable,
+  UiDialog,
+  UiEmptyState,
+  UiIconButton,
+  UiMobileTableScroller,
+  UiPagination,
+  type Column,
+} from '@/components/ui'
 import { adminUsageAPI } from '@/api/admin/usage'
 import type { AdminUsageQueryParams, UsageCleanupTask, CreateUsageCleanupTaskRequest } from '@/api/admin/usage'
 import { requestTypeToLegacyStream } from '@/utils/usageRequestType'
@@ -155,6 +174,17 @@ const cancelConfirmVisible = ref(false)
 const canceling = ref(false)
 const cancelTarget = ref<UsageCleanupTask | null>(null)
 let pollTimer: number | null = null
+let taskRequestSequence = 0
+
+const taskColumns: Column[] = [
+  { key: 'status', label: t('admin.usage.cleanup.statusLabel') },
+  { key: 'id', label: 'ID' },
+  { key: 'range', label: t('admin.usage.cleanup.range') },
+  { key: 'deleted_rows', label: t('admin.usage.cleanup.deletedRows') },
+  { key: 'created_at', label: t('admin.usage.cleanup.createdAt') },
+  { key: 'error_message', label: t('admin.usage.cleanup.error') },
+  { key: 'actions', label: t('common.actions') },
+]
 
 const noop = () => {}
 
@@ -183,6 +213,8 @@ const stopPolling = () => {
 }
 
 const handleClose = () => {
+  taskRequestSequence += 1
+  tasksLoading.value = false
   stopPolling()
   confirmVisible.value = false
   cancelConfirmVisible.value = false
@@ -203,15 +235,12 @@ const statusLabel = (status: string) => {
   return map[status] || status
 }
 
-const statusClass = (status: string) => {
-  const map: Record<string, string> = {
-    pending: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200',
-    running: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200',
-    succeeded: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200',
-    failed: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200',
-    canceled: 'bg-gray-200 text-gray-600 dark:bg-dark-600 dark:text-gray-300'
-  }
-  return map[status] || 'bg-gray-100 text-gray-600'
+const statusTone = (status: string): 'neutral' | 'success' | 'warning' | 'danger' | 'info' => {
+  if (status === 'pending') return 'warning'
+  if (status === 'running') return 'info'
+  if (status === 'succeeded') return 'success'
+  if (status === 'failed') return 'danger'
+  return 'neutral'
 }
 
 const formatDateTime = (value?: string | null) => {
@@ -237,12 +266,14 @@ const getUserTimezone = () => {
 
 const loadTasks = async () => {
   if (!props.show) return
+  const sequence = ++taskRequestSequence
   tasksLoading.value = true
   try {
     const res = await adminUsageAPI.listCleanupTasks({
       page: tasksPage.value,
       page_size: tasksPageSize.value
     })
+    if (sequence !== taskRequestSequence || !props.show) return
     tasks.value = res.items || []
     tasksTotal.value = res.total || 0
     if (res.page) {
@@ -252,10 +283,11 @@ const loadTasks = async () => {
       tasksPageSize.value = res.page_size
     }
   } catch (error) {
+    if (sequence !== taskRequestSequence || !props.show) return
     console.error('Failed to load cleanup tasks:', error)
     appStore.showError(t('admin.usage.cleanup.loadFailed'))
   } finally {
-    tasksLoading.value = false
+    if (sequence === taskRequestSequence) tasksLoading.value = false
   }
 }
 
@@ -376,12 +408,60 @@ watch(
       loadTasks()
       startPolling()
     } else {
+      taskRequestSequence += 1
+      tasksLoading.value = false
       stopPolling()
     }
   }
 )
 
 onUnmounted(() => {
+  taskRequestSequence += 1
   stopPolling()
 })
 </script>
+
+<style scoped>
+.usage-cleanup {
+  display: grid;
+  gap: 16px;
+}
+
+.usage-cleanup__tasks {
+  min-width: 0;
+  border-top: 1px solid var(--ui-border-soft);
+}
+
+.usage-cleanup__tasks-header {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.usage-cleanup__tasks-header h3 {
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.usage-cleanup__range,
+.usage-cleanup__date {
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.usage-cleanup__error {
+  display: block;
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--ui-danger);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>
