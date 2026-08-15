@@ -7,6 +7,7 @@ const messages: Record<string, string> = {
   'admin.dashboard.tokenUsageTrend': 'Token Usage Trend',
   'admin.dashboard.noDataAvailable': 'No data available',
   'usage.cacheHitRate': 'Cache',
+  'common.loading': 'Loading',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -27,6 +28,17 @@ vi.mock('vue-chartjs', () => ({
 }))
 
 describe('TokenUsageTrend', () => {
+  it('uses shared loading and empty states', async () => {
+    const wrapper = mount(TokenUsageTrend, {
+      props: { trendData: [], loading: true },
+    })
+
+    expect(wrapper.text()).toContain('Loading')
+
+    await wrapper.setProps({ loading: false })
+    expect(wrapper.text()).toContain('No data available')
+  })
+
   it('calculates cache token reuse against all prompt tokens', () => {
     const wrapper = mount(TokenUsageTrend, {
       props: {

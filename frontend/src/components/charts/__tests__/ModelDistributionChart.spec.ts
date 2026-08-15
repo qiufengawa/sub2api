@@ -5,6 +5,9 @@ import ModelDistributionChart from '../ModelDistributionChart.vue'
 
 const messages: Record<string, string> = {
   'admin.dashboard.modelDistribution': 'Model Distribution',
+  'admin.dashboard.sourceSelectorLabel': 'Model source',
+  'admin.dashboard.metricSelectorLabel': 'Metric',
+  'admin.dashboard.viewSelectorLabel': 'Chart view',
   'admin.dashboard.spendingRankingTitle': 'User Spending Ranking',
   'admin.dashboard.viewModelDistribution': 'Model Distribution',
   'admin.dashboard.viewSpendingRanking': 'User Spending Ranking',
@@ -22,6 +25,11 @@ const messages: Record<string, string> = {
   'admin.dashboard.metricTokens': 'By Tokens',
   'admin.dashboard.metricActualCost': 'By Actual Cost',
   'admin.dashboard.noDataAvailable': 'No data available',
+  'admin.dashboard.failedToLoad': 'Failed to load',
+  'usage.requestedModel': 'Requested',
+  'usage.upstreamModel': 'Upstream',
+  'usage.mapping': 'Mapped',
+  'common.loading': 'Loading',
   'usage.rankingOther': 'Others',
   'admin.redeem.userPrefix': 'User #{id}',
 }
@@ -93,6 +101,7 @@ describe('ModelDistributionChart', () => {
     const rows = wrapper.findAll('tbody tr')
     expect(rows[0].text()).toContain('model-a')
     expect(rows[1].text()).toContain('model-b')
+    expect(rows[0].find('button[aria-expanded="false"]').exists()).toBe(true)
 
     const options = (wrapper.vm as any).$?.setupState.doughnutOptions
     const label = options.plugins.tooltip.callbacks.label({
@@ -131,6 +140,22 @@ describe('ModelDistributionChart', () => {
       dataset: { data: [1.4, 0.2] },
     })
     expect(label).toBe('model-b: $1.40 (87.5%)')
+  })
+
+  it('forwards source and metric changes from shared segmented controls', async () => {
+    const wrapper = mount(ModelDistributionChart, {
+      props: {
+        modelStats,
+        showSourceToggle: true,
+        showMetricToggle: true,
+      },
+    })
+
+    await wrapper.findAll('button').find((button) => button.text() === 'Upstream')!.trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'By Actual Cost')!.trigger('click')
+
+    expect(wrapper.emitted('update:source')).toEqual([['upstream']])
+    expect(wrapper.emitted('update:metric')).toEqual([['actual_cost']])
   })
 
   it('can hide account cost for user usage stats without account_cost', () => {
@@ -225,5 +250,9 @@ describe('ModelDistributionChart', () => {
     expect(rows[3].text()).toContain('4')
     expect(rows[3].text()).toContain('400')
     expect(rows[3].text()).toContain('$10.00')
+    expect(rows[0].find('button').exists()).toBe(true)
+
+    await rows[0].trigger('click')
+    expect(wrapper.emitted('ranking-click')).toEqual([[expect.objectContaining({ user_id: 1 })]])
   })
 })

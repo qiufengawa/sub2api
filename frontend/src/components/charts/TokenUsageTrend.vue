@@ -1,21 +1,18 @@
 <template>
-  <div :class="props.compact ? 'rounded border border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-800' : 'card p-3'">
-    <h3 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">
-      {{ t('admin.dashboard.tokenUsageTrend') }}
-    </h3>
-    <div v-if="loading" class="flex h-48 items-center justify-center">
-      <LoadingSpinner />
-    </div>
-    <div v-else-if="trendData.length > 0 && chartData" class="h-48">
+  <UiChartFrame
+    class="token-usage-trend"
+    :class="{ 'token-usage-trend--compact': props.compact }"
+    :title="t('admin.dashboard.tokenUsageTrend')"
+    :height="220"
+  >
+    <UiLoadingOverlay v-if="loading" :show="true" :label="t('common.loading')">
+      <div class="token-usage-trend__state" />
+    </UiLoadingOverlay>
+    <div v-else-if="trendData.length > 0 && chartData" class="token-usage-trend__chart">
       <Line :data="chartData" :options="lineOptions" />
     </div>
-    <div
-      v-else
-      class="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400"
-    >
-      {{ t('admin.dashboard.noDataAvailable') }}
-    </div>
-  </div>
+    <UiEmptyState v-else :title="t('admin.dashboard.noDataAvailable')" />
+  </UiChartFrame>
 </template>
 
 <script setup lang="ts">
@@ -33,7 +30,7 @@ import {
   Filler
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { UiChartFrame, UiEmptyState, UiLoadingOverlay } from '@/components/ui'
 import type { TrendDataPoint } from '@/types'
 import { calculateCacheTokenReuseRate } from '@/utils/usageMetrics'
 
@@ -241,3 +238,14 @@ const formatCost = (value: number): string => {
   return value.toFixed(4)
 }
 </script>
+
+<style scoped>
+.token-usage-trend__chart,
+.token-usage-trend__state {
+  height: 192px;
+}
+
+.token-usage-trend--compact :deep(.ui-chart-frame__body) {
+  padding: 8px;
+}
+</style>

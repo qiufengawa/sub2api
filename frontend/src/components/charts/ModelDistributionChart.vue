@@ -1,180 +1,123 @@
 <template>
-  <div class="card p-3">
-    <div class="mb-3 flex items-center justify-between gap-2">
-      <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
-        {{ !enableRankingView || activeView === 'model_distribution'
-          ? t('admin.dashboard.modelDistribution')
-          : t('admin.dashboard.spendingRankingTitle') }}
-      </h3>
-      <div class="flex flex-wrap items-center justify-end gap-2">
-        <div
+  <UiChartFrame
+    class="model-distribution"
+    :title="chartTitle"
+    :height="220"
+  >
+    <template #actions>
+      <div class="model-distribution__actions">
+        <UiSegmentedControl
           v-if="showSourceToggle"
-          class="inline-flex rounded-[3px] border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800"
-        >
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="source === 'requested'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
-            @click="emit('update:source', 'requested')"
-          >
-            {{ t('usage.requestedModel') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="source === 'upstream'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
-            @click="emit('update:source', 'upstream')"
-          >
-            {{ t('usage.upstreamModel') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="source === 'mapping'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
-            @click="emit('update:source', 'mapping')"
-          >
-            {{ t('usage.mapping') }}
-          </button>
-        </div>
-        <div
+          :model-value="source"
+          :options="sourceOptions"
+          :label="t('admin.dashboard.sourceSelectorLabel')"
+          @update:model-value="updateSource"
+        />
+        <UiSegmentedControl
           v-if="showMetricToggle"
-          class="inline-flex rounded-[3px] border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800"
-        >
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="metric === 'tokens'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
-            @click="emit('update:metric', 'tokens')"
-          >
-            {{ t('admin.dashboard.metricTokens') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="metric === 'actual_cost'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
-            @click="emit('update:metric', 'actual_cost')"
-          >
-            {{ t('admin.dashboard.metricActualCost') }}
-          </button>
-        </div>
-        <div v-if="enableRankingView" class="inline-flex rounded-[3px] border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800">
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="
-              activeView === 'model_distribution'
-                ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-            "
-            @click="activeView = 'model_distribution'"
-          >
-            {{ t('admin.dashboard.viewModelDistribution') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="
-              activeView === 'spending_ranking'
-                ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-            "
-            @click="activeView = 'spending_ranking'"
-          >
-            {{ t('admin.dashboard.viewSpendingRanking') }}
-          </button>
-        </div>
+          :model-value="metric"
+          :options="metricOptions"
+          :label="t('admin.dashboard.metricSelectorLabel')"
+          @update:model-value="updateMetric"
+        />
+        <UiSegmentedControl
+          v-if="enableRankingView"
+          :model-value="activeView"
+          :options="viewOptions"
+          :label="t('admin.dashboard.viewSelectorLabel')"
+          @update:model-value="updateActiveView"
+        />
       </div>
-    </div>
+    </template>
 
-    <div v-if="activeView === 'model_distribution' && loading" class="flex h-48 items-center justify-center">
-      <LoadingSpinner />
-    </div>
+    <UiLoadingOverlay
+      v-if="activeView === 'model_distribution' && loading"
+      :show="true"
+      :label="t('common.loading')"
+    ><div class="chart-state-space" /></UiLoadingOverlay>
     <div
       v-else-if="activeView === 'model_distribution' && displayMode === 'ranking' && displayModelStats.length > 0"
-      class="space-y-2.5 py-1"
+      class="model-ranking"
       data-testid="model-distribution-ranking"
     >
-      <div v-for="(model, index) in displayModelStats" :key="model.model" class="space-y-1">
-        <div class="flex items-center justify-between gap-3 text-xs">
-          <div class="flex min-w-0 items-center gap-2">
-            <span class="w-4 shrink-0 text-[10px] tabular-nums text-gray-400 dark:text-dark-500">{{ index + 1 }}</span>
-            <span class="truncate font-medium text-gray-700 dark:text-gray-200" :title="model.model">{{ model.model }}</span>
+      <div v-for="(model, index) in displayModelStats" :key="model.model" class="model-ranking__item">
+        <div class="model-ranking__header">
+          <div class="model-ranking__identity">
+            <span class="model-ranking__index ui-numeric">{{ index + 1 }}</span>
+            <span class="model-ranking__name" :title="model.model">{{ model.model }}</span>
           </div>
-          <div class="flex shrink-0 items-center gap-2 tabular-nums">
-            <span class="text-[10px] text-gray-400 dark:text-dark-500">{{ formatNumber(model.requests) }} {{ t('admin.dashboard.requests') }}</span>
-            <span class="font-medium text-gray-800 dark:text-gray-100">{{ formatMetricValue(model) }}</span>
+          <div class="model-ranking__values ui-numeric">
+            <span>{{ formatNumber(model.requests) }} {{ t('admin.dashboard.requests') }}</span>
+            <strong>{{ formatMetricValue(model) }}</strong>
           </div>
         </div>
-        <div class="ml-6 h-1.5 overflow-hidden rounded-sm bg-primary-50 dark:bg-dark-700">
-          <div class="h-full rounded-sm bg-primary-500" :style="rankingBarStyle(model, index)"></div>
+        <div class="model-ranking__track">
+          <div class="model-ranking__bar bg-primary-500" :style="rankingBarStyle(model, index)"></div>
         </div>
       </div>
     </div>
     <div
       v-else-if="activeView === 'model_distribution' && displayMode !== 'ranking' && displayModelStats.length > 0 && chartData"
-      class="flex flex-col items-center gap-3 sm:flex-row sm:gap-4"
+      class="chart-split"
     >
-      <div class="h-48 w-48 shrink-0">
+      <div class="chart-split__visual">
         <Doughnut :data="chartData" :options="doughnutOptions" />
       </div>
-      <div class="max-h-48 w-full min-w-0 flex-1 overflow-auto">
-        <table class="w-full text-xs">
+      <UiMobileTableScroller class="chart-split__table" :label="t('admin.dashboard.modelDistribution')" min-width="620px">
+        <table class="chart-table">
           <thead>
-            <tr class="text-gray-500 dark:text-gray-400">
-              <th class="pb-2 text-left">{{ t('admin.dashboard.model') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.requests') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.tokens') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.actual') }}</th>
-              <th v-if="showAccountCost" class="pb-2 text-right">{{ t('admin.dashboard.accountCost') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.standard') }}</th>
+            <tr>
+              <th>{{ t('admin.dashboard.model') }}</th>
+              <th class="is-numeric">{{ t('admin.dashboard.requests') }}</th>
+              <th class="is-numeric">{{ t('admin.dashboard.tokens') }}</th>
+              <th class="is-numeric">{{ t('admin.dashboard.actual') }}</th>
+              <th v-if="showAccountCost" class="is-numeric">{{ t('admin.dashboard.accountCost') }}</th>
+              <th class="is-numeric">{{ t('admin.dashboard.standard') }}</th>
             </tr>
           </thead>
           <tbody>
             <template v-for="model in displayModelStats" :key="model.model">
               <tr
-                class="border-t border-gray-100 transition-colors dark:border-dark-700"
-                :class="enableBreakdown ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-700/40' : ''"
+                :class="{ 'is-clickable': enableBreakdown }"
                 @click="enableBreakdown && toggleBreakdown('model', model.model)"
               >
                 <td
-                  class="max-w-[100px] truncate py-1.5 font-medium"
-                  :class="enableBreakdown ? 'text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300' : 'text-gray-900 dark:text-white'"
+                  class="chart-table__primary"
                   :title="model.model"
                 >
-                  <span class="inline-flex items-center gap-1">
-                    <svg v-if="enableBreakdown && expandedKey === `model-${model.model}`" class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                    <svg v-else-if="enableBreakdown" class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                  <button
+                    v-if="enableBreakdown"
+                    type="button"
+                    class="chart-table__toggle"
+                    :aria-expanded="expandedKey === `model-${model.model}`"
+                    @click.stop="toggleBreakdown('model', model.model)"
+                  >
+                    <Icon
+                      :name="expandedKey === `model-${model.model}` ? 'chevronDown' : 'chevronRight'"
+                      size="xs"
+                    />
                     {{ model.model }}
-                  </span>
+                  </button>
+                  <span v-else class="chart-table__label">{{ model.model }}</span>
                 </td>
-                <td class="py-1.5 text-right text-gray-600 dark:text-gray-400">
+                <td class="is-numeric">
                   {{ formatNumber(model.requests) }}
                 </td>
-                <td class="py-1.5 text-right text-gray-600 dark:text-gray-400">
+                <td class="is-numeric">
                   {{ formatTokens(model.total_tokens) }}
                 </td>
-                <td class="py-1.5 text-right text-green-600 dark:text-green-400">
+                <td class="is-numeric is-success">
                   ${{ formatCost(model.actual_cost) }}
                 </td>
-                <td v-if="showAccountCost" class="py-1.5 text-right text-orange-500 dark:text-orange-400">
+                <td v-if="showAccountCost" class="is-numeric is-warning">
                   ${{ formatCost(model.account_cost) }}
                 </td>
-                <td class="py-1.5 text-right text-gray-400 dark:text-gray-500">
+                <td class="is-numeric is-muted">
                   ${{ formatCost(model.cost) }}
                 </td>
               </tr>
               <tr v-if="expandedKey === `model-${model.model}`">
-                <td :colspan="distributionColspan" class="p-0">
+                  <td :colspan="distributionColspan" class="chart-table__details">
                   <UserBreakdownSubTable
                     :items="breakdownItems"
                     :loading="breakdownLoading"
@@ -185,82 +128,67 @@
             </template>
           </tbody>
         </table>
-      </div>
+      </UiMobileTableScroller>
     </div>
-    <div
-      v-else-if="activeView === 'model_distribution'"
-      class="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400"
-    >
-      {{ t('admin.dashboard.noDataAvailable') }}
-    </div>
+    <UiEmptyState v-else-if="activeView === 'model_distribution'" :title="t('admin.dashboard.noDataAvailable')" />
 
-    <div v-else-if="rankingLoading" class="flex h-48 items-center justify-center">
-      <LoadingSpinner />
-    </div>
-    <div
-      v-else-if="rankingError"
-      class="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400"
-    >
-      {{ t('admin.dashboard.failedToLoad') }}
-    </div>
-    <div v-else-if="rankingDisplayItems.length > 0 && rankingChartData" class="flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
-      <div class="h-48 w-48 shrink-0">
+    <UiLoadingOverlay v-else-if="rankingLoading" :show="true" :label="t('common.loading')"><div class="chart-state-space" /></UiLoadingOverlay>
+    <UiErrorState v-else-if="rankingError" :title="t('admin.dashboard.failedToLoad')" :retry-text="''" />
+    <div v-else-if="rankingDisplayItems.length > 0 && rankingChartData" class="chart-split">
+      <div class="chart-split__visual">
         <Doughnut :data="rankingChartData" :options="rankingDoughnutOptions" />
       </div>
-      <div class="max-h-48 w-full min-w-0 flex-1 overflow-auto">
-        <table class="w-full text-xs">
+      <UiMobileTableScroller class="chart-split__table" :label="t('admin.dashboard.spendingRankingTitle')" min-width="480px">
+        <table class="chart-table">
           <thead>
-            <tr class="text-gray-500 dark:text-gray-400">
-              <th class="pb-2 text-left">{{ t('admin.dashboard.spendingRankingUser') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.spendingRankingRequests') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.spendingRankingTokens') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.spendingRankingSpend') }}</th>
+            <tr>
+              <th>{{ t('admin.dashboard.spendingRankingUser') }}</th>
+              <th class="is-numeric">{{ t('admin.dashboard.spendingRankingRequests') }}</th>
+              <th class="is-numeric">{{ t('admin.dashboard.spendingRankingTokens') }}</th>
+              <th class="is-numeric">{{ t('admin.dashboard.spendingRankingSpend') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr
               v-for="(item, index) in rankingDisplayItems"
               :key="item.isOther ? 'others' : `${item.user_id}-${index}`"
-              class="border-t border-gray-100 transition-colors dark:border-dark-700"
-              :class="item.isOther
-                ? 'bg-gray-50/70 dark:bg-dark-700/20'
-                : 'cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-700/40'"
+              :class="item.isOther ? 'is-summary' : 'is-clickable'"
               @click="item.isOther ? undefined : emit('ranking-click', item)"
             >
-              <td class="py-1.5">
-                <div class="flex min-w-0 items-center gap-2">
-                  <span class="shrink-0 text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+              <td>
+                <component
+                  :is="item.isOther ? 'div' : 'button'"
+                  :type="item.isOther ? undefined : 'button'"
+                  class="ranking-user"
+                  @click.stop="item.isOther ? undefined : emit('ranking-click', item)"
+                >
+                  <span class="ranking-user__index ui-numeric">
                     {{ item.isOther ? 'Σ' : `#${index + 1}` }}
                   </span>
                   <span
-                    class="block max-w-[140px] truncate font-medium text-gray-900 dark:text-white"
+                    class="ranking-user__label"
                     :title="getRankingRowLabel(item)"
                   >
                     {{ getRankingRowLabel(item) }}
                   </span>
-                </div>
+                </component>
               </td>
-              <td class="py-1.5 text-right text-gray-600 dark:text-gray-400">
+              <td class="is-numeric">
                 {{ formatNumber(item.requests) }}
               </td>
-              <td class="py-1.5 text-right text-gray-600 dark:text-gray-400">
+              <td class="is-numeric">
                 {{ formatTokens(item.tokens) }}
               </td>
-              <td class="py-1.5 text-right text-green-600 dark:text-green-400">
+              <td class="is-numeric is-success">
                 ${{ formatCost(item.actual_cost) }}
               </td>
             </tr>
           </tbody>
         </table>
-      </div>
+      </UiMobileTableScroller>
     </div>
-    <div
-      v-else
-      class="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400"
-    >
-      {{ t('admin.dashboard.noDataAvailable') }}
-    </div>
-  </div>
+    <UiEmptyState v-else :title="t('admin.dashboard.noDataAvailable')" />
+  </UiChartFrame>
 </template>
 
 <script setup lang="ts">
@@ -268,7 +196,15 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut } from 'vue-chartjs'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import Icon from '@/components/icons/Icon.vue'
+import {
+  UiChartFrame,
+  UiEmptyState,
+  UiErrorState,
+  UiLoadingOverlay,
+  UiMobileTableScroller,
+  UiSegmentedControl,
+} from '@/components/ui'
 import UserBreakdownSubTable from './UserBreakdownSubTable.vue'
 import type { ModelStat, UserSpendingRankingItem, UserBreakdownItem } from '@/types'
 import { getUserBreakdown } from '@/api/admin/dashboard'
@@ -370,6 +306,27 @@ const enableRankingView = computed(() => props.enableRankingView)
 const showAccountCost = computed(() => props.showAccountCost)
 const distributionColspan = computed(() => showAccountCost.value ? 6 : 5)
 const activeView = ref<'model_distribution' | 'spending_ranking'>('model_distribution')
+const chartTitle = computed(() => !enableRankingView.value || activeView.value === 'model_distribution'
+  ? t('admin.dashboard.modelDistribution')
+  : t('admin.dashboard.spendingRankingTitle'))
+const sourceOptions = computed(() => [
+  { value: 'requested', label: t('usage.requestedModel') },
+  { value: 'upstream', label: t('usage.upstreamModel') },
+  { value: 'mapping', label: t('usage.mapping') },
+])
+const metricOptions = computed(() => [
+  { value: 'tokens', label: t('admin.dashboard.metricTokens') },
+  { value: 'actual_cost', label: t('admin.dashboard.metricActualCost') },
+])
+const viewOptions = computed(() => [
+  { value: 'model_distribution', label: t('admin.dashboard.viewModelDistribution') },
+  { value: 'spending_ranking', label: t('admin.dashboard.viewSpendingRanking') },
+])
+const updateSource = (value: string | number) => emit('update:source', value as ModelSource)
+const updateMetric = (value: string | number) => emit('update:metric', value as DistributionMetric)
+const updateActiveView = (value: string | number) => {
+  activeView.value = value as typeof activeView.value
+}
 
 const chartColors = [
   '#366ef4',
@@ -601,3 +558,56 @@ const formatCost = (value: number | null | undefined): string => {
   return safeValue.toFixed(4)
 }
 </script>
+
+<style scoped>
+.model-distribution__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.chart-state-space { min-height: 192px; }
+.model-ranking { display: grid; gap: 10px; padding: 2px 0; }
+.model-ranking__item { display: grid; gap: 5px; }
+.model-ranking__header,
+.model-ranking__identity,
+.model-ranking__values,
+.ranking-user { display: flex; align-items: center; }
+.model-ranking__header { justify-content: space-between; gap: 12px; font-size: 12px; }
+.model-ranking__identity,
+.ranking-user { min-width: 0; gap: 7px; }
+.model-ranking__index { width: 18px; flex: none; color: var(--ui-text-soft); font-size: 10px; }
+.model-ranking__name,
+.ranking-user__label { min-width: 0; overflow: hidden; color: var(--ui-text); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.model-ranking__values { flex: none; gap: 8px; color: var(--ui-text-soft); font-size: 10px; }
+.model-ranking__values strong { color: var(--ui-text); font-size: 12px; font-weight: 600; }
+.model-ranking__track { height: 6px; margin-left: 25px; overflow: hidden; border-radius: 2px; background: var(--ui-surface-muted); }
+.model-ranking__bar { height: 100%; border-radius: inherit; }
+.chart-split { display: grid; grid-template-columns: 192px minmax(0, 1fr); align-items: center; gap: 14px; min-width: 0; }
+.chart-split__visual { width: 192px; height: 192px; }
+.chart-split__table { max-height: 192px; }
+.chart-table { width: 100%; border-collapse: collapse; color: var(--ui-text-muted); font-size: 12px; }
+.chart-table th,
+.chart-table td { padding: 7px 8px; border-bottom: 1px solid var(--ui-border-soft); text-align: left; white-space: nowrap; }
+.chart-table th { color: var(--ui-text-soft); font-size: 11px; font-weight: 500; }
+.chart-table tbody tr:last-child > td { border-bottom: 0; }
+.chart-table tr.is-clickable { cursor: pointer; transition: background var(--ui-motion-fast); }
+.chart-table tr.is-clickable:hover,
+.chart-table tr.is-summary { background: var(--ui-surface-muted); }
+.chart-table .is-numeric { text-align: right; font-variant-numeric: tabular-nums; }
+.chart-table__primary { max-width: 150px; overflow: hidden; color: var(--ui-text); font-weight: 500; text-overflow: ellipsis; }
+.chart-table__label { display: inline-flex; max-width: 100%; align-items: center; gap: 4px; }
+.chart-table__toggle,
+.ranking-user:is(button) { padding: 0; border: 0; color: inherit; background: transparent; font: inherit; cursor: pointer; }
+.chart-table__toggle { display: inline-flex; max-width: 100%; align-items: center; gap: 4px; }
+.chart-table__toggle:focus-visible,
+.ranking-user:is(button):focus-visible { border-radius: 2px; outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.chart-table__details { padding: 0 !important; }
+.is-success { color: var(--ui-success); }
+.is-warning { color: var(--ui-warning); }
+.is-muted,
+.ranking-user__index { color: var(--ui-text-soft); }
+.ranking-user__index { flex: none; font-size: 11px; font-weight: 600; }
+.ranking-user__label { display: block; max-width: 180px; }
+.model-distribution :deep(.ui-chart-frame__tools) { min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 760px) {
+  .chart-split { grid-template-columns: minmax(0, 1fr); }
+  .chart-split__visual { justify-self: center; }
+  .model-distribution__actions { justify-content: flex-start; }
+}
+</style>
