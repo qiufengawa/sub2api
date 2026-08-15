@@ -1,227 +1,68 @@
 <template>
   <AppLayout>
-    <TablePageLayout>
-      <template #filters>
-        <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
-          <!-- Left: Search + Filters -->
-          <div class="flex flex-1 flex-wrap items-center gap-3">
-            <div class="relative w-full sm:w-64">
-              <Icon
-                name="search"
-                size="md"
-                class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
-              />
-              <input
-                v-model="searchQuery"
-                type="text"
-                :placeholder="t('admin.channels.searchChannels', 'Search channels...')"
-                class="input pl-10"
-                @input="handleSearch"
-              />
-            </div>
+    <AppPage density="compact">
+      <AppPageHeader :title="t('admin.channels.title', 'Channels')" :description="t('admin.channels.description', 'Manage upstream channel pricing and routing')">
+        <template #actions>
+          <UiButton density="dense" variant="primary" @click="openCreateDialog">
+            <template #icon><Icon name="plus" size="sm" /></template>
+            {{ t('admin.channels.createChannel', 'Create Channel') }}
+          </UiButton>
+        </template>
+      </AppPageHeader>
 
-            <Select
-              v-model="filters.status"
-              :options="statusFilterOptions"
-              :placeholder="t('admin.channels.allStatus', 'All Status')"
-              class="w-40"
-              @change="loadChannels"
-            />
-          </div>
+      <UiServerTableWorkspace :loading="loading" :empty="false">
+        <template #toolbar>
+          <UiTableToolbar>
+            <UiSearchInput v-model="searchQuery" density="dense" :placeholder="t('admin.channels.searchChannels', 'Search channels...')" @search="handleSearch" />
+            <UiSelect v-model="filters.status" density="dense" :options="statusFilterOptions" :aria-label="t('admin.channels.columns.status', 'Status')" @change="loadChannels" />
+            <template #actions><UiIconButton icon="refresh" density="dense" :label="t('common.refresh', 'Refresh')" :disabled="loading" @click="loadChannels" /></template>
+          </UiTableToolbar>
+        </template>
 
-          <!-- Right: Actions -->
-          <div class="flex w-full flex-shrink-0 flex-wrap items-center justify-end gap-3 lg:w-auto">
-            <button
-              @click="loadChannels"
-              :disabled="loading"
-              class="btn btn-secondary"
-              :title="t('common.refresh', 'Refresh')"
-            >
-              <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
-            </button>
-            <button @click="openCreateDialog" class="btn btn-primary">
-              <Icon name="plus" size="md" class="mr-2" />
-              {{ t('admin.channels.createChannel', 'Create Channel') }}
-            </button>
-          </div>
-        </div>
-      </template>
-
-      <template #table>
-        <DataTable
-          :columns="columns"
-          :data="channels"
-          :loading="loading"
-          :server-side-sort="true"
-          default-sort-key="created_at"
-          default-sort-order="desc"
-          @sort="handleSort"
-        >
-          <template #cell-name="{ value }">
-            <span class="block max-w-[16rem] truncate font-medium text-gray-900 dark:text-white" :title="String(value)">{{ value }}</span>
-          </template>
-
-          <template #cell-description="{ value }">
-            <span class="block max-w-[22rem] truncate text-sm text-gray-600 dark:text-gray-400" :title="value || ''">{{ value || '-' }}</span>
-          </template>
-
-          <template #cell-status="{ row }">
-            <Toggle
-              :modelValue="row.status === 'active'"
-              @update:modelValue="toggleChannelStatus(row)"
-            />
-          </template>
-
-          <template #cell-group_count="{ row }">
-            <span
-              class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800 dark:bg-dark-600 dark:text-gray-300"
-            >
-              {{ (row.group_ids || []).length }}
-              {{ t('admin.channels.groupsUnit', 'groups') }}
-            </span>
-          </template>
-
-          <template #cell-pricing_count="{ row }">
-            <span
-              class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800 dark:bg-dark-600 dark:text-gray-300"
-            >
-              {{ (row.model_pricing || []).length }}
-              {{ t('admin.channels.pricingUnit', 'pricing rules') }}
-            </span>
-          </template>
-
-          <template #cell-created_at="{ value }">
-            <span class="text-sm text-gray-600 dark:text-gray-400">
-              {{ formatDate(value) }}
-            </span>
-          </template>
-
-          <template #cell-actions="{ row }">
-            <div class="flex items-center gap-1">
-              <button
-                type="button"
-                @click="openEditDialog(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:text-primary-600 dark:hover:text-primary-400"
-                :title="t('common.edit', 'Edit')"
-                :aria-label="t('common.edit', 'Edit')"
-              >
-                <Icon name="edit" size="sm" />
-              </button>
-              <button
-                type="button"
-                @click="handleDelete(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                :title="t('common.delete', 'Delete')"
-                :aria-label="t('common.delete', 'Delete')"
-              >
-                <Icon name="trash" size="sm" />
-              </button>
-            </div>
-          </template>
-
-          <template #empty>
-            <EmptyState
-              :title="t('admin.channels.noChannelsYet', 'No Channels Yet')"
-              :description="t('admin.channels.createFirstChannel', 'Create your first channel to manage model pricing')"
-              :action-text="t('admin.channels.createChannel', 'Create Channel')"
-              @action="openCreateDialog"
-            />
-          </template>
-        </DataTable>
-      </template>
-
-      <template #pagination>
-        <Pagination
-          v-if="pagination.total > 0"
-          :page="pagination.page"
-          :total="pagination.total"
-          :page-size="pagination.page_size"
-          @update:page="handlePageChange"
-          @update:pageSize="handlePageSizeChange"
-        />
-      </template>
-    </TablePageLayout>
+        <UiDataTable :columns="columns" :data="channels" :loading="loading" :mobile-table="true" :aria-label="t('admin.channels.title', 'Channels')" :server-side-sort="true" default-sort-key="created_at" default-sort-order="desc" @sort="handleSort">
+          <template #cell-name="{ value }"><strong class="channel-cell-primary" :title="String(value)">{{ value }}</strong></template>
+          <template #cell-description="{ value }"><span class="channel-cell-muted" :title="value || ''">{{ value || '-' }}</span></template>
+          <template #cell-status="{ row }"><UiSwitch :model-value="row.status === 'active'" :label="row.name" @update:model-value="toggleChannelStatus(row)" /></template>
+          <template #cell-group_count="{ row }"><UiBadge :label="`${(row.group_ids || []).length} ${t('admin.channels.groupsUnit', 'groups')}`" /></template>
+          <template #cell-pricing_count="{ row }"><UiBadge :label="`${(row.model_pricing || []).length} ${t('admin.channels.pricingUnit', 'pricing rules')}`" /></template>
+          <template #cell-created_at="{ value }"><span class="channel-cell-muted">{{ formatDate(value) }}</span></template>
+          <template #cell-actions="{ row }"><div class="channel-row-actions"><UiIconButton icon="edit" density="dense" variant="ghost" :label="t('common.edit', 'Edit')" @click="openEditDialog(row)" /><UiIconButton icon="trash" density="dense" variant="danger" :label="t('common.delete', 'Delete')" @click="handleDelete(row)" /></div></template>
+          <template #empty><UiEmptyState :title="t('admin.channels.noChannelsYet', 'No Channels Yet')" :description="t('admin.channels.createFirstChannel', 'Create your first channel to manage model pricing')"><template #action><UiButton density="dense" variant="primary" @click="openCreateDialog">{{ t('admin.channels.createChannel', 'Create Channel') }}</UiButton></template></UiEmptyState></template>
+        </UiDataTable>
+        <template #pagination><UiPagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" :reset-page-on-page-size-change="false" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" /></template>
+      </UiServerTableWorkspace>
+    </AppPage>
 
     <!-- Create/Edit Dialog -->
-    <BaseDialog
+    <UiDialog
       :show="showDialog"
       :title="editingChannel ? t('admin.channels.editChannel', 'Edit Channel') : t('admin.channels.createChannel', 'Create Channel')"
       width="extra-wide"
+      :close-label="t('common.close')"
       @close="closeDialog"
     >
       <div class="channel-dialog-body">
-        <!-- Tab Bar -->
-        <div class="-mx-4 -mt-3 flex flex-shrink-0 items-center overflow-x-auto whitespace-nowrap border-b border-gray-200 px-4 dark:border-dark-700 sm:-mx-6 sm:-mt-4 sm:px-6" role="tablist">
-          <!-- Basic Settings Tab -->
-          <button
-            type="button"
-            role="tab"
-            :aria-selected="activeTab === 'basic'"
-            @click="activeTab = 'basic'"
-            class="channel-tab"
-            :class="activeTab === 'basic' ? 'channel-tab-active' : 'channel-tab-inactive'"
-          >
-            {{ t('admin.channels.form.basicSettings') }}
-          </button>
-          <!-- Platform Tabs (only enabled) -->
-          <button
-            v-for="section in form.platforms.filter(s => s.enabled)"
-            :key="section.platform"
-            type="button"
-            role="tab"
-            :aria-selected="activeTab === section.platform"
-            @click="activeTab = section.platform"
-            class="channel-tab group"
-            :class="activeTab === section.platform ? 'channel-tab-active' : 'channel-tab-inactive'"
-          >
-            <PlatformIcon :platform="section.platform" size="xs" :class="platformTextClass(section.platform)" />
-            <span :class="platformTextClass(section.platform)">{{ t('admin.groups.platforms.' + section.platform, section.platform) }}</span>
-          </button>
-        </div>
+        <UiTabs v-model="activeTab" :tabs="channelTabOptions" :label="t('admin.channels.form.basicSettings', 'Channel settings')" />
 
         <!-- Tab Content -->
         <form id="channel-form" @submit.prevent="handleSubmit" class="flex-1 overflow-y-auto pt-4">
           <!-- Basic Settings Tab -->
           <div v-show="activeTab === 'basic'" class="space-y-5">
             <!-- Name -->
-            <div>
-              <label class="input-label">{{ t('admin.channels.form.name', 'Name') }} <span class="text-red-500">*</span></label>
-              <input
-                v-model="form.name"
-                type="text"
-                required
-                class="input"
-                :placeholder="t('admin.channels.form.namePlaceholder', 'Enter channel name')"
-              />
-            </div>
+            <UiTextField v-model="form.name" :label="t('admin.channels.form.name', 'Name')" :placeholder="t('admin.channels.form.namePlaceholder', 'Enter channel name')" required />
 
             <!-- Description -->
-            <div>
-              <label class="input-label">{{ t('admin.channels.form.description', 'Description') }}</label>
-              <textarea
-                v-model="form.description"
-                rows="2"
-                class="input"
-                :placeholder="t('admin.channels.form.descriptionPlaceholder', 'Optional description')"
-              ></textarea>
-            </div>
+            <UiTextArea v-model="form.description" :label="t('admin.channels.form.description', 'Description')" :placeholder="t('admin.channels.form.descriptionPlaceholder', 'Optional description')" :rows="2" />
 
             <!-- Status (edit only) -->
             <div v-if="editingChannel">
               <label class="input-label">{{ t('admin.channels.form.status', 'Status') }}</label>
-              <Select v-model="form.status" :options="statusEditOptions" />
+              <UiSelect v-model="form.status" :options="statusEditOptions" :label="t('admin.channels.form.status', 'Status')" />
             </div>
 
             <!-- Model Restriction -->
             <div>
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  v-model="form.restrict_models"
-                  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <span class="input-label mb-0">{{ t('admin.channels.form.restrictModels', 'Restrict Models') }}</span>
-              </label>
+              <UiCheckbox v-model="form.restrict_models" :label="t('admin.channels.form.restrictModels', 'Restrict Models')" />
               <p class="mt-1 ml-6 text-xs text-gray-400">
                 {{ t('admin.channels.form.restrictModelsHint', 'When enabled, only models in the pricing list are allowed. Others will be rejected.') }}
               </p>
@@ -230,7 +71,7 @@
             <!-- Billing Basis -->
             <div>
               <label class="input-label">{{ t('admin.channels.form.billingModelSource', 'Billing Basis') }}</label>
-              <Select v-model="form.billing_model_source" :options="billingModelSourceOptions" />
+              <UiSelect v-model="form.billing_model_source" :options="billingModelSourceOptions" :label="t('admin.channels.form.billingModelSource', 'Billing Basis')" />
               <p class="mt-1 text-xs text-gray-400">
                 {{ t('admin.channels.form.billingModelSourceHint', 'Controls which model name is used for pricing lookup') }}
               </p>
@@ -271,7 +112,8 @@
                     {{ t('admin.channels.form.applyPricingToAccountStatsDesc') }}
                   </p>
                 </div>
-                <Toggle
+                <UiSwitch
+                  :label="t('admin.channels.form.applyPricingToAccountStats')"
                   :modelValue="form.apply_pricing_to_account_stats"
                   @update:modelValue="form.apply_pricing_to_account_stats = $event"
                 />
@@ -343,7 +185,7 @@
                     {{ t('admin.channels.form.webSearchEmulationHint') }}
                   </p>
                 </div>
-                <Toggle v-model="section.web_search_emulation" />
+                <UiSwitch v-model="section.web_search_emulation" :label="t('admin.channels.form.webSearchEmulation')" />
               </div>
             </div>
 
@@ -358,7 +200,7 @@
                     {{ t('admin.channels.form.codexImageGenerationBridgeHint') }}
                   </p>
                 </div>
-                <Toggle v-model="section.codex_image_generation_bridge" />
+                <UiSwitch v-model="section.codex_image_generation_bridge" :label="t('admin.channels.form.codexImageGenerationBridge')" />
               </div>
             </div>
 
@@ -373,7 +215,7 @@
                     {{ t('admin.channels.form.bedrockCCCompatHint') }}
                   </p>
                 </div>
-                <Toggle v-model="section.bedrock_cc_compat" />
+                <UiSwitch v-model="section.bedrock_cc_compat" :label="t('admin.channels.form.bedrockCCCompat')" />
               </div>
             </div>
 
@@ -597,29 +439,17 @@
       </div>
 
       <template #footer>
-        <div class="flex justify-end gap-3">
-          <button @click="closeDialog" type="button" class="btn btn-secondary">
-            {{ t('common.cancel', 'Cancel') }}
-          </button>
-          <button
-            type="submit"
-            form="channel-form"
-            :disabled="submitting"
-            class="btn btn-primary"
-          >
-            {{ submitting
-              ? t('common.submitting', 'Submitting...')
-              : editingChannel
-                ? t('common.update', 'Update')
-                : t('common.create', 'Create')
-            }}
-          </button>
+        <div class="channel-dialog-actions">
+          <UiButton type="button" density="dense" @click="closeDialog">{{ t('common.cancel', 'Cancel') }}</UiButton>
+          <UiButton type="submit" form="channel-form" density="dense" variant="primary" :loading="submitting">
+            {{ editingChannel ? t('common.update', 'Update') : t('common.create', 'Create') }}
+          </UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
     <!-- Delete Confirmation -->
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showDeleteDialog"
       :title="t('admin.channels.deleteChannel', 'Delete Channel')"
       :message="deleteConfirmMessage"
@@ -642,21 +472,33 @@ import type { Channel, ChannelModelPricing, CreateChannelRequest, UpdateChannelR
 import type { PricingFormEntry } from '@/components/admin/channel/types'
 import { mTokToPerToken, perTokenToMTok, apiIntervalsToForm, formIntervalsToAPI, findModelConflict, validateIntervals } from '@/components/admin/channel/types'
 import type { AdminGroup, GroupPlatform } from '@/types'
-import type { Column } from '@/components/common/types'
+import type { Column } from '@/components/ui'
 import { platformTextClass, platformBadgeLightClass } from '@/utils/platformColors'
 import { buildChannelGroupMap, fetchAllChannels } from '@/utils/channelConflict'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import TablePageLayout from '@/components/layout/TablePageLayout.vue'
-import DataTable from '@/components/common/DataTable.vue'
-import Pagination from '@/components/common/Pagination.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
-import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
-import Toggle from '@/components/common/Toggle.vue'
 import PricingEntryCard from '@/components/admin/channel/PricingEntryCard.vue'
+import {
+  AppPage,
+  AppPageHeader,
+  UiBadge,
+  UiButton,
+  UiCheckbox,
+  UiConfirmDialog,
+  UiDataTable,
+  UiDialog,
+  UiEmptyState,
+  UiIconButton,
+  UiPagination,
+  UiSearchInput,
+  UiSelect,
+  UiServerTableWorkspace,
+  UiSwitch,
+  UiTableToolbar,
+  UiTextArea,
+  UiTextField,
+} from '@/components/ui'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useKeyedDebouncedSearch } from '@/composables/useKeyedDebouncedSearch'
 
@@ -748,6 +590,14 @@ const submitting = ref(false)
 const showDeleteDialog = ref(false)
 const deletingChannel = ref<Channel | null>(null)
 const activeTab = ref<string>('basic')
+
+const channelTabOptions = computed(() => [
+  { value: 'basic', label: t('admin.channels.form.basicSettings', 'Basic settings') },
+  ...form.platforms.filter(section => section.enabled).map(section => ({
+    value: section.platform,
+    label: t(`admin.groups.platforms.${section.platform}`, section.platform),
+  })),
+])
 
 // Groups
 const allGroups = ref<AdminGroup[]>([])
@@ -1222,7 +1072,10 @@ function apiToForm(channel: Channel): PlatformSection[] {
     const webSearchEnabled = wsEmulation?.[platform] === true
     const codexImageGenerationBridge = fc?.codex_image_generation_bridge as Record<string, boolean> | undefined
     const codexImageGenerationBridgeEnabled = codexImageGenerationBridge?.[platform] === true
-    const bedrockCCCompatEnabled = fc?.bedrock_cc_compat === true
+    const bedrockCCCompat = fc?.bedrock_cc_compat
+    const bedrockCCCompatEnabled = typeof bedrockCCCompat === 'boolean'
+      ? bedrockCCCompat
+      : (bedrockCCCompat as Record<string, boolean> | undefined)?.[platform] === true
 
     sections.push({
       platform,
@@ -1637,19 +1490,37 @@ onUnmounted(() => {
 .channel-dialog-body {
   display: flex;
   flex-direction: column;
-  height: 70vh;
+  height: min(70dvh, 720px);
   min-height: 400px;
 }
 
-.channel-tab {
-  @apply flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap;
+.channel-cell-primary {
+  display: block;
+  max-width: 240px;
+  overflow: hidden;
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.channel-tab-active {
-  @apply border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400;
+.channel-cell-muted {
+  display: block;
+  max-width: 280px;
+  overflow: hidden;
+  color: var(--ui-text-soft);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.channel-tab-inactive {
-  @apply border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300;
+.channel-row-actions,
+.channel-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
 }
+
 </style>
