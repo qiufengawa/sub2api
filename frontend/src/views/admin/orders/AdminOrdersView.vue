@@ -108,7 +108,7 @@
             :page-size="orderPagination.page_size"
             :reset-page-on-page-size-change="false"
             @update:page="handleOrderPageChange"
-            @update:page-size="handleOrderPageSizeChange"
+            @update:pageSize="handleOrderPageSizeChange"
           />
         </template>
       </UiServerTableWorkspace>
