@@ -5,8 +5,7 @@ import { Chart as ChartJS, BarElement, CategoryScale, Legend, LinearScale, Toolt
 import { Bar } from 'vue-chartjs'
 import type { OpsLatencyHistogramResponse } from '@/api/admin/ops'
 import type { ChartState } from '../types'
-import HelpTooltip from '@/components/common/HelpTooltip.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
+import { UiChartFrame, UiFieldHelp } from '@/components/ui'
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend)
 
@@ -74,28 +73,18 @@ const options = computed(() => {
 </script>
 
 <template>
-  <div class="flex h-full min-w-0 w-full flex-col overflow-hidden rounded-[4px] border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800">
-    <div class="mb-2 flex min-h-7 items-center justify-between">
-      <h3 class="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
-        <svg class="h-4 w-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-        {{ t('admin.ops.latencyHistogram') }}
-        <HelpTooltip :content="t('admin.ops.tooltips.latencyHistogram')" />
-      </h3>
-    </div>
-
-    <div class="min-h-0 min-w-0 w-full flex-1">
-      <Bar v-if="state === 'ready' && chartData" :data="chartData" :options="options" />
-      <div v-else class="flex h-full items-center justify-center">
-        <div v-if="state === 'loading'" class="animate-pulse text-sm text-gray-400">{{ t('common.loading') }}</div>
-        <EmptyState v-else :title="t('common.noData')" :description="t('admin.ops.charts.emptyRequest')" />
-      </div>
-    </div>
-  </div>
+  <UiChartFrame
+    :title="t('admin.ops.latencyHistogram')"
+    :loading="state === 'loading'"
+    :loading-label="t('common.loading')"
+    :empty="state === 'empty'"
+    :empty-title="t('common.noData')"
+    :empty-description="t('admin.ops.charts.emptyRequest')"
+    :height="180"
+  >
+    <template #actions>
+      <UiFieldHelp :content="t('admin.ops.tooltips.latencyHistogram')" />
+    </template>
+    <Bar v-if="chartData" :data="chartData" :options="options" />
+  </UiChartFrame>
 </template>

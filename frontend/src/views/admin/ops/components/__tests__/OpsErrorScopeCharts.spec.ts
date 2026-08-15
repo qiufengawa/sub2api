@@ -77,7 +77,9 @@ const EmptyStateStub = defineComponent({
 const globalStubs = {
   stubs: {
     HelpTooltip: HelpTooltipStub,
+    UiFieldHelp: HelpTooltipStub,
     EmptyState: EmptyStateStub,
+    UiEmptyState: EmptyStateStub,
   },
 }
 

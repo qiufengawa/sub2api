@@ -5,9 +5,7 @@ import { Chart as ChartJS, ArcElement, Legend, Tooltip } from 'chart.js'
 import { Doughnut } from 'vue-chartjs'
 import type { OpsErrorDistributionResponse } from '@/api/admin/ops'
 import type { ChartState } from '../types'
-import HelpTooltip from '@/components/common/HelpTooltip.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
-import Icon from '@/components/icons/Icon.vue'
+import { UiChartFrame, UiChartLegend, UiFieldHelp, UiIconButton } from '@/components/ui'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -95,6 +93,12 @@ const chartData = computed(() => {
   }
 })
 
+const legendItems = computed(() => categories.value.map((item) => ({
+  label: item.label,
+  color: item.color,
+  value: item.count,
+})))
+
 const options = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
@@ -110,53 +114,41 @@ const options = computed(() => ({
 </script>
 
 <template>
-  <div class="flex h-full min-w-0 w-full flex-col overflow-hidden rounded-[4px] border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800">
-    <div class="mb-2 flex min-h-7 items-center justify-between">
-      <h3 class="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
-        <svg class="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-          />
-        </svg>
-        {{ t('admin.ops.errorDistribution') }}
-        <HelpTooltip :content="t('admin.ops.tooltips.errorDistribution')" />
-      </h3>
-      <button
-        type="button"
-        class="inline-flex h-7 w-7 items-center justify-center rounded-[4px] border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-red-600 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-red-400"
+  <UiChartFrame
+    :title="t('admin.ops.errorDistribution')"
+    :loading="state === 'loading'"
+    :loading-label="t('common.loading')"
+    :empty="state === 'empty'"
+    :empty-title="t('common.noData')"
+    :empty-description="t('admin.ops.charts.emptyError')"
+    :height="160"
+  >
+    <template #actions>
+      <UiFieldHelp :content="t('admin.ops.tooltips.errorDistribution')" />
+      <UiIconButton
+        icon="eye"
+        density="dense"
+        variant="ghost"
         :disabled="state !== 'ready'"
-        :title="t('admin.ops.requestDetails.details')"
+        :label="t('admin.ops.requestDetails.details')"
         @click="emit('openDetails')"
-      >
-        <Icon name="eye" size="xs" />
-      </button>
+      />
+    </template>
+
+    <div v-if="chartData" class="ops-error-distribution__chart">
+      <Doughnut :data="chartData" :options="{ ...options, cutout: '65%' }" />
     </div>
 
-    <div class="relative min-h-0 min-w-0 w-full flex-1">
-      <div v-if="state === 'ready' && chartData" class="flex h-full min-h-0 min-w-0 w-full flex-col">
-        <div class="min-h-0 min-w-0 w-full flex-1">
-          <Doughnut :data="chartData" :options="{ ...options, cutout: '65%' }" />
-        </div>
-        <div class="mt-4 flex flex-col items-center gap-2">
-          <div v-if="topReason" class="text-xs font-bold text-gray-900 dark:text-white">
-            {{ t('admin.ops.top') }}: <span :style="{ color: topReason.color }">{{ topReason.label }}</span>
-          </div>
-          <div class="flex flex-wrap justify-center gap-3">
-            <div v-for="item in categories" :key="item.label" class="flex items-center gap-1.5 text-xs">
-              <span class="h-2 w-2 rounded-full" :style="{ backgroundColor: item.color }"></span>
-              <span class="text-gray-500 dark:text-gray-400">{{ item.count }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div v-else class="flex h-full items-center justify-center">
-        <div v-if="state === 'loading'" class="animate-pulse text-sm text-gray-400">{{ t('common.loading') }}</div>
-        <EmptyState v-else :title="t('common.noData')" :description="t('admin.ops.charts.emptyError')" />
-      </div>
-    </div>
-  </div>
+    <template v-if="chartData" #footer>
+      <span v-if="topReason" class="ops-error-distribution__top">
+        {{ t('admin.ops.top') }}:
+        <b :style="{ color: topReason.color }">{{ topReason.label }}</b>
+      </span>
+      <UiChartLegend :items="legendItems" />
+    </template>
+  </UiChartFrame>
 </template>
+
+<style scoped>
+.ops-error-distribution__chart{width:100%;height:100%;min-height:0}.ops-error-distribution__top{margin-right:auto;color:var(--ui-text-muted);font-size:11px}.ops-error-distribution__top b{font-weight:600}
+</style>
