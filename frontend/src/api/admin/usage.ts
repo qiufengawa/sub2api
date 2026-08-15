@@ -93,6 +93,25 @@ export interface AdminUsageQueryParams extends UsageQueryParams {
   status_code?: number | null
 }
 
+export type AdminUsageStatsQueryParams = Pick<AdminUsageQueryParams,
+  | 'user_id'
+  | 'api_key_id'
+  | 'account_id'
+  | 'group_id'
+  | 'model'
+  | 'request_type'
+  | 'stream'
+  | 'billing_type'
+  | 'billing_mode'
+  | 'upstream_model_mismatch'
+  | 'start_date'
+  | 'end_date'
+  | 'timezone'
+> & {
+  period?: string
+  nocache?: number
+}
+
 // ==================== API Functions ====================
 
 /**
@@ -116,21 +135,7 @@ export async function list(
  * @param params - Query parameters for filtering
  * @returns Usage statistics
  */
-export async function getStats(params: {
-  user_id?: number
-  api_key_id?: number
-  account_id?: number
-  group_id?: number
-  model?: string
-  request_type?: UsageRequestType
-  stream?: boolean
-  upstream_model_mismatch?: boolean
-  period?: string
-  start_date?: string
-  end_date?: string
-  timezone?: string
-  nocache?: number
-}): Promise<AdminUsageStatsResponse> {
+export async function getStats(params: AdminUsageStatsQueryParams): Promise<AdminUsageStatsResponse> {
   const { data } = await apiClient.get<AdminUsageStatsResponse>('/admin/usage/stats', {
     params
   })

@@ -5,16 +5,17 @@
       <UsageStatsCards :stats="usageStats" show-cache-hit-rate />
       <!-- Charts Section -->
       <AppSection :title="t('usage.analytics')" divided>
-        <div class="admin-usage-range-toolbar">
-          <div class="admin-usage-range-field">
-            <label>{{ t('admin.dashboard.timeRange') }}</label>
+        <AppToolbar>
+          <UiFormField for-id="admin-usage-date-range" :label="t('admin.dashboard.timeRange')">
             <UiDateRangePicker
+              id="admin-usage-date-range"
               v-model:start-date="startDate"
               v-model:end-date="endDate"
+              :aria-label="t('admin.dashboard.timeRange')"
               density="compact"
               @change="onDateRangeChange"
             />
-          </div>
+          </UiFormField>
           <UiSelect
             v-model="granularity"
             :label="t('admin.dashboard.granularity')"
@@ -22,7 +23,7 @@
             density="compact"
             @change="loadChartData"
           />
-        </div>
+        </AppToolbar>
         <div class="admin-usage-chart-grid" data-testid="admin-usage-chart-grid">
           <TokenUsageTrend
             class="admin-usage-chart-grid__trend"
@@ -74,10 +75,10 @@
         </div>
       </AppSection>
 
-      <section class="admin-usage-detail">
+      <AppSection class="admin-usage-detail">
         <UiTabs v-model="activeTab" :tabs="detailTabs" :label="t('usage.tabs.usage')" test-id="usage-detail-tab" @update:model-value="switchTab(String($event) as DetailTab)" />
 
-        <UsageFilters v-model="filters" ref="usageFiltersRef" flat :mode="activeTab" class="border-b border-gray-100 dark:border-dark-700/50" :start-date="startDate" :end-date="endDate" :exporting="exporting" :model-options="modelNameOptions" @change="applyFilters" @refresh="refreshData" @reset="resetFilters" @cleanup="openCleanupDialog" @export="exportToExcel">
+        <UsageFilters v-model="filters" ref="usageFiltersRef" flat :mode="activeTab" :start-date="startDate" :end-date="endDate" :exporting="exporting" :model-options="modelNameOptions" @change="applyFilters" @refresh="refreshData" @reset="resetFilters" @cleanup="openCleanupDialog" @export="exportToExcel">
           <template #after-reset>
             <UiColumnPicker
               v-if="activeTab !== 'ranking'"
@@ -130,7 +131,7 @@
             @select-user="handleRankingSelectUser"
           />
         </div>
-      </section>
+      </AppSection>
       <OpsErrorDetailModal v-model:show="showErrorModal" :error-id="selectedErrorId" :error-type="'request'" />
     </AppPage>
   </AppLayout>
@@ -161,7 +162,7 @@ import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { formatReasoningEffort } from '@/utils/format'
 import { resolveUsageRequestType, requestTypeToLegacyStream } from '@/utils/usageRequestType'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import { AppPage, AppPageHeader, AppSection, UiColumnPicker, UiDateRangePicker, UiPagination, UiSelect, UiTabs } from '@/components/ui'
+import { AppPage, AppPageHeader, AppSection, AppToolbar, UiColumnPicker, UiDateRangePicker, UiFormField, UiPagination, UiSelect, UiTabs } from '@/components/ui'
 import UsageStatsCards from '@/components/admin/usage/UsageStatsCards.vue'; import UsageFilters from '@/components/admin/usage/UsageFilters.vue'
 import UsageTable from '@/components/admin/usage/UsageTable.vue'; import UsageExportProgress from '@/components/admin/usage/UsageExportProgress.vue'
 import UserTokenRanking from '@/components/admin/usage/UserTokenRanking.vue'
@@ -201,6 +202,7 @@ let abortController: AbortController | null = null; let exportAbortController: A
 let chartReqSeq = 0
 let statsReqSeq = 0
 let modelStatsReqSeq = 0
+let errorReqSeq = 0
 const exportProgress = reactive({ show: false, progress: 0, current: 0, total: 0, estimatedTime: '' })
 const cleanupDialogVisible = ref(false)
 // Balance history modal state
@@ -493,6 +495,8 @@ const applyFilters = () => {
   if (activeTab.value === 'errors') {
     loadAdminErrors()
   } else {
+    errorReqSeq += 1
+    errLoading.value = false
     errRows.value = []
   }
 }
@@ -745,6 +749,10 @@ const rankingRef = ref<InstanceType<typeof UserTokenRanking> | null>(null)
 const switchTab = (tab: DetailTab) => {
   activeTab.value = tab
   if (tab === 'errors' && errRows.value.length === 0) loadAdminErrors()
+  if (tab !== 'errors') {
+    errorReqSeq += 1
+    errLoading.value = false
+  }
   if (tab === 'ranking') rankingMounted.value = true
 }
 
@@ -764,6 +772,7 @@ const toRFC3339 = (d: string | undefined, endOfDay = false): string | undefined 
   d ? new Date(d + (endOfDay ? 'T23:59:59.999' : 'T00:00:00')).toISOString() : undefined
 
 const loadAdminErrors = async () => {
+  const sequence = ++errorReqSeq
   errLoading.value = true
   try {
     const resp = await listErrorLogs({
@@ -783,13 +792,15 @@ const loadAdminErrors = async () => {
       sort_by: errSortBy.value,
       sort_order: errSortOrder.value,
     })
+    if (sequence !== errorReqSeq) return
     errRows.value = resp.items
     errTotal.value = resp.total
   } catch (error) {
+    if (sequence !== errorReqSeq) return
     console.error('Failed to load admin errors:', error)
     appStore.showError(t('usage.errors.failedToLoad'))
   } finally {
-    errLoading.value = false
+    if (sequence === errorReqSeq) errLoading.value = false
   }
 }
 
@@ -815,7 +826,7 @@ onMounted(() => {
   loadSavedColumns()
   loadSavedErrColumns()
 })
-onUnmounted(() => { abortController?.abort(); exportAbortController?.abort() })
+onUnmounted(() => { abortController?.abort(); exportAbortController?.abort(); errorReqSeq += 1 })
 
 watch(modelDistributionSource, (source) => {
   void loadModelStats(source)
@@ -825,28 +836,6 @@ defineExpose({ requestedModelStats, refreshData })
 </script>
 
 <style scoped>
-.admin-usage-range-toolbar {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 0 16px;
-  border-bottom: 1px solid var(--ui-border-soft);
-}
-
-.admin-usage-range-field {
-  display: grid;
-  gap: 4px;
-  min-width: min(100%, 320px);
-}
-
-.admin-usage-range-field > label {
-  min-height: 22px;
-  color: var(--ui-text-muted);
-  font-size: 13px;
-  line-height: 22px;
-}
-
 .admin-usage-chart-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -860,46 +849,10 @@ defineExpose({ requestedModelStats, refreshData })
 
 .admin-usage-detail {
   min-width: 0;
-  margin-top: 20px;
-  border-top: 1px solid var(--ui-border-soft);
-}
-
-.admin-usage-tabs {
-  display: flex;
-  gap: 4px;
-  overflow-x: auto;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--ui-border-soft);
-}
-
-.admin-usage-tabs button {
-  display: inline-flex;
-  min-height: 32px;
-  align-items: center;
-  padding: 0 12px;
-  border: 1px solid transparent;
-  border-radius: var(--ui-radius);
-  color: var(--ui-text-muted);
-  background: transparent;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.admin-usage-tabs button:hover,
-.admin-usage-tabs button.is-active {
-  color: var(--ui-text);
-  background: var(--ui-surface-muted);
-}
-
-.admin-usage-tabs button.is-active {
-  border-color: var(--ui-border);
-  font-weight: 600;
 }
 
 .admin-usage-tab-panel {
   min-width: 0;
-  overflow-x: auto;
   padding-top: 12px;
 }
 
@@ -914,15 +867,6 @@ defineExpose({ requestedModelStats, refreshData })
 }
 
 @media (max-width: 640px) {
-  .admin-usage-range-toolbar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .admin-usage-range-field {
-    min-width: 0;
-  }
-
   .admin-usage-chart-grid {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -526,6 +526,38 @@ describe('admin UsageView errors tab filter forwarding', () => {
       group_id: 3,
     }))
   })
+
+  it('keeps the newest error-page response when requests resolve out of order', async () => {
+    let resolveFirst!: (value: any) => void
+    let resolveSecond!: (value: any) => void
+    listErrorLogs
+      .mockReturnValueOnce(new Promise((resolve) => { resolveFirst = resolve }))
+      .mockReturnValueOnce(new Promise((resolve) => { resolveSecond = resolve }))
+
+    const wrapper = mount(UsageView, {
+      global: { stubs: {
+        AppLayout: AppLayoutStub, UsageStatsCards: true, UsageFilters: UsageFiltersStub,
+        UsageTable: true, UsageExportProgress: true, UsageCleanupDialog: true,
+        UserBalanceHistoryModal: true, UiPagination: true, UiSelect: true,
+        UiDateRangePicker: true, Icon: true, TokenUsageTrend: true,
+        ModelDistributionChart: true, GroupDistributionChart: true, EndpointDistributionChart: true,
+        UserTokenRanking: true, OpsErrorLogTable: true, OpsErrorDetailModal: true,
+      } },
+    })
+    vi.advanceTimersByTime(120)
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    const firstRequest = vm.loadAdminErrors()
+    const secondRequest = vm.loadAdminErrors()
+    resolveSecond({ items: [{ id: 2 }], total: 1, pages: 1 })
+    await secondRequest
+    resolveFirst({ items: [{ id: 1 }], total: 1, pages: 1 })
+    await firstRequest
+
+    expect(vm.errRows).toEqual([{ id: 2 }])
+    expect(vm.errLoading).toBe(false)
+  })
 })
 
 describe('admin UsageView ranking tab', () => {
