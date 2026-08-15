@@ -31,8 +31,8 @@ describe('OpsDashboard command-center layout contract', () => {
       'ops-skeleton-tokens',
       'ops-skeleton-logs',
     ])
-    expect(wrapper.element.className).toContain('w-full')
-    expect(wrapper.element.className).toContain('min-w-0')
+    expect(wrapper.element.className).toContain('ops-skeleton')
+    expect(wrapper.get('[aria-busy="true"]').exists()).toBe(true)
     expect(dashboardSource).toContain('<AppPage class="ops-dashboard"')
   })
 })
