@@ -1,4 +1,4 @@
-<template><UiFormField :for-id="resolvedId" :label="label" :description="description" :error="error" :required="required"><template v-if="$slots.label" #label><slot name="label" /></template><template v-if="help" #help><UiFieldHelp :content="help" /></template><div class="ui-text-shell"><span v-if="$slots.prefix" class="ui-text-shell__prefix"><slot name="prefix" /></span><input :id="resolvedId" ref="input" :data-testid="testId" :data-test="dataTest" :data-tour="dataTour" :value="modelValue ?? ''" :type="type" :placeholder="placeholder" :disabled="disabled" :readonly="readonly" :required="required" :autofocus="autofocus" :autocomplete="autocomplete" :inputmode="inputmode" :maxlength="maxlength" :min="min" :max="max" :step="step" :pattern="pattern" :aria-describedby="description||error?`${resolvedId}-message`:undefined" :aria-invalid="(error||invalid)?true:undefined" class="ui-text-input ui-focus-ring" :class="[`ui-text-input--${density}`,{'ui-text-input--prefix':$slots.prefix,'ui-text-input--suffix':$slots.suffix,'ui-text-input--invalid':Boolean(error||invalid),'ui-text-input--mono':monospace,'ui-text-input--center':textAlign==='center','ui-text-input--right':textAlign==='right'}]" @input="onInput" @change="emit('change',($event.target as HTMLInputElement).value)" @blur="emit('blur',$event)" @focus="emit('focus',$event)" @keyup.enter="emit('enter',$event)"/><span v-if="$slots.suffix" class="ui-text-shell__suffix"><slot name="suffix" /></span></div></UiFormField></template>
+<template><UiFormField :for-id="resolvedId" :label="label" :description="description" :error="error" :required="required"><template v-if="$slots.label" #label><slot name="label" /></template><template v-if="help" #help><UiFieldHelp :content="help" /></template><div class="ui-text-shell"><span v-if="$slots.prefix" class="ui-text-shell__prefix"><slot name="prefix" /></span><input :id="resolvedId" ref="input" :data-testid="testId" :data-test="dataTest" :data-tour="dataTour" :value="modelValue ?? ''" :type="type" :placeholder="placeholder" :disabled="disabled" :readonly="readonly" :required="required" :autofocus="autofocus" :autocomplete="autocomplete" :inputmode="inputmode" :maxlength="maxlength" :min="min" :max="max" :step="step" :pattern="pattern" :aria-describedby="description||error?`${resolvedId}-message`:undefined" :aria-invalid="(error||invalid)?true:undefined" class="ui-text-input ui-focus-ring" :class="[`ui-text-input--${density}`,{'ui-text-input--prefix':$slots.prefix,'ui-text-input--suffix':$slots.suffix,'ui-text-input--invalid':Boolean(error||invalid),'ui-text-input--mono':monospace,'ui-text-input--center':textAlign==='center','ui-text-input--right':textAlign==='right'}]" @input="onInput" @change="onChange" @blur="emit('blur',$event)" @focus="emit('focus',$event)" @keyup.enter="emit('enter',$event)"/><span v-if="$slots.suffix" class="ui-text-shell__suffix"><slot name="suffix" /></span></div></UiFormField></template>
 <script setup lang="ts">
 
 import {ref} from 'vue';
@@ -30,16 +30,24 @@ min?:string|number;
 max?:string|number;
 step?:string|number;
 pattern?:string;
-density?:UiDensity}>(),{type:'text',density:'default',autofocus:false,monospace:false,textAlign:'left'});
+density?:UiDensity;
+modelModifiers?:{number?:boolean;trim?:boolean}}>(),{type:'text',density:'default',autofocus:false,monospace:false,textAlign:'left',modelModifiers:()=>({})});
 const resolvedId=props.id||`ui-field-${Math.random().toString(36).slice(2,9)}`;
-const emit=defineEmits<{ 'update:modelValue':[string];
+const emit=defineEmits<{ 'update:modelValue':[string|number];
 input:[Event];
-change:[string];
+change:[string|number];
 blur:[FocusEvent];
 focus:[FocusEvent];
 enter:[KeyboardEvent]}>();
 const input=ref<HTMLInputElement>();
-function onInput(e:Event){emit('update:modelValue',(e.target as HTMLInputElement).value);emit('input',e)}defineExpose({focus:()=>input.value?.focus(),select:()=>input.value?.select()})
+function normalizeValue(value:string):string|number{
+  const trimmed=props.modelModifiers.trim?value.trim():value;
+  if(!props.modelModifiers.number||trimmed==='')return trimmed;
+  const parsed=Number(trimmed);
+  return Number.isNaN(parsed)?trimmed:parsed
+}
+function onInput(e:Event){emit('update:modelValue',normalizeValue((e.target as HTMLInputElement).value));emit('input',e)}defineExpose({focus:()=>input.value?.focus(),select:()=>input.value?.select()})
+function onChange(e:Event){emit('change',normalizeValue((e.target as HTMLInputElement).value))}
 
 </script>
 <style scoped>.ui-text-shell{position:relative;
