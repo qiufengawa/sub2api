@@ -1,12 +1,25 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useMediaQuery } from '@vueuse/core'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
-import Select, { type SelectOption } from '@/components/common/Select.vue'
+import {
+  UiAlert,
+  UiBadge,
+  UiButton,
+  UiConfirmDialog,
+  UiDataTable,
+  UiDialog,
+  UiEmptyState,
+  UiIconButton,
+  UiNumberStepper,
+  UiSelect,
+  UiSpinner,
+  UiSwitch,
+  UiTextField,
+  type Column,
+  type SelectOption,
+} from '@/components/ui'
 import { adminAPI } from '@/api'
 import { opsAPI } from '@/api/admin/ops'
 import type { AlertRule, MetricType, Operator } from '../types'
@@ -16,22 +29,24 @@ import { formatDateTime } from '../utils/opsFormatters'
 const { t } = useI18n()
 const appStore = useAppStore()
 
-// 与 DataTable 一致：< 768px 切换为卡片视图，避免宽表在移动端被截断。
-const isDesktopViewport = useMediaQuery('(min-width: 768px)')
-
 const loading = ref(false)
 const rules = ref<AlertRule[]>([])
+let loadRequestId = 0
 
 async function load() {
+  const requestId = ++loadRequestId
   loading.value = true
   try {
-    rules.value = await opsAPI.listAlertRules()
+    const data = await opsAPI.listAlertRules()
+    if (requestId !== loadRequestId) return
+    rules.value = data
   } catch (err: any) {
+    if (requestId !== loadRequestId) return
     console.error('[OpsAlertRulesCard] Failed to load rules', err)
     appStore.showError(err?.response?.data?.detail || t('admin.ops.alertRules.loadFailed'))
     rules.value = []
   } finally {
-    loading.value = false
+    if (requestId === loadRequestId) loading.value = false
   }
 }
 
@@ -43,6 +58,21 @@ onMounted(() => {
 const sortedRules = computed(() => {
   return [...rules.value].sort((a, b) => (b.id || 0) - (a.id || 0))
 })
+
+const columns = computed<Column[]>(() => [
+  { key: 'name', label: t('admin.ops.alertRules.table.name') },
+  { key: 'metric', label: t('admin.ops.alertRules.table.metric') },
+  { key: 'severity', label: t('admin.ops.alertRules.table.severity') },
+  { key: 'enabled', label: t('admin.ops.alertRules.table.enabled') },
+  { key: 'actions', label: t('admin.ops.alertRules.table.actions') },
+])
+
+function severityTone(value: string): 'danger' | 'warning' | 'info' | 'neutral' {
+  if (value === 'P0') return 'danger'
+  if (value === 'P1') return 'warning'
+  if (value === 'P2') return 'info'
+  return 'neutral'
+}
 
 const showEditor = ref(false)
 const saving = ref(false)
@@ -365,6 +395,7 @@ async function save() {
 
 const showDeleteConfirm = ref(false)
 const pendingDelete = ref<AlertRule | null>(null)
+const deleting = ref(false)
 
 function requestDelete(rule: AlertRule) {
   pendingDelete.value = rule
@@ -372,9 +403,11 @@ function requestDelete(rule: AlertRule) {
 }
 
 async function confirmDelete() {
-  if (!pendingDelete.value?.id) return
+  if (!pendingDelete.value?.id || deleting.value) return
+  const deleteId = pendingDelete.value.id
+  deleting.value = true
   try {
-    await opsAPI.deleteAlertRule(pendingDelete.value.id)
+    await opsAPI.deleteAlertRule(deleteId)
     showDeleteConfirm.value = false
     pendingDelete.value = null
     await load()
@@ -382,162 +415,79 @@ async function confirmDelete() {
   } catch (err: any) {
     console.error('[OpsAlertRulesCard] Failed to delete rule', err)
     appStore.showError(err?.response?.data?.detail || t('admin.ops.alertRules.deleteFailed'))
+  } finally {
+    deleting.value = false
   }
 }
 
 function cancelDelete() {
+  if (deleting.value) return
   showDeleteConfirm.value = false
   pendingDelete.value = null
 }
+
+onBeforeUnmount(() => {
+  loadRequestId += 1
+})
 </script>
 
 <template>
-  <div class="rounded-[4px] border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-800">
-    <div class="mb-4 flex flex-wrap items-start justify-between gap-3 sm:gap-4">
-      <div>
-        <h3 class="text-sm font-bold text-gray-900 dark:text-white">{{ t('admin.ops.alertRules.title') }}</h3>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.ops.alertRules.description') }}</p>
+  <section class="ops-alert-rules">
+    <header class="ops-alert-rules__header">
+      <div class="ops-alert-rules__heading">
+        <h3>{{ t('admin.ops.alertRules.title') }}</h3>
+        <p>{{ t('admin.ops.alertRules.description') }}</p>
       </div>
 
-      <div class="flex items-center gap-2">
-        <button type="button" class="btn btn-sm btn-primary" :disabled="loading" @click="openCreate">
-          <Icon name="plus" size="sm" class="mr-1" />
+      <div class="ops-alert-rules__actions">
+        <UiButton variant="primary" density="dense" :disabled="loading" @click="openCreate">
+          <template #icon><Icon name="plus" size="sm" /></template>
           {{ t('admin.ops.alertRules.create') }}
-        </button>
-        <button
-          type="button"
-          class="btn btn-secondary btn-icon"
+        </UiButton>
+        <UiIconButton
+          icon="refresh"
+          density="dense"
+          variant="ghost"
           :disabled="loading"
-          :title="t('common.refresh')"
-          :aria-label="t('common.refresh')"
+          :label="t('common.refresh')"
           @click="load"
-        >
-          <Icon name="refresh" size="sm" :class="{ 'animate-spin': loading }" />
-        </button>
+        />
       </div>
-    </div>
+    </header>
 
-    <div v-if="loading" class="py-10 text-center text-sm text-gray-500 dark:text-gray-400" role="status">
-      {{ t('admin.ops.alertRules.loading') }}
-    </div>
+    <div v-if="loading" class="ops-alert-rules__state"><UiSpinner :label="t('admin.ops.alertRules.loading')" /></div>
 
-    <div v-else-if="sortedRules.length === 0" class="rounded-xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400">
-      {{ t('admin.ops.alertRules.empty') }}
-    </div>
+    <UiEmptyState v-else-if="sortedRules.length === 0" :title="t('admin.ops.alertRules.empty')" />
 
-    <div v-else class="max-h-[520px] overflow-hidden rounded-xl border border-gray-200 dark:border-dark-700">
-      <div class="max-h-[520px] overflow-y-auto">
-        <div v-if="!isDesktopViewport" class="divide-y divide-gray-100 dark:divide-dark-800">
-          <div v-for="row in sortedRules" :key="row.id" class="space-y-2 p-4">
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0">
-                <div class="text-xs font-bold text-gray-900 dark:text-white">{{ row.name }}</div>
-                <div v-if="row.description" class="mt-0.5 line-clamp-2 text-[11px] text-gray-500 dark:text-gray-400">
-                  {{ row.description }}
-                </div>
-              </div>
-              <span class="shrink-0 text-xs font-bold text-gray-700 dark:text-gray-200">{{ row.severity }}</span>
-            </div>
-            <div class="text-xs text-gray-700 dark:text-gray-200">
-              <span class="font-mono">{{ row.metric_type }}</span>
-              <span class="mx-1 text-gray-400">{{ row.operator }}</span>
-              <span class="font-mono">{{ row.threshold }}</span>
-            </div>
-            <div class="flex items-center justify-between gap-2">
-              <span class="text-xs text-gray-700 dark:text-gray-200">
-                {{ row.enabled ? t('common.enabled') : t('common.disabled') }}
-              </span>
-              <div class="flex items-center gap-2">
-                <button class="btn btn-sm btn-secondary" @click="openEdit(row)">{{ t('common.edit') }}</button>
-                <button class="btn btn-sm btn-danger" @click="requestDelete(row)">{{ t('common.delete') }}</button>
-              </div>
-            </div>
-            <div v-if="row.updated_at" class="text-[10px] text-gray-400">
-              {{ formatDateTime(row.updated_at) }}
-            </div>
-          </div>
-        </div>
-        <table v-else class="min-w-full divide-y divide-gray-200 dark:divide-dark-700">
-          <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-dark-900">
-            <tr>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {{ t('admin.ops.alertRules.table.name') }}
-              </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {{ t('admin.ops.alertRules.table.metric') }}
-              </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {{ t('admin.ops.alertRules.table.severity') }}
-              </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {{ t('admin.ops.alertRules.table.enabled') }}
-              </th>
-              <th class="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {{ t('admin.ops.alertRules.table.actions') }}
-              </th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-200 bg-white dark:divide-dark-700 dark:bg-dark-800">
-            <tr v-for="row in sortedRules" :key="row.id" class="hover:bg-gray-50 dark:hover:bg-dark-700/50">
-              <td class="px-4 py-3">
-                <div class="text-xs font-bold text-gray-900 dark:text-white">{{ row.name }}</div>
-                <div v-if="row.description" class="mt-0.5 line-clamp-2 text-[11px] text-gray-500 dark:text-gray-400">
-                  {{ row.description }}
-                </div>
-                <div v-if="row.updated_at" class="mt-1 text-[10px] text-gray-400">
-                  {{ formatDateTime(row.updated_at) }}
-                </div>
-              </td>
-              <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-700 dark:text-gray-200">
-                <span class="font-mono">{{ row.metric_type }}</span>
-                <span class="mx-1 text-gray-400">{{ row.operator }}</span>
-                <span class="font-mono">{{ row.threshold }}</span>
-              </td>
-              <td class="whitespace-nowrap px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-200">
-                {{ row.severity }}
-              </td>
-              <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-700 dark:text-gray-200">
-                {{ row.enabled ? t('common.enabled') : t('common.disabled') }}
-              </td>
-              <td class="whitespace-nowrap px-4 py-3 text-right text-xs">
-                <button class="btn btn-sm btn-secondary" @click="openEdit(row)">{{ t('common.edit') }}</button>
-                <button class="ml-2 btn btn-sm btn-danger" @click="requestDelete(row)">{{ t('common.delete') }}</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <UiDataTable v-else class="ops-alert-rules__table" :columns="columns" :data="sortedRules" :mobile-table="true" :aria-label="t('admin.ops.alertRules.title')">
+      <template #cell-name="{ row }"><span class="ops-alert-rules__name"><strong>{{ row.name }}</strong><small v-if="row.description">{{ row.description }}</small><small v-if="row.updated_at">{{ formatDateTime(row.updated_at) }}</small></span></template>
+      <template #cell-metric="{ row }"><span class="ops-alert-rules__metric">{{ row.metric_type }} {{ row.operator }} {{ row.threshold }}</span></template>
+      <template #cell-severity="{ row }"><UiBadge :tone="severityTone(row.severity)" :label="row.severity" /></template>
+      <template #cell-enabled="{ row }"><UiBadge :tone="row.enabled ? 'success' : 'neutral'" :label="row.enabled ? t('common.enabled') : t('common.disabled')" /></template>
+      <template #cell-actions="{ row }"><span class="ops-alert-rules__row-actions"><UiButton density="mini" @click="openEdit(row)">{{ t('common.edit') }}</UiButton><UiButton density="mini" variant="danger" @click="requestDelete(row)">{{ t('common.delete') }}</UiButton></span></template>
+    </UiDataTable>
 
-    <BaseDialog
+    <UiDialog
       :show="showEditor"
       :title="editingId ? t('admin.ops.alertRules.editTitle') : t('admin.ops.alertRules.createTitle')"
       width="wide"
       @close="showEditor = false"
     >
-      <div class="space-y-4">
-        <div v-if="!editorValidation.valid" class="rounded-xl bg-red-50 p-4 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
-          <div class="font-bold">{{ t('admin.ops.alertRules.validation.title') }}</div>
-          <ul class="mt-1 list-disc pl-5">
+      <div class="ops-alert-rules__editor">
+        <UiAlert v-if="!editorValidation.valid" tone="danger" :title="t('admin.ops.alertRules.validation.title')">
+          <ul class="ops-alert-rules__errors">
             <li v-for="e in editorValidation.errors" :key="e">{{ e }}</li>
           </ul>
-        </div>
+        </UiAlert>
 
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div class="md:col-span-2">
-            <label for="ops-alert-rule-name" class="input-label">{{ t('admin.ops.alertRules.form.name') }}</label>
-            <input id="ops-alert-rule-name" v-model="draft!.name" class="input" type="text" />
-          </div>
+        <div class="ops-alert-rules__form">
+          <UiTextField id="ops-alert-rule-name" v-model="draft!.name" class="ops-alert-rules__wide" density="compact" :label="t('admin.ops.alertRules.form.name')" />
 
-          <div class="md:col-span-2">
-            <label for="ops-alert-rule-description" class="input-label">{{ t('admin.ops.alertRules.form.description') }}</label>
-            <input id="ops-alert-rule-description" v-model="draft!.description" class="input" type="text" />
-          </div>
+          <UiTextField id="ops-alert-rule-description" v-model="draft!.description" class="ops-alert-rules__wide" density="compact" :label="t('admin.ops.alertRules.form.description')" />
 
           <div>
-            <label for="ops-alert-rule-metric" class="input-label">{{ t('admin.ops.alertRules.form.metric') }}</label>
-            <Select id="ops-alert-rule-metric" v-model="draft!.metric_type" :options="metricOptions" :aria-label="t('admin.ops.alertRules.form.metric')" />
-            <div v-if="selectedMetricDefinition" class="mt-1 space-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+            <UiSelect id="ops-alert-rule-metric" v-model="draft!.metric_type" density="compact" :label="t('admin.ops.alertRules.form.metric')" :options="metricOptions" />
+            <div v-if="selectedMetricDefinition" class="ops-alert-rules__metric-hint">
               <p>{{ selectedMetricDefinition.description }}</p>
               <p>
                 {{
@@ -552,86 +502,85 @@ function cancelDelete() {
           </div>
 
           <div>
-            <label for="ops-alert-rule-operator" class="input-label">{{ t('admin.ops.alertRules.form.operator') }}</label>
-            <Select id="ops-alert-rule-operator" v-model="draft!.operator" :options="operatorOptions" :aria-label="t('admin.ops.alertRules.form.operator')" />
+            <UiSelect id="ops-alert-rule-operator" v-model="draft!.operator" density="compact" :label="t('admin.ops.alertRules.form.operator')" :options="operatorOptions" />
           </div>
 
-          <div class="md:col-span-2">
-            <label for="ops-alert-rule-group" class="input-label">
-              {{ t('admin.ops.alertRules.form.groupId') }}
-              <span v-if="isGroupMetricSelected" class="ml-1 text-red-500">*</span>
-            </label>
-            <Select
+          <div class="ops-alert-rules__wide">
+            <UiSelect
               id="ops-alert-rule-group"
               v-model="draftGroupId"
+              density="compact"
+              :label="t('admin.ops.alertRules.form.groupId')"
+              :required="isGroupMetricSelected"
               :options="groupOptions"
               searchable
               :placeholder="t('admin.ops.alertRules.form.groupPlaceholder')"
-              :error="isGroupMetricSelected && !draftGroupId"
-              :aria-label="t('admin.ops.alertRules.form.groupId')"
+              :error="isGroupMetricSelected && !draftGroupId ? t('admin.ops.alertRules.validation.groupIdRequired') : undefined"
             />
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="ops-alert-rules__hint">
               {{ isGroupMetricSelected ? t('admin.ops.alertRules.hints.groupRequired') : t('admin.ops.alertRules.hints.groupOptional') }}
             </p>
           </div>
 
           <div>
-            <label for="ops-alert-rule-threshold" class="input-label">{{ t('admin.ops.alertRules.form.threshold') }}</label>
-            <input id="ops-alert-rule-threshold" v-model.number="draft!.threshold" class="input" type="number" />
+            <UiNumberStepper id="ops-alert-rule-threshold" v-model="draft!.threshold" :label="t('admin.ops.alertRules.form.threshold')" :min="-1000000" />
           </div>
 
           <div>
-            <label for="ops-alert-rule-severity" class="input-label">{{ t('admin.ops.alertRules.form.severity') }}</label>
-            <Select id="ops-alert-rule-severity" v-model="draft!.severity" :options="severityOptions" :aria-label="t('admin.ops.alertRules.form.severity')" />
+            <UiSelect id="ops-alert-rule-severity" v-model="draft!.severity" density="compact" :label="t('admin.ops.alertRules.form.severity')" :options="severityOptions" />
           </div>
 
           <div>
-            <label for="ops-alert-rule-window" class="input-label">{{ t('admin.ops.alertRules.form.window') }}</label>
-            <Select id="ops-alert-rule-window" v-model="draft!.window_minutes" :options="windowOptions" :aria-label="t('admin.ops.alertRules.form.window')" />
+            <UiSelect id="ops-alert-rule-window" v-model="draft!.window_minutes" density="compact" :label="t('admin.ops.alertRules.form.window')" :options="windowOptions" />
           </div>
 
           <div>
-            <label for="ops-alert-rule-sustained" class="input-label">{{ t('admin.ops.alertRules.form.sustained') }}</label>
-            <input id="ops-alert-rule-sustained" v-model.number="draft!.sustained_minutes" class="input" type="number" min="1" max="1440" />
+            <UiNumberStepper id="ops-alert-rule-sustained" v-model="draft!.sustained_minutes" :label="t('admin.ops.alertRules.form.sustained')" :min="1" :max="1440" />
           </div>
 
           <div>
-            <label for="ops-alert-rule-cooldown" class="input-label">{{ t('admin.ops.alertRules.form.cooldown') }}</label>
-            <input id="ops-alert-rule-cooldown" v-model.number="draft!.cooldown_minutes" class="input" type="number" min="0" max="1440" />
+            <UiNumberStepper id="ops-alert-rule-cooldown" v-model="draft!.cooldown_minutes" :label="t('admin.ops.alertRules.form.cooldown')" :min="0" :max="1440" />
           </div>
 
-          <label class="flex items-center justify-between border-t border-gray-200 py-3 dark:border-dark-700 md:col-span-2">
-            <span class="text-xs font-bold text-gray-700 dark:text-gray-200">{{ t('admin.ops.alertRules.form.enabled') }}</span>
-            <input v-model="draft!.enabled" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+          <label class="ops-alert-rules__switch ops-alert-rules__wide">
+            <span>{{ t('admin.ops.alertRules.form.enabled') }}</span>
+            <UiSwitch v-model="draft!.enabled" :label="t('admin.ops.alertRules.form.enabled')" />
           </label>
 
-          <label class="flex items-center justify-between border-t border-gray-200 py-3 dark:border-dark-700 md:col-span-2">
-            <span class="text-xs font-bold text-gray-700 dark:text-gray-200">{{ t('admin.ops.alertRules.form.notifyEmail') }}</span>
-            <input v-model="draft!.notify_email" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+          <label class="ops-alert-rules__switch ops-alert-rules__wide">
+            <span>{{ t('admin.ops.alertRules.form.notifyEmail') }}</span>
+            <UiSwitch v-model="draft!.notify_email" :label="t('admin.ops.alertRules.form.notifyEmail')" />
           </label>
         </div>
       </div>
 
       <template #footer>
-        <div class="flex items-center justify-end gap-2">
-          <button class="btn btn-secondary" :disabled="saving" @click="showEditor = false">
+        <div class="ops-alert-rules__footer">
+          <UiButton :disabled="saving" @click="showEditor = false">
             {{ t('common.cancel') }}
-          </button>
-          <button class="btn btn-primary" :disabled="saving" @click="save">
-            {{ saving ? t('common.saving') : t('common.save') }}
-          </button>
+          </UiButton>
+          <UiButton variant="primary" :loading="saving" @click="save">{{ t('common.save') }}</UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showDeleteConfirm"
       :title="t('admin.ops.alertRules.deleteConfirmTitle')"
       :message="t('admin.ops.alertRules.deleteConfirmMessage')"
-      :confirmText="t('common.delete')"
-      :cancelText="t('common.cancel')"
+      :confirm-text="t('common.delete')"
+      :cancel-text="t('common.cancel')"
+      :pending="deleting"
+      danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"
     />
-  </div>
+  </section>
 </template>
+
+<style scoped>
+.ops-alert-rules { overflow: hidden; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-panel); background: var(--ui-surface); }
+.ops-alert-rules__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 16px; border-bottom: 1px solid var(--ui-border-soft); }.ops-alert-rules__heading h3 { margin: 0; color: var(--ui-text); font-size: 14px; line-height: 22px; }.ops-alert-rules__heading p { margin: 2px 0 0; color: var(--ui-text-muted); font-size: 12px; line-height: 18px; }.ops-alert-rules__actions,.ops-alert-rules__row-actions,.ops-alert-rules__footer { display: flex; align-items: center; gap: 6px; }.ops-alert-rules__state { display: grid; min-height: 160px; place-items: center; }.ops-alert-rules__table { max-height: 520px; overflow: auto; }.ops-alert-rules__name { display: grid; min-width: 220px; max-width: 380px; gap: 2px; }.ops-alert-rules__name strong,.ops-alert-rules__name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.ops-alert-rules__name strong { color: var(--ui-text); font-size: 12px; }.ops-alert-rules__name small { color: var(--ui-text-muted); font-size: 11px; }.ops-alert-rules__metric { color: var(--ui-text-muted); font-family: var(--ui-font-mono); font-size: 11px; white-space: nowrap; }.ops-alert-rules__row-actions { justify-content: flex-end; white-space: nowrap; }
+.ops-alert-rules__editor { display: grid; gap: 14px; }.ops-alert-rules__errors { margin: 0; padding-left: 18px; }.ops-alert-rules__form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }.ops-alert-rules__wide { grid-column: 1 / -1; }.ops-alert-rules__metric-hint,.ops-alert-rules__hint { margin: 4px 0 0; color: var(--ui-text-muted); font-size: 11px; line-height: 17px; }.ops-alert-rules__metric-hint p { margin: 0; }.ops-alert-rules__switch { display: flex; min-height: 40px; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--ui-border-soft); color: var(--ui-text-muted); font-size: 12px; }.ops-alert-rules__footer { width: 100%; justify-content: flex-end; }
+@media(max-width:640px){.ops-alert-rules__header{align-items:stretch;flex-direction:column}.ops-alert-rules__actions{justify-content:flex-end}.ops-alert-rules__form{grid-template-columns:1fr}.ops-alert-rules__wide{grid-column:auto}}
+</style>
