@@ -83,6 +83,22 @@ describe('admin payment dashboard', () => {
     expect(getDashboard).toHaveBeenLastCalledWith(7)
   })
 
+  it('keeps the newest range when an older request completes last', async () => {
+    let resolveInitial: ((value: { data: typeof stats }) => void) | undefined
+    getDashboard
+      .mockReturnValueOnce(new Promise(resolve => { resolveInitial = resolve }))
+      .mockResolvedValueOnce({ data: { ...stats, today_count: 7 } })
+    const wrapper = mountView()
+    await vi.waitFor(() => expect(getDashboard).toHaveBeenCalledTimes(1))
+
+    await wrapper.get('[data-test="day-7"]').trigger('click')
+    await vi.waitFor(() => expect(getDashboard).toHaveBeenCalledTimes(2))
+    resolveInitial?.({ data: { ...stats, today_count: 30 } })
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="stats"]').text()).toBe('7')
+  })
+
   it('keeps the error feedback contract when loading fails', async () => {
     getDashboard.mockRejectedValueOnce(new Error('network'))
     mountView()
@@ -111,7 +127,7 @@ describe('admin payment dashboard', () => {
     })
 
     const value = wrapper.get('[data-test="metric"]').attributes('data-value')
-    expect(value).toContain('\n')
+    expect(value).toContain(' · ')
     expect(value).toContain('12')
     expect(value).toContain('3')
   })

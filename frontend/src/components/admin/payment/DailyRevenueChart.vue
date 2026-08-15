@@ -1,6 +1,5 @@
 <template>
   <UiChartFrame
-    class="daily-revenue-chart"
     :title="t('payment.admin.dailyRevenue')"
     :loading="loading"
     :empty="!chartData"
@@ -85,9 +84,3 @@ const chartOptions = {
   plugins: { legend: { position: 'top' as const } },
 }
 </script>
-
-<style scoped>
-.daily-revenue-chart {
-  margin-top: 16px;
-}
-</style>
