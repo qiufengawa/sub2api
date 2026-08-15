@@ -85,28 +85,15 @@
           >
             {{ t('admin.accounts.usageWindow.passiveSampled') }}
           </span>
-          <button
-            type="button"
-            class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors"
+          <UiButton
+            density="mini"
+            variant="quiet"
             :disabled="activeQueryLoading"
             @click="loadActiveUsage"
           >
-            <svg
-              class="h-2.5 w-2.5"
-              :class="{ 'animate-spin': activeQueryLoading }"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
+            <template #icon><Icon name="refresh" size="xs" :class="{ 'animate-spin': activeQueryLoading }" /></template>
             {{ t('admin.accounts.usageWindow.activeQuery') }}
-          </button>
+          </UiButton>
         </div>
       </div>
 
@@ -146,28 +133,15 @@
         -->
         <OpenAIQuotaResetCell :account="account" @account-updated="handleQuotaResetAccountUpdated">
           <template #pre-actions>
-            <button
-              type="button"
-              class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            <UiButton
+              density="mini"
+              variant="quiet"
               :disabled="activeQueryLoading"
               @click="loadActiveUsage"
             >
-              <svg
-                class="h-2.5 w-2.5"
-                :class="{ 'animate-spin': activeQueryLoading }"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
+              <template #icon><Icon name="refresh" size="xs" :class="{ 'animate-spin': activeQueryLoading }" /></template>
               {{ t('admin.accounts.usageWindow.activeQuery') }}
-            </button>
+            </UiButton>
           </template>
         </OpenAIQuotaResetCell>
       </div>
@@ -198,48 +172,16 @@
     <template v-else-if="account.platform === 'antigravity' && account.type === 'oauth'">
       <!-- 账户类型徽章 -->
       <div v-if="antigravityTierLabel" class="mb-1 flex items-center gap-1">
-        <span
-          :class="[
-            'inline-block rounded px-1.5 py-0.5 text-[10px] font-medium',
-            antigravityTierClass
-          ]"
-        >
-          {{ antigravityTierLabel }}
-        </span>
+        <UiBadge :label="antigravityTierLabel" :tone="antigravityTierTone" />
         <!-- 不合格账户警告图标 -->
-        <span
-          v-if="hasIneligibleTiers"
-          class="group relative cursor-help"
-        >
-          <svg
-            class="h-3.5 w-3.5 text-red-500"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-              clip-rule="evenodd"
-            />
-          </svg>
-          <span
-            class="pointer-events-none absolute left-0 top-full z-50 mt-1 w-80 whitespace-normal break-words rounded bg-gray-900 px-3 py-2 text-xs leading-relaxed text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 dark:bg-gray-700"
-          >
-            {{ t('admin.accounts.ineligibleWarning') }}
-          </span>
-        </span>
+        <UiTooltip v-if="hasIneligibleTiers" :content="t('admin.accounts.ineligibleWarning')" width-class="w-80">
+          <Icon name="exclamationCircle" size="xs" class="cursor-help text-red-500" />
+        </UiTooltip>
       </div>
 
       <!-- Forbidden state (403) -->
       <div v-if="isForbidden" class="space-y-1">
-        <span
-          :class="[
-            'inline-block rounded px-1.5 py-0.5 text-[10px] font-medium',
-            forbiddenBadgeClass
-          ]"
-        >
-          {{ forbiddenLabel }}
-        </span>
+        <UiBadge :label="forbiddenLabel" :tone="forbiddenBadgeTone" />
         <div v-if="validationURL" class="flex items-center gap-1">
           <a
             :href="validationURL"
@@ -250,29 +192,24 @@
           >
             {{ t('admin.accounts.openVerification') }}
           </a>
-          <button
-            type="button"
-            class="text-[10px] text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            :title="t('admin.accounts.copyLink')"
+          <UiButton
+            density="mini"
+            variant="quiet"
             @click="copyValidationURL"
           >
             {{ linkCopied ? t('admin.accounts.linkCopied') : t('admin.accounts.copyLink') }}
-          </button>
+          </UiButton>
         </div>
       </div>
 
       <!-- Needs reauth (401) -->
       <div v-else-if="needsReauth" class="space-y-1">
-        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
-          {{ t('admin.accounts.needsReauth') }}
-        </span>
+        <UiBadge tone="warning" :label="t('admin.accounts.needsReauth')" />
       </div>
 
       <!-- Degraded error (non-403, non-401) -->
       <div v-else-if="usageInfo?.error" class="space-y-1">
-        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-          {{ usageErrorLabel }}
-        </span>
+        <UiBadge tone="warning" :label="usageErrorLabel" />
       </div>
 
       <!-- Loading state -->
@@ -355,15 +292,11 @@
         </span>
       </div>
       <div v-else-if="isForbidden" class="space-y-1">
-        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
-          {{ grokEntitlementLabel || t('admin.accounts.forbidden') }}
-        </span>
+        <UiBadge tone="danger" :label="grokEntitlementLabel || t('admin.accounts.forbidden')" />
       </div>
       <div v-else-if="usageInfo" class="space-y-1">
         <div v-if="grokEntitlementLabel" class="mb-0.5">
-          <span class="inline-block rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
-            {{ grokEntitlementLabel }}
-          </span>
+          <UiBadge :label="grokEntitlementLabel" />
         </div>
         <UsageWindowStats v-if="grokLocalUsage" class="mb-1" :stats="grokLocalUsage" />
         <UsageProgressBar
@@ -621,6 +554,8 @@ import AccountQuotaInfo from './AccountQuotaInfo.vue'
 import OpenAIQuotaResetCell from './OpenAIQuotaResetCell.vue'
 import GrokQuotaProbeCell from './GrokQuotaProbeCell.vue'
 import OllamaCloudUsageCell from './OllamaCloudUsageCell.vue'
+import Icon from '@/components/icons/Icon.vue'
+import { UiBadge, UiButton, UiTooltip } from '@/components/ui'
 
 // Module-level cache shared across all AccountUsageCell instances
 const _usageCache = new Map<number, { data: AccountUsageInfo; ts: number }>()
@@ -1176,16 +1111,16 @@ const antigravityTierLabel = computed(() => {
 })
 
 // 账户类型徽章样式
-const antigravityTierClass = computed(() => {
+const antigravityTierTone = computed<'neutral' | 'info'>(() => {
   switch (antigravityTier.value) {
     case 'free-tier':
-      return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+      return 'neutral'
     case 'g1-pro-tier':
-      return 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300'
+      return 'info'
     case 'g1-ultra-tier':
-      return 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300'
+      return 'info'
     default:
-      return ''
+      return 'neutral'
   }
 })
 
@@ -1227,11 +1162,11 @@ const forbiddenLabel = computed(() => {
   }
 })
 
-const forbiddenBadgeClass = computed(() => {
+const forbiddenBadgeTone = computed<'warning' | 'danger'>(() => {
   if (forbiddenType.value === 'validation') {
-    return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+    return 'warning'
   }
-  return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+  return 'danger'
 })
 
 const linkCopied = ref(false)

@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.accounts.testAccountConnection')"
     width="normal"
@@ -45,7 +45,7 @@
         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
           {{ t('admin.accounts.selectTestModel') }}
         </label>
-        <Select
+        <UiSelect
           v-model="selectedModelId"
           :options="availableModels"
           :disabled="loadingModels || status === 'connecting'"
@@ -59,7 +59,7 @@
         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
           {{ t('admin.accounts.openai.testMode') }}
         </label>
-        <Select
+        <UiSelect
           v-model="testMode"
           :options="openAITestModeOptions"
           :disabled="status === 'connecting'"
@@ -67,13 +67,13 @@
       </div>
 
       <div v-if="supportsImageTest" class="space-y-1.5">
-        <TextArea
+        <UiTextArea
           v-model="testPrompt"
           :label="t('admin.accounts.imagePromptLabel')"
           :placeholder="t('admin.accounts.imagePromptPlaceholder')"
-          :hint="t('admin.accounts.imageTestHint')"
+          :description="t('admin.accounts.imageTestHint')"
           :disabled="status === 'connecting'"
-          rows="3"
+          :rows="3"
         />
       </div>
 
@@ -121,14 +121,17 @@
         </div>
 
         <!-- Copy Button -->
-        <button
+        <UiIconButton
           v-if="outputLines.length > 0"
           @click="copyOutput"
-          class="absolute right-2 top-2 rounded-lg bg-gray-800/80 p-1.5 text-gray-400 opacity-0 transition-all hover:bg-gray-700 hover:text-white group-hover:opacity-100"
-          :title="t('admin.accounts.copyOutput')"
+          :label="t('admin.accounts.copyOutput')"
+          :tooltip="t('admin.accounts.copyOutput')"
+          variant="ghost"
+          density="mini"
+          class="absolute right-2 top-2 bg-gray-800/80 text-gray-400 opacity-0 hover:bg-gray-700 hover:text-white group-hover:opacity-100"
         >
           <Icon name="link" size="sm" :stroke-width="2" />
-        </button>
+        </UiIconButton>
       </div>
 
       <div v-if="generatedImages.length > 0" class="space-y-2">
@@ -161,12 +164,16 @@
             class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
             @click.self="previewImageUrl = ''"
           >
-            <button
-              class="absolute right-4 top-4 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70"
+            <UiIconButton
+              class="absolute right-4 top-4 bg-black/50 text-white hover:bg-black/70"
+              :label="t('common.close')"
+              :tooltip="t('common.close')"
+              variant="ghost"
+              density="default"
               @click="previewImageUrl = ''"
             >
               <Icon name="x" size="lg" :stroke-width="2" />
-            </button>
+            </UiIconButton>
             <img
               :src="previewImageUrl"
               alt="preview"
@@ -197,34 +204,19 @@
 
     <template #footer>
       <div class="flex justify-end gap-3">
-        <button
+        <UiButton
           @click="handleClose"
-          class="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-300 dark:hover:bg-dark-500"
+          variant="secondary"
         >
           {{ t('common.close') }}
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           @click="startTest"
           :disabled="status === 'connecting' || !selectedModelId"
-          :class="[
-            'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-            status === 'connecting' || !selectedModelId
-              ? 'cursor-not-allowed bg-primary-400 text-white'
-              : status === 'success'
-                ? 'bg-green-500 text-white hover:bg-green-600'
-                : status === 'error'
-                  ? 'bg-orange-500 text-white hover:bg-orange-600'
-                  : 'bg-primary-500 text-white hover:bg-primary-600'
-          ]"
+          variant="primary"
+          :loading="status === 'connecting'"
         >
-          <Icon
-            v-if="status === 'connecting'"
-            name="refresh"
-            size="sm"
-            class="animate-spin"
-            :stroke-width="2"
-          />
-          <Icon v-else-if="status === 'idle'" name="play" size="sm" :stroke-width="2" />
+          <Icon v-if="status === 'idle'" name="play" size="sm" :stroke-width="2" />
           <Icon v-else name="refresh" size="sm" :stroke-width="2" />
           <span>
             {{
@@ -235,18 +227,16 @@
                   : t('admin.accounts.retry')
             }}
           </span>
-        </button>
+        </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import Select from '@/components/common/Select.vue'
-import TextArea from '@/components/common/TextArea.vue'
+import { UiButton, UiDialog, UiIconButton, UiSelect, UiTextArea } from '@/components/ui'
 import { Icon } from '@/components/icons'
 import { useClipboard } from '@/composables/useClipboard'
 import { buildApiUrl } from '@/api/client'

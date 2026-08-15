@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.accounts.dataImportTitle')"
     width="normal"
@@ -61,13 +61,14 @@
               <span v-if="files.length > 1"> · {{ fileListTitle }}</span>
             </div>
           </div>
-          <button
+          <UiButton
             type="button"
-            class="btn btn-secondary shrink-0"
+            variant="secondary"
+            class="shrink-0"
             @click="openFilePicker"
           >
             {{ t("common.chooseFile") }}
-          </button>
+          </UiButton>
         </div>
         <input
           ref="fileInput"
@@ -118,35 +119,34 @@
 
     <template #footer>
       <div class="flex justify-end gap-3">
-        <button
-          class="btn btn-secondary"
+        <UiButton
           type="button"
           :disabled="importing"
           @click="handleClose"
         >
           {{ t("common.cancel") }}
-        </button>
-        <button
-          class="btn btn-primary"
+        </UiButton>
+        <UiButton
+          variant="primary"
           type="submit"
           form="import-data-form"
-          :disabled="importing"
+          :loading="importing"
         >
           {{
             importing
               ? t("admin.accounts.dataImporting")
               : t("admin.accounts.dataImportButton")
           }}
-        </button>
+        </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import BaseDialog from "@/components/common/BaseDialog.vue";
+import { UiButton, UiDialog } from "@/components/ui";
 import { adminAPI } from "@/api/admin";
 import { useAppStore } from "@/stores/app";
 import type { AdminDataImportResult, AdminDataPayload } from "@/types";

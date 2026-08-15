@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.accounts.usageStatistics')"
     width="extra-wide"
@@ -24,21 +24,12 @@
             </div>
           </div>
         </div>
-        <span
-          :class="[
-            'rounded-full px-2.5 py-1 text-xs font-semibold',
-            account.status === 'active'
-              ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400'
-              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-          ]"
-        >
-          {{ account.status }}
-        </span>
+        <UiStatusBadge :status="account.status" :label="account.status" />
       </div>
 
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-12">
-        <LoadingSpinner />
+        <UiSpinner />
       </div>
 
       <template v-else-if="stats">
@@ -130,19 +121,7 @@
                 t('admin.accounts.stats.avgDailyRequests')
               }}</span>
               <div class="rounded-lg bg-purple-100 p-1.5 dark:bg-purple-900/30">
-                <svg
-                  class="h-4 w-4 text-purple-600 dark:text-purple-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"
-                  />
-                </svg>
+                <Icon name="chartBar" size="sm" class="text-purple-600 dark:text-purple-400" />
               </div>
             </div>
             <p class="text-2xl font-bold text-gray-900 dark:text-white">
@@ -436,15 +415,12 @@
 
     <template #footer>
       <div class="flex justify-end">
-        <button
-          @click="handleClose"
-          class="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-300 dark:hover:bg-dark-500"
-        >
+        <UiButton variant="secondary" @click="handleClose">
           {{ t('common.close') }}
-        </button>
+        </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
@@ -462,8 +438,7 @@ import {
   Filler
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { UiButton, UiDialog, UiSpinner, UiStatusBadge } from '@/components/ui'
 import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'
 import EndpointDistributionChart from '@/components/charts/EndpointDistributionChart.vue'
 import Icon from '@/components/icons/Icon.vue'

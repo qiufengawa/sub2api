@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.accounts.reAuthorizeAccount')"
     width="normal"
@@ -47,30 +47,12 @@
       <!-- Add Method Selection (Claude only) -->
       <fieldset v-if="isAnthropic" class="border-0 p-0">
         <legend class="input-label">{{ t('admin.accounts.oauth.authMethod') }}</legend>
-        <div class="mt-2 flex gap-4">
-          <label class="flex cursor-pointer items-center">
-            <input
-              v-model="addMethod"
-              type="radio"
-              value="oauth"
-              class="mr-2 text-primary-600 focus:ring-primary-500"
-            />
-            <span class="text-sm text-gray-700 dark:text-gray-300">{{
-              t('admin.accounts.types.oauth')
-            }}</span>
-          </label>
-          <label class="flex cursor-pointer items-center">
-            <input
-              v-model="addMethod"
-              type="radio"
-              value="setup-token"
-              class="mr-2 text-primary-600 focus:ring-primary-500"
-            />
-            <span class="text-sm text-gray-700 dark:text-gray-300">{{
-              t('admin.accounts.setupTokenLongLived')
-            }}</span>
-          </label>
-        </div>
+        <UiRadioGroup
+          v-model="addMethod"
+          class="mt-2"
+          name="reauth-add-method"
+          :options="addMethodOptions"
+        />
       </fieldset>
 
       <!-- Gemini OAuth Type Display (read-only) -->
@@ -138,45 +120,26 @@
 
     <template #footer>
       <div v-if="account" class="flex justify-between gap-3">
-        <button type="button" class="btn btn-secondary" @click="handleClose">
+        <UiButton type="button" variant="secondary" @click="handleClose">
           {{ t('common.cancel') }}
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           v-if="isManualInputMethod"
           type="button"
           :disabled="!canExchangeCode"
-          class="btn btn-primary"
+          variant="primary"
+          :loading="currentLoading"
           @click="handleExchangeCode"
         >
-          <svg
-            v-if="currentLoading"
-            class="-ml-1 mr-2 h-4 w-4 animate-spin"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            ></circle>
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
           {{
             currentLoading
               ? t('admin.accounts.oauth.verifying')
               : t('admin.accounts.oauth.completeAuth')
           }}
-        </button>
+        </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
@@ -193,7 +156,7 @@ import { useOpenAIOAuth } from '@/composables/useOpenAIOAuth'
 import { useGeminiOAuth } from '@/composables/useGeminiOAuth'
 import { useAntigravityOAuth } from '@/composables/useAntigravityOAuth'
 import type { Account } from '@/types'
-import BaseDialog from '@/components/common/BaseDialog.vue'
+import { UiButton, UiDialog, UiRadioGroup } from '@/components/ui'
 import Icon from '@/components/icons/Icon.vue'
 import OAuthAuthorizationFlow from './OAuthAuthorizationFlow.vue'
 
@@ -233,6 +196,10 @@ const oauthFlowRef = ref<OAuthFlowExposed | null>(null)
 
 // State
 const addMethod = ref<AddMethod>('oauth')
+const addMethodOptions = computed(() => [
+  { value: 'oauth', label: t('admin.accounts.types.oauth') },
+  { value: 'setup-token', label: t('admin.accounts.setupTokenLongLived') }
+])
 const geminiOAuthType = ref<'code_assist' | 'google_one' | 'ai_studio'>('code_assist')
 
 // Computed - check platform

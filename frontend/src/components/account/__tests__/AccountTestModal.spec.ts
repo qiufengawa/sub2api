@@ -31,14 +31,14 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
-const BaseDialogStub = defineComponent({
-  name: 'BaseDialog',
+const UiDialogStub = defineComponent({
+  name: 'UiDialog',
   props: { show: { type: Boolean, default: false } },
   template: '<div v-if="show"><slot /><slot name="footer" /></div>'
 })
 
-const SelectStub = defineComponent({
-  name: 'SelectStub',
+const UiSelectStub = defineComponent({
+  name: 'UiSelect',
   props: {
     modelValue: { type: [String, Number, Boolean, null], default: '' },
     options: { type: Array, default: () => [] },
@@ -63,8 +63,8 @@ const SelectStub = defineComponent({
   `
 })
 
-const TextAreaStub = defineComponent({
-  name: 'TextArea',
+const UiTextAreaStub = defineComponent({
+  name: 'UiTextArea',
   props: {
     modelValue: { type: String, default: '' }
   },
@@ -126,9 +126,9 @@ describe('AccountTestModal', () => {
       },
       global: {
         stubs: {
-          BaseDialog: BaseDialogStub,
-          Select: SelectStub,
-          TextArea: TextAreaStub,
+          UiDialog: UiDialogStub,
+          UiSelect: UiSelectStub,
+          UiTextArea: UiTextAreaStub,
           Icon: true
         }
       }
@@ -174,9 +174,9 @@ describe('AccountTestModal', () => {
       },
       global: {
         stubs: {
-          BaseDialog: BaseDialogStub,
-          Select: SelectStub,
-          TextArea: TextAreaStub,
+          UiDialog: UiDialogStub,
+          UiSelect: UiSelectStub,
+          UiTextArea: UiTextAreaStub,
           Icon: true
         }
       }

@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.accounts.syncFromCrsTitle')"
     width="normal"
@@ -29,12 +29,10 @@
 
       <div class="grid grid-cols-1 gap-4">
         <div>
-          <label for="crs-base-url" class="input-label">{{ t('admin.accounts.crsBaseUrl') }}</label>
-          <input
+          <UiTextField
             id="crs-base-url"
             v-model="form.base_url"
-            type="text"
-            class="input"
+            :label="t('admin.accounts.crsBaseUrl')"
             required
             :placeholder="t('admin.accounts.crsBaseUrlPlaceholder')"
           />
@@ -42,30 +40,23 @@
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label for="crs-username" class="input-label">{{ t('admin.accounts.crsUsername') }}</label>
-            <input id="crs-username" v-model="form.username" type="text" class="input" required autocomplete="username" />
+            <UiTextField id="crs-username" v-model="form.username" :label="t('admin.accounts.crsUsername')" required autocomplete="username" />
           </div>
           <div>
-            <label for="crs-password" class="input-label">{{ t('admin.accounts.crsPassword') }}</label>
-            <input
+            <UiTextField
               id="crs-password"
               v-model="form.password"
               type="password"
-              class="input"
+              :label="t('admin.accounts.crsPassword')"
               required
               autocomplete="current-password"
             />
           </div>
         </div>
 
-        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-dark-300">
-          <input
-            v-model="form.sync_proxies"
-            type="checkbox"
-            class="rounded border-gray-300 dark:border-dark-600"
-          />
+        <UiCheckbox v-model="form.sync_proxies">
           {{ t('admin.accounts.syncProxies') }}
-        </label>
+        </UiCheckbox>
       </div>
     </form>
 
@@ -102,37 +93,35 @@
             <span class="ml-1 text-xs text-gray-400">({{ previewResult.new_accounts.length }})</span>
           </div>
           <div class="flex gap-2">
-            <button
+            <UiButton
               type="button"
-              class="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
+              density="mini"
+              variant="quiet"
               @click="selectAll"
-            >{{ t('admin.accounts.crsSelectAll') }}</button>
-            <button
+            >{{ t('admin.accounts.crsSelectAll') }}</UiButton>
+            <UiButton
               type="button"
-              class="text-xs text-gray-500 hover:text-gray-600 dark:text-gray-400"
+              density="mini"
+              variant="quiet"
               @click="selectNone"
-            >{{ t('admin.accounts.crsSelectNone') }}</button>
+            >{{ t('admin.accounts.crsSelectNone') }}</UiButton>
           </div>
         </div>
         <div
           class="max-h-48 overflow-auto rounded-lg border border-gray-200 p-2 dark:border-dark-600"
         >
-          <label
+          <UiCheckbox
             v-for="acc in previewResult.new_accounts"
             :key="acc.crs_account_id"
-            class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-dark-700/40"
+            :model-value="selectedIds.has(acc.crs_account_id)"
+            class="flex rounded px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-dark-700/40"
+            @update:model-value="toggleSelect(acc.crs_account_id)"
           >
-            <input
-              type="checkbox"
-              :checked="selectedIds.has(acc.crs_account_id)"
-              class="rounded border-gray-300 dark:border-dark-600"
-              @change="toggleSelect(acc.crs_account_id)"
-            />
             <span
               class="inline-block rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400"
             >{{ acc.platform }} / {{ acc.type }}</span>
             <span class="truncate text-sm text-gray-700 dark:text-dark-300">{{ acc.name }}</span>
-          </label>
+          </UiCheckbox>
         </div>
         <div class="mt-1 text-xs text-gray-400">
           {{ t('admin.accounts.crsSelectedCount', { count: selectedIds.size }) }}
@@ -191,59 +180,58 @@
       <div class="flex justify-end gap-3">
         <!-- Step 1: Input -->
         <template v-if="currentStep === 'input'">
-          <button
-            class="btn btn-secondary"
+          <UiButton
             type="button"
             :disabled="previewing"
             @click="handleClose"
           >
             {{ t('common.cancel') }}
-          </button>
-          <button
-            class="btn btn-primary"
+          </UiButton>
+          <UiButton
+            variant="primary"
             type="submit"
             form="sync-from-crs-form"
-            :disabled="previewing"
+            :loading="previewing"
           >
             {{ previewing ? t('admin.accounts.crsPreviewing') : t('admin.accounts.crsPreview') }}
-          </button>
+          </UiButton>
         </template>
 
         <!-- Step 2: Preview -->
         <template v-else-if="currentStep === 'preview'">
-          <button
-            class="btn btn-secondary"
+          <UiButton
             type="button"
             :disabled="syncing"
             @click="handleBack"
           >
             {{ t('admin.accounts.crsBack') }}
-          </button>
-          <button
-            class="btn btn-primary"
+          </UiButton>
+          <UiButton
+            variant="primary"
             type="button"
-            :disabled="syncing || hasNewButNoneSelected"
+            :disabled="hasNewButNoneSelected"
+            :loading="syncing"
             @click="handleSync"
           >
             {{ syncing ? t('admin.accounts.syncing') : t('admin.accounts.syncNow') }}
-          </button>
+          </UiButton>
         </template>
 
         <!-- Step 3: Result -->
         <template v-else-if="currentStep === 'result'">
-          <button class="btn btn-secondary" type="button" @click="handleClose">
+          <UiButton type="button" variant="secondary" @click="handleClose">
             {{ t('common.close') }}
-          </button>
+          </UiButton>
         </template>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import BaseDialog from '@/components/common/BaseDialog.vue'
+import { UiButton, UiCheckbox, UiDialog, UiTextField } from '@/components/ui'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { PreviewFromCRSResult } from '@/api/admin/accounts'
