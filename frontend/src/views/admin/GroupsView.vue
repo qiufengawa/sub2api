@@ -1,96 +1,98 @@
 <template>
   <AppLayout>
     <AppPage density="compact">
-      <AppPageHeader :title="t('admin.groups.title')" :description="t('admin.groups.description')" />
+      <AppPageHeader :title="t('admin.groups.title')" :description="t('admin.groups.description')">
+        <template #actions>
+          <UiButton
+            type="button"
+            variant="primary"
+            density="compact"
+            data-tour="groups-create-btn"
+            @click="openCreateModal"
+          >
+            <template #icon><Icon name="plus" size="sm" /></template>
+            {{ t("admin.groups.createGroup") }}
+          </UiButton>
+        </template>
+      </AppPageHeader>
       <UiServerTableWorkspace :loading="loading" :loading-text="t('common.loading')">
-      <template #toolbar>
-        <div
-          class="flex flex-col justify-between gap-4 lg:flex-row lg:items-start"
-        >
-          <!-- Left: fuzzy search + filters (can wrap to multiple lines) -->
-          <div class="flex flex-1 flex-wrap items-center gap-3">
-            <div class="relative w-full sm:w-64">
-              <UiSearchInput v-model="searchQuery" density="compact" :placeholder="t('admin.groups.searchGroups')" @search="handleSearch" />
-            </div>
+        <template #toolbar>
+          <UiTableToolbar>
+            <UiFilterBar>
+              <UiSearchInput
+                v-model="searchQuery"
+                density="compact"
+                :placeholder="t('admin.groups.searchGroups')"
+                @search="handleSearch"
+              />
             <UiSelect
-              density="compact"
               v-model="filters.platform"
+              density="compact"
               :options="platformFilterOptions"
               :placeholder="t('admin.groups.allPlatforms')"
-              class="w-44"
               @change="loadGroups"
             />
             <UiSelect
-              density="compact"
               v-model="filters.status"
+              density="compact"
               :options="statusOptions"
               :placeholder="t('admin.groups.allStatus')"
-              class="w-40"
               @change="loadGroups"
             />
             <UiSelect
-              density="compact"
               v-model="filters.is_exclusive"
+              density="compact"
               :options="exclusiveOptions"
               :placeholder="t('admin.groups.allGroups')"
-              class="w-44"
               @change="loadGroups"
             />
-          </div>
+            </UiFilterBar>
+            <template #actions>
+              <UiIconButton
+                icon="refresh"
+                density="compact"
+                :disabled="loading"
+                :label="t('common.refresh')"
+                @click="loadGroups"
+              />
+              <UiColumnPicker
+                :model-value="visibleColumnKeys"
+                :columns="columnPickerOptions"
+                :label="t('admin.groups.columnSettings')"
+                @update:model-value="updateVisibleColumns"
+              />
+              <UiButton
+                type="button"
+                variant="secondary"
+                density="compact"
+                :title="t('admin.groups.sortOrder')"
+                :aria-label="t('admin.groups.sortOrder')"
+                @click="openSortModal"
+              >
+                <template #icon><Icon name="arrowsUpDown" size="sm" /></template>
+                {{ t("admin.groups.sortOrder") }}
+              </UiButton>
+            </template>
+          </UiTableToolbar>
+        </template>
 
-          <!-- Right: actions -->
-          <div
-            class="flex w-full flex-shrink-0 flex-wrap items-center justify-end gap-3 lg:w-auto"
-          >
-            <UiIconButton icon="refresh" density="compact" :disabled="loading" :label="t('common.refresh')" @click="loadGroups" />
-            <UiColumnPicker
-              :model-value="visibleColumnKeys"
-              :columns="columnPickerOptions"
-              :label="t('admin.groups.columnSettings')"
-              @update:model-value="updateVisibleColumns"
-            />
-            <UiButton
-              type="button"
-              variant="secondary"
-              density="compact"
-              :title="t('admin.groups.sortOrder')"
-              :aria-label="t('admin.groups.sortOrder')"
-              @click="openSortModal"
-            >
-              <template #icon><Icon name="arrowsUpDown" size="sm" /></template>
-              <span class="hidden md:inline">{{ t("admin.groups.sortOrder") }}</span>
-            </UiButton>
-            <UiButton
-              type="button"
-              variant="primary"
-              density="compact"
-              data-tour="groups-create-btn"
-              @click="openCreateModal"
-            >
-              <template #icon><Icon name="plus" size="sm" /></template>
-              {{ t("admin.groups.createGroup") }}
-            </UiButton>
-          </div>
-        </div>
-      </template>
-
-      <UiDataTable
+        <UiMobileTableScroller :label="t('admin.groups.title')" min-width="920px">
+          <UiDataTable
           :columns="columns"
           :data="groups"
           :loading="false"
+          mobile-table
           :server-side-sort="true"
           default-sort-key="sort_order"
           default-sort-order="asc"
           @sort="handleSort"
         >
           <template #cell-name="{ value }">
-            <span class="block max-w-[16rem] truncate font-medium text-gray-900 dark:text-white" :title="String(value)">{{ value }}</span>
+            <UiDataCell :value="String(value)" />
           </template>
 
           <template #cell-id="{ value }">
-            <span class="font-mono text-xs text-gray-500 dark:text-gray-400"
-              >#{{ value }}</span
-            >
+            <UiDataCell :value="`#${value}`" mono />
           </template>
 
           <template #cell-platform="{ value }">
@@ -98,9 +100,7 @@
           </template>
 
           <template #cell-rate_multiplier="{ value }">
-            <span class="text-sm text-gray-700 dark:text-gray-300"
-              >{{ value }}x</span
-            >
+            <UiDataCell :value="`${value}x`" mono />
           </template>
 
           <template #cell-is_exclusive="{ value }">
@@ -108,51 +108,15 @@
           </template>
 
           <template #cell-account_count="{ row }">
-            <div class="space-y-0.5 text-xs">
-              <div>
-                <span class="text-gray-500 dark:text-gray-400">{{
-                  t("admin.groups.accountsAvailable")
-                }}</span>
-                <span
-                  class="ml-1 font-medium text-emerald-600 dark:text-emerald-400"
-                  >{{ row.active_account_count || 0 }}</span
-                >
-                <span
-                  class="ml-1 inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-800 dark:bg-dark-600 dark:text-gray-300"
-                  >{{ t("admin.groups.accountsUnit") }}</span
-                >
-              </div>
-              <div v-if="row.rate_limited_account_count">
-                <span class="text-gray-500 dark:text-gray-400">{{
-                  t("admin.groups.accountsRateLimited")
-                }}</span>
-                <span
-                  class="ml-1 font-medium text-amber-600 dark:text-amber-400"
-                  >{{ row.rate_limited_account_count }}</span
-                >
-                <span
-                  class="ml-1 inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-800 dark:bg-dark-600 dark:text-gray-300"
-                  >{{ t("admin.groups.accountsUnit") }}</span
-                >
-              </div>
-              <div>
-                <span class="text-gray-500 dark:text-gray-400">{{
-                  t("admin.groups.accountsTotal")
-                }}</span>
-                <span
-                  class="ml-1 font-medium text-gray-700 dark:text-gray-300"
-                  >{{ row.account_count || 0 }}</span
-                >
-                <span
-                  class="ml-1 inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-800 dark:bg-dark-600 dark:text-gray-300"
-                  >{{ t("admin.groups.accountsUnit") }}</span
-                >
-              </div>
-            </div>
+            <GroupAccountSummary
+              :active="row.active_account_count || 0"
+              :rate-limited="row.rate_limited_account_count || 0"
+              :total="row.account_count || 0"
+            />
           </template>
 
           <template #cell-capacity="{ row }">
-            <GroupCapacityBadge
+            <GroupCapacitySummary
               v-if="capacityMap.get(row.id)"
               :concurrency-used="capacityMap.get(row.id)!.concurrencyUsed"
               :concurrency-max="capacityMap.get(row.id)!.concurrencyMax"
@@ -161,33 +125,15 @@
               :rpm-used="capacityMap.get(row.id)!.rpmUsed"
               :rpm-max="capacityMap.get(row.id)!.rpmMax"
             />
-            <span v-else class="text-xs text-gray-400">—</span>
+            <UiDataCell v-else value="-" />
           </template>
 
           <template #cell-usage="{ row }">
-            <div v-if="usageLoading" class="text-xs text-gray-400">—</div>
-            <div v-else class="space-y-0.5 text-xs">
-              <div class="text-gray-500 dark:text-gray-400">
-                <span class="text-gray-400 dark:text-gray-500">{{
-                  t("admin.groups.usageToday")
-                }}</span>
-                <span class="ml-1 font-medium text-gray-700 dark:text-gray-300"
-                  >${{
-                    formatCost(usageMap.get(row.id)?.today_cost ?? 0)
-                  }}</span
-                >
-              </div>
-              <div class="text-gray-500 dark:text-gray-400">
-                <span class="text-gray-400 dark:text-gray-500">{{
-                  t("admin.groups.usageTotal")
-                }}</span>
-                <span class="ml-1 font-medium text-gray-700 dark:text-gray-300"
-                  >${{
-                    formatCost(usageMap.get(row.id)?.total_cost ?? 0)
-                  }}</span
-                >
-              </div>
-            </div>
+            <GroupUsageSummaryCell
+              :loading="usageLoading"
+              :today-cost="usageMap.get(row.id)?.today_cost ?? 0"
+              :total-cost="usageMap.get(row.id)?.total_cost ?? 0"
+            />
           </template>
 
           <template #cell-status="{ value }">
@@ -195,7 +141,7 @@
           </template>
 
           <template #cell-actions="{ row }">
-            <div class="flex items-center gap-1">
+            <UiButtonGroup>
               <UiIconButton icon="edit" density="compact" variant="ghost" :label="t('common.edit')" @click="handleEdit(row)" />
               <UiIconButton
                 data-testid="group-duplicate"
@@ -218,13 +164,14 @@
               <UiIconButton icon="dollar" variant="ghost" density="compact" :label="t('admin.groups.rateMultipliers')" @click="handleRateMultipliers(row)" />
               <UiIconButton icon="bolt" variant="ghost" density="compact" :label="t('admin.groups.rpmOverrides')" @click="handleRPMOverrides(row)" />
               <UiIconButton icon="trash" variant="danger" density="compact" :label="t('common.delete')" @click="handleDelete(row)" />
-            </div>
+            </UiButtonGroup>
           </template>
 
           <template #empty>
             <UiEmptyState :title="t('admin.groups.noGroupsYet')" :description="t('admin.groups.createFirstGroup')"><template #action><UiButton density="compact" variant="primary" @click="openCreateModal">{{ t('admin.groups.createGroup') }}</UiButton></template></UiEmptyState>
           </template>
-      </UiDataTable>
+          </UiDataTable>
+        </UiMobileTableScroller>
 
       <template #pagination>
         <UiPagination
@@ -235,7 +182,7 @@
           @update:page="handlePageChange"
           @update:pageSize="handlePageSizeChange"
         />
-      </template>
+        </template>
       </UiServerTableWorkspace>
     </AppPage>
 
@@ -1892,40 +1839,13 @@
       width="normal"
       @close="closeSortModal"
     >
-      <div class="space-y-4">
-        <p class="text-sm text-gray-500 dark:text-gray-400">
-          {{ t("admin.groups.sortOrderHint") }}
-        </p>
-        <VueDraggable
-          v-model="sortableGroups"
-          :animation="200"
-          class="space-y-2"
-        >
-          <div
-            v-for="group in sortableGroups"
-            :key="group.id"
-            class="flex cursor-grab items-center gap-3 rounded border border-gray-200 bg-white px-3 py-2 transition-colors hover:bg-gray-50 active:cursor-grabbing dark:border-dark-600 dark:bg-dark-700 dark:hover:bg-dark-600"
-          >
-            <div class="text-gray-400">
-              <Icon name="menu" size="md" />
-            </div>
-            <div class="flex-1">
-              <div class="font-medium text-gray-900 dark:text-white">
-                {{ group.name }}
-              </div>
-              <div class="mt-1">
-                <UiBadge tone="neutral">
-                  {{ t("admin.groups.platforms." + group.platform) }}
-                </UiBadge>
-              </div>
-            </div>
-            <div class="text-sm text-gray-400">#{{ group.id }}</div>
-          </div>
-        </VueDraggable>
-      </div>
+      <GroupSortList
+        v-model="sortableGroups"
+        :hint="t('admin.groups.sortOrderHint')"
+      />
 
       <template #footer>
-        <div class="flex justify-end gap-3 pt-4">
+        <AppInline justify="flex-end">
           <UiButton
             type="button"
             density="compact"
@@ -1943,7 +1863,7 @@
           >
             {{ sortSubmitting ? t("common.saving") : t("common.save") }}
           </UiButton>
-        </div>
+        </AppInline>
       </template>
     </UiDialog>
 
@@ -1960,12 +1880,9 @@
       width="wide"
       @close="closeCompositeRoutesModal"
     >
-      <div class="grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-        <section class="min-w-0">
-          <div class="mb-3 flex items-center justify-between gap-3">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
-              {{ t("admin.groups.compositeRoutes.routes") }}
-            </h3>
+      <AppGrid min="360px" :gap="20">
+        <AppSection :title="t('admin.groups.compositeRoutes.routes')">
+          <template #actions>
             <UiIconButton
               icon="refresh"
               density="compact"
@@ -1973,72 +1890,79 @@
               :disabled="compositeRoutesLoading"
               @click="loadCompositeRoutes"
             />
-          </div>
+          </template>
 
-          <UiDataTable
-            :columns="compositeRouteColumns"
-            :data="compositeRoutes"
-            :loading="compositeRoutesLoading"
-            row-key="id"
-            mobile-table
-            :aria-label="t('admin.groups.compositeRoutes.routes')"
+          <UiMobileTableScroller
+            :label="t('admin.groups.compositeRoutes.routes')"
+            min-width="560px"
           >
-            <template #cell-public_model="{ row: route }">
-              <div :class="{ 'opacity-60': !route.enabled }">
-                <div class="break-all font-medium text-gray-900 dark:text-white">
-                  {{ route.public_model }}
-                </div>
-                <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                  <UiBadge tone="neutral">{{ compositeRouteMatchLabel(route.match_type) }}</UiBadge>
-                  <UiBadge v-if="!route.enabled" tone="danger">
-                    {{ t("admin.accounts.status.inactive") }}
-                  </UiBadge>
-                </div>
-              </div>
-            </template>
-            <template #cell-target="{ row: route }">
-              <div :class="{ 'opacity-60': !route.enabled }">
-                <div class="flex items-center gap-1.5 text-gray-900 dark:text-white">
-                  <PlatformIcon :platform="route.target_platform" size="xs" />
-                  <span>{{ formatCompositePlatform(route.target_platform) }}</span>
-                </div>
-                <div class="mt-1 break-all text-xs text-gray-500 dark:text-gray-400">
-                  {{ route.upstream_model || route.public_model }}
-                </div>
-              </div>
-            </template>
-            <template #cell-scope="{ row: route }">
-              <div :class="{ 'opacity-60': !route.enabled }">
-                <div class="text-gray-700 dark:text-gray-300">
-                  {{ formatCompositeEndpoint(route.endpoint) }}
-                </div>
-                <div class="text-xs text-gray-500 dark:text-gray-400">
-                  {{ t("admin.groups.compositeRoutes.priority") }}: {{ route.priority }}
-                </div>
-              </div>
-            </template>
-            <template #cell-actions="{ row: route }">
-              <div class="flex justify-end gap-1">
-                <UiIconButton icon="edit" variant="ghost" density="mini" :label="t('common.edit')" @click="editCompositeRoute(route)" />
-                <UiIconButton icon="trash" variant="danger" density="mini" :label="t('common.delete')" @click="deleteCompositeRoute(route)" />
-              </div>
-            </template>
-            <template #empty>
-              <UiEmptyState :title="t('admin.groups.compositeRoutes.empty')" />
-            </template>
-          </UiDataTable>
-        </section>
+            <UiDataTable
+              :columns="compositeRouteColumns"
+              :data="compositeRoutes"
+              :loading="compositeRoutesLoading"
+              row-key="id"
+              mobile-table
+              :aria-label="t('admin.groups.compositeRoutes.routes')"
+            >
+              <template #cell-public_model="{ row: route }">
+                <UiDataCell
+                  :value="route.public_model"
+                  :meta="compositeRouteMatchLabel(route.match_type)"
+                  mono
+                />
+                <UiBadge
+                  v-if="!route.enabled"
+                  tone="danger"
+                  :label="t('admin.accounts.status.inactive')"
+                />
+              </template>
+              <template #cell-target="{ row: route }">
+                <UiDataCell
+                  :value="formatCompositePlatform(route.target_platform)"
+                  :meta="route.upstream_model || route.public_model"
+                />
+              </template>
+              <template #cell-scope="{ row: route }">
+                <UiDataCell
+                  :value="formatCompositeEndpoint(route.endpoint)"
+                  :meta="`${t('admin.groups.compositeRoutes.priority')}: ${route.priority}`"
+                />
+              </template>
+              <template #cell-actions="{ row: route }">
+                <UiButtonGroup>
+                  <UiIconButton
+                    icon="edit"
+                    variant="ghost"
+                    density="mini"
+                    :label="t('common.edit')"
+                    @click="editCompositeRoute(route)"
+                  />
+                  <UiIconButton
+                    icon="trash"
+                    variant="danger"
+                    density="mini"
+                    :label="t('common.delete')"
+                    @click="deleteCompositeRoute(route)"
+                  />
+                </UiButtonGroup>
+              </template>
+              <template #empty>
+                <UiEmptyState :title="t('admin.groups.compositeRoutes.empty')" />
+              </template>
+            </UiDataTable>
+          </UiMobileTableScroller>
+        </AppSection>
 
-        <section class="space-y-5">
-          <form class="space-y-3" @submit.prevent="saveCompositeRoute">
-            <div class="flex items-center justify-between gap-3">
-              <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
-                {{
-                  compositeRouteEditingId
-                    ? t("admin.groups.compositeRoutes.editRoute")
-                    : t("admin.groups.compositeRoutes.addRoute")
-                }}
-              </h3>
+        <AppStack :gap="8">
+          <AppSection
+            :title="
+              compositeRouteEditingId
+                ? t('admin.groups.compositeRoutes.editRoute')
+                : t('admin.groups.compositeRoutes.addRoute')
+            "
+            divided
+          >
+            <template #actions>
               <UiButton
                 v-if="compositeRouteEditingId"
                 type="button"
@@ -2048,7 +1972,10 @@
               >
                 {{ t("common.cancel") }}
               </UiButton>
-            </div>
+            </template>
+
+            <form @submit.prevent="saveCompositeRoute">
+              <AppStack :gap="12">
 
             <UiTextField
               v-model="compositeRouteForm.public_model"
@@ -2058,7 +1985,7 @@
               placeholder="openrouter/gpt-5"
             />
 
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <AppGrid min="150px" :gap="12">
               <UiSelect
                 v-model="compositeRouteForm.match_type"
                 :label="t('admin.groups.compositeRoutes.matchType')"
@@ -2071,9 +1998,9 @@
                 :options="compositeRouteEndpointOptions"
                 density="compact"
               />
-            </div>
+            </AppGrid>
 
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <AppGrid min="150px" :gap="12">
               <UiSelect
                 v-model="compositeRouteForm.target_platform"
                 :label="t('admin.groups.compositeRoutes.targetPlatform')"
@@ -2088,7 +2015,7 @@
                 step="1"
                 density="compact"
               />
-            </div>
+            </AppGrid>
 
             <UiTextField
               v-model="compositeRouteForm.upstream_model"
@@ -2104,7 +2031,7 @@
               :rows="2"
             />
 
-            <div class="flex items-center justify-between gap-3">
+            <AppInline justify="space-between">
               <UiCheckbox
                 v-model="compositeRouteForm.enabled"
                 :label="t('admin.groups.compositeRoutes.enabled')"
@@ -2117,26 +2044,24 @@
               >
                 {{ compositeRouteEditingId ? t("common.update") : t("common.create") }}
               </UiButton>
-            </div>
+            </AppInline>
+              </AppStack>
           </form>
+          </AppSection>
 
-          <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
-            <h3 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">
-              {{ t("admin.groups.compositeRoutes.preview") }}
-            </h3>
-            <div class="space-y-3">
+          <AppSection :title="t('admin.groups.compositeRoutes.preview')">
+            <AppStack :gap="12">
               <UiTextField
                 v-model="compositePreviewModel"
                 density="compact"
                 placeholder="openrouter/gpt-5"
                 @enter="previewCompositeRoute"
               />
-              <div class="flex gap-2">
+              <AppInline :wrap="false">
                 <UiSelect
                   v-model="compositePreviewEndpoint"
                   :options="compositeRouteEndpointOptions"
                   density="compact"
-                  class="min-w-0 flex-1"
                 />
                 <UiIconButton
                   icon="play"
@@ -2145,13 +2070,10 @@
                   :disabled="compositePreviewLoading || !compositePreviewModel"
                   @click="previewCompositeRoute"
                 />
-              </div>
+              </AppInline>
 
-              <div
-                v-if="compositePreviewDecision"
-                class="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm dark:border-dark-600 dark:bg-dark-800"
-              >
-                <div class="mb-2 flex items-center gap-2">
+              <AppStack v-if="compositePreviewDecision" :gap="8">
+                <AppInline>
                   <UiBadge
                     :tone="compositePreviewDecision.matched ? 'success' : 'danger'"
                   >
@@ -2168,38 +2090,16 @@
                       )
                     }}
                   </UiBadge>
-                </div>
-                <div
-                  v-if="compositePreviewDecision.matched"
-                  class="space-y-1 text-gray-700 dark:text-gray-300"
-                >
-                  <div>
-                    {{ t("admin.groups.compositeRoutes.targetPlatform") }}:
-                    {{
-                      formatCompositePlatform(
-                        compositePreviewDecision.target_platform,
-                      )
-                    }}
-                  </div>
-                  <div class="break-all">
-                    {{ t("admin.groups.compositeRoutes.upstreamModel") }}:
-                    {{ compositePreviewDecision.upstream_model }}
-                  </div>
-                </div>
-                <div
-                  v-else
-                  class="text-gray-500 dark:text-gray-400"
-                >
-                  {{ compositePreviewDecision.reason }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
+                </AppInline>
+                <UiDescriptionList :items="compositePreviewItems" :columns="1" />
+              </AppStack>
+            </AppStack>
+          </AppSection>
+        </AppStack>
+      </AppGrid>
 
       <template #footer>
-        <div class="flex justify-end pt-4">
+        <AppInline justify="flex-end">
           <UiButton
             type="button"
             density="compact"
@@ -2208,7 +2108,7 @@
           >
             {{ t("common.close") }}
           </UiButton>
-        </div>
+        </AppInline>
       </template>
     </UiDialog>
 
@@ -2261,35 +2161,47 @@ import type { Column, UiEntityOption } from "@/components/ui";
 import AppLayout from "@/components/layout/AppLayout.vue";
 import Icon from "@/components/icons/Icon.vue";
 import {
+  AppGrid,
+  AppInline,
   AppPage,
   AppPageHeader,
+  AppSection,
+  AppStack,
   UiAsyncEntityPicker,
   UiBadge,
   UiButton,
+  UiButtonGroup,
   UiCheckbox,
   UiColumnPicker,
   UiConfirmDialog,
+  UiDataCell,
   UiDataTable,
+  UiDescriptionList,
   UiDialog,
   UiEmptyState,
   UiFieldHelp,
+  UiFilterBar,
   UiIconButton,
+  UiMobileTableScroller,
   UiPagination,
   UiSearchInput,
   UiSelect,
   UiServerTableWorkspace,
   UiStatusBadge,
   UiSwitch,
+  UiTableToolbar,
   UiTextArea,
   UiTextField,
 } from '@/components/ui';
-import PlatformIcon from "@/components/common/PlatformIcon.vue";
 import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipliersModal.vue";
 import GroupRPMOverridesModal from "@/components/admin/group/GroupRPMOverridesModal.vue";
 import GroupModelsListEditor from "@/components/admin/group/GroupModelsListEditor.vue";
 import GroupCopyAccountsPicker from "@/components/admin/group/GroupCopyAccountsPicker.vue";
 import GroupExclusiveField from "@/components/admin/group/GroupExclusiveField.vue";
-import GroupCapacityBadge from "@/components/common/GroupCapacityBadge.vue";
+import GroupAccountSummary from "@/components/admin/group/GroupAccountSummary.vue";
+import GroupCapacitySummary from "@/components/admin/group/GroupCapacitySummary.vue";
+import GroupUsageSummaryCell from "@/components/admin/group/GroupUsageSummary.vue";
+import GroupSortList from "@/components/admin/group/GroupSortList.vue";
 import ReasoningEffortPolicyFields from "@/components/admin/group/ReasoningEffortPolicyFields.vue";
 import PricingEntryCard from "@/components/admin/channel/PricingEntryCard.vue";
 import type { PricingFormEntry } from "@/components/admin/channel/types";
@@ -2301,7 +2213,6 @@ import {
   toNullableNumber,
 } from "@/components/admin/channel/types";
 import type { ChannelModelPricing } from "@/api/admin/channels";
-import { VueDraggable } from "vue-draggable-plus";
 import { createStableObjectKeyResolver } from "@/utils/stableObjectKey";
 import { extractApiErrorMessage } from "@/utils/apiError";
 import { useKeyedDebouncedSearch } from "@/composables/useKeyedDebouncedSearch";
@@ -3577,12 +3488,6 @@ const loadGroups = async () => {
   }
 };
 
-const formatCost = (cost: number): string => {
-  if (cost >= 1000) return cost.toFixed(0);
-  if (cost >= 100) return cost.toFixed(1);
-  return cost.toFixed(2);
-};
-
 const loadUsageSummary = async () => {
   if (!hasVisibleUsageSummaryConsumer.value) {
     usageLoading.value = false;
@@ -4195,6 +4100,32 @@ const compositeRouteSourceLabel = (source: string) => {
   }
   return source || "—";
 };
+
+const compositePreviewItems = computed(() => {
+  const decision = compositePreviewDecision.value;
+  if (!decision) return [];
+  if (!decision.matched) {
+    return [
+      {
+        key: "reason",
+        label: t("admin.groups.compositeRoutes.preview"),
+        value: decision.reason || "-",
+      },
+    ];
+  }
+  return [
+    {
+      key: "target-platform",
+      label: t("admin.groups.compositeRoutes.targetPlatform"),
+      value: formatCompositePlatform(decision.target_platform),
+    },
+    {
+      key: "upstream-model",
+      label: t("admin.groups.compositeRoutes.upstreamModel"),
+      value: decision.upstream_model || "-",
+    },
+  ];
+});
 
 const resetCompositeRouteForm = () => {
   compositeRouteEditingId.value = null;
