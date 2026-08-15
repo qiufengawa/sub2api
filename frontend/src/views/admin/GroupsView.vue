@@ -739,23 +739,10 @@
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <button
-              type="button"
-              @click="createForm.mcp_xml_inject = !createForm.mcp_xml_inject"
-              :class="[
-                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                createForm.mcp_xml_inject
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600',
-              ]"
-            >
-              <span
-                :class="[
-                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
-                  createForm.mcp_xml_inject ? 'translate-x-6' : 'translate-x-1',
-                ]"
-              />
-            </button>
+            <UiSwitch
+              v-model="createForm.mcp_xml_inject"
+              :label="t('admin.groups.mcpXml.title')"
+            />
             <span class="text-sm text-gray-500 dark:text-gray-400">
               {{
                 createForm.mcp_xml_inject
@@ -797,27 +784,10 @@
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <button
-              type="button"
-              @click="
-                createForm.claude_code_only = !createForm.claude_code_only
-              "
-              :class="[
-                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                createForm.claude_code_only
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600',
-              ]"
-            >
-              <span
-                :class="[
-                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
-                  createForm.claude_code_only
-                    ? 'translate-x-6'
-                    : 'translate-x-1',
-                ]"
-              />
-            </button>
+            <UiSwitch
+              v-model="createForm.claude_code_only"
+              :label="t('admin.groups.claudeCode.title')"
+            />
             <span class="text-sm text-gray-500 dark:text-gray-400">
               {{
                 createForm.claude_code_only
@@ -919,21 +889,11 @@
             <label class="text-sm text-gray-600 dark:text-gray-400">{{
               t("admin.groups.openaiLive.allow")
             }}</label>
-            <button
-              type="button"
-              @click="toggleLive('create')"
-              class="relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
-              :class="
-                createForm.allow_live
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600'
-              "
-            >
-              <span
-                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                :class="createForm.allow_live ? 'translate-x-6' : 'translate-x-1'"
-              />
-            </button>
+            <UiSwitch
+              :model-value="createForm.allow_live"
+              :label="t('admin.groups.openaiLive.allow')"
+              @update:model-value="toggleLive('create')"
+            />
           </div>
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
             {{ t("admin.groups.openaiLive.hint") }}
@@ -954,28 +914,10 @@
             <label class="text-sm text-gray-600 dark:text-gray-400">{{
               t("admin.groups.openaiMessages.allowDispatch")
             }}</label>
-            <button
-              type="button"
-              @click="
-                createForm.allow_messages_dispatch =
-                  !createForm.allow_messages_dispatch
-              "
-              class="relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
-              :class="
-                createForm.allow_messages_dispatch
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600'
-              "
-            >
-              <span
-                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                :class="
-                  createForm.allow_messages_dispatch
-                    ? 'translate-x-6'
-                    : 'translate-x-1'
-                "
-              />
-            </button>
+            <UiSwitch
+              v-model="createForm.allow_messages_dispatch"
+              :label="t('admin.groups.openaiMessages.allowDispatch')"
+            />
           </div>
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
             {{ t("admin.groups.openaiMessages.allowDispatchHint") }}
@@ -1194,27 +1136,10 @@
                 }}
               </p>
             </div>
-            <button
-              type="button"
-              @click="
-                createForm.require_oauth_only = !createForm.require_oauth_only
-              "
-              class="relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
-              :class="
-                createForm.require_oauth_only
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600'
-              "
-            >
-              <span
-                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                :class="
-                  createForm.require_oauth_only
-                    ? 'translate-x-6'
-                    : 'translate-x-1'
-                "
-              />
-            </button>
+            <UiSwitch
+              v-model="createForm.require_oauth_only"
+              :label="t('admin.groups.accountFilters.oauthOnly')"
+            />
           </div>
 
           <!-- require_privacy_set toggle -->
@@ -1231,27 +1156,10 @@
                 }}
               </p>
             </div>
-            <button
-              type="button"
-              @click="
-                createForm.require_privacy_set = !createForm.require_privacy_set
-              "
-              class="relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
-              :class="
-                createForm.require_privacy_set
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600'
-              "
-            >
-              <span
-                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                :class="
-                  createForm.require_privacy_set
-                    ? 'translate-x-6'
-                    : 'translate-x-1'
-                "
-              />
-            </button>
+            <UiSwitch
+              v-model="createForm.require_privacy_set"
+              :label="t('admin.groups.accountFilters.privacySetOnly')"
+            />
           </div>
         </div>
 
@@ -1305,28 +1213,10 @@
           </div>
           <!-- 启用开关 -->
           <div class="flex items-center gap-3 mb-3">
-            <button
-              type="button"
-              @click="
-                createForm.model_routing_enabled =
-                  !createForm.model_routing_enabled
-              "
-              :class="[
-                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                createForm.model_routing_enabled
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600',
-              ]"
-            >
-              <span
-                :class="[
-                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
-                  createForm.model_routing_enabled
-                    ? 'translate-x-6'
-                    : 'translate-x-1',
-                ]"
-              />
-            </button>
+            <UiSwitch
+              v-model="createForm.model_routing_enabled"
+              :label="t('admin.groups.modelRouting.title')"
+            />
             <span class="text-sm text-gray-500 dark:text-gray-400">
               {{
                 createForm.model_routing_enabled
@@ -1993,23 +1883,10 @@
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <button
-              type="button"
-              @click="editForm.mcp_xml_inject = !editForm.mcp_xml_inject"
-              :class="[
-                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                editForm.mcp_xml_inject
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600',
-              ]"
-            >
-              <span
-                :class="[
-                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
-                  editForm.mcp_xml_inject ? 'translate-x-6' : 'translate-x-1',
-                ]"
-              />
-            </button>
+            <UiSwitch
+              v-model="editForm.mcp_xml_inject"
+              :label="t('admin.groups.mcpXml.title')"
+            />
             <span class="text-sm text-gray-500 dark:text-gray-400">
               {{
                 editForm.mcp_xml_inject
@@ -2051,23 +1928,10 @@
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <button
-              type="button"
-              @click="editForm.claude_code_only = !editForm.claude_code_only"
-              :class="[
-                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                editForm.claude_code_only
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600',
-              ]"
-            >
-              <span
-                :class="[
-                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
-                  editForm.claude_code_only ? 'translate-x-6' : 'translate-x-1',
-                ]"
-              />
-            </button>
+            <UiSwitch
+              v-model="editForm.claude_code_only"
+              :label="t('admin.groups.claudeCode.title')"
+            />
             <span class="text-sm text-gray-500 dark:text-gray-400">
               {{
                 editForm.claude_code_only
@@ -2169,21 +2033,11 @@
             <label class="text-sm text-gray-600 dark:text-gray-400">{{
               t("admin.groups.openaiLive.allow")
             }}</label>
-            <button
-              type="button"
-              @click="toggleLive('edit')"
-              class="relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
-              :class="
-                editForm.allow_live
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600'
-              "
-            >
-              <span
-                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                :class="editForm.allow_live ? 'translate-x-6' : 'translate-x-1'"
-              />
-            </button>
+            <UiSwitch
+              :model-value="editForm.allow_live"
+              :label="t('admin.groups.openaiLive.allow')"
+              @update:model-value="toggleLive('edit')"
+            />
           </div>
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
             {{ t("admin.groups.openaiLive.hint") }}
@@ -2204,28 +2058,10 @@
             <label class="text-sm text-gray-600 dark:text-gray-400">{{
               t("admin.groups.openaiMessages.allowDispatch")
             }}</label>
-            <button
-              type="button"
-              @click="
-                editForm.allow_messages_dispatch =
-                  !editForm.allow_messages_dispatch
-              "
-              class="relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
-              :class="
-                editForm.allow_messages_dispatch
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600'
-              "
-            >
-              <span
-                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                :class="
-                  editForm.allow_messages_dispatch
-                    ? 'translate-x-6'
-                    : 'translate-x-1'
-                "
-              />
-            </button>
+            <UiSwitch
+              v-model="editForm.allow_messages_dispatch"
+              :label="t('admin.groups.openaiMessages.allowDispatch')"
+            />
           </div>
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
             {{ t("admin.groups.openaiMessages.allowDispatchHint") }}
@@ -2444,27 +2280,10 @@
                 }}
               </p>
             </div>
-            <button
-              type="button"
-              @click="
-                editForm.require_oauth_only = !editForm.require_oauth_only
-              "
-              class="relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
-              :class="
-                editForm.require_oauth_only
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600'
-              "
-            >
-              <span
-                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                :class="
-                  editForm.require_oauth_only
-                    ? 'translate-x-6'
-                    : 'translate-x-1'
-                "
-              />
-            </button>
+            <UiSwitch
+              v-model="editForm.require_oauth_only"
+              :label="t('admin.groups.accountFilters.oauthOnly')"
+            />
           </div>
 
           <!-- require_privacy_set toggle -->
@@ -2481,27 +2300,10 @@
                 }}
               </p>
             </div>
-            <button
-              type="button"
-              @click="
-                editForm.require_privacy_set = !editForm.require_privacy_set
-              "
-              class="relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
-              :class="
-                editForm.require_privacy_set
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600'
-              "
-            >
-              <span
-                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                :class="
-                  editForm.require_privacy_set
-                    ? 'translate-x-6'
-                    : 'translate-x-1'
-                "
-              />
-            </button>
+            <UiSwitch
+              v-model="editForm.require_privacy_set"
+              :label="t('admin.groups.accountFilters.privacySetOnly')"
+            />
           </div>
         </div>
 
@@ -2555,27 +2357,10 @@
           </div>
           <!-- 启用开关 -->
           <div class="flex items-center gap-3 mb-3">
-            <button
-              type="button"
-              @click="
-                editForm.model_routing_enabled = !editForm.model_routing_enabled
-              "
-              :class="[
-                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                editForm.model_routing_enabled
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600',
-              ]"
-            >
-              <span
-                :class="[
-                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
-                  editForm.model_routing_enabled
-                    ? 'translate-x-6'
-                    : 'translate-x-1',
-                ]"
-              />
-            </button>
+            <UiSwitch
+              v-model="editForm.model_routing_enabled"
+              :label="t('admin.groups.modelRouting.title')"
+            />
             <span class="text-sm text-gray-500 dark:text-gray-400">
               {{
                 editForm.model_routing_enabled
@@ -3200,6 +2985,7 @@ import {
   UiSelect,
   UiServerTableWorkspace,
   UiStatusBadge,
+  UiSwitch,
   UiTextArea,
   UiTextField,
 } from '@/components/ui';
