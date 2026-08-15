@@ -29,11 +29,10 @@
       <!-- API Key fields (only for apikey type) -->
       <div v-if="account.type === 'apikey'" class="space-y-4">
         <div>
-          <label class="input-label">{{ t('admin.accounts.baseUrl') }}</label>
-          <input
+          <UiTextField
             v-model="editBaseUrl"
-            type="text"
-            class="input"
+            :label="t('admin.accounts.baseUrl')"
+            :description="baseUrlHint"
             :placeholder="
               account.platform === 'openai'
                 ? 'https://api.openai.com'
@@ -46,7 +45,6 @@
                       : 'https://api.anthropic.com'
             "
           />
-          <p v-if="baseUrlHint" class="input-hint">{{ baseUrlHint }}</p>
           <GrokBaseUrlPresets
             v-if="account.platform === 'grok'"
             class="mt-2"
@@ -54,15 +52,18 @@
           />
         </div>
         <div>
-          <label class="input-label">{{ t('admin.accounts.apiKey') }}</label>
-          <input
+          <UiPasswordField
             v-model="editApiKey"
-            type="password"
-            class="input font-mono"
             autocomplete="new-password"
-            data-1p-ignore
-            data-lpignore="true"
-            data-bwignore="true"
+            :label="t('admin.accounts.apiKey')"
+            :description="t('admin.accounts.leaveEmptyToKeep')"
+            :reveal-label="t('common.showPassword')"
+            :hide-label="t('common.hidePassword')"
+            :input-attrs="{
+              'data-1p-ignore': true,
+              'data-lpignore': 'true',
+              'data-bwignore': 'true'
+            }"
             :placeholder="
               account.platform === 'openai'
                 ? 'sk-proj-...'
@@ -75,7 +76,6 @@
                       : 'sk-ant-...'
             "
           />
-          <p class="input-hint">{{ t('admin.accounts.leaveEmptyToKeep') }}</p>
         </div>
 
         <!-- Model Restriction Section (不适用于 Antigravity) -->
@@ -2680,6 +2680,7 @@ import {
   UiButton,
   UiConfirmDialog,
   UiDialog,
+  UiPasswordField,
   UiSelect,
   UiSwitch,
   UiTextArea,

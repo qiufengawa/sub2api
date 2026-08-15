@@ -1110,10 +1110,10 @@
       <div v-if="form.type === 'apikey' && form.platform !== 'antigravity'" class="space-y-4">
         <div>
           <label class="input-label">{{ t('admin.accounts.baseUrl') }}</label>
-          <input
+          <UiTextField
             v-model="apiKeyBaseUrl"
-            type="text"
-            class="input"
+            :label="t('admin.accounts.baseUrl')"
+            :description="baseUrlHint"
             :placeholder="
               form.platform === 'openai'
                 ? 'https://api.openai.com'
@@ -1124,7 +1124,6 @@
                     : 'https://api.anthropic.com'
             "
           />
-          <p v-if="baseUrlHint" class="input-hint">{{ baseUrlHint }}</p>
           <GrokBaseUrlPresets
             v-if="form.platform === 'grok'"
             class="mt-2"
@@ -1132,12 +1131,14 @@
           />
         </div>
         <div>
-          <label class="input-label">{{ t('admin.accounts.apiKeyRequired') }}</label>
-          <input
+          <UiPasswordField
             v-model="apiKeyValue"
-            type="password"
             required
-            class="input font-mono"
+            autocomplete="new-password"
+            :label="t('admin.accounts.apiKeyRequired')"
+            :description="apiKeyHint"
+            :reveal-label="t('common.showPassword')"
+            :hide-label="t('common.hidePassword')"
             :placeholder="
               form.platform === 'openai'
                 ? 'sk-proj-...'
@@ -1148,7 +1149,6 @@
                     : 'sk-ant-...'
             "
           />
-          <p v-if="apiKeyHint" class="input-hint">{{ apiKeyHint }}</p>
         </div>
 
         <!-- 上游倍率自动探测：全部 API-key 平台可用（所在区块已限定 apikey 类型） -->
@@ -3533,6 +3533,7 @@ import {
   UiButton,
   UiConfirmDialog,
   UiDialog,
+  UiPasswordField,
   UiSelect,
   UiSwitch,
   UiTextArea,
