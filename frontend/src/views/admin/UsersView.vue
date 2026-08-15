@@ -10,12 +10,12 @@
           <!-- Left: Search + Active Filters -->
           <div class="users-filter-controls">
             <!-- Search Box -->
-            <div class="relative w-full md:w-64">
+            <div class="users-search-field">
               <UiSearchInput v-model="searchQuery" density="compact" :placeholder="t('admin.users.searchUsers')" @search="handleSearch" />
             </div>
 
             <!-- Role Filter (visible when enabled) -->
-            <div v-if="visibleFilters.has('role')" class="w-full sm:w-32">
+            <div v-if="visibleFilters.has('role')" class="users-filter-field users-filter-field--short">
               <UiSelect
                 density="compact"
                 v-model="filters.role"
@@ -29,7 +29,7 @@
             </div>
 
             <!-- Status Filter (visible when enabled) -->
-            <div v-if="visibleFilters.has('status')" class="w-full sm:w-32">
+            <div v-if="visibleFilters.has('status')" class="users-filter-field users-filter-field--short">
               <UiSelect
                 density="compact"
                 v-model="filters.status"
@@ -58,11 +58,11 @@
 
             <div
               v-if="advancedFiltersExpanded || advancedFilterCount > 0"
-              class="flex basis-full flex-wrap items-center gap-3 border-t border-gray-100 pt-3 dark:border-dark-700"
+              class="users-advanced-filters"
               data-testid="users-advanced-filters"
             >
               <!-- Group Filter (visible when enabled) -->
-              <div v-if="visibleFilters.has('group')" class="w-full sm:w-44">
+              <div v-if="visibleFilters.has('group')" class="users-filter-field">
                 <UiSelect
                   density="compact"
                   v-model="filters.group"
@@ -76,7 +76,7 @@
               </div>
 
               <!-- API Key Group Filter (visible when enabled) -->
-              <div v-if="visibleFilters.has('apiKeyGroup')" class="w-full sm:w-44">
+              <div v-if="visibleFilters.has('apiKeyGroup')" class="users-filter-field">
                 <UiSelect
                   density="compact"
                   v-model="filters.apiKeyGroup"
@@ -91,7 +91,7 @@
               <template v-for="(value, attrId) in activeAttributeFilters" :key="attrId">
               <div
                 v-if="visibleFilters.has(`attr_${attrId}`)"
-                class="relative w-full sm:w-36"
+                class="users-filter-field users-filter-field--attribute"
               >
                 <!-- Text/Email/URL/Textarea/Date type: styled input -->
                 <UiTextField
@@ -113,7 +113,7 @@
                 />
                 <!-- Select/Multi-select type -->
                 <template v-else-if="['select', 'multi_select'].includes(getAttributeDefinition(Number(attrId))?.type || '')">
-                  <div class="w-full">
+                  <div>
                     <UiSelect
                       density="compact"
                       :model-value="value"
@@ -142,7 +142,7 @@
           <template #actions>
           <div class="users-toolbar-actions">
             <!-- Mobile: Secondary buttons (icon only) -->
-            <div class="flex items-center gap-2 md:contents">
+            <div class="users-toolbar-secondary">
               <!-- Refresh Button -->
               <UiIconButton icon="refresh" density="compact" :disabled="loading" :label="t('common.refresh')" @click="loadUsers" />
               <!-- Filter Settings Dropdown -->
@@ -153,7 +153,7 @@
                     <span class="hidden md:inline">{{ t('admin.users.filterSettings') }}</span>
                   </UiButton>
                 </template>
-                <div class="grid min-w-48 gap-2 p-1">
+                <div class="users-filter-menu">
                   <UiCheckbox
                     v-for="filter in builtInFilters"
                     :key="filter.key"
@@ -161,7 +161,7 @@
                     :label="filter.name"
                     @update:model-value="toggleBuiltInFilter(filter.key)"
                   />
-                  <div v-if="filterableAttributes.length > 0" class="border-t border-gray-100 dark:border-dark-700"></div>
+                  <div v-if="filterableAttributes.length > 0" class="users-filter-menu__divider"></div>
                   <UiCheckbox
                     v-for="attr in filterableAttributes"
                     :key="attr.id"
@@ -192,7 +192,7 @@
             </div>
 
             <!-- Create User Button (full width on mobile, auto width on desktop) -->
-            <UiButton variant="primary" density="compact" class="flex-1 md:flex-initial" @click="showCreateModal = true">
+            <UiButton variant="primary" density="compact" @click="showCreateModal = true">
               <template #icon><Icon name="plus" size="sm" /></template>
               {{ t('admin.users.createUser') }}
             </UiButton>
@@ -245,27 +245,18 @@
           @update:selected-keys="handleSelectedKeysUpdate"
         >
           <template #cell-email="{ value }">
-            <div class="flex items-center gap-2">
+            <div class="users-user-cell">
               <UiAvatar :name="value" size="md" />
-              <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
+              <UiDataCell :value="value" />
             </div>
           </template>
 
           <template #cell-username="{ value }">
-            <span class="text-sm text-gray-700 dark:text-gray-300">{{ value || '-' }}</span>
+            <UiDataCell :value="value || '-'" />
           </template>
 
           <template #cell-notes="{ value }">
-            <div class="max-w-xs">
-              <span
-                v-if="value"
-                :title="value.length > 30 ? value : undefined"
-                class="block truncate text-sm text-gray-600 dark:text-gray-400"
-              >
-                {{ value.length > 30 ? value.substring(0, 25) + '...' : value }}
-              </span>
-              <span v-else class="text-sm text-gray-400">-</span>
-            </div>
+            <UiDataCell :value="value || '-'" />
           </template>
 
           <!-- Dynamic attribute columns -->
@@ -274,14 +265,7 @@
             :key="def.id"
             #[`cell-attr_${def.id}`]="{ row }"
           >
-            <div class="max-w-xs">
-              <span
-                class="block truncate text-sm text-gray-700 dark:text-gray-300"
-                :title="getAttributeValue(row.id, def.id)"
-              >
-                {{ getAttributeValue(row.id, def.id) }}
-              </span>
-            </div>
+            <UiDataCell :value="getAttributeValue(row.id, def.id)" />
           </template>
 
           <template #cell-role="{ value }">
@@ -289,7 +273,7 @@
           </template>
 
           <template #cell-groups="{ row }">
-            <div v-if="allGroups.length > 0" class="flex flex-col gap-1">
+            <div v-if="allGroups.length > 0" class="users-groups-cell">
               <UiPopover
                 v-if="getUserGroups(row).exclusive.length > 0"
                 panel-role="menu"
@@ -329,47 +313,41 @@
               <!-- 都没有 -->
               <span
                 v-if="getUserGroups(row).exclusive.length === 0 && getUserGroups(row).publicGroups.length === 0"
-                class="text-xs text-gray-400 dark:text-dark-500"
+                class="users-cell-empty"
               >-</span>
             </div>
-            <span v-else class="text-xs text-gray-400 dark:text-dark-500">-</span>
+            <span v-else class="users-cell-empty">-</span>
           </template>
 
           <template #cell-subscriptions="{ row }">
             <div
               v-if="row.subscriptions && row.subscriptions.length > 0"
-              class="flex flex-wrap gap-1.5"
+              class="users-subscriptions"
             >
-              <span
+              <UiBadge
                 v-for="sub in row.subscriptions"
                 :key="sub.id"
-                class="inline-flex min-w-0 max-w-56 items-center gap-1.5 rounded-[3px] bg-violet-50 px-2 py-1 text-xs text-violet-700 dark:bg-violet-900/20 dark:text-violet-300"
+                :tone="sub.expires_at && getDaysRemaining(sub.expires_at) <= 0 ? 'danger' : 'info'"
                 :title="[
                   getSubscriptionIncludedGroupNames(sub),
                   sub.expires_at ? formatDateTime(sub.expires_at) : '',
                 ].filter(Boolean).join(' · ')"
               >
-                <span class="truncate font-medium">{{ sub.plan_name || `#${sub.plan_id}` }}</span>
-                <span v-if="sub.expires_at" class="shrink-0 text-[10px] opacity-75">
+                <span>{{ sub.plan_name || `#${sub.plan_id}` }}</span>
+                <small v-if="sub.expires_at">
                   {{
                     getDaysRemaining(sub.expires_at) <= 0
                       ? t('admin.users.expired')
                       : t('admin.users.daysRemaining', { days: getDaysRemaining(sub.expires_at) })
                   }}
-                </span>
-              </span>
+                </small>
+              </UiBadge>
             </div>
-            <span
-              v-else
-              class="inline-flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-400 dark:bg-dark-700/50 dark:text-dark-500"
-            >
-              <Icon name="ban" size="xs" class="h-3.5 w-3.5" />
-              <span>{{ t('admin.users.noSubscription') }}</span>
-            </span>
+            <UiStatusBadge v-else status="neutral" :label="t('admin.users.noSubscription')" />
           </template>
 
           <template #cell-balance="{ value, row }">
-            <div class="flex items-center gap-2">
+            <div class="users-inline-actions">
               <UiTooltip :content="t('admin.users.balanceHistoryTip')">
                 <UiButton density="mini" variant="quiet" @click="handleBalanceHistory(row)">
                   ${{ value.toFixed(2) }}
@@ -395,7 +373,7 @@
             :key="usageKey"
             #[`header-${usageKey}`]="{ column }"
           >
-            <div class="flex items-center gap-1.5">
+            <div class="users-sort-header">
               <span>{{ column.label }}</span>
               <UiPopover placement="bottom-end">
                 <template #trigger><UiButton
@@ -406,11 +384,11 @@
                 >
                   <span
                     v-if="usageSort && usageSort.key === usageKey"
-                    class="text-[10px] normal-case font-medium tracking-normal"
+                    class="users-sort-header__metric"
                   >{{ usageSort.metric === 'today' ? t('admin.users.today') : t('admin.users.total') }}</span>
                   <Icon :name="usageSortIcon(usageKey)" size="xs" />
                 </UiButton></template>
-                <template #default="{ close }"><div class="grid min-w-32 gap-1">
+                <template #default="{ close }"><div class="users-sort-menu">
                   <UiButton
                     v-for="metric in (['today', 'total'] as const)"
                     :key="metric"
@@ -422,7 +400,7 @@
                     <span>{{ metric === 'today' ? t('admin.users.today') : t('admin.users.total') }}</span>
                     <Icon :name="usageMetricIcon(usageKey, metric)" size="xs" />
                   </UiButton>
-                  <div class="mt-1 border-t border-gray-100 px-3 py-1 text-[10px] normal-case tracking-normal text-gray-400 dark:border-dark-700 dark:text-dark-500">
+                  <div class="users-sort-menu__hint">
                     {{ t('admin.users.sortCurrentPageOnly') }}
                   </div>
                 </div></template>
@@ -469,23 +447,19 @@
           </template>
 
           <template #cell-created_at="{ value }">
-            <span class="text-sm text-gray-500 dark:text-dark-400">{{ formatDateTime(value) }}</span>
+            <UiDataCell :value="formatDateTime(value)" />
           </template>
 
           <template #cell-last_used_at="{ value }">
-            <span class="text-sm text-gray-500 dark:text-dark-400">
-              {{ value ? formatDateTime(value) : '-' }}
-            </span>
+            <UiDataCell :value="value ? formatDateTime(value) : '-'" />
           </template>
 
           <template #cell-last_active_at="{ value }">
-            <span class="text-sm text-gray-500 dark:text-dark-400">
-              {{ value ? formatDateTime(value) : '-' }}
-            </span>
+            <UiDataCell :value="value ? formatDateTime(value) : '-'" />
           </template>
 
           <template #cell-actions="{ row }">
-            <div class="flex items-center gap-1">
+            <div class="users-inline-actions">
               <!-- Edit Button -->
               <UiIconButton icon="edit" density="compact" variant="ghost" :label="t('common.edit')" @click="handleEdit(row)" />
 
@@ -519,6 +493,7 @@
         :page="pagination.page"
         :total="pagination.total"
         :page-size="pagination.page_size"
+        :reset-page-on-page-size-change="false"
         @update:page="handlePageChange"
         @update:pageSize="handlePageSizeChange"
       />
@@ -589,6 +564,7 @@ import {
   UiCheckbox,
   UiColumnPicker,
   UiConfirmDialog,
+  UiDataCell,
   UiDataTable,
   UiDropdownMenu,
   UiEmptyState,
@@ -1623,5 +1599,5 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.users-workspace-toolbar{display:grid;gap:8px}.users-filter-controls{display:flex;min-width:0;flex:1;flex-wrap:wrap;align-items:center;gap:8px}.users-toolbar-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}.users-group-menu{display:grid;min-width:200px;gap:2px}.users-group-menu>span{padding:4px 8px;color:var(--ui-text-soft);font-size:11px}.users-group-menu :deep(button){justify-content:flex-start}.users-public-groups{display:inline-flex;align-items:center;gap:4px;color:var(--ui-text-muted);font-size:12px}@media(max-width:640px){.users-toolbar-actions{justify-content:stretch}.users-toolbar-actions>:deep(button){flex:1}}
+.users-workspace-toolbar{display:grid;gap:8px}.users-filter-controls{display:flex;min-width:0;flex:1;flex-wrap:wrap;align-items:center;gap:8px}.users-search-field{width:min(256px,100%)}.users-filter-field{width:min(176px,100%)}.users-filter-field--short{width:min(128px,100%)}.users-filter-field--attribute{width:min(144px,100%)}.users-advanced-filters{display:flex;flex:1 0 100%;flex-wrap:wrap;align-items:center;gap:8px;padding-top:10px;border-top:1px solid var(--ui-border-soft)}.users-toolbar-actions,.users-toolbar-secondary{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}.users-filter-menu{display:grid;min-width:192px;gap:8px;padding:4px}.users-filter-menu__divider{border-top:1px solid var(--ui-border-soft)}.users-user-cell,.users-inline-actions,.users-sort-header{display:flex;min-width:0;align-items:center;gap:6px}.users-groups-cell{display:grid;gap:4px}.users-group-menu,.users-sort-menu{display:grid;min-width:200px;gap:2px}.users-group-menu>span{padding:4px 8px;color:var(--ui-text-soft);font-size:11px}.users-group-menu :deep(button),.users-sort-menu :deep(button){justify-content:flex-start}.users-public-groups{display:inline-flex;align-items:center;gap:4px;color:var(--ui-text-muted);font-size:12px}.users-cell-empty{color:var(--ui-text-soft);font-size:12px}.users-subscriptions{display:flex;max-width:240px;flex-wrap:wrap;gap:5px}.users-subscriptions :deep(.ui-badge){max-width:100%}.users-subscriptions :deep(.ui-badge>span){overflow:hidden;text-overflow:ellipsis}.users-subscriptions small{flex:none;font-size:10px;font-weight:500;opacity:.8}.users-sort-header__metric{font-size:10px;font-weight:500;text-transform:none}.users-sort-menu{min-width:128px}.users-sort-menu__hint{margin-top:4px;padding:5px 8px;border-top:1px solid var(--ui-border-soft);color:var(--ui-text-soft);font-size:10px;font-weight:400;text-transform:none}@media(max-width:640px){.users-search-field,.users-filter-field,.users-filter-field--short,.users-filter-field--attribute{width:100%}.users-toolbar-actions{justify-content:stretch}.users-toolbar-actions>:deep(button){flex:1}.users-toolbar-secondary{display:contents}}
 </style>
