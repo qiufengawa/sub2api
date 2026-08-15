@@ -2,6 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { opsAPI, type OpsAccountAvailabilityStatsResponse, type OpsConcurrencyStatsResponse, type OpsUserConcurrencyStatsResponse } from '@/api/admin/ops'
+import Icon from '@/components/icons/Icon.vue'
+import { UiAlert, UiBadge, UiButton, UiEmptyState, UiIconButton, UiProgressBar } from '@/components/ui'
 
 interface Props {
   platformFilter?: string
@@ -21,6 +23,7 @@ const errorMessage = ref('')
 const concurrency = ref<OpsConcurrencyStatsResponse | null>(null)
 const availability = ref<OpsAccountAvailabilityStatsResponse | null>(null)
 const userConcurrency = ref<OpsUserConcurrencyStatsResponse | null>(null)
+let loadRequestId = 0
 
 // 用户视图开关
 const showByUser = ref(false)
@@ -260,12 +263,14 @@ const displayTitle = computed(() => {
 })
 
 async function loadData() {
+  const requestId = ++loadRequestId
   loading.value = true
   errorMessage.value = ''
   try {
     if (showByUser.value) {
       // 用户视图模式只加载用户并发数据
       const userData = await opsAPI.getUserConcurrencyStats()
+      if (requestId !== loadRequestId) return
       userConcurrency.value = userData
     } else {
       // 常规模式加载账号/平台/分组数据
@@ -273,14 +278,16 @@ async function loadData() {
         opsAPI.getConcurrencyStats(props.platformFilter, props.groupIdFilter),
         opsAPI.getAccountAvailabilityStats(props.platformFilter, props.groupIdFilter)
       ])
+      if (requestId !== loadRequestId) return
       concurrency.value = concData
       availability.value = availData
     }
   } catch (err: any) {
+    if (requestId !== loadRequestId) return
     console.error('[OpsConcurrencyCard] Failed to load data', err)
     errorMessage.value = err?.response?.data?.detail || t('admin.ops.concurrency.loadFailed')
   } finally {
-    loading.value = false
+    if (requestId === loadRequestId) loading.value = false
   }
 }
 
@@ -301,22 +308,10 @@ watch(
   }
 )
 
-function getLoadBarClass(loadPct: number): string {
-  if (loadPct >= 90) return 'bg-red-500 dark:bg-red-600'
-  if (loadPct >= 70) return 'bg-orange-500 dark:bg-orange-600'
-  if (loadPct >= 50) return 'bg-yellow-500 dark:bg-yellow-600'
-  return 'bg-green-500 dark:bg-green-600'
-}
-
-function getLoadBarStyle(loadPct: number): string {
-  return `width: ${Math.min(100, Math.max(0, loadPct))}%`
-}
-
-function getLoadTextClass(loadPct: number): string {
-  if (loadPct >= 90) return 'text-red-600 dark:text-red-400'
-  if (loadPct >= 70) return 'text-orange-600 dark:text-orange-400'
-  if (loadPct >= 50) return 'text-yellow-600 dark:text-yellow-400'
-  return 'text-green-600 dark:text-green-400'
+function getLoadTone(loadPct: number): 'success' | 'warning' | 'danger' {
+  if (loadPct >= 90) return 'danger'
+  if (loadPct >= 70) return 'warning'
+  return 'success'
 }
 
 function formatDuration(seconds: number): string {
@@ -341,284 +336,177 @@ watch(
 </script>
 
 <template>
-  <div class="flex h-full flex-col rounded-[4px] border border-gray-200 bg-white p-4 shadow-sm sm:p-5 dark:border-dark-700 dark:bg-dark-800">
+  <section class="ops-concurrency">
     <!-- 头部 -->
-    <div class="mb-3 flex min-h-8 shrink-0 items-center justify-between gap-3">
-      <h3 class="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
-        <svg class="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
+    <div class="ops-concurrency__header">
+      <h3 class="ops-concurrency__title">
+        <Icon name="bolt" size="sm" />
         {{ t('admin.ops.concurrency.title') }}
       </h3>
-      <div class="flex items-center gap-2">
-        <!-- 用户视图切换按钮 -->
-        <button
-          class="flex h-7 w-7 items-center justify-center rounded-[4px] transition-colors"
-          :class="showByUser
-            ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-            : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 dark:bg-dark-700 dark:text-gray-400 dark:hover:bg-dark-600 dark:hover:text-gray-300'"
-          :title="showByUser ? t('admin.ops.concurrency.switchToPlatform') : t('admin.ops.concurrency.switchToUser')"
+      <div class="ops-concurrency__actions">
+        <UiButton
+          variant="quiet"
+          density="dense"
           @click="showByUser = !showByUser"
         >
-          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-        </button>
-        <!-- 刷新按钮 -->
-        <button
-          class="flex h-7 w-7 items-center justify-center rounded-[4px] bg-gray-100 text-gray-700 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600"
+          <template #icon><Icon :name="showByUser ? 'server' : 'users'" size="sm" /></template>
+          {{ showByUser ? t('admin.ops.concurrency.switchToPlatform') : t('admin.ops.concurrency.switchToUser') }}
+        </UiButton>
+        <UiIconButton
+          icon="refresh"
+          density="dense"
+          variant="ghost"
           :disabled="loading"
-          :title="t('common.refresh')"
+          :label="t('common.refresh')"
           @click="loadData"
-        >
-          <svg class="h-3 w-3" :class="{ 'animate-spin': loading }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        </button>
+        />
       </div>
     </div>
 
     <!-- 错误提示 -->
-    <div v-if="errorMessage" class="mb-3 shrink-0 rounded-[4px] bg-red-50 p-2.5 text-xs text-red-600 dark:bg-red-900/20 dark:text-red-400">
-      {{ errorMessage }}
-    </div>
+    <UiAlert v-if="errorMessage" tone="danger" :message="errorMessage" />
 
     <!-- 禁用状态 -->
     <div
       v-if="!realtimeEnabled"
-      class="flex flex-1 items-center justify-center rounded-[4px] border border-dashed border-gray-200 text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400"
+      class="ops-concurrency__disabled"
     >
-      {{ t('admin.ops.concurrency.disabledHint') }}
+      <UiEmptyState :title="t('admin.ops.concurrency.disabledHint')" />
     </div>
 
     <!-- 数据展示区域 -->
-    <div v-else class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[4px] border border-gray-200 dark:border-dark-700">
+    <div v-else class="ops-concurrency__body">
       <!-- 维度标题栏 -->
-      <div class="flex shrink-0 items-center justify-between border-b border-gray-200 bg-gray-50 px-3 py-2 dark:border-dark-700 dark:bg-dark-900">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+      <div class="ops-concurrency__subheader">
+        <strong>
           {{ displayTitle }}
-        </span>
-        <span class="text-[10px] text-gray-500 dark:text-gray-400">
+        </strong>
+        <span>
           {{ t('admin.ops.concurrency.totalRows', { count: displayRows.length }) }}
         </span>
       </div>
 
       <!-- 空状态 -->
-      <div v-if="displayRows.length === 0" class="flex flex-1 items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-        {{ t('admin.ops.concurrency.empty') }}
+      <div v-if="displayRows.length === 0" class="ops-concurrency__empty">
+        <UiEmptyState :title="t('admin.ops.concurrency.empty')" />
       </div>
 
       <!-- 用户视图 -->
-      <div v-else-if="displayDimension === 'user'" class="custom-scrollbar flex-1 divide-y divide-gray-100 overflow-y-auto dark:divide-dark-700">
-        <div v-for="row in (displayRows as UserRow[])" :key="row.key" class="px-3 py-3 transition-colors hover:bg-gray-50/80 dark:hover:bg-dark-900/60">
+      <div v-else-if="displayDimension === 'user'" class="ops-concurrency__list">
+        <div v-for="row in (displayRows as UserRow[])" :key="row.key" class="ops-concurrency__row">
           <!-- 用户信息和并发 -->
-          <div class="mb-1.5 flex items-center justify-between gap-2">
-            <div class="flex min-w-0 flex-1 items-center gap-1.5">
-              <span class="truncate text-[11px] font-bold text-gray-900 dark:text-white" :title="row.username || row.user_email">
+          <div class="ops-concurrency__row-main">
+            <div class="ops-concurrency__identity">
+              <strong :title="row.username || row.user_email">
                 {{ row.username || row.user_email }}
-              </span>
-              <span v-if="row.username" class="shrink-0 truncate text-[10px] text-gray-400 dark:text-gray-500" :title="row.user_email">
+              </strong>
+              <span v-if="row.username" :title="row.user_email">
                 {{ row.user_email }}
               </span>
             </div>
-            <div class="flex shrink-0 items-center gap-2 text-[10px]">
-              <span class="font-mono font-bold text-gray-900 dark:text-white"> {{ row.current_in_use }}/{{ row.max_capacity }} </span>
-              <span :class="['font-bold', getLoadTextClass(row.load_percentage)]"> {{ Math.round(row.load_percentage) }}% </span>
+            <div class="ops-concurrency__numbers">
+              <strong> {{ row.current_in_use }}/{{ row.max_capacity }} </strong>
+              <span> {{ Math.round(row.load_percentage) }}% </span>
             </div>
           </div>
 
           <!-- 进度条 -->
-          <div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700">
-            <div class="h-full rounded-full transition-all duration-300" :class="getLoadBarClass(row.load_percentage)" :style="getLoadBarStyle(row.load_percentage)"></div>
-          </div>
+          <UiProgressBar :value="row.load_percentage" :tone="getLoadTone(row.load_percentage)" :show-value="false" />
 
           <!-- 等待队列 -->
-          <div v-if="row.waiting_in_queue > 0" class="mt-1.5 flex justify-end">
-            <span class="rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-              {{ t('admin.ops.concurrency.queued', { count: row.waiting_in_queue }) }}
-            </span>
+          <div v-if="row.waiting_in_queue > 0" class="ops-concurrency__queue">
+            <UiBadge tone="warning" :label="t('admin.ops.concurrency.queued', { count: row.waiting_in_queue })" />
           </div>
         </div>
       </div>
 
       <!-- 汇总视图（平台/分组） -->
-      <div v-else-if="displayDimension === 'platform' || displayDimension === 'group'" class="custom-scrollbar flex-1 divide-y divide-gray-100 overflow-y-auto dark:divide-dark-700">
-        <div v-for="row in (displayRows as SummaryRow[])" :key="row.key" class="px-3 py-3 transition-colors hover:bg-gray-50/80 dark:hover:bg-dark-900/60">
+      <div v-else-if="displayDimension === 'platform' || displayDimension === 'group'" class="ops-concurrency__list">
+        <div v-for="row in (displayRows as SummaryRow[])" :key="row.key" class="ops-concurrency__row">
           <!-- 标题行 -->
-          <div class="mb-2 flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
-              <div class="truncate text-[11px] font-bold text-gray-900 dark:text-white" :title="row.name">
+          <div class="ops-concurrency__row-main">
+            <div class="ops-concurrency__identity">
+              <strong :title="row.name">
                 {{ row.name }}
-              </div>
-              <span v-if="displayDimension === 'group' && row.platform" class="text-[10px] text-gray-400 dark:text-gray-500">
+              </strong>
+              <span v-if="displayDimension === 'group' && row.platform">
                 {{ row.platform.toUpperCase() }}
               </span>
             </div>
-            <div class="flex shrink-0 items-center gap-2 text-[10px]">
-              <span class="font-mono font-bold text-gray-900 dark:text-white"> {{ row.used_concurrency }}/{{ row.total_concurrency }} </span>
-              <span :class="['font-bold', getLoadTextClass(row.concurrency_percentage)]"> {{ row.concurrency_percentage }}% </span>
+            <div class="ops-concurrency__numbers">
+              <strong> {{ row.used_concurrency }}/{{ row.total_concurrency }} </strong>
+              <span> {{ row.concurrency_percentage }}% </span>
             </div>
           </div>
 
           <!-- 进度条 -->
-          <div class="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700">
-            <div
-              class="h-full rounded-full transition-all duration-300"
-              :class="getLoadBarClass(row.concurrency_percentage)"
-              :style="getLoadBarStyle(row.concurrency_percentage)"
-            ></div>
-          </div>
+          <UiProgressBar :value="row.concurrency_percentage" :tone="getLoadTone(row.concurrency_percentage)" :show-value="false" />
 
           <!-- 统计信息 -->
-          <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]">
+          <div class="ops-concurrency__row-meta">
             <!-- 账号统计 -->
-            <div class="flex items-center gap-1">
-              <svg class="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                />
-              </svg>
-              <span class="text-gray-600 dark:text-gray-300">
-                <span class="font-bold text-green-600 dark:text-green-400">{{ row.available_accounts }}</span
-                >/{{ row.total_accounts }}
-              </span>
-              <span class="text-gray-400 dark:text-gray-500">{{ row.availability_percentage }}%</span>
+            <div class="ops-concurrency__availability">
+              <Icon name="users" size="xs" />
+              <strong>{{ row.available_accounts }}/{{ row.total_accounts }}</strong>
+              <span>{{ row.availability_percentage }}%</span>
             </div>
 
             <!-- 限流账号 -->
-            <span
-              v-if="row.rate_limited_accounts > 0"
-              class="rounded-full bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-            >
-              {{ t('admin.ops.concurrency.rateLimited', { count: row.rate_limited_accounts }) }}
-            </span>
+            <UiBadge v-if="row.rate_limited_accounts > 0" tone="warning" :label="t('admin.ops.concurrency.rateLimited', { count: row.rate_limited_accounts })" />
 
             <!-- 异常账号 -->
-            <span
-              v-if="row.error_accounts > 0"
-              class="rounded-full bg-red-100 px-1.5 py-0.5 font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-400"
-            >
-              {{ t('admin.ops.concurrency.errorAccounts', { count: row.error_accounts }) }}
-            </span>
+            <UiBadge v-if="row.error_accounts > 0" tone="danger" :label="t('admin.ops.concurrency.errorAccounts', { count: row.error_accounts })" />
 
             <!-- 等待队列 -->
-            <span
-              v-if="row.waiting_in_queue > 0"
-              class="rounded-full bg-purple-100 px-1.5 py-0.5 font-semibold text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-            >
-              {{ t('admin.ops.concurrency.queued', { count: row.waiting_in_queue }) }}
-            </span>
+            <UiBadge v-if="row.waiting_in_queue > 0" tone="warning" :label="t('admin.ops.concurrency.queued', { count: row.waiting_in_queue })" />
           </div>
         </div>
       </div>
 
       <!-- 账号详细视图 -->
-      <div v-else class="custom-scrollbar flex-1 divide-y divide-gray-100 overflow-y-auto dark:divide-dark-700">
-        <div v-for="row in (displayRows as AccountRow[])" :key="row.key" class="px-3 py-3 transition-colors hover:bg-gray-50/80 dark:hover:bg-dark-900/60">
+      <div v-else class="ops-concurrency__list">
+        <div v-for="row in (displayRows as AccountRow[])" :key="row.key" class="ops-concurrency__row">
           <!-- 账号名称和并发 -->
-          <div class="mb-1.5 flex items-center justify-between gap-2">
-            <div class="min-w-0 flex-1">
-              <div class="truncate text-[11px] font-bold text-gray-900 dark:text-white" :title="row.name">
+          <div class="ops-concurrency__row-main">
+            <div class="ops-concurrency__identity ops-concurrency__identity--stacked">
+              <strong :title="row.name">
                 {{ row.name }}
-              </div>
-              <div class="mt-0.5 text-[9px] text-gray-400 dark:text-gray-500">
+              </strong>
+              <span>
                 {{ row.group_name }}
-              </div>
+              </span>
             </div>
-            <div class="flex shrink-0 items-center gap-2">
+            <div class="ops-concurrency__badges">
               <!-- 并发使用 -->
-              <span class="font-mono text-[11px] font-bold text-gray-900 dark:text-white"> {{ row.current_in_use }}/{{ row.max_capacity }} </span>
+              <strong class="ops-concurrency__capacity"> {{ row.current_in_use }}/{{ row.max_capacity }} </strong>
               <!-- 状态徽章 -->
-              <span
-                v-if="row.is_available"
-                class="inline-flex items-center gap-1 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400"
-              >
-                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
-                {{ t('admin.ops.accountAvailability.available') }}
-              </span>
-              <span
-                v-else-if="row.is_rate_limited"
-                class="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-              >
-                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {{ formatDuration(row.rate_limit_remaining_sec || 0) }}
-              </span>
-              <span
-                v-else-if="row.is_overloaded"
-                class="inline-flex items-center gap-1 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400"
-              >
-                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  />
-                </svg>
-                {{ formatDuration(row.overload_remaining_sec || 0) }}
-              </span>
-              <span
-                v-else-if="row.has_error"
-                class="inline-flex items-center gap-1 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400"
-              >
-                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                {{ t('admin.ops.accountAvailability.accountError') }}
-              </span>
-              <span
-                v-else
-                class="inline-flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-400"
-              >
-                {{ t('admin.ops.accountAvailability.unavailable') }}
-              </span>
+              <UiBadge v-if="row.is_available" tone="success" :label="t('admin.ops.accountAvailability.available')" />
+              <UiBadge v-else-if="row.is_rate_limited" tone="warning" :label="formatDuration(row.rate_limit_remaining_sec || 0)" />
+              <UiBadge v-else-if="row.is_overloaded" tone="danger" :label="formatDuration(row.overload_remaining_sec || 0)" />
+              <UiBadge v-else-if="row.has_error" tone="danger" :label="t('admin.ops.accountAvailability.accountError')" />
+              <UiBadge v-else tone="neutral" :label="t('admin.ops.accountAvailability.unavailable')" />
             </div>
           </div>
 
           <!-- 进度条 -->
-          <div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700">
-            <div class="h-full rounded-full transition-all duration-300" :class="getLoadBarClass(row.load_percentage)" :style="getLoadBarStyle(row.load_percentage)"></div>
-          </div>
+          <UiProgressBar :value="row.load_percentage" :tone="getLoadTone(row.load_percentage)" :show-value="false" />
 
           <!-- 等待队列 -->
-          <div v-if="row.waiting_in_queue > 0" class="mt-1.5 flex justify-end">
-            <span class="rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-              {{ t('admin.ops.concurrency.queued', { count: row.waiting_in_queue }) }}
-            </span>
+          <div v-if="row.waiting_in_queue > 0" class="ops-concurrency__queue">
+            <UiBadge tone="warning" :label="t('admin.ops.concurrency.queued', { count: row.waiting_in_queue })" />
           </div>
         </div>
       </div>
     </div>
-  </div>
+  </section>
 </template>
 
 <style scoped>
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(156, 163, 175, 0.3);
-  border-radius: 3px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(156, 163, 175, 0.5);
-}
+.ops-concurrency { display: flex; height: 100%; min-height: 0; flex-direction: column; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-panel); overflow: hidden; background: var(--ui-surface); }
+.ops-concurrency__header { display: flex; min-height: 48px; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--ui-border-soft); }
+.ops-concurrency__title,.ops-concurrency__actions { display: flex; align-items: center; }.ops-concurrency__title { gap: 7px; margin: 0; color: var(--ui-text); font-size: 14px; line-height: 22px; }.ops-concurrency__actions { gap: 4px; }
+.ops-concurrency__disabled,.ops-concurrency__empty { display: grid; min-height: 180px; flex: 1; place-items: center; }.ops-concurrency__body { display: flex; min-height: 0; flex: 1; flex-direction: column; overflow: hidden; }.ops-concurrency__subheader { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 12px; border-bottom: 1px solid var(--ui-border-soft); color: var(--ui-text-muted); background: var(--ui-surface-muted); font-size: 11px; line-height: 18px; }
+.ops-concurrency__list { min-height: 0; flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--ui-border) transparent; }.ops-concurrency__row { padding: 10px 12px; border-bottom: 1px solid var(--ui-border-soft); transition: background var(--ui-motion-fast); }.ops-concurrency__row:hover { background: var(--ui-surface-muted); }
+.ops-concurrency__row-main,.ops-concurrency__numbers,.ops-concurrency__row-meta,.ops-concurrency__availability,.ops-concurrency__badges { display: flex; align-items: center; }.ops-concurrency__row-main { min-width: 0; justify-content: space-between; gap: 12px; margin-bottom: 7px; }.ops-concurrency__identity { display: flex; min-width: 0; flex: 1; align-items: baseline; gap: 7px; }.ops-concurrency__identity--stacked { align-items: flex-start; flex-direction: column; gap: 0; }.ops-concurrency__identity strong,.ops-concurrency__identity span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.ops-concurrency__identity strong { color: var(--ui-text); font-size: 12px; line-height: 18px; }.ops-concurrency__identity span { color: var(--ui-text-soft); font-size: 11px; line-height: 17px; }.ops-concurrency__numbers { flex: 0 0 auto; gap: 8px; color: var(--ui-text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }.ops-concurrency__numbers strong,.ops-concurrency__capacity { color: var(--ui-text); font-family: var(--ui-font-mono); font-size: 11px; }.ops-concurrency__row-meta { flex-wrap: wrap; gap: 5px 10px; margin-top: 8px; }.ops-concurrency__availability { gap: 4px; color: var(--ui-text-muted); font-size: 11px; }.ops-concurrency__availability strong { color: var(--ui-success); }.ops-concurrency__badges { flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }.ops-concurrency__queue { display: flex; justify-content: flex-end; margin-top: 6px; }
+@media (max-width:640px) { .ops-concurrency__header { align-items: flex-start; }.ops-concurrency__actions :first-child span:last-child { display: none; }.ops-concurrency__row-main { align-items: flex-start; flex-direction: column; }.ops-concurrency__badges { justify-content: flex-start; } }
 </style>
