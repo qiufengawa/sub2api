@@ -22,6 +22,8 @@ const emit = defineEmits<{
 
 const loading = ref(false)
 const saving = ref(false)
+const loadSucceeded = ref(false)
+let loadRequestId = 0
 
 // 运行时设置
 const runtimeSettings = ref<OpsAlertRuntimeSettings | null>(null)
@@ -30,16 +32,19 @@ const emailConfig = ref<EmailNotificationConfig | null>(null)
 // 高级设置
 const advancedSettings = ref<OpsAdvancedSettings | null>(null)
 // 指标阈值配置
-const metricThresholds = ref<OpsMetricThresholds>({
-  sla_percent_min: 99.5,
-  ttft_p99_ms_max: 500,
-  request_error_rate_percent_max: 5,
-  upstream_error_rate_percent_max: 5
-})
+const metricThresholds = ref<OpsMetricThresholds | null>(null)
 
 // 加载所有配置
 async function loadAllSettings() {
+  const requestId = ++loadRequestId
   loading.value = true
+  loadSucceeded.value = false
+  runtimeSettings.value = null
+  emailConfig.value = null
+  advancedSettings.value = null
+  metricThresholds.value = null
+  alertRecipientInput.value = ''
+  reportRecipientInput.value = ''
   try {
     const [runtime, email, advanced, thresholds] = await Promise.all([
       opsAPI.getAlertRuntimeSettings(),
@@ -47,6 +52,7 @@ async function loadAllSettings() {
       opsAPI.getAdvancedSettings(),
       opsAPI.getMetricThresholds()
     ])
+    if (requestId !== loadRequestId || !props.show) return
     runtimeSettings.value = runtime
     emailConfig.value = email
     advancedSettings.value = advanced
@@ -54,20 +60,14 @@ async function loadAllSettings() {
     if (advancedSettings.value && !advancedSettings.value.openai_account_quota_auto_pause) {
       advancedSettings.value.openai_account_quota_auto_pause = { default_threshold_5h: 0, default_threshold_7d: 0 }
     }
-    // 如果后端返回了阈值，使用后端的值；否则保持默认值
-    if (thresholds && Object.keys(thresholds).length > 0) {
-        metricThresholds.value = {
-          sla_percent_min: thresholds.sla_percent_min ?? 99.5,
-          ttft_p99_ms_max: thresholds.ttft_p99_ms_max ?? 500,
-          request_error_rate_percent_max: thresholds.request_error_rate_percent_max ?? 5,
-          upstream_error_rate_percent_max: thresholds.upstream_error_rate_percent_max ?? 5
-        }
-    }
+    metricThresholds.value = { ...(thresholds || {}) }
+    loadSucceeded.value = true
   } catch (err: any) {
+    if (requestId !== loadRequestId) return
     console.error('[OpsSettingsDialog] Failed to load settings', err)
     appStore.showError(err?.response?.data?.detail || t('admin.ops.settings.loadFailed'))
   } finally {
-    loading.value = false
+    if (requestId === loadRequestId) loading.value = false
   }
 }
 
@@ -75,6 +75,16 @@ async function loadAllSettings() {
 watch(() => props.show, (show) => {
   if (show) {
     loadAllSettings()
+  } else {
+    loadRequestId += 1
+    loading.value = false
+    loadSucceeded.value = false
+    runtimeSettings.value = null
+    emailConfig.value = null
+    advancedSettings.value = null
+    metricThresholds.value = null
+    alertRecipientInput.value = ''
+    reportRecipientInput.value = ''
   }
 })
 
@@ -162,33 +172,33 @@ const validation = computed(() => {
   // 验证高级设置
   if (advancedSettings.value) {
     const { error_log_retention_days, minute_metrics_retention_days, hourly_metrics_retention_days } = advancedSettings.value.data_retention
-    if (error_log_retention_days < 0 || error_log_retention_days > 365) {
+    if (!Number.isFinite(error_log_retention_days) || error_log_retention_days < 0 || error_log_retention_days > 365) {
       errors.push(t('admin.ops.settings.validation.retentionDaysRange'))
     }
-    if (minute_metrics_retention_days < 0 || minute_metrics_retention_days > 365) {
+    if (!Number.isFinite(minute_metrics_retention_days) || minute_metrics_retention_days < 0 || minute_metrics_retention_days > 365) {
       errors.push(t('admin.ops.settings.validation.retentionDaysRange'))
     }
-    if (hourly_metrics_retention_days < 0 || hourly_metrics_retention_days > 365) {
+    if (!Number.isFinite(hourly_metrics_retention_days) || hourly_metrics_retention_days < 0 || hourly_metrics_retention_days > 365) {
       errors.push(t('admin.ops.settings.validation.retentionDaysRange'))
     }
 
     const { default_threshold_5h, default_threshold_7d } = advancedSettings.value.openai_account_quota_auto_pause
-    if (default_threshold_5h < 0 || default_threshold_5h > 1 || default_threshold_7d < 0 || default_threshold_7d > 1) {
+    if (!Number.isFinite(default_threshold_5h) || !Number.isFinite(default_threshold_7d) || default_threshold_5h < 0 || default_threshold_5h > 1 || default_threshold_7d < 0 || default_threshold_7d > 1) {
       errors.push(t('admin.ops.settings.validation.openaiQuotaAutoPauseRange'))
     }
   }
 
   // 验证指标阈值
-  if (metricThresholds.value.sla_percent_min != null && (metricThresholds.value.sla_percent_min < 0 || metricThresholds.value.sla_percent_min > 100)) {
+  if (metricThresholds.value?.sla_percent_min != null && (!Number.isFinite(metricThresholds.value.sla_percent_min) || metricThresholds.value.sla_percent_min < 0 || metricThresholds.value.sla_percent_min > 100)) {
     errors.push(t('admin.ops.settings.validation.slaMinPercentRange'))
   }
-  if (metricThresholds.value.ttft_p99_ms_max != null && metricThresholds.value.ttft_p99_ms_max < 0) {
+  if (metricThresholds.value?.ttft_p99_ms_max != null && (!Number.isFinite(metricThresholds.value.ttft_p99_ms_max) || metricThresholds.value.ttft_p99_ms_max < 0)) {
     errors.push(t('admin.ops.settings.validation.ttftP99MaxRange'))
   }
-  if (metricThresholds.value.request_error_rate_percent_max != null && (metricThresholds.value.request_error_rate_percent_max < 0 || metricThresholds.value.request_error_rate_percent_max > 100)) {
+  if (metricThresholds.value?.request_error_rate_percent_max != null && (!Number.isFinite(metricThresholds.value.request_error_rate_percent_max) || metricThresholds.value.request_error_rate_percent_max < 0 || metricThresholds.value.request_error_rate_percent_max > 100)) {
     errors.push(t('admin.ops.settings.validation.requestErrorRateMaxRange'))
   }
-  if (metricThresholds.value.upstream_error_rate_percent_max != null && (metricThresholds.value.upstream_error_rate_percent_max < 0 || metricThresholds.value.upstream_error_rate_percent_max > 100)) {
+  if (metricThresholds.value?.upstream_error_rate_percent_max != null && (!Number.isFinite(metricThresholds.value.upstream_error_rate_percent_max) || metricThresholds.value.upstream_error_rate_percent_max < 0 || metricThresholds.value.upstream_error_rate_percent_max > 100)) {
     errors.push(t('admin.ops.settings.validation.upstreamErrorRateMaxRange'))
   }
 
@@ -197,6 +207,10 @@ const validation = computed(() => {
 
 // 保存所有配置
 async function saveAllSettings() {
+  if (!loadSucceeded.value || !runtimeSettings.value || !emailConfig.value || !advancedSettings.value || !metricThresholds.value) {
+    appStore.showError(t('admin.ops.settings.loadFailed'))
+    return
+  }
   if (!validation.value.valid) {
     appStore.showError(validation.value.errors[0])
     return
@@ -213,18 +227,21 @@ async function saveAllSettings() {
         emailConfig.value.report.enabled = false
       }
     }
-    await Promise.all([
-      runtimeSettings.value ? opsAPI.updateAlertRuntimeSettings(runtimeSettings.value) : Promise.resolve(),
-      emailConfig.value ? opsAPI.updateEmailNotificationConfig(emailConfig.value) : Promise.resolve(),
-      advancedSettings.value ? opsAPI.updateAdvancedSettings(advancedSettings.value) : Promise.resolve(),
+    const results = await Promise.allSettled([
+      opsAPI.updateAlertRuntimeSettings(runtimeSettings.value),
+      opsAPI.updateEmailNotificationConfig(emailConfig.value),
+      opsAPI.updateAdvancedSettings(advancedSettings.value),
       opsAPI.updateMetricThresholds(metricThresholds.value)
     ])
+    const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected')
+    if (failure) throw failure.reason
     appStore.showSuccess(t('admin.ops.settings.saveSuccess'))
     emit('saved')
     emit('close')
   } catch (err: any) {
     console.error('[OpsSettingsDialog] Failed to save settings', err)
     appStore.showError(err?.response?.data?.message || err?.response?.data?.detail || t('admin.ops.settings.saveFailed'))
+    await loadAllSettings()
   } finally {
     saving.value = false
   }
@@ -237,7 +254,7 @@ async function saveAllSettings() {
       {{ t('common.loading') }}
     </div>
 
-    <div v-else-if="runtimeSettings && emailConfig && advancedSettings" class="space-y-6">
+    <div v-else-if="loadSucceeded && runtimeSettings && emailConfig && advancedSettings && metricThresholds" class="space-y-6">
       <!-- 验证错误 -->
       <div v-if="!validation.valid" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
         <div class="font-bold">{{ t('admin.ops.settings.validation.title') }}</div>
@@ -641,7 +658,7 @@ async function saveAllSettings() {
     <template #footer>
       <div class="flex justify-end gap-2">
         <button class="btn btn-secondary" @click="emit('close')">{{ t('common.cancel') }}</button>
-        <button class="btn btn-primary" :disabled="saving || !validation.valid" @click="saveAllSettings">
+        <button class="btn btn-primary" :disabled="saving || loading || !loadSucceeded || !validation.valid" @click="saveAllSettings">
           {{ saving ? t('common.saving') : t('common.save') }}
         </button>
       </div>
