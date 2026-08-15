@@ -1,7 +1,9 @@
 <template>
   <AppLayout>
-    <TablePageLayout>
-      <template #filters>
+    <AppPage density="compact">
+      <AppPageHeader :title="t('admin.groups.title')" :description="t('admin.groups.description')" />
+      <UiServerTableWorkspace :loading="loading" :loading-text="t('common.loading')">
+      <template #toolbar>
         <div
           class="flex flex-col justify-between gap-4 lg:flex-row lg:items-start"
         >
@@ -41,42 +43,12 @@
             class="flex w-full flex-shrink-0 flex-wrap items-center justify-end gap-3 lg:w-auto"
           >
             <UiIconButton icon="refresh" density="compact" :disabled="loading" :label="t('common.refresh')" @click="loadGroups" />
-            <div class="relative" ref="columnDropdownRef">
-              <UiButton
-                type="button"
-                variant="secondary"
-                density="compact"
-                @click="showColumnDropdown = !showColumnDropdown"
-                :title="t('admin.groups.columnSettings')"
-                :aria-label="t('admin.groups.columnSettings')"
-              >
-                <template #icon><Icon name="grid" size="sm" /></template>
-                <span class="hidden md:inline">{{
-                  t("admin.groups.columnSettings")
-                }}</span>
-              </UiButton>
-              <div
-                v-if="showColumnDropdown"
-                class="absolute right-0 top-full z-50 mt-1 max-h-[min(20rem,calc(100dvh-5rem))] w-56 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-[4px] border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
-              >
-                <button
-                  v-for="col in toggleableColumns"
-                  :key="col.key"
-                  type="button"
-                  @click="toggleColumn(col.key)"
-                  class="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
-                >
-                  <span class="min-w-0 truncate" :title="col.label">{{ col.label }}</span>
-                  <Icon
-                    v-if="isColumnVisible(col.key)"
-                    name="check"
-                    size="sm"
-                    class="text-primary-500"
-                    :stroke-width="2"
-                  />
-                </button>
-              </div>
-            </div>
+            <UiColumnPicker
+              :model-value="visibleColumnKeys"
+              :columns="columnPickerOptions"
+              :label="t('admin.groups.columnSettings')"
+              @update:model-value="updateVisibleColumns"
+            />
             <UiButton
               type="button"
               variant="secondary"
@@ -102,11 +74,10 @@
         </div>
       </template>
 
-      <template #table>
-        <DataTable
+      <UiDataTable
           :columns="columns"
           :data="groups"
-          :loading="loading"
+          :loading="false"
           :server-side-sort="true"
           default-sort-key="sort_order"
           default-sort-order="asc"
@@ -253,11 +224,10 @@
           <template #empty>
             <UiEmptyState :title="t('admin.groups.noGroupsYet')" :description="t('admin.groups.createFirstGroup')"><template #action><UiButton density="compact" variant="primary" @click="openCreateModal">{{ t('admin.groups.createGroup') }}</UiButton></template></UiEmptyState>
           </template>
-        </DataTable>
-      </template>
+      </UiDataTable>
 
       <template #pagination>
-        <Pagination
+        <UiPagination
           v-if="pagination.total > 0"
           :page="pagination.page"
           :total="pagination.total"
@@ -266,10 +236,11 @@
           @update:pageSize="handlePageSizeChange"
         />
       </template>
-    </TablePageLayout>
+      </UiServerTableWorkspace>
+    </AppPage>
 
     <!-- Create Group Modal -->
-    <BaseDialog
+    <UiDialog
       :show="showCreateModal"
       :title="t('admin.groups.createGroup')"
       width="normal"
@@ -1547,48 +1518,30 @@
 
       <template #footer>
         <div class="flex justify-end gap-3 pt-4">
-          <button
-            @click="closeCreateModal"
+          <UiButton
             type="button"
-            class="btn btn-secondary"
+            density="compact"
+            variant="secondary"
+            @click="closeCreateModal"
           >
             {{ t("common.cancel") }}
-          </button>
-          <button
+          </UiButton>
+          <UiButton
             type="submit"
             form="create-group-form"
-            :disabled="submitting"
-            class="btn btn-primary"
+            density="compact"
+            variant="primary"
+            :loading="submitting"
             data-tour="group-form-submit"
           >
-            <svg
-              v-if="submitting"
-              class="-ml-1 mr-2 h-4 w-4 animate-spin"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              ></circle>
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
             {{ submitting ? t("admin.groups.creating") : t("common.create") }}
-          </button>
+          </UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
     <!-- Edit Group Modal -->
-    <BaseDialog
+    <UiDialog
       :show="showEditModal"
       :title="t('admin.groups.editGroup')"
       width="normal"
@@ -2862,48 +2815,30 @@
 
       <template #footer>
         <div class="flex justify-end gap-3 pt-4">
-          <button
-            @click="closeEditModal"
+          <UiButton
             type="button"
-            class="btn btn-secondary"
+            density="compact"
+            variant="secondary"
+            @click="closeEditModal"
           >
             {{ t("common.cancel") }}
-          </button>
-          <button
+          </UiButton>
+          <UiButton
             type="submit"
             form="edit-group-form"
-            :disabled="submitting"
-            class="btn btn-primary"
+            density="compact"
+            variant="primary"
+            :loading="submitting"
             data-tour="group-form-submit"
           >
-            <svg
-              v-if="submitting"
-              class="-ml-1 mr-2 h-4 w-4 animate-spin"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              ></circle>
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
             {{ submitting ? t("admin.groups.updating") : t("common.update") }}
-          </button>
+          </UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
     <!-- Delete Confirmation Dialog -->
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showDeleteDialog"
       :title="t('admin.groups.deleteGroup')"
       :message="deleteConfirmMessage"
@@ -2914,7 +2849,7 @@
       @cancel="showDeleteDialog = false"
     />
 
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showUnsupportedLiveConfirm"
       :title="t('admin.groups.openaiLive.unsupportedTitle')"
       :message="t('admin.groups.openaiLive.unsupportedMessage')"
@@ -2926,7 +2861,7 @@
     />
 
     <!-- Sort Order Modal -->
-    <BaseDialog
+    <UiDialog
       :show="showSortModal"
       :title="t('admin.groups.sortOrder')"
       width="normal"
@@ -2944,7 +2879,7 @@
           <div
             v-for="group in sortableGroups"
             :key="group.id"
-            class="flex cursor-grab items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 transition-shadow hover:shadow-md active:cursor-grabbing dark:border-dark-600 dark:bg-dark-700"
+            class="flex cursor-grab items-center gap-3 rounded border border-gray-200 bg-white px-3 py-2 transition-colors hover:bg-gray-50 active:cursor-grabbing dark:border-dark-600 dark:bg-dark-700 dark:hover:bg-dark-600"
           >
             <div class="text-gray-400">
               <Icon name="menu" size="md" />
@@ -2953,23 +2888,10 @@
               <div class="font-medium text-gray-900 dark:text-white">
                 {{ group.name }}
               </div>
-              <div class="text-xs text-gray-500 dark:text-gray-400">
-                <span
-                  :class="[
-                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                    group.platform === 'anthropic'
-                      ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-                      : group.platform === 'openai'
-                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                        : group.platform === 'antigravity'
-                          ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                          : group.platform === 'grok'
-                            ? 'bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100'
-                            : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-                  ]"
-                >
+              <div class="mt-1">
+                <UiBadge tone="neutral">
                   {{ t("admin.groups.platforms." + group.platform) }}
-                </span>
+                </UiBadge>
               </div>
             </div>
             <div class="text-sm text-gray-400">#{{ group.id }}</div>
@@ -2979,46 +2901,29 @@
 
       <template #footer>
         <div class="flex justify-end gap-3 pt-4">
-          <button
-            @click="closeSortModal"
+          <UiButton
             type="button"
-            class="btn btn-secondary"
+            density="compact"
+            variant="secondary"
+            @click="closeSortModal"
           >
             {{ t("common.cancel") }}
-          </button>
-          <button
+          </UiButton>
+          <UiButton
+            type="button"
+            density="compact"
+            variant="primary"
             @click="saveSortOrder"
-            :disabled="sortSubmitting"
-            class="btn btn-primary"
+            :loading="sortSubmitting"
           >
-            <svg
-              v-if="sortSubmitting"
-              class="-ml-1 mr-2 h-4 w-4 animate-spin"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              ></circle>
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
             {{ sortSubmitting ? t("common.saving") : t("common.save") }}
-          </button>
+          </UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
     <!-- Composite Routes Modal -->
-    <BaseDialog
+    <UiDialog
       :show="showCompositeRoutesModal"
       :title="
         compositeRoutesGroup
@@ -3365,16 +3270,17 @@
 
       <template #footer>
         <div class="flex justify-end pt-4">
-          <button
+          <UiButton
             type="button"
-            class="btn btn-secondary"
+            density="compact"
+            variant="secondary"
             @click="closeCompositeRoutesModal"
           >
             {{ t("common.close") }}
-          </button>
+          </UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
     <!-- Group Rate Multipliers Modal -->
     <GroupRateMultipliersModal
@@ -3409,15 +3315,28 @@ import type {
   CompositeRouteMatchType,
   GroupPlatform,
 } from "@/types";
-import type { Column } from "@/components/common/types";
+import type { Column } from "@/components/ui";
 import AppLayout from "@/components/layout/AppLayout.vue";
-import TablePageLayout from "@/components/layout/TablePageLayout.vue";
-import DataTable from "@/components/common/DataTable.vue";
-import Pagination from "@/components/common/Pagination.vue";
-import BaseDialog from "@/components/common/BaseDialog.vue";
-import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import Icon from "@/components/icons/Icon.vue";
-import { UiBadge, UiButton, UiEmptyState, UiIconButton, UiSearchInput, UiSelect, UiStatusBadge, UiTextArea, UiTextField } from '@/components/ui';
+import {
+  AppPage,
+  AppPageHeader,
+  UiBadge,
+  UiButton,
+  UiColumnPicker,
+  UiConfirmDialog,
+  UiDataTable,
+  UiDialog,
+  UiEmptyState,
+  UiIconButton,
+  UiPagination,
+  UiSearchInput,
+  UiSelect,
+  UiServerTableWorkspace,
+  UiStatusBadge,
+  UiTextArea,
+  UiTextField,
+} from '@/components/ui';
 import Select from "@/components/common/Select.vue";
 import PlatformIcon from "@/components/common/PlatformIcon.vue";
 import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipliersModal.vue";
@@ -3595,8 +3514,12 @@ const toggleableColumns = computed(() =>
   allColumns.value.filter((col) => !ALWAYS_VISIBLE_COLUMNS.has(col.key)),
 );
 const hiddenColumns = reactive<Set<string>>(new Set());
-const showColumnDropdown = ref(false);
-const columnDropdownRef = ref<HTMLElement | null>(null);
+const visibleColumnKeys = computed(() =>
+  toggleableColumns.value.filter((column) => !hiddenColumns.has(column.key)).map((column) => column.key),
+);
+const columnPickerOptions = computed(() =>
+  toggleableColumns.value.map((column) => ({ key: column.key, label: column.label })),
+);
 
 const getValidHiddenColumnKeys = () =>
   new Set(toggleableColumns.value.map((col) => col.key));
@@ -3688,6 +3611,13 @@ const toggleColumn = (key: string) => {
   }
   if (wasHidden && key === "capacity") {
     loadCapacitySummary();
+  }
+};
+
+const updateVisibleColumns = (keys: string[]) => {
+  const next = new Set(keys);
+  for (const column of toggleableColumns.value) {
+    if (isColumnVisible(column.key) !== next.has(column.key)) toggleColumn(column.key);
   }
 };
 
@@ -5604,9 +5534,6 @@ const handleClickOutside = (event: MouseEvent) => {
     Object.keys(showAccountDropdown.value).forEach((key) => {
       showAccountDropdown.value[key] = false;
     });
-  }
-  if (columnDropdownRef.value && !columnDropdownRef.value.contains(target)) {
-    showColumnDropdown.value = false;
   }
 };
 

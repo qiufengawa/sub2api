@@ -134,16 +134,6 @@ const AppLayoutStub = {
   template: '<div><slot /></div>',
 }
 
-const TablePageLayoutStub = {
-  template: `
-    <div>
-      <slot name="filters" />
-      <slot name="table" />
-      <slot name="pagination" />
-    </div>
-  `,
-}
-
 const DataTableStub = {
   props: ['columns', 'data'],
   emits: ['sort'],
@@ -175,6 +165,19 @@ const BaseDialogStub = {
   template: '<div v-if="show"><slot /><slot name="footer" /></div>',
 }
 
+const ColumnPickerStub = {
+  props: ['modelValue', 'columns', 'label'],
+  emits: ['update:modelValue'],
+  template: `
+    <div>
+      <button :title="label">{{ label }}</button>
+      <button v-for="column in columns" :key="column.key" @click="$emit('update:modelValue', modelValue.includes(column.key) ? modelValue.filter(item => item !== column.key) : [...modelValue, column.key])">
+        {{ column.label }}
+      </button>
+    </div>
+  `,
+}
+
 const IconStub = {
   props: ['name'],
   template: '<span data-test="icon">{{ name }}</span>',
@@ -185,11 +188,13 @@ const mountView = async () => {
     global: {
       stubs: {
         AppLayout: AppLayoutStub,
-        TablePageLayout: TablePageLayoutStub,
-        DataTable: DataTableStub,
-        Pagination: true,
-        BaseDialog: BaseDialogStub,
-        ConfirmDialog: true,
+        AppPage: { template: '<main><slot /></main>' },
+        AppPageHeader: true,
+        UiDataTable: DataTableStub,
+        UiPagination: true,
+        UiDialog: BaseDialogStub,
+        UiConfirmDialog: true,
+        UiColumnPicker: ColumnPickerStub,
         EmptyState: true,
         Select: SelectStub,
         PlatformIcon: true,
