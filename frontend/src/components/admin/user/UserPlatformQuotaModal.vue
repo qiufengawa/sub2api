@@ -1,65 +1,48 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.users.platformQuota.title')"
     width="wide"
     @close="$emit('close')"
   >
     <div v-if="user" class="space-y-4">
-      <div
-        v-if="hasActiveSubscription"
-        class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
-      >
+      <UiAlert v-if="hasActiveSubscription" tone="warning">
         {{ t('admin.users.platformQuota.subscriptionWarning') }}
-      </div>
-      <p class="text-sm text-gray-600 dark:text-gray-400">
+      </UiAlert>
+      <p class="platform-quota__subtitle">
         {{ t('admin.users.platformQuota.subtitle', { email: user.email }) }}
       </p>
-      <div v-if="loading" class="py-10 text-center text-gray-500">{{ t('common.loading') }}</div>
-      <div v-else class="overflow-x-auto">
-        <table class="min-w-full text-sm">
-          <thead>
-            <tr class="border-b border-gray-200 text-gray-700 dark:border-dark-700 dark:text-gray-300">
-              <th class="px-3 py-2 text-left font-medium">{{ t('admin.users.platformQuota.columns.platform') }}</th>
-              <th class="px-3 py-2 text-left font-medium">{{ t('admin.users.platformQuota.columns.daily') }}</th>
-              <th class="px-3 py-2 text-left font-medium">{{ t('admin.users.platformQuota.columns.weekly') }}</th>
-              <th class="px-3 py-2 text-left font-medium">{{ t('admin.users.platformQuota.columns.monthly') }}</th>
-              <th class="px-3 py-2 text-left font-medium">{{ t('admin.users.platformQuota.columns.usage') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in quotas" :key="row.platform" class="border-b border-gray-100 dark:border-dark-800">
-              <td class="px-3 py-2 font-mono text-gray-900 dark:text-white">{{ row.platform }}</td>
-              <td class="px-3 py-2">
-                <div class="flex items-center gap-1">
-                  <UiTextField density="compact" type="number" min="0" step="0.01" :model-value="row.daily_limit_usd ?? ''" :placeholder="t('admin.users.platformQuota.placeholder')" @update:model-value="updateLimit(row, 'daily', String($event))" />
-                  <UiIconButton icon="refresh" density="mini" variant="ghost" :disabled="!!resetting[`${row.platform}.daily`]" :label="t('admin.users.platformQuota.reset.button')" @click="onReset(row.platform, 'daily')"><span class="sr-only">↻</span></UiIconButton>
-                </div>
-              </td>
-              <td class="px-3 py-2">
-                <div class="flex items-center gap-1">
-                  <UiTextField density="compact" type="number" min="0" step="0.01" :model-value="row.weekly_limit_usd ?? ''" :placeholder="t('admin.users.platformQuota.placeholder')" @update:model-value="updateLimit(row, 'weekly', String($event))" />
-                  <UiIconButton icon="refresh" density="mini" variant="ghost" :disabled="!!resetting[`${row.platform}.weekly`]" :label="t('admin.users.platformQuota.reset.button')" @click="onReset(row.platform, 'weekly')"><span class="sr-only">↻</span></UiIconButton>
-                </div>
-              </td>
-              <td class="px-3 py-2">
-                <div class="flex items-center gap-1">
-                  <UiTextField density="compact" type="number" min="0" step="0.01" :model-value="row.monthly_limit_usd ?? ''" :placeholder="t('admin.users.platformQuota.placeholder')" @update:model-value="updateLimit(row, 'monthly', String($event))" />
-                  <UiIconButton icon="refresh" density="mini" variant="ghost" :disabled="!!resetting[`${row.platform}.monthly`]" :label="t('admin.users.platformQuota.reset.button')" @click="onReset(row.platform, 'monthly')"><span class="sr-only">↻</span></UiIconButton>
-                </div>
-              </td>
-              <td class="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-                {{ formatUsage(row.daily_usage_usd) }} / {{ formatUsage(row.weekly_usage_usd) }} / {{ formatUsage(row.monthly_usage_usd) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="mt-3 text-xs text-gray-500">{{ t('admin.users.platformQuota.hint') }}</p>
-        <div class="mt-3">
-          <UiButton type="button" density="compact" @click="onClearAll">
-            {{ t('admin.users.platformQuota.clearAll') }}
-          </UiButton>
-        </div>
+      <UiDataTable
+        :columns="columns"
+        :data="quotas"
+        :loading="loading"
+        :mobile-table="true"
+        row-key="platform"
+        :aria-label="t('admin.users.platformQuota.title')"
+      >
+        <template #cell-platform="{ row }">
+          <span class="platform-quota__platform">{{ row.platform }}</span>
+        </template>
+        <template #cell-daily="{ row }">
+          <QuotaLimitControl :row="row" quota-window="daily" />
+        </template>
+        <template #cell-weekly="{ row }">
+          <QuotaLimitControl :row="row" quota-window="weekly" />
+        </template>
+        <template #cell-monthly="{ row }">
+          <QuotaLimitControl :row="row" quota-window="monthly" />
+        </template>
+        <template #cell-usage="{ row }">
+          <span class="platform-quota__usage">
+            {{ formatUsage(row.daily_usage_usd) }} / {{ formatUsage(row.weekly_usage_usd) }} / {{ formatUsage(row.monthly_usage_usd) }}
+          </span>
+        </template>
+      </UiDataTable>
+      <div class="platform-quota__tools">
+        <p>{{ t('admin.users.platformQuota.hint') }}</p>
+        <UiButton type="button" density="compact" variant="danger" @click="onClearAll">
+          {{ t('admin.users.platformQuota.clearAll') }}
+        </UiButton>
       </div>
     </div>
     <template #footer>
@@ -72,17 +55,37 @@
         </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
+
+  <UiConfirmDialog
+    :show="confirmOpen"
+    :title="t('admin.users.platformQuota.title')"
+    :message="confirmMessage"
+    :confirm-text="t('common.confirm')"
+    :cancel-text="t('common.cancel')"
+    :pending="confirmPending"
+    danger
+    @confirm="confirmAction"
+    @cancel="cancelConfirmation"
+  />
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, computed } from 'vue'
+import { computed, defineComponent, h, reactive, ref, watch, type PropType } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { AdminUser, PlatformQuotaItem, PlatformQuotaPlatform, PlatformQuotaWindow } from '@/types'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import { UiButton, UiIconButton, UiTextField } from '@/components/ui'
+import {
+  UiAlert,
+  UiButton,
+  UiConfirmDialog,
+  UiDataTable,
+  UiDialog,
+  UiIconButton,
+  UiTextField,
+  type Column,
+} from '@/components/ui'
 
 const props = defineProps<{ show: boolean; user: AdminUser | null }>()
 const emit = defineEmits(['close', 'success'])
@@ -110,6 +113,53 @@ const loading = ref(false)
 const submitting = ref(false)
 const resetting = reactive<Record<string, boolean>>({})
 const quotas = ref<QuotaRow[]>([])
+const confirmOpen = ref(false)
+const confirmMessage = ref('')
+const pendingAction = ref<
+  | { type: 'clear-all' }
+  | { type: 'reset'; platform: PlatformQuotaPlatform; quotaWindow: PlatformQuotaWindow; windowLabel: string }
+  | null
+>(null)
+const confirmPending = computed(() => {
+  const action = pendingAction.value
+  return action?.type === 'reset' && !!resetting[`${action.platform}.${action.quotaWindow}`]
+})
+
+const columns = computed<Column[]>(() => [
+  { key: 'platform', label: t('admin.users.platformQuota.columns.platform'), class: 'min-w-[128px]' },
+  { key: 'daily', label: t('admin.users.platformQuota.columns.daily'), class: 'min-w-[190px]' },
+  { key: 'weekly', label: t('admin.users.platformQuota.columns.weekly'), class: 'min-w-[190px]' },
+  { key: 'monthly', label: t('admin.users.platformQuota.columns.monthly'), class: 'min-w-[190px]' },
+  { key: 'usage', label: t('admin.users.platformQuota.columns.usage'), class: 'min-w-[210px]' },
+])
+
+const QuotaLimitControl = defineComponent({
+  props: {
+    row: { type: Object as PropType<QuotaRow>, required: true },
+    quotaWindow: { type: String as PropType<'daily' | 'weekly' | 'monthly'>, required: true },
+  },
+  setup(controlProps) {
+    return () => h('div', { class: 'platform-quota__limit' }, [
+      h(UiTextField, {
+        density: 'compact',
+        type: 'number',
+        min: '0',
+        step: '0.01',
+        modelValue: controlProps.row[`${controlProps.quotaWindow}_limit_usd`] ?? '',
+        placeholder: t('admin.users.platformQuota.placeholder'),
+        'onUpdate:modelValue': (value: string | number) => updateLimit(controlProps.row, controlProps.quotaWindow, String(value)),
+      }),
+      h(UiIconButton, {
+        icon: 'refresh',
+        density: 'mini',
+        variant: 'ghost',
+        disabled: !!resetting[`${controlProps.row.platform}.${controlProps.quotaWindow}`],
+        label: t('admin.users.platformQuota.reset.button'),
+        onClick: () => onReset(controlProps.row.platform, controlProps.quotaWindow),
+      }),
+    ])
+  },
+})
 
 function emptyRow(p: PlatformQuotaPlatform): QuotaRow {
   return {
@@ -170,10 +220,12 @@ watch(
 )
 
 function onClearAll() {
-  // 二次确认：一键清空全部平台的 daily/weekly/monthly 限额属于高风险批量操作，
-  // 误点后所有平台变为"无限额"，且本地无 undo 机制（需要逐个手动重填或取消保存）。
-  const confirmed = window.confirm(t('admin.users.platformQuota.clearAllConfirm'))
-  if (!confirmed) return
+  pendingAction.value = { type: 'clear-all' }
+  confirmMessage.value = t('admin.users.platformQuota.clearAllConfirm')
+  confirmOpen.value = true
+}
+
+function clearAllLimits() {
   for (const row of quotas.value) {
     row.daily_limit_usd = null
     row.weekly_limit_usd = null
@@ -230,10 +282,35 @@ function normalizeLimit(v: number | null | undefined): number | null {
 async function onReset(platform: PlatformQuotaPlatform, quotaWindow: PlatformQuotaWindow) {
   if (!props.user) return
   const windowLabel = t(`admin.users.platformQuota.window${quotaWindow.charAt(0).toUpperCase() + quotaWindow.slice(1)}`)
-  const confirmed = window.confirm(
-    t('admin.users.platformQuota.reset.confirm', { platform, window: windowLabel })
-  )
-  if (!confirmed) return
+  pendingAction.value = { type: 'reset', platform, quotaWindow, windowLabel }
+  confirmMessage.value = t('admin.users.platformQuota.reset.confirm', { platform, window: windowLabel })
+  confirmOpen.value = true
+}
+
+function cancelConfirmation() {
+  if (confirmPending.value) return
+  confirmOpen.value = false
+  confirmMessage.value = ''
+  pendingAction.value = null
+}
+
+async function confirmAction() {
+  const action = pendingAction.value
+  if (!action || confirmPending.value) return
+  if (action.type === 'clear-all') {
+    clearAllLimits()
+    cancelConfirmation()
+    return
+  }
+  await resetQuotaWindow(action.platform, action.quotaWindow, action.windowLabel)
+}
+
+async function resetQuotaWindow(
+  platform: PlatformQuotaPlatform,
+  quotaWindow: PlatformQuotaWindow,
+  windowLabel: string,
+) {
+  if (!props.user) return
   const key = `${platform}.${quotaWindow}`
   resetting[key] = true
   try {
@@ -244,6 +321,11 @@ async function onReset(platform: PlatformQuotaPlatform, quotaWindow: PlatformQuo
     appStore.showError(e?.response?.data?.message || t('admin.users.platformQuota.reset.failed'))
   } finally {
     resetting[key] = false
+    cancelConfirmation()
   }
 }
 </script>
+
+<style scoped>
+.platform-quota__subtitle{margin:0;color:var(--ui-text-muted);font-size:13px;line-height:20px}.platform-quota__platform{font-family:var(--font-mono);font-size:12px}.platform-quota__limit{display:flex;min-width:176px;align-items:center;gap:4px}.platform-quota__limit :deep(.ui-form-field){min-width:0;flex:1}.platform-quota__usage{color:var(--ui-text-muted);font-family:var(--font-mono);font-size:12px;white-space:nowrap}.platform-quota__tools{display:flex;align-items:center;justify-content:space-between;gap:12px}.platform-quota__tools p{margin:0;color:var(--ui-text-soft);font-size:12px;line-height:18px}@media(max-width:640px){.platform-quota__tools{align-items:stretch;flex-direction:column}.platform-quota__tools :deep(button){align-self:flex-start}}
+</style>
