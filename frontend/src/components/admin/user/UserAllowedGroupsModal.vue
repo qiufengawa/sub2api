@@ -40,19 +40,7 @@
               <div class="flex items-center gap-4">
                 <!-- 复选框 -->
                 <div class="flex-shrink-0">
-                  <label class="relative flex h-6 w-6 cursor-pointer items-center justify-center">
-                    <input
-                      type="checkbox"
-                      :checked="config.isSelected"
-                      @change="toggleExclusiveGroup(config.groupId)"
-                      class="peer sr-only"
-                    />
-                    <div class="h-5 w-5 rounded-md border-2 border-gray-300 transition-all peer-checked:border-primary-500 peer-checked:bg-primary-500 dark:border-dark-500 peer-checked:dark:border-primary-500">
-                      <svg v-if="config.isSelected" class="h-full w-full text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  </label>
+                  <UiCheckbox :model-value="config.isSelected" @update:model-value="toggleExclusiveGroup(config.groupId)" />
                 </div>
 
                 <!-- 分组信息 -->
@@ -78,15 +66,7 @@
                 <!-- 专属倍率输入 -->
                 <div class="flex flex-shrink-0 items-center gap-3">
                   <label class="text-sm font-medium text-gray-600 dark:text-gray-400">{{ t('admin.users.customRate') }}</label>
-                  <input
-                    type="number"
-                    step="0.001"
-                    min="0.001"
-                    :value="config.customRate ?? ''"
-                    @input="updateCustomRate(config.groupId, ($event.target as HTMLInputElement).value)"
-                    :placeholder="String(config.defaultRate)"
-                    class="hide-spinner w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-dark-500 dark:bg-dark-700 dark:focus:border-primary-500"
-                  />
+                  <UiTextField :model-value="config.customRate ?? ''" @update:model-value="updateCustomRate(config.groupId, $event)" type="number" step="0.001" min="0.001" :placeholder="String(config.defaultRate)" density="compact" />
                 </div>
               </div>
             </div>
@@ -109,11 +89,7 @@
               <div class="flex items-center gap-4">
                 <!-- 复选框（禁用状态） -->
                 <div class="flex-shrink-0">
-                  <div class="flex h-5 w-5 items-center justify-center rounded-md border-2 border-green-400 bg-green-500 dark:border-green-600 dark:bg-green-600">
-                    <svg class="h-full w-full text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
+                  <UiCheckbox :model-value="true" disabled />
                 </div>
 
                 <!-- 分组信息 -->
@@ -165,14 +141,8 @@
 
     <template #footer>
       <div class="flex justify-end gap-3">
-        <button @click="$emit('close')" class="btn btn-secondary px-5">{{ t('common.cancel') }}</button>
-        <button @click="handleSave" :disabled="submitting" class="btn btn-primary px-6">
-          <svg v-if="submitting" class="-ml-1 mr-2 h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          {{ submitting ? t('common.saving') : t('common.save') }}
-        </button>
+        <UiButton @click="$emit('close')">{{ t('common.cancel') }}</UiButton>
+        <UiButton @click="handleSave" :disabled="submitting" :loading="submitting" variant="primary">{{ submitting ? t('common.saving') : t('common.save') }}</UiButton>
       </div>
     </template>
   </BaseDialog>
@@ -186,6 +156,7 @@ import { adminAPI } from '@/api/admin'
 import type { AdminUser, Group, GroupPlatform } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
+import { UiButton, UiCheckbox, UiTextField } from '@/components/ui'
 
 interface GroupRateConfig {
   groupId: number

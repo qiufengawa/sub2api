@@ -510,112 +510,11 @@
           </div>
         </div>
 
-        <div class="border-t pt-4">
-          <div class="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {{ t("admin.groups.modelsList.title") }}
-              </label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {{ t("admin.groups.modelsList.hint") }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="createModelsListState.enabled = !createModelsListState.enabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors',
-                createModelsListState.enabled
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600',
-              ]"
-            >
-              <span
-                :class="[
-                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
-                  createModelsListState.enabled ? 'translate-x-6' : 'translate-x-1',
-                ]"
-              />
-            </button>
-          </div>
-          <div
-            v-if="createModelsListState.enabled"
-            class="overflow-hidden rounded-lg border border-gray-200 bg-gray-50/50 dark:border-dark-600 dark:bg-dark-800/40"
-          >
-            <div
-              v-if="!createModelsListLoading && createModelsListState.items.length > 0"
-              class="flex items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2 text-xs dark:border-dark-600 dark:bg-dark-800"
-            >
-              <span class="text-gray-500 dark:text-gray-400">
-                {{
-                  t("admin.groups.modelsList.selectedSummary", {
-                    selected: createModelsListSelectedCount,
-                    total: createModelsListState.items.length,
-                  })
-                }}
-              </span>
-              <div class="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  class="rounded px-2 py-1 font-medium text-primary-600 transition-colors hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/20"
-                  @click="selectAllModelsListItems(createModelsListState)"
-                >
-                  {{ t("admin.groups.modelsList.selectAll") }}
-                </button>
-                <button
-                  type="button"
-                  class="rounded px-2 py-1 font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
-                  @click="invertModelsListSelection(createModelsListState)"
-                >
-                  {{ t("admin.groups.modelsList.invertSelection") }}
-                </button>
-              </div>
-            </div>
-            <div
-              class="max-h-64 space-y-2 overflow-y-auto p-2"
-            >
-              <p v-if="createModelsListLoading" class="text-xs text-gray-500 dark:text-gray-400">
-                {{ t("admin.groups.modelsList.loading") }}
-              </p>
-              <p
-                v-else-if="createModelsListState.items.length === 0"
-                class="text-xs text-gray-500 dark:text-gray-400"
-              >
-                {{ t("admin.groups.modelsList.empty") }}
-              </p>
-              <div
-                v-for="(item, index) in createModelsListState.items"
-                :key="item.id"
-                class="flex items-center gap-2 rounded border border-gray-200 bg-white px-3 py-2 dark:border-dark-600 dark:bg-dark-800"
-              >
-                <input
-                  v-model="item.selected"
-                  type="checkbox"
-                  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <span class="min-w-0 flex-1 break-all text-sm text-gray-700 dark:text-gray-300">
-                  {{ item.id }}
-                </span>
-                <button
-                  type="button"
-                  :disabled="index === 0"
-                  class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40 dark:hover:bg-dark-600 dark:hover:text-gray-200"
-                  @click="moveCreateModelsListItem(index, index - 1)"
-                >
-                  <Icon name="arrowUp" size="sm" />
-                </button>
-                <button
-                  type="button"
-                  :disabled="index === createModelsListState.items.length - 1"
-                  class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40 dark:hover:bg-dark-600 dark:hover:text-gray-200"
-                  @click="moveCreateModelsListItem(index, index + 1)"
-                >
-                  <Icon name="arrowDown" size="sm" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <GroupModelsListEditor
+          :state="createModelsListState"
+          :loading="createModelsListLoading"
+          @update:state="applyModelsListState(createModelsListState, $event)"
+        />
 
         <!-- 图片生成计费配置 -->
         <div
@@ -2095,112 +1994,11 @@
           <Select v-model="editForm.status" :options="editStatusOptions" />
         </div>
 
-        <div class="border-t pt-4">
-          <div class="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {{ t("admin.groups.modelsList.title") }}
-              </label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {{ t("admin.groups.modelsList.hint") }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="editModelsListState.enabled = !editModelsListState.enabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors',
-                editModelsListState.enabled
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600',
-              ]"
-            >
-              <span
-                :class="[
-                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
-                  editModelsListState.enabled ? 'translate-x-6' : 'translate-x-1',
-                ]"
-              />
-            </button>
-          </div>
-          <div
-            v-if="editModelsListState.enabled"
-            class="overflow-hidden rounded-lg border border-gray-200 bg-gray-50/50 dark:border-dark-600 dark:bg-dark-800/40"
-          >
-            <div
-              v-if="!editModelsListLoading && editModelsListState.items.length > 0"
-              class="flex items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2 text-xs dark:border-dark-600 dark:bg-dark-800"
-            >
-              <span class="text-gray-500 dark:text-gray-400">
-                {{
-                  t("admin.groups.modelsList.selectedSummary", {
-                    selected: editModelsListSelectedCount,
-                    total: editModelsListState.items.length,
-                  })
-                }}
-              </span>
-              <div class="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  class="rounded px-2 py-1 font-medium text-primary-600 transition-colors hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/20"
-                  @click="selectAllModelsListItems(editModelsListState)"
-                >
-                  {{ t("admin.groups.modelsList.selectAll") }}
-                </button>
-                <button
-                  type="button"
-                  class="rounded px-2 py-1 font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
-                  @click="invertModelsListSelection(editModelsListState)"
-                >
-                  {{ t("admin.groups.modelsList.invertSelection") }}
-                </button>
-              </div>
-            </div>
-            <div
-              class="max-h-64 space-y-2 overflow-y-auto p-2"
-            >
-              <p v-if="editModelsListLoading" class="text-xs text-gray-500 dark:text-gray-400">
-                {{ t("admin.groups.modelsList.loading") }}
-              </p>
-              <p
-                v-else-if="editModelsListState.items.length === 0"
-                class="text-xs text-gray-500 dark:text-gray-400"
-              >
-                {{ t("admin.groups.modelsList.empty") }}
-              </p>
-              <div
-                v-for="(item, index) in editModelsListState.items"
-                :key="item.id"
-                class="flex items-center gap-2 rounded border border-gray-200 bg-white px-3 py-2 dark:border-dark-600 dark:bg-dark-800"
-              >
-                <input
-                  v-model="item.selected"
-                  type="checkbox"
-                  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <span class="min-w-0 flex-1 break-all text-sm text-gray-700 dark:text-gray-300">
-                  {{ item.id }}
-                </span>
-                <button
-                  type="button"
-                  :disabled="index === 0"
-                  class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40 dark:hover:bg-dark-600 dark:hover:text-gray-200"
-                  @click="moveEditModelsListItem(index, index - 1)"
-                >
-                  <Icon name="arrowUp" size="sm" />
-                </button>
-                <button
-                  type="button"
-                  :disabled="index === editModelsListState.items.length - 1"
-                  class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40 dark:hover:bg-dark-600 dark:hover:text-gray-200"
-                  @click="moveEditModelsListItem(index, index + 1)"
-                >
-                  <Icon name="arrowDown" size="sm" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <GroupModelsListEditor
+          :state="editModelsListState"
+          :loading="editModelsListLoading"
+          @update:state="applyModelsListState(editModelsListState, $event)"
+        />
 
         <!-- 图片生成计费配置 -->
         <div
@@ -3949,6 +3747,7 @@ import Select from "@/components/common/Select.vue";
 import PlatformIcon from "@/components/common/PlatformIcon.vue";
 import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipliersModal.vue";
 import GroupRPMOverridesModal from "@/components/admin/group/GroupRPMOverridesModal.vue";
+import GroupModelsListEditor from "@/components/admin/group/GroupModelsListEditor.vue";
 import GroupCapacityBadge from "@/components/common/GroupCapacityBadge.vue";
 import ReasoningEffortPolicyFields from "@/components/admin/group/ReasoningEffortPolicyFields.vue";
 import PricingEntryCard from "@/components/admin/channel/PricingEntryCard.vue";
@@ -3976,10 +3775,8 @@ import {
 import {
   buildModelsListConfig,
   createModelsListState as createInitialModelsListState,
-  invertModelsListSelection,
-  moveModelsListItem,
-  selectAllModelsListItems,
   setModelsListCandidates,
+  type ModelsListState,
 } from "./groupsModelsList";
 import { createModelsListCandidatesTracker } from "./groupsModelsListCandidates";
 import { normalizeSupportedModelScopesForPlatform } from "./groupsSupportedModelScopes";
@@ -4521,13 +4318,6 @@ type ReasoningEffortPolicyFieldsExpose = {
 const createReasoningEffortPolicyRef = ref<ReasoningEffortPolicyFieldsExpose | null>(null);
 const editReasoningEffortPolicyRef = ref<ReasoningEffortPolicyFieldsExpose | null>(null);
 const modelsListCandidatesTracker = createModelsListCandidatesTracker();
-const createModelsListSelectedCount = computed(
-  () => createModelsListState.items.filter((item) => item.selected).length,
-);
-const editModelsListSelectedCount = computed(
-  () => editModelsListState.items.filter((item) => item.selected).length,
-);
-
 const createForm = reactive({
   name: "",
   description: "",
@@ -4802,6 +4592,15 @@ const resetModelsListState = (
   state.items = fresh.items;
 };
 
+const applyModelsListState = (
+  target: ModelsListState,
+  source: ModelsListState,
+) => {
+  target.enabled = source.enabled;
+  target.savedModels = [...source.savedModels];
+  target.items = source.items.map((item) => ({ ...item }));
+};
+
 const loadModelsListCandidates = async (
   mode: "create" | "edit",
   groupID: number,
@@ -4828,14 +4627,6 @@ const loadModelsListCandidates = async (
       loadingRef.value = false;
     }
   }
-};
-
-const moveCreateModelsListItem = (fromIndex: number, toIndex: number) => {
-  moveModelsListItem(createModelsListState, fromIndex, toIndex);
-};
-
-const moveEditModelsListItem = (fromIndex: number, toIndex: number) => {
-  moveModelsListItem(editModelsListState, fromIndex, toIndex);
 };
 
 // 将 UI 格式的路由规则转换为 API 格式

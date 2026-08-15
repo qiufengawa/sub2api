@@ -49,32 +49,30 @@
 
       <!-- Type filter + Action buttons -->
       <div class="flex items-center gap-3">
-        <Select
+        <UiSelect
           v-model="typeFilter"
           :options="typeOptions"
           class="w-56"
           @change="loadHistory(1)"
         />
         <!-- Deposit button - matches menu style -->
-        <button
+        <UiButton
           v-if="!hideActions"
           @click="emit('deposit')"
-          class="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300 dark:hover:bg-dark-700"
+          density="compact"
         >
-          <Icon name="plus" size="sm" class="text-emerald-500" :stroke-width="2" />
+          <template #icon><Icon name="plus" size="sm" class="text-emerald-500" :stroke-width="2" /></template>
           {{ t('admin.users.deposit') }}
-        </button>
+        </UiButton>
         <!-- Withdraw button - matches menu style -->
-        <button
+        <UiButton
           v-if="!hideActions"
           @click="emit('withdraw')"
-          class="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300 dark:hover:bg-dark-700"
+          density="compact"
         >
-          <svg class="h-4 w-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
-          </svg>
+          <template #icon><Icon name="minus" size="sm" class="text-amber-500" /></template>
           {{ t('admin.users.withdraw') }}
-        </button>
+        </UiButton>
       </div>
 
       <!-- Loading -->
@@ -149,23 +147,23 @@
 
       <!-- Pagination -->
       <div v-if="totalPages > 1" class="flex items-center justify-center gap-2 pt-2">
-        <button
+        <UiButton
           :disabled="currentPage <= 1"
-          class="btn btn-secondary px-3 py-1 text-sm"
+          density="compact"
           @click="loadHistory(currentPage - 1)"
         >
           {{ t('pagination.previous') }}
-        </button>
+        </UiButton>
         <span class="text-sm text-gray-500 dark:text-dark-400">
           {{ currentPage }} / {{ totalPages }}
         </span>
-        <button
+        <UiButton
           :disabled="currentPage >= totalPages"
-          class="btn btn-secondary px-3 py-1 text-sm"
+          density="compact"
           @click="loadHistory(currentPage + 1)"
         >
           {{ t('pagination.next') }}
-        </button>
+        </UiButton>
       </div>
     </div>
   </BaseDialog>
@@ -178,8 +176,8 @@ import { adminAPI, type BalanceHistoryItem } from '@/api/admin'
 import { formatDateTime } from '@/utils/format'
 import type { AdminUser } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
-import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { UiButton, UiSelect } from '@/components/ui'
 
 const props = defineProps<{ show: boolean; user: AdminUser | null; hideActions?: boolean }>()
 const emit = defineEmits(['close', 'deposit', 'withdraw'])

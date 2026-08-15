@@ -13,7 +13,7 @@
         <div v-for="key in apiKeys" :key="key.id" class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-600 dark:bg-dark-800">
           <div class="flex items-start justify-between">
             <div class="min-w-0 flex-1">
-              <div class="mb-1 flex items-center gap-2"><span class="font-medium text-gray-900 dark:text-white">{{ key.name }}</span><span :class="['badge text-xs', key.status === 'active' ? 'badge-success' : 'badge-danger']">{{ key.status }}</span></div>
+              <div class="mb-1 flex items-center gap-2"><span class="font-medium text-gray-900 dark:text-white">{{ key.name }}</span><UiBadge :tone="key.status === 'active' ? 'success' : 'danger'">{{ key.status }}</UiBadge></div>
               <p class="truncate font-mono text-sm text-gray-500">{{ key.key.substring(0, 20) }}...{{ key.key.substring(key.key.length - 8) }}</p>
             </div>
           </div>
@@ -37,8 +37,8 @@
                   :peak-rate-multiplier="key.group.peak_rate_multiplier"
                 />
                 <span v-else class="text-gray-400 italic">{{ t('admin.users.none') }}</span>
-                <svg v-if="updatingKeyIds.has(key.id)" class="h-3 w-3 animate-spin text-primary-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                <svg v-else class="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>
+                <Icon v-if="updatingKeyIds.has(key.id)" name="refresh" size="xs" class="animate-spin text-primary-500" />
+                <Icon v-else name="arrowsUpDown" size="xs" class="text-gray-400" />
               </button>
             </div>
             <div class="flex items-center gap-1"><span>{{ t('admin.users.columns.created') }}: {{ formatDateTime(key.created_at) }}</span></div>
@@ -68,11 +68,7 @@
           ]"
         >
           <span class="text-gray-500 italic">{{ t('admin.users.none') }}</span>
-          <svg
-            v-if="!selectedKeyForGroup?.group_id"
-            class="ml-auto h-4 w-4 shrink-0 text-primary-600 dark:text-primary-400"
-            fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"
-          ><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+          <Icon v-if="!selectedKeyForGroup?.group_id" name="check" size="sm" class="ml-auto text-primary-600 dark:text-primary-400" />
         </button>
         <!-- Group options -->
         <button
@@ -113,6 +109,8 @@ import type { AdminUser, AdminGroup, ApiKey } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
+import Icon from '@/components/icons/Icon.vue'
+import { UiBadge } from '@/components/ui'
 
 const props = defineProps<{ show: boolean; user: AdminUser | null }>()
 const emit = defineEmits(['close'])

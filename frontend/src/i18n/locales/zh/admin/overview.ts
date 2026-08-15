@@ -1051,7 +1051,9 @@ export default {
         empty: '暂无可展示模型',
         selectedSummary: '已选 {selected} / {total}',
         selectAll: '全选',
-        invertSelection: '反选'
+        invertSelection: '反选',
+        moveUp: '上移',
+        moveDown: '下移'
       },
       compositeRoutes: {
         action: '路由',

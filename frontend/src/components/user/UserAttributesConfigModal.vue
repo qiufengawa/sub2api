@@ -6,10 +6,7 @@
         <p class="text-sm text-gray-500 dark:text-dark-400">
           {{ t('admin.users.attributes.description') }}
         </p>
-        <button @click="openCreateModal" class="btn btn-primary btn-sm">
-          <Icon name="plus" size="sm" class="mr-1.5" :stroke-width="2" />
-          {{ t('admin.users.attributes.addAttribute') }}
-        </button>
+        <UiButton @click="openCreateModal" variant="primary" density="compact"><template #icon><Icon name="plus" size="sm" /></template>{{ t('admin.users.attributes.addAttribute') }}</UiButton>
       </div>
 
       <!-- Loading State -->
@@ -53,35 +50,35 @@
               <span class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-500 dark:bg-dark-700 dark:text-dark-400">
                 {{ attr.key }}
               </span>
-              <span v-if="attr.required" class="badge badge-danger text-xs">
+              <UiBadge v-if="attr.required" tone="danger">
                 {{ t('admin.users.attributes.required') }}
-              </span>
-              <span v-if="!attr.enabled" class="badge badge-gray text-xs">
+              </UiBadge>
+              <UiBadge v-if="!attr.enabled">
                 {{ t('common.disabled') }}
-              </span>
+              </UiBadge>
             </div>
             <div class="mt-0.5 flex items-center gap-2 text-xs text-gray-500 dark:text-dark-400">
-              <span class="badge badge-gray">{{ t(`admin.users.attributes.types.${attr.type}`) }}</span>
+              <UiBadge>{{ t(`admin.users.attributes.types.${attr.type}`) }}</UiBadge>
               <span v-if="attr.description" class="truncate">{{ attr.description }}</span>
             </div>
           </div>
 
           <!-- Actions -->
           <div class="flex items-center gap-1">
-            <button
+            <UiIconButton
               @click="openEditModal(attr)"
-              class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-400"
+              variant="ghost" :label="t('common.edit')"
               :title="t('common.edit')"
             >
               <Icon name="edit" size="sm" />
-            </button>
-            <button
+            </UiIconButton>
+            <UiIconButton
               @click="confirmDelete(attr)"
-              class="rounded-lg p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+              variant="danger" :label="t('common.delete')"
               :title="t('common.delete')"
             >
               <Icon name="trash" size="sm" />
-            </button>
+            </UiIconButton>
           </div>
         </div>
       </div>
@@ -89,9 +86,7 @@
 
     <template #footer>
       <div class="flex justify-end">
-        <button @click="emit('close')" class="btn btn-secondary">
-          {{ t('common.close') }}
-        </button>
+        <UiButton @click="emit('close')">{{ t('common.close') }}</UiButton>
       </div>
     </template>
   </BaseDialog>
@@ -107,12 +102,12 @@
       <!-- Key -->
       <div>
         <label class="input-label">{{ t('admin.users.attributes.key') }}</label>
-        <input
+        <UiTextField
           v-model="form.key"
           type="text"
           required
           pattern="^[a-zA-Z][a-zA-Z0-9_]*$"
-          class="input font-mono"
+          density="compact" monospace
           :placeholder="t('admin.users.attributes.keyHint')"
           :disabled="!!editingAttribute"
         />
@@ -122,11 +117,11 @@
       <!-- Name -->
       <div>
         <label class="input-label">{{ t('admin.users.attributes.name') }}</label>
-        <input
+        <UiTextField
           v-model="form.name"
           type="text"
           required
-          class="input"
+          density="compact"
           :placeholder="t('admin.users.attributes.nameHint')"
         />
       </div>
@@ -134,7 +129,7 @@
       <!-- Type -->
       <div>
         <label class="input-label">{{ t('admin.users.attributes.type') }}</label>
-        <Select
+        <UiSelect
           v-model="form.type"
           :options="attributeTypes.map(type => ({ value: type, label: t(`admin.users.attributes.types.${type}`) }))"
         />
@@ -144,41 +139,38 @@
       <div v-if="form.type === 'select' || form.type === 'multi_select'" class="space-y-2">
         <label class="input-label">{{ t('admin.users.attributes.options') }}</label>
         <div v-for="(option, index) in form.options" :key="getOptionKey(option)" class="flex items-center gap-2">
-          <input
+          <UiTextField
             v-model="option.value"
             type="text"
-            class="input flex-1 font-mono text-sm"
+            density="compact" monospace
             :placeholder="t('admin.users.attributes.optionValue')"
             required
           />
-          <input
+          <UiTextField
             v-model="option.label"
             type="text"
-            class="input flex-1 text-sm"
+            density="compact"
             :placeholder="t('admin.users.attributes.optionLabel')"
             required
           />
-          <button
+          <UiIconButton
             type="button"
             @click="removeOption(index)"
-            class="rounded-lg p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600"
+            variant="danger" :label="t('common.delete')"
           >
             <Icon name="x" size="sm" :stroke-width="2" />
-          </button>
+          </UiIconButton>
         </div>
-        <button type="button" @click="addOption" class="btn btn-secondary btn-sm">
-          <Icon name="plus" size="sm" class="mr-1" :stroke-width="2" />
-          {{ t('admin.users.attributes.addOption') }}
-        </button>
+        <UiButton type="button" @click="addOption" density="compact"><template #icon><Icon name="plus" size="sm" /></template>{{ t('admin.users.attributes.addOption') }}</UiButton>
       </div>
 
       <!-- Description -->
       <div>
         <label class="input-label">{{ t('admin.users.attributes.fieldDescription') }}</label>
-        <input
+        <UiTextField
           v-model="form.description"
           type="text"
-          class="input"
+          density="compact"
           :placeholder="t('admin.users.attributes.fieldDescriptionHint')"
         />
       </div>
@@ -186,10 +178,10 @@
       <!-- Placeholder -->
       <div>
         <label class="input-label">{{ t('admin.users.attributes.placeholder') }}</label>
-        <input
+        <UiTextField
           v-model="form.placeholder"
           type="text"
-          class="input"
+          density="compact"
           :placeholder="t('admin.users.attributes.placeholderHint')"
         />
       </div>
@@ -197,28 +189,18 @@
       <!-- Required & Enabled -->
       <div class="flex items-center gap-6">
         <label class="flex items-center gap-2">
-          <input v-model="form.required" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600" />
-          <span class="text-sm text-gray-700 dark:text-gray-300">{{ t('admin.users.attributes.required') }}</span>
+          <UiCheckbox v-model="form.required" :label="t('admin.users.attributes.required')" />
         </label>
         <label class="flex items-center gap-2">
-          <input v-model="form.enabled" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600" />
-          <span class="text-sm text-gray-700 dark:text-gray-300">{{ t('admin.users.attributes.enabled') }}</span>
+          <UiCheckbox v-model="form.enabled" :label="t('admin.users.attributes.enabled')" />
         </label>
       </div>
     </form>
 
     <template #footer>
       <div class="flex justify-end gap-3">
-        <button @click="closeEditModal" type="button" class="btn btn-secondary">
-          {{ t('common.cancel') }}
-        </button>
-        <button type="submit" form="attribute-form" :disabled="saving" class="btn btn-primary">
-          <svg v-if="saving" class="-ml-1 mr-2 h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg>
-          {{ saving ? t('common.saving') : (editingAttribute ? t('common.update') : t('common.create')) }}
-        </button>
+        <UiButton @click="closeEditModal" type="button">{{ t('common.cancel') }}</UiButton>
+        <UiButton type="submit" form="attribute-form" :disabled="saving" :loading="saving" variant="primary">{{ saving ? t('common.saving') : (editingAttribute ? t('common.update') : t('common.create')) }}</UiButton>
       </div>
     </template>
   </BaseDialog>
@@ -245,7 +227,7 @@ import type { UserAttributeDefinition, UserAttributeType, UserAttributeOption } 
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
-import Select from '@/components/common/Select.vue'
+import { UiBadge, UiButton, UiCheckbox, UiIconButton, UiSelect, UiTextField } from '@/components/ui'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
 
 const { t } = useI18n()

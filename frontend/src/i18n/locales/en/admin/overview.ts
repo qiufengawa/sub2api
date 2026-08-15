@@ -1054,7 +1054,9 @@ export default {
         empty: 'No displayable models',
         selectedSummary: 'Selected {selected} / {total}',
         selectAll: 'Select all',
-        invertSelection: 'Invert'
+        invertSelection: 'Invert',
+        moveUp: 'Move up',
+        moveDown: 'Move down'
       },
       compositeRoutes: {
         action: 'Routes',
