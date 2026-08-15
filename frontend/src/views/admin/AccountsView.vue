@@ -24,236 +24,116 @@
               >
             <template #after>
               <!-- Auto Refresh Dropdown -->
-              <div class="relative" ref="autoRefreshDropdownRef">
-                <UiButton
-                  density="compact"
-                  variant="secondary"
-                  @click="
-                    showAutoRefreshDropdown = !showAutoRefreshDropdown;
-                    showAccountToolsDropdown = false;
-                  "
-                  :title="t('admin.accounts.autoRefresh')"
-                >
-                  <template #icon>
-                    <Icon
-                      name="refresh"
-                      size="sm"
-                      :class="[autoRefreshEnabled ? 'animate-spin' : '']"
-                    />
-                  </template>
-                  <span class="hidden md:inline">
-                    {{
-                      autoRefreshEnabled
-                        ? t("admin.accounts.autoRefreshCountdown", {
-                            seconds: autoRefreshCountdown,
-                          })
-                        : t("admin.accounts.autoRefresh")
-                    }}
-                  </span>
-                </UiButton>
-                <div
-                  v-if="showAutoRefreshDropdown"
-                  class="absolute right-0 z-50 mt-2 max-h-[calc(100dvh-1rem)] w-56 max-w-[calc(100vw-1rem)] origin-top-right overflow-y-auto rounded-[4px] border border-gray-200 bg-white shadow-lg dark:border-dark-700 dark:bg-dark-800"
-                >
-                  <div class="p-2">
-                    <button
-                      @click="setAutoRefreshEnabled(!autoRefreshEnabled)"
-                      class="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-dark-700"
-                    >
-                      <span>{{ t("admin.accounts.enableAutoRefresh") }}</span>
-                      <Icon
-                        v-if="autoRefreshEnabled"
-                        name="check"
-                        size="sm"
-                        class="text-primary-500"
-                      />
-                    </button>
-                    <div
-                      class="my-1 border-t border-gray-100 dark:border-dark-700"
-                    ></div>
-                    <button
-                      v-for="sec in autoRefreshIntervals"
-                      :key="sec"
-                      @click="setAutoRefreshInterval(sec)"
-                      class="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-dark-700"
-                    >
-                      <span>{{ autoRefreshIntervalLabel(sec) }}</span>
-                      <Icon
-                        v-if="autoRefreshIntervalSeconds === sec"
-                        name="check"
-                        size="sm"
-                        class="text-primary-500"
-                      />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- More Tools Dropdown -->
-              <div class="relative" ref="accountToolsDropdownRef">
-                <span ref="accountToolsTriggerRef" class="inline-flex">
+              <UiPopover
+                placement="bottom-end"
+                panel-role="dialog"
+                :aria-label="t('admin.accounts.autoRefresh')"
+                width="min(280px, calc(100vw - 16px))"
+                @open-change="showAutoRefreshDropdown = $event"
+              >
+                <template #trigger="{ open }">
                   <UiButton
                     density="compact"
                     variant="secondary"
-                    @click="toggleAccountToolsDropdown"
+                    :title="t('admin.accounts.autoRefresh')"
+                    :aria-expanded="open"
+                    aria-haspopup="dialog"
+                  >
+                    <template #icon>
+                      <Icon name="refresh" size="sm" :class="{ 'animate-spin': autoRefreshEnabled }" />
+                    </template>
+                    <span class="hidden md:inline">
+                      {{
+                        autoRefreshEnabled
+                          ? t('admin.accounts.autoRefreshCountdown', { seconds: autoRefreshCountdown })
+                          : t('admin.accounts.autoRefresh')
+                      }}
+                    </span>
+                  </UiButton>
+                </template>
+                <div class="accounts-auto-refresh-popover" @click.stop>
+                  <UiSwitch
+                    :model-value="autoRefreshEnabled"
+                    :label="t('admin.accounts.enableAutoRefresh')"
+                    @update:model-value="setAutoRefreshEnabled"
+                  />
+                  <UiDivider />
+                  <UiRadioGroup
+                    :model-value="autoRefreshIntervalSeconds"
+                    :options="autoRefreshIntervalOptions"
+                    name="account-auto-refresh-interval"
+                    :label="t('admin.accounts.autoRefresh')"
+                    layout="stacked"
+                    @update:model-value="handleAutoRefreshIntervalChange"
+                  />
+                </div>
+              </UiPopover>
+
+              <!-- More Tools Dropdown -->
+              <UiPopover
+                placement="bottom-end"
+                panel-role="dialog"
+                :aria-label="t('admin.accounts.moreActions')"
+                width="min(320px, calc(100vw - 16px))"
+                @open-change="showAccountToolsDropdown = $event"
+              >
+                <template #trigger="{ open }">
+                  <UiButton
+                    density="compact"
+                    variant="secondary"
                     :title="t('admin.accounts.moreActions')"
-                    :aria-expanded="showAccountToolsDropdown"
+                    :aria-expanded="open"
+                    aria-haspopup="dialog"
                   >
                     <template #icon><Icon name="more" size="sm" /></template>
-                    <span class="hidden md:inline">{{
-                      t("admin.accounts.moreActions")
-                    }}</span>
-                    <Icon
-                      name="chevronDown"
-                      size="xs"
-                      class="hidden md:inline"
-                    />
+                    <span class="hidden md:inline">{{ t('admin.accounts.moreActions') }}</span>
+                    <Icon name="chevronDown" size="xs" class="hidden md:inline" />
                   </UiButton>
-                </span>
-                <Teleport to="body">
-                  <div
-                    v-if="showAccountToolsDropdown"
-                    class="fixed z-[9999] origin-top-right overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-dark-700 dark:bg-dark-800"
-                    :style="accountToolsDropdownStyle"
-                    @click.stop
-                  >
-                    <div
-                      class="overflow-y-auto p-2"
-                      :style="{
-                        maxHeight: `${accountToolsDropdownPosition.maxHeight}px`,
-                      }"
-                    >
-                      <div class="px-2 py-2">
-                        <div
-                          class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500"
-                        >
-                          {{ t("admin.accounts.dataActions") }}
-                        </div>
-                      </div>
-                      <button
-                        class="account-tools-menu-item"
-                        @click="openSyncFromCrs"
-                      >
-                        <span
-                          class="account-tools-menu-icon bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300"
-                        >
-                          <Icon name="sync" size="sm" />
-                        </span>
-                        <span class="flex-1 text-left">{{
-                          t("admin.accounts.syncFromCrs")
-                        }}</span>
-                      </button>
-                      <button
-                        class="account-tools-menu-item"
-                        @click="openImportData"
-                      >
-                        <span
-                          class="account-tools-menu-icon bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300"
-                        >
-                          <Icon name="upload" size="sm" />
-                        </span>
-                        <span class="flex-1 text-left">{{
-                          t("admin.accounts.dataImport")
-                        }}</span>
-                      </button>
-                      <button
-                        class="account-tools-menu-item"
-                        @click="openExportDataDialogFromMenu"
-                      >
-                        <span
-                          class="account-tools-menu-icon bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-300"
-                        >
-                          <Icon name="download" size="sm" />
-                        </span>
-                        <span class="flex-1 text-left">
-                          {{
-                            selIds.length
-                              ? t("admin.accounts.dataExportSelected")
-                              : t("admin.accounts.dataExport")
-                          }}
-                        </span>
-                        <span
-                          v-if="selIds.length"
-                          class="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300"
-                        >
-                          {{
-                            t("admin.accounts.selectedCount", {
-                              count: selIds.length,
-                            })
-                          }}
-                        </span>
-                      </button>
+                </template>
+                <template #default="{ close }">
+                  <div class="accounts-tools-popover" @click.stop>
+                    <UiDivider>{{ t('admin.accounts.dataActions') }}</UiDivider>
+                    <UiButton block density="compact" variant="quiet" @click="close(); openSyncFromCrs()">
+                      <template #icon><Icon name="sync" size="sm" /></template>
+                      {{ t('admin.accounts.syncFromCrs') }}
+                    </UiButton>
+                    <UiButton block density="compact" variant="quiet" @click="close(); openImportData()">
+                      <template #icon><Icon name="upload" size="sm" /></template>
+                      {{ t('admin.accounts.dataImport') }}
+                    </UiButton>
+                    <UiButton block density="compact" variant="quiet" @click="close(); openExportDataDialogFromMenu()">
+                      <template #icon><Icon name="download" size="sm" /></template>
+                      <span class="accounts-tools-popover__label">
+                        {{ selIds.length ? t('admin.accounts.dataExportSelected') : t('admin.accounts.dataExport') }}
+                        <UiBadge v-if="selIds.length" tone="info">
+                          {{ t('admin.accounts.selectedCount', { count: selIds.length }) }}
+                        </UiBadge>
+                      </span>
+                    </UiButton>
 
-                      <div
-                        class="my-2 border-t border-gray-100 dark:border-dark-700"
-                      ></div>
-                      <div class="px-2 py-2">
-                        <div
-                          class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500"
-                        >
-                          {{ t("admin.accounts.toolActions") }}
-                        </div>
-                      </div>
-                      <button
-                        class="account-tools-menu-item"
-                        @click="openErrorPassthrough"
-                      >
-                        <span
-                          class="account-tools-menu-icon bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300"
-                        >
-                          <Icon name="shield" size="sm" />
-                        </span>
-                        <span class="flex-1 text-left">{{
-                          t("admin.errorPassthrough.title")
-                        }}</span>
-                      </button>
-                      <button
-                        class="account-tools-menu-item"
-                        @click="openTLSFingerprintProfiles"
-                      >
-                        <span
-                          class="account-tools-menu-icon bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200"
-                        >
-                          <Icon name="lock" size="sm" />
-                        </span>
-                        <span class="flex-1 text-left">{{
-                          t("admin.tlsFingerprintProfiles.title")
-                        }}</span>
-                      </button>
+                    <UiDivider>{{ t('admin.accounts.toolActions') }}</UiDivider>
+                    <UiButton block density="compact" variant="quiet" @click="close(); openErrorPassthrough()">
+                      <template #icon><Icon name="shield" size="sm" /></template>
+                      {{ t('admin.errorPassthrough.title') }}
+                    </UiButton>
+                    <UiButton block density="compact" variant="quiet" @click="close(); openTLSFingerprintProfiles()">
+                      <template #icon><Icon name="lock" size="sm" /></template>
+                      {{ t('admin.tlsFingerprintProfiles.title') }}
+                    </UiButton>
 
-                      <div
-                        class="my-2 border-t border-gray-100 dark:border-dark-700"
-                      ></div>
-                      <div class="px-2 py-2">
-                        <div class="flex items-center justify-between gap-3">
-                          <span
-                            class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500"
-                          >
-                            {{ t("admin.accounts.viewColumns") }}
-                          </span>
-                          <Icon name="grid" size="sm" class="text-gray-400" />
-                        </div>
-                      </div>
-                      <div class="grid grid-cols-1 gap-1">
-                        <button
-                          v-for="col in toggleableColumns"
-                          :key="col.key"
-                          @click="toggleColumn(col.key)"
-                          class="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-dark-700"
-                        >
-                          <span class="truncate">{{ col.label }}</span>
-                          <Icon
-                            v-if="isColumnVisible(col.key)"
-                            name="check"
-                            size="sm"
-                            class="text-primary-500"
-                          />
-                        </button>
-                      </div>
+                    <UiDivider>{{ t('admin.accounts.viewColumns') }}</UiDivider>
+                    <div class="accounts-tools-popover__columns">
+                      <UiCheckbox
+                        v-for="col in toggleableColumns"
+                        :key="col.key"
+                        :model-value="isColumnVisible(col.key)"
+                        :label="col.label"
+                        @update:model-value="toggleColumn(col.key)"
+                      />
                     </div>
                   </div>
-                </Teleport>
-              </div>
+                </template>
+              </UiPopover>
             </template>
               </AccountTableActions>
             </template>
@@ -889,12 +769,16 @@ import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import {
   AppPage,
   AppPageHeader,
+  UiBadge,
   UiButton,
   UiCheckbox,
   UiDataTable,
+  UiDivider,
   UiIconButton,
   UiNumberStepper,
   UiPagination,
+  UiPopover,
+  UiRadioGroup,
   UiServerTableWorkspace,
   UiSwitch,
   UiTableToolbar,
@@ -939,7 +823,6 @@ import {
 } from "@/utils/proxyExpiry";
 import { extractApiErrorMessage } from "@/utils/apiError";
 import { sanitizeUrl } from "@/utils/url";
-import { getFloatingPanelPosition } from "@/utils/floatingPanel";
 import { formatMultiplier } from "@/utils/formatters";
 import {
   ACCOUNT_PRIORITY_MAX,
@@ -1046,29 +929,7 @@ useIntervalFn(() => {
   upstreamBillingNow.value = Date.now();
 }, 60_000);
 
-// Account tools dropdown
 const showAccountToolsDropdown = ref(false);
-const accountToolsDropdownRef = ref<HTMLElement | null>(null);
-const accountToolsTriggerRef = ref<HTMLElement | null>(null);
-const accountToolsDropdownPosition = reactive({
-  top: null as number | null,
-  bottom: null as number | null,
-  left: 16,
-  width: 320,
-  maxHeight: 0,
-});
-const accountToolsDropdownStyle = computed(() => ({
-  top:
-    accountToolsDropdownPosition.top == null
-      ? "auto"
-      : `${accountToolsDropdownPosition.top}px`,
-  bottom:
-    accountToolsDropdownPosition.bottom == null
-      ? "auto"
-      : `${accountToolsDropdownPosition.bottom}px`,
-  left: `${accountToolsDropdownPosition.left}px`,
-  width: `${accountToolsDropdownPosition.width}px`,
-}));
 const hiddenColumns = reactive<Set<string>>(new Set());
 const DEFAULT_HIDDEN_COLUMNS = [
   "today_stats",
@@ -1138,9 +999,14 @@ const sortState = reactive<AccountSortState>(loadInitialAccountSortState());
 
 // Auto refresh settings
 const showAutoRefreshDropdown = ref(false);
-const autoRefreshDropdownRef = ref<HTMLElement | null>(null);
 const AUTO_REFRESH_STORAGE_KEY = "account-auto-refresh";
 const autoRefreshIntervals = [5, 10, 15, 30] as const;
+const autoRefreshIntervalOptions = computed(() =>
+  autoRefreshIntervals.map((seconds) => ({
+    value: seconds,
+    label: autoRefreshIntervalLabel(seconds),
+  })),
+);
 const autoRefreshEnabled = ref(false);
 const autoRefreshIntervalSeconds =
   ref<(typeof autoRefreshIntervals)[number]>(30);
@@ -1469,6 +1335,12 @@ const setAutoRefreshInterval = (
   if (autoRefreshEnabled.value) {
     autoRefreshCountdown.value = seconds;
   }
+};
+
+const handleAutoRefreshIntervalChange = (value: string | number) => {
+  const seconds = Number(value);
+  if (!autoRefreshIntervals.includes(seconds as (typeof autoRefreshIntervals)[number])) return;
+  setAutoRefreshInterval(seconds as (typeof autoRefreshIntervals)[number]);
 };
 
 const toggleColumn = (key: string) => {
@@ -1855,51 +1727,23 @@ const loadUpstreamBillingProbeGlobalState = async () => {
   }
 };
 
-const closeAccountToolsDropdown = () => {
-  showAccountToolsDropdown.value = false;
-};
-
-const updateAccountToolsDropdownPosition = () => {
-  const trigger = accountToolsTriggerRef.value;
-  if (!trigger) return;
-
-  const position = getFloatingPanelPosition(
-    trigger.getBoundingClientRect(),
-    document.documentElement.clientWidth || window.innerWidth,
-    window.innerHeight,
-  );
-  Object.assign(accountToolsDropdownPosition, position);
-};
-
-const toggleAccountToolsDropdown = () => {
-  const nextVisible = !showAccountToolsDropdown.value;
-  showAutoRefreshDropdown.value = false;
-  if (nextVisible) updateAccountToolsDropdownPosition();
-  showAccountToolsDropdown.value = nextVisible;
-};
-
 const openSyncFromCrs = () => {
-  closeAccountToolsDropdown();
   showSync.value = true;
 };
 
 const openImportData = () => {
-  closeAccountToolsDropdown();
   showImportData.value = true;
 };
 
 const openExportDataDialogFromMenu = () => {
-  closeAccountToolsDropdown();
   openExportDataDialog();
 };
 
 const openErrorPassthrough = () => {
-  closeAccountToolsDropdown();
   showErrorPassthrough.value = true;
 };
 
 const openTLSFingerprintProfiles = () => {
-  closeAccountToolsDropdown();
   showTLSFingerprintProfiles.value = true;
 };
 
@@ -3202,31 +3046,9 @@ const proxyExpiryText = (p: AccountProxy): string => {
   return params ? t(key, params) : t(key);
 };
 
-// 表格滚动时关闭行操作菜单，并让顶部工具菜单继续贴紧触发按钮。
+// 表格滚动时关闭行操作菜单。
 const handleScroll = () => {
   menu.show = false;
-  if (showAccountToolsDropdown.value) updateAccountToolsDropdownPosition();
-};
-
-const handleViewportResize = () => {
-  if (showAccountToolsDropdown.value) updateAccountToolsDropdownPosition();
-};
-
-// 点击外部关闭顶部下拉菜单
-const handleClickOutside = (event: MouseEvent) => {
-  const target = event.target as HTMLElement;
-  if (
-    accountToolsDropdownRef.value &&
-    !accountToolsDropdownRef.value.contains(target)
-  ) {
-    showAccountToolsDropdown.value = false;
-  }
-  if (
-    autoRefreshDropdownRef.value &&
-    !autoRefreshDropdownRef.value.contains(target)
-  ) {
-    showAutoRefreshDropdown.value = false;
-  }
 };
 
 onMounted(async () => {
@@ -3243,8 +3065,6 @@ onMounted(async () => {
     console.error("Failed to load proxies/groups:", error);
   }
   window.addEventListener("scroll", handleScroll, true);
-  window.addEventListener("resize", handleViewportResize);
-  document.addEventListener("click", handleClickOutside);
 
   if (autoRefreshEnabled.value) {
     autoRefreshCountdown.value = autoRefreshIntervalSeconds.value;
@@ -3256,8 +3076,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener("scroll", handleScroll, true);
-  window.removeEventListener("resize", handleViewportResize);
-  document.removeEventListener("click", handleClickOutside);
 });
 </script>
 
@@ -3299,11 +3117,30 @@ onUnmounted(() => {
   border: 0;
 }
 
-.account-tools-menu-item {
-  @apply flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-dark-700;
+.accounts-auto-refresh-popover,
+.accounts-tools-popover {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 2px;
 }
 
-.account-tools-menu-icon {
-  @apply inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md;
+.accounts-tools-popover :deep(.ui-button) {
+  justify-content: flex-start;
+}
+
+.accounts-tools-popover__label {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.accounts-tools-popover__columns {
+  display: grid;
+  gap: 4px;
+  padding: 2px 6px 6px;
 }
 </style>

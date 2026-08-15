@@ -94,7 +94,8 @@ function mountView() {
         AccountUsageCell: true,
         UpstreamBillingRateCell: true,
         HelpTooltip: true,
-        Icon: true
+        Icon: true,
+        teleport: true
       }
     }
   })
@@ -169,5 +170,25 @@ describe('admin AccountsView priority stepper', () => {
     expect(updateAccount).toHaveBeenCalledWith(7, { priority: 20 })
     expect(wrapper.get('[data-test="priority-cell"] input').element.value).toBe('12')
     expect(showError).toHaveBeenCalledWith('save failed')
+  })
+
+  it('uses shared popovers while preserving auto-refresh settings and tool sections', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('button[title="admin.accounts.autoRefresh"]').trigger('click')
+    await wrapper.get('button[role="switch"]').trigger('click')
+    await wrapper.get('input[type="radio"][value="5"]').setValue(true)
+
+    expect(JSON.parse(localStorage.getItem('account-auto-refresh') || '{}')).toEqual({
+      enabled: true,
+      interval_seconds: 5
+    })
+
+    await wrapper.get('button[title="admin.accounts.moreActions"]').trigger('click')
+    expect(wrapper.text()).toContain('admin.accounts.dataActions')
+    expect(wrapper.text()).toContain('admin.accounts.toolActions')
+    expect(wrapper.text()).toContain('admin.accounts.viewColumns')
+    wrapper.unmount()
   })
 })
