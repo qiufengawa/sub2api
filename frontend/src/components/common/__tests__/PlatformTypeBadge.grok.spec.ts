@@ -1,7 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
-import GrokFreeIcon from '../GrokFreeIcon.vue'
 import PlatformTypeBadge from '../PlatformTypeBadge.vue'
 
 vi.mock('vue-i18n', async () => {
@@ -24,14 +23,13 @@ describe('PlatformTypeBadge Grok plans', () => {
     })
 
     expect(wrapper.text()).toContain('Grok Free')
-    expect(wrapper.findComponent(GrokFreeIcon).exists()).toBe(true)
     expect(wrapper.find('[data-testid="grok-free-plan-icon"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="grok-plan-icon"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('2027-01-01')
 
     await wrapper.setProps({ planType: 'FREE' })
     expect(wrapper.text()).toContain('Grok Free')
-    expect(wrapper.findComponent(GrokFreeIcon).exists()).toBe(true)
+    expect(wrapper.find('[data-testid="grok-free-plan-icon"]').exists()).toBe(true)
   })
 
   it('keeps SuperGrok labels compatible and marks paid Grok plans', async () => {
@@ -46,8 +44,7 @@ describe('PlatformTypeBadge Grok plans', () => {
     expect(wrapper.text()).toContain('SuperGrok Heavy')
     expect(wrapper.find('[data-testid="grok-plan-icon"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="grok-free-plan-icon"]').exists()).toBe(false)
-    // Heavy uses purple plan chip
-    expect(wrapper.html()).toContain('bg-purple-100')
+    expect(wrapper.html()).toContain('ui-badge--warning')
 
     await wrapper.setProps({ platform: 'openai', planType: 'free' })
     expect(wrapper.text()).toContain('Free')
@@ -55,42 +52,64 @@ describe('PlatformTypeBadge Grok plans', () => {
     expect(wrapper.find('[data-testid="grok-plan-icon"]').exists()).toBe(false)
   })
 
-  it('colors free gray, SuperGrok cyan, and Heavy purple', async () => {
+  it('uses shared semantic tones for free, SuperGrok, and Heavy', async () => {
     const free = mount(PlatformTypeBadge, {
       props: { platform: 'grok', type: 'oauth', planType: 'free' },
     })
-    expect(free.html()).toContain('bg-gray-100')
-    expect(free.html()).not.toContain('bg-purple-100')
-    expect(free.html()).not.toContain('bg-cyan-100')
+    expect(free.html()).toContain('ui-badge--neutral')
 
     const superGrok = mount(PlatformTypeBadge, {
       props: { platform: 'grok', type: 'oauth', planType: 'supergrok' },
     })
     expect(superGrok.text()).toContain('SuperGrok')
-    expect(superGrok.html()).toContain('bg-cyan-100')
+    expect(superGrok.html()).toContain('ui-badge--info')
     expect(superGrok.find('[data-testid="grok-plan-icon"]').exists()).toBe(true)
 
     const heavy = mount(PlatformTypeBadge, {
       props: { platform: 'grok', type: 'oauth', planType: 'Heavy' },
     })
     expect(heavy.text()).toContain('Heavy')
-    expect(heavy.html()).toContain('bg-purple-100')
+    expect(heavy.html()).toContain('ui-badge--warning')
     expect(heavy.find('[data-testid="grok-plan-icon"]').exists()).toBe(true)
 
     const lite = mount(PlatformTypeBadge, {
       props: { platform: 'grok', type: 'oauth', planType: 'supergrok_lite' },
     })
     expect(lite.text()).toContain('SuperGrok Lite')
-    expect(lite.html()).toContain('bg-cyan-100')
+    expect(lite.html()).toContain('ui-badge--info')
+  })
+})
+
+describe('PlatformTypeBadge secondary states', () => {
+  it('keeps privacy and paid expiration semantics', () => {
+    const wrapper = mount(PlatformTypeBadge, {
+      props: {
+        platform: 'openai',
+        type: 'oauth',
+        planType: 'plus',
+        privacyMode: 'training_off',
+        subscriptionExpiresAt: '2027-01-02T00:00:00Z',
+      },
+    })
+
+    expect(wrapper.text()).toContain('Private')
+    expect(wrapper.text()).toContain('admin.accounts.subscriptionExpires 2027-01-02')
+    expect(wrapper.html()).toContain('ui-badge--success')
   })
 
-  it('uses a dedicated 12px currentColor Grok mark with a Free sparkle', () => {
-    const wrapper = mount(GrokFreeIcon)
+  it('hides privacy outside supported oauth platforms and invalid expiration dates', () => {
+    const wrapper = mount(PlatformTypeBadge, {
+      props: {
+        platform: 'anthropic',
+        type: 'apikey',
+        planType: 'pro',
+        privacyMode: 'training_set_failed',
+        subscriptionExpiresAt: 'invalid',
+      },
+    })
 
-    expect(wrapper.element.tagName.toLowerCase()).toBe('svg')
-    expect(wrapper.attributes('fill')).toBe('currentColor')
-    expect(wrapper.classes()).toEqual(expect.arrayContaining(['h-3', 'w-3']))
-    expect(wrapper.findAll('path')).toHaveLength(2)
+    expect(wrapper.text()).not.toContain('Fail')
+    expect(wrapper.text()).not.toContain('admin.accounts.subscriptionExpires')
   })
 })
 

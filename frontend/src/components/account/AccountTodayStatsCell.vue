@@ -1,55 +1,35 @@
 <template>
-  <div>
-    <!-- Loading state -->
-    <div v-if="props.loading && !props.stats" class="space-y-0.5">
-      <UiSkeleton class="h-3 w-12" />
-      <UiSkeleton class="h-3 w-16" />
-      <UiSkeleton class="h-3 w-10" />
+  <div class="account-today-stats">
+    <div v-if="props.loading && !props.stats" class="account-today-stats__loading" aria-busy="true">
+      <UiSkeleton variant="text" width="48px" />
+      <UiSkeleton variant="text" width="64px" />
+      <UiSkeleton variant="text" width="40px" />
     </div>
 
-    <!-- Error state -->
-    <div v-else-if="props.error && !props.stats" class="text-xs text-red-500">
+    <div v-else-if="props.error && !props.stats" class="account-today-stats__error">
       {{ props.error }}
     </div>
 
-    <!-- Stats data -->
-    <div v-else-if="props.stats" class="space-y-0.5 text-xs">
-      <!-- Requests -->
-      <div class="flex items-center gap-1">
-        <span class="text-gray-500 dark:text-gray-400"
-          >{{ t('admin.accounts.stats.requests') }}:</span
-        >
-        <span class="font-medium text-gray-700 dark:text-gray-300">{{
-          formatNumber(props.stats.requests)
-        }}</span>
+    <dl v-else-if="props.stats" class="account-today-stats__metrics">
+      <div>
+        <dt>{{ t('admin.accounts.stats.requests') }}</dt>
+        <dd>{{ formatNumber(props.stats.requests) }}</dd>
       </div>
-      <!-- Tokens -->
-      <div class="flex items-center gap-1">
-        <span class="text-gray-500 dark:text-gray-400"
-          >{{ t('admin.accounts.stats.tokens') }}:</span
-        >
-        <span class="font-medium text-gray-700 dark:text-gray-300">{{
-          formatTokens(props.stats.tokens)
-        }}</span>
+      <div>
+        <dt>{{ t('admin.accounts.stats.tokens') }}</dt>
+        <dd>{{ formatTokens(props.stats.tokens) }}</dd>
       </div>
-      <!-- Cost (Account) -->
-      <div class="flex items-center gap-1">
-        <span class="text-gray-500 dark:text-gray-400">{{ t('usage.accountBilled') }}:</span>
-        <span class="font-medium text-emerald-600 dark:text-emerald-400">{{
-          formatCurrency(props.stats.cost)
-        }}</span>
+      <div>
+        <dt>{{ t('usage.accountBilled') }}</dt>
+        <dd class="is-positive">{{ formatCurrency(props.stats.cost) }}</dd>
       </div>
-      <!-- Cost (User/API Key) -->
-      <div v-if="props.stats.user_cost != null" class="flex items-center gap-1">
-        <span class="text-gray-500 dark:text-gray-400">{{ t('usage.userBilled') }}:</span>
-        <span class="font-medium text-gray-700 dark:text-gray-300">{{
-          formatCurrency(props.stats.user_cost)
-        }}</span>
+      <div v-if="props.stats.user_cost != null">
+        <dt>{{ t('usage.userBilled') }}</dt>
+        <dd>{{ formatCurrency(props.stats.user_cost) }}</dd>
       </div>
-    </div>
+    </dl>
 
-    <!-- No data -->
-    <div v-else class="text-xs text-gray-400">-</div>
+    <div v-else class="account-today-stats__empty">-</div>
   </div>
 </template>
 
@@ -84,3 +64,7 @@ const formatTokens = (tokens: number): string => {
   return tokens.toString()
 }
 </script>
+
+<style scoped>
+.account-today-stats{min-width:112px;font-size:11px;line-height:16px}.account-today-stats__loading{display:grid;gap:3px}.account-today-stats__error{color:var(--ui-danger)}.account-today-stats__metrics{display:grid;gap:2px;margin:0}.account-today-stats__metrics>div{display:flex;align-items:center;justify-content:space-between;gap:8px}.account-today-stats__metrics dt,.account-today-stats__metrics dd{margin:0}.account-today-stats__metrics dt{color:var(--ui-text-muted)}.account-today-stats__metrics dd{color:var(--ui-text);font-weight:600;font-variant-numeric:tabular-nums}.account-today-stats__metrics dd.is-positive{color:var(--ui-success)}.account-today-stats__empty{color:var(--ui-text-soft)}
+</style>

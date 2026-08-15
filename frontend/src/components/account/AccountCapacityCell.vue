@@ -1,22 +1,22 @@
 <template>
-  <div class="flex flex-col gap-0.5">
+  <div class="account-capacity-cell">
     <!-- 并发槽位 -->
-    <CapacityBadge :color-class="concurrencyClass" :current="currentConcurrency" :max="account.concurrency">
+    <CapacityBadge :tone="concurrencyTone" :current="currentConcurrency" :max="account.concurrency">
       <Icon name="grid" size="xs" />
     </CapacityBadge>
 
     <!-- 5h窗口费用限制 -->
-    <CapacityBadge v-if="showWindowCost" :color-class="windowCostClass" :tooltip="windowCostTooltip" :current="'$' + formatCost(currentWindowCost)" :max="'$' + formatCost(account.window_cost_limit)">
+    <CapacityBadge v-if="showWindowCost" :tone="windowCostTone" :tooltip="windowCostTooltip" :current="'$' + formatCost(currentWindowCost)" :max="'$' + formatCost(account.window_cost_limit)">
       <Icon name="dollar" size="xs" />
     </CapacityBadge>
 
     <!-- 会话数量限制 -->
-    <CapacityBadge v-if="showSessionLimit" :color-class="sessionLimitClass" :tooltip="sessionLimitTooltip" :current="activeSessions" :max="account.max_sessions!">
+    <CapacityBadge v-if="showSessionLimit" :tone="sessionLimitTone" :tooltip="sessionLimitTooltip" :current="activeSessions" :max="account.max_sessions!">
       <Icon name="users" size="xs" />
     </CapacityBadge>
 
     <!-- RPM 限制 -->
-    <CapacityBadge v-if="showRpmLimit" :color-class="rpmClass" :tooltip="rpmTooltip" :current="currentRPM" :max="account.base_rpm!" :suffix="rpmStrategyTag">
+    <CapacityBadge v-if="showRpmLimit" :tone="rpmTone" :tooltip="rpmTooltip" :current="currentRPM" :max="account.base_rpm!" :suffix="rpmStrategyTag">
       <Icon name="clock" size="xs" />
     </CapacityBadge>
 
@@ -44,12 +44,12 @@ const { t } = useI18n()
 // ====== 并发 ======
 const currentConcurrency = computed(() => props.account.current_concurrency || 0)
 
-const concurrencyClass = computed(() => {
+const concurrencyTone = computed<'neutral' | 'warning' | 'danger'>(() => {
   const current = currentConcurrency.value
   const max = props.account.concurrency
-  if (current >= max) return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-  if (current > 0) return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-  return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+  if (current >= max) return 'danger'
+  if (current > 0) return 'warning'
+  return 'neutral'
 })
 
 // ====== 窗口费用 ======
@@ -66,15 +66,14 @@ const showWindowCost = computed(() =>
 
 const currentWindowCost = computed(() => props.account.current_window_cost ?? 0)
 
-const windowCostClass = computed(() => {
-  if (!showWindowCost.value) return ''
+const windowCostTone = computed<'success' | 'warning' | 'danger'>(() => {
   const current = currentWindowCost.value
   const limit = props.account.window_cost_limit || 0
   const reserve = props.account.window_cost_sticky_reserve || 10
-  if (current >= limit + reserve) return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-  if (current >= limit) return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-  if (current >= limit * 0.8) return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-  return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+  if (current >= limit + reserve) return 'danger'
+  if (current >= limit) return 'warning'
+  if (current >= limit * 0.8) return 'warning'
+  return 'success'
 })
 
 const windowCostTooltip = computed(() => {
@@ -96,13 +95,12 @@ const showSessionLimit = computed(() =>
 
 const activeSessions = computed(() => props.account.active_sessions ?? 0)
 
-const sessionLimitClass = computed(() => {
-  if (!showSessionLimit.value) return ''
+const sessionLimitTone = computed<'success' | 'warning' | 'danger'>(() => {
   const current = activeSessions.value
   const max = props.account.max_sessions || 0
-  if (current >= max) return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-  if (current >= max * 0.8) return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-  return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+  if (current >= max) return 'danger'
+  if (current >= max * 0.8) return 'warning'
+  return 'success'
 })
 
 const sessionLimitTooltip = computed(() => {
@@ -130,19 +128,18 @@ const rpmBuffer = computed(() => {
   return props.account.rpm_sticky_buffer ?? (base > 0 ? Math.max(1, Math.floor(base / 5)) : 0)
 })
 
-const rpmClass = computed(() => {
-  if (!showRpmLimit.value) return ''
+const rpmTone = computed<'success' | 'warning' | 'danger'>(() => {
   const current = currentRPM.value
   const base = props.account.base_rpm ?? 0
   const buffer = rpmBuffer.value
   if (rpmStrategy.value === 'tiered') {
-    if (current >= base + buffer) return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-    if (current >= base) return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+    if (current >= base + buffer) return 'danger'
+    if (current >= base) return 'warning'
   } else {
-    if (current >= base) return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+    if (current >= base) return 'warning'
   }
-  if (current >= base * 0.8) return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-  return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+  if (current >= base * 0.8) return 'warning'
+  return 'success'
 })
 
 const rpmTooltip = computed(() => {
@@ -181,3 +178,7 @@ const showTotalQuota = computed(() =>
   isQuotaEligible.value && props.account.quota_limit != null && props.account.quota_limit > 0
 )
 </script>
+
+<style scoped>
+.account-capacity-cell{display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+</style>
