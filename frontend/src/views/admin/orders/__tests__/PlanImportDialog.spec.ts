@@ -3,6 +3,7 @@ import { defineComponent } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import PlanImportDialog from '../PlanImportDialog.vue'
+import { UiFileUpload } from '@/components/ui'
 import type { AdminGroup } from '@/types'
 import type { PaymentCatalogImportPreview } from '@/types/payment'
 
@@ -124,6 +125,19 @@ describe('PlanImportDialog', () => {
 
     expect(previewCatalogImport).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('payment.admin.catalogImport.dangerousField')
+  })
+
+  it('rejects multiple files before parsing or previewing', async () => {
+    const wrapper = mountDialog()
+
+    wrapper.getComponent(UiFileUpload).vm.$emit('select', [
+      new File([catalogJSON], 'first.json', { type: 'application/json' }),
+      new File([catalogJSON], 'second.json', { type: 'application/json' }),
+    ])
+    await flushPromises()
+
+    expect(previewCatalogImport).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('payment.admin.catalogImport.singleFileOnly')
   })
 
   it('previews a valid file and applies exactly the confirmed payload', async () => {
@@ -348,5 +362,25 @@ describe('PlanImportDialog', () => {
     expect(wrapper.text()).toContain('payment.admin.catalogImport.invalidType')
     expect(wrapper.text()).not.toContain('slow.json')
     expect(wrapper.text()).not.toContain('payment.admin.catalogImport.confirmApply')
+  })
+
+  it('ignores an older preview response after a newer catalog has completed', async () => {
+    let resolveFirstPreview: ((value: { data: PaymentCatalogImportPreview }) => void) | undefined
+    previewCatalogImport
+      .mockReturnValueOnce(new Promise(resolve => { resolveFirstPreview = resolve }))
+      .mockResolvedValueOnce({ data: { ...previewFixture(), preview_token: 'new-preview-token' } })
+    const wrapper = mountDialog()
+    const vm = wrapper.vm as unknown as { selectFile: (source: File) => Promise<void> }
+
+    const firstSelection = vm.selectFile(new File([catalogJSON], 'first.json', { type: 'application/json' }))
+    await vi.waitFor(() => expect(previewCatalogImport).toHaveBeenCalledTimes(1))
+    const secondSelection = vm.selectFile(new File([catalogJSON], 'second.json', { type: 'application/json' }))
+    await vi.waitFor(() => expect(previewCatalogImport).toHaveBeenCalledTimes(2))
+    resolveFirstPreview?.({ data: { ...previewFixture(false), preview_token: 'old-preview-token' } })
+    await Promise.all([firstSelection, secondSelection])
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('payment.admin.catalogImport.ready')
+    expect(wrapper.text()).not.toContain('missing source')
   })
 })
