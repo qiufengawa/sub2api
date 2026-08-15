@@ -1,10 +1,10 @@
 <template>
   <div class="space-y-4">
     <div>
-      <label :for="`${idPrefix}-max-effort`" class="input-label">
+      <label :for="`${idPrefix}-max-effort`" class="group-field-label">
         {{ t("admin.groups.form.maxReasoningEffort") }}
       </label>
-      <Select
+      <UiSelect
         :id="`${idPrefix}-max-effort`"
         :model-value="maxEffort"
         :options="reasoningEffortOptions"
@@ -14,22 +14,23 @@
         clearable
         @update:model-value="updateMaxEffort"
       />
-      <p class="input-hint">{{ t("admin.groups.form.maxReasoningEffortHint") }}</p>
+      <p class="group-field-hint">{{ t("admin.groups.form.maxReasoningEffortHint") }}</p>
     </div>
 
     <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
       <div class="mb-3 flex items-center justify-between gap-3">
-        <label class="input-label mb-0">
+        <label class="group-field-label">
           {{ t("admin.groups.form.reasoningEffortMappings") }}
         </label>
-        <button
+        <UiButton
           type="button"
-          class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:text-primary-400 dark:hover:bg-primary-900/20 dark:hover:text-primary-300"
+          density="compact"
+          variant="quiet"
           @click="addMapping"
         >
-          <Icon name="plus" size="sm" />
+          <template #icon><Icon name="plus" size="sm" /></template>
           {{ t("admin.groups.form.addReasoningEffortMapping") }}
-        </button>
+        </UiButton>
       </div>
 
       <div v-if="mappings.length > 0" class="space-y-2">
@@ -40,15 +41,15 @@
         >
           <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] md:items-start">
             <div>
-              <label :for="`${idPrefix}-${row.id}-from`" class="input-label">
+              <label :for="`${idPrefix}-${row.id}-from`" class="group-field-label">
                 {{ t("admin.groups.form.reasoningEffortFrom") }}
               </label>
-              <Select
+              <UiSelect
                 :id="`${idPrefix}-${row.id}-from`"
                 :model-value="row.from"
                 :options="reasoningEffortOptions"
                 :placeholder="t('admin.groups.form.reasoningEffortFromPlaceholder')"
-                :error="showValidation && !!validationErrors[row.id]?.from"
+                :error="showValidation && validationErrors[row.id]?.from ? mappingErrorText(validationErrors[row.id]?.from) : undefined"
                 :aria-label="t('admin.groups.form.reasoningEffortFrom')"
                 :aria-describedby="showValidation && validationErrors[row.id]?.from ? `${idPrefix}-${row.id}-from-error` : undefined"
                 :searchable="false"
@@ -70,15 +71,15 @@
             </div>
 
             <div>
-              <label :for="`${idPrefix}-${row.id}-to`" class="input-label">
+              <label :for="`${idPrefix}-${row.id}-to`" class="group-field-label">
                 {{ t("admin.groups.form.reasoningEffortTo") }}
               </label>
-              <Select
+              <UiSelect
                 :id="`${idPrefix}-${row.id}-to`"
                 :model-value="row.to"
                 :options="reasoningEffortOptions"
                 :placeholder="t('admin.groups.form.reasoningEffortToPlaceholder')"
-                :error="showValidation && !!validationErrors[row.id]?.to"
+                :error="showValidation && validationErrors[row.id]?.to ? mappingErrorText(validationErrors[row.id]?.to) : undefined"
                 :aria-label="t('admin.groups.form.reasoningEffortTo')"
                 :aria-describedby="showValidation && validationErrors[row.id]?.to ? `${idPrefix}-${row.id}-to-error` : undefined"
                 :searchable="false"
@@ -95,15 +96,7 @@
               </p>
             </div>
 
-            <button
-              type="button"
-              class="flex h-11 w-11 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/30 md:mt-6 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-              :title="t('admin.groups.form.removeReasoningEffortMapping')"
-              :aria-label="t('admin.groups.form.removeReasoningEffortMapping')"
-              @click="removeMapping(row.id)"
-            >
-              <Icon name="trash" size="sm" />
-            </button>
+            <UiIconButton icon="trash" variant="danger" density="compact" :label="t('admin.groups.form.removeReasoningEffortMapping')" @click="removeMapping(row.id)" />
           </div>
         </div>
       </div>
@@ -116,7 +109,7 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { GroupPlatform } from "@/types";
 import Icon from "@/components/icons/Icon.vue";
-import Select from "@/components/common/Select.vue";
+import { UiButton, UiIconButton, UiSelect } from '@/components/ui';
 import {
   createReasoningEffortMappingRow,
   reasoningEffortOptionsForPlatform,
@@ -195,3 +188,7 @@ const resetValidation = () => {
 
 defineExpose({ validate, resetValidation });
 </script>
+
+<style scoped>
+.group-field-label{display:block;color:var(--ui-text-muted);font-size:13px;font-weight:500;line-height:22px}.group-field-hint{margin:4px 0 0;color:var(--ui-text-soft);font-size:12px;line-height:18px}
+</style>
