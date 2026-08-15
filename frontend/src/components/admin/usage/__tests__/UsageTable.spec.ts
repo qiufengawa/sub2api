@@ -80,8 +80,8 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
-const DataTableStub = {
-  name: 'DataTable',
+const UiDataTableStub = {
+  name: 'UiDataTable',
   props: ['data', 'mobileTable'],
   template: `
     <div>
@@ -142,15 +142,15 @@ describe('admin UsageTable tooltip', () => {
   it('forwards the opt-in mobile table layout without changing the default', () => {
     const defaultWrapper = mount(UsageTable, {
       props: { data: [], loading: false, columns: [] },
-      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+      global: { stubs: { UiDataTable: UiDataTableStub, UiEmptyState: true, Icon: true, Teleport: true } },
     })
-    expect(defaultWrapper.getComponent({ name: 'DataTable' }).props('mobileTable')).toBe(false)
+    expect(defaultWrapper.getComponent({ name: 'UiDataTable' }).props('mobileTable')).toBe(false)
 
     const mobileTableWrapper = mount(UsageTable, {
       props: { data: [], loading: false, columns: [], mobileTable: true },
-      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+      global: { stubs: { UiDataTable: UiDataTableStub, UiEmptyState: true, Icon: true, Teleport: true } },
     })
-    expect(mobileTableWrapper.getComponent({ name: 'DataTable' }).props('mobileTable')).toBe(true)
+    expect(mobileTableWrapper.getComponent({ name: 'UiDataTable' }).props('mobileTable')).toBe(true)
   })
 
   it('marks only usage rows that actually applied long-context billing', () => {
@@ -173,8 +173,8 @@ describe('admin UsageTable tooltip', () => {
       },
       global: {
         stubs: {
-          DataTable: DataTableStub,
-          EmptyState: true,
+          UiDataTable: UiDataTableStub,
+          UiEmptyState: true,
           Icon: true,
           Teleport: true,
         },
@@ -201,8 +201,8 @@ describe('admin UsageTable tooltip', () => {
       },
       global: {
         stubs: {
-          DataTable: DataTableStub,
-          EmptyState: true,
+          UiDataTable: UiDataTableStub,
+          UiEmptyState: true,
           Icon: true,
           Teleport: true,
         },
@@ -240,16 +240,15 @@ describe('admin UsageTable tooltip', () => {
       },
       global: {
         stubs: {
-          DataTable: DataTableStub,
-          EmptyState: true,
+          UiDataTable: UiDataTableStub,
+          UiEmptyState: true,
           Icon: true,
           Teleport: true,
         },
       },
     })
 
-    const tooltipTriggers = wrapper.findAll('.group.relative')
-    await tooltipTriggers[tooltipTriggers.length - 1].trigger('mouseenter')
+    await wrapper.get('[data-testid="cost-details-trigger"]').trigger('focusin')
     await nextTick()
 
     const text = wrapper.text()
@@ -291,8 +290,8 @@ describe('admin UsageTable tooltip', () => {
       },
       global: {
         stubs: {
-          DataTable: DataTableStub,
-          EmptyState: true,
+          UiDataTable: UiDataTableStub,
+          UiEmptyState: true,
           Icon: true,
           Teleport: true,
         },
@@ -331,8 +330,8 @@ describe('admin UsageTable tooltip', () => {
 			},
 			global: {
 				stubs: {
-					DataTable: DataTableStub,
-					EmptyState: true,
+					UiDataTable: UiDataTableStub,
+					UiEmptyState: true,
 					Icon: true,
 					Teleport: true,
 				},
@@ -405,15 +404,15 @@ describe('admin UsageTable tooltip', () => {
       },
       global: {
         stubs: {
-          DataTable: DataTableStub,
-          EmptyState: true,
+          UiDataTable: UiDataTableStub,
+          UiEmptyState: true,
           Icon: true,
           Teleport: true,
         },
       },
     })
 
-    await wrapper.find('.group.relative').trigger('mouseenter')
+    await wrapper.get('[data-testid="cost-details-trigger"]').trigger('focusin')
     await nextTick()
 
     const text = wrapper.text()
@@ -449,15 +448,15 @@ describe('admin UsageTable tooltip', () => {
       },
       global: {
         stubs: {
-          DataTable: DataTableStub,
-          EmptyState: true,
+          UiDataTable: UiDataTableStub,
+          UiEmptyState: true,
           Icon: true,
           Teleport: true,
         },
       },
     })
 
-    await wrapper.find('.group.relative').trigger('mouseenter')
+    await wrapper.get('[data-testid="cost-details-trigger"]').trigger('focusin')
     await nextTick()
 
     const text = wrapper.text()
@@ -482,7 +481,7 @@ describe('admin UsageTable billing source', () => {
         loading: false,
         columns: [{ key: 'billing_source', label: 'Funding Source' }],
       },
-      global: { stubs: { DataTable: DataTableStub } },
+      global: { stubs: { UiDataTable: UiDataTableStub } },
     })
 
     expect(wrapper.text()).toContain('Wallet')
@@ -505,7 +504,7 @@ describe('admin UsageTable billing source', () => {
         loading: false,
         columns: [{ key: 'billing_source', label: 'Funding Source' }],
       },
-      global: { stubs: { DataTable: DataTableStub } },
+      global: { stubs: { UiDataTable: UiDataTableStub } },
     })
 
     expect(wrapper.text()).toContain('Subscription')
@@ -514,7 +513,7 @@ describe('admin UsageTable billing source', () => {
 })
 
 describe('admin UsageTable IP geolocation batch toolbar', () => {
-  const DataTableStubWithIp = {
+  const UiDataTableStubWithIp = {
     props: ['data'],
     template: `
       <div>
@@ -539,7 +538,7 @@ describe('admin UsageTable IP geolocation batch toolbar', () => {
         loading: false,
         columns: [],
       },
-      global: { stubs: { DataTable: DataTableStubWithIp, EmptyState: true, Teleport: true } },
+      global: { stubs: { UiDataTable: UiDataTableStubWithIp, UiEmptyState: true, Teleport: true } },
     })
     expect(wrapper.text()).not.toContain('usage.ipGeo.batchFetch')
   })
@@ -555,7 +554,7 @@ describe('admin UsageTable IP geolocation batch toolbar', () => {
         loading: false,
         columns: [{ key: 'ip_address', label: 'IP' }],
       },
-      global: { stubs: { DataTable: DataTableStubWithIp, EmptyState: true, Teleport: true } },
+      global: { stubs: { UiDataTable: UiDataTableStubWithIp, UiEmptyState: true, Teleport: true } },
     })
     expect(wrapper.text()).toContain('usage.ipGeo.pending')
     const button = wrapper.find('button')
@@ -575,7 +574,7 @@ describe('admin UsageTable IP geolocation batch toolbar', () => {
         loading: false,
         columns: [{ key: 'ip_address', label: 'IP' }],
       },
-      global: { stubs: { DataTable: DataTableStubWithIp, EmptyState: true, Teleport: true } },
+      global: { stubs: { UiDataTable: UiDataTableStubWithIp, UiEmptyState: true, Teleport: true } },
     })
     await wrapper.find('button').trigger('click')
     expect(ipGeoMocks.fetchBatch).toHaveBeenCalledWith(['8.8.8.8', '1.1.1.1'])
@@ -590,7 +589,7 @@ describe('admin UsageTable IP geolocation batch toolbar', () => {
         loading: false,
         columns: [{ key: 'ip_address', label: 'IP' }],
       },
-      global: { stubs: { DataTable: DataTableStubWithIp, EmptyState: true, Teleport: true } },
+      global: { stubs: { UiDataTable: UiDataTableStubWithIp, UiEmptyState: true, Teleport: true } },
     })
     await wrapper.find('button').trigger('click')
     expect(wrapper.emitted('ipGeoBatchFailed')).toHaveLength(1)
@@ -604,15 +603,15 @@ describe('admin UsageTable IP geolocation batch toolbar', () => {
         loading: false,
         columns: [{ key: 'ip_address', label: 'IP' }],
       },
-      global: { stubs: { DataTable: DataTableStubWithIp, EmptyState: true, Teleport: true } },
+      global: { stubs: { UiDataTable: UiDataTableStubWithIp, UiEmptyState: true, Teleport: true } },
     })
     expect(wrapper.text()).toContain('121.35.47.43')
     expect(wrapper.text()).toContain('CN · Guangdong · Shenzhen')
   })
 })
 
-// A DataTable stub that also renders cell-user, so the deleted badge can be asserted.
-const DataTableStubWithUser = {
+// A UiDataTable stub that also renders cell-user, so the deleted badge can be asserted.
+const UiDataTableStubWithUser = {
   props: ['data'],
   template: `
     <div>
@@ -651,8 +650,8 @@ describe('admin UsageTable deleted-user badge', () => {
       },
       global: {
         stubs: {
-          DataTable: DataTableStubWithUser,
-          EmptyState: true,
+          UiDataTable: UiDataTableStubWithUser,
+          UiEmptyState: true,
           Icon: true,
           Teleport: true,
         },
@@ -686,8 +685,8 @@ describe('admin UsageTable deleted-user badge', () => {
       },
       global: {
         stubs: {
-          DataTable: DataTableStubWithUser,
-          EmptyState: true,
+          UiDataTable: UiDataTableStubWithUser,
+          UiEmptyState: true,
           Icon: true,
           Teleport: true,
         },
