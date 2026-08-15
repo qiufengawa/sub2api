@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import OpenAIQuotaResetCell from '../OpenAIQuotaResetCell.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import { UiConfirmDialog } from '@/components/ui'
 import type { Account } from '@/types'
 import { refreshOpenAIQuota, resetOpenAIQuota } from '@/api/admin/accounts'
 
@@ -262,7 +262,7 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
     const wrapper = mount(OpenAIQuotaResetCell, { props: { account } })
 
     await resetButton(wrapper).trigger('click')
-    wrapper.findComponent(ConfirmDialog).vm.$emit('confirm')
+    wrapper.findComponent(UiConfirmDialog).vm.$emit('confirm')
     await flushPromises()
 
     expect(resetOpenAIQuota).toHaveBeenCalledWith(1)
@@ -301,7 +301,7 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
     const wrapper = mount(OpenAIQuotaResetCell, { props: { account } })
 
     await resetButton(wrapper).trigger('click')
-    wrapper.findComponent(ConfirmDialog).vm.$emit('confirm')
+    wrapper.findComponent(UiConfirmDialog).vm.$emit('confirm')
     await flushPromises()
 
     expect(refreshOpenAIQuota).not.toHaveBeenCalled()
@@ -334,7 +334,7 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
     const wrapper = mount(OpenAIQuotaResetCell, { props: { account } })
 
     await resetButton(wrapper).trigger('click')
-    wrapper.findComponent(ConfirmDialog).vm.$emit('confirm')
+    wrapper.findComponent(UiConfirmDialog).vm.$emit('confirm')
     await flushPromises()
 
     expect(refreshOpenAIQuota).not.toHaveBeenCalled()

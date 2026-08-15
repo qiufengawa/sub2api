@@ -1,5 +1,5 @@
 <template>
-  <div v-if="visible" class="space-y-1">
+  <div v-if="visible" class="quota-reset">
     <!--
       Unified action row. Parents that already render their own "local query"
       affordance (e.g. AccountUsageCell's active-sampling refresh) pass it in
@@ -11,126 +11,96 @@
       owns that real estate. This cell is purely about the rate-limit reset
       credit: query its count, consume one if needed.
     -->
-    <div class="flex flex-wrap items-center gap-1.5">
+    <AppInline :gap="4">
       <slot name="pre-actions" />
 
-      <button
-        type="button"
-        class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-900/30"
+      <UiButton
+        density="mini"
+        variant="quiet"
+        :loading="loading"
         :disabled="loading || resetting"
         :title="countButtonTitle"
         @click="handleQuery()"
       >
-        <svg
-          class="h-2.5 w-2.5"
-          :class="{ 'animate-spin': loading }"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-          />
-        </svg>
+        <template #icon><Icon v-if="!loading" name="refresh" size="xs" /></template>
         {{ t('admin.accounts.openaiQuotaReset.count') }}<span v-if="data"> {{ availableResetCount }}</span>
-      </button>
+      </UiButton>
 
-      <button
-        type="button"
-        class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-orange-600 transition-colors hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-orange-400 dark:hover:bg-orange-900/30"
+      <UiButton
+        density="mini"
+        variant="quiet"
+        :loading="resetting"
         :disabled="resetting || loading || !canReset"
         :title="resetButtonTitle"
         @click="openResetConfirm"
       >
-        <svg
-          class="h-2.5 w-2.5"
-          :class="{ 'animate-spin': resetting }"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M20 12a8 8 0 11-2.343-5.657L20 8m0 0V4m0 4h-4"
-          />
-        </svg>
+        <template #icon><Icon v-if="!resetting" name="sync" size="xs" /></template>
         {{ t('admin.accounts.openaiQuotaReset.reset') }}
-      </button>
-    </div>
+      </UiButton>
+    </AppInline>
 
-    <div v-if="primaryResetCreditExpiry" class="space-y-1">
-      <div class="flex flex-wrap items-center gap-1">
-        <span
-          class="inline-flex max-w-full items-center rounded bg-gray-100 px-1.5 py-0.5 text-[10px] leading-4 text-gray-600 tabular-nums dark:bg-dark-800 dark:text-gray-300"
+    <div v-if="primaryResetCreditExpiry" class="quota-reset__credits">
+      <AppInline :gap="4">
+        <UiBadge
           :title="t('admin.accounts.openaiQuotaReset.expiresAtFull', { time: formatResetCreditExpiry(primaryResetCreditExpiry, 'full') })"
-        >
-          {{ t('admin.accounts.openaiQuotaReset.expiresAt', { time: formatResetCreditExpiry(primaryResetCreditExpiry, 'short') }) }}
-        </span>
-        <button
+          :label="t('admin.accounts.openaiQuotaReset.expiresAt', { time: formatResetCreditExpiry(primaryResetCreditExpiry, 'short') })"
+        />
+        <UiButton
           v-if="hiddenResetCreditCount > 0"
-          type="button"
           data-testid="reset-credit-expiry-toggle"
-          class="inline-flex items-center rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium leading-4 text-gray-600 transition-colors hover:bg-gray-200 dark:bg-dark-800 dark:text-gray-300 dark:hover:bg-dark-700"
+          density="mini"
+          variant="quiet"
           :aria-expanded="showResetCreditDetails"
           :aria-label="resetCreditDetailsToggleLabel"
           :title="resetCreditDetailsTitle"
           @click="toggleResetCreditDetails"
         >
           +{{ hiddenResetCreditCount }}
-        </button>
-      </div>
+        </UiButton>
+      </AppInline>
 
       <div
         v-if="showResetCreditDetails && resetCreditExpirations.length > 1"
         data-testid="reset-credit-expiry-details"
-        class="inline-grid max-w-full gap-0.5 rounded border border-gray-200 bg-white px-1.5 py-1 text-[10px] leading-4 text-gray-600 shadow-sm dark:border-dark-700 dark:bg-dark-900 dark:text-gray-300"
+        class="quota-reset__details"
       >
         <span class="sr-only">{{ t('admin.accounts.openaiQuotaReset.expirationDetails') }}</span>
         <span
           v-for="(expiresAt, index) in resetCreditExpirations"
           :key="`${expiresAt}-${index}`"
-          class="flex min-w-0 items-center gap-1 tabular-nums"
+          class="quota-reset__detail ui-numeric"
           :title="t('admin.accounts.openaiQuotaReset.expiresAtFull', { time: formatResetCreditExpiry(expiresAt, 'full') })"
         >
-          <span class="h-1 w-1 shrink-0 rounded-full bg-gray-400 dark:bg-dark-500" />
           <span class="truncate">{{ formatResetCreditExpiry(expiresAt, 'short') }}</span>
         </span>
       </div>
     </div>
 
     <!-- Error / success feedback -->
-    <div
-      v-if="error"
-      class="text-[10px] text-red-600 dark:text-red-400"
-      :title="error"
-    >
+    <div v-if="error" class="quota-reset__feedback is-danger" :title="error">
       {{ truncatedError }}
     </div>
     <div
       v-else-if="resetWarning"
-      class="text-[10px] text-amber-600 dark:text-amber-400"
+      class="quota-reset__feedback is-warning"
     >
       {{ resetWarning }}
     </div>
     <div
       v-else-if="resetMessage"
-      class="text-[10px] text-emerald-600 dark:text-emerald-400"
+      class="quota-reset__feedback is-success"
     >
       {{ resetMessage }}
     </div>
 
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showResetConfirm"
       :title="t('admin.accounts.openaiQuotaReset.confirmTitle')"
       :message="t('admin.accounts.openaiQuotaReset.confirmMessage', { count: availableResetCount })"
       :confirm-text="t('admin.accounts.openaiQuotaReset.reset')"
       :cancel-text="t('common.cancel')"
       danger
+      :pending="resetting"
       @confirm="confirmReset"
       @cancel="showResetConfirm = false"
     />
@@ -147,7 +117,8 @@ import {
   type OpenAIQuotaUsage,
   type OpenAIQuotaResetResult
 } from '@/api/admin/accounts'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import Icon from '@/components/icons/Icon.vue'
+import { AppInline, UiBadge, UiButton, UiConfirmDialog } from '@/components/ui'
 
 const props = defineProps<{
   account: Account
@@ -422,3 +393,7 @@ watch(
   }
 )
 </script>
+
+<style scoped>
+.quota-reset{display:grid;gap:4px;min-width:0}.quota-reset__credits{display:grid;gap:4px}.quota-reset__details{display:inline-grid;max-width:100%;gap:2px;padding:5px 7px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius);background:var(--ui-surface)}.quota-reset__detail{display:flex;min-width:0;align-items:center;color:var(--ui-text-muted);font-size:10px;line-height:16px}.quota-reset__feedback{overflow:hidden;font-size:10px;text-overflow:ellipsis;white-space:nowrap}.quota-reset__feedback.is-danger{color:var(--ui-danger)}.quota-reset__feedback.is-warning{color:var(--ui-warning)}.quota-reset__feedback.is-success{color:var(--ui-success)}
+</style>
