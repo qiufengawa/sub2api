@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import Select from '@/components/common/Select.vue'
+import { UiButton, UiDialog, UiFilterBar, UiSearchInput, UiSelect } from '@/components/ui'
 import OpsErrorLogTable from './OpsErrorLogTable.vue'
 import { opsAPI, type OpsErrorLog } from '@/api/admin/ops'
 import { buildOpsErrorTimeParams } from '../utils/opsErrorParams'
@@ -179,18 +178,11 @@ watch(
   }
 )
 
-let searchTimeout: number | null = null
-watch(
-  () => q.value,
-  () => {
-    if (!props.show) return
-    if (searchTimeout) window.clearTimeout(searchTimeout)
-    searchTimeout = window.setTimeout(() => {
-      page.value = 1
-      fetchErrorLogs()
-    }, 350)
-  }
-)
+function handleSearch() {
+  if (!props.show) return
+  page.value = 1
+  void fetchErrorLogs()
+}
 
 watch(
   () => [statusCode.value, phase.value, errorOwner.value, viewMode.value] as const,
@@ -203,85 +195,111 @@ watch(
 </script>
 
 <template>
-  <BaseDialog :show="show" :title="modalTitle" width="full" @close="close">
-    <div class="flex h-full min-h-0 flex-col">
-      <!-- Filters -->
-      <div class="mb-4 flex-shrink-0 border-b border-gray-200 pb-4 dark:border-dark-700">
-        <div class="grid grid-cols-2 gap-2 md:grid-cols-8">
-          <div class="col-span-2 compact-select">
-            <div class="relative group">
-              <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                <svg
-                  class="h-3.5 w-3.5 text-gray-400 transition-colors group-focus-within:text-blue-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              <input
-                v-model="q"
-                type="text"
-                class="w-full rounded-lg border-gray-200 bg-gray-50/50 py-1.5 pl-9 pr-3 text-xs font-medium text-gray-700 transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-300 dark:focus:bg-dark-800"
-                :placeholder="t('admin.ops.errorDetails.searchPlaceholder')"
-              />
-            </div>
-          </div>
+  <UiDialog :show="show" :title="modalTitle" width="full" @close="close">
+    <div class="ops-error-details">
+      <UiFilterBar>
+        <UiSearchInput
+          v-model="q"
+          class="ops-error-details__search"
+          density="compact"
+          :debounce-ms="350"
+          :placeholder="t('admin.ops.errorDetails.searchPlaceholder')"
+          @search="handleSearch"
+        />
+        <UiSelect
+          v-model="statusCode"
+          class="ops-error-details__filter"
+          density="compact"
+          :options="statusCodeSelectOptions"
+        />
+        <UiSelect
+          v-model="phase"
+          class="ops-error-details__filter"
+          density="compact"
+          :options="phaseSelectOptions"
+        />
+        <UiSelect
+          v-model="errorOwner"
+          class="ops-error-details__filter"
+          density="compact"
+          :options="ownerSelectOptions"
+        />
+        <UiSelect
+          v-model="viewMode"
+          class="ops-error-details__filter"
+          density="compact"
+          :options="viewModeSelectOptions"
+        />
+        <template #actions>
+          <UiButton density="compact" variant="secondary" @click="resetFilters">
+            {{ t('common.reset') }}
+          </UiButton>
+        </template>
+      </UiFilterBar>
 
-          <div class="compact-select">
-            <Select :model-value="statusCode" :options="statusCodeSelectOptions" @update:model-value="statusCode = $event as any" />
-          </div>
-
-          <div class="compact-select">
-            <Select :model-value="phase" :options="phaseSelectOptions" @update:model-value="phase = String($event ?? '')" />
-          </div>
-
-          <div class="compact-select">
-            <Select :model-value="errorOwner" :options="ownerSelectOptions" @update:model-value="errorOwner = String($event ?? '')" />
-          </div>
-
-
-
-          <div class="compact-select">
-            <Select :model-value="viewMode" :options="viewModeSelectOptions" @update:model-value="viewMode = $event as any" />
-          </div>
-
-          <div class="flex items-center justify-end">
-            <button type="button" class="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600" @click="resetFilters">
-              {{ t('common.reset') }}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Body -->
-      <div class="flex min-h-0 flex-1 flex-col">
-        <div class="mb-2 flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">
+      <div class="ops-error-details__body">
+        <div class="ops-error-details__total">
           {{ t('admin.ops.errorDetails.total') }} {{ total }}
         </div>
 
-          <OpsErrorLogTable
-            class="min-h-0 flex-1"
-            :rows="rows"
-            :total="total"
-            :loading="loading"
-            :page="page"
-            :page-size="pageSize"
-            @openErrorDetail="emit('openErrorDetail', $event)"
-            @sort="onSort"
-
-            @update:page="page = $event"
-            @update:pageSize="pageSize = $event"
-          />
-
+        <OpsErrorLogTable
+          class="ops-error-details__table"
+          :rows="rows"
+          :total="total"
+          :loading="loading"
+          :page="page"
+          :page-size="pageSize"
+          @open-error-detail="emit('openErrorDetail', $event)"
+          @sort="onSort"
+          @update:page="page = $event"
+          @update:page-size="pageSize = $event"
+        />
       </div>
     </div>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
-<style>
-.compact-select .select-trigger {
-  @apply py-1.5 px-3 text-xs rounded-lg;
+<style scoped>
+.ops-error-details {
+  display: flex;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+}
+
+.ops-error-details__search {
+  width: min(100%, 280px);
+}
+
+.ops-error-details__filter {
+  width: 148px;
+}
+
+.ops-error-details__body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding-top: 10px;
+}
+
+.ops-error-details__total {
+  flex-shrink: 0;
+  padding: 0 2px 8px;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ops-error-details__table {
+  min-height: 0;
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .ops-error-details__search,
+  .ops-error-details__filter {
+    width: 100%;
+  }
 }
 </style>
