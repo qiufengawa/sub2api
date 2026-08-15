@@ -1,145 +1,106 @@
 <template>
-  <div>
-    <!-- Multi-select Dropdown -->
-    <div class="relative mb-3">
-      <div
-        @click="toggleDropdown"
-        class="cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-2 dark:border-dark-500 dark:bg-dark-700"
-      >
-        <div class="grid grid-cols-2 gap-1.5">
-          <span
-            v-for="model in modelValue"
-            :key="model"
-            class="inline-flex items-center justify-between gap-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-dark-600 dark:text-gray-300"
-          >
-            <span class="flex items-center gap-1 truncate">
-              <ModelIcon :model="model" size="14px" />
-              <span class="truncate">{{ model }}</span>
-            </span>
-            <button
-              type="button"
-              @click.stop="removeModel(model)"
-              class="shrink-0 rounded-full hover:bg-gray-200 dark:hover:bg-dark-500"
-            >
-              <Icon name="x" size="xs" class="h-3.5 w-3.5" :stroke-width="2" />
-            </button>
-          </span>
-        </div>
-        <div class="mt-2 flex items-center justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
-          <span class="text-xs text-gray-400">{{ t('admin.accounts.modelCount', { count: modelValue.length }) }}</span>
-          <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </div>
-      <!-- Dropdown List -->
-      <div
-        v-if="showDropdown"
-        class="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-dark-600 dark:bg-dark-700"
-      >
-        <div class="sticky top-0 border-b border-gray-200 bg-white p-2 dark:border-dark-600 dark:bg-dark-700">
-          <input
-            v-model="searchQuery"
-            type="text"
-            class="input w-full text-sm"
-            :placeholder="t('admin.accounts.searchModels')"
-            @click.stop
-          />
-        </div>
-        <div class="max-h-52 overflow-auto">
-          <div
-            v-for="model in filteredModels"
-            :key="model.value"
-            data-testid="model-option"
-            class="group flex items-center hover:bg-gray-100 dark:hover:bg-dark-600"
-          >
-            <button
-              type="button"
-              data-testid="select-model"
-              class="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left text-sm"
-              @click="toggleModel(model.value)"
-            >
-              <span
-                :class="[
-                  'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
-                  modelValue.includes(model.value)
-                    ? 'border-primary-500 bg-primary-500 text-white'
-                    : 'border-gray-300 dark:border-dark-500'
-                ]"
-              >
-                <svg v-if="modelValue.includes(model.value)" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
-                </svg>
-              </span>
-              <ModelIcon :model="model.value" size="18px" />
-              <span class="truncate text-gray-900 dark:text-white">{{ model.value }}</span>
-            </button>
-            <button
-              type="button"
-              data-testid="copy-model-id"
-              class="mr-2 rounded p-1.5 text-gray-400 opacity-70 transition-colors hover:bg-gray-200 hover:text-primary-600 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group-hover:opacity-100 dark:text-gray-500 dark:hover:bg-dark-500 dark:hover:text-primary-400"
-              :title="`${t('common.copy')} ${model.value}`"
-              :aria-label="`${t('common.copy')} ${model.value}`"
-              @click="copyModelId(model.value)"
-            >
-              <Icon name="copy" size="sm" />
-            </button>
-          </div>
-          <div v-if="filteredModels.length === 0" class="px-3 py-4 text-center text-sm text-gray-500">
-            {{ t('admin.accounts.noMatchingModels') }}
-          </div>
-        </div>
-      </div>
+  <div class="model-whitelist">
+    <div v-if="modelValue.length" class="model-whitelist__chips">
+      <span v-for="model in modelValue" :key="model" class="model-whitelist__chip">
+        <span class="model-whitelist__chip-name">
+          <ModelIcon :model="model" size="14px" />
+          <span>{{ model }}</span>
+        </span>
+        <UiIconButton
+          :label="`${t('common.delete')} ${model}`"
+          variant="danger"
+          density="mini"
+          @click="removeModel(model)"
+        >
+          <Icon name="x" size="xs" />
+        </UiIconButton>
+      </span>
     </div>
-
-    <!-- Quick Actions -->
-    <div class="mb-4 flex flex-wrap gap-2">
-      <button
-        type="button"
-        @click="fillRelated"
-        class="rounded-lg border border-blue-200 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30"
-      >
-        {{ t('admin.accounts.fillRelatedModels') }}
-      </button>
-      <button
-        v-if="canSyncUpstream"
-        type="button"
-        @click="syncUpstreamModels"
-        :disabled="isSyncingUpstream"
-        class="rounded-lg border border-emerald-200 px-3 py-1.5 text-sm text-emerald-600 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
-      >
-        {{ isSyncingUpstream ? t('admin.accounts.syncUpstreamModelsLoading') : t('admin.accounts.syncUpstreamModels') }}
-      </button>
-      <button
-        type="button"
-        @click="clearAll"
-        class="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30"
-      >
-        {{ t('admin.accounts.clearAllModels') }}
-      </button>
-    </div>
-
-    <!-- Custom Model Input -->
-    <div class="mb-3">
-      <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.accounts.customModelName') }}</label>
-      <div class="flex gap-2">
-        <input
-          v-model="customModel"
-          type="text"
-          class="input flex-1"
-          :placeholder="t('admin.accounts.enterCustomModelName')"
-          @keydown.enter.prevent="handleEnter"
-          @compositionstart="isComposing = true"
-          @compositionend="isComposing = false"
-        />
+    <UiPopover
+      class="model-whitelist__popover"
+      placement="bottom-start"
+      panel-role="dialog"
+      :aria-label="t('admin.accounts.searchModels')"
+      width="min(420px, calc(100vw - 16px))"
+      @open-change="handlePopoverOpenChange"
+    >
+      <template #trigger="{ open }">
         <button
           type="button"
-          @click="addCustom"
-          class="rounded-lg bg-primary-50 px-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-400 dark:hover:bg-primary-900/50"
+          data-testid="model-select-trigger"
+          class="model-whitelist__trigger"
+          :aria-expanded="open"
+          aria-haspopup="dialog"
+          :aria-label="t('admin.accounts.modelRestriction')"
         >
-          {{ t('admin.accounts.addModel') }}
+          <span>{{ t('admin.accounts.modelCount', { count: modelValue.length }) }}</span>
+          <Icon name="chevronDown" size="sm" />
         </button>
-      </div>
+      </template>
+      <template #default>
+        <div class="model-whitelist__panel" @click.stop>
+          <UiSearchInput
+            v-model="searchQuery"
+            density="compact"
+            :placeholder="t('admin.accounts.searchModels')"
+            :aria-label="t('admin.accounts.searchModels')"
+          />
+          <div class="model-whitelist__options">
+            <div v-for="model in filteredModels" :key="model.value" data-testid="model-option" class="model-whitelist__option">
+              <button type="button" data-testid="select-model" class="model-whitelist__option-select" @click="toggleModel(model.value)">
+                <span class="model-whitelist__check" :class="{ 'model-whitelist__check--selected': modelValue.includes(model.value) }">
+                  <Icon v-if="modelValue.includes(model.value)" name="check" size="xs" />
+                </span>
+                <ModelIcon :model="model.value" size="18px" />
+                <span class="model-whitelist__option-name">{{ model.value }}</span>
+              </button>
+              <UiIconButton
+                data-testid="copy-model-id"
+                :label="`${t('common.copy')} ${model.value}`"
+                icon="copy"
+                variant="ghost"
+                density="mini"
+                @click.stop="copyModelId(model.value)"
+              />
+            </div>
+            <div v-if="filteredModels.length === 0" class="model-whitelist__empty">
+              {{ t('admin.accounts.noMatchingModels') }}
+            </div>
+          </div>
+        </div>
+      </template>
+    </UiPopover>
+
+    <div class="model-whitelist__actions">
+      <UiButton density="dense" variant="quiet" @click="fillRelated">
+        <template #icon><Icon name="sparkles" size="sm" /></template>
+        {{ t('admin.accounts.fillRelatedModels') }}
+      </UiButton>
+      <UiButton v-if="canSyncUpstream" density="dense" variant="quiet" :loading="isSyncingUpstream" :disabled="isSyncingUpstream" @click="syncUpstreamModels">
+        <template #icon><Icon name="refresh" size="sm" /></template>
+        {{ isSyncingUpstream ? t('admin.accounts.syncUpstreamModelsLoading') : t('admin.accounts.syncUpstreamModels') }}
+      </UiButton>
+      <UiButton density="dense" variant="danger" @click="clearAll">
+        <template #icon><Icon name="trash" size="sm" /></template>
+        {{ t('admin.accounts.clearAllModels') }}
+      </UiButton>
+    </div>
+
+    <div class="model-whitelist__custom">
+      <UiTextField
+        v-model="customModel"
+        density="compact"
+        :label="t('admin.accounts.customModelName')"
+        :placeholder="t('admin.accounts.enterCustomModelName')"
+        :prevent-enter-default="true"
+        @enter="handleEnter"
+        @compositionstart="isComposing = true"
+        @compositionend="isComposing = false"
+      />
+      <UiButton density="compact" variant="primary" @click="addCustom">
+        <template #icon><Icon name="plus" size="sm" /></template>
+        {{ t('admin.accounts.addModel') }}
+      </UiButton>
     </div>
   </div>
 </template>
@@ -153,6 +114,7 @@ import type { SyncUpstreamPreviewParams } from '@/api/admin/accounts'
 import { useClipboard } from '@/composables/useClipboard'
 import ModelIcon from '@/components/common/ModelIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { UiButton, UiIconButton, UiPopover, UiSearchInput, UiTextField } from '@/components/ui'
 import { allModels, getModelsByPlatform } from '@/composables/useModelWhitelist'
 
 const { t } = useI18n()
@@ -177,7 +139,6 @@ const emit = defineEmits<{
 const appStore = useAppStore()
 const { copyToClipboard } = useClipboard()
 
-const showDropdown = ref(false)
 const searchQuery = ref('')
 const customModel = ref('')
 const isComposing = ref(false)
@@ -234,9 +195,8 @@ const filteredModels = computed(() => {
   )
 })
 
-const toggleDropdown = () => {
-  showDropdown.value = !showDropdown.value
-  if (!showDropdown.value) searchQuery.value = ''
+const handlePopoverOpenChange = (open: boolean) => {
+  if (!open) searchQuery.value = ''
 }
 
 const removeModel = (model: string) => {
@@ -266,8 +226,8 @@ const addCustom = () => {
   customModel.value = ''
 }
 
-const handleEnter = () => {
-  if (!isComposing.value) addCustom()
+const handleEnter = (event: KeyboardEvent) => {
+  if (!isComposing.value && !event.isComposing) addCustom()
 }
 
 const fillRelated = () => {
@@ -331,3 +291,28 @@ const clearAll = () => {
 }
 
 </script>
+
+<style scoped>
+.model-whitelist{display:grid;gap:12px;min-width:0}
+.model-whitelist__chips{display:flex;flex-wrap:wrap;gap:5px;min-width:0}
+.model-whitelist__chip{display:inline-flex;align-items:center;gap:4px;max-width:100%;padding:2px 4px 2px 6px;border:1px solid var(--ui-border);border-radius:var(--ui-radius);background:var(--ui-surface-muted);font-size:12px}
+.model-whitelist__chip-name{display:inline-flex;align-items:center;gap:4px;min-width:0}
+.model-whitelist__chip-name>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--ui-font-mono)}
+:deep(.model-whitelist__popover){display:flex;width:100%}
+.model-whitelist__trigger{display:flex;width:100%;height:var(--ui-control-compact);align-items:center;justify-content:space-between;padding:0 10px;border:1px solid var(--ui-border);border-radius:var(--ui-radius);color:var(--ui-text-muted);background:var(--ui-surface);font-size:12px;cursor:pointer;transition:border-color var(--ui-motion-fast),background var(--ui-motion-fast)}
+.model-whitelist__trigger:hover{border-color:var(--ui-text-soft);background:var(--ui-surface-muted)}
+.model-whitelist__trigger:focus-visible{border-color:var(--ui-focus);outline:none;box-shadow:0 0 0 2px color-mix(in srgb,var(--ui-focus) 16%,transparent)}
+.model-whitelist__panel{display:grid;gap:8px;min-width:0;padding:2px}
+.model-whitelist__options{max-height:260px;overflow:auto;border-top:1px solid var(--ui-border)}
+.model-whitelist__option{display:flex;align-items:center;gap:4px;min-width:0;border-bottom:1px solid var(--ui-border);padding:2px 0}
+.model-whitelist__option-select{display:flex;align-items:center;gap:8px;min-width:0;flex:1;padding:7px 6px;border:0;color:var(--ui-text);background:transparent;text-align:left;cursor:pointer}
+.model-whitelist__option-select:hover{background:var(--ui-surface-muted)}
+.model-whitelist__check{display:grid;width:16px;height:16px;flex:none;place-items:center;border:1px solid var(--ui-border);border-radius:4px;color:transparent}
+.model-whitelist__check--selected{border-color:var(--ui-text);color:var(--ui-inverse);background:var(--ui-text)}
+.model-whitelist__option-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--ui-font-mono);font-size:12px}
+.model-whitelist__empty{padding:16px 8px;color:var(--ui-text-soft);font-size:12px;text-align:center}
+.model-whitelist__actions{display:flex;flex-wrap:wrap;gap:4px}
+.model-whitelist__custom{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px}
+@media(max-width:540px){.model-whitelist__custom{grid-template-columns:1fr}.model-whitelist__custom>:last-child{width:100%}}
+@media(prefers-reduced-motion:reduce){.model-whitelist__trigger{transition:none}}
+</style>

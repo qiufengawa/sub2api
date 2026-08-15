@@ -45,4 +45,26 @@ describe('UiTextField model modifiers', () => {
 
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual(['model-id'])
   })
+
+  it('forwards composition lifecycle events for IME-aware consumers', async () => {
+    const wrapper = mount(UiTextField, { props: { modelValue: '' } })
+    const input = wrapper.get('input')
+
+    await input.trigger('compositionstart')
+    await input.trigger('compositionend')
+
+    expect(wrapper.emitted('compositionstart')).toHaveLength(1)
+    expect(wrapper.emitted('compositionend')).toHaveLength(1)
+  })
+
+  it('can prevent Enter from submitting a parent form', async () => {
+    const wrapper = mount(UiTextField, {
+      props: { modelValue: '', preventEnterDefault: true }
+    })
+
+    await wrapper.get('input').trigger('keydown', { key: 'Enter' })
+
+    const event = wrapper.emitted('enter')?.[0]?.[0] as KeyboardEvent
+    expect(event.defaultPrevented).toBe(true)
+  })
 })
