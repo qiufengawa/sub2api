@@ -13,22 +13,26 @@
       <UiServerTableWorkspace :loading="loading" :empty="false">
         <template #toolbar>
           <UiTableToolbar>
-            <UiSearchInput v-model="searchQuery" density="dense" :placeholder="t('admin.channels.searchChannels', 'Search channels...')" @search="handleSearch" />
-            <UiSelect v-model="filters.status" density="dense" :options="statusFilterOptions" :aria-label="t('admin.channels.columns.status', 'Status')" @change="loadChannels" />
+            <UiFilterBar>
+              <UiSearchInput v-model="searchQuery" density="dense" :placeholder="t('admin.channels.searchChannels', 'Search channels...')" @search="handleSearch" />
+              <UiSelect v-model="filters.status" density="dense" :options="statusFilterOptions" :aria-label="t('admin.channels.columns.status', 'Status')" @change="loadChannels" />
+            </UiFilterBar>
             <template #actions><UiIconButton icon="refresh" density="dense" :label="t('common.refresh', 'Refresh')" :disabled="loading" @click="loadChannels" /></template>
           </UiTableToolbar>
         </template>
 
-        <UiDataTable :columns="columns" :data="channels" :loading="loading" :mobile-table="true" :aria-label="t('admin.channels.title', 'Channels')" :server-side-sort="true" default-sort-key="created_at" default-sort-order="desc" @sort="handleSort">
-          <template #cell-name="{ value }"><strong class="channel-cell-primary" :title="String(value)">{{ value }}</strong></template>
-          <template #cell-description="{ value }"><span class="channel-cell-muted" :title="value || ''">{{ value || '-' }}</span></template>
+        <UiMobileTableScroller :label="t('admin.channels.title', 'Channels')" min-width="760px">
+          <UiDataTable :columns="columns" :data="channels" :loading="loading" :mobile-table="true" :aria-label="t('admin.channels.title', 'Channels')" :server-side-sort="true" default-sort-key="created_at" default-sort-order="desc" @sort="handleSort">
+          <template #cell-name="{ value }"><UiDataCell :value="String(value)" /></template>
+          <template #cell-description="{ value }"><UiDataCell :value="value || '-'" /></template>
           <template #cell-status="{ row }"><UiSwitch :model-value="row.status === 'active'" :label="row.name" @update:model-value="toggleChannelStatus(row)" /></template>
           <template #cell-group_count="{ row }"><UiBadge :label="`${(row.group_ids || []).length} ${t('admin.channels.groupsUnit', 'groups')}`" /></template>
           <template #cell-pricing_count="{ row }"><UiBadge :label="`${(row.model_pricing || []).length} ${t('admin.channels.pricingUnit', 'pricing rules')}`" /></template>
-          <template #cell-created_at="{ value }"><span class="channel-cell-muted">{{ formatDate(value) }}</span></template>
-          <template #cell-actions="{ row }"><div class="channel-row-actions"><UiIconButton icon="edit" density="dense" variant="ghost" :label="t('common.edit', 'Edit')" @click="openEditDialog(row)" /><UiIconButton icon="trash" density="dense" variant="danger" :label="t('common.delete', 'Delete')" @click="handleDelete(row)" /></div></template>
+          <template #cell-created_at="{ value }"><UiDataCell :value="formatDate(value)" mono /></template>
+          <template #cell-actions="{ row }"><UiButtonGroup><UiIconButton icon="edit" density="dense" variant="ghost" :label="t('common.edit', 'Edit')" @click="openEditDialog(row)" /><UiIconButton icon="trash" density="dense" variant="danger" :label="t('common.delete', 'Delete')" @click="handleDelete(row)" /></UiButtonGroup></template>
           <template #empty><UiEmptyState :title="t('admin.channels.noChannelsYet', 'No Channels Yet')" :description="t('admin.channels.createFirstChannel', 'Create your first channel to manage model pricing')"><template #action><UiButton density="dense" variant="primary" @click="openCreateDialog">{{ t('admin.channels.createChannel', 'Create Channel') }}</UiButton></template></UiEmptyState></template>
-        </UiDataTable>
+          </UiDataTable>
+        </UiMobileTableScroller>
         <template #pagination><UiPagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" :reset-page-on-page-size-change="false" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" /></template>
       </UiServerTableWorkspace>
     </AppPage>
@@ -45,9 +49,9 @@
         <UiTabs v-model="activeTab" :tabs="channelTabOptions" :label="t('admin.channels.form.basicSettings', 'Channel settings')" />
 
         <!-- Tab Content -->
-        <form id="channel-form" @submit.prevent="handleSubmit" class="flex-1 overflow-y-auto pt-4">
+        <form id="channel-form" @submit.prevent="handleSubmit" class="channel-dialog-form">
           <!-- Basic Settings Tab -->
-          <div v-show="activeTab === 'basic'" class="space-y-5">
+          <AppStack v-show="activeTab === 'basic'" :gap="12">
             <!-- Name -->
             <UiTextField v-model="form.name" :label="t('admin.channels.form.name', 'Name')" :placeholder="t('admin.channels.form.namePlaceholder', 'Enter channel name')" required />
 
@@ -55,271 +59,109 @@
             <UiTextArea v-model="form.description" :label="t('admin.channels.form.description', 'Description')" :placeholder="t('admin.channels.form.descriptionPlaceholder', 'Optional description')" :rows="2" />
 
             <!-- Status (edit only) -->
-            <div v-if="editingChannel">
-              <label class="channel-field-label">{{ t('admin.channels.form.status', 'Status') }}</label>
+            <template v-if="editingChannel">
               <UiSelect v-model="form.status" :options="statusEditOptions" :label="t('admin.channels.form.status', 'Status')" />
-            </div>
+            </template>
 
             <!-- Model Restriction -->
-            <div>
+            <AppStack :gap="8">
               <UiCheckbox v-model="form.restrict_models" :label="t('admin.channels.form.restrictModels', 'Restrict Models')" />
-              <p class="mt-1 ml-6 text-xs text-gray-400">
-                {{ t('admin.channels.form.restrictModelsHint', 'When enabled, only models in the pricing list are allowed. Others will be rejected.') }}
-              </p>
-            </div>
+              <UiAlert tone="info" :message="t('admin.channels.form.restrictModelsHint', 'When enabled, only models in the pricing list are allowed. Others will be rejected.')" />
+            </AppStack>
 
             <!-- Billing Basis -->
-            <div>
-              <label class="channel-field-label">{{ t('admin.channels.form.billingModelSource', 'Billing Basis') }}</label>
-              <UiSelect v-model="form.billing_model_source" :options="billingModelSourceOptions" :label="t('admin.channels.form.billingModelSource', 'Billing Basis')" />
-              <p class="mt-1 text-xs text-gray-400">
-                {{ t('admin.channels.form.billingModelSourceHint', 'Controls which model name is used for pricing lookup') }}
-              </p>
-            </div>
+            <UiSelect v-model="form.billing_model_source" :options="billingModelSourceOptions" :label="t('admin.channels.form.billingModelSource', 'Billing Basis')" :description="t('admin.channels.form.billingModelSourceHint', 'Controls which model name is used for pricing lookup')" />
 
             <!-- Platform Management -->
-            <div class="space-y-3">
-              <label class="channel-field-label">{{ t('admin.channels.form.platformConfig') }}</label>
-              <div class="channel-platform-grid">
+            <AppSection :title="t('admin.channels.form.platformConfig')" divided>
+              <AppGrid min="160px" :gap="8">
                 <UiCheckbox v-for="p in platformOrder" :key="p" :model-value="activePlatforms.includes(p)" :label="t('admin.groups.platforms.' + p, p)" @update:model-value="togglePlatform(p)" />
-              </div>
-            </div>
+              </AppGrid>
+            </AppSection>
 
             <!-- Apply Pricing to Account Stats (toggle only in basic settings) -->
-            <div class="border-t border-gray-200 pt-4 dark:border-dark-700">
-              <div class="flex items-center justify-between">
-                <div>
-                  <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {{ t('admin.channels.form.applyPricingToAccountStats') }}
-                  </label>
-                  <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t('admin.channels.form.applyPricingToAccountStatsDesc') }}
-                  </p>
-                </div>
+            <AppSection :title="t('admin.channels.form.applyPricingToAccountStats')" :description="t('admin.channels.form.applyPricingToAccountStatsDesc')" divided>
+              <template #actions>
                 <UiSwitch
                   :label="t('admin.channels.form.applyPricingToAccountStats')"
                   :modelValue="form.apply_pricing_to_account_stats"
                   @update:modelValue="form.apply_pricing_to_account_stats = $event"
                 />
-              </div>
-            </div>
-          </div>
+              </template>
+            </AppSection>
+          </AppStack>
 
           <!-- Platform Tab Content -->
-          <div
+          <AppStack
             v-for="(section, sIdx) in form.platforms"
             :key="'tab-' + section.platform"
             v-show="section.enabled && activeTab === section.platform"
-            class="space-y-4"
+            :gap="12"
           >
             <!-- Groups -->
-            <div>
-              <label class="channel-field-label channel-field-label--small">
-                {{ t('admin.channels.form.groups', 'Associated Groups') }} <span class="text-red-500">*</span>
-                <span v-if="section.group_ids.length > 0" class="ml-1 font-normal text-gray-400">
-                  ({{ t('admin.channels.form.selectedCount', { count: section.group_ids.length }) }})
-                </span>
-              </label>
-              <div class="max-h-40 overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-dark-600 dark:bg-dark-900">
-                <div v-if="groupsLoading" class="py-2 text-center text-xs text-gray-500">
-                  {{ t('common.loading', 'Loading...') }}
-                </div>
-                <div v-else-if="getGroupsForPlatform(section.platform).length === 0" class="py-2 text-center text-xs text-gray-500">
-                  {{ t('admin.channels.form.noGroupsAvailable', 'No groups available') }}
-                </div>
-                <div v-else class="flex flex-wrap gap-1">
-                  <div v-for="group in getGroupsForPlatform(section.platform)" :key="group.id" class="channel-group-option" :class="{ 'channel-group-option--disabled': isGroupInOtherChannel(group.id, section.platform) }">
-                    <UiCheckbox :model-value="section.group_ids.includes(group.id)" :disabled="isGroupInOtherChannel(group.id, section.platform)" @update:model-value="toggleGroupInSection(sIdx, group.id)">
-                      <span :class="['font-medium', platformTextClass(group.platform)]">{{ group.name }}</span>
-                    </UiCheckbox>
-                    <UiBadge :label="`${group.rate_multiplier}x`" tone="info" />
-                    <span class="channel-group-option__meta">{{ group.account_count || 0 }}</span>
-                    <span v-if="isGroupInOtherChannel(group.id, section.platform)" class="channel-group-option__meta">{{ getGroupInOtherChannelLabel(group.id) }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Web Search Emulation (Anthropic only, hidden when global disabled) -->
-            <div v-if="section.platform === 'anthropic' && webSearchGlobalEnabled" class="border-t border-gray-200 pt-3 dark:border-dark-600">
-              <div class="flex items-center justify-between">
-                <div>
-                  <label class="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    {{ t('admin.channels.form.webSearchEmulation') }}
-                  </label>
-                  <p class="mt-0.5 text-[11px] text-red-500 dark:text-red-400">
-                    {{ t('admin.channels.form.webSearchEmulationHint') }}
-                  </p>
-                </div>
-                <UiSwitch v-model="section.web_search_emulation" :label="t('admin.channels.form.webSearchEmulation')" />
-              </div>
-            </div>
-
-            <!-- Codex Image Generation Bridge (OpenAI only) -->
-            <div v-if="section.platform === 'openai'" class="border-t border-gray-200 pt-3 dark:border-dark-600">
-              <div class="flex items-center justify-between gap-4">
-                <div>
-                  <label class="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    {{ t('admin.channels.form.codexImageGenerationBridge') }}
-                  </label>
-                  <p class="mt-0.5 text-[11px] text-amber-600 dark:text-amber-400">
-                    {{ t('admin.channels.form.codexImageGenerationBridgeHint') }}
-                  </p>
-                </div>
-                <UiSwitch v-model="section.codex_image_generation_bridge" :label="t('admin.channels.form.codexImageGenerationBridge')" />
-              </div>
-            </div>
-
-            <!-- Bedrock CC Compatibility (Anthropic only) -->
-            <div v-if="section.platform === 'anthropic'" class="border-t border-gray-200 pt-3 dark:border-dark-600">
-              <div class="flex items-center justify-between gap-4">
-                <div>
-                  <label class="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    {{ t('admin.channels.form.bedrockCCCompat') }}
-                  </label>
-                  <p class="mt-0.5 text-[11px] text-amber-600 dark:text-amber-400">
-                    {{ t('admin.channels.form.bedrockCCCompatHint') }}
-                  </p>
-                </div>
-                <UiSwitch v-model="section.bedrock_cc_compat" :label="t('admin.channels.form.bedrockCCCompat')" />
-              </div>
-            </div>
-
+            <ChannelGroupSelector
+              :groups="getGroupsForPlatform(section.platform)"
+              :selected-ids="section.group_ids"
+              :loading="groupsLoading"
+              :is-disabled="isGroupInOtherChannel"
+              :disabled-label="getGroupInOtherChannelLabel"
+              @toggle="toggleGroupInSection(sIdx, $event)"
+            />
+            <ChannelPlatformToggles
+              :platform="section.platform"
+              :web-search-global-enabled="webSearchGlobalEnabled"
+              v-model:web-search-emulation="section.web_search_emulation"
+              v-model:codex-image-generation-bridge="section.codex_image_generation_bridge"
+              v-model:bedrock-cc-compat="section.bedrock_cc_compat"
+            />
             <!-- Model Mapping -->
-            <div>
-              <div class="channel-section-heading">
-                <label class="channel-field-label">{{ t('admin.channels.form.modelMapping', 'Model Mapping') }}</label>
-                <UiButton type="button" density="mini" variant="quiet" @click="addMappingEntry(sIdx)"><template #icon><Icon name="plus" size="xs" /></template>{{ t('common.add', 'Add') }}</UiButton>
-              </div>
-              <div
-                v-if="Object.keys(section.model_mapping).length === 0"
-                class="rounded border border-dashed border-gray-300 p-2 text-center text-xs text-gray-400 dark:border-dark-500"
-              >
-                {{ t('admin.channels.form.noMappingRules', 'No mapping rules. Click "Add" to create one.') }}
-              </div>
-              <div v-else class="space-y-1">
-                <div
-                  v-for="(_, srcModel) in section.model_mapping"
-                  :key="srcModel"
-                  class="flex items-center gap-2"
-                >
-                  <UiTextField density="mini" class="flex-1" :model-value="srcModel" :placeholder="t('admin.channels.form.mappingSource', 'Source model')" :monospace="true" @change="renameMappingKey(sIdx, srcModel, $event)" />
-                  <span class="text-gray-400 text-xs">→</span>
-                  <UiTextField density="mini" class="flex-1" :model-value="section.model_mapping[srcModel]" :placeholder="t('admin.channels.form.mappingTarget', 'Target model')" :monospace="true" @update:model-value="section.model_mapping[srcModel] = $event" />
-                  <UiIconButton icon="trash" :label="t('common.delete')" variant="danger" density="mini" @click="removeMappingEntry(sIdx, srcModel)" />
-                </div>
-              </div>
-            </div>
-
+            <ChannelModelMappingEditor
+              :mapping="section.model_mapping"
+              @add="addMappingEntry(sIdx)"
+              @remove="removeMappingEntry(sIdx, $event)"
+              @rename="(source, nextSource) => renameMappingKey(sIdx, source, nextSource)"
+              @update-target="(source, target) => updateMappingTarget(sIdx, source, target)"
+            />
             <!-- Model Pricing -->
-            <div>
-              <div class="mb-1 flex items-center justify-between">
-                <label class="channel-field-label channel-field-label--small">{{ t('admin.channels.form.modelPricing', 'Model Pricing') }}</label>
-                <div class="channel-section-actions"><UiButton type="button" density="mini" variant="quiet" :loading="syncingPlatform === section.platform" @click="syncLatestModels(sIdx)"><template #icon><Icon name="refresh" size="xs" /></template>{{ syncingPlatform === section.platform ? t('admin.channels.form.syncingModels') : t('admin.channels.form.syncLatestModels') }}</UiButton><UiButton type="button" density="mini" variant="quiet" @click="addPricingEntry(sIdx)"><template #icon><Icon name="plus" size="xs" /></template>{{ t('common.add', 'Add') }}</UiButton></div>
-              </div>
-              <div
-                v-if="section.model_pricing.length === 0"
-                class="rounded border border-dashed border-gray-300 p-2 text-center text-xs text-gray-400 dark:border-dark-500"
-              >
-                {{ t('admin.channels.form.noPricingRules', 'No pricing rules yet. Click "Add" to create one.') }}
-              </div>
-              <div v-else class="space-y-2">
-                <PricingEntryCard
-                  v-for="(entry, idx) in section.model_pricing"
-                  :key="idx"
-                  :entry="entry"
-                  :platform="section.platform"
-                  @update="updatePricingEntry(sIdx, idx, $event)"
-                  @remove="removePricingEntry(sIdx, idx)"
-                />
-              </div>
-            </div>
-
-            <!-- Account Stats Pricing Rules (per-platform, always visible) -->
-            <div class="mt-4 border-t border-gray-200 pt-4 dark:border-dark-700 space-y-3">
-              <div class="flex items-center justify-between">
-                <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {{ t('admin.channels.form.accountStatsPricingRules') }}
-                </h4>
-                <UiButton type="button" density="mini" variant="quiet" @click="addAccountStatsRule(sIdx)"><template #icon><Icon name="plus" size="xs" /></template>{{ t('admin.channels.form.addRule') }}</UiButton>
-              </div>
-
-              <!-- Filter rules for this platform's groups -->
-              <p
-                v-if="section.account_stats_pricing_rules.length === 0"
-                class="text-xs italic text-gray-400 dark:text-gray-500"
-              >
-                {{ t('admin.channels.form.noRulesConfigured') }}
-              </p>
-
-              <div
-                v-for="(rule, ruleIndex) in section.account_stats_pricing_rules"
-                :key="ruleIndex"
-                class="space-y-3 rounded-lg border border-gray-200 p-4 dark:border-dark-600"
-              >
-                <div class="channel-section-heading">
-                  <UiTextField density="mini" v-model="rule.name" :placeholder="t('admin.channels.form.ruleName')" />
-                  <UiIconButton icon="trash" :label="t('common.delete')" variant="danger" density="mini" @click="removeAccountStatsRule(sIdx, ruleIndex)" />
-                </div>
-
-                <div>
-                  <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.channels.form.ruleGroups') }}</label>
-                  <div class="mt-1 flex flex-wrap gap-1">
-                    <UiCheckbox v-for="gid in section.group_ids" :key="gid" :model-value="rule.group_ids.includes(gid)" @update:model-value="toggleRuleGroup(rule, gid)">{{ getGroupNameById(gid) }}</UiCheckbox>
-                  </div>
-                  <p v-if="section.group_ids.length === 0" class="mt-1 text-xs text-gray-400">
-                    {{ t('admin.channels.form.noGroupsInChannel') }}
-                  </p>
-                </div>
-
-                <div>
-                  <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.channels.form.ruleAccounts') }}</label>
-                  <!-- Selected account chips -->
-                  <div class="mt-1 flex flex-wrap gap-1">
-                    <span v-for="accountId in rule.account_ids" :key="accountId" class="channel-account-chip">
-                      <span>{{ getRuleAccountLabel(accountId) }}</span>
-                      <UiIconButton icon="x" :label="t('common.remove')" variant="danger" density="mini" @click="removeRuleAccount(rule, accountId)" />
-                    </span>
-                  </div>
-                  <!-- Account search input -->
-                  <UiAsyncEntityPicker :key="`${section.platform}-${ruleIndex}-${rule.account_ids.length}`" :model-value="null" :items="(ruleAccountSearchResults[`${section.platform}-${ruleIndex}`] || []).map(account => ({ value: account.id, label: account.name, description: `#${account.id}` }))" :placeholder="t('admin.channels.form.searchAccountPlaceholder')" @search="onRuleAccountSearchInput(section.platform, ruleIndex, $event)" @select="selectRuleAccount(rule, { id: Number($event.value), name: $event.label, platform: section.platform }, section.platform, ruleIndex)" />
-                  <p class="mt-1 text-xs text-gray-400">
-                    {{ t('admin.channels.form.ruleAccountsHint') }}
-                  </p>
-                </div>
-
-                <div>
-                  <div class="mb-1 flex items-center justify-between">
-                    <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.channels.form.ruleModelPricing') }}</label>
-                    <UiButton type="button" density="mini" variant="quiet" @click="addRulePricingEntry(sIdx, ruleIndex)"><template #icon><Icon name="plus" size="xs" /></template>{{ t('common.add') }}</UiButton>
-                  </div>
-                  <div v-if="rule.pricing.length === 0" class="rounded border border-dashed border-gray-300 p-2 text-center text-xs text-gray-400 dark:border-dark-500">
-                    {{ t('admin.channels.form.noPricingRules') }}
-                  </div>
-                  <div v-else class="space-y-2">
-                    <PricingEntryCard
-                      v-for="(entry, pIdx) in rule.pricing"
-                      :key="pIdx"
-                      :entry="entry"
-                      :platform="section.platform"
-                      @update="rule.pricing.splice(pIdx, 1, $event)"
-                      @remove="removeRulePricingEntry(sIdx, ruleIndex, pIdx)"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+            <ChannelModelPricingEditor
+              :entries="section.model_pricing"
+              :platform="section.platform"
+              :syncing="syncingPlatform === section.platform"
+              @sync="syncLatestModels(sIdx)"
+              @add="addPricingEntry(sIdx)"
+              @update="(index, entry) => updatePricingEntry(sIdx, index, entry)"
+              @remove="removePricingEntry(sIdx, $event)"
+            />
+            <!-- Account Stats Pricing Rules -->
+            <ChannelAccountStatsRulesEditor
+              :rules="section.account_stats_pricing_rules"
+              :group-ids="section.group_ids"
+              :platform="section.platform"
+              :get-group-name="getGroupNameById"
+              :get-account-label="getRuleAccountLabel"
+              :account-options="(ruleIndex) => getRuleAccountOptions(section.platform, ruleIndex)"
+              @add-rule="addAccountStatsRule(sIdx)"
+              @remove-rule="removeAccountStatsRule(sIdx, $event)"
+              @update-name="(ruleIndex, name) => section.account_stats_pricing_rules[ruleIndex].name = name"
+              @toggle-group="(ruleIndex, groupId) => toggleRuleGroup(section.account_stats_pricing_rules[ruleIndex], groupId)"
+              @remove-account="(ruleIndex, accountId) => removeRuleAccount(section.account_stats_pricing_rules[ruleIndex], accountId)"
+              @search-account="(ruleIndex, query) => onRuleAccountSearchInput(section.platform, ruleIndex, query)"
+              @select-account="(ruleIndex, option) => selectRuleAccountOption(section, ruleIndex, option)"
+              @add-pricing="addRulePricingEntry(sIdx, $event)"
+              @update-pricing="(ruleIndex, pricingIndex, entry) => section.account_stats_pricing_rules[ruleIndex].pricing.splice(pricingIndex, 1, entry)"
+              @remove-pricing="(ruleIndex, pricingIndex) => removeRulePricingEntry(sIdx, ruleIndex, pricingIndex)"
+            />
+          </AppStack>
         </form>
       </div>
 
       <template #footer>
-        <div class="channel-dialog-actions">
+        <AppInline justify="flex-end">
           <UiButton type="button" density="dense" @click="closeDialog">{{ t('common.cancel', 'Cancel') }}</UiButton>
           <UiButton type="submit" form="channel-form" density="dense" variant="primary" :loading="submitting">
             {{ editingChannel ? t('common.update', 'Update') : t('common.create', 'Create') }}
           </UiButton>
-        </div>
+        </AppInline>
       </template>
     </UiDialog>
 
@@ -347,25 +189,36 @@ import type { Channel, ChannelModelPricing, CreateChannelRequest, UpdateChannelR
 import type { PricingFormEntry } from '@/components/admin/channel/types'
 import { mTokToPerToken, perTokenToMTok, apiIntervalsToForm, formIntervalsToAPI, findModelConflict, validateIntervals } from '@/components/admin/channel/types'
 import type { AdminGroup, GroupPlatform } from '@/types'
-import type { Column } from '@/components/ui'
-import { platformTextClass } from '@/utils/platformColors'
+import type { Column, UiEntityOption } from '@/components/ui'
 import { buildChannelGroupMap, fetchAllChannels } from '@/utils/channelConflict'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
-import PricingEntryCard from '@/components/admin/channel/PricingEntryCard.vue'
+import ChannelAccountStatsRulesEditor from '@/components/admin/channel/ChannelAccountStatsRulesEditor.vue'
+import ChannelGroupSelector from '@/components/admin/channel/ChannelGroupSelector.vue'
+import ChannelModelMappingEditor from '@/components/admin/channel/ChannelModelMappingEditor.vue'
+import ChannelModelPricingEditor from '@/components/admin/channel/ChannelModelPricingEditor.vue'
+import ChannelPlatformToggles from '@/components/admin/channel/ChannelPlatformToggles.vue'
 import {
+  AppGrid,
+  AppInline,
   AppPage,
   AppPageHeader,
+  AppSection,
+  AppStack,
+  UiAlert,
   UiBadge,
   UiButton,
+  UiButtonGroup,
   UiCheckbox,
   UiConfirmDialog,
+  UiDataCell,
   UiDataTable,
   UiDialog,
   UiEmptyState,
+  UiFilterBar,
   UiIconButton,
-  UiAsyncEntityPicker,
   UiPagination,
+  UiMobileTableScroller,
   UiSearchInput,
   UiSelect,
   UiServerTableWorkspace,
@@ -542,7 +395,7 @@ const groupToChannelMap = computed(() => {
   return buildChannelGroupMap(allChannelsForConflict.value, editingChannel.value?.id)
 })
 
-function isGroupInOtherChannel(groupId: number, _platform: string): boolean {
+function isGroupInOtherChannel(groupId: number, _platform?: string): boolean {
   return groupToChannelMap.value.has(groupId)
 }
 
@@ -663,6 +516,10 @@ function renameMappingKey(sectionIdx: number, oldKey: string, newKey: string) {
   mapping[newKey] = value
 }
 
+function updateMappingTarget(sectionIdx: number, source: string, target: string) {
+  form.platforms[sectionIdx].model_mapping[source] = target
+}
+
 // ── Account Stats Pricing helpers ──
 function addAccountStatsRule(sectionIdx: number) {
   form.platforms[sectionIdx].account_stats_pricing_rules.push({
@@ -757,6 +614,29 @@ function removeRuleAccount(rule: { account_ids: number[] }, accountId: number) {
 function getRuleAccountLabel(accountId: number): string {
   const name = ruleAccountNameCache.value[accountId]
   return name ? `${name} #${accountId}` : `#${accountId}`
+}
+
+function getRuleAccountOptions(platform: string, ruleIndex: number): UiEntityOption[] {
+  return (ruleAccountSearchResults.value[`${platform}-${ruleIndex}`] || []).map(account => ({
+    value: account.id,
+    label: account.name,
+    description: `#${account.id}`,
+  }))
+}
+
+function selectRuleAccountOption(
+  section: PlatformSection,
+  ruleIndex: number,
+  option: UiEntityOption,
+) {
+  const rule = section.account_stats_pricing_rules[ruleIndex]
+  if (!rule) return
+  selectRuleAccount(
+    rule,
+    { id: Number(option.value), name: option.label, platform: section.platform },
+    section.platform,
+    ruleIndex,
+  )
 }
 
 function clearAllRuleAccountSearchState() {
@@ -1353,43 +1233,11 @@ onUnmounted(() => {
   min-height: 400px;
 }
 
-.channel-cell-primary {
-  display: block;
-  max-width: 240px;
-  overflow: hidden;
-  color: var(--ui-text);
-  font-size: 13px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.channel-dialog-form {
+  min-height: 0;
+  flex: 1;
+  padding-top: 12px;
+  overflow-y: auto;
 }
-
-.channel-cell-muted {
-  display: block;
-  max-width: 280px;
-  overflow: hidden;
-  color: var(--ui-text-soft);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.channel-row-actions,
-.channel-dialog-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.channel-field-label{display:block;color:var(--ui-text-muted);font-size:13px;font-weight:500;line-height:22px}
-.channel-field-label--small{font-size:12px}
-.channel-platform-grid{display:flex;flex-wrap:wrap;gap:10px;padding:10px;border:1px solid var(--ui-border);border-radius:var(--ui-radius);background:var(--ui-surface-muted)}
-.channel-group-option{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--ui-border);border-radius:var(--ui-radius);background:var(--ui-surface)}
-.channel-group-option--disabled{opacity:.45}
-.channel-group-option__meta{color:var(--ui-text-soft);font-size:11px}
-.channel-section-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.channel-section-actions{display:flex;align-items:center;gap:4px}
-.channel-account-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 6px;border:1px solid var(--ui-border);border-radius:4px;background:var(--ui-surface-muted);font-family:var(--ui-font-mono);font-size:11px}
 
 </style>
