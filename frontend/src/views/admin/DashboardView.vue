@@ -24,268 +24,102 @@
       <template v-else-if="stats">
         <!-- Dashboard Stats -->
         <AppGrid min="210px" :gap="8">
-          <!-- Total API Keys -->
-          <div class="dashboard-stat-card">
-            <div class="flex items-center gap-3">
-              <div class="dashboard-stat-icon">
-                <Icon name="key" size="md" class="text-primary-600 dark:text-primary-400" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.apiKeys') }}
-                </p>
-                <p class="dashboard-stat-value">
-                  {{ stats.total_api_keys }}
-                </p>
-                <p class="text-xs text-green-600 dark:text-green-400">
-                  {{ stats.active_api_keys }} {{ t('common.active') }}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Service Accounts -->
-          <div class="dashboard-stat-card">
-            <div class="flex items-center gap-3">
-              <div class="dashboard-stat-icon">
-                <Icon name="server" size="md" class="text-primary-600 dark:text-primary-400" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.accounts') }}
-                </p>
-                <p class="dashboard-stat-value">
-                  {{ stats.total_accounts }}
-                </p>
-                <p class="text-xs">
-                  <span class="text-green-600 dark:text-green-400"
-                    >{{ stats.normal_accounts }} {{ t('common.active') }}</span
-                  >
-                  <span v-if="stats.error_accounts > 0" class="ml-1 text-red-500"
-                    >{{ stats.error_accounts }} {{ t('common.error') }}</span
-                  >
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Today Requests -->
-          <div class="dashboard-stat-card">
-            <div class="flex items-center gap-3">
-              <div class="dashboard-stat-icon">
-                <Icon name="chart" size="md" class="text-primary-600 dark:text-primary-400" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.todayRequests') }}
-                </p>
-                <p class="dashboard-stat-value">
-                  {{ stats.today_requests }}
-                </p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('common.total') }}: {{ formatNumber(stats.total_requests) }}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- New Users Today -->
-          <div class="dashboard-stat-card">
-            <div class="flex items-center gap-3">
-              <div class="dashboard-stat-icon">
-                <Icon name="userPlus" size="md" class="text-primary-600 dark:text-primary-400" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.users') }}
-                </p>
-                <p class="dashboard-stat-value">
-                  +{{ stats.today_new_users }}
-                </p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('common.total') }}: {{ formatNumber(stats.total_users) }}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Today Tokens -->
-          <div class="dashboard-stat-card dashboard-stat-card-secondary">
-            <div class="flex items-center gap-3">
-              <div class="dashboard-stat-icon dashboard-stat-icon-muted">
-                <Icon name="cube" size="md" class="text-primary-600 dark:text-primary-400" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.todayTokens') }}
-                </p>
-                <p class="dashboard-stat-value">
-                  {{ formatTokens(stats.today_tokens) }}
-                </p>
-                <p class="text-xs">
-                  <span
-                    class="text-green-600 dark:text-green-400"
-                    :title="t('admin.dashboard.actual')"
-                    >${{ formatCost(stats.today_actual_cost) }}</span
-                  >
-                  <span class="text-gray-400 dark:text-gray-500"> / </span>
-                  <span
-                    class="text-orange-500 dark:text-orange-400"
-                    :title="t('admin.dashboard.accountCost')"
-                    >${{ formatCost(stats.today_account_cost) }}</span
-                  >
-                  <span class="text-gray-400 dark:text-gray-500"> / </span>
-                  <span
-                    class="text-gray-400 dark:text-gray-500"
-                    :title="t('admin.dashboard.standard')"
-                    >${{ formatCost(stats.today_cost) }}</span
-                  >
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Total Tokens -->
-          <div class="dashboard-stat-card dashboard-stat-card-secondary">
-            <div class="flex items-center gap-3">
-              <div class="dashboard-stat-icon dashboard-stat-icon-muted">
-                <Icon name="database" size="md" class="text-primary-600 dark:text-primary-400" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.totalTokens') }}
-                </p>
-                <p class="dashboard-stat-value">
-                  {{ formatTokens(stats.total_tokens) }}
-                </p>
-                <p class="text-xs">
-                  <span
-                    class="text-green-600 dark:text-green-400"
-                    :title="t('admin.dashboard.actual')"
-                    >${{ formatCost(stats.total_actual_cost) }}</span
-                  >
-                  <span class="text-gray-400 dark:text-gray-500"> / </span>
-                  <span
-                    class="text-orange-500 dark:text-orange-400"
-                    :title="t('admin.dashboard.accountCost')"
-                    >${{ formatCost(stats.total_account_cost) }}</span
-                  >
-                  <span class="text-gray-400 dark:text-gray-500"> / </span>
-                  <span
-                    class="text-gray-400 dark:text-gray-500"
-                    :title="t('admin.dashboard.standard')"
-                    >${{ formatCost(stats.total_cost) }}</span
-                  >
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Performance (RPM/TPM) -->
-          <div class="dashboard-stat-card dashboard-stat-card-secondary">
-            <div class="flex items-center gap-3">
-              <div class="dashboard-stat-icon dashboard-stat-icon-muted">
-                <Icon name="bolt" size="md" class="text-primary-600 dark:text-primary-400" :stroke-width="2" />
-              </div>
-              <div class="flex-1">
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.performance') }}
-                </p>
-                <div class="flex items-baseline gap-2">
-                  <p class="dashboard-stat-value">
-                    {{ formatTokens(stats.rpm) }}
-                  </p>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">RPM</span>
-                </div>
-                <div class="flex items-baseline gap-2">
-                  <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">
-                    {{ formatTokens(stats.tpm) }}
-                  </p>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">TPM</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Avg Response Time -->
-          <div class="dashboard-stat-card dashboard-stat-card-secondary">
-            <div class="flex items-center gap-3">
-              <div class="dashboard-stat-icon dashboard-stat-icon-muted">
-                <Icon name="clock" size="md" class="text-primary-600 dark:text-primary-400" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {{ t('admin.dashboard.avgResponse') }}
-                </p>
-                <p class="dashboard-stat-value">
-                  {{ formatDuration(stats.average_duration_ms) }}
-                </p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">
-                  {{ stats.active_users }} {{ t('admin.dashboard.activeUsers') }}
-                </p>
-              </div>
-            </div>
-          </div>
+          <UiStatMetric
+            :label="t('admin.dashboard.apiKeys')"
+            :value="formatNumber(stats.total_api_keys)"
+            :context="`${formatNumber(stats.active_api_keys)} ${t('common.active')}`"
+          />
+          <UiStatMetric
+            :label="t('admin.dashboard.accounts')"
+            :value="formatNumber(stats.total_accounts)"
+            :context="accountStatusContext"
+          />
+          <UiStatMetric
+            :label="t('admin.dashboard.todayRequests')"
+            :value="formatNumber(stats.today_requests)"
+            :context="`${t('common.total')}: ${formatNumber(stats.total_requests)}`"
+          />
+          <UiStatMetric
+            :label="t('admin.dashboard.users')"
+            :value="`+${formatNumber(stats.today_new_users)}`"
+            :context="`${t('common.total')}: ${formatNumber(stats.total_users)}`"
+          />
+          <UiStatMetric
+            :label="t('admin.dashboard.todayTokens')"
+            :value="formatTokens(stats.today_tokens)"
+            :context="todayCostContext"
+          />
+          <UiStatMetric
+            :label="t('admin.dashboard.totalTokens')"
+            :value="formatTokens(stats.total_tokens)"
+            :context="totalCostContext"
+          />
+          <UiStatMetric
+            :label="t('admin.dashboard.performance')"
+            :value="formatTokens(stats.rpm)"
+            unit="RPM"
+            :context="`TPM ${formatTokens(stats.tpm)}`"
+          />
+          <UiStatMetric
+            :label="t('admin.dashboard.avgResponse')"
+            :value="formatDuration(stats.average_duration_ms)"
+            :context="`${formatNumber(stats.active_users)} ${t('admin.dashboard.activeUsers')}`"
+          />
         </AppGrid>
-
         <!-- Quick Actions -->
         <AppSection :title="t('admin.dashboard.quickActions')" divided>
-          <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <AppGrid min="240px" :gap="8">
             <UiButton
               v-if="canUseBatchImage"
-              class="dashboard-action group"
+              class="dashboard-action"
               to="/batch-image"
             >
               <template #icon><Icon name="sparkles" size="sm" /></template>
               {{ t('admin.dashboard.batchImage') }}
             </UiButton>
             <UiButton
-              class="dashboard-action group"
+              class="dashboard-action"
               to="/admin/groups"
             >
               <template #icon><Icon name="grid" size="sm" /></template>
               {{ t('admin.dashboard.groupPricing') }}
             </UiButton>
-          </div>
+          </AppGrid>
         </AppSection>
 
         <!-- Charts Section -->
-        <div class="space-y-4">
+        <AppStack :gap="16">
           <!-- Date Range Filter -->
           <AppToolbar>
-            <div class="flex flex-wrap items-center gap-3">
-              <div class="flex items-center gap-2">
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >{{ t('admin.dashboard.timeRange') }}:</span
-                >
+            <AppInline justify="space-between">
+              <AppInline>
+                <UiFormField :label="t('admin.dashboard.timeRange')">
                 <UiDateRangePicker
                   v-model:start-date="startDate"
                   v-model:end-date="endDate"
+                  density="compact"
+                  :aria-label="t('admin.dashboard.timeRange')"
                   @change="onDateRangeChange"
                 />
-              </div>
+                </UiFormField>
               <UiButton density="compact" :loading="chartsLoading" :disabled="chartsLoading" @click="loadDashboardStats">
                 <template #icon><Icon name="refresh" size="sm" /></template>
                 {{ t('common.refresh') }}
               </UiButton>
-              <div class="ml-auto flex items-center gap-2">
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >{{ t('admin.dashboard.granularity') }}:</span
-                >
-                <div class="w-28">
+              </AppInline>
+              <UiFormField :label="t('admin.dashboard.granularity')">
                   <UiSelect
                     density="compact"
                     v-model="granularity"
                     :options="granularityOptions"
                     @change="loadChartData"
                   />
-                </div>
-              </div>
-            </div>
+              </UiFormField>
+            </AppInline>
           </AppToolbar>
 
           <!-- Charts Grid -->
-          <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <AppGrid min="420px" :gap="16">
             <ModelDistributionChart
               :model-stats="modelStats"
               :enable-ranking-view="true"
@@ -301,7 +135,7 @@
               @ranking-click="goToUserUsage"
             />
             <TokenUsageTrend :trend-data="trendData" :loading="chartsLoading" />
-          </div>
+          </AppGrid>
 
           <!-- User Usage Trend (Full Width) -->
           <UiChartFrame
@@ -310,11 +144,11 @@
             :empty="!userTrendChartData"
             :height="288"
           >
-            <div class="h-72">
+            <div class="dashboard-user-trend">
               <Line v-if="userTrendChartData" :data="userTrendChartData" :options="lineOptions" />
             </div>
           </UiChartFrame>
-        </div>
+        </AppStack>
       </template>
     </AppPage>
   </AppLayout>
@@ -342,15 +176,19 @@ import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
 import {
   AppGrid,
+  AppInline,
   AppPage,
   AppPageHeader,
   AppSection,
+  AppStack,
   AppToolbar,
   UiButton,
   UiChartFrame,
   UiDateRangePicker,
+  UiFormField,
   UiSelect,
   UiSkeleton,
+  UiStatMetric,
 } from '@/components/ui'
 
 import {
@@ -593,6 +431,24 @@ const formatCost = (value: number | null | undefined): string => {
   return safeValue.toFixed(4)
 }
 
+const accountStatusContext = computed(() => {
+  if (!stats.value) return ''
+  const active = `${formatNumber(stats.value.normal_accounts)} ${t('common.active')}`
+  return stats.value.error_accounts > 0
+    ? `${active} · ${formatNumber(stats.value.error_accounts)} ${t('common.error')}`
+    : active
+})
+
+const todayCostContext = computed(() => {
+  if (!stats.value) return ''
+  return `${t('admin.dashboard.actual')}: $${formatCost(stats.value.today_actual_cost)} · ${t('admin.dashboard.accountCost')}: $${formatCost(stats.value.today_account_cost)} · ${t('admin.dashboard.standard')}: $${formatCost(stats.value.today_cost)}`
+})
+
+const totalCostContext = computed(() => {
+  if (!stats.value) return ''
+  return `${t('admin.dashboard.actual')}: $${formatCost(stats.value.total_actual_cost)} · ${t('admin.dashboard.accountCost')}: $${formatCost(stats.value.total_account_cost)} · ${t('admin.dashboard.standard')}: $${formatCost(stats.value.total_cost)}`
+})
+
 const formatDuration = (ms: number): string => {
   if (ms >= 1000) {
     return `${(ms / 1000).toFixed(2)}s`
@@ -744,5 +600,5 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.dashboard-page{display:grid;gap:16px}.dashboard-stat-card{min-height:96px;padding:12px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius);background:var(--ui-surface-muted)}.dashboard-stat-icon{display:flex;flex:none;align-items:center;justify-content:center;color:var(--ui-text-muted)}.dashboard-stat-icon :deep(svg){color:currentColor!important}.dashboard-stat-value{margin-top:2px;color:var(--ui-text);font-size:22px;font-weight:500;line-height:28px;font-variant-numeric:tabular-nums;letter-spacing:0}.dashboard-action{justify-content:flex-start;width:100%}
+.dashboard-page{display:grid;gap:16px}.dashboard-action{justify-content:flex-start;width:100%}.dashboard-user-trend{height:288px}
 </style>
