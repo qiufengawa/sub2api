@@ -1,123 +1,31 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.accounts.reAuthorizeAccount')"
     width="normal"
     @close="handleClose"
   >
-    <div v-if="account" class="space-y-4">
-      <!-- Account Info -->
-      <div
-        class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-dark-600 dark:bg-dark-700"
-      >
-        <div class="flex items-center gap-3">
-          <div
-            :class="[
-              'flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br',
-              isOpenAILike
-                ? 'from-green-500 to-green-600'
-                : isGemini
-                  ? 'from-blue-500 to-blue-600'
-                  : isAntigravity
-                    ? 'from-purple-500 to-purple-600'
-                    : isGrok
-                      ? 'from-zinc-700 to-zinc-900'
-                      : 'from-orange-500 to-orange-600'
-            ]"
-          >
-            <Icon name="sparkles" size="md" class="text-white" />
-          </div>
-          <div>
-            <span class="block font-semibold text-gray-900 dark:text-white">{{
-              account.name
-            }}</span>
-            <span class="text-sm text-gray-500 dark:text-gray-400">
-              {{
-                isOpenAI
-                  ? t('admin.accounts.openaiAccount')
-                  : isGemini
-                    ? t('admin.accounts.geminiAccount')
-                    : isAntigravity
-                      ? t('admin.accounts.antigravityAccount')
-                      : isGrok
-                        ? t('admin.accounts.grokAccount')
-                        : t('admin.accounts.claudeCodeAccount')
-              }}
-            </span>
-          </div>
+    <AppStack v-if="account" :gap="16">
+      <div class="reauth-summary">
+        <div>
+          <strong>{{ account.name }}</strong>
+          <span>{{ platformLabel }}</span>
         </div>
+        <UiBadge :label="account.type" tone="neutral" />
       </div>
 
-      <!-- Add Method Selection (Claude only) -->
-      <fieldset v-if="isAnthropic" class="border-0 p-0">
-        <legend class="input-label">{{ t('admin.accounts.oauth.authMethod') }}</legend>
-        <div class="mt-2 flex gap-4">
-          <label class="flex cursor-pointer items-center">
-            <input
-              v-model="addMethod"
-              type="radio"
-              value="oauth"
-              class="mr-2 text-primary-600 focus:ring-primary-500"
-            />
-            <span class="text-sm text-gray-700 dark:text-gray-300">{{
-              t('admin.accounts.types.oauth')
-            }}</span>
-          </label>
-          <label class="flex cursor-pointer items-center">
-            <input
-              v-model="addMethod"
-              type="radio"
-              value="setup-token"
-              class="mr-2 text-primary-600 focus:ring-primary-500"
-            />
-            <span class="text-sm text-gray-700 dark:text-gray-300">{{
-              t('admin.accounts.setupTokenLongLived')
-            }}</span>
-          </label>
-        </div>
-      </fieldset>
+      <UiRadioGroup
+        v-if="isAnthropic"
+        v-model="addMethod"
+        name="admin-reauth-add-method"
+        :label="t('admin.accounts.oauth.authMethod')"
+        :options="addMethodOptions"
+      />
 
-      <!-- Gemini OAuth Type Display (read-only) -->
-      <div v-if="isGemini" class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-dark-600 dark:bg-dark-700">
-        <div class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-          {{ t('admin.accounts.oauth.gemini.oauthTypeLabel') }}
-        </div>
-        <div class="flex items-center gap-3">
-          <div
-            :class="[
-              'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-              geminiOAuthType === 'google_one'
-                ? 'bg-purple-500 text-white'
-                : geminiOAuthType === 'code_assist'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-amber-500 text-white'
-            ]"
-          >
-            <Icon v-if="geminiOAuthType === 'google_one'" name="user" size="sm" />
-            <Icon v-else-if="geminiOAuthType === 'code_assist'" name="cloud" size="sm" />
-            <Icon v-else name="sparkles" size="sm" />
-          </div>
-          <div>
-            <span class="block text-sm font-medium text-gray-900 dark:text-white">
-              {{
-                geminiOAuthType === 'google_one'
-                  ? 'Google One'
-                  : geminiOAuthType === 'code_assist'
-                    ? t('admin.accounts.gemini.oauthType.builtInTitle')
-                    : t('admin.accounts.gemini.oauthType.customTitle')
-              }}
-            </span>
-            <span class="text-xs text-gray-500 dark:text-gray-400">
-              {{
-                geminiOAuthType === 'google_one'
-                  ? t('admin.accounts.gemini.oauthType.googleOneDesc')
-                  : geminiOAuthType === 'code_assist'
-                    ? t('admin.accounts.gemini.oauthType.builtInDesc')
-                    : t('admin.accounts.gemini.oauthType.customDesc')
-              }}
-            </span>
-          </div>
-        </div>
+      <div v-if="isGemini" class="reauth-oauth-type">
+        <span>{{ t('admin.accounts.oauth.gemini.oauthTypeLabel') }}</span>
+        <strong>{{ geminiOAuthTitle }}</strong>
+        <p>{{ geminiOAuthDescription }}</p>
       </div>
 
       <OAuthAuthorizationFlow
@@ -144,49 +52,30 @@
         @import-sso="handleGrokImportSSO"
       />
 
-    </div>
+    </AppStack>
 
     <template #footer>
-      <div v-if="account" class="flex justify-between gap-3">
-        <button type="button" class="btn btn-secondary" @click="handleClose">
+      <div v-if="account" class="reauth-actions">
+        <UiButton density="compact" @click="handleClose">
           {{ t('common.cancel') }}
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           v-if="isManualInputMethod"
-          type="button"
           :disabled="!canExchangeCode"
-          class="btn btn-primary"
+          :loading="currentLoading"
+          variant="primary"
+          density="compact"
           @click="handleExchangeCode"
         >
-          <svg
-            v-if="currentLoading"
-            class="-ml-1 mr-2 h-4 w-4 animate-spin"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            ></circle>
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
           {{
             currentLoading
               ? t('admin.accounts.oauth.verifying')
               : t('admin.accounts.oauth.completeAuth')
           }}
-        </button>
+        </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
@@ -204,9 +93,8 @@ import { useGeminiOAuth } from '@/composables/useGeminiOAuth'
 import { useAntigravityOAuth } from '@/composables/useAntigravityOAuth'
 import { useGrokOAuth } from '@/composables/useGrokOAuth'
 import type { Account } from '@/types'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import Icon from '@/components/icons/Icon.vue'
 import OAuthAuthorizationFlow from '@/components/account/OAuthAuthorizationFlow.vue'
+import { AppStack, UiBadge, UiButton, UiDialog, UiRadioGroup } from '@/components/ui'
 
 // Type for exposed OAuthAuthorizationFlow component
 // Note: defineExpose automatically unwraps refs, so we use the unwrapped types
@@ -245,6 +133,10 @@ const oauthFlowRef = ref<OAuthFlowExposed | null>(null)
 
 // State
 const addMethod = ref<AddMethod>('oauth')
+const addMethodOptions = computed(() => [
+  { value: 'oauth', label: t('admin.accounts.types.oauth') },
+  { value: 'setup-token', label: t('admin.accounts.setupTokenLongLived') }
+])
 const geminiOAuthType = ref<'code_assist' | 'google_one' | 'ai_studio'>('code_assist')
 
 // Computed - check platform
@@ -254,6 +146,23 @@ const isGemini = computed(() => props.account?.platform === 'gemini')
 const isAnthropic = computed(() => props.account?.platform === 'anthropic')
 const isAntigravity = computed(() => props.account?.platform === 'antigravity')
 const isGrok = computed(() => props.account?.platform === 'grok')
+const platformLabel = computed(() => {
+  if (isOpenAI.value) return t('admin.accounts.openaiAccount')
+  if (isGemini.value) return t('admin.accounts.geminiAccount')
+  if (isAntigravity.value) return t('admin.accounts.antigravityAccount')
+  if (isGrok.value) return t('admin.accounts.grokAccount')
+  return t('admin.accounts.claudeCodeAccount')
+})
+const geminiOAuthTitle = computed(() => {
+  if (geminiOAuthType.value === 'google_one') return 'Google One'
+  if (geminiOAuthType.value === 'code_assist') return t('admin.accounts.gemini.oauthType.builtInTitle')
+  return t('admin.accounts.gemini.oauthType.customTitle')
+})
+const geminiOAuthDescription = computed(() => {
+  if (geminiOAuthType.value === 'google_one') return t('admin.accounts.gemini.oauthType.googleOneDesc')
+  if (geminiOAuthType.value === 'code_assist') return t('admin.accounts.gemini.oauthType.builtInDesc')
+  return t('admin.accounts.gemini.oauthType.customDesc')
+})
 
 /**
  * Grok reauth default tab (password auth is hidden):
@@ -681,3 +590,12 @@ const handleGrokValidateRefreshToken = async (refreshTokenInput: string) => {
   }
 }
 </script>
+
+<style scoped>
+.reauth-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--ui-border-soft)}
+.reauth-summary>div{display:grid;gap:2px;min-width:0}.reauth-summary strong{overflow:hidden;color:var(--ui-text);font-size:14px;text-overflow:ellipsis;white-space:nowrap}.reauth-summary span,.reauth-oauth-type>span{color:var(--ui-text-muted);font-size:12px;line-height:18px}
+.reauth-oauth-type{display:grid;gap:3px;padding:10px 0;border-block:1px solid var(--ui-border-soft)}
+.reauth-oauth-type strong{color:var(--ui-text);font-size:13px}.reauth-oauth-type p{margin:0;color:var(--ui-text-muted);font-size:12px;line-height:19px}
+.reauth-actions{display:flex;width:100%;justify-content:space-between;gap:8px}
+@media(max-width:520px){.reauth-actions{display:grid;grid-template-columns:1fr 1fr}.reauth-actions :deep(.ui-button){width:100%}}
+</style>
