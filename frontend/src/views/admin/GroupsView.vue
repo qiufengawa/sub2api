@@ -330,203 +330,79 @@
             </AppSection>
           </template>
         </GroupVideoPricingFields>
-        <!-- 高峰时段倍率配置 -->
-        <div class="border-t pt-4">
-          <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-            <UiCheckbox
-              v-model="createForm.peak_rate_enabled"
-              :label="t('admin.groups.peakRate.enable')"
-            />
-          </div>
-          <div
-            v-if="createForm.peak_rate_enabled"
-            class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3"
-          >
-            <UiTextField v-model="createForm.peak_start" type="time" density="compact" :label="t('admin.groups.peakRate.peakStart')" />
-            <UiTextField v-model="createForm.peak_end" type="time" density="compact" :label="t('admin.groups.peakRate.peakEnd')" />
-            <UiTextField v-model.number="createForm.peak_rate_multiplier" type="number" step="0.001" min="0" density="compact" :label="t('admin.groups.peakRate.peakMultiplier')" :help="t('admin.groups.peakRate.multiplierHint')" placeholder="1" />
-          </div>
-        </div>
-
-        <!-- 分组利润控制（五个平台 token 请求） -->
-        <div v-if="isProfitControlPlatform(createForm.platform)" class="border-t pt-4">
-          <UiCheckbox
-            v-model="createForm.profit_control_enabled"
-            :label="t('admin.groups.profitControl.enable')"
-          />
-          <p class="mb-3 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-            {{
-              createForm.profit_control_enabled
-                ? t("admin.groups.profitControl.enabledHint")
-                : t("admin.groups.profitControl.disabledHint")
-            }}
-          </p>
-          <div
-            v-if="createForm.profit_control_enabled"
-            class="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2"
-          >
-            <UiTextField v-model.number="createForm.profit_min_margin_percent" type="number" step="0.1" min="0" max="99.99" density="compact" :label="t('admin.groups.profitControl.minMargin')" :help="t('admin.groups.profitControl.minMarginHint')" placeholder="0" />
-            <UiTextField v-model.number="createForm.profit_safety_buffer_percent" type="number" step="0.1" min="0" max="99.99" density="compact" :label="t('admin.groups.profitControl.safetyBuffer')" :help="t('admin.groups.profitControl.safetyBufferHint')" placeholder="0" />
-          </div>
-        </div>
-
-        <!-- 支持的模型系列（仅 antigravity 平台） -->
-        <div v-if="createForm.platform === 'antigravity'" class="border-t pt-4">
-          <div class="mb-1.5 flex items-center gap-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t("admin.groups.supportedScopes.title") }}
-            </label>
-            <UiFieldHelp :content="t('admin.groups.supportedScopes.tooltip')" />
-          </div>
-          <div class="space-y-2">
-            <UiCheckbox
-              :model-value="createForm.supported_model_scopes.includes('claude')"
-              :label="t('admin.groups.supportedScopes.claude')"
-              @update:model-value="toggleCreateScope('claude')"
-            />
-            <UiCheckbox
-              :model-value="createForm.supported_model_scopes.includes('gemini_text')"
-              :label="t('admin.groups.supportedScopes.geminiText')"
-              @update:model-value="toggleCreateScope('gemini_text')"
-            />
-            <UiCheckbox
-              :model-value="createForm.supported_model_scopes.includes('gemini_image')"
-              :label="t('admin.groups.supportedScopes.geminiImage')"
-              @update:model-value="toggleCreateScope('gemini_image')"
-            />
-          </div>
-          <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            {{ t("admin.groups.supportedScopes.hint") }}
-          </p>
-        </div>
-
-        <!-- MCP XML 协议注入（仅 antigravity 平台） -->
-        <div v-if="createForm.platform === 'antigravity'" class="border-t pt-4">
-          <div class="mb-1.5 flex items-center gap-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t("admin.groups.mcpXml.title") }}
-            </label>
-            <UiFieldHelp :content="t('admin.groups.mcpXml.tooltip')" />
-          </div>
-          <div class="flex items-center gap-3">
-            <UiSwitch
-              v-model="createForm.mcp_xml_inject"
-              :label="t('admin.groups.mcpXml.title')"
-            />
-            <span class="text-sm text-gray-500 dark:text-gray-400">
-              {{
-                createForm.mcp_xml_inject
-                  ? t("admin.groups.mcpXml.enabled")
-                  : t("admin.groups.mcpXml.disabled")
-              }}
-            </span>
-          </div>
-        </div>
-
-        <!-- Claude Code 客户端限制（仅 anthropic 平台） -->
-        <div v-if="createForm.platform === 'anthropic'" class="border-t pt-4">
-          <div class="mb-1.5 flex items-center gap-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t("admin.groups.claudeCode.title") }}
-            </label>
-            <UiFieldHelp :content="t('admin.groups.claudeCode.tooltip')" />
-          </div>
-          <div class="flex items-center gap-3">
-            <UiSwitch
-              v-model="createForm.claude_code_only"
-              :label="t('admin.groups.claudeCode.title')"
-            />
-            <span class="text-sm text-gray-500 dark:text-gray-400">
-              {{
-                createForm.claude_code_only
-                  ? t("admin.groups.claudeCode.enabled")
-                  : t("admin.groups.claudeCode.disabled")
-              }}
-            </span>
-          </div>
-          <!-- 降级分组选择（仅当启用 claude_code_only 时显示） -->
-          <div v-if="createForm.claude_code_only" class="mt-3">
-            <UiSelect
-              v-model="createForm.fallback_group_id"
-              :options="fallbackGroupOptions"
-              :label="t('admin.groups.claudeCode.fallbackGroup')"
-              :description="t('admin.groups.claudeCode.fallbackHint')"
-              :placeholder="t('admin.groups.claudeCode.noFallback')"
-              density="compact"
-            />
-          </div>
-        </div>
-
+        <!-- 高峰倍率与利润控制 -->
+        <GroupPeakProfitFields
+          :platform="createForm.platform"
+          v-model:peak-enabled="createForm.peak_rate_enabled"
+          v-model:peak-start="createForm.peak_start"
+          v-model:peak-end="createForm.peak_end"
+          v-model:peak-multiplier="createForm.peak_rate_multiplier"
+          v-model:profit-enabled="createForm.profit_control_enabled"
+          v-model:min-margin="createForm.profit_min_margin_percent"
+          v-model:safety-buffer="createForm.profit_safety_buffer_percent"
+        />
+        <!-- 平台专属策略 -->
+        <GroupProviderPolicyFields
+          :platform="createForm.platform"
+          v-model:supported-scopes="createForm.supported_model_scopes"
+          v-model:mcp-xml-inject="createForm.mcp_xml_inject"
+          v-model:claude-code-only="createForm.claude_code_only"
+          v-model:fallback-group-id="createForm.fallback_group_id"
+          :fallback-options="fallbackGroupOptions"
+        />
         <!-- Codex 网页搜索按次计费（仅 openai 平台） -->
-        <div
+        <AppSection
           v-if="createForm.platform === 'openai'"
-          class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
+          :title="t('admin.groups.webSearchPricing.title')"
+          divided
         >
-          <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            {{ t("admin.groups.webSearchPricing.title") }}
-          </h4>
-          <div>
+          <AppStack :gap="10">
             <UiTextField v-model.number="createForm.web_search_price_per_call" type="number" step="0.001" min="0" density="compact" :label="t('admin.groups.webSearchPricing.pricePerCall')" :description="t('admin.groups.webSearchPricing.pricePerCallHint')" placeholder="0.01" />
             <GroupPricingPreview
               :title="t('admin.groups.webSearchPricing.finalPricePreview', { price: createWebSearchFinalPricePreview })"
               :items="[{ label: t('admin.groups.webSearchPricing.pricePerCall'), value: createWebSearchFinalPricePreview }]"
               :columns="1"
             />
-          </div>
-        </div>
+          </AppStack>
+        </AppSection>
 
-        <div class="mt-4 border-t border-gray-200 pt-4 dark:border-dark-400">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t("admin.groups.modelPricing.title") }}</h4>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t("admin.groups.modelPricing.description") }}</p>
-            </div>
+        <AppSection :title="t('admin.groups.modelPricing.title')" :description="t('admin.groups.modelPricing.description')" divided>
+          <template #actions>
             <UiButton type="button" density="compact" variant="secondary" @click="addGroupPricing(createForm.model_pricing)">
               <template #icon><Icon name="plus" size="sm" /></template>{{ t("admin.groups.modelPricing.add") }}
             </UiButton>
-          </div>
-          <div class="mt-3">
+          </template>
+          <AppStack :gap="10">
             <UiCheckbox v-model="createForm.long_context_pricing_enabled" :label="t('admin.groups.modelPricing.longContext')" />
-            <p class="mt-1 text-xs text-gray-500">{{ t("admin.groups.modelPricing.longContextHint") }}</p>
-          </div>
-          <div class="mt-3 space-y-2">
+            <UiAlert tone="info" :message="t('admin.groups.modelPricing.longContextHint')" />
             <PricingEntryCard v-for="(entry, index) in createForm.model_pricing" :key="index" :entry="entry" :platform="createForm.platform" hide-token-intervals @update="createForm.model_pricing[index] = $event" @remove="createForm.model_pricing.splice(index, 1)" />
-          </div>
-        </div>
+          </AppStack>
+        </AppSection>
 
-        <div v-if="createForm.platform === 'grok'" class="mt-4 border-t border-gray-200 pt-4 dark:border-dark-400">
-          <h4 class="mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">{{ t("admin.groups.explicitPricing.title") }}</h4>
-          <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">{{ t("admin.groups.explicitPricing.description") }}</p>
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <AppSection v-if="createForm.platform === 'grok'" :title="t('admin.groups.explicitPricing.title')" :description="t('admin.groups.explicitPricing.description')" divided>
+          <AppGrid min="180px" :gap="12">
             <UiTextField v-model.number="createForm.search_price_per_1k" type="number" step="0.000001" min="0" density="compact" :label="t('admin.groups.explicitPricing.searchPricePer1k')" :placeholder="t('admin.groups.explicitPricing.pricePlaceholder')" test-id="create-search-price" />
             <UiTextField v-model.number="createForm.audio_realtime_price_per_min" type="number" step="0.000001" min="0" density="compact" :label="t('admin.groups.voicePricing.audioRealtimePerMin')" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" test-id="create-audio-realtime-price" />
             <UiTextField v-model.number="createForm.audio_tts_price_per_million_chars" type="number" step="0.000001" min="0" density="compact" :label="t('admin.groups.voicePricing.audioTtsPerMillionChars')" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" test-id="create-audio-tts-price" />
             <UiTextField v-model.number="createForm.audio_stt_price_per_hour" type="number" step="0.000001" min="0" density="compact" :label="t('admin.groups.voicePricing.audioSttPerHour')" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" test-id="create-audio-stt-price" />
-          </div>
-        </div>
+          </AppGrid>
+        </AppSection>
 
         <!-- OpenAI Live 开关（仅 openai 平台） -->
-        <div
+        <AppSection
           v-if="createForm.platform === 'openai'"
-          class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
+          :title="t('admin.groups.openaiLive.title')"
+          :description="t('admin.groups.openaiLive.hint')"
+          divided
         >
-          <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            {{ t("admin.groups.openaiLive.title") }}
-          </h4>
-          <div class="flex items-center justify-between">
-            <label class="text-sm text-gray-600 dark:text-gray-400">{{
-              t("admin.groups.openaiLive.allow")
-            }}</label>
+          <template #actions>
             <UiSwitch
               :model-value="createForm.allow_live"
               :label="t('admin.groups.openaiLive.allow')"
               @update:model-value="toggleLive('create')"
             />
-          </div>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {{ t("admin.groups.openaiLive.hint") }}
-          </p>
-        </div>
+          </template>
+        </AppSection>
 
         <!-- OpenAI Messages 调度配置（仅 openai 平台） -->
         <GroupMessagesDispatchFields
@@ -547,9 +423,9 @@
           v-model:privacy-set-only="createForm.require_privacy_set"
         />
         <!-- 无效请求兜底（仅 anthropic/antigravity 平台） -->
-        <div
+        <AppSection
           v-if="['anthropic', 'antigravity'].includes(createForm.platform)"
-          class="border-t pt-4"
+          divided
         >
           <UiSelect
             v-model="createForm.fallback_group_id_on_invalid_request"
@@ -559,7 +435,7 @@
             :placeholder="t('admin.groups.invalidRequestFallback.noFallback')"
             density="compact"
           />
-        </div>
+        </AppSection>
 
         <!-- 模型路由配置（仅 anthropic 平台） -->
         <GroupModelRoutingFields
@@ -747,203 +623,79 @@
             </AppSection>
           </template>
         </GroupVideoPricingFields>
-        <!-- 高峰时段倍率配置 -->
-        <div class="border-t pt-4">
-          <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-            <UiCheckbox
-              v-model="editForm.peak_rate_enabled"
-              :label="t('admin.groups.peakRate.enable')"
-            />
-          </div>
-          <div
-            v-if="editForm.peak_rate_enabled"
-            class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3"
-          >
-            <UiTextField v-model="editForm.peak_start" type="time" density="compact" :label="t('admin.groups.peakRate.peakStart')" />
-            <UiTextField v-model="editForm.peak_end" type="time" density="compact" :label="t('admin.groups.peakRate.peakEnd')" />
-            <UiTextField v-model.number="editForm.peak_rate_multiplier" type="number" step="0.001" min="0" density="compact" :label="t('admin.groups.peakRate.peakMultiplier')" :help="t('admin.groups.peakRate.multiplierHint')" placeholder="1" />
-          </div>
-        </div>
-
-        <!-- 分组利润控制（五个平台 token 请求） -->
-        <div v-if="isProfitControlPlatform(editForm.platform)" class="border-t pt-4">
-          <UiCheckbox
-            v-model="editForm.profit_control_enabled"
-            :label="t('admin.groups.profitControl.enable')"
-          />
-          <p class="mb-3 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-            {{
-              editForm.profit_control_enabled
-                ? t("admin.groups.profitControl.enabledHint")
-                : t("admin.groups.profitControl.disabledHint")
-            }}
-          </p>
-          <div
-            v-if="editForm.profit_control_enabled"
-            class="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2"
-          >
-            <UiTextField v-model.number="editForm.profit_min_margin_percent" type="number" step="0.1" min="0" max="99.99" density="compact" :label="t('admin.groups.profitControl.minMargin')" :help="t('admin.groups.profitControl.minMarginHint')" placeholder="0" />
-            <UiTextField v-model.number="editForm.profit_safety_buffer_percent" type="number" step="0.1" min="0" max="99.99" density="compact" :label="t('admin.groups.profitControl.safetyBuffer')" :help="t('admin.groups.profitControl.safetyBufferHint')" placeholder="0" />
-          </div>
-        </div>
-
-        <!-- 支持的模型系列（仅 antigravity 平台） -->
-        <div v-if="editForm.platform === 'antigravity'" class="border-t pt-4">
-          <div class="mb-1.5 flex items-center gap-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t("admin.groups.supportedScopes.title") }}
-            </label>
-            <UiFieldHelp :content="t('admin.groups.supportedScopes.tooltip')" />
-          </div>
-          <div class="space-y-2">
-            <UiCheckbox
-              :model-value="editForm.supported_model_scopes.includes('claude')"
-              :label="t('admin.groups.supportedScopes.claude')"
-              @update:model-value="toggleEditScope('claude')"
-            />
-            <UiCheckbox
-              :model-value="editForm.supported_model_scopes.includes('gemini_text')"
-              :label="t('admin.groups.supportedScopes.geminiText')"
-              @update:model-value="toggleEditScope('gemini_text')"
-            />
-            <UiCheckbox
-              :model-value="editForm.supported_model_scopes.includes('gemini_image')"
-              :label="t('admin.groups.supportedScopes.geminiImage')"
-              @update:model-value="toggleEditScope('gemini_image')"
-            />
-          </div>
-          <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            {{ t("admin.groups.supportedScopes.hint") }}
-          </p>
-        </div>
-
-        <!-- MCP XML 协议注入（仅 antigravity 平台） -->
-        <div v-if="editForm.platform === 'antigravity'" class="border-t pt-4">
-          <div class="mb-1.5 flex items-center gap-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t("admin.groups.mcpXml.title") }}
-            </label>
-            <UiFieldHelp :content="t('admin.groups.mcpXml.tooltip')" />
-          </div>
-          <div class="flex items-center gap-3">
-            <UiSwitch
-              v-model="editForm.mcp_xml_inject"
-              :label="t('admin.groups.mcpXml.title')"
-            />
-            <span class="text-sm text-gray-500 dark:text-gray-400">
-              {{
-                editForm.mcp_xml_inject
-                  ? t("admin.groups.mcpXml.enabled")
-                  : t("admin.groups.mcpXml.disabled")
-              }}
-            </span>
-          </div>
-        </div>
-
-        <!-- Claude Code 客户端限制（仅 anthropic 平台） -->
-        <div v-if="editForm.platform === 'anthropic'" class="border-t pt-4">
-          <div class="mb-1.5 flex items-center gap-1">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t("admin.groups.claudeCode.title") }}
-            </label>
-            <UiFieldHelp :content="t('admin.groups.claudeCode.tooltip')" />
-          </div>
-          <div class="flex items-center gap-3">
-            <UiSwitch
-              v-model="editForm.claude_code_only"
-              :label="t('admin.groups.claudeCode.title')"
-            />
-            <span class="text-sm text-gray-500 dark:text-gray-400">
-              {{
-                editForm.claude_code_only
-                  ? t("admin.groups.claudeCode.enabled")
-                  : t("admin.groups.claudeCode.disabled")
-              }}
-            </span>
-          </div>
-          <!-- 降级分组选择（仅当启用 claude_code_only 时显示） -->
-          <div v-if="editForm.claude_code_only" class="mt-3">
-            <UiSelect
-              v-model="editForm.fallback_group_id"
-              :options="fallbackGroupOptionsForEdit"
-              :label="t('admin.groups.claudeCode.fallbackGroup')"
-              :description="t('admin.groups.claudeCode.fallbackHint')"
-              :placeholder="t('admin.groups.claudeCode.noFallback')"
-              density="compact"
-            />
-          </div>
-        </div>
-
+        <!-- 高峰倍率与利润控制 -->
+        <GroupPeakProfitFields
+          :platform="editForm.platform"
+          v-model:peak-enabled="editForm.peak_rate_enabled"
+          v-model:peak-start="editForm.peak_start"
+          v-model:peak-end="editForm.peak_end"
+          v-model:peak-multiplier="editForm.peak_rate_multiplier"
+          v-model:profit-enabled="editForm.profit_control_enabled"
+          v-model:min-margin="editForm.profit_min_margin_percent"
+          v-model:safety-buffer="editForm.profit_safety_buffer_percent"
+        />
+        <!-- 平台专属策略 -->
+        <GroupProviderPolicyFields
+          :platform="editForm.platform"
+          v-model:supported-scopes="editForm.supported_model_scopes"
+          v-model:mcp-xml-inject="editForm.mcp_xml_inject"
+          v-model:claude-code-only="editForm.claude_code_only"
+          v-model:fallback-group-id="editForm.fallback_group_id"
+          :fallback-options="fallbackGroupOptionsForEdit"
+        />
         <!-- Codex 网页搜索按次计费（仅 openai 平台） -->
-        <div
+        <AppSection
           v-if="editForm.platform === 'openai'"
-          class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
+          :title="t('admin.groups.webSearchPricing.title')"
+          divided
         >
-          <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            {{ t("admin.groups.webSearchPricing.title") }}
-          </h4>
-          <div>
+          <AppStack :gap="10">
             <UiTextField v-model.number="editForm.web_search_price_per_call" type="number" step="0.001" min="0" density="compact" :label="t('admin.groups.webSearchPricing.pricePerCall')" :description="t('admin.groups.webSearchPricing.pricePerCallHint')" placeholder="0.01" />
             <GroupPricingPreview
               :title="t('admin.groups.webSearchPricing.finalPricePreview', { price: editWebSearchFinalPricePreview })"
               :items="[{ label: t('admin.groups.webSearchPricing.pricePerCall'), value: editWebSearchFinalPricePreview }]"
               :columns="1"
             />
-          </div>
-        </div>
+          </AppStack>
+        </AppSection>
 
-        <div class="mt-4 border-t border-gray-200 pt-4 dark:border-dark-400">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t("admin.groups.modelPricing.title") }}</h4>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t("admin.groups.modelPricing.description") }}</p>
-            </div>
+        <AppSection :title="t('admin.groups.modelPricing.title')" :description="t('admin.groups.modelPricing.description')" divided>
+          <template #actions>
             <UiButton type="button" density="compact" variant="secondary" @click="addGroupPricing(editForm.model_pricing)">
               <template #icon><Icon name="plus" size="sm" /></template>{{ t("admin.groups.modelPricing.add") }}
             </UiButton>
-          </div>
-          <div class="mt-3">
+          </template>
+          <AppStack :gap="10">
             <UiCheckbox v-model="editForm.long_context_pricing_enabled" :label="t('admin.groups.modelPricing.longContext')" />
-            <p class="mt-1 text-xs text-gray-500">{{ t("admin.groups.modelPricing.longContextHint") }}</p>
-          </div>
-          <div class="mt-3 space-y-2">
+            <UiAlert tone="info" :message="t('admin.groups.modelPricing.longContextHint')" />
             <PricingEntryCard v-for="(entry, index) in editForm.model_pricing" :key="index" :entry="entry" :platform="editForm.platform" hide-token-intervals @update="editForm.model_pricing[index] = $event" @remove="editForm.model_pricing.splice(index, 1)" />
-          </div>
-        </div>
+          </AppStack>
+        </AppSection>
 
-        <div v-if="editForm.platform === 'grok'" class="mt-4 border-t border-gray-200 pt-4 dark:border-dark-400">
-          <h4 class="mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">{{ t("admin.groups.explicitPricing.title") }}</h4>
-          <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">{{ t("admin.groups.explicitPricing.description") }}</p>
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <AppSection v-if="editForm.platform === 'grok'" :title="t('admin.groups.explicitPricing.title')" :description="t('admin.groups.explicitPricing.description')" divided>
+          <AppGrid min="180px" :gap="12">
             <UiTextField v-model.number="editForm.search_price_per_1k" type="number" step="0.000001" min="0" density="compact" :label="t('admin.groups.explicitPricing.searchPricePer1k')" :placeholder="t('admin.groups.explicitPricing.pricePlaceholder')" test-id="edit-search-price" />
             <UiTextField v-model.number="editForm.audio_realtime_price_per_min" type="number" step="0.000001" min="0" density="compact" :label="t('admin.groups.voicePricing.audioRealtimePerMin')" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" test-id="edit-audio-realtime-price" />
             <UiTextField v-model.number="editForm.audio_tts_price_per_million_chars" type="number" step="0.000001" min="0" density="compact" :label="t('admin.groups.voicePricing.audioTtsPerMillionChars')" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" test-id="edit-audio-tts-price" />
             <UiTextField v-model.number="editForm.audio_stt_price_per_hour" type="number" step="0.000001" min="0" density="compact" :label="t('admin.groups.voicePricing.audioSttPerHour')" :placeholder="t('admin.groups.voicePricing.pricePlaceholder')" test-id="edit-audio-stt-price" />
-          </div>
-        </div>
+          </AppGrid>
+        </AppSection>
 
         <!-- OpenAI Live 开关（仅 openai 平台） -->
-        <div
+        <AppSection
           v-if="editForm.platform === 'openai'"
-          class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
+          :title="t('admin.groups.openaiLive.title')"
+          :description="t('admin.groups.openaiLive.hint')"
+          divided
         >
-          <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            {{ t("admin.groups.openaiLive.title") }}
-          </h4>
-          <div class="flex items-center justify-between">
-            <label class="text-sm text-gray-600 dark:text-gray-400">{{
-              t("admin.groups.openaiLive.allow")
-            }}</label>
+          <template #actions>
             <UiSwitch
               :model-value="editForm.allow_live"
               :label="t('admin.groups.openaiLive.allow')"
               @update:model-value="toggleLive('edit')"
             />
-          </div>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {{ t("admin.groups.openaiLive.hint") }}
-          </p>
-        </div>
+          </template>
+        </AppSection>
 
         <!-- OpenAI Messages 调度配置（仅 openai 平台） -->
         <GroupMessagesDispatchFields
@@ -964,9 +716,9 @@
           v-model:privacy-set-only="editForm.require_privacy_set"
         />
         <!-- 无效请求兜底（仅 anthropic/antigravity 平台） -->
-        <div
+        <AppSection
           v-if="['anthropic', 'antigravity'].includes(editForm.platform)"
-          class="border-t pt-4"
+          divided
         >
           <UiSelect
             v-model="editForm.fallback_group_id_on_invalid_request"
@@ -976,7 +728,7 @@
             :placeholder="t('admin.groups.invalidRequestFallback.noFallback')"
             density="compact"
           />
-        </div>
+        </AppSection>
 
         <!-- 模型路由配置（仅 anthropic 平台） -->
         <GroupModelRoutingFields
@@ -1377,6 +1129,7 @@ import {
   AppPageHeader,
   AppSection,
   AppStack,
+  UiAlert,
   UiBadge,
   UiButton,
   UiButtonGroup,
@@ -1388,7 +1141,6 @@ import {
   UiDescriptionList,
   UiDialog,
   UiEmptyState,
-  UiFieldHelp,
   UiFilterBar,
   UiIconButton,
   UiMobileTableScroller,
@@ -1417,6 +1169,8 @@ import GroupAccountFiltersFields from "@/components/admin/group/GroupAccountFilt
 import GroupModelRoutingFields from "@/components/admin/group/GroupModelRoutingFields.vue";
 import GroupImagePricingFields from "@/components/admin/group/GroupImagePricingFields.vue";
 import GroupVideoPricingFields from "@/components/admin/group/GroupVideoPricingFields.vue";
+import GroupPeakProfitFields from "@/components/admin/group/GroupPeakProfitFields.vue";
+import GroupProviderPolicyFields from "@/components/admin/group/GroupProviderPolicyFields.vue";
 import type {
   GroupModelRoutingRule as ModelRoutingRule,
   GroupRoutingAccount as SimpleAccount,
@@ -2237,26 +1991,6 @@ const removeSelectedAccount = (
   if (!rule) return;
 
   rule.accounts = rule.accounts.filter((a) => a.id !== accountId);
-};
-
-// 切换创建表单的模型系列选择
-const toggleCreateScope = (scope: string) => {
-  const idx = createForm.supported_model_scopes.indexOf(scope);
-  if (idx === -1) {
-    createForm.supported_model_scopes.push(scope);
-  } else {
-    createForm.supported_model_scopes.splice(idx, 1);
-  }
-};
-
-// 切换编辑表单的模型系列选择
-const toggleEditScope = (scope: string) => {
-  const idx = editForm.supported_model_scopes.indexOf(scope);
-  if (idx === -1) {
-    editForm.supported_model_scopes.push(scope);
-  } else {
-    editForm.supported_model_scopes.splice(idx, 1);
-  }
 };
 
 // 添加创建表单的路由规则
