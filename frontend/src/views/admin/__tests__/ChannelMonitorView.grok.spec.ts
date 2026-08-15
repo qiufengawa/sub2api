@@ -61,7 +61,7 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
-const BaseDialogStub = defineComponent({
+const DialogStub = defineComponent({
   props: { show: { type: Boolean, default: false } },
   template: '<div v-if="show"><slot /><slot name="footer" /></div>',
 })
@@ -71,9 +71,7 @@ function mountDialog() {
     props: { show: true, monitor: null },
     global: {
       stubs: {
-        BaseDialog: BaseDialogStub,
-        Toggle: true,
-        Select: true,
+        UiDialog: DialogStub,
         ModelTagInput: true,
         MonitorKeyPickerDialog: true,
         MonitorAdvancedRequestConfig: true,
@@ -92,30 +90,25 @@ describe('channel monitor Grok provider', () => {
     await flushPromises()
 
     expect(PROVIDERS).toContain(PROVIDER_GROK)
-    const providerButtons = wrapper.findAll('[data-testid^="monitor-provider-"]')
-    expect(providerButtons).toHaveLength(4)
-    expect(providerButtons[0].element.parentElement?.className).toContain('grid-cols-2')
-    expect(providerButtons[0].element.parentElement?.className).toContain('sm:grid-cols-4')
+    const providerInputs = wrapper.findAll('input[name="channel-monitor-provider"]')
+    expect(providerInputs).toHaveLength(4)
 
-    const grokButton = wrapper.get('[data-testid="monitor-provider-grok"]')
-    expect(grokButton.find('svg').exists()).toBe(true)
-    expect(grokButton.text()).toContain('monitorCommon.providers.grok')
-    await grokButton.trigger('click')
-    expect(grokButton.classes().join(' ')).toContain('zinc')
+    const grokButton = wrapper.get('input[name="channel-monitor-provider"][value="grok"]')
+    await grokButton.setValue(true)
 
     const endpoint = wrapper.get('[data-testid="monitor-endpoint"]')
     const model = wrapper.get('[data-testid="monitor-primary-model"]')
     expect((endpoint.element as HTMLInputElement).value).toBe(DEFAULT_GROK_ENDPOINT)
     expect((model.element as HTMLInputElement).value).toBe(DEFAULT_GROK_MODEL)
 
-    await wrapper.get('[data-testid="monitor-provider-anthropic"]').trigger('click')
+    await wrapper.get('input[name="channel-monitor-provider"][value="anthropic"]').setValue(true)
     expect((endpoint.element as HTMLInputElement).value).toBe('')
     expect((model.element as HTMLInputElement).value).toBe('')
 
-    await grokButton.trigger('click')
+    await grokButton.setValue(true)
     await endpoint.setValue('https://gateway.example.com')
     await model.setValue('grok-custom')
-    await wrapper.get('[data-testid="monitor-provider-openai"]').trigger('click')
+    await wrapper.get('input[name="channel-monitor-provider"][value="openai"]').setValue(true)
     expect((endpoint.element as HTMLInputElement).value).toBe('https://gateway.example.com')
     expect((model.element as HTMLInputElement).value).toBe('grok-custom')
   })
@@ -126,21 +119,21 @@ describe('channel monitor Grok provider', () => {
 
     const endpoint = wrapper.get('[data-testid="monitor-endpoint"]')
     const model = wrapper.get('[data-testid="monitor-primary-model"]')
-    const grokButton = wrapper.get('[data-testid="monitor-provider-grok"]')
-    const anthropicButton = wrapper.get('[data-testid="monitor-provider-anthropic"]')
+    const grokButton = wrapper.get('input[name="channel-monitor-provider"][value="grok"]')
+    const anthropicButton = wrapper.get('input[name="channel-monitor-provider"][value="anthropic"]')
 
     await endpoint.setValue('https://gateway.example.com')
-    await grokButton.trigger('click')
+    await grokButton.setValue(true)
     expect((endpoint.element as HTMLInputElement).value).toBe('https://gateway.example.com')
     expect((model.element as HTMLInputElement).value).toBe(DEFAULT_GROK_MODEL)
 
-    await anthropicButton.trigger('click')
+    await anthropicButton.setValue(true)
     expect((endpoint.element as HTMLInputElement).value).toBe('https://gateway.example.com')
     expect((model.element as HTMLInputElement).value).toBe('')
 
     await endpoint.setValue('')
     await model.setValue('grok-custom')
-    await grokButton.trigger('click')
+    await grokButton.setValue(true)
     expect((endpoint.element as HTMLInputElement).value).toBe(DEFAULT_GROK_ENDPOINT)
     expect((model.element as HTMLInputElement).value).toBe('grok-custom')
   })

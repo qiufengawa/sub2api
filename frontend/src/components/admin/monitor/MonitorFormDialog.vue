@@ -1,177 +1,108 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="editing ? t('admin.channelMonitor.editTitle') : t('admin.channelMonitor.createTitle')"
     width="wide"
-    @close="$emit('close')"
+    @close="emit('close')"
   >
-    <form id="channel-monitor-form" @submit.prevent="handleSubmit" class="space-y-5">
-      <div>
-        <label class="input-label">{{ t('admin.channelMonitor.form.name') }} <span class="text-red-500">*</span></label>
-        <input v-model="form.name" type="text" required class="input" :placeholder="t('admin.channelMonitor.form.namePlaceholder')" />
-      </div>
+    <form id="channel-monitor-form" @submit.prevent="handleSubmit">
+      <AppStack :gap="14">
+        <UiTextField v-model="form.name" :label="t('admin.channelMonitor.form.name')" :placeholder="t('admin.channelMonitor.form.namePlaceholder')" required />
 
-      <div>
-        <label class="input-label">{{ t('admin.channelMonitor.form.provider') }} <span class="text-red-500">*</span></label>
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <button
-            v-for="opt in providerOptions"
-            :key="opt.value"
-            type="button"
-            :data-testid="`monitor-provider-${opt.value}`"
-            :aria-pressed="form.provider === opt.value"
-            class="flex items-center justify-center gap-2 rounded-lg border-2 px-3 py-2.5 text-sm font-medium transition-colors"
-            :class="providerPickerClass(opt.value, form.provider === opt.value)"
-            @click="selectProvider(opt.value)"
-          >
-            <ProviderIcon :provider="opt.value" :size="18" />
-            <span>{{ opt.label }}</span>
-          </button>
-        </div>
-      </div>
+        <UiRadioGroup
+          :model-value="form.provider"
+          :options="providerOptions"
+          name="channel-monitor-provider"
+          layout="grid"
+          :label="t('admin.channelMonitor.form.provider')"
+          @update:model-value="selectProvider($event as Provider)"
+        />
 
-      <div v-if="form.provider === PROVIDER_OPENAI" class="rounded-lg border border-blue-100 bg-blue-50/50 p-3 dark:border-blue-500/20 dark:bg-blue-500/10">
-        <label class="input-label">{{ t('admin.channelMonitor.form.apiMode') }}</label>
-        <div class="grid gap-3 sm:grid-cols-2">
-          <button
-            v-for="opt in apiModeOptions"
-            :key="opt.value"
-            type="button"
-            :aria-pressed="form.api_mode === opt.value"
-            class="rounded-lg border-2 px-3 py-2 text-left transition-colors"
-            :class="apiModeButtonClass(opt.value)"
-            @click="form.api_mode = opt.value"
-          >
-            <span class="block text-sm font-semibold">{{ opt.label }}</span>
-            <span class="mt-0.5 block text-xs opacity-80">{{ opt.hint }}</span>
-          </button>
-        </div>
-      </div>
+        <UiRadioGroup
+          v-if="form.provider === PROVIDER_OPENAI"
+          :model-value="form.api_mode"
+          :options="apiModeOptions"
+          name="channel-monitor-api-mode"
+          layout="grid"
+          :label="t('admin.channelMonitor.form.apiMode')"
+          @update:model-value="form.api_mode = $event as APIMode"
+        />
 
-      <div>
-        <label class="input-label">{{ t('admin.channelMonitor.form.endpoint') }} <span class="text-red-500">*</span></label>
-        <div class="flex gap-2">
-          <input v-model="form.endpoint" data-testid="monitor-endpoint" type="text" required class="input flex-1" :placeholder="t('admin.channelMonitor.form.endpointPlaceholder')" />
-          <button type="button" @click="useCurrentDomain" class="btn btn-secondary whitespace-nowrap">
-            {{ t('admin.channelMonitor.form.useCurrentDomain') }}
-          </button>
-        </div>
-      </div>
+        <AppInline :wrap="false">
+          <UiTextField v-model="form.endpoint" test-id="monitor-endpoint" :label="t('admin.channelMonitor.form.endpoint')" :placeholder="t('admin.channelMonitor.form.endpointPlaceholder')" required />
+          <UiButton type="button" density="compact" @click="useCurrentDomain">{{ t('admin.channelMonitor.form.useCurrentDomain') }}</UiButton>
+        </AppInline>
 
-      <div>
-        <label class="input-label">
-          {{ t('admin.channelMonitor.form.apiKey') }}<span v-if="!editing" class="text-red-500"> *</span>
-        </label>
-        <div class="flex gap-2">
-          <input
+        <AppInline :wrap="false">
+          <UiTextField
             v-model="form.api_key"
             type="password"
+            :label="t('admin.channelMonitor.form.apiKey')"
+            :description="editing?.api_key_masked || undefined"
             :required="!editing"
-            class="input flex-1"
             :placeholder="editing ? t('admin.channelMonitor.form.apiKeyEditPlaceholder') : t('admin.channelMonitor.form.apiKeyPlaceholder')"
           />
-          <button type="button" @click="openMyKeyPicker" class="btn btn-secondary whitespace-nowrap">
-            {{ t('admin.channelMonitor.form.useMyKey') }}
-          </button>
-        </div>
-        <p v-if="editing && editing.api_key_masked" class="mt-1 text-xs text-gray-400">{{ editing.api_key_masked }}</p>
-      </div>
+          <UiButton type="button" density="compact" @click="openMyKeyPicker">{{ t('admin.channelMonitor.form.useMyKey') }}</UiButton>
+        </AppInline>
 
-      <div>
-        <label class="input-label">{{ t('admin.channelMonitor.form.primaryModel') }} <span class="text-red-500">*</span></label>
-        <input
-          v-model="form.primary_model"
-          data-testid="monitor-primary-model"
-          type="text"
-          required
-          class="input font-medium"
-          :class="getPlatformTextClass(form.provider)"
-          :placeholder="t('admin.channelMonitor.form.primaryModelPlaceholder')"
-        />
-      </div>
+        <UiTextField v-model="form.primary_model" test-id="monitor-primary-model" :label="t('admin.channelMonitor.form.primaryModel')" :placeholder="t('admin.channelMonitor.form.primaryModelPlaceholder')" monospace required />
 
-      <div>
-        <label class="input-label">{{ t('admin.channelMonitor.form.extraModels') }}</label>
+        <UiFormField :label="t('admin.channelMonitor.form.extraModels')">
         <ModelTagInput
           :models="form.extra_models"
           :platform="form.provider"
           :placeholder="t('admin.channelMonitor.form.extraModelsPlaceholder')"
           @update:models="form.extra_models = $event"
         />
-      </div>
+        </UiFormField>
 
-      <div>
-        <label class="input-label">{{ t('admin.channelMonitor.form.groupName') }}</label>
-        <input v-model="form.group_name" type="text" class="input" :placeholder="t('admin.channelMonitor.form.groupNamePlaceholder')" />
-      </div>
+        <UiTextField v-model="form.group_name" :label="t('admin.channelMonitor.form.groupName')" :placeholder="t('admin.channelMonitor.form.groupNamePlaceholder')" />
 
-      <div>
-        <label class="input-label">{{ t('admin.channelMonitor.form.intervalSeconds') }} <span class="text-red-500">*</span></label>
-        <input v-model.number="form.interval_seconds" type="number" min="15" max="3600" required class="input" />
-        <p class="mt-1 text-xs text-gray-400">{{ t('admin.channelMonitor.form.intervalSecondsHint') }}</p>
-      </div>
+        <AppGrid min="200px" :gap="12">
+          <UiTextField v-model.number="form.interval_seconds" type="number" min="15" max="3600" required :label="t('admin.channelMonitor.form.intervalSeconds')" :description="t('admin.channelMonitor.form.intervalSecondsHint')" />
+          <UiTextField v-model.number="form.jitter_seconds" type="number" min="0" :max="maxJitterSeconds" :label="t('admin.channelMonitor.form.jitterSeconds')" :description="t('admin.channelMonitor.form.jitterSecondsHint')" />
+        </AppGrid>
 
-      <div>
-        <label class="input-label">{{ t('admin.channelMonitor.form.jitterSeconds') }}</label>
-        <input v-model.number="form.jitter_seconds" type="number" min="0" :max="maxJitterSeconds" class="input" />
-        <p class="mt-1 text-xs text-gray-400">{{ t('admin.channelMonitor.form.jitterSecondsHint') }}</p>
-      </div>
+        <UiSwitch v-model="form.enabled" :label="t('admin.channelMonitor.form.enabled')" />
 
-      <div class="flex items-center justify-between">
-        <label class="input-label mb-0">{{ t('admin.channelMonitor.form.enabled') }}</label>
-        <Toggle v-model="form.enabled" />
-      </div>
-
-      <!-- 高级设置区：请求模板 + 自定义 headers/body -->
-      <details class="rounded-lg border border-gray-200 bg-gray-50/50 p-3 dark:border-dark-700 dark:bg-dark-900/30">
-        <summary class="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300">
-          {{ t('admin.channelMonitor.advanced.section') }}
-        </summary>
-        <p class="mt-1 text-xs text-gray-400">{{ t('admin.channelMonitor.advanced.sectionHint') }}</p>
-
-        <div class="mt-4 space-y-4">
-          <div>
-            <label class="input-label">{{ t('admin.channelMonitor.templateField.label') }}</label>
-            <Select
+        <UiAccordion :items="advancedSections">
+          <template #advanced>
+            <AppStack :gap="12">
+              <UiSelect
               v-model="templateSelectValue"
               :options="templateOptions"
+              :label="t('admin.channelMonitor.templateField.label')"
+              :description="t('admin.channelMonitor.templateField.applyHint')"
               :placeholder="t('admin.channelMonitor.templateField.placeholder')"
             />
-            <p class="mt-1 text-xs text-gray-400">{{ t('admin.channelMonitor.templateField.applyHint') }}</p>
-          </div>
 
-          <MonitorAdvancedRequestConfig
-            :provider="form.provider"
-            :api-mode="form.api_mode"
-            :extra-headers="form.extra_headers"
-            :body-override-mode="form.body_override_mode"
-            :body-override="form.body_override"
-            @update:extra-headers="form.extra_headers = $event"
-            @update:body-override-mode="form.body_override_mode = $event"
-            @update:body-override="form.body_override = $event"
-          />
-        </div>
-      </details>
+              <MonitorAdvancedRequestConfig
+                :provider="form.provider"
+                :api-mode="form.api_mode"
+                :extra-headers="form.extra_headers"
+                :body-override-mode="form.body_override_mode"
+                :body-override="form.body_override"
+                @update:extra-headers="form.extra_headers = $event"
+                @update:body-override-mode="form.body_override_mode = $event"
+                @update:body-override="form.body_override = $event"
+              />
+            </AppStack>
+          </template>
+        </UiAccordion>
+      </AppStack>
     </form>
 
     <template #footer>
-      <div class="flex justify-end gap-3">
-        <button @click="$emit('close')" type="button" class="btn btn-secondary">
-          {{ t('common.cancel') }}
-        </button>
-        <button
-          type="submit"
-          form="channel-monitor-form"
-          :disabled="submitting"
-          class="btn btn-primary"
-        >
+      <AppInline justify="flex-end">
+        <UiButton type="button" density="compact" @click="emit('close')">{{ t('common.cancel') }}</UiButton>
+        <UiButton type="submit" form="channel-monitor-form" density="compact" variant="primary" :loading="submitting" :disabled="submitting">
           {{ submitting
             ? t('common.submitting')
             : editing ? t('common.update') : t('common.create') }}
-        </button>
-      </div>
+        </UiButton>
+      </AppInline>
     </template>
-  </BaseDialog>
+  </UiDialog>
 
   <MonitorKeyPickerDialog
     :show="showKeyPicker"
@@ -202,15 +133,22 @@ import type {
 } from '@/api/admin/channelMonitor'
 import type { ChannelMonitorTemplate } from '@/api/admin/channelMonitorTemplate'
 import type { ApiKey } from '@/types'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import Toggle from '@/components/common/Toggle.vue'
-import Select from '@/components/common/Select.vue'
 import ModelTagInput from '@/components/admin/channel/ModelTagInput.vue'
-import { getPlatformTextClass } from '@/components/admin/channel/types'
 import MonitorKeyPickerDialog from '@/components/admin/monitor/MonitorKeyPickerDialog.vue'
 import MonitorAdvancedRequestConfig from '@/components/admin/monitor/MonitorAdvancedRequestConfig.vue'
-import ProviderIcon from '@/components/user/monitor/ProviderIcon.vue'
-import { useChannelMonitorFormat } from '@/composables/useChannelMonitorFormat'
+import {
+  AppGrid,
+  AppInline,
+  AppStack,
+  UiAccordion,
+  UiButton,
+  UiDialog,
+  UiFormField,
+  UiRadioGroup,
+  UiSelect,
+  UiSwitch,
+  UiTextField,
+} from '@/components/ui'
 import {
   PROVIDER_OPENAI,
   PROVIDER_ANTHROPIC,
@@ -235,7 +173,6 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const appStore = useAppStore()
-const { providerPickerClass } = useChannelMonitorFormat()
 
 // System-configured default interval for new monitors. Falls back to the static
 // constant when public settings haven't loaded yet or store the legacy 0 value.
@@ -352,29 +289,21 @@ const templateSelectValue = computed<string>({
   },
 })
 
-const apiModeOptions = computed<{ value: APIMode; label: string; hint: string }[]>(() => [
+const apiModeOptions = computed<{ value: APIMode; label: string; description: string }[]>(() => [
   {
     value: API_MODE_CHAT_COMPLETIONS,
     label: t('admin.channelMonitor.form.apiModeChatCompletions'),
-    hint: t('admin.channelMonitor.form.apiModeChatCompletionsHint'),
+    description: t('admin.channelMonitor.form.apiModeChatCompletionsHint'),
   },
   {
     value: API_MODE_RESPONSES,
     label: t('admin.channelMonitor.form.apiModeResponses'),
-    hint: t('admin.channelMonitor.form.apiModeResponsesHint'),
+    description: t('admin.channelMonitor.form.apiModeResponsesHint'),
   },
 ])
 
 function normalizeAPIMode(mode: APIMode | undefined | null): APIMode {
   return mode === API_MODE_RESPONSES ? API_MODE_RESPONSES : API_MODE_CHAT_COMPLETIONS
-}
-
-function apiModeButtonClass(mode: APIMode): string {
-  const active = form.api_mode === mode
-  if (active) {
-    return 'border-primary-500 bg-white text-primary-700 shadow-sm dark:border-primary-400 dark:bg-primary-500/15 dark:text-primary-300'
-  }
-  return 'border-blue-100 bg-white/70 text-gray-600 hover:border-primary-300 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400'
 }
 
 function templateOptionLabel(tpl: ChannelMonitorTemplate): string {
@@ -403,6 +332,12 @@ const providerOptions = computed<ProviderOption[]>(() => [
   { value: PROVIDER_GEMINI, label: t('monitorCommon.providers.gemini') },
   { value: PROVIDER_GROK, label: t('monitorCommon.providers.grok') },
 ])
+
+const advancedSections = computed(() => [{
+  key: 'advanced',
+  title: t('admin.channelMonitor.advanced.section'),
+  content: t('admin.channelMonitor.advanced.sectionHint'),
+}])
 
 function selectProvider(provider: Provider) {
   if (form.provider === provider) return
