@@ -1,63 +1,66 @@
 <template>
   <Teleport to="body">
-    <div v-if="show && position">
-      <!-- Backdrop: click anywhere outside to close -->
-      <div class="fixed inset-0 z-[9998]" @click="emit('close')"></div>
+    <Transition name="account-action-menu">
+      <div v-if="show && position" class="account-action-menu__layer">
+      <div class="account-action-menu__backdrop" aria-hidden="true" @click="emit('close')"></div>
       <div
-        class="action-menu-content fixed z-[9999] max-h-[calc(100dvh-1rem)] w-52 overflow-y-auto rounded-[4px] bg-white shadow-lg ring-1 ring-black/5 dark:bg-dark-800"
+        class="account-action-menu__panel"
         :style="{ top: position.top + 'px', left: position.left + 'px' }"
+        role="menu"
+        :aria-label="t('common.more')"
         @click.stop
       >
-        <div class="py-1">
+        <div class="account-action-menu__items">
           <template v-if="account">
-            <UiButton block density="compact" variant="quiet" class="justify-start" @click="$emit('test', account); $emit('close')">
-              <template #icon><Icon name="play" size="sm" class="text-green-500" :stroke-width="2" /></template>
+            <UiButton role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" @click="$emit('test', account); $emit('close')">
+              <template #icon><Icon name="play" size="sm" :stroke-width="2" /></template>
               {{ t('admin.accounts.testConnection') }}
             </UiButton>
-            <UiButton block density="compact" variant="quiet" class="justify-start" @click="$emit('stats', account); $emit('close')">
-              <template #icon><Icon name="chart" size="sm" class="text-indigo-500" /></template>
+            <UiButton role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" @click="$emit('stats', account); $emit('close')">
+              <template #icon><Icon name="chart" size="sm" /></template>
               {{ t('admin.accounts.viewStats') }}
             </UiButton>
-            <UiButton block density="compact" variant="quiet" class="justify-start" @click="$emit('schedule', account); $emit('close')">
-              <template #icon><Icon name="clock" size="sm" class="text-orange-500" /></template>
+            <UiButton role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" @click="$emit('schedule', account); $emit('close')">
+              <template #icon><Icon name="clock" size="sm" /></template>
               {{ t('admin.scheduledTests.schedule') }}
             </UiButton>
-            <UiButton v-if="canDuplicate" block density="compact" variant="quiet" class="justify-start" @click="$emit('duplicate', account); $emit('close')">
-              <template #icon><Icon name="copy" size="sm" class="text-sky-500" /></template>
+            <UiButton v-if="canDuplicate" role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" @click="$emit('duplicate', account); $emit('close')">
+              <template #icon><Icon name="copy" size="sm" /></template>
               {{ t('admin.accounts.duplicateAccount') }}
             </UiButton>
             <!-- 影子账号不持凭据:重授权/刷新 token 对其无效(后端拒绝),故隐藏(外审 G4)。 -->
             <template v-if="(account.type === 'oauth' || account.type === 'setup-token') && !isShadow">
-              <UiButton block density="compact" variant="quiet" class="justify-start text-blue-600" @click="$emit('reauth', account); $emit('close')">
+              <UiButton role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" @click="$emit('reauth', account); $emit('close')">
                 <template #icon><Icon name="link" size="sm" /></template>
                 {{ t('admin.accounts.reAuthorize') }}
               </UiButton>
-              <UiButton block density="compact" variant="quiet" class="justify-start text-purple-600" @click="$emit('refresh-token', account); $emit('close')">
+              <UiButton role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" @click="$emit('refresh-token', account); $emit('close')">
                 <template #icon><Icon name="refresh" size="sm" /></template>
                 {{ t('admin.accounts.refreshToken') }}
               </UiButton>
             </template>
-            <UiButton v-if="isOpenAIOAuthParent" block density="compact" variant="quiet" class="justify-start text-amber-600" @click="$emit('create-spark-shadow', account); $emit('close')">
+            <UiButton v-if="isOpenAIOAuthParent" role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" @click="$emit('create-spark-shadow', account); $emit('close')">
               <template #icon><Icon name="sparkles" size="sm" /></template>
               {{ t('admin.accounts.createSparkShadow') }}
             </UiButton>
-            <UiButton v-if="supportsPrivacy" block density="compact" variant="quiet" class="justify-start text-emerald-600" @click="$emit('set-privacy', account); $emit('close')">
+            <UiButton v-if="supportsPrivacy" role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" @click="$emit('set-privacy', account); $emit('close')">
               <template #icon><Icon name="shield" size="sm" /></template>
               {{ t('admin.accounts.setPrivacy') }}
             </UiButton>
-            <div v-if="hasRecoverableState" class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
-            <UiButton v-if="hasRecoverableState" block density="compact" variant="quiet" class="justify-start text-emerald-600" @click="$emit('recover-state', account); $emit('close')">
+            <div v-if="hasRecoverableState" class="account-action-menu__divider"></div>
+            <UiButton v-if="hasRecoverableState" role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" @click="$emit('recover-state', account); $emit('close')">
               <template #icon><Icon name="sync" size="sm" /></template>
               {{ t('admin.accounts.recoverState') }}
             </UiButton>
-            <UiButton v-if="hasQuotaLimit" block density="compact" variant="quiet" class="justify-start text-teal-600" @click="$emit('reset-quota', account); $emit('close')">
+            <UiButton v-if="hasQuotaLimit" role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" @click="$emit('reset-quota', account); $emit('close')">
               <template #icon><Icon name="refresh" size="sm" /></template>
               {{ t('admin.accounts.resetQuota') }}
             </UiButton>
           </template>
         </div>
       </div>
-    </div>
+      </div>
+    </Transition>
   </Teleport>
 </template>
 
@@ -128,3 +131,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
 })
 </script>
+
+<style scoped>
+.account-action-menu__layer{position:fixed;inset:0;z-index:9998;pointer-events:none}.account-action-menu__backdrop{position:absolute;inset:0;pointer-events:auto}.account-action-menu__panel{position:fixed;z-index:1;width:208px;max-height:calc(100dvh - 16px);overflow-y:auto;padding:6px;border:1px solid var(--ui-border);border-radius:var(--ui-radius);color:var(--ui-text);background:var(--ui-surface);box-shadow:0 8px 24px rgb(31 35 41/.08);pointer-events:auto}.account-action-menu__items{display:grid;gap:2px}.account-action-menu__button{justify-content:flex-start}.account-action-menu__divider{height:1px;margin:4px 2px;background:var(--ui-border-soft)}.account-action-menu-enter-active,.account-action-menu-leave-active{transition:opacity var(--ui-motion-fast) var(--ui-ease-standard)}.account-action-menu-enter-from,.account-action-menu-leave-to{opacity:0}@media(prefers-reduced-motion:reduce){.account-action-menu-enter-active,.account-action-menu-leave-active{transition:none}}
+</style>

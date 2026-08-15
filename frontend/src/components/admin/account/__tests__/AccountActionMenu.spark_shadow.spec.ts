@@ -174,3 +174,65 @@ describe('AccountActionMenu — spark shadow 按钮可见性', () => {
     wrapper.unmount()
   })
 })
+
+describe('AccountActionMenu — operational actions', () => {
+  it('shows recovery for an error account and emits the account before closing', async () => {
+    const account = makeAccount({ status: 'error' })
+    const wrapper = mount(AccountActionMenu, {
+      props: { show: true, account, position },
+      attachTo: document.body,
+    })
+    const recoverButton = getBodyButtons().find((button) =>
+      button.textContent?.includes('admin.accounts.recoverState')
+    )
+
+    expect(recoverButton).toBeDefined()
+    recoverButton!.click()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('recover-state')?.[0]?.[0]).toMatchObject({ id: account.id })
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('shows quota reset only for eligible accounts with a configured limit', () => {
+    const eligible = mount(AccountActionMenu, {
+      props: {
+        show: true,
+        account: makeAccount({ type: 'apikey', quota_weekly_limit: 10 }),
+        position,
+      },
+      attachTo: document.body,
+    })
+    expect(getBodyText()).toContain('admin.accounts.resetQuota')
+    eligible.unmount()
+
+    const ineligible = mount(AccountActionMenu, {
+      props: {
+        show: true,
+        account: makeAccount({ type: 'oauth', quota_weekly_limit: 10 }),
+        position,
+      },
+      attachTo: document.body,
+    })
+    expect(getBodyText()).not.toContain('admin.accounts.resetQuota')
+    ineligible.unmount()
+  })
+
+  it('closes from Escape and the outside backdrop', async () => {
+    const wrapper = mount(AccountActionMenu, {
+      props: { show: true, account: makeAccount({}), position },
+      attachTo: document.body,
+    })
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('close')).toHaveLength(1)
+
+    const backdrop = document.body.querySelector<HTMLElement>('.account-action-menu__backdrop')
+    expect(backdrop).not.toBeNull()
+    backdrop!.click()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('close')).toHaveLength(2)
+    wrapper.unmount()
+  })
+})
