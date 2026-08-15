@@ -6,61 +6,28 @@
     @close="$emit('close')"
   >
     <form id="create-user-form" @submit.prevent="submit" class="space-y-5">
-      <div>
-        <label class="input-label">{{ t('admin.users.email') }}</label>
-        <input v-model="form.email" type="email" required class="input" :placeholder="t('admin.users.enterEmail')" />
-      </div>
-      <div>
-        <label class="input-label">{{ t('admin.users.password') }}</label>
-        <div class="flex gap-2">
-          <div class="relative flex-1">
-            <input v-model="form.password" type="text" required class="input pr-10" :placeholder="t('admin.users.enterPassword')" />
-          </div>
-          <button type="button" @click="generateRandomPassword" class="btn btn-secondary px-3">
-            <Icon name="refresh" size="md" />
-          </button>
-        </div>
-      </div>
-      <div>
-        <label class="input-label">{{ t('admin.users.username') }}</label>
-        <input v-model="form.username" type="text" class="input" :placeholder="t('admin.users.enterUsername')" />
-      </div>
-      <div>
-        <label class="input-label">{{ t('admin.users.form.roleLabel') }}</label>
-        <select v-model="form.role" class="input">
-          <option value="user">{{ t('admin.users.roles.user') }}</option>
-          <option value="admin">{{ t('admin.users.roles.admin') }}</option>
-        </select>
-      </div>
+      <UiTextField v-model="form.email" type="email" required :label="t('admin.users.email')" :placeholder="t('admin.users.enterEmail')" />
+      <div class="user-modal-inline-field"><UiTextField v-model="form.password" type="text" required :label="t('admin.users.password')" :placeholder="t('admin.users.enterPassword')" /><UiIconButton icon="refresh" density="compact" :label="t('common.refresh')" @click="generateRandomPassword" /></div>
+      <UiTextField v-model="form.username" :label="t('admin.users.username')" :placeholder="t('admin.users.enterUsername')" />
+      <UiSelect v-model="form.role" :label="t('admin.users.form.roleLabel')" :options="[{ value: 'user', label: t('admin.users.roles.user') }, { value: 'admin', label: t('admin.users.roles.admin') }]" />
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label class="input-label">{{ t('admin.users.columns.balance') }}</label>
-          <input v-model="form.balance" type="number" step="any" class="input" />
+          <UiTextField v-model="form.balance" type="number" step="any" :label="t('admin.users.columns.balance')" />
         </div>
         <div>
-          <label class="input-label">{{ t('admin.users.columns.concurrency') }}</label>
-          <input v-model.number="form.concurrency" type="number" class="input" />
+          <UiTextField type="number" :label="t('admin.users.columns.concurrency')" :model-value="form.concurrency" @update:model-value="form.concurrency = Number($event) || 0" />
         </div>
       </div>
       <div>
-        <label class="input-label">{{ t('admin.users.form.rpmLimit') }}</label>
-        <input
-          v-model.number="form.rpm_limit"
-          type="number"
-          min="0"
-          step="1"
-          class="input"
-          :placeholder="t('admin.users.form.rpmLimitPlaceholder')"
-        />
-        <p class="input-hint">{{ t('admin.users.form.rpmLimitHint') }}</p>
+        <UiTextField type="number" min="0" step="1" :label="t('admin.users.form.rpmLimit')" :description="t('admin.users.form.rpmLimitHint')" :placeholder="t('admin.users.form.rpmLimitPlaceholder')" :model-value="form.rpm_limit" @update:model-value="form.rpm_limit = Number($event) || 0" />
       </div>
     </form>
     <template #footer>
       <div class="flex justify-end gap-3">
-        <button @click="$emit('close')" type="button" class="btn btn-secondary">{{ t('common.cancel') }}</button>
-        <button type="submit" form="create-user-form" :disabled="loading" class="btn btn-primary">
+        <UiButton @click="$emit('close')" type="button">{{ t('common.cancel') }}</UiButton>
+        <UiButton type="submit" form="create-user-form" :loading="loading" variant="primary">
           {{ loading ? t('admin.users.creating') : t('common.create') }}
-        </button>
+        </UiButton>
       </div>
     </template>
   </BaseDialog>
@@ -74,7 +41,7 @@ import { reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'; import { adminAPI } from '@/api/admin'
 import { useAppStore } from '@/stores/app'
 import BaseDialog from '@/components/common/BaseDialog.vue'
-import Icon from '@/components/icons/Icon.vue'
+import { UiButton, UiIconButton, UiSelect, UiTextField } from '@/components/ui'
 import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/composables/useStepUp'
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
 
@@ -124,3 +91,5 @@ const generateRandomPassword = () => {
   form.password = p
 }
 </script>
+
+<style scoped>.user-modal-inline-field{display:flex;align-items:end;gap:8px}.user-modal-inline-field>.ui-form-field{min-width:0;flex:1}</style>
