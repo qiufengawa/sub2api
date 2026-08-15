@@ -1,96 +1,59 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.proxies.dataImportTitle')"
     width="normal"
     close-on-click-outside
     @close="handleClose"
   >
-    <form id="import-proxy-data-form" class="space-y-4" @submit.prevent="handleImport">
-      <div class="text-sm text-gray-600 dark:text-dark-300">
-        {{ t('admin.proxies.dataImportHint') }}
-      </div>
-      <div
-        class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-600 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400"
-      >
-        {{ t('admin.proxies.dataImportWarning') }}
-      </div>
+    <form id="import-proxy-data-form" class="proxy-import" @submit.prevent="handleImport">
+      <p class="proxy-import__hint">{{ t('admin.proxies.dataImportHint') }}</p>
+      <UiAlert tone="warning" :message="t('admin.proxies.dataImportWarning')" />
 
-      <div>
-        <label class="input-label">{{ t('admin.proxies.dataImportFile') }}</label>
-        <div
-          class="flex items-center justify-between gap-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-3 dark:border-dark-600 dark:bg-dark-800"
-        >
-          <div class="min-w-0">
-            <div class="truncate text-sm text-gray-700 dark:text-dark-200">
-              {{ fileName || t('admin.proxies.dataImportSelectFile') }}
-            </div>
-            <div class="text-xs text-gray-500 dark:text-dark-400">JSON (.json)</div>
-          </div>
-          <button type="button" class="btn btn-secondary shrink-0" @click="openFilePicker">
-            {{ t('common.chooseFile') }}
-          </button>
-        </div>
-        <input
-          ref="fileInput"
-          type="file"
-          class="hidden"
-          accept="application/json,.json"
-          @change="handleFileChange"
-        />
-      </div>
+      <UiFileUpload
+        :label="t('admin.proxies.dataImportFile')"
+        accept="application/json,.json"
+        :accept-text="fileName || 'JSON (.json)'"
+        :button-text="t('common.chooseFile')"
+        :disabled="importing"
+        @select="handleFileSelect"
+      />
 
-      <div
+      <UiAlert
         v-if="result"
-        class="space-y-2 rounded-xl border border-gray-200 p-4 dark:border-dark-700"
-      >
-        <div class="text-sm font-medium text-gray-900 dark:text-white">
-          {{ t('admin.proxies.dataImportResult') }}
-        </div>
-        <div class="text-sm text-gray-700 dark:text-dark-300">
-          {{ t('admin.proxies.dataImportResultSummary', result) }}
-        </div>
-
-        <div v-if="errorItems.length" class="mt-2">
-          <div class="text-sm font-medium text-red-600 dark:text-red-400">
-            {{ t('admin.proxies.dataImportErrors') }}
-          </div>
-          <div
-            class="mt-2 max-h-48 overflow-auto rounded-lg bg-gray-50 p-3 font-mono text-xs dark:bg-dark-800"
-          >
-            <div v-for="(item, idx) in errorItems" :key="idx" class="whitespace-pre-wrap">
-              {{ item.kind }} {{ item.name || item.proxy_key || '-' }} — {{ item.message }}
-            </div>
-          </div>
-        </div>
-      </div>
+        :tone="result.proxy_failed > 0 ? 'danger' : 'success'"
+        :title="t('admin.proxies.dataImportResult')"
+        :message="t('admin.proxies.dataImportResultSummary', result)"
+      />
+      <UiCodeBlock v-if="errorItems.length" :label="t('admin.proxies.dataImportErrors')" :code="errorCode" />
     </form>
 
     <template #footer>
       <div class="flex justify-end gap-3">
-        <button class="btn btn-secondary" type="button" :disabled="importing" @click="handleClose">
+        <UiButton type="button" density="compact" :disabled="importing" @click="handleClose">
           {{ t('common.cancel') }}
-        </button>
-        <button
-          class="btn btn-primary"
+        </UiButton>
+        <UiButton
           type="submit"
           form="import-proxy-data-form"
-          :disabled="importing"
+          variant="primary"
+          density="compact"
+          :loading="importing"
         >
           {{ importing ? t('admin.proxies.dataImporting') : t('admin.proxies.dataImportButton') }}
-        </button>
+        </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import { adminAPI } from '@/api/admin'
 import { useAppStore } from '@/stores/app'
 import type { AdminDataImportResult } from '@/types'
+import { UiAlert, UiButton, UiCodeBlock, UiDialog, UiFileUpload } from '@/components/ui'
 
 interface Props {
   show: boolean
@@ -111,10 +74,12 @@ const importing = ref(false)
 const file = ref<File | null>(null)
 const result = ref<AdminDataImportResult | null>(null)
 
-const fileInput = ref<HTMLInputElement | null>(null)
 const fileName = computed(() => file.value?.name || '')
 
 const errorItems = computed(() => result.value?.errors || [])
+const errorCode = computed(() => errorItems.value.map((item) => (
+  `${item.kind} ${item.name || item.proxy_key || '-'} - ${item.message}`
+)).join('\n'))
 
 watch(
   () => props.show,
@@ -122,20 +87,12 @@ watch(
     if (open) {
       file.value = null
       result.value = null
-      if (fileInput.value) {
-        fileInput.value.value = ''
-      }
     }
   }
 )
 
-const openFilePicker = () => {
-  fileInput.value?.click()
-}
-
-const handleFileChange = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  file.value = target.files?.[0] || null
+const handleFileSelect = (files: File[]) => {
+  file.value = files[0] || null
 }
 
 const handleClose = () => {
@@ -199,3 +156,8 @@ const handleImport = async () => {
   }
 }
 </script>
+
+<style scoped>
+.proxy-import { display: grid; gap: 14px; }
+.proxy-import__hint { margin: 0; color: var(--ui-text-muted); font-size: 13px; line-height: 20px; }
+</style>

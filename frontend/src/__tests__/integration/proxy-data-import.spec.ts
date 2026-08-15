@@ -37,7 +37,7 @@ describe('Proxy ImportDataModal', () => {
       props: { show: true },
       global: {
         stubs: {
-          BaseDialog: { template: '<div><slot /><slot name="footer" /></div>' }
+          UiDialog: { template: '<div><slot /><slot name="footer" /></div>' }
         }
       }
     })
@@ -51,7 +51,7 @@ describe('Proxy ImportDataModal', () => {
       props: { show: true },
       global: {
         stubs: {
-          BaseDialog: { template: '<div><slot /><slot name="footer" /></div>' }
+          UiDialog: { template: '<div><slot /><slot name="footer" /></div>' }
         }
       }
     })
