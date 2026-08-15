@@ -115,9 +115,9 @@ describe('OpsSystemLogTable host support', () => {
     await advancedFiltersButton!.trigger('click')
     expect(advancedFiltersButton!.attributes('aria-expanded')).toBe('true')
 
-    const hostLabel = wrapper.findAll('label').find((label) => label.text().includes('admin.ops.systemLogs.host'))
+    const hostLabel = wrapper.findAll('label').find((label) => label.text() === 'admin.ops.systemLogs.host')
     expect(hostLabel).toBeDefined()
-    await hostLabel!.find('input').setValue(' api-node-2 ')
+    await wrapper.get(`#${hostLabel!.attributes('for')}`).setValue(' api-node-2 ')
 
     const searchButton = wrapper.findAll('button').find((button) => button.text() === 'admin.ops.systemLogs.search')
     expect(searchButton).toBeDefined()
@@ -129,6 +129,12 @@ describe('OpsSystemLogTable host support', () => {
     const cleanupButton = wrapper.findAll('button').find((button) => button.text() === 'admin.ops.systemLogs.cleanCurrentFilters')
     expect(cleanupButton).toBeDefined()
     await cleanupButton!.trigger('click')
+    expect(document.body.textContent).toContain('admin.ops.systemLogs.cleanupConfirm')
+    const confirmButton = Array.from(document.body.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '确认'
+    )
+    expect(confirmButton).toBeDefined()
+    confirmButton!.click()
     await flushPromises()
 
     expect(mockCleanupSystemLogs).toHaveBeenCalledWith(expect.objectContaining({ host: 'api-node-2' }))

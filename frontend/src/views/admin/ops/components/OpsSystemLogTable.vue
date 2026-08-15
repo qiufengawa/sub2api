@@ -1,19 +1,31 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useMediaQuery } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { opsAPI, type OpsRuntimeLogConfig, type OpsSystemLog, type OpsSystemLogSinkHealth } from '@/api/admin/ops'
-import Pagination from '@/components/common/Pagination.vue'
-import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  AppGrid,
+  UiBadge,
+  UiButton,
+  UiConfirmDialog,
+  UiDataTable,
+  UiEmptyState,
+  UiFilterBar,
+  UiIconButton,
+  UiNumberStepper,
+  UiPagination,
+  UiProgressBar,
+  UiSelect,
+  UiSpinner,
+  UiSwitch,
+  UiTextField,
+  type Column,
+} from '@/components/ui'
 import { useAppStore } from '@/stores'
 import { extractApiErrorMessage } from '@/utils/apiError'
 
 const appStore = useAppStore()
 const { t } = useI18n()
-
-// 与 DataTable 一致：< 768px 切换为卡片视图，避免宽表在移动端被截断。
-const isDesktopViewport = useMediaQuery('(min-width: 768px)')
 
 const props = withDefaults(defineProps<{
   platformFilter?: string
@@ -40,8 +52,10 @@ const health = ref<OpsSystemLogSinkHealth>({
 
 const runtimeLoading = ref(false)
 const runtimeSaving = ref(false)
+const cleanupLoading = ref(false)
 const showRuntimeConfig = ref(false)
 const showAdvancedFilters = ref(false)
+const confirmAction = ref<'cleanup' | 'reset-runtime' | null>(null)
 const runtimeConfig = reactive<OpsRuntimeLogConfig>({
   level: 'info',
   enable_sampling: false,
@@ -119,13 +133,20 @@ const filterLevelOptions = computed(() => [
   { value: 'error', label: 'error' }
 ])
 
-const levelBadgeClass = (level: string) => {
+const levelBadgeTone = (level: string): 'danger' | 'warning' | 'neutral' | 'info' => {
   const v = String(level || '').toLowerCase()
-  if (v === 'error' || v === 'fatal') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-  if (v === 'warn' || v === 'warning') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-  if (v === 'debug') return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-  return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+  if (v === 'error' || v === 'fatal') return 'danger'
+  if (v === 'warn' || v === 'warning') return 'warning'
+  if (v === 'debug') return 'neutral'
+  return 'info'
 }
+
+const columns = computed<Column[]>(() => [
+  { key: 'created_at', label: t('admin.ops.systemLogs.time'), width: '170px' },
+  { key: 'host', label: t('admin.ops.systemLogs.host'), width: '160px' },
+  { key: 'level', label: t('admin.ops.systemLogs.level'), width: '90px' },
+  { key: 'details', label: t('admin.ops.systemLogs.logDetails') },
+])
 
 const formatTime = (value: string) => {
   if (!value) return '-'
@@ -287,9 +308,6 @@ const saveRuntimeConfig = async () => {
 }
 
 const resetRuntimeConfig = async () => {
-  const ok = window.confirm(t('admin.ops.systemLogs.resetRuntimeConfigConfirm'))
-  if (!ok) return
-
   runtimeSaving.value = true
   try {
     const saved = await opsAPI.resetRuntimeLogConfig()
@@ -311,8 +329,7 @@ const resetRuntimeConfig = async () => {
 }
 
 const cleanupCurrentFilter = async () => {
-  const ok = window.confirm(t('admin.ops.systemLogs.cleanupConfirm'))
-  if (!ok) return
+  cleanupLoading.value = true
   try {
     const payload = {
       start_time: toRFC3339(filters.start_time),
@@ -340,7 +357,45 @@ const cleanupCurrentFilter = async () => {
         OPS_SYSTEM_LOG_CLEANUP_FILTER_REQUIRED: t('admin.ops.systemLogs.cleanupFilterRequired')
       })
     )
+  } finally {
+    cleanupLoading.value = false
   }
+}
+
+const requestCleanup = () => {
+  confirmAction.value = 'cleanup'
+}
+
+const requestRuntimeReset = () => {
+  confirmAction.value = 'reset-runtime'
+}
+
+const closeConfirm = () => {
+  if (!cleanupLoading.value && !runtimeSaving.value) confirmAction.value = null
+}
+
+const confirmPending = computed(() =>
+  confirmAction.value === 'cleanup' ? cleanupLoading.value : runtimeSaving.value
+)
+
+const confirmTitle = computed(() =>
+  confirmAction.value === 'cleanup'
+    ? t('admin.ops.systemLogs.cleanCurrentFilters')
+    : t('admin.ops.systemLogs.resetDefaults')
+)
+
+const confirmMessage = computed(() =>
+  confirmAction.value === 'cleanup'
+    ? t('admin.ops.systemLogs.cleanupConfirm')
+    : t('admin.ops.systemLogs.resetRuntimeConfigConfirm')
+)
+
+const handleConfirm = async () => {
+  const action = confirmAction.value
+  if (!action) return
+  if (action === 'cleanup') await cleanupCurrentFilter()
+  else await resetRuntimeConfig()
+  confirmAction.value = null
 }
 
 const resetFilters = () => {
@@ -391,8 +446,6 @@ const applyFilters = () => {
   fetchLogs()
 }
 
-const hasData = computed(() => logs.value.length > 0)
-
 onMounted(async () => {
   if (props.platformFilter) {
     filters.platform = props.platformFilter
@@ -402,254 +455,147 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="overflow-hidden rounded-[4px] border border-gray-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-800">
-    <div class="flex flex-col gap-4 border-b border-gray-100 px-4 py-4 dark:border-dark-700 lg:flex-row lg:items-center lg:justify-between">
-      <div class="min-w-0">
-        <h3 class="text-sm font-bold text-gray-900 dark:text-white">{{ t('admin.ops.systemLogs.title') }}</h3>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.ops.systemLogs.description') }}</p>
+  <section class="ops-system-log">
+    <header class="ops-system-log__header">
+      <div class="ops-system-log__heading">
+        <h3>{{ t('admin.ops.systemLogs.title') }}</h3>
+        <p>{{ t('admin.ops.systemLogs.description') }}</p>
       </div>
-      <div class="grid min-w-0 grid-cols-2 divide-x divide-gray-100 border-y border-gray-100 text-xs dark:divide-dark-700 dark:border-dark-700 sm:grid-cols-5 sm:border-y-0 lg:min-w-[620px]">
-        <div class="min-w-0 px-3 py-1 first:pl-0">
-          <div class="text-[10px] font-semibold uppercase text-gray-400">{{ t('admin.ops.systemLogs.queue') }}</div>
-          <div class="mt-1 flex items-center gap-2">
-            <span class="whitespace-nowrap font-bold text-gray-800 dark:text-gray-100">{{ health.queue_depth }}/{{ health.queue_capacity }}</span>
-            <span class="h-1.5 min-w-8 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-700">
-              <span class="block h-full bg-blue-500" :style="{ width: `${queueUsagePercent}%` }"></span>
-            </span>
-          </div>
+      <div class="ops-system-log__health">
+        <div class="ops-system-log__metric ops-system-log__metric--queue">
+          <span>{{ t('admin.ops.systemLogs.queue') }}</span>
+          <strong>{{ health.queue_depth }}/{{ health.queue_capacity }}</strong>
+          <UiProgressBar class="ops-system-log__queue-progress" :value="queueUsagePercent" :show-value="false" />
         </div>
-        <div class="min-w-0 px-3 py-1">
-          <div class="text-[10px] font-semibold uppercase text-gray-400">{{ t('admin.ops.systemLogs.written') }}</div>
-          <div class="mt-1 truncate font-bold text-gray-800 dark:text-gray-100">{{ health.written_count }}</div>
-        </div>
-        <div class="min-w-0 px-3 py-1">
-          <div class="text-[10px] font-semibold uppercase text-gray-400">{{ t('admin.ops.systemLogs.dropped') }}</div>
-          <div class="mt-1 truncate font-bold" :class="health.dropped_count > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-800 dark:text-gray-100'">{{ health.dropped_count }}</div>
-        </div>
-        <div class="min-w-0 px-3 py-1">
-          <div class="text-[10px] font-semibold uppercase text-gray-400">{{ t('admin.ops.systemLogs.failed') }}</div>
-          <div class="mt-1 truncate font-bold" :class="health.write_failed_count > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-100'">{{ health.write_failed_count }}</div>
-        </div>
-        <div class="col-span-2 min-w-0 px-3 py-1 sm:col-span-1 sm:pr-0">
-          <div class="text-[10px] font-semibold uppercase text-gray-400">{{ t('admin.ops.systemLogs.avgWriteDelay') }}</div>
-          <div class="mt-1 truncate font-bold text-gray-800 dark:text-gray-100">{{ health.avg_write_delay_ms }} ms</div>
-        </div>
+        <div class="ops-system-log__metric"><span>{{ t('admin.ops.systemLogs.written') }}</span><strong>{{ health.written_count }}</strong></div>
+        <div class="ops-system-log__metric"><span>{{ t('admin.ops.systemLogs.dropped') }}</span><strong :class="{ 'is-warning': health.dropped_count > 0 }">{{ health.dropped_count }}</strong></div>
+        <div class="ops-system-log__metric"><span>{{ t('admin.ops.systemLogs.failed') }}</span><strong :class="{ 'is-danger': health.write_failed_count > 0 }">{{ health.write_failed_count }}</strong></div>
+        <div class="ops-system-log__metric"><span>{{ t('admin.ops.systemLogs.avgWriteDelay') }}</span><strong>{{ health.avg_write_delay_ms }} ms</strong></div>
       </div>
-    </div>
+    </header>
 
-    <p v-if="health.last_error" class="border-b border-red-100 bg-red-50 px-4 py-2 text-xs text-red-600 dark:border-red-900/30 dark:bg-red-900/10 dark:text-red-400">
-      {{ t('admin.ops.systemLogs.latestWriteError') }} {{ health.last_error }}
+    <p v-if="health.last_error" class="ops-system-log__health-error">
+      <strong>{{ t('admin.ops.systemLogs.latestWriteError') }}</strong> {{ health.last_error }}
     </p>
 
-    <div class="border-b border-gray-100 px-4 py-4 dark:border-dark-700">
-      <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-[140px_140px_minmax(180px,0.8fr)_minmax(260px,1.4fr)_auto] lg:items-end">
-        <label class="text-xs text-gray-600 dark:text-gray-300">
-          {{ t('admin.ops.systemLogs.timeRange') }}
-          <Select v-model="filters.time_range" class="mt-1" :options="timeRangeOptions" />
-        </label>
-        <label class="text-xs text-gray-600 dark:text-gray-300">
-          {{ t('admin.ops.systemLogs.level') }}
-          <Select v-model="filters.level" class="mt-1" :options="filterLevelOptions" />
-        </label>
-        <label class="text-xs text-gray-600 dark:text-gray-300">
-          {{ t('admin.ops.systemLogs.component') }}
-          <input v-model="filters.component" type="text" class="input mt-1" :placeholder="t('admin.ops.systemLogs.componentPlaceholder')" />
-        </label>
-        <label class="text-xs text-gray-600 dark:text-gray-300">
-          {{ t('admin.ops.systemLogs.keyword') }}
-          <input v-model="filters.q" type="text" class="input mt-1" :placeholder="t('admin.ops.systemLogs.keywordPlaceholder')" @keyup.enter="applyFilters" />
-        </label>
-        <button type="button" class="btn btn-primary btn-sm h-9" @click="applyFilters">
-          <Icon name="search" size="sm" />
-          {{ t('admin.ops.systemLogs.search') }}
-        </button>
-      </div>
+    <div class="ops-system-log__controls">
+      <UiFilterBar :active-count="advancedFilterCount" @clear="resetFilters">
+        <UiSelect class="ops-system-log__filter" v-model="filters.time_range" density="compact" :label="t('admin.ops.systemLogs.timeRange')" :options="timeRangeOptions" />
+        <UiSelect class="ops-system-log__filter" v-model="filters.level" density="compact" :label="t('admin.ops.systemLogs.level')" :options="filterLevelOptions" />
+        <UiTextField class="ops-system-log__filter" v-model="filters.component" density="compact" :label="t('admin.ops.systemLogs.component')" :placeholder="t('admin.ops.systemLogs.componentPlaceholder')" />
+        <UiTextField class="ops-system-log__filter ops-system-log__filter--wide" v-model="filters.q" density="compact" :label="t('admin.ops.systemLogs.keyword')" :placeholder="t('admin.ops.systemLogs.keywordPlaceholder')" @enter="applyFilters" />
+        <template #actions>
+          <UiButton variant="primary" density="compact" @click="applyFilters">
+            <template #icon><Icon name="search" size="sm" /></template>
+            {{ t('admin.ops.systemLogs.search') }}
+          </UiButton>
+        </template>
+      </UiFilterBar>
 
-      <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-dark-700">
-        <button
-          type="button"
-          class="btn btn-secondary btn-sm"
-          :aria-expanded="showAdvancedFilters"
-          @click="showAdvancedFilters = !showAdvancedFilters"
-        >
-          <Icon name="filter" size="sm" />
+      <div class="ops-system-log__actions">
+        <UiButton density="dense" :aria-expanded="showAdvancedFilters" @click="showAdvancedFilters = !showAdvancedFilters">
+          <template #icon><Icon name="filter" size="sm" /></template>
           {{ t('admin.ops.systemLogs.advancedFilters') }}
-          <span v-if="advancedFilterCount" class="font-mono text-blue-600 dark:text-blue-400">{{ advancedFilterCount }}</span>
-          <Icon name="chevronDown" size="xs" :class="showAdvancedFilters ? 'rotate-180' : ''" />
-        </button>
-        <button
-          type="button"
-          class="btn btn-secondary btn-sm"
-          :aria-expanded="showRuntimeConfig"
-          @click="showRuntimeConfig = !showRuntimeConfig"
-        >
-          <Icon name="cog" size="sm" />
+          <UiBadge v-if="advancedFilterCount" :label="String(advancedFilterCount)" />
+        </UiButton>
+        <UiButton density="dense" :aria-expanded="showRuntimeConfig" @click="showRuntimeConfig = !showRuntimeConfig">
+          <template #icon><Icon name="cog" size="sm" /></template>
           {{ t('admin.ops.systemLogs.runtimeConfigShort') }}
-          <Icon name="chevronDown" size="xs" :class="showRuntimeConfig ? 'rotate-180' : ''" />
-        </button>
-        <button type="button" class="btn btn-secondary btn-sm" @click="resetFilters">{{ t('common.reset') }}</button>
-        <button type="button" class="btn btn-secondary btn-sm" @click="fetchHealth">
-          <Icon name="refresh" size="sm" />
-          {{ t('admin.ops.systemLogs.refreshHealth') }}
-        </button>
-        <button type="button" class="btn btn-danger btn-sm sm:ml-auto" @click="cleanupCurrentFilter">
-          <Icon name="trash" size="sm" />
+        </UiButton>
+        <UiButton density="dense" @click="resetFilters">{{ t('common.reset') }}</UiButton>
+        <UiIconButton icon="refresh" density="dense" variant="ghost" :label="t('admin.ops.systemLogs.refreshHealth')" @click="fetchHealth" />
+        <UiButton variant="danger" density="dense" class="ops-system-log__cleanup" @click="requestCleanup">
+          <template #icon><Icon name="trash" size="sm" /></template>
           {{ t('admin.ops.systemLogs.cleanCurrentFilters') }}
-        </button>
+        </UiButton>
       </div>
 
-      <div v-if="showAdvancedFilters" class="mt-3 border-t border-gray-100 pt-3 dark:border-dark-700">
-        <div class="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-200">{{ t('admin.ops.systemLogs.advancedFilters') }}</div>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <label class="text-xs text-gray-600 dark:text-gray-300">
-            {{ t('admin.ops.systemLogs.startTime') }}
-            <input v-model="filters.start_time" type="datetime-local" class="input mt-1" />
-          </label>
-          <label class="text-xs text-gray-600 dark:text-gray-300">
-            {{ t('admin.ops.systemLogs.endTime') }}
-            <input v-model="filters.end_time" type="datetime-local" class="input mt-1" />
-          </label>
-          <label class="text-xs text-gray-600 dark:text-gray-300">
-            {{ t('admin.ops.systemLogs.host') }}
-            <input v-model="filters.host" type="text" class="input mt-1" />
-          </label>
-          <label class="text-xs text-gray-600 dark:text-gray-300">
-            request_id
-            <input v-model="filters.request_id" type="text" class="input mt-1" />
-          </label>
-          <label class="text-xs text-gray-600 dark:text-gray-300">
-            client_request_id
-            <input v-model="filters.client_request_id" type="text" class="input mt-1" />
-          </label>
-          <label class="text-xs text-gray-600 dark:text-gray-300">
-            user_id
-            <input v-model="filters.user_id" type="text" class="input mt-1" />
-          </label>
-          <label class="text-xs text-gray-600 dark:text-gray-300">
-            {{ t('admin.ops.systemLogs.keyId') }}
-            <input v-model="filters.api_key_id" type="text" class="input mt-1" />
-          </label>
-          <label class="text-xs text-gray-600 dark:text-gray-300">
-            account_id
-            <input v-model="filters.account_id" type="text" class="input mt-1" />
-          </label>
-          <label class="text-xs text-gray-600 dark:text-gray-300">
-            {{ t('admin.ops.systemLogs.platform') }}
-            <input v-model="filters.platform" type="text" class="input mt-1" />
-          </label>
-          <label class="text-xs text-gray-600 dark:text-gray-300">
-            {{ t('admin.ops.systemLogs.model') }}
-            <input v-model="filters.model" type="text" class="input mt-1" />
-          </label>
-        </div>
-      </div>
+      <section v-if="showAdvancedFilters" class="ops-system-log__expandable">
+        <h4>{{ t('admin.ops.systemLogs.advancedFilters') }}</h4>
+        <AppGrid min="180px" :gap="10">
+          <UiTextField v-model="filters.start_time" type="datetime-local" density="compact" :label="t('admin.ops.systemLogs.startTime')" />
+          <UiTextField v-model="filters.end_time" type="datetime-local" density="compact" :label="t('admin.ops.systemLogs.endTime')" />
+          <UiTextField v-model="filters.host" density="compact" :label="t('admin.ops.systemLogs.host')" />
+          <UiTextField v-model="filters.request_id" density="compact" monospace label="request_id" />
+          <UiTextField v-model="filters.client_request_id" density="compact" monospace label="client_request_id" />
+          <UiTextField v-model="filters.user_id" density="compact" monospace label="user_id" />
+          <UiTextField v-model="filters.api_key_id" density="compact" monospace :label="t('admin.ops.systemLogs.keyId')" />
+          <UiTextField v-model="filters.account_id" density="compact" monospace label="account_id" />
+          <UiTextField v-model="filters.platform" density="compact" :label="t('admin.ops.systemLogs.platform')" />
+          <UiTextField v-model="filters.model" density="compact" :label="t('admin.ops.systemLogs.model')" />
+        </AppGrid>
+      </section>
 
-      <div v-if="showRuntimeConfig" class="mt-3 border-t border-gray-100 pt-3 dark:border-dark-700">
-        <div class="mb-2 flex items-center justify-between gap-3">
-          <div>
-            <div class="text-xs font-semibold text-gray-700 dark:text-gray-200">{{ t('admin.ops.systemLogs.runtimeConfig') }}</div>
-            <p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">{{ t('admin.ops.systemLogs.runtimeConfigDescription') }}</p>
+      <section v-if="showRuntimeConfig" class="ops-system-log__expandable">
+        <header class="ops-system-log__subheading">
+          <div><h4>{{ t('admin.ops.systemLogs.runtimeConfig') }}</h4><p>{{ t('admin.ops.systemLogs.runtimeConfigDescription') }}</p></div>
+          <UiSpinner v-if="runtimeLoading" size="sm" :label="t('common.loading')" />
+        </header>
+        <AppGrid min="180px" :gap="10">
+          <UiSelect v-model="runtimeConfig.level" density="compact" :label="t('admin.ops.systemLogs.level')" :options="runtimeLevelOptions" />
+          <UiSelect v-model="runtimeConfig.stacktrace_level" density="compact" :label="t('admin.ops.systemLogs.stacktraceThreshold')" :options="stacktraceLevelOptions" />
+          <UiNumberStepper v-model="runtimeConfig.sampling_initial" :label="t('admin.ops.systemLogs.samplingInitial')" :min="1" />
+          <UiNumberStepper v-model="runtimeConfig.sampling_thereafter" :label="t('admin.ops.systemLogs.samplingThereafter')" :min="1" />
+          <UiNumberStepper v-model="runtimeConfig.retention_days" :label="t('admin.ops.systemLogs.retentionDays')" :min="1" :max="3650" />
+        </AppGrid>
+        <div class="ops-system-log__runtime-footer">
+          <div class="ops-system-log__switches">
+            <label><UiSwitch v-model="runtimeConfig.caller" :label="t('admin.ops.systemLogs.caller')" /><span>{{ t('admin.ops.systemLogs.caller') }}</span></label>
+            <label><UiSwitch v-model="runtimeConfig.enable_sampling" :label="t('admin.ops.systemLogs.sampling')" /><span>{{ t('admin.ops.systemLogs.sampling') }}</span></label>
           </div>
-          <span v-if="runtimeLoading" class="text-xs text-gray-500">{{ t('common.loading') }}</span>
-        </div>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <label class="text-xs text-gray-600 dark:text-gray-300">
-            {{ t('admin.ops.systemLogs.level') }}
-            <Select v-model="runtimeConfig.level" class="mt-1" :options="runtimeLevelOptions" />
-          </label>
-          <label class="text-xs text-gray-600 dark:text-gray-300">
-            {{ t('admin.ops.systemLogs.stacktraceThreshold') }}
-            <Select v-model="runtimeConfig.stacktrace_level" class="mt-1" :options="stacktraceLevelOptions" />
-          </label>
-          <label class="text-xs text-gray-600 dark:text-gray-300">
-            {{ t('admin.ops.systemLogs.samplingInitial') }}
-            <input v-model.number="runtimeConfig.sampling_initial" type="number" min="1" class="input mt-1" />
-          </label>
-          <label class="text-xs text-gray-600 dark:text-gray-300">
-            {{ t('admin.ops.systemLogs.samplingThereafter') }}
-            <input v-model.number="runtimeConfig.sampling_thereafter" type="number" min="1" class="input mt-1" />
-          </label>
-          <label class="text-xs text-gray-600 dark:text-gray-300">
-            {{ t('admin.ops.systemLogs.retentionDays') }}
-            <input v-model.number="runtimeConfig.retention_days" type="number" min="1" max="3650" class="input mt-1" />
-          </label>
-        </div>
-        <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-          <label class="inline-flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
-            <input v-model="runtimeConfig.caller" type="checkbox" />
-            {{ t('admin.ops.systemLogs.caller') }}
-          </label>
-          <label class="inline-flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
-            <input v-model="runtimeConfig.enable_sampling" type="checkbox" />
-            {{ t('admin.ops.systemLogs.sampling') }}
-          </label>
-          <div class="flex flex-wrap gap-2 sm:ml-auto">
-            <button type="button" class="btn btn-primary btn-sm" :disabled="runtimeSaving" @click="saveRuntimeConfig">
-              {{ runtimeSaving ? t('common.saving') : t('admin.ops.systemLogs.saveAndApply') }}
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm" :disabled="runtimeSaving" @click="resetRuntimeConfig">
-              {{ t('admin.ops.systemLogs.resetDefaults') }}
-            </button>
+          <div class="ops-system-log__runtime-actions">
+            <UiButton variant="primary" density="dense" :loading="runtimeSaving" @click="saveRuntimeConfig">{{ t('admin.ops.systemLogs.saveAndApply') }}</UiButton>
+            <UiButton density="dense" :disabled="runtimeSaving" @click="requestRuntimeReset">{{ t('admin.ops.systemLogs.resetDefaults') }}</UiButton>
           </div>
         </div>
+      </section>
+    </div>
+
+    <div class="ops-system-log__table">
+      <UiDataTable class="ops-system-log__data" :columns="columns" :data="logs" :loading="loading" :mobile-table="true" :aria-label="t('admin.ops.systemLogs.title')">
+        <template #cell-created_at="{ row }"><span class="ops-system-log__time">{{ formatTime(row.created_at) }}</span></template>
+        <template #cell-host="{ row }"><span class="ops-system-log__host" :title="row.host || '-'">{{ row.host || '-' }}</span></template>
+        <template #cell-level="{ row }"><UiBadge :tone="levelBadgeTone(row.level)" :label="row.level" /></template>
+        <template #cell-details="{ row }"><span class="ops-system-log__detail">{{ formatSystemLogDetail(row) }}</span></template>
+        <template #empty><UiEmptyState :title="t('admin.ops.systemLogs.empty')" /></template>
+      </UiDataTable>
+      <div class="ops-system-log__pagination">
+        <UiPagination :total="total" :page="page" :page-size="pageSize" @update:page="onPageChange" @update:page-size="onPageSizeChange" />
       </div>
     </div>
 
-    <div class="min-h-[360px]">
-      <div v-if="loading" class="px-4 py-16 text-center text-sm text-gray-500">{{ t('common.loading') }}</div>
-      <div v-else-if="!hasData" class="px-4 py-16 text-center text-sm text-gray-500">{{ t('admin.ops.systemLogs.empty') }}</div>
-      <div v-else-if="!isDesktopViewport" class="divide-y divide-gray-100 dark:divide-dark-800">
-        <div v-for="row in logs" :key="row.id" class="space-y-1.5 p-3">
-          <div class="flex items-center justify-between gap-2">
-            <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold" :class="levelBadgeClass(row.level)">
-              {{ row.level }}
-            </span>
-            <span class="text-xs text-gray-500 dark:text-gray-400">{{ formatTime(row.created_at) }}</span>
-          </div>
-          <div v-if="row.host" class="truncate text-xs text-gray-500 dark:text-gray-400" :title="row.host">
-            {{ row.host }}
-          </div>
-          <div class="whitespace-normal break-all text-xs text-gray-700 dark:text-gray-300">
-            {{ formatSystemLogDetail(row) }}
-          </div>
-        </div>
-      </div>
-      <div v-else class="max-h-[640px] overflow-auto">
-        <table class="min-w-full table-fixed divide-y divide-gray-200 dark:divide-dark-700">
-          <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-dark-900">
-            <tr>
-              <th class="w-[170px] px-3 py-2 text-left text-[11px] font-semibold text-gray-500">{{ t('admin.ops.systemLogs.time') }}</th>
-              <th class="w-[160px] px-3 py-2 text-left text-[11px] font-semibold text-gray-500">{{ t('admin.ops.systemLogs.host') }}</th>
-              <th class="w-[80px] px-3 py-2 text-left text-[11px] font-semibold text-gray-500">{{ t('admin.ops.systemLogs.level') }}</th>
-              <th class="px-3 py-2 text-left text-[11px] font-semibold text-gray-500">{{ t('admin.ops.systemLogs.logDetails') }}</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100 dark:divide-dark-800">
-            <tr v-for="row in logs" :key="row.id" class="align-top">
-              <td class="px-3 py-2 text-xs text-gray-700 dark:text-gray-300">{{ formatTime(row.created_at) }}</td>
-              <td class="px-3 py-2 text-xs text-gray-700 dark:text-gray-300">
-                <span class="block truncate" :title="row.host || '-'">{{ row.host || '-' }}</span>
-              </td>
-              <td class="px-3 py-2 text-xs">
-                <span class="inline-flex rounded-full px-2 py-0.5 font-semibold" :class="levelBadgeClass(row.level)">
-                  {{ row.level }}
-                </span>
-              </td>
-              <td class="px-3 py-2 text-xs text-gray-700 dark:text-gray-300 whitespace-normal break-all">
-                {{ formatSystemLogDetail(row) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <Pagination
-        class="border-t border-gray-100 dark:border-dark-700"
-        :total="total"
-        :page="page"
-        :page-size="pageSize"
-        @update:page="onPageChange"
-        @update:page-size="onPageSizeChange"
-      />
-    </div>
+    <UiConfirmDialog
+      :show="confirmAction !== null"
+      :title="confirmTitle"
+      :message="confirmMessage"
+      danger
+      :pending="confirmPending"
+      @confirm="handleConfirm"
+      @cancel="closeConfirm"
+    />
   </section>
 </template>
+
+<style scoped>
+.ops-system-log { overflow: hidden; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-panel); background: var(--ui-surface); }
+.ops-system-log__header { display: grid; grid-template-columns: minmax(180px,.7fr) minmax(0,1.5fr); align-items: center; gap: 24px; padding: 16px; border-bottom: 1px solid var(--ui-border-soft); }
+.ops-system-log__heading h3,.ops-system-log__expandable h4 { margin: 0; color: var(--ui-text); font-size: 14px; line-height: 22px; }
+.ops-system-log__heading p,.ops-system-log__subheading p { margin: 2px 0 0; color: var(--ui-text-muted); font-size: 12px; line-height: 18px; }
+.ops-system-log__health { display: grid; grid-template-columns: minmax(150px,1.5fr) repeat(4,minmax(84px,1fr)); }
+.ops-system-log__metric { min-width: 0; padding: 2px 12px; border-left: 1px solid var(--ui-border-soft); }
+.ops-system-log__metric > span { display: block; overflow: hidden; color: var(--ui-text-soft); font-size: 10px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.ops-system-log__metric strong { display: block; margin-top: 2px; overflow: hidden; color: var(--ui-text); font-size: 13px; font-variant-numeric: tabular-nums; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
+.ops-system-log__metric--queue { display: grid; grid-template-columns: 1fr auto; column-gap: 8px; }
+.ops-system-log__queue-progress { grid-column: 1 / -1; gap: 0; margin-top: 4px; }
+.is-warning { color: var(--ui-warning) !important; }.is-danger { color: var(--ui-danger) !important; }
+.ops-system-log__health-error { margin: 0; padding: 8px 16px; border-bottom: 1px solid color-mix(in srgb,var(--ui-danger) 20%,var(--ui-border)); color: var(--ui-danger); background: color-mix(in srgb,var(--ui-danger) 6%,var(--ui-surface)); font-size: 12px; line-height: 18px; }
+.ops-system-log__controls { padding: 8px 16px 14px; border-bottom: 1px solid var(--ui-border-soft); }
+.ops-system-log__filter { min-width: 140px; flex: 1; }.ops-system-log__filter--wide { min-width: 220px; flex: 1.5; }
+.ops-system-log__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 8px; }.ops-system-log__cleanup { margin-left: auto; }
+.ops-system-log__expandable { margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--ui-border-soft); }.ops-system-log__expandable > h4 { margin-bottom: 10px; }
+.ops-system-log__subheading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.ops-system-log__runtime-footer,.ops-system-log__switches,.ops-system-log__runtime-actions { display: flex; align-items: center; gap: 12px; }.ops-system-log__runtime-footer { justify-content: space-between; margin-top: 12px; }.ops-system-log__switches label { display: flex; align-items: center; gap: 7px; color: var(--ui-text-muted); font-size: 12px; }
+.ops-system-log__table { min-height: 360px; }.ops-system-log__data { max-height: 640px; overflow: auto; }.ops-system-log__time,.ops-system-log__host { color: var(--ui-text-muted); white-space: nowrap; }.ops-system-log__host { display: block; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }.ops-system-log__detail { display: block; min-width: 360px; max-width: 760px; overflow-wrap: anywhere; color: var(--ui-text-muted); font-family: var(--ui-font-mono); font-size: 12px; line-height: 18px; }.ops-system-log__pagination { border-top: 1px solid var(--ui-border-soft); }
+@media (max-width: 900px) { .ops-system-log__header { grid-template-columns: 1fr; }.ops-system-log__health { grid-template-columns: repeat(3,1fr); }.ops-system-log__metric--queue { grid-column: span 2; }.ops-system-log__runtime-footer { align-items: stretch; flex-direction: column; }.ops-system-log__runtime-actions { justify-content: flex-end; } }
+@media (max-width: 640px) { .ops-system-log__header,.ops-system-log__controls { padding-inline: 12px; }.ops-system-log__health { grid-template-columns: repeat(2,minmax(0,1fr)); }.ops-system-log__metric--queue { grid-column: 1 / -1; }.ops-system-log__metric { padding-block: 7px; }.ops-system-log__cleanup { margin-left: 0; }.ops-system-log__switches { align-items: flex-start; flex-direction: column; }.ops-system-log__runtime-actions { display: grid; width: 100%; grid-template-columns: 1fr 1fr; }}
+</style>
