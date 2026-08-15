@@ -70,25 +70,21 @@ describe('IpGeoCell', () => {
     })
     const wrapper = mount(IpGeoCell, { props: { ip: '121.35.47.43' } })
     expect(wrapper.text()).toContain('CN · Guangdong · Shenzhen')
-    const buttons = wrapper.findAll('button')
-    expect(buttons.length).toBe(2)
-    expect(buttons[0].attributes('title')).toContain('AS4134 Chinanet')
-    expect(buttons[0].attributes('title')).toContain('Asia/Shanghai')
-    await buttons[1].trigger('click')
+    const link = wrapper.get('a')
+    expect(link.attributes('href')).toBe(
+      'https://www.iplocation.net/ip-lookup?query=121.35.47.43'
+    )
+    expect(link.attributes('target')).toBe('_blank')
+    await wrapper.get('button').trigger('click')
     expect(mocks.fetchOne).toHaveBeenCalledWith('121.35.47.43', true)
   })
 
-  it('opens the external lookup page when the label is clicked', async () => {
+  it('links the successful label to the external lookup page', () => {
     mocks.getEntry.mockReturnValue({ status: 'success', label: 'US · California', detail: {} })
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
     const wrapper = mount(IpGeoCell, { props: { ip: '8.8.4.4' } })
-    await wrapper.findAll('button')[0].trigger('click')
-    expect(openSpy).toHaveBeenCalledWith(
-      'https://www.iplocation.net/ip-lookup?query=8.8.4.4',
-      '_blank',
-      'noopener,noreferrer'
-    )
-    openSpy.mockRestore()
+    const link = wrapper.get('a')
+    expect(link.attributes('href')).toBe('https://www.iplocation.net/ip-lookup?query=8.8.4.4')
+    expect(link.attributes('rel')).toBe('noopener noreferrer')
   })
 
   it('renders failed state as a clickable retry', async () => {

@@ -1,25 +1,27 @@
 <template>
   <div
     v-if="uniqueIps.length > 0"
-    class="flex flex-shrink-0 items-center justify-end gap-2 border-b border-gray-200 px-4 py-2 dark:border-dark-700"
+    class="ip-geo-batch-toolbar"
   >
-    <span v-if="pendingCount > 0" class="text-xs text-gray-500 dark:text-gray-400">
+    <span v-if="pendingCount > 0" class="ip-geo-batch-toolbar__count">
       {{ t('usage.ipGeo.pending', { count: pendingCount }) }}
     </span>
-    <button
-      type="button"
-      class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-primary-400 dark:hover:bg-primary-900/30"
+    <UiButton
+      variant="quiet"
+      density="dense"
       :disabled="loading || pendingCount === 0"
+      :loading="loading"
       @click="run"
     >
       {{ loading ? t('usage.ipGeo.batchFetching') : t('usage.ipGeo.batchFetch') }}
-    </button>
+    </UiButton>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { UiButton } from '@/components/ui'
 import { fetchBatch, getEntry } from '@/utils/ipGeoLookup'
 
 // 当前页 IP 批量地理查询工具条:传入原始 IP 列表(可含空值),内部去重;
@@ -57,3 +59,23 @@ const run = async () => {
   }
 }
 </script>
+
+<style scoped>
+.ip-geo-batch-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-height: 40px;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--ui-border-soft);
+  background: var(--ui-surface);
+}
+
+.ip-geo-batch-toolbar__count {
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+</style>
