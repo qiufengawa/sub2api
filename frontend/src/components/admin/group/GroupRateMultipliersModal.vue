@@ -1,85 +1,44 @@
 <template>
   <UiDialog :show="show" :title="t('admin.groups.rateMultipliersTitle')" width="wide" @close="handleClose">
-    <div v-if="group" class="space-y-4">
-      <!-- 分组信息 -->
-      <div class="flex flex-wrap items-center gap-3 rounded-lg bg-gray-50 px-4 py-2.5 text-sm dark:bg-dark-700">
-        <span class="inline-flex items-center gap-1.5" :class="platformColorClass">
-          <PlatformIcon :platform="group.platform" size="sm" />
-          {{ t('admin.groups.platforms.' + group.platform) }}
-        </span>
-        <span class="text-gray-400">|</span>
-        <span class="font-medium text-gray-900 dark:text-white">{{ group.name }}</span>
-        <span class="text-gray-400">|</span>
-        <span class="text-gray-600 dark:text-gray-400">
-          {{ t('admin.groups.columns.rateMultiplier') }}: {{ group.rate_multiplier }}x
-        </span>
-      </div>
+    <AppStack v-if="group" :gap="12">
+      <UiDescriptionList :items="groupFacts" :columns="3" />
 
-      <!-- 操作区 -->
-      <div class="rounded-lg border border-gray-200 p-3 dark:border-dark-600">
-        <!-- 添加用户 -->
-        <h4 class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-          {{ t('admin.groups.addUserRate') }}
-        </h4>
-        <div class="flex items-end gap-2">
-          <div class="relative flex-1">
-            <UiTextField
-              v-model="searchQuery"
-              type="text"
-              autocomplete="off"
-              density="compact"
-              :placeholder="t('admin.groups.searchUserPlaceholder')"
-              @input="handleSearchUsers"
-              @focus="showDropdown = true"
-            />
-            <div
-              v-if="showDropdown && searchResults.length > 0"
-              class="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-dark-500 dark:bg-dark-700"
-            >
-              <UiButton
-                v-for="user in searchResults"
-                :key="user.id"
-                type="button"
-                variant="quiet"
-                density="compact"
-                block
-                @click="selectUser(user)"
-              >
-                <span class="text-gray-400">#{{ user.id }}</span>
-                <span class="text-gray-900 dark:text-white">{{ user.username || user.email }}</span>
-                <span v-if="user.username" class="text-xs text-gray-400">{{ user.email }}</span>
-              </UiButton>
-            </div>
-          </div>
-          <div class="w-24">
-            <UiTextField
-              :model-value="newRate ?? ''"
-              @update:model-value="newRate = parseNullableNumber($event)"
-              type="number"
-              step="0.001"
-              min="0.001"
-              autocomplete="off"
-              density="compact"
-              text-align="center"
-              placeholder="1.0"
-            />
-          </div>
+      <AppSection :title="t('admin.groups.addUserRate')" divided>
+        <AppGrid min="160px" :gap="8">
+          <UiAsyncEntityPicker
+            :model-value="selectedUser?.id ?? null"
+            :selected-label="selectedUser?.email || searchQuery"
+            :items="searchUserOptions"
+            :placeholder="t('admin.groups.searchUserPlaceholder')"
+            :empty-text="t('common.noData')"
+            @search="handleSearchUsers"
+            @select="selectUserOption"
+          />
+          <UiTextField
+            :model-value="newRate ?? ''"
+            @update:model-value="newRate = parseNullableNumber($event)"
+            type="number"
+            step="0.001"
+            min="0.001"
+            autocomplete="off"
+            density="default"
+            text-align="center"
+            placeholder="1.0"
+          />
           <UiButton
             type="button"
             variant="primary"
-            density="compact"
+            density="default"
             :disabled="!selectedUser || newRate == null || newRate <= 0"
             @click="handleAddLocal"
           >
             {{ t('common.add') }}
           </UiButton>
-        </div>
+        </AppGrid>
 
-        <!-- 批量调整 + 全部清空 -->
-        <div v-if="localEntries.length > 0" class="mt-3 flex items-center gap-3 border-t border-gray-100 pt-3 dark:border-dark-600">
-          <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('admin.groups.batchAdjust') }}</span>
-          <div class="flex items-center gap-1.5">
-            <span class="text-xs text-gray-400">×</span>
+        <AppInline v-if="localEntries.length > 0" justify="space-between">
+          <AppInline>
+            <UiBadge tone="neutral" :label="t('admin.groups.batchAdjust')" />
             <UiTextField
               :model-value="batchFactor ?? ''"
               @update:model-value="batchFactor = parseNullableNumber($event)"
@@ -100,36 +59,29 @@
             >
               {{ t('admin.groups.applyMultiplier') }}
             </UiButton>
-          </div>
-          <div class="ml-auto">
-            <UiButton
-              type="button"
-              variant="danger"
-              density="compact"
-              @click="clearAllLocal"
-            >
-              {{ t('admin.groups.clearAll') }}
-            </UiButton>
-          </div>
-        </div>
-      </div>
+          </AppInline>
+          <UiButton
+            type="button"
+            variant="danger"
+            density="compact"
+            @click="clearAllLocal"
+          >
+            {{ t('admin.groups.clearAll') }}
+          </UiButton>
+        </AppInline>
+      </AppSection>
 
-      <!-- 加载状态 -->
-      <div v-if="loading" class="flex justify-center py-6">
-        <UiSpinner :label="t('common.loading')" />
-      </div>
-
-      <!-- 已设置的用户列表 -->
-      <div v-else>
-        <h4 class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-          {{ t('admin.groups.rateMultipliers') }} ({{ localEntries.length }})
-        </h4>
-
-        <div v-if="localEntries.length === 0" class="py-6 text-center text-sm text-gray-400 dark:text-gray-500">
-          {{ t('admin.groups.noRateMultipliers') }}
-        </div>
-
-        <div v-else>
+      <AppSection :title="`${t('admin.groups.rateMultipliers')} (${localEntries.length})`">
+        <UiLoadingOverlay v-if="loading" :show="true" :label="t('common.loading')" />
+        <UiEmptyState
+          v-else-if="localEntries.length === 0"
+          :title="t('admin.groups.noRateMultipliers')"
+        />
+        <AppStack v-else :gap="8">
+          <UiMobileTableScroller
+            :label="t('admin.groups.rateMultipliers')"
+            min-width="760px"
+          >
           <UiDataTable
             :columns="rateColumns"
             :data="paginatedLocalEntries"
@@ -139,13 +91,12 @@
           >
             <template #cell-user_name="{ row }">{{ row.user_name || '-' }}</template>
             <template #cell-user_notes="{ row }">
-              <span class="block max-w-[160px] truncate" :title="row.user_notes">{{ row.user_notes || '-' }}</span>
+              <UiDataCell :value="row.user_notes || '-'" />
             </template>
             <template #cell-user_status="{ row }">
               <UiStatusBadge :status="row.user_status" :label="row.user_status" />
             </template>
             <template #cell-rate_multiplier="{ row }">
-              <div class="w-24">
                 <UiTextField
                   type="number"
                   step="0.001"
@@ -157,24 +108,22 @@
                   text-align="center"
                   @change="updateLocalRate(row.user_id, $event)"
                 />
-              </div>
             </template>
             <template #cell-final_rate="{ row }">
-              <strong class="text-primary-600 dark:text-primary-400">{{ computeFinalRate(row.rate_multiplier) }}</strong>
+              <UiDataCell :value="computeFinalRate(row.rate_multiplier)" mono />
             </template>
             <template #cell-actions="{ row }">
               <UiIconButton
+                icon="trash"
                 :label="t('common.delete')"
                 variant="danger"
                 density="dense"
                 @click="removeLocal(row.user_id)"
-              >
-                <Icon name="trash" size="sm" />
-              </UiIconButton>
+              />
             </template>
           </UiDataTable>
+          </UiMobileTableScroller>
 
-          <!-- 分页 -->
           <UiPagination
             :total="localEntries.length"
             :page="currentPage"
@@ -182,14 +131,15 @@
             @update:page="currentPage = $event"
             @update:pageSize="handlePageSizeChange"
           />
-        </div>
-      </div>
+        </AppStack>
+      </AppSection>
+    </AppStack>
 
-      <!-- 底部操作栏 -->
-      <div class="flex items-center gap-3 border-t border-gray-200 pt-4 dark:border-dark-600">
-        <!-- 左侧：未保存提示 + 撤销 -->
+    <template v-if="group" #footer>
+      <AppInline justify="space-between">
+        <AppInline>
         <template v-if="isDirty">
-          <span class="text-xs text-amber-600 dark:text-amber-400">{{ t('admin.groups.unsavedChanges') }}</span>
+          <UiBadge tone="warning" :label="t('admin.groups.unsavedChanges')" />
           <UiButton
             type="button"
             variant="quiet"
@@ -199,8 +149,8 @@
             {{ t('admin.groups.revertChanges') }}
           </UiButton>
         </template>
-        <!-- 右侧：关闭 / 保存 -->
-        <div class="ml-auto flex items-center gap-3">
+        </AppInline>
+        <AppInline>
           <UiButton type="button" density="compact" @click="handleClose">
             {{ t('common.close') }}
           </UiButton>
@@ -216,9 +166,9 @@
           >
             {{ t('common.save') }}
           </UiButton>
-        </div>
-      </div>
-    </div>
+        </AppInline>
+      </AppInline>
+    </template>
   </UiDialog>
 
 </template>
@@ -230,18 +180,27 @@ import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { GroupRateMultiplierEntry } from '@/api/admin/groups'
 import type { AdminGroup, AdminUser } from '@/types'
-import Icon from '@/components/icons/Icon.vue'
-import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import {
+  AppGrid,
+  AppInline,
+  AppSection,
+  AppStack,
+  UiAsyncEntityPicker,
+  UiBadge,
   UiButton,
+  UiDataCell,
   UiDataTable,
+  UiDescriptionList,
   UiDialog,
+  UiEmptyState,
   UiIconButton,
+  UiLoadingOverlay,
+  UiMobileTableScroller,
   UiPagination,
-  UiSpinner,
   UiStatusBadge,
   UiTextField,
   type Column,
+  type UiEntityOption,
 } from '@/components/ui'
 
 interface LocalEntry extends GroupRateMultiplierEntry {}
@@ -265,7 +224,6 @@ const serverEntries = ref<GroupRateMultiplierEntry[]>([])
 const localEntries = ref<LocalEntry[]>([])
 const searchQuery = ref('')
 const searchResults = ref<AdminUser[]>([])
-const showDropdown = ref(false)
 const selectedUser = ref<AdminUser | null>(null)
 const newRate = ref<number | null>(null)
 const currentPage = ref(1)
@@ -275,14 +233,26 @@ const batchFactor = ref<number | null>(null)
 let searchTimeout: ReturnType<typeof setTimeout>
 let loadRequestId = 0
 
-const platformColorClass = computed(() => {
-  switch (props.group?.platform) {
-    case 'anthropic': return 'text-orange-700 dark:text-orange-400'
-    case 'openai': return 'text-emerald-700 dark:text-emerald-400'
-    case 'antigravity': return 'text-purple-700 dark:text-purple-400'
-    default: return 'text-blue-700 dark:text-blue-400'
-  }
-})
+const groupFacts = computed(() => props.group ? [
+  {
+    key: 'platform',
+    label: t('admin.groups.form.platform'),
+    value: t(`admin.groups.platforms.${props.group.platform}`),
+  },
+  { key: 'name', label: t('admin.groups.form.name'), value: props.group.name },
+  {
+    key: 'rate',
+    label: t('admin.groups.columns.rateMultiplier'),
+    value: `${props.group.rate_multiplier}x`,
+    numeric: true,
+  },
+] : [])
+
+const searchUserOptions = computed<UiEntityOption[]>(() => searchResults.value.map(user => ({
+  value: user.id,
+  label: user.username || user.email,
+  description: user.username ? user.email : `#${user.id}`,
+})))
 
 // 是否显示"最终倍率"预览列
 const showFinalRate = computed(() => {
@@ -371,29 +341,29 @@ const handlePageSizeChange = (newSize: number) => {
   currentPage.value = 1
 }
 
-const handleSearchUsers = () => {
+const handleSearchUsers = (query: string) => {
   clearTimeout(searchTimeout)
+  searchQuery.value = query
   selectedUser.value = null
   if (!searchQuery.value.trim()) {
     searchResults.value = []
-    showDropdown.value = false
     return
   }
   searchTimeout = setTimeout(async () => {
     try {
       const res = await adminAPI.users.list(1, 10, { search: searchQuery.value.trim() })
       searchResults.value = res.items
-      showDropdown.value = true
     } catch {
       searchResults.value = []
     }
   }, 300)
 }
 
-const selectUser = (user: AdminUser) => {
+const selectUserOption = (option: UiEntityOption) => {
+  const user = searchResults.value.find(item => item.id === Number(option.value))
+  if (!user) return
   selectedUser.value = user
   searchQuery.value = user.email
-  showDropdown.value = false
   searchResults.value = []
 }
 
@@ -501,20 +471,8 @@ const handleClose = () => {
   emit('close')
 }
 
-// 点击外部关闭下拉
-const handleClickOutside = () => {
-  showDropdown.value = false
-}
-
-if (typeof document !== 'undefined') {
-  document.addEventListener('click', handleClickOutside)
-}
-
 onUnmounted(() => {
   loadRequestId += 1
   clearTimeout(searchTimeout)
-  if (typeof document !== 'undefined') {
-    document.removeEventListener('click', handleClickOutside)
-  }
 })
 </script>

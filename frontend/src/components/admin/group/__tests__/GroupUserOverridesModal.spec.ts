@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
 import type { AdminGroup } from '@/types'
+import UiAsyncEntityPicker from '@/components/ui/UiAsyncEntityPicker.vue'
 import GroupRateMultipliersModal from '../GroupRateMultipliersModal.vue'
 import GroupRPMOverridesModal from '../GroupRPMOverridesModal.vue'
 
@@ -135,15 +136,17 @@ describe('group user override dialogs', () => {
     expect(batchSetGroupRateMultipliers).not.toHaveBeenCalled()
   })
 
-  it('removes its document click listener when unmounted', () => {
-    const add = vi.spyOn(document, 'addEventListener')
-    const remove = vi.spyOn(document, 'removeEventListener')
+  it('cancels a pending user search when unmounted', async () => {
+    vi.useFakeTimers()
     const wrapper = mountRateModal()
-    const clickRegistration = add.mock.calls.find(([type]) => type === 'click')
+    await flushPromises()
+
+    wrapper.getComponent(UiAsyncEntityPicker).vm.$emit('search', 'alice')
 
     wrapper.unmount()
+    await vi.advanceTimersByTimeAsync(350)
 
-    expect(clickRegistration).toBeDefined()
-    expect(remove).toHaveBeenCalledWith('click', clickRegistration?.[1])
+    expect(listUsers).not.toHaveBeenCalled()
+    vi.useRealTimers()
   })
 })
