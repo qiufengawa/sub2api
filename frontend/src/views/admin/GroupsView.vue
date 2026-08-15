@@ -945,45 +945,9 @@
               </div>
               <div class="p-4">
                 <div class="grid gap-4 md:grid-cols-3">
-                  <div>
-                    <label class="input-label">{{
-                      t("admin.groups.openaiMessages.opusModel")
-                    }}</label>
-                    <input
-                      v-model="createForm.opus_mapped_model"
-                      type="text"
-                      :placeholder="
-                        t('admin.groups.openaiMessages.opusModelPlaceholder')
-                      "
-                      class="input"
-                    />
-                  </div>
-                  <div>
-                    <label class="input-label">{{
-                      t("admin.groups.openaiMessages.sonnetModel")
-                    }}</label>
-                    <input
-                      v-model="createForm.sonnet_mapped_model"
-                      type="text"
-                      :placeholder="
-                        t('admin.groups.openaiMessages.sonnetModelPlaceholder')
-                      "
-                      class="input"
-                    />
-                  </div>
-                  <div>
-                    <label class="input-label">{{
-                      t("admin.groups.openaiMessages.haikuModel")
-                    }}</label>
-                    <input
-                      v-model="createForm.haiku_mapped_model"
-                      type="text"
-                      :placeholder="
-                        t('admin.groups.openaiMessages.haikuModelPlaceholder')
-                      "
-                      class="input"
-                    />
-                  </div>
+                  <UiTextField v-model="createForm.opus_mapped_model" :label="t('admin.groups.openaiMessages.opusModel')" :placeholder="t('admin.groups.openaiMessages.opusModelPlaceholder')" density="compact" monospace />
+                  <UiTextField v-model="createForm.sonnet_mapped_model" :label="t('admin.groups.openaiMessages.sonnetModel')" :placeholder="t('admin.groups.openaiMessages.sonnetModelPlaceholder')" density="compact" monospace />
+                  <UiTextField v-model="createForm.haiku_mapped_model" :label="t('admin.groups.openaiMessages.haikuModel')" :placeholder="t('admin.groups.openaiMessages.haikuModelPlaceholder')" density="compact" monospace />
                 </div>
               </div>
             </div>
@@ -1043,21 +1007,13 @@
                       <div
                         class="grid flex-1 gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-start"
                       >
-                        <div>
-                          <label class="input-label">{{
-                            t("admin.groups.openaiMessages.claudeModel")
-                          }}</label>
-                          <input
-                            v-model="row.claude_model"
-                            type="text"
-                            :placeholder="
-                              t(
-                                'admin.groups.openaiMessages.claudeModelPlaceholder',
-                              )
-                            "
-                            class="input bg-gray-50 focus:bg-white dark:bg-dark-800 dark:focus:bg-dark-900"
-                          />
-                        </div>
+                        <UiTextField
+                          v-model="row.claude_model"
+                          :label="t('admin.groups.openaiMessages.claudeModel')"
+                          :placeholder="t('admin.groups.openaiMessages.claudeModelPlaceholder')"
+                          density="compact"
+                          monospace
+                        />
                         <div
                           class="hidden md:flex md:justify-center md:pt-7 text-primary-300 dark:text-primary-700"
                         >
@@ -1067,21 +1023,13 @@
                             class="transition-transform group-hover:translate-x-1"
                           />
                         </div>
-                        <div>
-                          <label class="input-label">{{
-                            t("admin.groups.openaiMessages.targetModel")
-                          }}</label>
-                          <input
-                            v-model="row.target_model"
-                            type="text"
-                            :placeholder="
-                              t(
-                                'admin.groups.openaiMessages.targetModelPlaceholder',
-                              )
-                            "
-                            class="input bg-gray-50 focus:bg-white dark:bg-dark-800 dark:focus:bg-dark-900"
-                          />
-                        </div>
+                        <UiTextField
+                          v-model="row.target_model"
+                          :label="t('admin.groups.openaiMessages.targetModel')"
+                          :placeholder="t('admin.groups.openaiMessages.targetModelPlaceholder')"
+                          density="compact"
+                          monospace
+                        />
                       </div>
                       <UiIconButton
                         icon="trash"
@@ -1245,19 +1193,13 @@
             >
               <div class="flex items-start gap-3">
                 <div class="flex-1 space-y-2">
-                  <div>
-                    <label class="input-label text-xs">{{
-                      t("admin.groups.modelRouting.modelPattern")
-                    }}</label>
-                    <input
-                      v-model="rule.pattern"
-                      type="text"
-                      class="input text-sm"
-                      :placeholder="
-                        t('admin.groups.modelRouting.modelPatternPlaceholder')
-                      "
-                    />
-                  </div>
+                  <UiTextField
+                    v-model="rule.pattern"
+                    :label="t('admin.groups.modelRouting.modelPattern')"
+                    :placeholder="t('admin.groups.modelRouting.modelPatternPlaceholder')"
+                    density="compact"
+                    monospace
+                  />
                   <div>
                     <label class="input-label text-xs">{{
                       t("admin.groups.modelRouting.accounts")
@@ -1286,12 +1228,11 @@
                     </div>
                     <!-- 账号搜索输入框 -->
                     <div class="relative account-search-container">
-                      <input
+                      <UiTextField
                         v-model="
                           accountSearchKeyword[getCreateRuleSearchKey(rule)]
                         "
-                        type="text"
-                        class="input text-sm"
+                        density="compact"
                         :placeholder="
                           t(
                             'admin.groups.modelRouting.searchAccountPlaceholder',
@@ -2096,45 +2037,9 @@
               </div>
               <div class="p-4">
                 <div class="grid gap-4 md:grid-cols-3">
-                  <div>
-                    <label class="input-label">{{
-                      t("admin.groups.openaiMessages.opusModel")
-                    }}</label>
-                    <input
-                      v-model="editForm.opus_mapped_model"
-                      type="text"
-                      :placeholder="
-                        t('admin.groups.openaiMessages.opusModelPlaceholder')
-                      "
-                      class="input"
-                    />
-                  </div>
-                  <div>
-                    <label class="input-label">{{
-                      t("admin.groups.openaiMessages.sonnetModel")
-                    }}</label>
-                    <input
-                      v-model="editForm.sonnet_mapped_model"
-                      type="text"
-                      :placeholder="
-                        t('admin.groups.openaiMessages.sonnetModelPlaceholder')
-                      "
-                      class="input"
-                    />
-                  </div>
-                  <div>
-                    <label class="input-label">{{
-                      t("admin.groups.openaiMessages.haikuModel")
-                    }}</label>
-                    <input
-                      v-model="editForm.haiku_mapped_model"
-                      type="text"
-                      :placeholder="
-                        t('admin.groups.openaiMessages.haikuModelPlaceholder')
-                      "
-                      class="input"
-                    />
-                  </div>
+                  <UiTextField v-model="editForm.opus_mapped_model" :label="t('admin.groups.openaiMessages.opusModel')" :placeholder="t('admin.groups.openaiMessages.opusModelPlaceholder')" density="compact" monospace />
+                  <UiTextField v-model="editForm.sonnet_mapped_model" :label="t('admin.groups.openaiMessages.sonnetModel')" :placeholder="t('admin.groups.openaiMessages.sonnetModelPlaceholder')" density="compact" monospace />
+                  <UiTextField v-model="editForm.haiku_mapped_model" :label="t('admin.groups.openaiMessages.haikuModel')" :placeholder="t('admin.groups.openaiMessages.haikuModelPlaceholder')" density="compact" monospace />
                 </div>
               </div>
             </div>
@@ -2194,21 +2099,13 @@
                       <div
                         class="grid flex-1 gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-start"
                       >
-                        <div>
-                          <label class="input-label">{{
-                            t("admin.groups.openaiMessages.claudeModel")
-                          }}</label>
-                          <input
-                            v-model="row.claude_model"
-                            type="text"
-                            :placeholder="
-                              t(
-                                'admin.groups.openaiMessages.claudeModelPlaceholder',
-                              )
-                            "
-                            class="input bg-gray-50 focus:bg-white dark:bg-dark-800 dark:focus:bg-dark-900"
-                          />
-                        </div>
+                        <UiTextField
+                          v-model="row.claude_model"
+                          :label="t('admin.groups.openaiMessages.claudeModel')"
+                          :placeholder="t('admin.groups.openaiMessages.claudeModelPlaceholder')"
+                          density="compact"
+                          monospace
+                        />
                         <div
                           class="hidden md:flex md:justify-center md:pt-7 text-primary-300 dark:text-primary-700"
                         >
@@ -2218,21 +2115,13 @@
                             class="transition-transform group-hover:translate-x-1"
                           />
                         </div>
-                        <div>
-                          <label class="input-label">{{
-                            t("admin.groups.openaiMessages.targetModel")
-                          }}</label>
-                          <input
-                            v-model="row.target_model"
-                            type="text"
-                            :placeholder="
-                              t(
-                                'admin.groups.openaiMessages.targetModelPlaceholder',
-                              )
-                            "
-                            class="input bg-gray-50 focus:bg-white dark:bg-dark-800 dark:focus:bg-dark-900"
-                          />
-                        </div>
+                        <UiTextField
+                          v-model="row.target_model"
+                          :label="t('admin.groups.openaiMessages.targetModel')"
+                          :placeholder="t('admin.groups.openaiMessages.targetModelPlaceholder')"
+                          density="compact"
+                          monospace
+                        />
                       </div>
                       <UiIconButton
                         icon="trash"
@@ -2396,19 +2285,13 @@
             >
               <div class="flex items-start gap-3">
                 <div class="flex-1 space-y-2">
-                  <div>
-                    <label class="input-label text-xs">{{
-                      t("admin.groups.modelRouting.modelPattern")
-                    }}</label>
-                    <input
-                      v-model="rule.pattern"
-                      type="text"
-                      class="input text-sm"
-                      :placeholder="
-                        t('admin.groups.modelRouting.modelPatternPlaceholder')
-                      "
-                    />
-                  </div>
+                  <UiTextField
+                    v-model="rule.pattern"
+                    :label="t('admin.groups.modelRouting.modelPattern')"
+                    :placeholder="t('admin.groups.modelRouting.modelPatternPlaceholder')"
+                    density="compact"
+                    monospace
+                  />
                   <div>
                     <label class="input-label text-xs">{{
                       t("admin.groups.modelRouting.accounts")
@@ -2437,12 +2320,11 @@
                     </div>
                     <!-- 账号搜索输入框 -->
                     <div class="relative account-search-container">
-                      <input
+                      <UiTextField
                         v-model="
                           accountSearchKeyword[getEditRuleSearchKey(rule)]
                         "
-                        type="text"
-                        class="input text-sm"
+                        density="compact"
                         :placeholder="
                           t(
                             'admin.groups.modelRouting.searchAccountPlaceholder',
