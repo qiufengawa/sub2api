@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { useMediaQuery } from '@vueuse/core'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
-import Select from '@/components/common/Select.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  UiBadge,
+  UiButton,
+  UiDataTable,
+  UiDialog,
+  UiEmptyState,
+  UiLink,
+  UiSelect,
+  UiSpinner,
+  type Column,
+} from '@/components/ui'
 import { opsAPI, type AlertEventsQuery } from '@/api/admin/ops'
 import type { AlertEvent } from '../types'
 import { formatDateTime } from '../utils/opsFormatters'
@@ -13,15 +21,15 @@ import { formatDateTime } from '../utils/opsFormatters'
 const { t } = useI18n()
 const appStore = useAppStore()
 
-// 与 DataTable 一致：< 768px 切换为卡片视图，避免宽表在移动端被截断。
-const isDesktopViewport = useMediaQuery('(min-width: 768px)')
-
 const PAGE_SIZE = 10
 
 const loading = ref(false)
 const loadingMore = ref(false)
 const events = ref<AlertEvent[]>([])
 const hasMore = ref(true)
+let listRequestId = 0
+let detailRequestId = 0
+let historyRequestId = 0
 
 // Detail modal
 const showDetail = ref(false)
@@ -92,18 +100,22 @@ function buildQuery(overrides: Partial<AlertEventsQuery> = {}): AlertEventsQuery
 }
 
 async function loadFirstPage() {
+  const requestId = ++listRequestId
   loading.value = true
+  loadingMore.value = false
   try {
     const data = await opsAPI.listAlertEvents(buildQuery())
+    if (requestId !== listRequestId) return
     events.value = data
     hasMore.value = data.length === PAGE_SIZE
   } catch (err: any) {
+    if (requestId !== listRequestId) return
     console.error('[OpsAlertEventsCard] Failed to load alert events', err)
     appStore.showError(err?.response?.data?.detail || t('admin.ops.alertEvents.loadFailed'))
     events.value = []
     hasMore.value = false
   } finally {
-    loading.value = false
+    if (requestId === listRequestId) loading.value = false
   }
 }
 
@@ -113,11 +125,13 @@ async function loadMore() {
   const last = events.value[events.value.length - 1]
   if (!last) return
 
+  const requestId = listRequestId
   loadingMore.value = true
   try {
     const data = await opsAPI.listAlertEvents(
       buildQuery({ before_fired_at: last.fired_at || last.created_at, before_id: last.id })
     )
+    if (requestId !== listRequestId) return
     if (!data.length) {
       hasMore.value = false
       return
@@ -125,10 +139,11 @@ async function loadMore() {
     events.value = [...events.value, ...data]
     if (data.length < PAGE_SIZE) hasMore.value = false
   } catch (err: any) {
+    if (requestId !== listRequestId) return
     console.error('[OpsAlertEventsCard] Failed to load more alert events', err)
     hasMore.value = false
   } finally {
-    loadingMore.value = false
+    if (requestId === listRequestId) loadingMore.value = false
   }
 }
 
@@ -193,12 +208,18 @@ function formatDimensionsSummary(event: AlertEvent): string {
 }
 
 function closeDetail() {
+  detailRequestId += 1
+  historyRequestId += 1
   showDetail.value = false
   selected.value = null
   history.value = []
+  detailLoading.value = false
+  historyLoading.value = false
 }
 
 async function openDetail(row: AlertEvent) {
+  const requestId = ++detailRequestId
+  historyRequestId += 1
   showDetail.value = true
   selected.value = row
   detailLoading.value = true
@@ -206,15 +227,17 @@ async function openDetail(row: AlertEvent) {
 
   try {
     const detail = await opsAPI.getAlertEvent(row.id)
+    if (requestId !== detailRequestId || !showDetail.value || selected.value?.id !== row.id) return
     selected.value = detail
   } catch (err: any) {
+    if (requestId !== detailRequestId || !showDetail.value) return
     console.error('[OpsAlertEventsCard] Failed to load alert detail', err)
     appStore.showError(err?.response?.data?.detail || t('admin.ops.alertEvents.detail.loadFailed'))
   } finally {
-    detailLoading.value = false
+    if (requestId === detailRequestId) detailLoading.value = false
   }
 
-  await loadHistory()
+  if (requestId === detailRequestId && showDetail.value) await loadHistory()
 }
 
 async function loadHistory() {
@@ -225,6 +248,8 @@ async function loadHistory() {
     return
   }
 
+  const eventId = ev.id
+  const requestId = ++historyRequestId
   historyLoading.value = true
   try {
     const platform = getDimensionString(ev, 'platform')
@@ -238,6 +263,7 @@ async function loadHistory() {
       group_id: groupId,
       status: ''
     })
+    if (requestId !== historyRequestId || !showDetail.value || selected.value?.id !== eventId) return
 
     // Best-effort: narrow to same rule_id + dimensions
     history.value = items.filter((it) => {
@@ -250,10 +276,11 @@ async function loadHistory() {
       return (g1 ?? null) === (g2 ?? null)
     })
   } catch (err: any) {
+    if (requestId !== historyRequestId || !showDetail.value) return
     console.error('[OpsAlertEventsCard] Failed to load alert history', err)
     history.value = []
   } finally {
-    historyLoading.value = false
+    if (requestId === historyRequestId) historyLoading.value = false
   }
 }
 
@@ -329,33 +356,25 @@ watch(historyRange, () => {
   if (showDetail.value) loadHistory()
 })
 
-function severityBadgeClass(severity: string | undefined): string {
+onBeforeUnmount(() => {
+  listRequestId += 1
+  detailRequestId += 1
+  historyRequestId += 1
+})
+
+function severityBadgeTone(severity: string | undefined): 'danger' | 'warning' | 'info' | 'neutral' {
   const s = String(severity || '').trim().toLowerCase()
-  if (s === 'p0' || s === 'critical') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-  if (s === 'p1' || s === 'warning') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-  if (s === 'p2' || s === 'info') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-  if (s === 'p3') return 'bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-gray-300'
-  return 'bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-gray-300'
+  if (s === 'p0' || s === 'critical') return 'danger'
+  if (s === 'p1' || s === 'warning') return 'warning'
+  if (s === 'p2' || s === 'info') return 'info'
+  return 'neutral'
 }
 
-function statusBadgeClass(status: string | undefined): string {
+function statusBadgeTone(status: string | undefined): 'danger' | 'success' | 'neutral' {
   const s = String(status || '').trim().toLowerCase()
-  if (s === 'firing') return 'bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-900/30 dark:text-red-300 dark:ring-red-500/30'
-  if (s === 'resolved') return 'bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-900/30 dark:text-green-300 dark:ring-green-500/30'
-  if (s === 'manual_resolved') return 'bg-slate-50 text-slate-700 ring-slate-600/20 dark:bg-slate-900/30 dark:text-slate-300 dark:ring-slate-500/30'
-  return 'bg-gray-50 text-gray-700 ring-gray-600/20 dark:bg-gray-900/30 dark:text-gray-300 dark:ring-gray-500/30'
-}
-
-function priorityRowClass(event: AlertEvent): string {
-  if (String(event.status || '').trim().toLowerCase() !== 'firing') return ''
-  const severity = String(event.severity || '').trim().toLowerCase()
-  if (severity === 'p0' || severity === 'critical') {
-    return 'border-l-[3px] border-l-red-500 bg-red-50/60 dark:bg-red-950/20'
-  }
-  if (severity === 'p1' || severity === 'warning') {
-    return 'border-l-[3px] border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/15'
-  }
-  return 'border-l-[3px] border-l-orange-300 dark:border-l-orange-700'
+  if (s === 'firing') return 'danger'
+  if (s === 'resolved') return 'success'
+  return 'neutral'
 }
 
 function formatStatusLabel(status: string | undefined): string {
@@ -368,339 +387,179 @@ function formatStatusLabel(status: string | undefined): string {
 }
 
 const empty = computed(() => events.value.length === 0 && !loading.value)
+
+const columns = computed<Column[]>(() => [
+  { key: 'time', label: t('admin.ops.alertEvents.table.time') },
+  { key: 'severity', label: t('admin.ops.alertEvents.table.severity') },
+  { key: 'platform', label: t('admin.ops.alertEvents.table.platform') },
+  { key: 'rule', label: t('admin.ops.alertEvents.table.ruleId') },
+  { key: 'title', label: t('admin.ops.alertEvents.table.title') },
+  { key: 'duration', label: t('admin.ops.alertEvents.table.duration') },
+  { key: 'dimensions', label: t('admin.ops.alertEvents.table.dimensions') },
+  { key: 'email', label: t('admin.ops.alertEvents.table.email') },
+])
+
+const historyColumns = computed<Column[]>(() => [
+  { key: 'time', label: t('admin.ops.alertEvents.table.time') },
+  { key: 'status', label: t('admin.ops.alertEvents.table.status') },
+  { key: 'metric', label: t('admin.ops.alertEvents.table.metric') },
+])
 </script>
 
 <template>
-  <div class="rounded-[4px] border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800 md:p-5">
-    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-      <div>
-        <h3 class="text-sm font-bold text-gray-900 dark:text-white">{{ t('admin.ops.alertEvents.title') }}</h3>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.ops.alertEvents.description') }}</p>
+  <section class="ops-alert-events">
+    <header class="ops-alert-events__header">
+      <div class="ops-alert-events__heading">
+        <h3>{{ t('admin.ops.alertEvents.title') }}</h3>
+        <p>{{ t('admin.ops.alertEvents.description') }}</p>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2">
-        <Select :model-value="timeRange" :options="timeRangeOptions" class="w-[120px]" @change="timeRange = String($event || '24h')" />
-        <Select :model-value="severity" :options="severityOptions" class="w-[88px]" @change="severity = String($event || '')" />
-        <Select :model-value="status" :options="statusOptions" class="w-[110px]" @change="status = String($event || '')" />
-        <Select :model-value="emailSent" :options="emailSentOptions" class="w-[110px]" @change="emailSent = String($event || '')" />
-        <button
-          class="flex h-8 items-center gap-1.5 rounded-[4px] bg-gray-100 px-3 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600"
-          :disabled="loading"
-          @click="loadFirstPage"
-        >
-          <svg class="h-3.5 w-3.5" :class="{ 'animate-spin': loading }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
+      <div class="ops-alert-events__filters">
+        <UiSelect :model-value="timeRange" :options="timeRangeOptions" density="dense" @change="timeRange = String($event || '24h')" />
+        <UiSelect :model-value="severity" :options="severityOptions" density="dense" @change="severity = String($event || '')" />
+        <UiSelect :model-value="status" :options="statusOptions" density="dense" @change="status = String($event || '')" />
+        <UiSelect :model-value="emailSent" :options="emailSentOptions" density="dense" @change="emailSent = String($event || '')" />
+        <UiButton density="dense" :loading="loading" @click="loadFirstPage">
+          <template #icon><Icon name="refresh" size="sm" /></template>
           {{ t('common.refresh') }}
-        </button>
+        </UiButton>
       </div>
-    </div>
+    </header>
 
-    <div v-if="loading" class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-      <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
-      {{ t('admin.ops.alertEvents.loading') }}
-    </div>
+    <div v-if="loading" class="ops-alert-events__loading"><UiSpinner :label="t('admin.ops.alertEvents.loading')" /></div>
 
-    <div v-else-if="empty" class="rounded-[4px] border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400">
-      {{ t('admin.ops.alertEvents.empty') }}
-    </div>
+    <UiEmptyState v-else-if="empty" :title="t('admin.ops.alertEvents.empty')" />
 
-    <div v-else class="overflow-hidden rounded-[4px] border border-gray-200 dark:border-dark-700">
-      <div class="max-h-[600px] overflow-y-auto" @scroll="onScroll">
-        <div v-if="!isDesktopViewport" class="divide-y divide-gray-100 dark:divide-dark-800">
-          <div
-            v-for="row in events"
-            :key="row.id"
-            :class="['cursor-pointer space-y-2 p-4 hover:bg-gray-50 dark:hover:bg-dark-700/50', priorityRowClass(row)]"
-            @click="openDetail(row)"
-          >
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="rounded-full px-2 py-1 text-[10px] font-bold" :class="severityBadgeClass(String(row.severity || ''))">
-                {{ row.severity || '-' }}
-              </span>
-              <span class="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold ring-1 ring-inset" :class="statusBadgeClass(row.status)">
-                {{ formatStatusLabel(row.status) }}
-              </span>
-              <span class="ml-auto text-[11px] text-gray-500 dark:text-gray-400">
-                {{ formatDateTime(row.fired_at || row.created_at) }}
-              </span>
-            </div>
-            <div class="text-xs font-semibold text-gray-900 dark:text-white">{{ row.title || '-' }}</div>
-            <div v-if="row.description" class="line-clamp-2 text-[11px] text-gray-500 dark:text-gray-400">
-              {{ row.description }}
-            </div>
-            <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-500 dark:text-gray-400">
-              <span><span class="font-mono">#{{ row.rule_id }}</span> · {{ formatDurationLabel(row) }}</span>
-              <span class="inline-flex items-center gap-1">
-                <Icon
-                  v-if="row.email_sent"
-                  name="checkCircle"
-                  size="xs"
-                  class="text-green-600 dark:text-green-400"
-                />
-                <Icon
-                  v-else
-                  name="ban"
-                  size="xs"
-                  class="text-gray-400 dark:text-gray-500"
-                />
-                {{ row.email_sent ? t('admin.ops.alertEvents.table.emailSent') : t('admin.ops.alertEvents.table.emailIgnored') }}
-              </span>
-            </div>
-            <div class="text-[11px] text-gray-400 dark:text-gray-500">{{ formatDimensionsSummary(row) }}</div>
-          </div>
-        </div>
-        <table v-else class="min-w-full divide-y divide-gray-200 dark:divide-dark-700">
-          <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-dark-900">
-            <tr>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {{ t('admin.ops.alertEvents.table.time') }}
-              </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {{ t('admin.ops.alertEvents.table.severity') }}
-              </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {{ t('admin.ops.alertEvents.table.platform') }}
-              </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {{ t('admin.ops.alertEvents.table.ruleId') }}
-              </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {{ t('admin.ops.alertEvents.table.title') }}
-              </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {{ t('admin.ops.alertEvents.table.duration') }}
-              </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {{ t('admin.ops.alertEvents.table.dimensions') }}
-              </th>
-              <th class="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {{ t('admin.ops.alertEvents.table.email') }}
-              </th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-200 bg-white dark:divide-dark-700 dark:bg-dark-800">
-            <tr
-              v-for="row in events"
-              :key="row.id"
-              :class="['cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-700/50', priorityRowClass(row)]"
-              @click="openDetail(row)"
-              :title="row.title || ''"
-            >
-              <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
-                {{ formatDateTime(row.fired_at || row.created_at) }}
-              </td>
-              <td class="whitespace-nowrap px-4 py-3">
-                <div class="flex items-center gap-2">
-                  <span class="rounded-full px-2 py-1 text-[10px] font-bold" :class="severityBadgeClass(String(row.severity || ''))">
-                    {{ row.severity || '-' }}
-                  </span>
-                  <span class="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold ring-1 ring-inset" :class="statusBadgeClass(row.status)">
-                    {{ formatStatusLabel(row.status) }}
-                  </span>
-                </div>
-              </td>
-              <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
-                {{ getDimensionString(row, 'platform') || '-' }}
-              </td>
-              <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
-                <span class="font-mono">#{{ row.rule_id }}</span>
-              </td>
-              <td class="min-w-[260px] px-4 py-3 text-xs text-gray-700 dark:text-gray-200">
-                <div class="font-semibold truncate max-w-[360px]">{{ row.title || '-' }}</div>
-                <div v-if="row.description" class="mt-0.5 line-clamp-2 text-[11px] text-gray-500 dark:text-gray-400">
-                  {{ row.description }}
-                </div>
-              </td>
-              <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
-                {{ formatDurationLabel(row) }}
-              </td>
-              <td class="whitespace-nowrap px-4 py-3 text-[11px] text-gray-500 dark:text-gray-400">
-                {{ formatDimensionsSummary(row) }}
-              </td>
-              <td class="whitespace-nowrap px-4 py-3 text-right text-xs">
-                <span
-                  class="inline-flex items-center justify-end gap-1.5"
-                  :title="row.email_sent ? t('admin.ops.alertEvents.table.emailSent') : t('admin.ops.alertEvents.table.emailIgnored')"
-                >
-                  <Icon
-                    v-if="row.email_sent"
-                    name="checkCircle"
-                    size="sm"
-                    class="text-green-600 dark:text-green-400"
-                  />
-                  <Icon
-                    v-else
-                    name="ban"
-                    size="sm"
-                    class="text-gray-400 dark:text-gray-500"
-                  />
-                  <span class="text-[11px] font-bold text-gray-600 dark:text-gray-300">
-                    {{ row.email_sent ? t('admin.ops.alertEvents.table.emailSent') : t('admin.ops.alertEvents.table.emailIgnored') }}
-                  </span>
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <div v-if="loadingMore" class="flex items-center justify-center gap-2 py-3 text-xs text-gray-500 dark:text-gray-400">
-          <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          {{ t('admin.ops.alertEvents.loading') }}
-        </div>
-        <div v-else-if="!hasMore && events.length > 0" class="py-3 text-center text-xs text-gray-400">
+    <div v-else class="ops-alert-events__table">
+      <div class="ops-alert-events__scroll" @scroll="onScroll">
+        <UiDataTable
+          :columns="columns"
+          :data="events"
+          :mobile-table="true"
+          clickable-rows
+          :aria-label="t('admin.ops.alertEvents.title')"
+          @row-click="openDetail"
+        >
+          <template #cell-time="{ row }"><span class="ops-alert-events__nowrap">{{ formatDateTime(row.fired_at || row.created_at) }}</span></template>
+          <template #cell-severity="{ row }"><span class="ops-alert-events__badges"><UiBadge :tone="severityBadgeTone(row.severity)" :label="row.severity || '-'" /><UiBadge :tone="statusBadgeTone(row.status)" :label="formatStatusLabel(row.status)" /></span></template>
+          <template #cell-platform="{ row }"><span class="ops-alert-events__nowrap">{{ getDimensionString(row, 'platform') || '-' }}</span></template>
+          <template #cell-rule="{ row }"><span class="ops-alert-events__mono">#{{ row.rule_id }}</span></template>
+          <template #cell-title="{ row }"><span class="ops-alert-events__title-cell"><strong>{{ row.title || '-' }}</strong><small v-if="row.description">{{ row.description }}</small></span></template>
+          <template #cell-duration="{ row }"><span class="ops-alert-events__nowrap">{{ formatDurationLabel(row) }}</span></template>
+          <template #cell-dimensions="{ row }"><span class="ops-alert-events__mono">{{ formatDimensionsSummary(row) }}</span></template>
+          <template #cell-email="{ row }"><UiBadge :tone="row.email_sent ? 'success' : 'neutral'" :label="row.email_sent ? t('admin.ops.alertEvents.table.emailSent') : t('admin.ops.alertEvents.table.emailIgnored')" /></template>
+        </UiDataTable>
+        <div v-if="loadingMore" class="ops-alert-events__loading-more"><UiSpinner size="sm" :label="t('admin.ops.alertEvents.loading')" /></div>
+        <div v-else-if="!hasMore && events.length > 0" class="ops-alert-events__end">
           -
         </div>
       </div>
     </div>
 
-    <BaseDialog
+    <UiDialog
       :show="showDetail"
       :title="t('admin.ops.alertEvents.detail.title')"
       width="wide"
       :close-on-click-outside="true"
       @close="closeDetail"
     >
-      <div v-if="detailLoading" class="flex items-center justify-center py-10 text-sm text-gray-500 dark:text-gray-400">
-        {{ t('admin.ops.alertEvents.detail.loading') }}
-      </div>
+      <div v-if="detailLoading" class="ops-alert-events__detail-state"><UiSpinner :label="t('admin.ops.alertEvents.detail.loading')" /></div>
 
-      <div v-else-if="!selected" class="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-        {{ t('admin.ops.alertEvents.detail.empty') }}
-      </div>
+      <UiEmptyState v-else-if="!selected" :title="t('admin.ops.alertEvents.detail.empty')" />
 
-      <div v-else class="space-y-5">
-        <div class="rounded-[4px] bg-gray-50 p-4 dark:bg-dark-900">
-          <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold" :class="severityBadgeClass(String(selected.severity || ''))">
-                  {{ selected.severity || '-' }}
-                </span>
-                <span class="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold ring-1 ring-inset" :class="statusBadgeClass(selected.status)">
-                  {{ formatStatusLabel(selected.status) }}
-                </span>
+      <div v-else class="ops-alert-events__detail">
+        <section class="ops-alert-events__summary">
+          <div class="ops-alert-events__summary-row">
+            <div class="ops-alert-events__summary-copy">
+              <div class="ops-alert-events__badges">
+                <UiBadge :tone="severityBadgeTone(selected.severity)" :label="selected.severity || '-'" />
+                <UiBadge :tone="statusBadgeTone(selected.status)" :label="formatStatusLabel(selected.status)" />
               </div>
-              <div class="mt-2 text-sm font-semibold text-gray-900 dark:text-white">
-                {{ selected.title || '-' }}
-              </div>
-              <div v-if="selected.description" class="mt-1 whitespace-pre-wrap text-xs text-gray-600 dark:text-gray-300">
-                {{ selected.description }}
-              </div>
+              <h4>{{ selected.title || '-' }}</h4>
+              <p v-if="selected.description">{{ selected.description }}</p>
             </div>
 
-            <div class="flex flex-wrap gap-2">
-              <div class="flex items-center gap-2 rounded-lg bg-white px-2 py-1 ring-1 ring-gray-200 dark:bg-dark-800 dark:ring-dark-700">
-                <span class="text-[11px] font-bold text-gray-600 dark:text-gray-300">{{ t('admin.ops.alertEvents.detail.silence') }}</span>
-                <Select
+            <div class="ops-alert-events__detail-actions">
+              <div class="ops-alert-events__silence">
+                <span>{{ t('admin.ops.alertEvents.detail.silence') }}</span>
+                <UiSelect
                   :model-value="silenceDuration"
                   :options="silenceDurationOptions"
-                  class="w-[110px]"
+                  density="dense"
                   @change="silenceDuration = String($event || '1h')"
                 />
-                <button type="button" class="btn btn-secondary btn-sm" :disabled="detailActionLoading" @click="silenceAlert">
-                  <Icon name="ban" size="sm" />
+                <UiButton density="dense" :disabled="detailActionLoading" @click="silenceAlert">
+                  <template #icon><Icon name="ban" size="sm" /></template>
                   {{ t('common.apply') }}
-                </button>
+                </UiButton>
               </div>
 
-              <button type="button" class="btn btn-secondary btn-sm" :disabled="detailActionLoading" @click="manualResolve">
-                <Icon name="checkCircle" size="sm" />
+              <UiButton density="dense" :disabled="detailActionLoading" @click="manualResolve">
+                <template #icon><Icon name="checkCircle" size="sm" /></template>
                 {{ t('admin.ops.alertEvents.detail.manualResolve') }}
-              </button>
+              </UiButton>
             </div>
           </div>
-        </div>
+        </section>
 
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div class="rounded-[4px] bg-gray-50 p-4 dark:bg-dark-900">
-              <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.alertEvents.detail.firedAt') }}</div>
-              <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ formatDateTime(selected.fired_at || selected.created_at) }}</div>
-            </div>
-            <div class="rounded-[4px] bg-gray-50 p-4 dark:bg-dark-900">
-              <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.alertEvents.detail.resolvedAt') }}</div>
-              <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ selected.resolved_at ? formatDateTime(selected.resolved_at) : '-' }}</div>
-            </div>
-            <div class="rounded-[4px] bg-gray-50 p-4 dark:bg-dark-900">
-              <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.alertEvents.detail.ruleId') }}</div>
-              <div class="mt-1 flex flex-wrap items-center gap-2">
-                <div class="font-mono text-sm font-bold text-gray-900 dark:text-white">#{{ selected.rule_id }}</div>
-                <a
-                  class="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[11px] font-bold text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 dark:bg-dark-800 dark:text-gray-200 dark:ring-dark-700 dark:hover:bg-dark-700"
+          <dl class="ops-alert-events__facts">
+            <div><dt>{{ t('admin.ops.alertEvents.detail.firedAt') }}</dt><dd>{{ formatDateTime(selected.fired_at || selected.created_at) }}</dd></div>
+            <div><dt>{{ t('admin.ops.alertEvents.detail.resolvedAt') }}</dt><dd>{{ selected.resolved_at ? formatDateTime(selected.resolved_at) : '-' }}</dd></div>
+            <div>
+              <dt>{{ t('admin.ops.alertEvents.detail.ruleId') }}</dt>
+              <dd class="ops-alert-events__fact-actions">
+                <strong class="ops-alert-events__mono">#{{ selected.rule_id }}</strong>
+                <UiLink
                   :href="`/admin/ops?open_alert_rules=1&alert_rule_id=${selected.rule_id}`"
                 >
-                  <Icon name="externalLink" size="xs" />
                   {{ t('admin.ops.alertEvents.detail.viewRule') }}
-                </a>
-                <a
-                  class="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[11px] font-bold text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 dark:bg-dark-800 dark:text-gray-200 dark:ring-dark-700 dark:hover:bg-dark-700"
+                </UiLink>
+                <UiLink
                   :href="`/admin/ops?platform=${encodeURIComponent(getDimensionString(selected,'platform')||'')}&group_id=${selected.dimensions?.group_id || ''}&error_type=request&open_error_details=1`"
                 >
-                  <Icon name="externalLink" size="xs" />
                   {{ t('admin.ops.alertEvents.detail.viewLogs') }}
-                </a>
-              </div>
+                </UiLink>
+              </dd>
             </div>
-            <div class="rounded-[4px] bg-gray-50 p-4 dark:bg-dark-900">
-              <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.alertEvents.detail.dimensions') }}</div>
-              <div class="mt-1 text-sm text-gray-900 dark:text-white">
+            <div>
+              <dt>{{ t('admin.ops.alertEvents.detail.dimensions') }}</dt>
+              <dd class="ops-alert-events__mono">
                 <div v-if="getDimensionString(selected, 'platform')">platform={{ getDimensionString(selected, 'platform') }}</div>
                 <div v-if="selected.dimensions?.group_id">group_id={{ selected.dimensions.group_id }}</div>
                 <div v-if="getDimensionString(selected, 'region')">region={{ getDimensionString(selected, 'region') }}</div>
-              </div>
+              </dd>
             </div>
-          </div>
+          </dl>
 
 
-        <div class="rounded-[4px] border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-800">
-          <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <section class="ops-alert-events__history">
+          <header>
             <div>
-              <div class="text-sm font-bold text-gray-900 dark:text-white">{{ t('admin.ops.alertEvents.detail.historyTitle') }}</div>
-              <div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.ops.alertEvents.detail.historyHint') }}</div>
+              <h4>{{ t('admin.ops.alertEvents.detail.historyTitle') }}</h4>
+              <p>{{ t('admin.ops.alertEvents.detail.historyHint') }}</p>
             </div>
-            <Select :model-value="historyRange" :options="historyRangeOptions" class="w-[140px]" @change="historyRange = String($event || '7d')" />
-          </div>
+            <UiSelect :model-value="historyRange" :options="historyRangeOptions" density="dense" @change="historyRange = String($event || '7d')" />
+          </header>
 
-          <div v-if="historyLoading" class="py-6 text-center text-xs text-gray-500 dark:text-gray-400">
-            {{ t('admin.ops.alertEvents.detail.historyLoading') }}
-          </div>
-          <div v-else-if="history.length === 0" class="py-6 text-center text-xs text-gray-500 dark:text-gray-400">
-            {{ t('admin.ops.alertEvents.detail.historyEmpty') }}
-          </div>
-          <div v-else class="overflow-hidden rounded-lg border border-gray-100 dark:border-dark-700">
-            <table class="min-w-full divide-y divide-gray-100 dark:divide-dark-700">
-              <thead class="bg-gray-50 dark:bg-dark-900">
-                <tr>
-                  <th class="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ t('admin.ops.alertEvents.table.time') }}</th>
-                  <th class="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ t('admin.ops.alertEvents.table.status') }}</th>
-                  <th class="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ t('admin.ops.alertEvents.table.metric') }}</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100 dark:divide-dark-700">
-                <tr v-for="it in history" :key="it.id" class="hover:bg-gray-50 dark:hover:bg-dark-700/50">
-                  <td class="px-3 py-2 text-xs text-gray-600 dark:text-gray-300">{{ formatDateTime(it.fired_at || it.created_at) }}</td>
-                  <td class="px-3 py-2 text-xs">
-                    <span class="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold ring-1 ring-inset" :class="statusBadgeClass(it.status)">
-                      {{ formatStatusLabel(it.status) }}
-                    </span>
-                  </td>
-                  <td class="px-3 py-2 text-xs text-gray-600 dark:text-gray-300">
-                    <span v-if="typeof it.metric_value === 'number' && typeof it.threshold_value === 'number'">
-                      {{ it.metric_value.toFixed(2) }} / {{ it.threshold_value.toFixed(2) }}
-                    </span>
-                    <span v-else>-</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+          <div v-if="historyLoading" class="ops-alert-events__detail-state"><UiSpinner size="sm" :label="t('admin.ops.alertEvents.detail.historyLoading')" /></div>
+          <UiEmptyState v-else-if="history.length === 0" :title="t('admin.ops.alertEvents.detail.historyEmpty')" />
+          <UiDataTable v-else :columns="historyColumns" :data="history" :mobile-table="true">
+            <template #cell-time="{ row }"><span class="ops-alert-events__nowrap">{{ formatDateTime(row.fired_at || row.created_at) }}</span></template>
+            <template #cell-status="{ row }"><UiBadge :tone="statusBadgeTone(row.status)" :label="formatStatusLabel(row.status)" /></template>
+            <template #cell-metric="{ row }"><span class="ops-alert-events__mono">{{ typeof row.metric_value === 'number' && typeof row.threshold_value === 'number' ? `${row.metric_value.toFixed(2)} / ${row.threshold_value.toFixed(2)}` : '-' }}</span></template>
+          </UiDataTable>
+        </section>
       </div>
-    </BaseDialog>
-  </div>
+    </UiDialog>
+  </section>
 </template>
+
+<style scoped>
+.ops-alert-events { overflow: hidden; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-panel); background: var(--ui-surface); }
+.ops-alert-events__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 14px 16px; border-bottom: 1px solid var(--ui-border-soft); }.ops-alert-events__heading h3 { margin: 0; color: var(--ui-text); font-size: 14px; line-height: 22px; }.ops-alert-events__heading p { margin: 2px 0 0; color: var(--ui-text-muted); font-size: 12px; line-height: 18px; }.ops-alert-events__filters { display: grid; grid-template-columns: repeat(4,minmax(92px,auto)) auto; align-items: end; gap: 6px; }
+.ops-alert-events__loading { display: grid; min-height: 160px; place-items: center; }.ops-alert-events__table { min-width: 0; }.ops-alert-events__scroll { max-height: 600px; overflow: auto; }.ops-alert-events__badges { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }.ops-alert-events__nowrap { color: var(--ui-text-muted); white-space: nowrap; }.ops-alert-events__mono { color: var(--ui-text-muted); font-family: var(--ui-font-mono); font-size: 11px; white-space: nowrap; }.ops-alert-events__title-cell { display: grid; min-width: 240px; max-width: 380px; gap: 2px; }.ops-alert-events__title-cell strong,.ops-alert-events__title-cell small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.ops-alert-events__title-cell strong { color: var(--ui-text); font-size: 12px; }.ops-alert-events__title-cell small { color: var(--ui-text-muted); font-size: 11px; }.ops-alert-events__loading-more { display: flex; justify-content: center; padding: 10px; border-top: 1px solid var(--ui-border-soft); }.ops-alert-events__end { padding: 8px; color: var(--ui-text-soft); text-align: center; }
+.ops-alert-events__detail { display: grid; gap: 18px; }.ops-alert-events__detail-state { display: grid; min-height: 160px; place-items: center; }.ops-alert-events__summary { padding-bottom: 16px; border-bottom: 1px solid var(--ui-border-soft); }.ops-alert-events__summary-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }.ops-alert-events__summary-copy { min-width: 0; }.ops-alert-events__summary-copy h4,.ops-alert-events__history h4 { margin: 8px 0 0; color: var(--ui-text); font-size: 14px; line-height: 22px; }.ops-alert-events__summary-copy p,.ops-alert-events__history p { margin: 2px 0 0; color: var(--ui-text-muted); font-size: 12px; line-height: 19px; white-space: pre-wrap; }.ops-alert-events__detail-actions,.ops-alert-events__silence,.ops-alert-events__fact-actions { display: flex; align-items: center; gap: 6px; }.ops-alert-events__detail-actions { flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; }.ops-alert-events__silence > span { color: var(--ui-text-muted); font-size: 11px; }.ops-alert-events__facts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); margin: 0; border-top: 1px solid var(--ui-border-soft); }.ops-alert-events__facts > div { min-width: 0; padding: 10px 0; border-bottom: 1px solid var(--ui-border-soft); }.ops-alert-events__facts > div:nth-child(odd) { padding-right: 16px; }.ops-alert-events__facts > div:nth-child(even) { padding-left: 16px; border-left: 1px solid var(--ui-border-soft); }.ops-alert-events__facts dt { color: var(--ui-text-soft); font-size: 11px; line-height: 18px; }.ops-alert-events__facts dd { margin: 3px 0 0; color: var(--ui-text); font-size: 12px; line-height: 19px; overflow-wrap: anywhere; }.ops-alert-events__fact-actions { flex-wrap: wrap; }.ops-alert-events__history { border-top: 1px solid var(--ui-border-soft); padding-top: 16px; }.ops-alert-events__history > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }.ops-alert-events__history h4 { margin-top: 0; }
+@media (max-width:900px) { .ops-alert-events__header { flex-direction: column; }.ops-alert-events__filters { width: 100%; grid-template-columns: repeat(2,minmax(0,1fr)); }.ops-alert-events__filters > :last-child { grid-column: 1 / -1; } }
+@media (max-width:640px) { .ops-alert-events__summary-row { flex-direction: column; }.ops-alert-events__detail-actions { justify-content: flex-start; }.ops-alert-events__facts { grid-template-columns: 1fr; }.ops-alert-events__facts > div:nth-child(n) { padding-inline: 0; border-left: 0; } }
+@media (max-width:520px) { .ops-alert-events__header { padding-inline: 12px; }.ops-alert-events__filters { grid-template-columns: 1fr 1fr; }.ops-alert-events__silence { align-items: stretch; flex-direction: column; }.ops-alert-events__detail-actions { align-items: stretch; flex-direction: column; } }
+</style>
