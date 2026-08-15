@@ -183,6 +183,32 @@ describe('admin RedeemView batch update', () => {
     getPlans.mockResolvedValue({ data: [] })
   })
 
+  it('renders the shared page shell and controls selection from the bulk action bar', async () => {
+    const wrapper = mountView()
+
+    await flushPromises()
+
+    expect(wrapper.get('main.app-page').classes()).toContain('app-page--compact')
+    expect(wrapper.get('h1').text()).toBe('admin.redeem.title')
+    expect(wrapper.text()).toContain('admin.redeem.description')
+    expect(wrapper.find('.ui-bulk').exists()).toBe(false)
+
+    await wrapper.findAll('[data-test="select-code"]')[0].setValue(true)
+    expect(wrapper.get('.ui-bulk').text()).toContain('admin.redeem.selectedCount')
+
+    await wrapper.get('.ui-bulk input[type="checkbox"]').setValue(true)
+    expect(wrapper.findAll('[data-test="select-code"]')).toHaveLength(2)
+    expect(wrapper.findAll('[data-test="select-code"]').every((input) => (input.element as HTMLInputElement).checked)).toBe(true)
+
+    const clearButton = wrapper
+      .findAll('.ui-bulk button')
+      .find((button) => button.text() === 'admin.redeem.clearSelection')
+    expect(clearButton).toBeDefined()
+    await clearButton!.trigger('click')
+    expect((wrapper.vm as any).selectedCount).toBe(0)
+    expect(wrapper.findAll('[data-test="select-code"]').every((input) => !(input.element as HTMLInputElement).checked)).toBe(true)
+  })
+
   it('submits only checked fields for selected redeem codes', async () => {
     const wrapper = mountView()
 

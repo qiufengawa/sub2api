@@ -1,6 +1,8 @@
 <template>
   <AppLayout>
-    <UiServerTableWorkspace :loading="loading">
+    <AppPage density="compact">
+      <AppPageHeader :title="t('admin.redeem.title')" :description="t('admin.redeem.description')" />
+      <UiServerTableWorkspace :loading="loading">
       <template #filters>
         <div class="flex flex-col gap-2 p-3 xl:flex-row xl:items-center">
           <div class="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-[minmax(240px,1fr)_144px_144px]">
@@ -162,22 +164,18 @@
         </UiDataTable>
 
       <template #pagination>
-        <div
-          v-if="selectedCount > 0"
-          class="mb-2 flex flex-wrap items-center justify-between gap-3 border border-gray-200 bg-gray-50 p-2 dark:border-dark-600 dark:bg-dark-800"
+        <UiBulkActionBar
+          :selected-count="selectedCount"
+          :all-selected="allVisibleSelected"
+          :selection-label="t('admin.redeem.selectedCount', { count: selectedCount })"
+          :clear-label="t('admin.redeem.clearSelection')"
+          @clear="clearSelectedCodes"
+          @toggle-all="toggleSelectAllVisible"
         >
-          <span class="text-sm font-medium">
-            {{ t('admin.redeem.selectedCount', { count: selectedCount }) }}
-          </span>
-          <div class="flex flex-wrap items-center gap-2">
-            <UiButton density="dense" variant="quiet" @click="clearSelectedCodes">
-              {{ t('admin.redeem.clearSelection') }}
-            </UiButton>
-            <UiButton density="dense" variant="primary" @click="openBatchUpdateDialog">
-              {{ t('admin.redeem.batchUpdate') }}
-            </UiButton>
-          </div>
-        </div>
+          <UiButton density="dense" variant="primary" @click="openBatchUpdateDialog">
+            {{ t('admin.redeem.batchUpdate') }}
+          </UiButton>
+        </UiBulkActionBar>
 
         <UiPagination
           v-if="pagination.total > 0"
@@ -199,7 +197,8 @@
           </UiButton>
         </div>
       </template>
-    </UiServerTableWorkspace>
+      </UiServerTableWorkspace>
+    </AppPage>
 
     <!-- Delete Confirmation Dialog -->
     <UiConfirmDialog
@@ -436,9 +435,12 @@ import type { Column } from '@/components/ui'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import {
+  AppPage,
+  AppPageHeader,
   UiAlert,
   UiBadge,
   UiButton,
+  UiBulkActionBar,
   UiCheckbox,
   UiConfirmDialog,
   UiDataTable,
