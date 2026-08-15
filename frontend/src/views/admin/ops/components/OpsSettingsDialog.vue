@@ -3,9 +3,17 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { opsAPI } from '@/api/admin/ops'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import Select from '@/components/common/Select.vue'
-import Toggle from '@/components/common/Toggle.vue'
+import {
+  UiAlert,
+  UiButton,
+  UiDialog,
+  UiEmptyState,
+  UiIconButton,
+  UiSelect,
+  UiSpinner,
+  UiSwitch,
+  UiTextField,
+} from '@/components/ui'
 import type { OpsAlertRuntimeSettings, EmailNotificationConfig, AlertSeverity, OpsAdvancedSettings, OpsMetricThresholds } from '../types'
 
 const { t } = useI18n()
@@ -249,375 +257,245 @@ async function saveAllSettings() {
 </script>
 
 <template>
-  <BaseDialog :show="show" :title="t('admin.ops.settings.title')" width="extra-wide" @close="emit('close')">
-    <div v-if="loading" class="py-10 text-center text-sm text-gray-500">
-      {{ t('common.loading') }}
-    </div>
+  <UiDialog :show="show" :title="t('admin.ops.settings.title')" width="extra-wide" @close="emit('close')">
+    <div v-if="loading" class="ops-settings__state"><UiSpinner :label="t('common.loading')" /></div>
 
-    <div v-else-if="loadSucceeded && runtimeSettings && emailConfig && advancedSettings && metricThresholds" class="space-y-6">
+    <div v-else-if="loadSucceeded && runtimeSettings && emailConfig && advancedSettings && metricThresholds" class="ops-settings">
       <!-- 验证错误 -->
-      <div v-if="!validation.valid" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
-        <div class="font-bold">{{ t('admin.ops.settings.validation.title') }}</div>
-        <ul class="mt-1 list-disc space-y-1 pl-4">
+      <UiAlert v-if="!validation.valid" tone="warning" :title="t('admin.ops.settings.validation.title')">
+        <ul class="ops-settings__errors">
           <li v-for="msg in validation.errors" :key="msg">{{ msg }}</li>
         </ul>
-      </div>
+      </UiAlert>
 
       <!-- 数据采集频率 -->
-      <div class="rounded-2xl bg-gray-50 p-4 dark:bg-dark-700/50">
-        <h4 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.ops.settings.dataCollection') }}</h4>
-        <div>
-          <label class="input-label">{{ t('admin.ops.settings.evaluationInterval') }}</label>
-          <input
-            v-model.number="runtimeSettings.evaluation_interval_seconds"
-            type="number"
-            min="1"
-            max="86400"
-            class="input"
-          />
-          <p class="mt-1 text-xs text-gray-500">{{ t('admin.ops.settings.evaluationIntervalHint') }}</p>
-        </div>
+      <div class="ops-settings__section">
+        <h4 class="ops-settings__section-title">{{ t('admin.ops.settings.dataCollection') }}</h4>
+        <UiTextField v-model.number="runtimeSettings.evaluation_interval_seconds" type="number" density="compact" :min="1" :max="86400" :label="t('admin.ops.settings.evaluationInterval')" :description="t('admin.ops.settings.evaluationIntervalHint')" />
       </div>
 
       <!-- 预警配置 -->
-      <div class="rounded-2xl bg-gray-50 p-4 dark:bg-dark-700/50">
-        <h4 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.ops.settings.alertConfig') }}</h4>
+      <div class="ops-settings__section">
+        <h4 class="ops-settings__section-title">{{ t('admin.ops.settings.alertConfig') }}</h4>
 
-        <div class="space-y-4">
-          <div class="flex items-center justify-between">
+        <div class="ops-settings__stack">
+          <div class="ops-settings__switch-row">
             <div>
-              <label class="font-medium text-gray-900 dark:text-white">{{ t('admin.ops.settings.enableAlert') }}</label>
+              <label class="ops-settings__switch-label">{{ t('admin.ops.settings.enableAlert') }}</label>
             </div>
-            <Toggle v-model="emailConfig.alert.enabled" />
+            <UiSwitch v-model="emailConfig.alert.enabled" :label="t('admin.ops.settings.enableAlert')" />
           </div>
 
           <div v-if="emailConfig.alert.enabled">
-            <label class="input-label">{{ t('admin.ops.settings.alertRecipients') }}</label>
-            <div class="flex gap-2">
-              <input
-                v-model="alertRecipientInput"
-                type="email"
-                class="input"
-                :placeholder="t('admin.ops.settings.emailPlaceholder')"
-                @keydown.enter.prevent="addRecipient('alert')"
-              />
-              <button class="btn btn-secondary whitespace-nowrap" type="button" @click="addRecipient('alert')">
-                {{ t('common.add') }}
-              </button>
+            <div class="ops-settings__input-action">
+              <UiTextField v-model="alertRecipientInput" type="email" density="compact" :label="t('admin.ops.settings.alertRecipients')" :placeholder="t('admin.ops.settings.emailPlaceholder')" @enter="addRecipient('alert')" />
+              <UiButton density="compact" @click="addRecipient('alert')">{{ t('common.add') }}</UiButton>
             </div>
-            <div class="mt-2 flex flex-wrap gap-2">
+            <div class="ops-settings__recipients">
               <span
                 v-for="email in emailConfig.alert.recipients"
                 :key="email"
-                class="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                class="ops-settings__recipient"
               >
                 {{ email }}
-                <button type="button" class="text-blue-700/80 hover:text-blue-900" @click="removeRecipient('alert', email)">×</button>
+                <UiIconButton icon="x" density="mini" variant="ghost" :label="t('common.delete')" @click="removeRecipient('alert', email)" />
               </span>
             </div>
-            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            <p class="ops-settings__hint">
               {{ t('admin.ops.settings.recipientsHint') }}
             </p>
           </div>
 
           <div v-if="emailConfig.alert.enabled">
-            <label class="input-label">{{ t('admin.ops.settings.minSeverity') }}</label>
-            <Select v-model="emailConfig.alert.min_severity" :options="severityOptions" />
+            <UiSelect v-model="emailConfig.alert.min_severity" density="compact" :label="t('admin.ops.settings.minSeverity')" :options="severityOptions" />
           </div>
         </div>
       </div>
 
       <!-- 评估报告配置 -->
-      <div class="rounded-2xl bg-gray-50 p-4 dark:bg-dark-700/50">
-        <h4 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.ops.settings.reportConfig') }}</h4>
+      <div class="ops-settings__section">
+        <h4 class="ops-settings__section-title">{{ t('admin.ops.settings.reportConfig') }}</h4>
 
-        <div class="space-y-4">
-          <div class="flex items-center justify-between">
+        <div class="ops-settings__stack">
+          <div class="ops-settings__switch-row">
             <div>
-              <label class="font-medium text-gray-900 dark:text-white">{{ t('admin.ops.settings.enableReport') }}</label>
+              <label class="ops-settings__switch-label">{{ t('admin.ops.settings.enableReport') }}</label>
             </div>
-            <Toggle v-model="emailConfig.report.enabled" />
+            <UiSwitch v-model="emailConfig.report.enabled" :label="t('admin.ops.settings.enableReport')" />
           </div>
 
           <div v-if="emailConfig.report.enabled">
-            <label class="input-label">{{ t('admin.ops.settings.reportRecipients') }}</label>
-            <div class="flex gap-2">
-              <input
-                v-model="reportRecipientInput"
-                type="email"
-                class="input"
-                :placeholder="t('admin.ops.settings.emailPlaceholder')"
-                @keydown.enter.prevent="addRecipient('report')"
-              />
-              <button class="btn btn-secondary whitespace-nowrap" type="button" @click="addRecipient('report')">
-                {{ t('common.add') }}
-              </button>
+            <div class="ops-settings__input-action">
+              <UiTextField v-model="reportRecipientInput" type="email" density="compact" :label="t('admin.ops.settings.reportRecipients')" :placeholder="t('admin.ops.settings.emailPlaceholder')" @enter="addRecipient('report')" />
+              <UiButton density="compact" @click="addRecipient('report')">{{ t('common.add') }}</UiButton>
             </div>
-            <div class="mt-2 flex flex-wrap gap-2">
+            <div class="ops-settings__recipients">
               <span
                 v-for="email in emailConfig.report.recipients"
                 :key="email"
-                class="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                class="ops-settings__recipient"
               >
                 {{ email }}
-                <button type="button" class="text-blue-700/80 hover:text-blue-900" @click="removeRecipient('report', email)">×</button>
+                <UiIconButton icon="x" density="mini" variant="ghost" :label="t('common.delete')" @click="removeRecipient('report', email)" />
               </span>
             </div>
-            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            <p class="ops-settings__hint">
               {{ t('admin.ops.settings.recipientsHint') }}
             </p>
           </div>
 
-          <div v-if="emailConfig.report.enabled" class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div class="flex items-center justify-between">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.dailySummary') }}</label>
-              <Toggle v-model="emailConfig.report.daily_summary_enabled" />
+          <div v-if="emailConfig.report.enabled" class="ops-settings__grid ops-settings__grid--2">
+            <div class="ops-settings__switch-row">
+              <label class="ops-settings__switch-label">{{ t('admin.ops.settings.dailySummary') }}</label>
+              <UiSwitch v-model="emailConfig.report.daily_summary_enabled" :label="t('admin.ops.settings.dailySummary')" />
             </div>
             <div v-if="emailConfig.report.daily_summary_enabled">
-              <input v-model="emailConfig.report.daily_summary_schedule" type="text" class="input" placeholder="0 9 * * *" />
+              <UiTextField v-model="emailConfig.report.daily_summary_schedule" density="compact" monospace placeholder="0 9 * * *" />
             </div>
-            <div class="flex items-center justify-between">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.weeklySummary') }}</label>
-              <Toggle v-model="emailConfig.report.weekly_summary_enabled" />
+            <div class="ops-settings__switch-row">
+              <label class="ops-settings__switch-label">{{ t('admin.ops.settings.weeklySummary') }}</label>
+              <UiSwitch v-model="emailConfig.report.weekly_summary_enabled" :label="t('admin.ops.settings.weeklySummary')" />
             </div>
             <div v-if="emailConfig.report.weekly_summary_enabled">
-              <input v-model="emailConfig.report.weekly_summary_schedule" type="text" class="input" placeholder="0 9 * * 1" />
+              <UiTextField v-model="emailConfig.report.weekly_summary_schedule" density="compact" monospace placeholder="0 9 * * 1" />
             </div>
           </div>
         </div>
       </div>
 
       <!-- 指标阈值配置 -->
-      <div class="rounded-2xl bg-gray-50 p-4 dark:bg-dark-700/50">
-        <h4 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.ops.settings.metricThresholds') }}</h4>
-        <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.ops.settings.metricThresholdsHint') }}</p>
+      <div class="ops-settings__section">
+        <h4 class="ops-settings__section-title">{{ t('admin.ops.settings.metricThresholds') }}</h4>
+        <p class="ops-settings__section-description">{{ t('admin.ops.settings.metricThresholdsHint') }}</p>
 
-        <div class="space-y-4">
-          <div>
-            <label class="input-label">{{ t('admin.ops.settings.slaMinPercent') }}</label>
-            <input
-              v-model.number="metricThresholds.sla_percent_min"
-              type="number"
-              min="0"
-              max="100"
-              step="0.1"
-              class="input"
-            />
-            <p class="mt-1 text-xs text-gray-500">{{ t('admin.ops.settings.slaMinPercentHint') }}</p>
-          </div>
+        <div class="ops-settings__stack">
+          <UiTextField v-model.number="metricThresholds.sla_percent_min" type="number" density="compact" :min="0" :max="100" :step="0.1" :label="t('admin.ops.settings.slaMinPercent')" :description="t('admin.ops.settings.slaMinPercentHint')" />
 
 
-          <div>
-            <label class="input-label">{{ t('admin.ops.settings.ttftP99MaxMs') }}</label>
-            <input
-              v-model.number="metricThresholds.ttft_p99_ms_max"
-              type="number"
-              min="0"
-              step="50"
-              class="input"
-            />
-            <p class="mt-1 text-xs text-gray-500">{{ t('admin.ops.settings.ttftP99MaxMsHint') }}</p>
-          </div>
+          <UiTextField v-model.number="metricThresholds.ttft_p99_ms_max" type="number" density="compact" :min="0" :step="50" :label="t('admin.ops.settings.ttftP99MaxMs')" :description="t('admin.ops.settings.ttftP99MaxMsHint')" />
 
-          <div>
-            <label class="input-label">{{ t('admin.ops.settings.requestErrorRateMaxPercent') }}</label>
-            <input
-              v-model.number="metricThresholds.request_error_rate_percent_max"
-              type="number"
-              min="0"
-              max="100"
-              step="0.1"
-              class="input"
-            />
-            <p class="mt-1 text-xs text-gray-500">{{ t('admin.ops.settings.requestErrorRateMaxPercentHint') }}</p>
-          </div>
+          <UiTextField v-model.number="metricThresholds.request_error_rate_percent_max" type="number" density="compact" :min="0" :max="100" :step="0.1" :label="t('admin.ops.settings.requestErrorRateMaxPercent')" :description="t('admin.ops.settings.requestErrorRateMaxPercentHint')" />
 
-          <div>
-            <label class="input-label">{{ t('admin.ops.settings.upstreamErrorRateMaxPercent') }}</label>
-            <input
-              v-model.number="metricThresholds.upstream_error_rate_percent_max"
-              type="number"
-              min="0"
-              max="100"
-              step="0.1"
-              class="input"
-            />
-            <p class="mt-1 text-xs text-gray-500">{{ t('admin.ops.settings.upstreamErrorRateMaxPercentHint') }}</p>
-          </div>
+          <UiTextField v-model.number="metricThresholds.upstream_error_rate_percent_max" type="number" density="compact" :min="0" :max="100" :step="0.1" :label="t('admin.ops.settings.upstreamErrorRateMaxPercent')" :description="t('admin.ops.settings.upstreamErrorRateMaxPercentHint')" />
         </div>
       </div>
 
       <!-- 高级设置 -->
-      <details class="rounded-2xl bg-gray-50 dark:bg-dark-700/50">
-        <summary class="cursor-pointer p-4 text-sm font-semibold text-gray-900 dark:text-white">
+      <details class="ops-settings__advanced">
+        <summary class="ops-settings__advanced-summary">
           {{ t('admin.ops.settings.advancedSettings') }}
         </summary>
-        <div class="space-y-4 px-4 pb-4">
+        <div class="ops-settings__advanced-body">
           <!-- 数据保留策略 -->
-          <div class="space-y-3">
-            <h5 class="text-xs font-semibold text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.dataRetention') }}</h5>
+          <div class="ops-settings__group">
+            <h5 class="ops-settings__group-title">{{ t('admin.ops.settings.dataRetention') }}</h5>
 
-            <div class="flex items-center justify-between">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.enableCleanup') }}</label>
-              <Toggle v-model="advancedSettings.data_retention.cleanup_enabled" />
+            <div class="ops-settings__switch-row">
+              <label class="ops-settings__switch-label">{{ t('admin.ops.settings.enableCleanup') }}</label>
+              <UiSwitch v-model="advancedSettings.data_retention.cleanup_enabled" :label="t('admin.ops.settings.enableCleanup')" />
             </div>
 
             <div v-if="advancedSettings.data_retention.cleanup_enabled">
-              <label class="input-label">{{ t('admin.ops.settings.cleanupSchedule') }}</label>
-              <input
-                v-model="advancedSettings.data_retention.cleanup_schedule"
-                type="text"
-                class="input"
-                placeholder="0 2 * * *"
-              />
-              <p class="mt-1 text-xs text-gray-500">{{ t('admin.ops.settings.cleanupScheduleHint') }}</p>
+              <UiTextField v-model="advancedSettings.data_retention.cleanup_schedule" density="compact" monospace :label="t('admin.ops.settings.cleanupSchedule')" :description="t('admin.ops.settings.cleanupScheduleHint')" placeholder="0 2 * * *" />
             </div>
 
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div>
-                <label class="input-label">{{ t('admin.ops.settings.errorLogRetentionDays') }}</label>
-                <input
-                  v-model.number="advancedSettings.data_retention.error_log_retention_days"
-                  type="number"
-                  min="0"
-                  max="365"
-                  class="input"
-                />
-              </div>
-              <div>
-                <label class="input-label">{{ t('admin.ops.settings.minuteMetricsRetentionDays') }}</label>
-                <input
-                  v-model.number="advancedSettings.data_retention.minute_metrics_retention_days"
-                  type="number"
-                  min="0"
-                  max="365"
-                  class="input"
-                />
-              </div>
-              <div>
-                <label class="input-label">{{ t('admin.ops.settings.hourlyMetricsRetentionDays') }}</label>
-                <input
-                  v-model.number="advancedSettings.data_retention.hourly_metrics_retention_days"
-                  type="number"
-                  min="0"
-                  max="365"
-                  class="input"
-                />
-              </div>
+            <div class="ops-settings__grid ops-settings__grid--3">
+              <UiTextField v-model.number="advancedSettings.data_retention.error_log_retention_days" type="number" density="compact" :min="0" :max="365" :label="t('admin.ops.settings.errorLogRetentionDays')" />
+              <UiTextField v-model.number="advancedSettings.data_retention.minute_metrics_retention_days" type="number" density="compact" :min="0" :max="365" :label="t('admin.ops.settings.minuteMetricsRetentionDays')" />
+              <UiTextField v-model.number="advancedSettings.data_retention.hourly_metrics_retention_days" type="number" density="compact" :min="0" :max="365" :label="t('admin.ops.settings.hourlyMetricsRetentionDays')" />
             </div>
-            <p class="text-xs text-gray-500">{{ t('admin.ops.settings.retentionDaysHint') }}</p>
+            <p class="ops-settings__hint">{{ t('admin.ops.settings.retentionDaysHint') }}</p>
           </div>
 
           <!-- 预聚合任务 -->
-          <div class="space-y-3">
-            <h5 class="text-xs font-semibold text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.aggregation') }}</h5>
+          <div class="ops-settings__group">
+            <h5 class="ops-settings__group-title">{{ t('admin.ops.settings.aggregation') }}</h5>
 
-            <div class="flex items-center justify-between">
+            <div class="ops-settings__switch-row">
               <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.enableAggregation') }}</label>
-                <p class="mt-1 text-xs text-gray-500">{{ t('admin.ops.settings.aggregationHint') }}</p>
+                <label class="ops-settings__switch-label">{{ t('admin.ops.settings.enableAggregation') }}</label>
+                <p class="ops-settings__hint">{{ t('admin.ops.settings.aggregationHint') }}</p>
               </div>
-              <Toggle v-model="advancedSettings.aggregation.aggregation_enabled" />
+              <UiSwitch v-model="advancedSettings.aggregation.aggregation_enabled" :label="t('admin.ops.settings.enableAggregation')" />
             </div>
           </div>
 
           <!-- OpenAI 账号配额自动暂停（全局默认阈值） -->
-          <div class="space-y-3">
-            <h5 class="text-xs font-semibold text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.openaiQuotaAutoPause') }}</h5>
-            <p class="text-xs text-gray-500">{{ t('admin.ops.settings.openaiQuotaAutoPauseHint') }}</p>
+          <div class="ops-settings__group">
+            <h5 class="ops-settings__group-title">{{ t('admin.ops.settings.openaiQuotaAutoPause') }}</h5>
+            <p class="ops-settings__hint">{{ t('admin.ops.settings.openaiQuotaAutoPauseHint') }}</p>
 
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div>
-                <label class="input-label">{{ t('admin.ops.settings.openaiQuotaAutoPauseDefault5h') }}</label>
-                <input
-                  v-model.number="quotaAutoPause5hPercent"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  class="input"
-                  data-testid="ops-quota-auto-pause-5h"
-                />
-              </div>
-              <div>
-                <label class="input-label">{{ t('admin.ops.settings.openaiQuotaAutoPauseDefault7d') }}</label>
-                <input
-                  v-model.number="quotaAutoPause7dPercent"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  class="input"
-                  data-testid="ops-quota-auto-pause-7d"
-                />
-              </div>
+            <div class="ops-settings__grid ops-settings__grid--2">
+              <UiTextField v-model.number="quotaAutoPause5hPercent" type="number" density="compact" :min="0" :max="100" :step="0.1" :label="t('admin.ops.settings.openaiQuotaAutoPauseDefault5h')" test-id="ops-quota-auto-pause-5h" />
+              <UiTextField v-model.number="quotaAutoPause7dPercent" type="number" density="compact" :min="0" :max="100" :step="0.1" :label="t('admin.ops.settings.openaiQuotaAutoPauseDefault7d')" test-id="ops-quota-auto-pause-7d" />
             </div>
-            <p class="text-xs text-gray-500">{{ t('admin.ops.settings.openaiQuotaAutoPauseThresholdHint') }}</p>
+            <p class="ops-settings__hint">{{ t('admin.ops.settings.openaiQuotaAutoPauseThresholdHint') }}</p>
           </div>
 
           <!-- Error Filtering -->
-          <div class="space-y-3">
-            <h5 class="text-xs font-semibold text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.errorFiltering') }}</h5>
+          <div class="ops-settings__group">
+            <h5 class="ops-settings__group-title">{{ t('admin.ops.settings.errorFiltering') }}</h5>
 
-            <div class="flex items-center justify-between">
+            <div class="ops-settings__switch-row">
               <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.ignoreCountTokensErrors') }}</label>
-                <p class="mt-1 text-xs text-gray-500">
+                <label class="ops-settings__switch-label">{{ t('admin.ops.settings.ignoreCountTokensErrors') }}</label>
+                <p class="ops-settings__hint">
                   {{ t('admin.ops.settings.ignoreCountTokensErrorsHint') }}
                 </p>
               </div>
-              <Toggle v-model="advancedSettings.ignore_count_tokens_errors" />
+              <UiSwitch v-model="advancedSettings.ignore_count_tokens_errors" :label="t('admin.ops.settings.ignoreCountTokensErrors')" />
             </div>
 
-            <div class="flex items-center justify-between">
+            <div class="ops-settings__switch-row">
               <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.ignoreContextCanceled') }}</label>
-                <p class="mt-1 text-xs text-gray-500">
+                <label class="ops-settings__switch-label">{{ t('admin.ops.settings.ignoreContextCanceled') }}</label>
+                <p class="ops-settings__hint">
                   {{ t('admin.ops.settings.ignoreContextCanceledHint') }}
                 </p>
               </div>
-              <Toggle v-model="advancedSettings.ignore_context_canceled" />
+              <UiSwitch v-model="advancedSettings.ignore_context_canceled" :label="t('admin.ops.settings.ignoreContextCanceled')" />
             </div>
 
-            <div class="flex items-center justify-between">
+            <div class="ops-settings__switch-row">
               <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.ignoreNoAvailableAccounts') }}</label>
-                <p class="mt-1 text-xs text-gray-500">
+                <label class="ops-settings__switch-label">{{ t('admin.ops.settings.ignoreNoAvailableAccounts') }}</label>
+                <p class="ops-settings__hint">
                   {{ t('admin.ops.settings.ignoreNoAvailableAccountsHint') }}
                 </p>
               </div>
-              <Toggle v-model="advancedSettings.ignore_no_available_accounts" />
+              <UiSwitch v-model="advancedSettings.ignore_no_available_accounts" :label="t('admin.ops.settings.ignoreNoAvailableAccounts')" />
             </div>
 
-            <div class="flex items-center justify-between">
+            <div class="ops-settings__switch-row">
               <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.ignoreInsufficientBalanceErrors') }}</label>
-                <p class="mt-1 text-xs text-gray-500">
+                <label class="ops-settings__switch-label">{{ t('admin.ops.settings.ignoreInsufficientBalanceErrors') }}</label>
+                <p class="ops-settings__hint">
                   {{ t('admin.ops.settings.ignoreInsufficientBalanceErrorsHint') }}
                 </p>
               </div>
-              <Toggle v-model="advancedSettings.ignore_insufficient_balance_errors" />
+              <UiSwitch v-model="advancedSettings.ignore_insufficient_balance_errors" :label="t('admin.ops.settings.ignoreInsufficientBalanceErrors')" />
             </div>
           </div>
 
           <!-- Auto Refresh -->
-          <div class="space-y-3">
-            <h5 class="text-xs font-semibold text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.autoRefresh') }}</h5>
+          <div class="ops-settings__group">
+            <h5 class="ops-settings__group-title">{{ t('admin.ops.settings.autoRefresh') }}</h5>
 
-            <div class="flex items-center justify-between">
+            <div class="ops-settings__switch-row">
               <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.enableAutoRefresh') }}</label>
-                <p class="mt-1 text-xs text-gray-500">
+                <label class="ops-settings__switch-label">{{ t('admin.ops.settings.enableAutoRefresh') }}</label>
+                <p class="ops-settings__hint">
                   {{ t('admin.ops.settings.enableAutoRefreshHint') }}
                 </p>
               </div>
-              <Toggle v-model="advancedSettings.auto_refresh_enabled" />
+              <UiSwitch v-model="advancedSettings.auto_refresh_enabled" :label="t('admin.ops.settings.enableAutoRefresh')" />
             </div>
 
             <div v-if="advancedSettings.auto_refresh_enabled">
-              <label class="input-label">{{ t('admin.ops.settings.refreshInterval') }}</label>
-              <Select
+              <UiSelect
                 v-model="advancedSettings.auto_refresh_interval_seconds"
+                density="compact"
+                :label="t('admin.ops.settings.refreshInterval')"
                 :options="[
                   { value: 15, label: t('admin.ops.settings.refreshInterval15s') },
                   { value: 30, label: t('admin.ops.settings.refreshInterval30s') },
@@ -628,40 +506,45 @@ async function saveAllSettings() {
           </div>
 
           <!-- Dashboard Cards -->
-          <div class="space-y-3">
-            <h5 class="text-xs font-semibold text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.dashboardCards') }}</h5>
+          <div class="ops-settings__group">
+            <h5 class="ops-settings__group-title">{{ t('admin.ops.settings.dashboardCards') }}</h5>
 
-            <div class="flex items-center justify-between">
+            <div class="ops-settings__switch-row">
               <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.displayAlertEvents') }}</label>
-                <p class="mt-1 text-xs text-gray-500">
+                <label class="ops-settings__switch-label">{{ t('admin.ops.settings.displayAlertEvents') }}</label>
+                <p class="ops-settings__hint">
                   {{ t('admin.ops.settings.displayAlertEventsHint') }}
                 </p>
               </div>
-              <Toggle v-model="advancedSettings.display_alert_events" />
+              <UiSwitch v-model="advancedSettings.display_alert_events" :label="t('admin.ops.settings.displayAlertEvents')" />
             </div>
 
-            <div class="flex items-center justify-between">
+            <div class="ops-settings__switch-row">
               <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.displayOpenAITokenStats') }}</label>
-                <p class="mt-1 text-xs text-gray-500">
+                <label class="ops-settings__switch-label">{{ t('admin.ops.settings.displayOpenAITokenStats') }}</label>
+                <p class="ops-settings__hint">
                   {{ t('admin.ops.settings.displayOpenAITokenStatsHint') }}
                 </p>
               </div>
-              <Toggle v-model="advancedSettings.display_openai_token_stats" />
+              <UiSwitch v-model="advancedSettings.display_openai_token_stats" :label="t('admin.ops.settings.displayOpenAITokenStats')" />
             </div>
           </div>
         </div>
       </details>
     </div>
 
+    <UiEmptyState v-else :title="t('admin.ops.settings.loadFailed')" />
+
     <template #footer>
-      <div class="flex justify-end gap-2">
-        <button class="btn btn-secondary" @click="emit('close')">{{ t('common.cancel') }}</button>
-        <button class="btn btn-primary" :disabled="saving || loading || !loadSucceeded || !validation.valid" @click="saveAllSettings">
-          {{ saving ? t('common.saving') : t('common.save') }}
-        </button>
+      <div class="ops-settings__footer">
+        <UiButton @click="emit('close')">{{ t('common.cancel') }}</UiButton>
+        <UiButton variant="primary" :loading="saving" :disabled="loading || !loadSucceeded || !validation.valid" @click="saveAllSettings">{{ t('common.save') }}</UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
+
+<style scoped>
+.ops-settings { display: grid; gap: 0; }.ops-settings__state { display: grid; min-height: 280px; place-items: center; }.ops-settings__errors { margin: 0; padding-left: 18px; }.ops-settings__section { padding: 18px 0; border-bottom: 1px solid var(--ui-border-soft); }.ops-settings__section-title,.ops-settings__group-title { margin: 0 0 12px; color: var(--ui-text); font-size: 14px; line-height: 22px; }.ops-settings__section-description { margin: -7px 0 14px; color: var(--ui-text-muted); font-size: 12px; line-height: 18px; }.ops-settings__stack,.ops-settings__group,.ops-settings__advanced-body { display: grid; gap: 12px; }.ops-settings__switch-row { display: flex; min-height: 36px; align-items: center; justify-content: space-between; gap: 16px; }.ops-settings__switch-label { color: var(--ui-text); font-size: 12px; font-weight: 500; line-height: 19px; }.ops-settings__input-action { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 6px; }.ops-settings__recipients { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }.ops-settings__recipient { display: inline-flex; min-height: 28px; align-items: center; gap: 3px; padding-left: 8px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); color: var(--ui-text-muted); background: var(--ui-surface-muted); font-size: 11px; }.ops-settings__hint { margin: 3px 0 0; color: var(--ui-text-muted); font-size: 11px; line-height: 17px; }.ops-settings__grid { display: grid; gap: 12px; }.ops-settings__grid--2 { grid-template-columns: repeat(2,minmax(0,1fr)); }.ops-settings__grid--3 { grid-template-columns: repeat(3,minmax(0,1fr)); }.ops-settings__advanced { border-bottom: 1px solid var(--ui-border-soft); }.ops-settings__advanced-summary { padding: 15px 0; color: var(--ui-text); font-size: 14px; font-weight: 600; cursor: pointer; }.ops-settings__advanced-body { padding: 0 0 18px; }.ops-settings__group { padding-top: 14px; border-top: 1px solid var(--ui-border-soft); }.ops-settings__group-title { margin-bottom: 0; font-size: 12px; }.ops-settings__footer { display: flex; width: 100%; justify-content: flex-end; gap: 6px; }
+@media(max-width:700px){.ops-settings__grid--2,.ops-settings__grid--3{grid-template-columns:1fr}.ops-settings__switch-row{align-items:flex-start}.ops-settings__input-action{grid-template-columns:1fr}.ops-settings__footer{display:grid;grid-template-columns:1fr 1fr}}
+</style>
