@@ -491,6 +491,10 @@ export default {
       usageRecords: '使用记录',
       viewUsages: '查看使用记录',
       noUsages: '暂无使用记录',
+      usageColumns: {
+        user: '用户与使用时间',
+        bonusAmount: '赠送金额'
+      },
       userPrefix: '用户 #{id}',
       copied: '已复制！',
       // 消息

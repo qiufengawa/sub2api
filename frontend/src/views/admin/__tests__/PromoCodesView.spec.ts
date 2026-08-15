@@ -52,8 +52,9 @@ const mountView = () => mount(PromoCodesView, {
       UiDialog: { props: ['show'], template: '<div v-if="show"><slot/><slot name="footer"/></div>' },
       UiConfirmDialog: true,
       UiEmptyState: { template: '<div data-test="empty"><slot name="action"/></div>' },
+      UiErrorState: { props: ['title'], emits: ['retry'], template: '<div data-test="error-state">{{ title }}<button data-test="retry" @click="$emit(\'retry\')">retry</button></div>' },
+      UiDataCell: { props: ['value', 'meta'], template: '<div>{{ value }} {{ meta }}</div>' },
       UiBadge: true,
-      UiSpinner: true,
       UiTextField: true,
       UiTextArea: true,
       Icon: true,
@@ -97,5 +98,117 @@ describe('admin PromoCodesView', () => {
     await wrapper.get('[data-test="status"]').setValue('disabled')
     await flushPromises()
     expect(list).toHaveBeenLastCalledWith(1, 20, expect.objectContaining({ status: 'disabled' }), expect.anything())
+  })
+
+  it('keeps sorting on the server and resets to the first page', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    list.mockClear()
+    const vm = wrapper.vm as any
+
+    vm.pagination.page = 4
+    await vm.handleSort('bonus_amount', 'asc')
+
+    expect(list).toHaveBeenLastCalledWith(
+      1,
+      20,
+      expect.objectContaining({ sort_by: 'bonus_amount', sort_order: 'asc' }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
+  })
+
+  it('shows a retryable error instead of treating a failed initial load as an empty collection', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    list.mockRejectedValueOnce(new Error('network'))
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="error-state"]').text()).toContain('admin.promo.failedToLoad')
+    expect(showError).toHaveBeenCalledWith('admin.promo.failedToLoad')
+
+    list.mockResolvedValueOnce({ items: [code], total: 1, page: 1, page_size: 20 })
+    await wrapper.get('[data-test="retry"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-test="table"]').text()).toContain('WELCOME')
+    consoleError.mockRestore()
+  })
+
+  it('preserves create and update timestamp payload semantics', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+
+    Object.assign(vm.createForm, {
+      code: '',
+      bonus_amount: 8.5,
+      max_uses: 3,
+      expires_at_str: '2026-09-01T12:30',
+      notes: '',
+    })
+    await vm.handleCreate()
+    expect(create).toHaveBeenCalledWith({
+      code: undefined,
+      bonus_amount: 8.5,
+      max_uses: 3,
+      expires_at: Math.floor(new Date('2026-09-01T12:30').getTime() / 1000),
+      notes: undefined,
+    })
+
+    vm.editingCode = code
+    Object.assign(vm.editForm, {
+      code: 'WELCOME-2',
+      bonus_amount: 10,
+      max_uses: 0,
+      status: 'disabled',
+      expires_at_str: '',
+      notes: 'paused',
+    })
+    await vm.handleUpdate()
+    expect(update).toHaveBeenCalledWith(code.id, {
+      code: 'WELCOME-2',
+      bonus_amount: 10,
+      max_uses: 0,
+      status: 'disabled',
+      expires_at: 0,
+      notes: 'paused',
+    })
+  })
+
+  it('keeps usage pagination server-side and ignores stale code responses', async () => {
+    let resolveFirst!: (value: { items: any[]; total: number }) => void
+    let resolveSecond!: (value: { items: any[]; total: number }) => void
+    const first = new Promise<{ items: any[]; total: number }>((resolve) => { resolveFirst = resolve })
+    const second = new Promise<{ items: any[]; total: number }>((resolve) => { resolveSecond = resolve })
+    getUsages.mockImplementation((id: number) => id === 1 ? first : second)
+
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    const secondCode = { ...code, id: 2, code: 'SECOND' }
+
+    void vm.handleViewUsages(code)
+    void vm.handleViewUsages(secondCode)
+    resolveSecond({
+      items: [{ id: 22, promo_code_id: 2, user_id: 9, bonus_amount: 4, used_at: '2026-08-15T08:00:00Z' }],
+      total: 41,
+    })
+    await flushPromises()
+    resolveFirst({
+      items: [{ id: 11, promo_code_id: 1, user_id: 8, bonus_amount: 3, used_at: '2026-08-15T07:00:00Z' }],
+      total: 1,
+    })
+    await flushPromises()
+
+    expect(vm.usages.map((usage: any) => usage.id)).toEqual([22])
+    expect(vm.usagesTotal).toBe(41)
+
+    getUsages.mockResolvedValue({ items: [], total: 41 })
+    vm.handleUsagesPageChange(2)
+    await flushPromises()
+    expect(getUsages).toHaveBeenLastCalledWith(2, 2, 20)
+
+    vm.handleUsagesPageSizeChange(50)
+    await flushPromises()
+    expect(getUsages).toHaveBeenLastCalledWith(2, 1, 50)
   })
 })

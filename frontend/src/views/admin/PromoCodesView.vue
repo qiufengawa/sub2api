@@ -27,7 +27,25 @@
           <template #cell-expires_at="{ value }"><span class="promo-muted">{{ value ? formatDateTime(value) : t('admin.promo.neverExpires') }}</span></template>
           <template #cell-created_at="{ value }"><span class="promo-muted">{{ formatDateTime(value) }}</span></template>
           <template #cell-actions="{ row }"><div class="promo-row-actions"><UiIconButton icon="link" density="dense" variant="ghost" :label="t('admin.promo.copyRegisterLink')" @click="copyRegisterLink(row)" /><UiIconButton icon="eye" density="dense" variant="ghost" :label="t('admin.promo.viewUsages')" @click="handleViewUsages(row)" /><UiIconButton icon="edit" density="dense" variant="ghost" :label="t('common.edit')" @click="handleEdit(row)" /><UiIconButton icon="trash" density="dense" variant="danger" :label="t('common.delete')" @click="handleDelete(row)" /></div></template>
-          <template #empty><UiEmptyState :title="t('empty.noData')" :description="t('admin.promo.failedToLoad')"><template #action><UiButton density="dense" variant="primary" @click="showCreateDialog = true">{{ t('admin.promo.createCode') }}</UiButton></template></UiEmptyState></template>
+          <template #empty>
+            <UiErrorState
+              v-if="loadError"
+              :title="t('admin.promo.failedToLoad')"
+              :retry-text="t('common.retry')"
+              @retry="loadCodes"
+            />
+            <UiEmptyState
+              v-else
+              :title="t('admin.promo.noCodesYet')"
+              :description="t('admin.promo.createFirstCode')"
+            >
+              <template #action>
+                <UiButton density="dense" variant="primary" @click="showCreateDialog = true">
+                  {{ t('admin.promo.createCode') }}
+                </UiButton>
+              </template>
+            </UiEmptyState>
+          </template>
         </UiDataTable>
         <template #pagination><UiPagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" :reset-page-on-page-size-change="false" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" /></template>
       </UiServerTableWorkspace>
@@ -40,18 +58,20 @@
       width="normal"
       @close="showCreateDialog = false"
     >
-      <form id="create-promo-form" @submit.prevent="handleCreate" class="space-y-4">
-        <UiTextField v-model="createForm.code" :label="t('admin.promo.code')" :description="t('admin.promo.autoGenerate')" :placeholder="t('admin.promo.codePlaceholder')" monospace />
-        <UiTextField :model-value="createForm.bonus_amount" type="number" :label="t('admin.promo.bonusAmount')" min="0" step="0.01" required @update:model-value="createForm.bonus_amount = Number($event)" />
-        <UiTextField :model-value="createForm.max_uses" type="number" :label="t('admin.promo.maxUses')" :description="t('admin.promo.zeroUnlimited')" min="0" @update:model-value="createForm.max_uses = Number($event)" />
-        <UiTextField v-model="createForm.expires_at_str" type="datetime-local" :label="t('admin.promo.expiresAt')" :description="t('common.optional')" />
-        <UiTextArea v-model="createForm.notes" :label="t('admin.promo.notes')" :description="t('common.optional')" :placeholder="t('admin.promo.notesPlaceholder')" :rows="2" />
+      <form id="create-promo-form" @submit.prevent="handleCreate">
+        <AppStack :gap="12">
+          <UiTextField v-model="createForm.code" :label="t('admin.promo.code')" :description="t('admin.promo.autoGenerate')" :placeholder="t('admin.promo.codePlaceholder')" monospace />
+          <UiTextField :model-value="createForm.bonus_amount" type="number" :label="t('admin.promo.bonusAmount')" min="0" step="0.01" required @update:model-value="createForm.bonus_amount = Number($event)" />
+          <UiTextField :model-value="createForm.max_uses" type="number" :label="t('admin.promo.maxUses')" :description="t('admin.promo.zeroUnlimited')" min="0" @update:model-value="createForm.max_uses = Number($event)" />
+          <UiTextField v-model="createForm.expires_at_str" type="datetime-local" :label="t('admin.promo.expiresAt')" :description="t('common.optional')" />
+          <UiTextArea v-model="createForm.notes" :label="t('admin.promo.notes')" :description="t('common.optional')" :placeholder="t('admin.promo.notesPlaceholder')" :rows="2" />
+        </AppStack>
       </form>
       <template #footer>
-        <div class="promo-dialog-actions">
+        <AppInline justify="flex-end">
           <UiButton type="button" density="dense" @click="showCreateDialog = false">{{ t('common.cancel') }}</UiButton>
           <UiButton type="submit" form="create-promo-form" density="dense" variant="primary" :loading="creating">{{ t('common.create') }}</UiButton>
-        </div>
+        </AppInline>
       </template>
     </UiDialog>
 
@@ -62,19 +82,21 @@
       width="normal"
       @close="closeEditDialog"
     >
-      <form id="edit-promo-form" @submit.prevent="handleUpdate" class="space-y-4">
-        <UiTextField v-model="editForm.code" :label="t('admin.promo.code')" monospace />
-        <UiTextField :model-value="editForm.bonus_amount" type="number" :label="t('admin.promo.bonusAmount')" min="0" step="0.01" required @update:model-value="editForm.bonus_amount = Number($event)" />
-        <UiTextField :model-value="editForm.max_uses" type="number" :label="t('admin.promo.maxUses')" :description="t('admin.promo.zeroUnlimited')" min="0" @update:model-value="editForm.max_uses = Number($event)" />
-        <UiSelect v-model="editForm.status" :label="t('admin.promo.status')" :options="statusOptions" />
-        <UiTextField v-model="editForm.expires_at_str" type="datetime-local" :label="t('admin.promo.expiresAt')" :description="t('common.optional')" />
-        <UiTextArea v-model="editForm.notes" :label="t('admin.promo.notes')" :description="t('common.optional')" :rows="2" />
+      <form id="edit-promo-form" @submit.prevent="handleUpdate">
+        <AppStack :gap="12">
+          <UiTextField v-model="editForm.code" :label="t('admin.promo.code')" monospace />
+          <UiTextField :model-value="editForm.bonus_amount" type="number" :label="t('admin.promo.bonusAmount')" min="0" step="0.01" required @update:model-value="editForm.bonus_amount = Number($event)" />
+          <UiTextField :model-value="editForm.max_uses" type="number" :label="t('admin.promo.maxUses')" :description="t('admin.promo.zeroUnlimited')" min="0" @update:model-value="editForm.max_uses = Number($event)" />
+          <UiSelect v-model="editForm.status" :label="t('admin.promo.status')" :options="statusOptions" />
+          <UiTextField v-model="editForm.expires_at_str" type="datetime-local" :label="t('admin.promo.expiresAt')" :description="t('common.optional')" />
+          <UiTextArea v-model="editForm.notes" :label="t('admin.promo.notes')" :description="t('common.optional')" :rows="2" />
+        </AppStack>
       </form>
       <template #footer>
-        <div class="promo-dialog-actions">
+        <AppInline justify="flex-end">
           <UiButton type="button" density="dense" @click="closeEditDialog">{{ t('common.cancel') }}</UiButton>
           <UiButton type="submit" form="edit-promo-form" density="dense" variant="primary" :loading="updating">{{ t('common.save') }}</UiButton>
-        </div>
+        </AppInline>
       </template>
     </UiDialog>
 
@@ -83,45 +105,49 @@
       :show="showUsagesDialog"
       :title="t('admin.promo.usageRecords')"
       width="wide"
-      @close="showUsagesDialog = false"
+      @close="closeUsagesDialog"
     >
-      <div v-if="usagesLoading" class="promo-usage-loading"><UiSpinner size="md" /></div>
-      <UiEmptyState v-else-if="usages.length === 0" :title="t('admin.promo.noUsages')" />
-      <div v-else class="promo-usage-list">
-        <div
-          v-for="usage in usages"
-          :key="usage.id"
-          class="promo-usage-row"
+      <AppStack :gap="12">
+        <UiDataTable
+          :columns="usageColumns"
+          :data="usages"
+          :loading="usagesLoading"
+          :mobile-table="true"
+          :aria-label="t('admin.promo.usageRecords')"
         >
-          <div class="promo-usage-user">
-            <Icon name="user" size="sm" />
-            <div>
-              <p>
-                {{ usage.user?.email || t('admin.promo.userPrefix', { id: usage.user_id }) }}
-              </p>
-              <p class="promo-muted">
-                {{ formatDateTime(usage.used_at) }}
-              </p>
-            </div>
-          </div>
-          <div class="ui-numeric promo-usage-amount">+${{ usage.bonus_amount.toFixed(2) }}
-          </div>
-        </div>
-        <!-- Usages Pagination -->
-        <div v-if="usagesTotal > usagesPageSize" class="mt-4">
-          <UiPagination
-            :page="usagesPage"
-            :total="usagesTotal"
-            :page-size="usagesPageSize"
-            @update:page="handleUsagesPageChange"
-            @update:page-size="(size: number) => { usagesPageSize = size; usagesPage = 1; loadUsages() }"
+        <template #cell-user="{ row }">
+          <UiDataCell
+            :value="row.user?.email || t('admin.promo.userPrefix', { id: row.user_id })"
+            :meta="formatDateTime(row.used_at)"
           />
-        </div>
-      </div>
+        </template>
+        <template #cell-bonus_amount="{ value }">
+          <span class="ui-numeric promo-usage-amount">+${{ value.toFixed(2) }}</span>
+        </template>
+        <template #empty>
+          <UiErrorState
+            v-if="usagesError"
+            :title="t('admin.promo.failedToLoadUsages')"
+            :retry-text="t('common.retry')"
+            @retry="loadUsages"
+          />
+          <UiEmptyState v-else :title="t('admin.promo.noUsages')" />
+        </template>
+        </UiDataTable>
+        <UiPagination
+          v-if="usagesTotal > usagesPageSize"
+          :page="usagesPage"
+          :total="usagesTotal"
+          :page-size="usagesPageSize"
+          :reset-page-on-page-size-change="false"
+          @update:page="handleUsagesPageChange"
+          @update:page-size="handleUsagesPageSizeChange"
+        />
+      </AppStack>
       <template #footer>
-        <div class="promo-dialog-actions">
-          <UiButton type="button" density="dense" @click="showUsagesDialog = false">{{ t('common.close') }}</UiButton>
-        </div>
+        <AppInline justify="flex-end">
+          <UiButton type="button" density="dense" @click="closeUsagesDialog">{{ t('common.close') }}</UiButton>
+        </AppInline>
       </template>
     </UiDialog>
 
@@ -152,20 +178,23 @@ import type { Column } from '@/components/ui'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import {
+  AppInline,
   AppPage,
   AppPageHeader,
+  AppStack,
   UiBadge,
   UiButton,
   UiConfirmDialog,
+  UiDataCell,
   UiDataTable,
   UiDialog,
   UiEmptyState,
+  UiErrorState,
   UiIconButton,
   UiPagination,
   UiSearchInput,
   UiSelect,
   UiServerTableWorkspace,
-  UiSpinner,
   UiTableToolbar,
   UiTextArea,
   UiTextField,
@@ -178,6 +207,7 @@ const { copyToClipboard: clipboardCopy } = useClipboard()
 // State
 const codes = ref<PromoCode[]>([])
 const loading = ref(false)
+const loadError = ref(false)
 const creating = ref(false)
 const updating = ref(false)
 const searchQuery = ref('')
@@ -209,6 +239,7 @@ const deletingCode = ref<PromoCode | null>(null)
 // Usages
 const usages = ref<PromoCodeUsage[]>([])
 const usagesLoading = ref(false)
+const usagesError = ref(false)
 const currentViewingCode = ref<PromoCode | null>(null)
 const usagesPage = ref(1)
 const usagesPageSize = ref(20)
@@ -254,6 +285,11 @@ const columns = computed<Column[]>(() => [
   { key: 'actions', label: t('admin.promo.columns.actions') }
 ])
 
+const usageColumns = computed<Column[]>(() => [
+  { key: 'user', label: t('admin.promo.usageColumns.user') },
+  { key: 'bonus_amount', label: t('admin.promo.usageColumns.bonusAmount'), align: 'right' }
+])
+
 // Helpers
 const getStatusLabel = (status: string, row: PromoCode) => {
   if (row.expires_at && new Date(row.expires_at) < new Date()) {
@@ -281,6 +317,7 @@ const loadCodes = async () => {
   const currentController = new AbortController()
   abortController = currentController
   loading.value = true
+  loadError.value = false
 
   try {
     const response = await adminAPI.promo.list(
@@ -298,6 +335,7 @@ const loadCodes = async () => {
 
     codes.value = response.items
     pagination.total = response.total
+    loadError.value = false
   } catch (error: any) {
     if (
       currentController.signal.aborted ||
@@ -307,6 +345,7 @@ const loadCodes = async () => {
     ) {
       return
     }
+    loadError.value = true
     appStore.showError(t('admin.promo.failedToLoad'))
     console.error('Error loading promo codes:', error)
   } finally {
@@ -470,29 +509,49 @@ const handleViewUsages = async (code: PromoCode) => {
   await loadUsages()
 }
 
+let usagesRequestId = 0
+
 const loadUsages = async () => {
   if (!currentViewingCode.value) return
+  const requestId = ++usagesRequestId
+  const codeId = currentViewingCode.value.id
   usagesLoading.value = true
-  usages.value = []
+  usagesError.value = false
 
   try {
     const response = await adminAPI.promo.getUsages(
-      currentViewingCode.value.id,
+      codeId,
       usagesPage.value,
       usagesPageSize.value
     )
+    if (requestId !== usagesRequestId || currentViewingCode.value?.id !== codeId) return
     usages.value = response.items
     usagesTotal.value = response.total
   } catch (error: any) {
+    if (requestId !== usagesRequestId || currentViewingCode.value?.id !== codeId) return
+    usagesError.value = true
     appStore.showError(error.response?.data?.detail || t('admin.promo.failedToLoadUsages'))
   } finally {
-    usagesLoading.value = false
+    if (requestId === usagesRequestId) usagesLoading.value = false
   }
 }
 
 const handleUsagesPageChange = (page: number) => {
   usagesPage.value = page
   loadUsages()
+}
+
+const handleUsagesPageSizeChange = (pageSize: number) => {
+  usagesPageSize.value = pageSize
+  usagesPage.value = 1
+  loadUsages()
+}
+
+const closeUsagesDialog = () => {
+  usagesRequestId += 1
+  usagesLoading.value = false
+  showUsagesDialog.value = false
+  currentViewingCode.value = null
 }
 
 onMounted(() => {
@@ -527,49 +586,6 @@ onUnmounted(() => {
 .promo-muted {
   color: var(--ui-text-soft);
   font-size: 11px;
-}
-
-.promo-dialog-actions {
-  justify-content: flex-end;
-}
-
-.promo-usage-loading {
-  display: grid;
-  min-height: 112px;
-  place-items: center;
-  color: var(--ui-text-soft);
-}
-
-.promo-usage-list {
-  display: grid;
-  gap: 8px;
-}
-
-.promo-usage-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--ui-border-soft);
-  border-radius: var(--ui-radius);
-}
-
-.promo-usage-user {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 9px;
-  color: var(--ui-success);
-}
-
-.promo-usage-user p {
-  margin: 0;
-  overflow: hidden;
-  color: var(--ui-text);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .promo-usage-amount {

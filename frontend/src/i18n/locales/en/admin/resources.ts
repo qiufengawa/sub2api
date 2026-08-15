@@ -494,6 +494,10 @@ export default {
       usageRecords: 'Usage Records',
       viewUsages: 'View Usages',
       noUsages: 'No usage records yet',
+      usageColumns: {
+        user: 'User and usage time',
+        bonusAmount: 'Bonus amount'
+      },
       userPrefix: 'User #{id}',
       copied: 'Copied!',
       // Messages
