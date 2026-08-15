@@ -337,9 +337,7 @@
           </template>
 
           <template #cell-role="{ value }">
-            <span :class="['badge', value === 'admin' ? 'badge-purple' : 'badge-gray']">
-              {{ t('admin.users.roles.' + value) }}
-            </span>
+            <UiBadge :tone="value === 'admin' ? 'info' : 'neutral'" :label="t('admin.users.roles.' + value)" />
           </template>
 
           <template #cell-groups="{ row }">
@@ -443,37 +441,25 @@
           <template #cell-balance="{ value, row }">
             <div class="flex items-center gap-2">
               <div class="group relative">
-                <button
-                  class="font-medium text-gray-900 underline decoration-dashed decoration-gray-300 underline-offset-4 transition-colors hover:text-primary-600 dark:text-white dark:decoration-dark-500 dark:hover:text-primary-400"
-                  @click="handleBalanceHistory(row)"
-                >
+                <UiButton density="mini" variant="quiet" @click="handleBalanceHistory(row)">
                   ${{ value.toFixed(2) }}
-                </button>
+                </UiButton>
                 <!-- Instant tooltip -->
                 <div class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 shadow-lg transition-opacity duration-75 group-hover:opacity-100 dark:bg-dark-600">
                   {{ t('admin.users.balanceHistoryTip') }}
                   <div class="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-dark-600"></div>
                 </div>
               </div>
-              <button
-                @click.stop="handleDeposit(row)"
-                class="rounded px-2 py-0.5 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
-                :title="t('admin.users.deposit')"
-              >
+              <UiButton density="mini" variant="quiet" @click.stop="handleDeposit(row)">
                 {{ t('admin.users.deposit') }}
-              </button>
+              </UiButton>
             </div>
           </template>
 
           <template #cell-balance_platform_quota="{ row }">
-            <button
-              type="button"
-              class="block text-left underline decoration-dashed decoration-gray-300 underline-offset-4 transition-colors hover:decoration-primary-400 dark:decoration-dark-500"
-              :title="t('admin.users.platformQuota.cellColumnTooltip')"
-              @click="handlePlatformQuota(row)"
-            >
+            <UiButton type="button" density="mini" variant="quiet" :title="t('admin.users.platformQuota.cellColumnTooltip')" @click="handlePlatformQuota(row)">
               <UserPlatformQuotaCell :quotas="platformQuotaStats[row.id]" />
-            </button>
+            </UiButton>
           </template>
 
           <!-- 用量列自定义表头：列名 + 单个排序图标按钮，点击展开"今日/近30天"菜单。
@@ -621,49 +607,26 @@
           <template #cell-actions="{ row }">
             <div class="flex items-center gap-1">
               <!-- Edit Button -->
-              <button
-                @click="handleEdit(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-400"
-              >
-                <Icon name="edit" size="sm" />
-                <span class="text-xs">{{ t('common.edit') }}</span>
-              </button>
+              <UiIconButton icon="edit" density="compact" variant="ghost" :label="t('common.edit')" @click="handleEdit(row)" />
 
               <!-- Toggle Status Button (not for admin) -->
-              <button
+              <UiIconButton
                 v-if="row.role !== 'admin'"
+                :icon="row.status === 'active' ? 'ban' : 'checkCircle'"
+                :variant="row.status === 'active' ? 'danger' : 'success'"
+                :label="row.status === 'active' ? t('admin.users.disable') : t('admin.users.enable')"
                 @click="handleToggleStatus(row)"
-                :class="[
-                  'flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors',
-                  row.status === 'active'
-                    ? 'hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-900/20 dark:hover:text-orange-400'
-                    : 'hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20 dark:hover:text-green-400'
-                ]"
-              >
-                <Icon v-if="row.status === 'active'" name="ban" size="sm" />
-                <Icon v-else name="checkCircle" size="sm" />
-                <span class="text-xs">{{ row.status === 'active' ? t('admin.users.disable') : t('admin.users.enable') }}</span>
-              </button>
+              />
 
               <!-- More Actions Menu Trigger -->
-              <button
-                @click="openActionMenu(row, $event)"
-                class="action-menu-trigger flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-dark-700 dark:hover:text-white"
-                :class="{ 'bg-gray-100 text-gray-900 dark:bg-dark-700 dark:text-white': activeMenuId === row.id }"
-              >
-                <Icon name="more" size="sm" />
-                <span class="text-xs">{{ t('common.more') }}</span>
-              </button>
+              <UiIconButton icon="more" density="compact" variant="ghost" :label="t('common.more')" @click="openActionMenu(row, $event)" />
             </div>
           </template>
 
           <template #empty>
-            <EmptyState
-              :title="t('admin.users.noUsersYet')"
-              :description="t('admin.users.createFirstUser')"
-              :action-text="t('admin.users.createUser')"
-              @action="showCreateModal = true"
-            />
+            <UiEmptyState :title="t('admin.users.noUsersYet')" :description="t('admin.users.createFirstUser')">
+              <template #action><UiButton density="compact" variant="primary" @click="showCreateModal = true">{{ t('admin.users.createUser') }}</UiButton></template>
+            </UiEmptyState>
           </template>
         </DataTable>
       </template>
@@ -811,7 +774,6 @@ import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
 import { buildApiKeyGroupFilterOptions } from './apiKeyGroupFilterOptions'
 import UserAttributesConfigModal from '@/components/user/UserAttributesConfigModal.vue'
 import UserConcurrencyCell from '@/components/user/UserConcurrencyCell.vue'
@@ -827,7 +789,7 @@ import UserAllowedGroupsModal from '@/components/admin/user/UserAllowedGroupsMod
 import UserBalanceModal from '@/components/admin/user/UserBalanceModal.vue'
 import UserBalanceHistoryModal from '@/components/admin/user/UserBalanceHistoryModal.vue'
 import GroupReplaceModal from '@/components/admin/user/GroupReplaceModal.vue'
-import { UiBadge, UiButton, UiIconButton, UiSearchInput, UiSelect, UiTextField } from '@/components/ui'
+import { UiBadge, UiButton, UiEmptyState, UiIconButton, UiSearchInput, UiSelect, UiTextField } from '@/components/ui'
 
 const appStore = useAppStore()
 
