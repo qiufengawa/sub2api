@@ -1,21 +1,13 @@
 <template>
-  <div class="card p-4">
-    <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
-      {{ t('payment.admin.dailyRevenue') }}
-    </h3>
-    <div class="h-64">
-      <div v-if="loading" class="flex h-full items-center justify-center">
-        <LoadingSpinner size="md" />
-      </div>
-      <Line v-else-if="chartData" :data="chartData" :options="chartOptions" />
-      <div
-        v-else
-        class="flex h-full items-center justify-center text-sm text-gray-500 dark:text-gray-400"
-      >
-        {{ t('payment.admin.noData') }}
-      </div>
-    </div>
-  </div>
+  <UiChartFrame
+    class="daily-revenue-chart"
+    :title="t('payment.admin.dailyRevenue')"
+    :loading="loading"
+    :empty="!chartData"
+    :height="240"
+  >
+    <Line v-if="chartData" :data="chartData" :options="chartOptions" />
+  </UiChartFrame>
 </template>
 
 <script setup lang="ts">
@@ -24,38 +16,34 @@ import { useI18n } from 'vue-i18n'
 import {
   Chart as ChartJS,
   CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Tooltip,
+  Filler,
   Legend,
-  Filler
+  LinearScale,
+  LineElement,
+  PointElement,
+  Tooltip,
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import type { DailyPaymentStats } from '@/types/payment'
+import { UiChartFrame } from '@/components/ui'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 
 const { t } = useI18n()
-
-const props = defineProps<{
-  data: DailyPaymentStats[]
-  loading?: boolean
-}>()
+const props = withDefaults(defineProps<{ data: DailyPaymentStats[]; loading?: boolean }>(), { loading: false })
 
 const colors = [
-  ['rgb(59, 130, 246)', 'rgba(59, 130, 246, 0.1)'],
-  ['rgb(168, 85, 247)', 'rgba(168, 85, 247, 0.1)'],
-  ['rgb(245, 158, 11)', 'rgba(245, 158, 11, 0.1)'],
-  ['rgb(239, 68, 68)', 'rgba(239, 68, 68, 0.1)'],
+  ['rgb(36, 154, 255)', 'rgba(36, 154, 255, 0.08)'],
+  ['rgb(48, 149, 59)', 'rgba(48, 149, 59, 0.08)'],
+  ['rgb(167, 100, 8)', 'rgba(167, 100, 8, 0.08)'],
+  ['rgb(213, 37, 21)', 'rgba(213, 37, 21, 0.08)'],
 ]
 
 const chartData = computed(() => {
-  if (!props.data || props.data.length === 0) return null
+  if (!props.data.length) return null
   const currencies = [...new Set(props.data.flatMap(day => Object.keys(day.amount)))].sort()
   return {
-    labels: props.data.map(d => d.date),
+    labels: props.data.map(day => day.date),
     datasets: [
       ...currencies.map((currency, index) => {
         const [borderColor, backgroundColor] = colors[index % colors.length]
@@ -66,22 +54,22 @@ const chartData = computed(() => {
           backgroundColor,
           fill: true,
           tension: 0.3,
-          pointRadius: 3,
-          pointHoverRadius: 5,
+          pointRadius: 2,
+          pointHoverRadius: 4,
         }
       }),
       {
         label: t('payment.admin.orderCount'),
-        data: props.data.map(d => d.count),
-        borderColor: 'rgb(16, 185, 129)',
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        data: props.data.map(day => day.count),
+        borderColor: 'rgb(48, 149, 59)',
+        backgroundColor: 'rgba(48, 149, 59, 0.08)',
         fill: false,
         tension: 0.3,
-        pointRadius: 3,
-        pointHoverRadius: 5,
+        pointRadius: 2,
+        pointHoverRadius: 4,
         yAxisID: 'y1',
-      }
-    ]
+      },
+    ],
   }
 })
 
@@ -89,23 +77,17 @@ const chartOptions = {
   responsive: true,
   maintainAspectRatio: false,
   interaction: { mode: 'index' as const, intersect: false },
+  animation: { duration: 180 },
   scales: {
-    y: {
-      type: 'linear' as const,
-      display: true,
-      position: 'left' as const,
-      title: { display: true, text: t('payment.admin.revenue') },
-    },
-    y1: {
-      type: 'linear' as const,
-      display: true,
-      position: 'right' as const,
-      title: { display: true, text: t('payment.admin.orderCount') },
-      grid: { drawOnChartArea: false },
-    }
+    y: { type: 'linear' as const, display: true, position: 'left' as const, title: { display: true, text: t('payment.admin.revenue') } },
+    y1: { type: 'linear' as const, display: true, position: 'right' as const, title: { display: true, text: t('payment.admin.orderCount') }, grid: { drawOnChartArea: false } },
   },
-  plugins: {
-    legend: { position: 'top' as const },
-  }
+  plugins: { legend: { position: 'top' as const } },
 }
 </script>
+
+<style scoped>
+.daily-revenue-chart {
+  margin-top: 16px;
+}
+</style>

@@ -1,92 +1,90 @@
 <template>
   <AppLayout>
-    <div class="space-y-4">
-      <!-- Header with Day Switcher -->
-      <div class="flex flex-col gap-3 border-b border-gray-200 pb-3 dark:border-dark-700 sm:flex-row sm:items-end sm:justify-between">
-        <div class="min-w-0">
-          <h1 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('payment.admin.dashboardTitle') }}</h1>
-          <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ t('payment.admin.dashboardDesc') }}</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <div class="flex rounded-[4px] border border-gray-200 dark:border-dark-600" role="group" :aria-label="t('payment.admin.dashboardTitle')">
-            <button
-              v-for="d in DAYS_OPTIONS"
-              :key="d"
-              type="button"
-              :aria-pressed="days === d"
-              class="px-3 py-1.5 text-xs font-medium transition-colors first:rounded-l-[3px] last:rounded-r-[3px]"
-              :class="days === d
-                ? 'bg-primary-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700'"
-              @click="days = d"
-            >
-              {{ d }}{{ t('payment.admin.daySuffix') }}
-            </button>
-          </div>
-          <button type="button" @click="loadDashboard" :disabled="loading" class="btn btn-secondary btn-icon" :title="t('common.refresh')" :aria-label="t('common.refresh')">
-            <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
-          </button>
-        </div>
-      </div>
+    <AppPage density="compact">
+      <AppPageHeader
+        :title="t('payment.admin.dashboardTitle')"
+        :description="t('payment.admin.dashboardDesc')"
+      >
+        <template #actions>
+          <UiSegmentedControl
+            v-model="days"
+            :options="dayOptions"
+            :label="t('payment.admin.dashboardTitle')"
+          />
+          <UiIconButton
+            icon="refresh"
+            :label="t('common.refresh')"
+            :disabled="loading"
+            @click="loadDashboard"
+          />
+        </template>
+      </AppPageHeader>
 
-      <!-- Dashboard Content -->
-      <div v-if="loading" class="flex items-center justify-center py-12" role="status" :aria-label="t('common.loading')">
-        <LoadingSpinner />
+      <div v-if="loading && !stats" class="payment-dashboard-loading" role="status" :aria-label="t('common.loading')">
+        <UiSkeleton v-for="index in 4" :key="index" variant="rect" height="76px" />
       </div>
       <template v-else-if="stats">
         <OrderStatsCards :stats="stats" />
         <DailyRevenueChart :data="stats.daily_series || []" :loading="loading" />
-        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div class="card p-4">
-            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">{{ t('payment.admin.paymentDistribution') }}</h3>
-            <div v-if="!stats.payment_methods?.length" class="flex h-32 items-center justify-center text-sm text-gray-500 dark:text-gray-400">{{ t('payment.admin.noData') }}</div>
-            <div v-else class="space-y-3">
-              <div v-for="method in stats.payment_methods" :key="method.type" class="flex min-w-0 items-center justify-between gap-3">
-                <div class="flex min-w-0 items-center gap-2">
-                  <span :class="['inline-block h-3 w-3 rounded-full', methodColor(method.type)]"></span>
-                  <span class="truncate text-sm text-gray-700 dark:text-gray-300" :title="t('payment.methods.' + method.type, method.type)">{{ t('payment.methods.' + method.type, method.type) }}</span>
+        <div class="payment-dashboard__grid">
+          <section class="payment-dashboard__section">
+            <header><h2>{{ t('payment.admin.paymentDistribution') }}</h2></header>
+            <UiEmptyState v-if="!stats.payment_methods?.length" :title="t('payment.admin.noData')" />
+            <div v-else class="payment-dashboard__rows">
+              <div v-for="method in stats.payment_methods" :key="method.type" class="payment-dashboard__row">
+                <div class="payment-dashboard__row-label">
+                  <UiBadge tone="info" dot />
+                  <span :title="t('payment.methods.' + method.type, method.type)">{{ t('payment.methods.' + method.type, method.type) }}</span>
                 </div>
-                <div class="space-y-1 text-right">
-                  <span v-for="[currency, amount] in sortedAmounts(method.amount)" :key="currency" class="block text-sm font-medium text-gray-900 dark:text-white">{{ formatMoney(currency, amount) }}</span>
-                  <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">({{ method.count }})</span>
+                <div class="payment-dashboard__row-value">
+                  <strong v-for="[currency, amount] in sortedAmounts(method.amount)" :key="currency">{{ formatMoney(currency, amount) }}</strong>
+                  <span>{{ method.count }} {{ t('payment.admin.orders') }}</span>
                 </div>
               </div>
             </div>
-          </div>
-          <div class="card p-4">
-            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">{{ t('payment.admin.topUsers') }}</h3>
-            <div v-if="!hasTopUsers(stats.top_users)" class="flex h-32 items-center justify-center text-sm text-gray-500 dark:text-gray-400">{{ t('payment.admin.noData') }}</div>
-            <div v-else class="space-y-2">
-              <div v-for="[currency, users] in sortedTopUsers(stats.top_users)" :key="currency" class="space-y-2">
-                <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">{{ currency }}</p>
-                <div v-for="(user, idx) in users" :key="user.user_id" class="flex min-w-0 items-center justify-between gap-3 rounded-[4px] px-3 py-2 hover:bg-gray-50 dark:hover:bg-dark-700">
-                  <div class="flex min-w-0 items-center gap-3">
-                    <span :class="['flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold', rankClass(idx)]">{{ idx + 1 }}</span>
-                    <span class="truncate text-sm text-gray-700 dark:text-gray-300" :title="user.email">{{ user.email }}</span>
+          </section>
+          <section class="payment-dashboard__section">
+            <header><h2>{{ t('payment.admin.topUsers') }}</h2></header>
+            <UiEmptyState v-if="!hasTopUsers(stats.top_users)" :title="t('payment.admin.noData')" />
+            <div v-else class="payment-dashboard__rows">
+              <div v-for="[currency, users] in sortedTopUsers(stats.top_users)" :key="currency">
+                <div class="payment-dashboard__currency">{{ currency }}</div>
+                <div v-for="(user, idx) in users" :key="user.user_id" class="payment-dashboard__row">
+                  <div class="payment-dashboard__row-label">
+                    <UiBadge :label="String(idx + 1)" :tone="idx === 0 ? 'warning' : 'neutral'" />
+                    <span :title="user.email">{{ user.email }}</span>
                   </div>
-                  <span class="shrink-0 text-sm font-medium tabular-nums text-gray-900 dark:text-white">{{ formatMoney(currency, user.amount) }}</span>
+                  <strong class="ui-numeric">{{ formatMoney(currency, user.amount) }}</strong>
                 </div>
               </div>
             </div>
-          </div>
+          </section>
         </div>
       </template>
-    </div>
+      <UiEmptyState v-else :title="t('payment.admin.noData')" />
+    </AppPage>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
 import type { CurrencyAmounts, DashboardStats, TopUserPaymentStats } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
-import Icon from '@/components/icons/Icon.vue'
 import OrderStatsCards from '@/components/admin/payment/OrderStatsCards.vue'
 import DailyRevenueChart from '@/components/admin/payment/DailyRevenueChart.vue'
+import {
+  AppPage,
+  AppPageHeader,
+  UiBadge,
+  UiEmptyState,
+  UiIconButton,
+  UiSegmentedControl,
+  UiSkeleton,
+} from '@/components/ui'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -96,21 +94,10 @@ const days = ref<number>(30)
 const loading = ref(false)
 const stats = ref<DashboardStats | null>(null)
 
-function methodColor(type: string): string {
-  const c: Record<string, string> = {
-    alipay: 'bg-blue-500', wxpay: 'bg-green-500',
-    alipay_direct: 'bg-blue-400', wxpay_direct: 'bg-green-400',
-    stripe: 'bg-purple-500',
-  }
-  return c[type] || 'bg-gray-400'
-}
-
-function rankClass(idx: number): string {
-  if (idx === 0) return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-  if (idx === 1) return 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
-  if (idx === 2) return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-  return 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-gray-400'
-}
+const dayOptions = computed(() => DAYS_OPTIONS.map(value => ({
+  value,
+  label: `${value}${t('payment.admin.daySuffix')}`,
+})))
 
 function sortedAmounts(amounts: CurrencyAmounts): [string, number][] {
   return Object.entries(amounts).sort(([left], [right]) => left.localeCompare(right))
@@ -143,3 +130,109 @@ async function loadDashboard() {
 watch(days, () => loadDashboard())
 onMounted(() => loadDashboard())
 </script>
+
+<style scoped>
+.payment-dashboard__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.payment-dashboard__section {
+  min-width: 0;
+  border: 1px solid var(--ui-border-soft);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-surface);
+}
+
+.payment-dashboard__section > header {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--ui-border-soft);
+}
+
+.payment-dashboard__section h2 {
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.payment-dashboard__rows {
+  display: grid;
+  gap: 2px;
+  padding: 8px 14px 12px;
+}
+
+.payment-dashboard__row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--ui-border-soft);
+}
+
+.payment-dashboard__row:last-child {
+  border-bottom: 0;
+}
+
+.payment-dashboard__row-label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+.payment-dashboard__row-label > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.payment-dashboard__row-value {
+  display: grid;
+  flex: none;
+  justify-items: end;
+  gap: 1px;
+}
+
+.payment-dashboard__row-value strong,
+.payment-dashboard__row > strong {
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.payment-dashboard__row-value span {
+  color: var(--ui-text-soft);
+  font-size: 10px;
+}
+
+.payment-dashboard__currency {
+  padding: 8px 0 2px;
+  color: var(--ui-text-soft);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.payment-dashboard-loading {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .payment-dashboard__grid,
+  .payment-dashboard-loading {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
