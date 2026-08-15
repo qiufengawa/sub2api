@@ -33,9 +33,9 @@ pattern?:string;
 density?:UiDensity;
 modelModifiers?:{number?:boolean;trim?:boolean}}>(),{type:'text',density:'default',autofocus:false,monospace:false,textAlign:'left',modelModifiers:()=>({})});
 const resolvedId=props.id||`ui-field-${Math.random().toString(36).slice(2,9)}`;
-const emit=defineEmits<{ 'update:modelValue':[string|number];
+const emit=defineEmits<{ 'update:modelValue':[string];
 input:[Event];
-change:[string|number];
+change:[string];
 blur:[FocusEvent];
 focus:[FocusEvent];
 enter:[KeyboardEvent]}>();
@@ -46,8 +46,8 @@ function normalizeValue(value:string):string|number{
   const parsed=Number(trimmed);
   return Number.isNaN(parsed)?trimmed:parsed
 }
-function onInput(e:Event){emit('update:modelValue',normalizeValue((e.target as HTMLInputElement).value));emit('input',e)}defineExpose({focus:()=>input.value?.focus(),select:()=>input.value?.select()})
-function onChange(e:Event){emit('change',normalizeValue((e.target as HTMLInputElement).value))}
+function onInput(e:Event){emit('update:modelValue',normalizeValue((e.target as HTMLInputElement).value) as string);emit('input',e)}defineExpose({focus:()=>input.value?.focus(),select:()=>input.value?.select()})
+function onChange(e:Event){emit('change',normalizeValue((e.target as HTMLInputElement).value) as string)}
 
 </script>
 <style scoped>.ui-text-shell{position:relative;

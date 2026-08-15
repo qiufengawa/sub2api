@@ -981,53 +981,19 @@
                       </span>
                     </div>
                     <!-- 账号搜索输入框 -->
-                    <div class="relative account-search-container">
-                      <UiTextField
-                        v-model="
-                          accountSearchKeyword[getCreateRuleSearchKey(rule)]
-                        "
-                        density="compact"
-                        :placeholder="
-                          t(
-                            'admin.groups.modelRouting.searchAccountPlaceholder',
-                          )
-                        "
-                        @input="searchAccountsByRule(rule)"
-                        @focus="onAccountSearchFocus(rule)"
-                      />
-                      <!-- 搜索结果下拉框 -->
-                      <div
-                        v-if="
-                          showAccountDropdown[getCreateRuleSearchKey(rule)] &&
-                          accountSearchResults[getCreateRuleSearchKey(rule)]
-                            ?.length > 0
-                        "
-                        class="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-lg border bg-white shadow-lg dark:border-dark-600 dark:bg-dark-800"
-                      >
-                        <button
-                          v-for="account in accountSearchResults[
-                            getCreateRuleSearchKey(rule)
-                          ]"
-                          :key="account.id"
-                          type="button"
-                          @click="selectAccount(rule, account)"
-                          class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-dark-700"
-                          :class="{
-                            'opacity-50': rule.accounts.some(
-                              (a) => a.id === account.id,
-                            ),
-                          }"
-                          :disabled="
-                            rule.accounts.some((a) => a.id === account.id)
-                          "
-                        >
-                          <span>{{ account.name }}</span>
-                          <span class="ml-2 text-xs text-gray-400"
-                            >#{{ account.id }}</span
-                          >
-                        </button>
-                      </div>
-                    </div>
+                    <UiAsyncEntityPicker
+                      :key="`${getCreateRuleSearchKey(rule)}-${rule.accounts.length}`"
+                      :model-value="null"
+                      :items="accountPickerOptions(rule, false)"
+                      :placeholder="t('admin.groups.modelRouting.searchAccountPlaceholder')"
+                      :empty-text="t('common.noData')"
+                      :loading-text="t('common.loading')"
+                      search-on-focus
+                      show-results-without-query
+                      clear-after-select
+                      @search="searchAccountsByRule(rule, false, $event)"
+                      @select="selectAccountOption(rule, $event, false)"
+                    />
                     <p class="text-xs text-gray-400 mt-1">
                       {{ t("admin.groups.modelRouting.accountsHint") }}
                     </p>
@@ -1827,53 +1793,19 @@
                       </span>
                     </div>
                     <!-- 账号搜索输入框 -->
-                    <div class="relative account-search-container">
-                      <UiTextField
-                        v-model="
-                          accountSearchKeyword[getEditRuleSearchKey(rule)]
-                        "
-                        density="compact"
-                        :placeholder="
-                          t(
-                            'admin.groups.modelRouting.searchAccountPlaceholder',
-                          )
-                        "
-                        @input="searchAccountsByRule(rule, true)"
-                        @focus="onAccountSearchFocus(rule, true)"
-                      />
-                      <!-- 搜索结果下拉框 -->
-                      <div
-                        v-if="
-                          showAccountDropdown[getEditRuleSearchKey(rule)] &&
-                          accountSearchResults[getEditRuleSearchKey(rule)]
-                            ?.length > 0
-                        "
-                        class="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-lg border bg-white shadow-lg dark:border-dark-600 dark:bg-dark-800"
-                      >
-                        <button
-                          v-for="account in accountSearchResults[
-                            getEditRuleSearchKey(rule)
-                          ]"
-                          :key="account.id"
-                          type="button"
-                          @click="selectAccount(rule, account, true)"
-                          class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-dark-700"
-                          :class="{
-                            'opacity-50': rule.accounts.some(
-                              (a) => a.id === account.id,
-                            ),
-                          }"
-                          :disabled="
-                            rule.accounts.some((a) => a.id === account.id)
-                          "
-                        >
-                          <span>{{ account.name }}</span>
-                          <span class="ml-2 text-xs text-gray-400"
-                            >#{{ account.id }}</span
-                          >
-                        </button>
-                      </div>
-                    </div>
+                    <UiAsyncEntityPicker
+                      :key="`${getEditRuleSearchKey(rule)}-${rule.accounts.length}`"
+                      :model-value="null"
+                      :items="accountPickerOptions(rule, true)"
+                      :placeholder="t('admin.groups.modelRouting.searchAccountPlaceholder')"
+                      :empty-text="t('common.noData')"
+                      :loading-text="t('common.loading')"
+                      search-on-focus
+                      show-results-without-query
+                      clear-after-select
+                      @search="searchAccountsByRule(rule, true, $event)"
+                      @select="selectAccountOption(rule, $event, true)"
+                    />
                     <p class="text-xs text-gray-400 mt-1">
                       {{ t("admin.groups.modelRouting.accountsHint") }}
                     </p>
@@ -2369,12 +2301,13 @@ import type {
   CompositeRouteMatchType,
   GroupPlatform,
 } from "@/types";
-import type { Column } from "@/components/ui";
+import type { Column, UiEntityOption } from "@/components/ui";
 import AppLayout from "@/components/layout/AppLayout.vue";
 import Icon from "@/components/icons/Icon.vue";
 import {
   AppPage,
   AppPageHeader,
+  UiAsyncEntityPicker,
   UiBadge,
   UiButton,
   UiCheckbox,
@@ -3104,18 +3037,15 @@ const getRuleSearchKey = (rule: ModelRoutingRule, isEdit: boolean = false) => {
 // 账号搜索相关状态
 const accountSearchKeyword = ref<Record<string, string>>({});
 const accountSearchResults = ref<Record<string, SimpleAccount[]>>({});
-const showAccountDropdown = ref<Record<string, boolean>>({});
 
 const clearAccountSearchStateByKey = (key: string) => {
   delete accountSearchKeyword.value[key];
   delete accountSearchResults.value[key];
-  delete showAccountDropdown.value[key];
 };
 
 const clearAllAccountSearchState = () => {
   accountSearchKeyword.value = {};
   accountSearchResults.value = {};
-  showAccountDropdown.value = {};
 };
 
 const accountSearchRunner = useKeyedDebouncedSearch<SimpleAccount[]>({
@@ -3148,8 +3078,25 @@ const searchAccounts = (key: string) => {
 const searchAccountsByRule = (
   rule: ModelRoutingRule,
   isEdit: boolean = false,
+  keyword: string = "",
 ) => {
-  searchAccounts(getRuleSearchKey(rule, isEdit));
+  const key = getRuleSearchKey(rule, isEdit);
+  accountSearchKeyword.value[key] = keyword;
+  searchAccounts(key);
+};
+
+const accountPickerOptions = (
+  rule: ModelRoutingRule,
+  isEdit: boolean,
+): UiEntityOption[] => {
+  const selected = new Set(rule.accounts.map((account) => account.id));
+  return (accountSearchResults.value[getRuleSearchKey(rule, isEdit)] || [])
+    .filter((account) => !selected.has(account.id))
+    .map((account) => ({
+      value: account.id,
+      label: account.name,
+      description: `#${account.id}`,
+    }));
 };
 
 // 选择账号
@@ -3168,7 +3115,18 @@ const selectAccount = (
   // 清空搜索
   const key = getRuleSearchKey(rule, isEdit);
   accountSearchKeyword.value[key] = "";
-  showAccountDropdown.value[key] = false;
+};
+
+const selectAccountOption = (
+  rule: ModelRoutingRule,
+  option: UiEntityOption,
+  isEdit: boolean,
+) => {
+  selectAccount(
+    rule,
+    { id: Number(option.value), name: option.label },
+    isEdit,
+  );
 };
 
 // 移除已选账号
@@ -3199,19 +3157,6 @@ const toggleEditScope = (scope: string) => {
     editForm.supported_model_scopes.push(scope);
   } else {
     editForm.supported_model_scopes.splice(idx, 1);
-  }
-};
-
-// 处理账号搜索输入框聚焦
-const onAccountSearchFocus = (
-  rule: ModelRoutingRule,
-  isEdit: boolean = false,
-) => {
-  const key = getRuleSearchKey(rule, isEdit);
-  showAccountDropdown.value[key] = true;
-  // 如果没有搜索结果，触发一次搜索
-  if (!accountSearchResults.value[key]?.length) {
-    searchAccounts(key);
   }
 };
 
@@ -4593,17 +4538,6 @@ watch(
   }
 )
 
-// 点击外部关闭账号搜索下拉框
-const handleClickOutside = (event: MouseEvent) => {
-  const target = event.target as HTMLElement;
-  // 检查是否点击在下拉框或输入框内
-  if (!target.closest(".account-search-container")) {
-    Object.keys(showAccountDropdown.value).forEach((key) => {
-      showAccountDropdown.value[key] = false;
-    });
-  }
-};
-
 // 打开排序弹窗
 const openSortModal = async () => {
   try {
@@ -4652,11 +4586,9 @@ onMounted(() => {
   loadGroups();
   void loadLiveCapability();
   loadModelsListCandidates("create", 0, createForm.platform);
-  document.addEventListener("click", handleClickOutside);
 });
 
 onUnmounted(() => {
-  document.removeEventListener("click", handleClickOutside);
   accountSearchRunner.clearAll();
   clearAllAccountSearchState();
 });
