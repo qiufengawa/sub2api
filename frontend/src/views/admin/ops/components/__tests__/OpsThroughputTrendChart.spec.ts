@@ -21,7 +21,7 @@ vi.mock('vue-chartjs', () => ({
 }))
 
 describe('OpsThroughputTrendChart', () => {
-  it('allows the header controls to wrap on narrow screens', () => {
+  it('uses the shared chart frame and compact toolbar controls', () => {
     const wrapper = mount(OpsThroughputTrendChart, {
       props: {
         points: [],
@@ -30,21 +30,21 @@ describe('OpsThroughputTrendChart', () => {
       },
       global: {
         stubs: {
-          EmptyState: true,
-          HelpTooltip: true,
+          UiEmptyState: true,
+          UiFieldHelp: true,
         },
       },
     })
 
     const header = wrapper.get('[data-testid="throughput-chart-header"]')
-    expect(header.classes()).toEqual(expect.arrayContaining(['flex-col', 'sm:flex-row']))
+    expect(header.classes()).toContain('ui-chart-frame')
 
     const toolbar = wrapper.get('[data-testid="throughput-chart-toolbar"]')
-    expect(toolbar.classes()).toEqual(expect.arrayContaining(['w-full', 'flex-wrap', 'sm:w-auto']))
+    expect(toolbar.classes()).toContain('app-inline')
     expect(toolbar.findAll('button')).toHaveLength(3)
     toolbar.findAll('button').forEach((button) => {
-      expect(button.classes()).toContain('shrink-0')
-      expect(button.classes()).not.toContain('ml-2')
+      expect(button.classes()).toContain('ui-icon-button--dense')
     })
+    expect(wrapper.find('svg path[d^="M13 7"]').exists()).toBe(false)
   })
 })

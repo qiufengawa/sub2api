@@ -7,9 +7,14 @@ import type { ChartComponentRef } from 'vue-chartjs'
 import type { OpsThroughputGroupBreakdownItem, OpsThroughputPlatformBreakdownItem, OpsThroughputTrendPoint } from '@/api/admin/ops'
 import type { ChartState } from '../types'
 import { formatHistoryLabel, sumNumbers } from '../utils/opsFormatters'
-import HelpTooltip from '@/components/common/HelpTooltip.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
-import Icon from '@/components/icons/Icon.vue'
+import {
+  AppInline,
+  UiButton,
+  UiChartFrame,
+  UiChartLegend,
+  UiFieldHelp,
+  UiIconButton,
+} from '@/components/ui'
 import { formatNumber } from '@/utils/format'
 
 ChartJS.register(Title, Tooltip, Legend, LineElement, LinearScale, PointElement, CategoryScale, Filler)
@@ -91,6 +96,11 @@ const state = computed<ChartState>(() => {
   if (props.loading) return 'loading'
   return 'empty'
 })
+
+const legendItems = computed(() => [
+  { label: 'QPS', color: colors.value.blue },
+  { label: t('admin.ops.tpsK'), color: colors.value.cyan },
+])
 
 const options = computed(() => {
   const c = colors.value
@@ -174,89 +184,84 @@ function downloadChart() {
 </script>
 
 <template>
-  <div class="flex h-full min-w-0 flex-col rounded-[4px] border border-gray-200 bg-white p-4 shadow-sm sm:p-5 dark:border-dark-700 dark:bg-dark-800">
-    <div
-      data-testid="throughput-chart-header"
-      class="mb-3 flex min-h-8 shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <h3 class="flex min-w-0 items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
-        <svg class="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-        </svg>
-        {{ t('admin.ops.throughputTrend') }}
-        <HelpTooltip v-if="!props.fullscreen" :content="t('admin.ops.tooltips.throughputTrend')" />
-      </h3>
-      <div
+  <UiChartFrame
+    data-testid="throughput-chart-header"
+    :title="t('admin.ops.throughputTrend')"
+    :loading="state === 'loading'"
+    :loading-label="t('common.loading')"
+    :empty="state === 'empty'"
+    :empty-title="t('common.noData')"
+    :empty-description="t('admin.ops.charts.emptyRequest')"
+    :height="300"
+  >
+    <template #legend>
+      <UiChartLegend :items="legendItems" />
+    </template>
+    <template #actions>
+      <AppInline
         data-testid="throughput-chart-toolbar"
-        class="flex w-full min-w-0 flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400 sm:w-auto sm:justify-end"
+        :gap="4"
       >
-        <span class="flex shrink-0 items-center gap-1"><span class="h-2 w-2 rounded-full bg-blue-500"></span>QPS</span>
-        <span class="flex shrink-0 items-center gap-1"><span class="h-2 w-2 rounded-full bg-cyan-500"></span>{{ t('admin.ops.tpsK') }}</span>
+        <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.throughputTrend')" />
         <template v-if="!props.fullscreen">
-          <button
-            type="button"
-            class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-white"
+          <UiIconButton
+            icon="eye"
+            density="dense"
+            variant="ghost"
             :disabled="state !== 'ready'"
-            :title="t('admin.ops.requestDetails.title')"
+            :label="t('admin.ops.requestDetails.title')"
             @click="emit('openDetails')"
-          >
-            <Icon name="eye" size="xs" />
-          </button>
-          <button
-            type="button"
-            class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-white"
+          />
+          <UiIconButton
+            icon="refresh"
+            density="dense"
+            variant="ghost"
             :disabled="state !== 'ready'"
-            :title="t('admin.ops.charts.resetZoomHint')"
+            :label="t('admin.ops.charts.resetZoomHint')"
             @click="resetZoom"
-          >
-            <Icon name="refresh" size="xs" />
-          </button>
-          <button
-            type="button"
-            class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-white"
+          />
+          <UiIconButton
+            icon="download"
+            density="dense"
+            variant="ghost"
             :disabled="state !== 'ready'"
-            :title="t('admin.ops.charts.downloadChartHint')"
+            :label="t('admin.ops.charts.downloadChartHint')"
             @click="downloadChart"
-          >
-            <Icon name="download" size="xs" />
-          </button>
+          />
         </template>
-      </div>
-    </div>
+      </AppInline>
+    </template>
 
-    <!-- Drilldown chips (baseline interaction: click to set global filter) -->
-    <div v-if="(props.topGroups?.length ?? 0) > 0" class="mb-3 flex flex-wrap gap-2">
-      <button
+    <div v-if="(props.topGroups?.length ?? 0) > 0" class="ops-throughput__drilldown">
+      <UiButton
         v-for="g in props.topGroups"
         :key="g.group_id"
-        type="button"
-        class="inline-flex items-center gap-2 rounded-[4px] border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-200 dark:hover:border-blue-800 dark:hover:bg-blue-950/30"
+        density="mini"
+        variant="secondary"
         @click="emit('selectGroup', g.group_id)"
       >
-        <span class="max-w-[180px] truncate">{{ g.group_name || `#${g.group_id}` }}</span>
-        <span class="text-gray-400 dark:text-gray-500">{{ formatNumber(g.request_count) }}</span>
-      </button>
+        <span class="ops-throughput__name">{{ g.group_name || `#${g.group_id}` }}</span>
+        <span class="ops-throughput__count">{{ formatNumber(g.request_count) }}</span>
+      </UiButton>
     </div>
 
-    <div v-else-if="(props.byPlatform?.length ?? 0) > 0" class="mb-3 flex flex-wrap gap-2">
-      <button
+    <div v-else-if="(props.byPlatform?.length ?? 0) > 0" class="ops-throughput__drilldown">
+      <UiButton
         v-for="p in props.byPlatform"
         :key="p.platform"
-        type="button"
-        class="inline-flex items-center gap-2 rounded-[4px] border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-200 dark:hover:border-blue-800 dark:hover:bg-blue-950/30"
+        density="mini"
+        variant="secondary"
         @click="emit('selectPlatform', p.platform)"
       >
-        <span class="uppercase">{{ p.platform }}</span>
-        <span class="text-gray-400 dark:text-gray-500">{{ formatNumber(p.request_count) }}</span>
-      </button>
+        <span class="ops-throughput__platform">{{ p.platform }}</span>
+        <span class="ops-throughput__count">{{ formatNumber(p.request_count) }}</span>
+      </UiButton>
     </div>
 
-    <div class="min-h-0 min-w-0 flex-1">
-      <Line v-if="state === 'ready' && chartData" ref="throughputChartRef" :data="chartData" :options="options" />
-      <div v-else class="flex h-full items-center justify-center">
-        <div v-if="state === 'loading'" class="animate-pulse text-sm text-gray-400">{{ t('common.loading') }}</div>
-        <EmptyState v-else :title="t('common.noData')" :description="t('admin.ops.charts.emptyRequest')" />
-      </div>
-    </div>
-  </div>
+    <Line v-if="chartData" ref="throughputChartRef" :data="chartData" :options="options" />
+  </UiChartFrame>
 </template>
+
+<style scoped>
+.ops-throughput__drilldown{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.ops-throughput__name{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ops-throughput__platform{text-transform:uppercase}.ops-throughput__count{color:var(--ui-text-soft);font-variant-numeric:tabular-nums}
+</style>

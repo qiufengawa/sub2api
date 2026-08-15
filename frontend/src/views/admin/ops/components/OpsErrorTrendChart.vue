@@ -16,9 +16,7 @@ import { Line } from 'vue-chartjs'
 import type { OpsErrorTrendPoint } from '@/api/admin/ops'
 import type { ChartState } from '../types'
 import { formatHistoryLabel, sumNumbers } from '../utils/opsFormatters'
-import HelpTooltip from '@/components/common/HelpTooltip.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
-import Icon from '@/components/icons/Icon.vue'
+import { UiChartFrame, UiFieldHelp, UiIconButton } from '@/components/ui'
 
 ChartJS.register(Title, Tooltip, Legend, LineElement, LinearScale, PointElement, CategoryScale, Filler)
 
@@ -154,48 +152,34 @@ const options = computed(() => {
 </script>
 
 <template>
-  <div class="flex h-full min-w-0 w-full flex-col overflow-hidden rounded-[4px] border border-gray-200 bg-white p-4 shadow-sm sm:p-5 dark:border-dark-700 dark:bg-dark-800">
-    <div class="mb-3 flex min-h-8 shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <h3 class="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
-        <svg class="h-4 w-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"
-          />
-        </svg>
-        {{ t('admin.ops.errorTrend') }}
-        <HelpTooltip :content="t('admin.ops.tooltips.errorTrend')" />
-      </h3>
-      <div class="flex shrink-0 items-center gap-1.5">
-        <button
-          type="button"
-          class="inline-flex h-7 w-7 items-center justify-center rounded-[4px] border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-red-600 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-red-400"
+  <UiChartFrame
+    :title="t('admin.ops.errorTrend')"
+    :loading="state === 'loading'"
+    :loading-label="t('common.loading')"
+    :empty="state === 'empty'"
+    :empty-title="t('common.noData')"
+    :empty-description="t('admin.ops.charts.emptyError')"
+    :height="320"
+  >
+    <template #actions>
+      <UiFieldHelp :content="t('admin.ops.tooltips.errorTrend')" />
+      <UiIconButton
+        icon="eye"
+        density="dense"
+        variant="danger"
+        :label="t('admin.ops.errorDetails.requestErrors')"
           :disabled="!hasRequestErrors"
-          :title="t('admin.ops.errorDetails.requestErrors')"
           @click="emit('openRequestErrors')"
-        >
-          <Icon name="eye" size="xs" />
-        </button>
-        <button
-          type="button"
-          class="inline-flex h-7 w-7 items-center justify-center rounded-[4px] border border-gray-200 bg-white text-orange-500 hover:bg-orange-50 hover:text-orange-700 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-orange-400 dark:hover:bg-orange-900/20"
+      />
+      <UiIconButton
+        icon="eye"
+        density="dense"
+        variant="ghost"
+        :label="t('admin.ops.errorDetails.upstreamErrors')"
           :disabled="!hasUpstreamErrors"
-          :title="t('admin.ops.errorDetails.upstreamErrors')"
           @click="emit('openUpstreamErrors')"
-        >
-          <Icon name="eye" size="xs" />
-        </button>
-      </div>
-    </div>
-
-    <div class="min-h-0 min-w-0 w-full flex-1">
-      <Line v-if="state === 'ready' && chartData" :data="chartData" :options="options" />
-      <div v-else class="flex h-full items-center justify-center">
-        <div v-if="state === 'loading'" class="animate-pulse text-sm text-gray-400">{{ t('common.loading') }}</div>
-        <EmptyState v-else :title="t('common.noData')" :description="t('admin.ops.charts.emptyError')" />
-      </div>
-    </div>
-  </div>
+      />
+    </template>
+    <Line v-if="chartData" :data="chartData" :options="options" />
+  </UiChartFrame>
 </template>
