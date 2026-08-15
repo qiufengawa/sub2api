@@ -4,7 +4,8 @@ import { flushPromises, mount } from '@vue/test-utils'
 import type { Proxy } from '@/types'
 import ProxiesView from '../ProxiesView.vue'
 
-const { create, getAllWithCount, list, showError, showSuccess } = vi.hoisted(() => ({
+const { copyToClipboard, create, getAllWithCount, list, showError, showSuccess } = vi.hoisted(() => ({
+  copyToClipboard: vi.fn(),
   create: vi.fn(),
   getAllWithCount: vi.fn(),
   list: vi.fn(),
@@ -35,7 +36,7 @@ vi.mock('vue-i18n', async () => ({
 }))
 
 vi.mock('@/composables/useClipboard', () => ({
-  useClipboard: () => ({ copyToClipboard: vi.fn() })
+  useClipboard: () => ({ copyToClipboard })
 }))
 
 vi.mock('@/composables/useSwipeSelect', () => ({ useSwipeSelect: vi.fn() }))
@@ -62,6 +63,7 @@ const DataTableStub = {
       <template v-if="data.length">
         <slot name="cell-select" :row="data[0]" />
         <slot name="cell-protocol" :row="data[0]" :value="data[0].protocol" />
+        <slot name="cell-address" :row="data[0]" />
         <slot name="cell-status" :row="data[0]" :value="data[0].status" />
         <slot name="cell-actions" :row="data[0]" />
       </template>
@@ -93,6 +95,7 @@ describe('ProxiesView workspace', () => {
     getAllWithCount.mockReset()
     showError.mockReset()
     showSuccess.mockReset()
+    copyToClipboard.mockReset()
     list.mockResolvedValue({ items: [proxy], total: 1, pages: 1, page: 1, page_size: 20 })
     getAllWithCount.mockResolvedValue([proxy])
     create.mockResolvedValue(proxy)
@@ -156,5 +159,20 @@ describe('ProxiesView workspace', () => {
       backup_proxy_id: null,
       expiry_warn_days: 7
     })
+  })
+
+  it('copies the selected proxy format from the shared dropdown menu', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('button[aria-label="admin.proxies.copyFormats"]').trigger('click')
+    await flushPromises()
+
+    const items = wrapper.findAll<HTMLButtonElement>('[role="menuitem"]')
+    expect(items.map((item) => item.text())).toContain('127.0.0.1:1080')
+    await items.find((item) => item.text() === '127.0.0.1:1080')?.trigger('click')
+
+    expect(copyToClipboard).toHaveBeenCalledWith('127.0.0.1:1080', 'admin.proxies.urlCopied')
+    wrapper.unmount()
   })
 })

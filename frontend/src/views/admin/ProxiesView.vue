@@ -128,38 +128,26 @@
                   density="mini"
                   :label="t('admin.proxies.copyProxyUrl')"
                   @click.stop="copyProxyUrl(row)"
-                  @contextmenu.prevent="toggleCopyMenu(row.id)"
                 >
                   <Icon name="copy" size="sm" />
                 </UiIconButton>
-                <UiIconButton
-                  type="button"
-                  variant="ghost"
-                  density="mini"
-                  :label="t('admin.proxies.copyFormats')"
-                  aria-haspopup="menu"
-                  :aria-expanded="copyMenuProxyId === row.id"
-                  @click.stop="toggleCopyMenu(row.id)"
+                <UiDropdownMenu
+                  :items="getCopyFormats(row).map((format) => ({ key: format.value, label: format.label }))"
+                  placement="bottom-start"
+                  @select="copyFormat($event.key)"
                 >
-                  <Icon name="chevronDown" size="xs" />
-                </UiIconButton>
-                <div
-                  v-if="copyMenuProxyId === row.id"
-                  role="menu"
-                  class="absolute left-0 top-full z-50 mt-1 w-auto min-w-[180px] rounded-[4px] border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-500 dark:bg-dark-700"
-                >
-                  <UiButton
-                    v-for="fmt in getCopyFormats(row)"
-                    :key="fmt.label"
-                    role="menuitem"
-                    variant="quiet"
-                    density="dense"
-                    block
-                    @click.stop="copyFormat(fmt.value)"
-                  >
-                    <span class="truncate font-mono text-gray-600 dark:text-gray-300">{{ fmt.label }}</span>
-                  </UiButton>
-                </div>
+                  <template #trigger>
+                    <UiIconButton
+                      type="button"
+                      variant="ghost"
+                      density="mini"
+                      :label="t('admin.proxies.copyFormats')"
+                      aria-haspopup="menu"
+                    >
+                      <Icon name="chevronDown" size="xs" />
+                    </UiIconButton>
+                  </template>
+                </UiDropdownMenu>
               </div>
             </div>
           </template>
@@ -659,6 +647,7 @@ import {
   UiDataTable,
   UiDescriptionList,
   UiDialog,
+  UiDropdownMenu,
   UiEmptyState,
   UiIconButton,
   UiPasswordField,
@@ -749,7 +738,6 @@ const editStatusOptions = computed(() => [
 
 const proxies = ref<Proxy[]>([])
 const visiblePasswordIds = reactive(new Set<number>())
-const copyMenuProxyId = ref<number | null>(null)
 const loading = ref(false)
 const searchQuery = ref('')
 const filters = reactive({
@@ -1777,31 +1765,19 @@ function getCopyFormats(row: any) {
 
 function copyProxyUrl(row: any) {
   copyToClipboard(buildProxyUrl(row), t('admin.proxies.urlCopied'))
-  copyMenuProxyId.value = null
-}
-
-function toggleCopyMenu(id: number) {
-  copyMenuProxyId.value = copyMenuProxyId.value === id ? null : id
 }
 
 function copyFormat(value: string) {
   copyToClipboard(value, t('admin.proxies.urlCopied'))
-  copyMenuProxyId.value = null
-}
-
-function closeCopyMenu() {
-  copyMenuProxyId.value = null
 }
 
 onMounted(() => {
   loadProxies()
   loadBackupProxyOptions()
-  document.addEventListener('click', closeCopyMenu)
 })
 
 onUnmounted(() => {
   clearTimeout(searchTimeout)
   abortController?.abort()
-  document.removeEventListener('click', closeCopyMenu)
 })
 </script>
