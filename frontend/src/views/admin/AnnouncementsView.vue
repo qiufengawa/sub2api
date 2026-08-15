@@ -1,221 +1,71 @@
 <template>
   <AppLayout>
-    <TablePageLayout>
-      <template #filters>
-        <div class="flex flex-wrap items-center gap-3">
-          <!-- Left: Search + Filters -->
-          <div class="flex-1 sm:max-w-64">
-            <input
-              v-model="searchQuery"
-              type="text"
-              :placeholder="t('admin.announcements.searchAnnouncements')"
-              class="input"
-              @input="handleSearch"
-            />
-          </div>
-          <Select
-            v-model="filters.status"
-            :options="statusFilterOptions"
-            class="w-40"
-            @change="handleStatusChange"
-          />
+    <AppPage density="compact">
+      <AppPageHeader :title="t('admin.announcements.title')" :description="t('admin.announcements.description')">
+        <template #actions>
+          <UiButton density="dense" variant="primary" @click="openCreateDialog">
+            <template #icon><Icon name="plus" size="sm" /></template>
+            {{ t('admin.announcements.createAnnouncement') }}
+          </UiButton>
+        </template>
+      </AppPageHeader>
 
-          <!-- Right: Action buttons -->
-          <div class="flex flex-1 flex-wrap items-center justify-end gap-2">
-            <button
-              @click="loadAnnouncements"
-              :disabled="loading"
-              class="btn btn-secondary"
-              :title="t('common.refresh')"
-            >
-              <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
-            </button>
-            <button @click="openCreateDialog" class="btn btn-primary">
-              <Icon name="plus" size="md" class="mr-1" />
-              {{ t('admin.announcements.createAnnouncement') }}
-            </button>
-          </div>
-        </div>
-      </template>
+      <UiServerTableWorkspace :loading="loading" :empty="false">
+        <template #toolbar>
+          <UiTableToolbar>
+            <UiSearchInput v-model="searchQuery" density="dense" :placeholder="t('admin.announcements.searchAnnouncements')" @search="handleSearch" />
+            <UiSelect v-model="filters.status" density="dense" :options="statusFilterOptions" :aria-label="t('admin.announcements.columns.status')" @change="handleStatusChange" />
+            <template #actions>
+              <UiIconButton icon="refresh" density="dense" :label="t('common.refresh')" :disabled="loading" @click="loadAnnouncements" />
+            </template>
+          </UiTableToolbar>
+        </template>
 
-      <template #table>
-        <DataTable
-          :columns="columns"
-          :data="announcements"
-          :loading="loading"
-          :server-side-sort="true"
-          default-sort-key="created_at"
-          default-sort-order="desc"
-          @sort="handleSort"
-        >
-          <template #cell-title="{ value, row }">
-            <div class="min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="block max-w-[18rem] truncate font-medium text-gray-900 dark:text-white" :title="String(value)">{{ value }}</span>
-              </div>
-              <div class="mt-1 flex items-center gap-2 text-xs text-gray-500 dark:text-dark-400">
-                <span>#{{ row.id }}</span>
-                <span class="text-gray-300 dark:text-dark-700">·</span>
-                <span>{{ formatDateTime(row.created_at) }}</span>
-              </div>
-            </div>
-          </template>
+        <UiDataTable :columns="columns" :data="announcements" :loading="loading" :mobile-table="true" :aria-label="t('admin.announcements.title')" :server-side-sort="true" default-sort-key="created_at" default-sort-order="desc" @sort="handleSort">
+          <template #cell-title="{ value, row }"><div class="announcement-cell-title"><strong :title="String(value)">{{ value }}</strong><span>#{{ row.id }} · {{ formatDateTime(row.created_at) }}</span></div></template>
+          <template #cell-status="{ value }"><UiStatusBadge :status="String(value)" :label="statusLabel(String(value))" /></template>
+          <template #cell-notify_mode="{ row }"><UiBadge :tone="row.notify_mode === 'popup' ? 'warning' : 'neutral'" :label="row.notify_mode === 'popup' ? t('admin.announcements.notifyModeLabels.popup') : t('admin.announcements.notifyModeLabels.silent')" /></template>
+          <template #cell-targeting="{ row }"><span class="announcement-cell-muted" :title="targetingSummary(row.targeting)">{{ targetingSummary(row.targeting) }}</span></template>
+          <template #cell-timeRange="{ row }"><div class="announcement-cell-time"><span>{{ t('admin.announcements.form.startsAt') }}: {{ row.starts_at ? formatDateTime(row.starts_at) : t('admin.announcements.timeImmediate') }}</span><span>{{ t('admin.announcements.form.endsAt') }}: {{ row.ends_at ? formatDateTime(row.ends_at) : t('admin.announcements.timeNever') }}</span></div></template>
+          <template #cell-created_at="{ value }"><span class="announcement-cell-muted">{{ formatDateTime(value) }}</span></template>
+          <template #cell-actions="{ row }"><div class="announcement-row-actions"><UiIconButton icon="eye" density="dense" variant="ghost" :label="t('admin.announcements.preview')" @click="openPreview(row)" /><UiIconButton icon="chartBar" density="dense" variant="ghost" :label="t('admin.announcements.readStatus')" @click="openReadStatus(row)" /><UiIconButton icon="edit" density="dense" variant="ghost" :label="t('common.edit')" @click="openEditDialog(row)" /><UiIconButton icon="trash" density="dense" variant="danger" :label="t('common.delete')" @click="handleDelete(row)" /></div></template>
+          <template #empty><UiEmptyState :title="t('empty.noData')" :description="t('admin.announcements.failedToLoad')"><template #action><UiButton density="dense" variant="primary" @click="openCreateDialog">{{ t('admin.announcements.createAnnouncement') }}</UiButton></template></UiEmptyState></template>
+        </UiDataTable>
 
-          <template #cell-status="{ value }">
-            <span
-              :class="[
-                'badge',
-                value === 'active'
-                  ? 'badge-success'
-                  : value === 'draft'
-                    ? 'badge-gray'
-                    : 'badge-warning'
-              ]"
-            >
-              {{ statusLabel(value) }}
-            </span>
-          </template>
-
-          <template #cell-notify_mode="{ row }">
-            <span
-              :class="[
-                'badge',
-                row.notify_mode === 'popup'
-                  ? 'badge-warning'
-                  : 'badge-gray'
-              ]"
-            >
-              {{ row.notify_mode === 'popup' ? t('admin.announcements.notifyModeLabels.popup') : t('admin.announcements.notifyModeLabels.silent') }}
-            </span>
-          </template>
-
-          <template #cell-targeting="{ row }">
-            <span class="block max-w-[18rem] truncate text-sm text-gray-600 dark:text-gray-300" :title="targetingSummary(row.targeting)">
-              {{ targetingSummary(row.targeting) }}
-            </span>
-          </template>
-
-          <template #cell-timeRange="{ row }">
-            <div class="max-w-[18rem] text-sm text-gray-600 dark:text-gray-300">
-              <div>
-                <span class="font-medium">{{ t('admin.announcements.form.startsAt') }}:</span>
-                <span class="ml-1 whitespace-nowrap" :title="row.starts_at ? formatDateTime(row.starts_at) : t('admin.announcements.timeImmediate')">{{ row.starts_at ? formatDateTime(row.starts_at) : t('admin.announcements.timeImmediate') }}</span>
-              </div>
-              <div class="mt-0.5">
-                <span class="font-medium">{{ t('admin.announcements.form.endsAt') }}:</span>
-                <span class="ml-1 whitespace-nowrap" :title="row.ends_at ? formatDateTime(row.ends_at) : t('admin.announcements.timeNever')">{{ row.ends_at ? formatDateTime(row.ends_at) : t('admin.announcements.timeNever') }}</span>
-              </div>
-            </div>
-          </template>
-
-          <template #cell-created_at="{ value }">
-            <span class="text-sm text-gray-500 dark:text-dark-400">{{ formatDateTime(value) }}</span>
-          </template>
-
-          <template #cell-actions="{ row }">
-            <div class="flex items-center space-x-1">
-              <button
-                type="button"
-                @click="openPreview(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
-                :title="t('admin.announcements.preview')"
-                :aria-label="t('admin.announcements.preview')"
-              >
-                <Icon name="eye" size="sm" />
-              </button>
-              <button
-                type="button"
-                @click="openReadStatus(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
-                :title="t('admin.announcements.readStatus')"
-                :aria-label="t('admin.announcements.readStatus')"
-              >
-                <Icon name="chartBar" size="sm" />
-              </button>
-              <button
-                type="button"
-                @click="openEditDialog(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                :title="t('common.edit')"
-                :aria-label="t('common.edit')"
-              >
-                <Icon name="edit" size="sm" />
-              </button>
-              <button
-                type="button"
-                @click="handleDelete(row)"
-                class="btn btn-ghost btn-icon text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                :title="t('common.delete')"
-                :aria-label="t('common.delete')"
-              >
-                <Icon name="trash" size="sm" />
-              </button>
-            </div>
-          </template>
-
-          <template #empty>
-            <EmptyState
-              :title="t('empty.noData')"
-              :description="t('admin.announcements.failedToLoad')"
-              :action-text="t('admin.announcements.createAnnouncement')"
-              @action="openCreateDialog"
-            />
-          </template>
-        </DataTable>
-      </template>
-
-      <template #pagination>
-        <Pagination
-          v-if="pagination.total > 0"
-          :page="pagination.page"
-          :total="pagination.total"
-          :page-size="pagination.page_size"
-          @update:page="handlePageChange"
-          @update:pageSize="handlePageSizeChange"
-        />
-      </template>
-    </TablePageLayout>
+        <template #pagination>
+          <UiPagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" :reset-page-on-page-size-change="false" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" />
+        </template>
+      </UiServerTableWorkspace>
+    </AppPage>
 
     <!-- Create/Edit Dialog -->
-    <BaseDialog
+    <UiDialog
       :show="showEditDialog"
       :title="isEditing ? t('admin.announcements.editAnnouncement') : t('admin.announcements.createAnnouncement')"
       width="wide"
+      :close-label="t('common.close')"
       @close="closeEdit"
     >
       <form id="announcement-form" @submit.prevent="handleSave" class="space-y-4">
-        <div>
-          <label class="input-label">{{ t('admin.announcements.form.title') }}</label>
-          <input v-model="form.title" type="text" class="input" required />
-        </div>
+        <UiTextField v-model="form.title" :label="t('admin.announcements.form.title')" required />
 
-        <div>
-          <label class="input-label">{{ t('admin.announcements.form.content') }}</label>
-          <textarea v-model="form.content" rows="6" class="input" required></textarea>
-        </div>
+        <UiTextArea v-model="form.content" :label="t('admin.announcements.form.content')" :rows="6" required />
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label class="input-label">{{ t('admin.announcements.form.status') }}</label>
-            <Select v-model="form.status" :options="statusOptions" />
+            <UiSelect v-model="form.status" :label="t('admin.announcements.form.status')" :options="statusOptions" />
           </div>
           <div>
-            <label class="input-label">{{ t('admin.announcements.form.notifyMode') }}</label>
-            <Select v-model="form.notify_mode" :options="notifyModeOptions" />
-            <p class="input-hint">{{ t('admin.announcements.form.notifyModeHint') }}</p>
+            <UiSelect v-model="form.notify_mode" :label="t('admin.announcements.form.notifyMode')" :description="t('admin.announcements.form.notifyModeHint')" :options="notifyModeOptions" />
           </div>
         </div>
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label class="input-label">{{ t('admin.announcements.form.startsAt') }}</label>
-            <input v-model="form.starts_at_str" type="datetime-local" class="input" />
-            <p class="input-hint">{{ t('admin.announcements.form.startsAtHint') }}</p>
+            <UiTextField v-model="form.starts_at_str" type="datetime-local" :label="t('admin.announcements.form.startsAt')" :description="t('admin.announcements.form.startsAtHint')" />
           </div>
           <div>
-            <label class="input-label">{{ t('admin.announcements.form.endsAt') }}</label>
-            <input v-model="form.ends_at_str" type="datetime-local" class="input" />
-            <p class="input-hint">{{ t('admin.announcements.form.endsAtHint') }}</p>
+            <UiTextField v-model="form.ends_at_str" type="datetime-local" :label="t('admin.announcements.form.endsAt')" :description="t('admin.announcements.form.endsAtHint')" />
           </div>
         </div>
 
@@ -226,19 +76,15 @@
       </form>
 
       <template #footer>
-        <div class="flex justify-end gap-3">
-          <button type="button" @click="closeEdit" class="btn btn-secondary">
-            {{ t('common.cancel') }}
-          </button>
-          <button type="submit" form="announcement-form" :disabled="saving" class="btn btn-primary">
-            {{ saving ? t('common.saving') : t('common.save') }}
-          </button>
+        <div class="announcement-dialog-actions">
+          <UiButton type="button" density="dense" @click="closeEdit">{{ t('common.cancel') }}</UiButton>
+          <UiButton type="submit" form="announcement-form" density="dense" variant="primary" :loading="saving">{{ t('common.save') }}</UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
     <!-- Delete Confirmation -->
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showDeleteDialog"
       :title="t('admin.announcements.deleteAnnouncement')"
       :message="t('admin.announcements.deleteConfirm')"
@@ -272,17 +118,29 @@ import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { adminAPI } from '@/api/admin'
 import { formatDateTime, formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
 import type { AdminGroup, Announcement, AnnouncementTargeting } from '@/types'
-import type { Column } from '@/components/common/types'
+import type { Column } from '@/components/ui'
 
 import AppLayout from '@/components/layout/AppLayout.vue'
-import TablePageLayout from '@/components/layout/TablePageLayout.vue'
-import DataTable from '@/components/common/DataTable.vue'
-import Pagination from '@/components/common/Pagination.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import Select from '@/components/common/Select.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  AppPage,
+  AppPageHeader,
+  UiBadge,
+  UiButton,
+  UiConfirmDialog,
+  UiDataTable,
+  UiDialog,
+  UiEmptyState,
+  UiIconButton,
+  UiPagination,
+  UiSearchInput,
+  UiSelect,
+  UiServerTableWorkspace,
+  UiStatusBadge,
+  UiTableToolbar,
+  UiTextArea,
+  UiTextField,
+} from '@/components/ui'
 
 import AnnouncementTargetingEditor from '@/components/admin/announcements/AnnouncementTargetingEditor.vue'
 import AnnouncementReadStatusDialog from '@/components/admin/announcements/AnnouncementReadStatusDialog.vue'
@@ -419,13 +277,9 @@ function handleSort(key: string, order: 'asc' | 'desc') {
   loadAnnouncements()
 }
 
-let searchDebounceTimer: number | null = null
 function handleSearch() {
-  if (searchDebounceTimer) window.clearTimeout(searchDebounceTimer)
-  searchDebounceTimer = window.setTimeout(() => {
-    pagination.page = 1
-    loadAnnouncements()
-  }, 300)
+  pagination.page = 1
+  loadAnnouncements()
 }
 
 // ===== Create/Edit dialog =====
@@ -629,7 +483,48 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  if (searchDebounceTimer) window.clearTimeout(searchDebounceTimer)
   currentController?.abort()
 })
 </script>
+
+<style scoped>
+.announcement-cell-title,
+.announcement-cell-time {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.announcement-cell-title strong {
+  overflow: hidden;
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.announcement-cell-title span,
+.announcement-cell-muted,
+.announcement-cell-time {
+  color: var(--ui-text-soft);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.announcement-cell-muted {
+  display: block;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.announcement-row-actions,
+.announcement-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+</style>
