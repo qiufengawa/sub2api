@@ -1,151 +1,94 @@
 <template>
-  <BaseDialog :show="show" :title="t('admin.users.groupConfig')" width="wide" @close="$emit('close')">
-    <div v-if="user" class="space-y-6">
-      <!-- 用户信息头部 -->
-      <div class="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-primary-50 to-primary-100 p-5 dark:from-primary-900/30 dark:to-primary-800/20">
-        <div class="flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm dark:bg-dark-700">
-          <span class="text-2xl font-semibold text-primary-600 dark:text-primary-400">{{ user.email.charAt(0).toUpperCase() }}</span>
-        </div>
-        <div class="flex-1">
-          <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ user.email }}</p>
-          <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">{{ t('admin.users.groupConfigHint', { email: user.email }) }}</p>
-        </div>
-      </div>
+  <UiDialog :show="show" :title="t('admin.users.groupConfig')" width="wide" @close="$emit('close')">
+    <div v-if="user" class="user-groups">
+      <header class="user-groups__header">
+        <strong>{{ user.email }}</strong>
+        <p>{{ t('admin.users.groupConfigHint', { email: user.email }) }}</p>
+      </header>
 
-      <!-- 加载状态 -->
-      <div v-if="loading" class="flex justify-center py-12">
-        <svg class="h-10 w-10 animate-spin text-primary-500" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
+      <div v-if="loading" class="user-groups__loading" aria-live="polite">
+        <UiSkeleton v-for="index in 4" :key="index" height="64px" />
       </div>
-
-      <div v-else class="space-y-6">
-        <!-- 专属分组区域 -->
-        <div v-if="exclusiveGroups.length > 0">
-          <div class="mb-3 flex items-center gap-2">
-            <div class="h-1.5 w-1.5 rounded-full bg-purple-500"></div>
-            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ t('admin.users.exclusiveGroups') }}</h4>
-            <span class="text-xs text-gray-400">({{ exclusiveGroupConfigs.filter(c => c.isSelected).length }}/{{ exclusiveGroupConfigs.length }})</span>
+      <UiErrorState
+        v-else-if="loadError"
+        :title="t('admin.users.failedToLoadGroups')"
+        :retry-text="t('common.retry')"
+        @retry="load"
+      />
+      <template v-else>
+        <section v-if="exclusiveGroupConfigs.length" class="user-groups__section">
+          <div class="user-groups__section-heading">
+            <h3>{{ t('admin.users.exclusiveGroups') }}</h3>
+            <span>{{ exclusiveGroupConfigs.filter((config) => config.isSelected).length }}/{{ exclusiveGroupConfigs.length }}</span>
           </div>
-          <div class="grid gap-3">
-            <div
-              v-for="config in exclusiveGroupConfigs"
-              :key="config.groupId"
-              class="group relative overflow-hidden rounded-xl border-2 p-4 transition-all duration-200"
-              :class="config.isSelected
-                ? 'border-primary-400 bg-primary-50/50 shadow-sm dark:border-primary-500 dark:bg-primary-900/20'
-                : 'border-gray-200 bg-white hover:border-gray-300 dark:border-dark-600 dark:bg-dark-800 dark:hover:border-dark-500'"
-            >
-              <div class="flex items-center gap-4">
-                <!-- 复选框 -->
-                <div class="flex-shrink-0">
-                  <UiCheckbox :model-value="config.isSelected" @update:model-value="toggleExclusiveGroup(config.groupId)" />
-                </div>
-
-                <!-- 分组信息 -->
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2">
-                    <span class="text-base font-semibold text-gray-900 dark:text-white">{{ config.groupName }}</span>
-                    <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
-                      {{ t('admin.groups.exclusive') }}
-                    </span>
-                  </div>
-                  <div class="mt-1.5 flex items-center gap-3 text-sm">
-                    <span class="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400">
-                      <PlatformIcon :platform="config.platform" size="xs" />
-                      <span>{{ config.platform }}</span>
-                    </span>
-                    <span class="text-gray-300 dark:text-dark-500">•</span>
-                    <span class="text-gray-500 dark:text-gray-400">
-                      {{ t('admin.users.defaultRate') }}: <span class="font-medium text-gray-700 dark:text-gray-300">{{ config.defaultRate }}x</span>
-                    </span>
-                  </div>
-                </div>
-
-                <!-- 专属倍率输入 -->
-                <div class="flex flex-shrink-0 items-center gap-3">
-                  <label class="text-sm font-medium text-gray-600 dark:text-gray-400">{{ t('admin.users.customRate') }}</label>
-                  <UiTextField :model-value="config.customRate ?? ''" @update:model-value="updateCustomRate(config.groupId, $event)" type="number" step="0.001" min="0.001" :placeholder="String(config.defaultRate)" density="compact" />
-                </div>
+          <div class="user-groups__list">
+            <article v-for="config in exclusiveGroupConfigs" :key="config.groupId" class="user-groups__row">
+              <div class="user-groups__identity">
+                <UiCheckbox
+                  :model-value="config.isSelected"
+                  :label="config.groupName"
+                  @update:model-value="toggleExclusiveGroup(config.groupId)"
+                />
+                <UiBadge>{{ t('admin.groups.exclusive') }}</UiBadge>
+                <span><PlatformIcon :platform="config.platform" size="xs" />{{ config.platform }}</span>
+                <span>{{ t('admin.users.defaultRate') }}: {{ config.defaultRate }}x</span>
               </div>
-            </div>
+              <UiTextField
+                :id="`group-rate-${config.groupId}`"
+                :model-value="config.customRate ?? ''"
+                type="number"
+                inputmode="decimal"
+                step="0.001"
+                min="0.001"
+                density="compact"
+                :label="t('admin.users.customRate')"
+                :placeholder="String(config.defaultRate)"
+                @update:model-value="updateCustomRate(config.groupId, $event)"
+              />
+            </article>
           </div>
-        </div>
+        </section>
 
-        <!-- 公开分组区域 -->
-        <div v-if="publicGroups.length > 0">
-          <div class="mb-3 flex items-center gap-2">
-            <div class="h-1.5 w-1.5 rounded-full bg-green-500"></div>
-            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ t('admin.users.publicGroups') }}</h4>
-            <span class="text-xs text-gray-400">({{ publicGroupConfigs.length }})</span>
+        <section v-if="publicGroupConfigs.length" class="user-groups__section">
+          <div class="user-groups__section-heading">
+            <h3>{{ t('admin.users.publicGroups') }}</h3>
+            <span>{{ publicGroupConfigs.length }}</span>
           </div>
-          <div class="grid gap-3">
-            <div
-              v-for="config in publicGroupConfigs"
-              :key="config.groupId"
-              class="relative overflow-hidden rounded-xl border-2 border-green-200 bg-green-50/50 p-4 dark:border-green-800/50 dark:bg-green-900/10"
-            >
-              <div class="flex items-center gap-4">
-                <!-- 复选框（禁用状态） -->
-                <div class="flex-shrink-0">
-                  <UiCheckbox :model-value="true" disabled />
-                </div>
-
-                <!-- 分组信息 -->
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2">
-                    <span class="text-base font-semibold text-gray-900 dark:text-white">{{ config.groupName }}</span>
-                  </div>
-                  <div class="mt-1.5 flex items-center gap-3 text-sm">
-                    <span class="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400">
-                      <PlatformIcon :platform="config.platform" size="xs" />
-                      <span>{{ config.platform }}</span>
-                    </span>
-                    <span class="text-gray-300 dark:text-dark-500">•</span>
-                    <span class="text-gray-500 dark:text-gray-400">
-                      {{ t('admin.users.defaultRate') }}: <span class="font-medium text-gray-700 dark:text-gray-300">{{ config.defaultRate }}x</span>
-                    </span>
-                  </div>
-                </div>
-
-                <!-- 专属倍率输入 -->
-                <div class="flex flex-shrink-0 items-center gap-3">
-                  <label class="text-sm font-medium text-gray-600 dark:text-gray-400">{{ t('admin.users.customRate') }}</label>
-                  <input
-                    type="number"
-                    step="0.001"
-                    min="0.001"
-                    :value="config.customRate ?? ''"
-                    @input="updateCustomRate(config.groupId, ($event.target as HTMLInputElement).value)"
-                    :placeholder="String(config.defaultRate)"
-                    class="hide-spinner w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-dark-500 dark:bg-dark-700 dark:focus:border-primary-500"
-                  />
-                </div>
+          <div class="user-groups__list">
+            <article v-for="config in publicGroupConfigs" :key="config.groupId" class="user-groups__row">
+              <div class="user-groups__identity">
+                <UiCheckbox :model-value="true" :label="config.groupName" disabled />
+                <UiBadge tone="success">{{ t('admin.users.publicGroups') }}</UiBadge>
+                <span><PlatformIcon :platform="config.platform" size="xs" />{{ config.platform }}</span>
+                <span>{{ t('admin.users.defaultRate') }}: {{ config.defaultRate }}x</span>
               </div>
-            </div>
+              <UiTextField
+                :id="`group-rate-${config.groupId}`"
+                :model-value="config.customRate ?? ''"
+                type="number"
+                inputmode="decimal"
+                step="0.001"
+                min="0.001"
+                density="compact"
+                :label="t('admin.users.customRate')"
+                :placeholder="String(config.defaultRate)"
+                @update:model-value="updateCustomRate(config.groupId, $event)"
+              />
+            </article>
           </div>
-        </div>
+        </section>
 
-        <!-- 无分组提示 -->
-        <div v-if="groups.length === 0" class="flex flex-col items-center justify-center py-12 text-center">
-          <div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-dark-700">
-            <svg class="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-          </div>
-          <p class="text-gray-500 dark:text-gray-400">{{ t('common.noGroupsAvailable') }}</p>
-        </div>
-      </div>
+        <UiEmptyState v-if="groups.length === 0" :title="t('common.noGroupsAvailable')" />
+      </template>
     </div>
 
     <template #footer>
       <div class="flex justify-end gap-3">
         <UiButton @click="$emit('close')">{{ t('common.cancel') }}</UiButton>
-        <UiButton @click="handleSave" :disabled="submitting" :loading="submitting" variant="primary">{{ submitting ? t('common.saving') : t('common.save') }}</UiButton>
+        <UiButton @click="handleSave" :disabled="submitting || loading || !!loadError || !loaded" :loading="submitting" variant="primary">{{ submitting ? t('common.saving') : t('common.save') }}</UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
@@ -154,9 +97,17 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { AdminUser, Group, GroupPlatform } from '@/types'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
-import { UiButton, UiCheckbox, UiTextField } from '@/components/ui'
+import {
+  UiBadge,
+  UiButton,
+  UiCheckbox,
+  UiDialog,
+  UiEmptyState,
+  UiErrorState,
+  UiSkeleton,
+  UiTextField,
+} from '@/components/ui'
 
 interface GroupRateConfig {
   groupId: number
@@ -176,35 +127,53 @@ const appStore = useAppStore()
 const groups = ref<Group[]>([])
 const groupConfigs = ref<GroupRateConfig[]>([])
 const originalGroupRates = ref<Record<number, number>>({}) // 记录原始专属倍率，用于检测删除
+const hiddenAllowedGroupIds = ref<number[]>([])
 const loading = ref(false)
 const submitting = ref(false)
-
-// 分离专属分组和公开分组
-const exclusiveGroups = computed(() => groups.value.filter((g) => g.is_exclusive))
-const publicGroups = computed(() => groups.value.filter((g) => !g.is_exclusive))
+const loaded = ref(false)
+const loadError = ref<unknown>(null)
+let loadSequence = 0
 
 const exclusiveGroupConfigs = computed(() => groupConfigs.value.filter((c) => c.isExclusive))
 const publicGroupConfigs = computed(() => groupConfigs.value.filter((c) => !c.isExclusive))
 
 watch(
-  () => props.show,
-  (v) => {
-    if (v && props.user) {
+  [() => props.show, () => props.user?.id],
+  ([show, userId]) => {
+    if (show && userId) {
       load()
+    } else if (!show) {
+      loadSequence += 1
     }
-  }
+  },
+  { immediate: true },
 )
 
-const load = async () => {
+async function load() {
+  const userId = props.user?.id
+  if (!userId) return
+  const sequence = ++loadSequence
+  groups.value = []
+  groupConfigs.value = []
+  originalGroupRates.value = {}
+  hiddenAllowedGroupIds.value = []
+  loaded.value = false
+  loadError.value = null
   loading.value = true
   try {
-    const res = await adminAPI.groups.list(1, 1000)
+    const [res, freshUser] = await Promise.all([
+      adminAPI.groups.list(1, 1000),
+      adminAPI.users.getById(userId),
+    ])
+    if (sequence !== loadSequence || props.user?.id !== userId || !props.show) return
     // 只显示标准类型且活跃的分组
     groups.value = res.items.filter((g) => g.subscription_type === 'standard' && g.status === 'active')
 
     // 初始化配置
-    const userAllowedGroups = props.user?.allowed_groups || []
-    const userGroupRates = props.user?.group_rates || {}
+    const userAllowedGroups = freshUser.allowed_groups || []
+    const userGroupRates = freshUser.group_rates || {}
+    const visibleGroupIds = new Set(groups.value.map((group) => group.id))
+    hiddenAllowedGroupIds.value = userAllowedGroups.filter((groupId) => !visibleGroupIds.has(groupId))
 
     // 保存原始专属倍率，用于检测删除操作
     originalGroupRates.value = { ...userGroupRates }
@@ -220,10 +189,13 @@ const load = async () => {
       // 公开分组：始终选中
       isSelected: g.is_exclusive ? userAllowedGroups.includes(g.id) : true,
     }))
+    loaded.value = true
   } catch (error) {
-    console.error('Failed to load groups:', error)
+    if (sequence !== loadSequence) return
+    loadError.value = error
+    appStore.showError(t('admin.users.failedToLoadGroups'))
   } finally {
-    loading.value = false
+    if (sequence === loadSequence) loading.value = false
   }
 }
 
@@ -247,12 +219,15 @@ const updateCustomRate = (groupId: number, value: string) => {
 }
 
 const handleSave = async () => {
-  if (!props.user) return
+  if (!props.user || !loaded.value || loadError.value || loading.value || submitting.value) return
   submitting.value = true
 
   try {
     // 构建 allowed_groups（仅包含专属分组中被勾选的）
-    const allowedGroups = groupConfigs.value.filter((c) => c.isExclusive && c.isSelected).map((c) => c.groupId)
+    const allowedGroups = [
+      ...hiddenAllowedGroupIds.value,
+      ...groupConfigs.value.filter((c) => c.isExclusive && c.isSelected).map((c) => c.groupId),
+    ]
 
     // 构建 group_rates
     // - 有新专属倍率: 设置为该值
@@ -280,6 +255,7 @@ const handleSave = async () => {
     emit('close')
   } catch (error) {
     console.error('Failed to update user group config:', error)
+    appStore.showError(t('admin.users.failedToUpdateAllowedGroups'))
   } finally {
     submitting.value = false
   }
@@ -287,13 +263,5 @@ const handleSave = async () => {
 </script>
 
 <style scoped>
-/* 隐藏数字输入框的箭头按钮 */
-.hide-spinner::-webkit-outer-spin-button,
-.hide-spinner::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-.hide-spinner {
-  -moz-appearance: textfield;
-}
+.user-groups{display:grid;gap:24px}.user-groups__header{display:grid;gap:4px;padding-bottom:16px;border-bottom:1px solid var(--ui-border-soft)}.user-groups__header strong{font-size:14px;font-weight:600;line-height:22px}.user-groups__header p{margin:0;color:var(--ui-text-muted);font-size:12px;line-height:19px}.user-groups__loading{display:grid;gap:8px}.user-groups__section{display:grid;gap:8px}.user-groups__section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.user-groups__section-heading h3{margin:0;font-size:13px;font-weight:600;line-height:22px}.user-groups__section-heading span{color:var(--ui-text-soft);font-size:12px;font-variant-numeric:tabular-nums}.user-groups__list{border-block:1px solid var(--ui-border-soft)}.user-groups__row{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:16px;align-items:center;padding:12px 0}.user-groups__row+.user-groups__row{border-top:1px solid var(--ui-border-soft)}.user-groups__identity{display:flex;min-width:0;flex-wrap:wrap;align-items:center;gap:6px 10px}.user-groups__identity>span:not(.ui-badge){display:inline-flex;align-items:center;gap:4px;color:var(--ui-text-muted);font-size:12px}.user-groups__row :deep(.ui-form-field){min-width:0}@media(max-width:640px){.user-groups__row{grid-template-columns:1fr}.user-groups__row :deep(.ui-form-field){max-width:220px}}
 </style>
