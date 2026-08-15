@@ -1,165 +1,123 @@
 <template>
-  <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-dark-700 dark:bg-dark-800/50">
-    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+  <div class="announcement-targeting">
+    <div class="announcement-targeting__header">
       <div>
-        <div class="text-sm font-medium text-gray-900 dark:text-white">
+        <div class="announcement-targeting__title">
           {{ t('admin.announcements.form.targetingMode') }}
         </div>
-        <div class="mt-1 text-xs text-gray-500 dark:text-dark-400">
+        <div class="announcement-targeting__description">
           {{ mode === 'all' ? t('admin.announcements.form.targetingAll') : t('admin.announcements.form.targetingCustom') }}
         </div>
       </div>
-
-      <div class="flex items-center gap-3">
-        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <input
-            type="radio"
-            name="announcement-targeting-mode"
-            value="all"
-            :checked="mode === 'all'"
-            @change="setMode('all')"
-            class="h-4 w-4"
-          />
-          {{ t('admin.announcements.form.targetingAll') }}
-        </label>
-        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <input
-            type="radio"
-            name="announcement-targeting-mode"
-            value="custom"
-            :checked="mode === 'custom'"
-            @change="setMode('custom')"
-            class="h-4 w-4"
-          />
-          {{ t('admin.announcements.form.targetingCustom') }}
-        </label>
-      </div>
+      <UiRadioGroup
+        :model-value="mode"
+        :options="modeOptions"
+        name="announcement-targeting-mode"
+        @update:model-value="setMode($event as Mode)"
+      />
     </div>
 
-    <div v-if="mode === 'custom'" class="mt-4 space-y-4">
-      <div class="flex items-center justify-between">
-        <div class="text-sm font-medium text-gray-900 dark:text-white">
+    <div v-if="mode === 'custom'" class="announcement-targeting__custom">
+      <div class="announcement-targeting__toolbar">
+        <div class="announcement-targeting__title">
           OR
-          <span class="ml-1 text-xs font-normal text-gray-500 dark:text-dark-400">
-            ({{ anyOf.length }}/50)
-          </span>
+          <span class="announcement-targeting__count ui-numeric">{{ anyOf.length }}/50</span>
         </div>
-        <button
+        <UiButton
           type="button"
-          class="btn btn-secondary"
+          density="compact"
           :disabled="anyOf.length >= 50"
           @click="addOrGroup"
         >
-          <Icon name="plus" size="sm" class="mr-1" />
+          <template #icon><Icon name="plus" size="sm" /></template>
           {{ t('admin.announcements.form.addOrGroup') }}
-        </button>
+        </UiButton>
       </div>
 
-      <div v-if="anyOf.length === 0" class="rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-500 dark:border-dark-600 dark:text-dark-400">
-        {{ t('admin.announcements.form.targetingCustom') }}: {{ t('admin.announcements.form.addOrGroup') }}
-      </div>
+      <UiEmptyState
+        v-if="anyOf.length === 0"
+        :title="t('admin.announcements.form.targetingCustom')"
+        :description="t('admin.announcements.form.addOrGroup')"
+      />
 
-      <div
+      <section
         v-for="(group, groupIndex) in anyOf"
         :key="groupIndex"
-        class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800"
+        class="announcement-targeting__group"
       >
-        <div class="flex items-start justify-between gap-3">
-          <div class="min-w-0">
-            <div class="text-sm font-medium text-gray-900 dark:text-white">
+        <div class="announcement-targeting__group-header">
+          <div>
+            <div class="announcement-targeting__title">
               {{ t('admin.announcements.form.targetingCustom') }} #{{ groupIndex + 1 }}
-              <span class="ml-2 text-xs font-normal text-gray-500 dark:text-dark-400">AND ({{ (group.all_of?.length || 0) }}/50)</span>
+              <span class="announcement-targeting__count ui-numeric">AND {{ group.all_of?.length || 0 }}/50</span>
             </div>
-            <div class="mt-1 text-xs text-gray-500 dark:text-dark-400">
+            <div class="announcement-targeting__description">
               {{ t('admin.announcements.form.addAndCondition') }}
             </div>
           </div>
-
-          <button
-            type="button"
-            class="btn btn-secondary"
-            @click="removeOrGroup(groupIndex)"
-          >
-            <Icon name="trash" size="sm" class="mr-1" />
-            {{ t('common.delete') }}
-          </button>
+          <UiIconButton icon="trash" :label="t('common.delete')" variant="danger" density="compact" @click="removeOrGroup(groupIndex)" />
         </div>
 
-        <div class="mt-4 space-y-3">
+        <div class="announcement-targeting__conditions">
           <div
             v-for="(cond, condIndex) in (group.all_of || [])"
             :key="condIndex"
-            class="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-900/30"
+            class="announcement-targeting__condition"
           >
-            <div class="flex flex-col gap-3 md:flex-row md:items-end">
-              <div class="w-full md:w-52">
-                <label class="input-label">{{ t('admin.announcements.form.conditionType') }}</label>
-                <Select
+              <div class="announcement-targeting__condition-type">
+                <UiSelect
                   :model-value="cond.type"
+                  :label="t('admin.announcements.form.conditionType')"
                   :options="conditionTypeOptions"
+                  density="compact"
                   @update:model-value="(v) => setConditionType(groupIndex, condIndex, v as any)"
                 />
               </div>
 
-              <div v-if="cond.type === 'subscription'" class="flex-1">
-                <label class="input-label">{{ t('admin.announcements.form.selectPackages') }}</label>
+              <div v-if="cond.type === 'subscription'" class="announcement-targeting__condition-value">
+                <label class="announcement-targeting__field-label">{{ t('admin.announcements.form.selectPackages') }}</label>
                 <GroupSelector
                   v-model="subscriptionSelections[groupIndex][condIndex]"
                   :groups="groups"
                 />
               </div>
 
-              <div v-else class="flex flex-1 flex-col gap-3 sm:flex-row">
-                <div class="w-full sm:w-44">
-                  <label class="input-label">{{ t('admin.announcements.form.operator') }}</label>
-                  <Select
+              <div v-else class="announcement-targeting__balance">
+                <UiSelect
                     :model-value="cond.operator"
+                    :label="t('admin.announcements.form.operator')"
                     :options="balanceOperatorOptions"
+                    density="compact"
                     @update:model-value="(v) => setOperator(groupIndex, condIndex, v as any)"
                   />
-                </div>
-                <div class="w-full sm:flex-1">
-                  <label class="input-label">{{ t('admin.announcements.form.balanceValue') }}</label>
-                  <input
-                    :value="String(cond.value ?? '')"
+                  <UiTextField
+                    :model-value="cond.value ?? ''"
                     type="number"
                     step="any"
-                    class="input"
-                    @input="(e) => setBalanceValue(groupIndex, condIndex, (e.target as HTMLInputElement).value)"
+                    density="compact"
+                    :label="t('admin.announcements.form.balanceValue')"
+                    @update:model-value="setBalanceValue(groupIndex, condIndex, String($event))"
                   />
-                </div>
               </div>
 
-              <div class="flex justify-end">
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  @click="removeAndCondition(groupIndex, condIndex)"
-                >
-                  <Icon name="trash" size="sm" class="mr-1" />
-                  {{ t('common.delete') }}
-                </button>
-              </div>
-            </div>
+              <UiIconButton icon="x" :label="t('common.delete')" variant="danger" density="compact" @click="removeAndCondition(groupIndex, condIndex)" />
           </div>
 
-          <div class="flex justify-end">
-            <button
+          <div class="announcement-targeting__condition-actions">
+            <UiButton
               type="button"
-              class="btn btn-secondary"
+              density="compact"
               :disabled="(group.all_of?.length || 0) >= 50"
               @click="addAndCondition(groupIndex)"
             >
-              <Icon name="plus" size="sm" class="mr-1" />
+              <template #icon><Icon name="plus" size="sm" /></template>
               {{ t('admin.announcements.form.addAndCondition') }}
-            </button>
+            </UiButton>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div v-if="validationError" class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/30 dark:bg-red-900/10 dark:text-red-300">
-        {{ validationError }}
-      </div>
+      <UiAlert v-if="validationError" tone="danger" :message="validationError" />
     </div>
   </div>
 </template>
@@ -176,9 +134,17 @@ import type {
   AnnouncementOperator
 } from '@/types'
 
-import Select from '@/components/common/Select.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  UiAlert,
+  UiButton,
+  UiEmptyState,
+  UiIconButton,
+  UiRadioGroup,
+  UiSelect,
+  UiTextField,
+} from '@/components/ui'
 
 const { t } = useI18n()
 
@@ -195,6 +161,10 @@ const anyOf = computed(() => props.modelValue?.any_of ?? [])
 
 type Mode = 'all' | 'custom'
 const mode = computed<Mode>(() => (anyOf.value.length === 0 ? 'all' : 'custom'))
+const modeOptions = computed(() => [
+  { value: 'all', label: t('admin.announcements.form.targetingAll') },
+  { value: 'custom', label: t('admin.announcements.form.targetingCustom') },
+])
 
 const conditionTypeOptions = computed(() => [
   { value: 'subscription', label: t('admin.announcements.form.conditionSubscription') },
@@ -406,3 +376,28 @@ const validationError = computed(() => {
   return ''
 })
 </script>
+
+<style scoped>
+.announcement-targeting { display: grid; gap: 14px; padding-block: 2px; }
+.announcement-targeting__header,
+.announcement-targeting__toolbar,
+.announcement-targeting__group-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.announcement-targeting__title { color: var(--ui-text); font-size: 13px; font-weight: 600; }
+.announcement-targeting__description,
+.announcement-targeting__count { margin-top: 2px; color: var(--ui-text-soft); font-size: 11px; font-weight: 400; }
+.announcement-targeting__count { margin-left: 6px; }
+.announcement-targeting__custom { display: grid; gap: 12px; padding-top: 14px; border-top: 1px solid var(--ui-border-soft); }
+.announcement-targeting__group { display: grid; gap: 12px; padding-block: 12px; border-top: 1px solid var(--ui-border); }
+.announcement-targeting__conditions { display: grid; gap: 8px; }
+.announcement-targeting__condition { display: grid; grid-template-columns: minmax(160px, .65fr) minmax(240px, 1.35fr) auto; align-items: end; gap: 10px; padding: 10px 0; border-top: 1px solid var(--ui-border-soft); }
+.announcement-targeting__condition-value { min-width: 0; }
+.announcement-targeting__balance { display: grid; grid-template-columns: minmax(130px, .7fr) minmax(160px, 1fr); gap: 10px; }
+.announcement-targeting__field-label { display: block; margin-bottom: 4px; color: var(--ui-text-muted); font-size: 11px; font-weight: 600; }
+.announcement-targeting__condition-actions { display: flex; justify-content: flex-end; }
+@media (max-width: 720px) {
+  .announcement-targeting__header { align-items: flex-start; flex-direction: column; }
+  .announcement-targeting__condition { grid-template-columns: 1fr; }
+  .announcement-targeting__balance { grid-template-columns: 1fr; }
+  .announcement-targeting__condition > .ui-icon-button { justify-self: end; }
+}
+</style>
