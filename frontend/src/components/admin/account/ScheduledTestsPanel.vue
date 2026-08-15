@@ -1,455 +1,197 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.scheduledTests.title')"
     width="wide"
     @close="emit('close')"
   >
-    <div class="space-y-4">
-      <!-- Add Plan Button -->
-      <div class="flex items-center justify-between">
-        <p class="text-sm text-gray-500 dark:text-gray-400">
+    <AppStack :gap="16">
+      <div class="scheduled-tests__toolbar">
+        <p>
           {{ t('admin.scheduledTests.title') }}
         </p>
-        <button
+        <UiButton
+          variant="primary"
+          density="compact"
           @click="showAddForm = !showAddForm"
-          class="btn btn-primary flex items-center gap-1.5 text-sm"
         >
-          <Icon name="plus" size="sm" :stroke-width="2" />
+          <template #icon><Icon name="plus" size="sm" /></template>
           {{ t('admin.scheduledTests.addPlan') }}
-        </button>
+        </UiButton>
       </div>
 
-      <!-- Add Plan Form -->
-      <div
-        v-if="showAddForm"
-        class="rounded-xl border border-primary-200 bg-primary-50/50 p-4 dark:border-primary-800 dark:bg-primary-900/20"
-      >
-        <div class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-          {{ t('admin.scheduledTests.addPlan') }}
-        </div>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-              {{ t('admin.scheduledTests.model') }}
-            </label>
-            <Select
+      <section v-if="showAddForm" class="scheduled-tests__form">
+        <h3>{{ t('admin.scheduledTests.addPlan') }}</h3>
+        <div class="scheduled-tests__form-grid">
+            <UiSelect
               v-model="newPlan.model_id"
               :options="modelOptions"
+              :label="t('admin.scheduledTests.model')"
               :placeholder="t('admin.scheduledTests.model')"
-              :searchable="modelOptions.length > 5"
+              :searchable="modelOptions.length > 5 ? true : 'auto'"
             />
-          </div>
-          <div>
-            <label class="mb-1 flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-400">
-              {{ t('admin.scheduledTests.cronExpression') }}
-              <HelpTooltip>
-                <template #trigger>
-                  <span class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-gray-400/70 text-[10px] font-semibold text-gray-400 transition-colors hover:border-primary-500 hover:text-primary-600 dark:border-gray-500 dark:text-gray-500 dark:hover:border-primary-400 dark:hover:text-primary-400">
-                    ?
-                  </span>
-                </template>
-                <div class="space-y-1.5">
-                  <p class="font-medium">{{ t('admin.scheduledTests.cronTooltipTitle') }}</p>
-                  <p>{{ t('admin.scheduledTests.cronTooltipMeaning') }}</p>
-                  <p>{{ t('admin.scheduledTests.cronTooltipExampleEvery30Min') }}</p>
-                  <p>{{ t('admin.scheduledTests.cronTooltipExampleHourly') }}</p>
-                  <p>{{ t('admin.scheduledTests.cronTooltipExampleDaily') }}</p>
-                  <p>{{ t('admin.scheduledTests.cronTooltipExampleWeekly') }}</p>
-                  <p>{{ t('admin.scheduledTests.cronTooltipRange') }}</p>
-                </div>
-              </HelpTooltip>
-            </label>
-            <Input
+            <UiTextField
               v-model="newPlan.cron_expression"
+              :label="t('admin.scheduledTests.cronExpression')"
               :placeholder="'*/30 * * * *'"
-              :hint="t('admin.scheduledTests.cronHelp')"
+              :description="t('admin.scheduledTests.cronHelp')"
+              :help="t('admin.scheduledTests.cronTooltipMeaning')"
+              monospace
             />
-          </div>
-          <div>
-            <label class="mb-1 flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-400">
-              {{ t('admin.scheduledTests.maxResults') }}
-              <HelpTooltip>
-                <template #trigger>
-                  <span class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-gray-400/70 text-[10px] font-semibold text-gray-400 transition-colors hover:border-primary-500 hover:text-primary-600 dark:border-gray-500 dark:text-gray-500 dark:hover:border-primary-400 dark:hover:text-primary-400">
-                    ?
-                  </span>
-                </template>
-                <div class="space-y-1.5">
-                  <p class="font-medium">{{ t('admin.scheduledTests.maxResultsTooltipTitle') }}</p>
-                  <p>{{ t('admin.scheduledTests.maxResultsTooltipMeaning') }}</p>
-                  <p>{{ t('admin.scheduledTests.maxResultsTooltipBody') }}</p>
-                  <p>{{ t('admin.scheduledTests.maxResultsTooltipExample') }}</p>
-                  <p>{{ t('admin.scheduledTests.maxResultsTooltipRange') }}</p>
-                </div>
-              </HelpTooltip>
-            </label>
-            <Input
+            <UiTextField
               v-model="newPlan.max_results"
               type="number"
+              :label="t('admin.scheduledTests.maxResults')"
+              :help="t('admin.scheduledTests.maxResultsTooltipMeaning')"
+              :min="1"
               placeholder="100"
             />
+          <div class="scheduled-tests__switch-field">
+            <span>{{ t('admin.scheduledTests.enabled') }}</span>
+            <UiSwitch v-model="newPlan.enabled" :label="t('admin.scheduledTests.enabled')" />
           </div>
-          <div class="flex items-end">
-            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <Toggle v-model="newPlan.enabled" />
-              {{ t('admin.scheduledTests.enabled') }}
-            </label>
-          </div>
-          <div class="flex items-end">
+          <div class="scheduled-tests__switch-field">
             <div>
-              <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <Toggle v-model="newPlan.auto_recover" />
-                {{ t('admin.scheduledTests.autoRecover') }}
-              </label>
-              <p class="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-                {{ t('admin.scheduledTests.autoRecoverHelp') }}
-              </p>
+              <span>{{ t('admin.scheduledTests.autoRecover') }}</span>
+              <small>{{ t('admin.scheduledTests.autoRecoverHelp') }}</small>
             </div>
+            <UiSwitch v-model="newPlan.auto_recover" :label="t('admin.scheduledTests.autoRecover')" />
           </div>
         </div>
-        <div class="mt-3 flex justify-end gap-2">
-          <button
-            @click="showAddForm = false; resetNewPlan()"
-            class="rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-300 dark:hover:bg-dark-500"
-          >
+        <div class="scheduled-tests__form-actions">
+          <UiButton density="compact" @click="showAddForm = false; resetNewPlan()">
             {{ t('common.cancel') }}
-          </button>
-          <button
-            @click="handleCreate"
+          </UiButton>
+          <UiButton
+            variant="primary"
+            density="compact"
+            :loading="creating"
             :disabled="!newPlan.model_id || !newPlan.cron_expression || creating"
-            class="flex items-center gap-1.5 rounded-lg bg-primary-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+            @click="handleCreate"
           >
-            <Icon v-if="creating" name="refresh" size="sm" class="animate-spin" :stroke-width="2" />
             {{ t('common.save') }}
-          </button>
+          </UiButton>
         </div>
+      </section>
+
+      <div v-if="loading" class="scheduled-tests__loading">
+        <UiSpinner :label="t('common.loading')" />
+        <span>{{ t('common.loading') }}...</span>
       </div>
 
-      <!-- Loading State -->
-      <div v-if="loading" class="flex items-center justify-center py-8">
-        <Icon name="refresh" size="md" class="animate-spin text-gray-400" :stroke-width="2" />
-        <span class="ml-2 text-sm text-gray-500">{{ t('common.loading') }}...</span>
-      </div>
+      <UiEmptyState v-else-if="plans.length === 0" icon="calendar" :title="t('admin.scheduledTests.noPlans')" />
 
-      <!-- Empty State -->
-      <div
-        v-else-if="plans.length === 0"
-        class="rounded-xl border border-dashed border-gray-300 py-10 text-center dark:border-dark-600"
-      >
-        <Icon name="calendar" size="lg" class="mx-auto mb-2 text-gray-400" :stroke-width="1.5" />
-        <p class="text-sm text-gray-500 dark:text-gray-400">
-          {{ t('admin.scheduledTests.noPlans') }}
-        </p>
-      </div>
-
-      <!-- Plans List -->
-      <div v-else class="space-y-3">
-        <div
-          v-for="plan in plans"
-          :key="plan.id"
-          class="rounded-xl border border-gray-200 bg-white transition-all dark:border-dark-600 dark:bg-dark-800"
-        >
-          <!-- Plan Header -->
-          <div
-            class="flex cursor-pointer items-center justify-between px-4 py-3"
-            @click="toggleExpand(plan.id)"
-          >
-            <div class="flex flex-1 items-center gap-4">
-              <!-- Model -->
-              <div class="min-w-0">
-                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {{ plan.model_id }}
-                </div>
-                <div class="mt-0.5 font-mono text-xs text-gray-500 dark:text-gray-400">
-                  {{ plan.cron_expression }}
-                </div>
-              </div>
-
-              <!-- Enabled Toggle -->
-              <div class="flex items-center gap-1.5" @click.stop>
-                <Toggle
+      <div v-else class="scheduled-tests__list">
+        <section v-for="plan in plans" :key="plan.id" class="scheduled-tests__plan">
+          <div class="scheduled-tests__plan-header">
+            <button type="button" class="scheduled-tests__plan-trigger" :aria-expanded="expandedPlanId === plan.id" @click="toggleExpand(plan.id)">
+              <span>
+                <strong>{{ plan.model_id }}</strong>
+                <code>{{ plan.cron_expression }}</code>
+              </span>
+              <Icon name="chevronDown" size="sm" :class="{ 'is-open': expandedPlanId === plan.id }" />
+            </button>
+            <div class="scheduled-tests__plan-meta">
+              <UiSwitch
                   :model-value="plan.enabled"
+                  :label="t('admin.scheduledTests.enabled')"
                   @update:model-value="(val: boolean) => handleToggleEnabled(plan, val)"
                 />
-                <span class="text-xs text-gray-500 dark:text-gray-400">
-                  {{ plan.enabled ? t('admin.scheduledTests.enabled') : '' }}
-                </span>
-              </div>
-
-              <!-- Auto Recover Badge -->
-              <span
-                v-if="plan.auto_recover"
-                class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
-              >
-                {{ t('admin.scheduledTests.autoRecover') }}
-              </span>
-            </div>
-
-            <div class="flex items-center gap-3">
-              <!-- Last Run -->
-              <div v-if="plan.last_run_at" class="hidden text-right text-xs text-gray-500 dark:text-gray-400 sm:block">
-                <div>{{ t('admin.scheduledTests.lastRun') }}</div>
-                <div>{{ formatDateTime(plan.last_run_at) }}</div>
-              </div>
-
-              <!-- Next Run -->
-              <div v-if="plan.next_run_at" class="hidden text-right text-xs text-gray-500 dark:text-gray-400 sm:block">
-                <div>{{ t('admin.scheduledTests.nextRun') }}</div>
-                <div>{{ formatDateTime(plan.next_run_at) }}</div>
-              </div>
-
-              <!-- Actions -->
-              <div class="flex items-center gap-1" @click.stop>
-                <button
-                  @click="startEdit(plan)"
-                  class="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-500 dark:hover:bg-blue-900/20"
-                  :title="t('admin.scheduledTests.editPlan')"
-                >
-                  <Icon name="edit" size="sm" :stroke-width="2" />
-                </button>
-                <button
-                  @click="confirmDeletePlan(plan)"
-                  class="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
-                  :title="t('admin.scheduledTests.deletePlan')"
-                >
-                  <Icon name="trash" size="sm" :stroke-width="2" />
-                </button>
-              </div>
-
-              <!-- Expand indicator -->
-              <Icon
-                name="chevronDown"
-                size="sm"
-                :class="[
-                  'text-gray-400 transition-transform duration-200',
-                  expandedPlanId === plan.id ? 'rotate-180' : ''
-                ]"
-              />
+              <UiBadge v-if="plan.auto_recover" tone="success" :label="t('admin.scheduledTests.autoRecover')" />
+              <span v-if="plan.last_run_at">{{ t('admin.scheduledTests.lastRun') }} {{ formatDateTime(plan.last_run_at) }}</span>
+              <span v-if="plan.next_run_at">{{ t('admin.scheduledTests.nextRun') }} {{ formatDateTime(plan.next_run_at) }}</span>
+              <UiIconButton :label="t('admin.scheduledTests.editPlan')" icon="edit" variant="ghost" density="dense" @click="startEdit(plan)" />
+              <UiIconButton :label="t('admin.scheduledTests.deletePlan')" icon="trash" variant="danger" density="dense" @click="confirmDeletePlan(plan)" />
             </div>
           </div>
 
-          <!-- Edit Form -->
-          <div
-            v-if="editingPlanId === plan.id"
-            class="border-t border-blue-100 bg-blue-50/50 px-4 py-3 dark:border-blue-900 dark:bg-blue-900/10"
-            @click.stop
-          >
-            <div class="mb-2 text-xs font-medium text-gray-600 dark:text-gray-400">
-              {{ t('admin.scheduledTests.editPlan') }}
-            </div>
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                  {{ t('admin.scheduledTests.model') }}
-                </label>
-                <Select
+          <section v-if="editingPlanId === plan.id" class="scheduled-tests__form scheduled-tests__form--edit">
+            <h3>{{ t('admin.scheduledTests.editPlan') }}</h3>
+            <div class="scheduled-tests__form-grid">
+                <UiSelect
                   v-model="editForm.model_id"
                   :options="modelOptions"
+                  :label="t('admin.scheduledTests.model')"
                   :placeholder="t('admin.scheduledTests.model')"
-                  :searchable="modelOptions.length > 5"
+                  :searchable="modelOptions.length > 5 ? true : 'auto'"
                 />
-              </div>
-              <div>
-                <label class="mb-1 flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-400">
-                  {{ t('admin.scheduledTests.cronExpression') }}
-                  <HelpTooltip>
-                    <template #trigger>
-                      <span class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-gray-400/70 text-[10px] font-semibold text-gray-400 transition-colors hover:border-primary-500 hover:text-primary-600 dark:border-gray-500 dark:text-gray-500 dark:hover:border-primary-400 dark:hover:text-primary-400">
-                        ?
-                      </span>
-                    </template>
-                    <div class="space-y-1.5">
-                      <p class="font-medium">{{ t('admin.scheduledTests.cronTooltipTitle') }}</p>
-                      <p>{{ t('admin.scheduledTests.cronTooltipMeaning') }}</p>
-                      <p>{{ t('admin.scheduledTests.cronTooltipExampleEvery30Min') }}</p>
-                      <p>{{ t('admin.scheduledTests.cronTooltipExampleHourly') }}</p>
-                      <p>{{ t('admin.scheduledTests.cronTooltipExampleDaily') }}</p>
-                      <p>{{ t('admin.scheduledTests.cronTooltipExampleWeekly') }}</p>
-                      <p>{{ t('admin.scheduledTests.cronTooltipRange') }}</p>
-                    </div>
-                  </HelpTooltip>
-                </label>
-                <Input
+                <UiTextField
                   v-model="editForm.cron_expression"
+                  :label="t('admin.scheduledTests.cronExpression')"
                   :placeholder="'*/30 * * * *'"
-                  :hint="t('admin.scheduledTests.cronHelp')"
+                  :description="t('admin.scheduledTests.cronHelp')"
+                  :help="t('admin.scheduledTests.cronTooltipMeaning')"
+                  monospace
                 />
-              </div>
-              <div>
-                <label class="mb-1 flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-400">
-                  {{ t('admin.scheduledTests.maxResults') }}
-                  <HelpTooltip>
-                    <template #trigger>
-                      <span class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-gray-400/70 text-[10px] font-semibold text-gray-400 transition-colors hover:border-primary-500 hover:text-primary-600 dark:border-gray-500 dark:text-gray-500 dark:hover:border-primary-400 dark:hover:text-primary-400">
-                        ?
-                      </span>
-                    </template>
-                    <div class="space-y-1.5">
-                      <p class="font-medium">{{ t('admin.scheduledTests.maxResultsTooltipTitle') }}</p>
-                      <p>{{ t('admin.scheduledTests.maxResultsTooltipMeaning') }}</p>
-                      <p>{{ t('admin.scheduledTests.maxResultsTooltipBody') }}</p>
-                      <p>{{ t('admin.scheduledTests.maxResultsTooltipExample') }}</p>
-                      <p>{{ t('admin.scheduledTests.maxResultsTooltipRange') }}</p>
-                    </div>
-                  </HelpTooltip>
-                </label>
-                <Input
+                <UiTextField
                   v-model="editForm.max_results"
                   type="number"
+                  :label="t('admin.scheduledTests.maxResults')"
+                  :help="t('admin.scheduledTests.maxResultsTooltipMeaning')"
+                  :min="1"
                   placeholder="100"
                 />
+              <div class="scheduled-tests__switch-field">
+                <span>{{ t('admin.scheduledTests.enabled') }}</span>
+                <UiSwitch v-model="editForm.enabled" :label="t('admin.scheduledTests.enabled')" />
               </div>
-              <div class="flex items-end">
-                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  <Toggle v-model="editForm.enabled" />
-                  {{ t('admin.scheduledTests.enabled') }}
-                </label>
-              </div>
-              <div class="flex items-end">
+              <div class="scheduled-tests__switch-field">
                 <div>
-                  <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                    <Toggle v-model="editForm.auto_recover" />
-                    {{ t('admin.scheduledTests.autoRecover') }}
-                  </label>
-                  <p class="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-                    {{ t('admin.scheduledTests.autoRecoverHelp') }}
-                  </p>
+                  <span>{{ t('admin.scheduledTests.autoRecover') }}</span>
+                  <small>{{ t('admin.scheduledTests.autoRecoverHelp') }}</small>
                 </div>
+                <UiSwitch v-model="editForm.auto_recover" :label="t('admin.scheduledTests.autoRecover')" />
               </div>
             </div>
-            <div class="mt-3 flex justify-end gap-2">
-              <button
-                @click="cancelEdit"
-                class="rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-300 dark:hover:bg-dark-500"
-              >
+            <div class="scheduled-tests__form-actions">
+              <UiButton density="compact" @click="cancelEdit">
                 {{ t('common.cancel') }}
-              </button>
-              <button
-                @click="handleEdit"
+              </UiButton>
+              <UiButton
+                variant="primary"
+                density="compact"
+                :loading="updating"
                 :disabled="!editForm.model_id || !editForm.cron_expression || updating"
-                class="flex items-center gap-1.5 rounded-lg bg-primary-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                @click="handleEdit"
               >
-                <Icon v-if="updating" name="refresh" size="sm" class="animate-spin" :stroke-width="2" />
                 {{ t('common.save') }}
-              </button>
+              </UiButton>
             </div>
-          </div>
+          </section>
 
-          <!-- Expanded Results Section -->
-          <div
-            v-if="expandedPlanId === plan.id"
-            class="border-t border-gray-100 px-4 py-3 dark:border-dark-700"
-          >
-            <div class="mb-2 text-xs font-medium text-gray-600 dark:text-gray-400">
-              {{ t('admin.scheduledTests.results') }}
+          <section v-if="expandedPlanId === plan.id" class="scheduled-tests__results">
+            <h3>{{ t('admin.scheduledTests.results') }}</h3>
+            <div v-if="loadingResults" class="scheduled-tests__loading scheduled-tests__loading--small">
+              <UiSpinner size="sm" :label="t('common.loading')" />
+              <span>{{ t('common.loading') }}...</span>
             </div>
-
-            <!-- Results Loading -->
-            <div v-if="loadingResults" class="flex items-center justify-center py-4">
-              <Icon name="refresh" size="sm" class="animate-spin text-gray-400" :stroke-width="2" />
-              <span class="ml-2 text-xs text-gray-500">{{ t('common.loading') }}...</span>
-            </div>
-
-            <!-- No Results -->
-            <div
-              v-else-if="results.length === 0"
-              class="py-4 text-center text-xs text-gray-500 dark:text-gray-400"
-            >
-              {{ t('admin.scheduledTests.noResults') }}
-            </div>
-
-            <!-- Results List -->
-            <div v-else class="max-h-64 space-y-2 overflow-y-auto">
-              <div
-                v-for="result in results"
-                :key="result.id"
-                class="rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-900"
-              >
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <!-- Status Badge -->
-                    <span
-                      :class="[
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                        result.status === 'success'
-                          ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400'
-                          : result.status === 'running'
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400'
-                            : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400'
-                      ]"
-                    >
-                      {{
-                        result.status === 'success'
-                          ? t('admin.scheduledTests.success')
-                          : result.status === 'running'
-                            ? t('admin.scheduledTests.running')
-                            : t('admin.scheduledTests.failed')
-                      }}
-                    </span>
-
-                    <!-- Latency -->
-                    <span v-if="result.latency_ms > 0" class="text-xs text-gray-500 dark:text-gray-400">
-                      {{ result.latency_ms }}ms
-                    </span>
+            <UiEmptyState v-else-if="results.length === 0" :title="t('admin.scheduledTests.noResults')" />
+            <div v-else class="scheduled-tests__result-list">
+              <article v-for="result in results" :key="result.id" class="scheduled-tests__result">
+                <div class="scheduled-tests__result-header">
+                  <div>
+                    <UiStatusBadge :status="result.status" :label="resultStatusLabel(result.status)" />
+                    <span v-if="result.latency_ms > 0" class="ui-numeric">{{ result.latency_ms }}ms</span>
                   </div>
-
-                  <!-- Started At -->
-                  <span class="text-xs text-gray-400">
-                    {{ formatDateTime(result.started_at) }}
-                  </span>
+                  <time>{{ formatDateTime(result.started_at) }}</time>
                 </div>
-
-                <!-- Response / Error (collapsible) -->
-                <div v-if="result.error_message" class="mt-2">
-                  <div
-                    class="cursor-pointer text-xs font-medium text-red-600 dark:text-red-400"
-                    @click="toggleResultDetail(result.id)"
-                  >
-                    {{ t('admin.scheduledTests.errorMessage') }}
-                    <Icon
-                      name="chevronDown"
-                      size="sm"
-                      :class="[
-                        'inline transition-transform duration-200',
-                        expandedResultIds.has(result.id) ? 'rotate-180' : ''
-                      ]"
-                    />
-                  </div>
-                  <pre
-                    v-if="expandedResultIds.has(result.id)"
-                    class="mt-1 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-red-50 p-2 text-xs text-red-700 dark:bg-red-900/20 dark:text-red-300"
-                  >{{ result.error_message }}</pre>
-                </div>
-                <div v-else-if="result.response_text" class="mt-2">
-                  <div
-                    class="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-400"
-                    @click="toggleResultDetail(result.id)"
-                  >
-                    {{ t('admin.scheduledTests.responseText') }}
-                    <Icon
-                      name="chevronDown"
-                      size="sm"
-                      :class="[
-                        'inline transition-transform duration-200',
-                        expandedResultIds.has(result.id) ? 'rotate-180' : ''
-                      ]"
-                    />
-                  </div>
-                  <pre
-                    v-if="expandedResultIds.has(result.id)"
-                    class="mt-1 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-gray-100 p-2 text-xs text-gray-700 dark:bg-dark-800 dark:text-gray-300"
-                  >{{ result.response_text }}</pre>
-                </div>
-              </div>
+                <UiButton v-if="result.error_message || result.response_text" variant="quiet" density="dense" @click="toggleResultDetail(result.id)">
+                  <template #icon><Icon name="chevronDown" size="xs" :class="{ 'is-open': expandedResultIds.has(result.id) }" /></template>
+                  {{ result.error_message ? t('admin.scheduledTests.errorMessage') : t('admin.scheduledTests.responseText') }}
+                </UiButton>
+                <UiCodeBlock
+                  v-if="expandedResultIds.has(result.id)"
+                  :code="result.error_message || result.response_text || ''"
+                  :label="result.error_message ? t('admin.scheduledTests.errorMessage') : t('admin.scheduledTests.responseText')"
+                />
+              </article>
             </div>
-          </div>
-        </div>
+          </section>
+        </section>
       </div>
-    </div>
+    </AppStack>
 
-    <!-- Delete Confirmation -->
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showDeleteConfirm"
       :title="t('admin.scheduledTests.deletePlan')"
       :message="t('admin.scheduledTests.confirmDelete')"
@@ -459,19 +201,29 @@
       @confirm="handleDelete"
       @cancel="showDeleteConfirm = false"
     />
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import HelpTooltip from '@/components/common/HelpTooltip.vue'
-import Select, { type SelectOption } from '@/components/common/Select.vue'
-import Input from '@/components/common/Input.vue'
-import Toggle from '@/components/common/Toggle.vue'
+import type { SelectOption } from '@/components/ui/selectTypes'
 import { Icon } from '@/components/icons'
+import {
+  AppStack,
+  UiBadge,
+  UiButton,
+  UiCodeBlock,
+  UiConfirmDialog,
+  UiDialog,
+  UiEmptyState,
+  UiIconButton,
+  UiSelect,
+  UiSpinner,
+  UiStatusBadge,
+  UiSwitch,
+  UiTextField
+} from '@/components/ui'
 import { adminAPI } from '@/api/admin'
 import { useAppStore } from '@/stores/app'
 import { formatDateTime } from '@/utils/format'
@@ -681,4 +433,22 @@ const toggleResultDetail = (resultId: number) => {
     expandedResultIds.add(resultId)
   }
 }
+
+const resultStatusLabel = (status: ScheduledTestResult['status']) => {
+  if (status === 'success') return t('admin.scheduledTests.success')
+  if (status === 'running') return t('admin.scheduledTests.running')
+  return t('admin.scheduledTests.failed')
+}
 </script>
+
+<style scoped>
+.scheduled-tests__toolbar,.scheduled-tests__plan-header,.scheduled-tests__plan-meta,.scheduled-tests__result-header,.scheduled-tests__result-header>div,.scheduled-tests__switch-field{display:flex;align-items:center}
+.scheduled-tests__toolbar{justify-content:space-between;gap:12px}.scheduled-tests__toolbar p{margin:0;color:var(--ui-text-muted);font-size:13px}
+.scheduled-tests__form{display:grid;gap:12px;padding:14px 0;border-block:1px solid var(--ui-border-soft)}.scheduled-tests__form--edit{padding-inline:12px;background:var(--ui-surface-muted)}
+.scheduled-tests__form h3,.scheduled-tests__results h3{margin:0;color:var(--ui-text);font-size:13px;font-weight:600}.scheduled-tests__form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.scheduled-tests__switch-field{min-height:36px;align-self:end;justify-content:space-between;gap:12px}.scheduled-tests__switch-field>div{display:grid;gap:1px}.scheduled-tests__switch-field span{color:var(--ui-text);font-size:12px}.scheduled-tests__switch-field small{color:var(--ui-text-soft);font-size:11px}.scheduled-tests__form-actions{display:flex;justify-content:flex-end;gap:8px}
+.scheduled-tests__loading{display:flex;min-height:112px;align-items:center;justify-content:center;gap:8px;color:var(--ui-text-soft);font-size:12px}.scheduled-tests__loading--small{min-height:64px}
+.scheduled-tests__list{border-top:1px solid var(--ui-border-soft)}.scheduled-tests__plan{border-bottom:1px solid var(--ui-border-soft)}.scheduled-tests__plan-header{min-height:58px;justify-content:space-between;gap:14px}.scheduled-tests__plan-trigger{display:flex;min-width:0;flex:1;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border:0;color:var(--ui-text);background:transparent;text-align:left}.scheduled-tests__plan-trigger>span{display:grid;min-width:0;gap:2px}.scheduled-tests__plan-trigger strong,.scheduled-tests__plan-trigger code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.scheduled-tests__plan-trigger strong{font-size:13px}.scheduled-tests__plan-trigger code{color:var(--ui-text-muted);font-family:var(--ui-font-mono);font-size:11px}.scheduled-tests__plan-trigger svg,.scheduled-tests__result .ui-button svg{transition:transform var(--ui-motion-fast)}.scheduled-tests__plan-trigger svg.is-open,.scheduled-tests__result .ui-button svg.is-open{transform:rotate(180deg)}.scheduled-tests__plan-meta{justify-content:flex-end;gap:7px;color:var(--ui-text-soft);font-size:11px}
+.scheduled-tests__results{display:grid;gap:10px;padding:12px 0;border-top:1px solid var(--ui-border-soft)}.scheduled-tests__result-list{display:grid;max-height:320px;gap:8px;overflow-y:auto}.scheduled-tests__result{display:grid;gap:7px;padding:9px 0;border-bottom:1px solid var(--ui-border-soft)}.scheduled-tests__result-header{justify-content:space-between;gap:10px}.scheduled-tests__result-header>div{gap:10px}.scheduled-tests__result-header span,.scheduled-tests__result-header time{color:var(--ui-text-soft);font-size:11px}.scheduled-tests__result :deep(.ui-button){justify-self:start}
+@media(max-width:720px){.scheduled-tests__form-grid{grid-template-columns:1fr}.scheduled-tests__plan-header{align-items:flex-start;flex-direction:column}.scheduled-tests__plan-trigger{width:100%}.scheduled-tests__plan-meta{width:100%;justify-content:flex-start;flex-wrap:wrap}.scheduled-tests__plan-meta>span{display:none}}
+@media(prefers-reduced-motion:reduce){.scheduled-tests__plan-trigger svg,.scheduled-tests__result .ui-button svg{transition:none}}
+</style>
