@@ -1,92 +1,34 @@
 <template>
-  <div class="flex items-start gap-2 rounded border p-2"
-       :class="isEmpty ? 'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-950/20' : 'border-gray-200 bg-white dark:border-dark-500 dark:bg-dark-700'">
-    <!-- Token mode: context range + prices ($/MTok) -->
+  <div class="channel-interval-row" :class="{ 'channel-interval-row--invalid': isEmpty }">
     <template v-if="mode === 'token'">
-      <div class="w-20">
-        <label class="text-xs text-gray-400">{{ t('admin.channels.form.minTokens') }}</label>
-        <input :value="interval.min_tokens" @input="emitField('min_tokens', toInt(($event.target as HTMLInputElement).value))"
-          type="number" min="0" class="input mt-0.5 text-xs" />
-      </div>
-      <div class="w-20">
-        <label class="text-xs text-gray-400">{{ t('admin.channels.form.maxTokens') }} <span class="text-gray-300">{{ t('admin.channels.form.inclusive') }}</span></label>
-        <input :value="interval.max_tokens ?? ''" @input="emitField('max_tokens', toIntOrNull(($event.target as HTMLInputElement).value))"
-          type="number" min="0" class="input mt-0.5 text-xs" :placeholder="'∞'" />
-      </div>
-      <div class="flex-1">
-        <label class="text-xs text-gray-400">{{ t('admin.channels.form.inputPrice') }} <span v-if="isEmpty" class="text-red-500">*</span> <span class="text-gray-300">$/M</span></label>
-        <input :value="interval.input_price" @input="emitField('input_price', ($event.target as HTMLInputElement).value)"
-          type="number" step="any" min="0" class="input mt-0.5 text-xs" />
-      </div>
-      <div class="flex-1">
-        <label class="text-xs text-gray-400">{{ t('admin.channels.form.outputPrice') }} <span v-if="isEmpty" class="text-red-500">*</span> <span class="text-gray-300">$/M</span></label>
-        <input :value="interval.output_price" @input="emitField('output_price', ($event.target as HTMLInputElement).value)"
-          type="number" step="any" min="0" class="input mt-0.5 text-xs" />
-      </div>
-      <div class="flex-1">
-        <label class="text-xs text-gray-400">{{ t('admin.channels.form.cacheWritePriceShort') }} <span class="text-gray-300">$/M</span></label>
-        <input :value="interval.cache_write_price" @input="emitField('cache_write_price', ($event.target as HTMLInputElement).value)"
-          type="number" step="any" min="0" class="input mt-0.5 text-xs" />
-      </div>
-      <div class="flex-1">
-        <label class="text-xs text-gray-400">{{ t('admin.channels.form.cacheReadPriceShort') }} <span class="text-gray-300">$/M</span></label>
-        <input :value="interval.cache_read_price" @input="emitField('cache_read_price', ($event.target as HTMLInputElement).value)"
-          type="number" step="any" min="0" class="input mt-0.5 text-xs" />
-      </div>
+      <UiTextField density="mini" :label="t('admin.channels.form.minTokens')" :model-value="interval.min_tokens" type="number" min="0" @update:model-value="emitField('min_tokens', toInt(String($event)))" />
+      <UiTextField density="mini" :label="t('admin.channels.form.maxTokens')" :model-value="interval.max_tokens ?? ''" type="number" min="0" placeholder="∞" @update:model-value="emitField('max_tokens', toIntOrNull(String($event)))" />
+      <UiTextField density="mini" :label="`${t('admin.channels.form.inputPrice')} $/M`" :model-value="interval.input_price ?? ''" type="number" min="0" step="any" :invalid="isEmpty && !interval.input_price" @update:model-value="emitField('input_price', String($event))" />
+      <UiTextField density="mini" :label="`${t('admin.channels.form.outputPrice')} $/M`" :model-value="interval.output_price ?? ''" type="number" min="0" step="any" :invalid="isEmpty && !interval.output_price" @update:model-value="emitField('output_price', String($event))" />
+      <UiTextField density="mini" :label="`${t('admin.channels.form.cacheWritePriceShort')} $/M`" :model-value="interval.cache_write_price ?? ''" type="number" min="0" step="any" @update:model-value="emitField('cache_write_price', String($event))" />
+      <UiTextField density="mini" :label="`${t('admin.channels.form.cacheReadPriceShort')} $/M`" :model-value="interval.cache_read_price ?? ''" type="number" min="0" step="any" @update:model-value="emitField('cache_read_price', String($event))" />
     </template>
-
-    <!-- Per-request / Image mode: tier label + context range + price -->
     <template v-else>
-      <div class="w-24">
-        <label class="text-xs text-gray-400">
-          {{ mode === 'image' ? t('admin.channels.form.resolution') : t('admin.channels.form.tierLabel') }}
-        </label>
-        <input :value="interval.tier_label" @input="emitField('tier_label', ($event.target as HTMLInputElement).value)"
-          type="text" class="input mt-0.5 text-xs" :placeholder="mode === 'image' ? '1K / 2K / 4K' : ''" />
-      </div>
-      <div class="w-20">
-        <label class="text-xs text-gray-400">{{ t('admin.channels.form.minTokens') }}</label>
-        <input :value="interval.min_tokens" @input="emitField('min_tokens', toInt(($event.target as HTMLInputElement).value))"
-          type="number" min="0" class="input mt-0.5 text-xs" />
-      </div>
-      <div class="w-20">
-        <label class="text-xs text-gray-400">{{ t('admin.channels.form.maxTokens') }} <span class="text-gray-300">{{ t('admin.channels.form.inclusive') }}</span></label>
-        <input :value="interval.max_tokens ?? ''" @input="emitField('max_tokens', toIntOrNull(($event.target as HTMLInputElement).value))"
-          type="number" min="0" class="input mt-0.5 text-xs" :placeholder="'∞'" />
-      </div>
-      <div class="flex-1">
-        <label class="text-xs text-gray-400">{{ t('admin.channels.form.perRequestPrice') }} <span v-if="isEmpty" class="text-red-500">*</span> <span class="text-gray-300">$</span></label>
-        <input :value="interval.per_request_price" @input="emitField('per_request_price', ($event.target as HTMLInputElement).value)"
-          type="number" step="any" min="0" class="input mt-0.5 text-xs" />
-      </div>
+      <UiTextField density="mini" :label="mode === 'image' ? t('admin.channels.form.resolution') : t('admin.channels.form.tierLabel')" :model-value="interval.tier_label" :placeholder="mode === 'image' ? '1K / 2K / 4K' : ''" @update:model-value="emitField('tier_label', String($event))" />
+      <UiTextField density="mini" :label="t('admin.channels.form.minTokens')" :model-value="interval.min_tokens" type="number" min="0" @update:model-value="emitField('min_tokens', toInt(String($event)))" />
+      <UiTextField density="mini" :label="t('admin.channels.form.maxTokens')" :model-value="interval.max_tokens ?? ''" type="number" min="0" placeholder="∞" @update:model-value="emitField('max_tokens', toIntOrNull(String($event)))" />
+      <UiTextField density="mini" :label="`${t('admin.channels.form.perRequestPrice')} $`" :model-value="interval.per_request_price ?? ''" type="number" min="0" step="any" :invalid="isEmpty && !interval.per_request_price" @update:model-value="emitField('per_request_price', String($event))" />
     </template>
-
-    <button type="button" @click="emit('remove')" class="mt-4 rounded p-0.5 text-gray-400 hover:text-red-500">
-      <Icon name="x" size="sm" />
-    </button>
+    <UiIconButton icon="x" :label="t('common.delete')" variant="danger" density="mini" @click="emit('remove')" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import Icon from '@/components/icons/Icon.vue'
 import type { IntervalFormEntry } from './types'
 import type { BillingMode } from '@/api/admin/channels'
+import { UiIconButton, UiTextField } from '@/components/ui'
 
 const { t } = useI18n()
+const props = defineProps<{ interval: IntervalFormEntry; mode: BillingMode }>()
+const emit = defineEmits<{ update: [interval: IntervalFormEntry]; remove: [] }>()
 
-const props = defineProps<{
-  interval: IntervalFormEntry
-  mode: BillingMode
-}>()
-
-const emit = defineEmits<{
-  update: [interval: IntervalFormEntry]
-  remove: []
-}>()
-
-// 检测所有价格字段是否都为空
 const isEmpty = computed(() => {
   const iv = props.interval
   return (iv.input_price == null || iv.input_price === '') &&
@@ -99,15 +41,12 @@ const isEmpty = computed(() => {
 function emitField(field: keyof IntervalFormEntry, value: string | number | null) {
   emit('update', { ...props.interval, [field]: value === '' ? null : value })
 }
-
-function toInt(val: string): number {
-  const n = parseInt(val, 10)
-  return isNaN(n) ? 0 : n
-}
-
-function toIntOrNull(val: string): number | null {
-  if (val === '') return null
-  const n = parseInt(val, 10)
-  return isNaN(n) ? null : n
-}
+function toInt(value: string): number { const n = parseInt(value, 10); return Number.isNaN(n) ? 0 : n }
+function toIntOrNull(value: string): number | null { if (value === '') return null; const n = parseInt(value, 10); return Number.isNaN(n) ? null : n }
 </script>
+
+<style scoped>
+.channel-interval-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr)) auto;align-items:end;gap:8px;padding:10px;border:1px solid var(--ui-border);border-radius:var(--ui-radius);background:var(--ui-surface)}
+.channel-interval-row--invalid{border-color:var(--ui-danger);background:color-mix(in srgb,var(--ui-danger) 5%,var(--ui-surface))}
+@media(max-width:900px){.channel-interval-row{grid-template-columns:repeat(2,minmax(0,1fr))}.channel-interval-row>.ui-icon-button{justify-self:end}}
+</style>

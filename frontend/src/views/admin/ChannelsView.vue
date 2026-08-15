@@ -56,7 +56,7 @@
 
             <!-- Status (edit only) -->
             <div v-if="editingChannel">
-              <label class="input-label">{{ t('admin.channels.form.status', 'Status') }}</label>
+              <label class="channel-field-label">{{ t('admin.channels.form.status', 'Status') }}</label>
               <UiSelect v-model="form.status" :options="statusEditOptions" :label="t('admin.channels.form.status', 'Status')" />
             </div>
 
@@ -70,7 +70,7 @@
 
             <!-- Billing Basis -->
             <div>
-              <label class="input-label">{{ t('admin.channels.form.billingModelSource', 'Billing Basis') }}</label>
+              <label class="channel-field-label">{{ t('admin.channels.form.billingModelSource', 'Billing Basis') }}</label>
               <UiSelect v-model="form.billing_model_source" :options="billingModelSourceOptions" :label="t('admin.channels.form.billingModelSource', 'Billing Basis')" />
               <p class="mt-1 text-xs text-gray-400">
                 {{ t('admin.channels.form.billingModelSourceHint', 'Controls which model name is used for pricing lookup') }}
@@ -79,25 +79,9 @@
 
             <!-- Platform Management -->
             <div class="space-y-3">
-              <label class="input-label mb-0">{{ t('admin.channels.form.platformConfig') }}</label>
-              <div class="flex flex-wrap gap-2">
-                <label
-                  v-for="p in platformOrder"
-                  :key="p"
-                  class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors"
-                  :class="activePlatforms.includes(p)
-                    ? 'bg-primary-50 border-primary-300 dark:bg-primary-900/20 dark:border-primary-700'
-                    : 'border-gray-200 hover:bg-gray-50 dark:border-dark-600 dark:hover:bg-dark-700'"
-                >
-                  <input
-                    type="checkbox"
-                    :checked="activePlatforms.includes(p)"
-                    class="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                    @change="togglePlatform(p)"
-                  />
-                  <PlatformIcon :platform="p" size="xs" :class="platformTextClass(p)" />
-                  <span :class="platformTextClass(p)">{{ t('admin.groups.platforms.' + p, p) }}</span>
-                </label>
+              <label class="channel-field-label">{{ t('admin.channels.form.platformConfig') }}</label>
+              <div class="channel-platform-grid">
+                <UiCheckbox v-for="p in platformOrder" :key="p" :model-value="activePlatforms.includes(p)" :label="t('admin.groups.platforms.' + p, p)" @update:model-value="togglePlatform(p)" />
               </div>
             </div>
 
@@ -130,7 +114,7 @@
           >
             <!-- Groups -->
             <div>
-              <label class="input-label text-xs">
+              <label class="channel-field-label channel-field-label--small">
                 {{ t('admin.channels.form.groups', 'Associated Groups') }} <span class="text-red-500">*</span>
                 <span v-if="section.group_ids.length > 0" class="ml-1 font-normal text-gray-400">
                   ({{ t('admin.channels.form.selectedCount', { count: section.group_ids.length }) }})
@@ -144,32 +128,14 @@
                   {{ t('admin.channels.form.noGroupsAvailable', 'No groups available') }}
                 </div>
                 <div v-else class="flex flex-wrap gap-1">
-                  <label
-                    v-for="group in getGroupsForPlatform(section.platform)"
-                    :key="group.id"
-                    class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-200 px-2 py-1 text-xs transition-colors hover:bg-gray-50 dark:border-dark-600 dark:hover:bg-dark-700"
-                    :class="[
-                      section.group_ids.includes(group.id) ? 'bg-primary-50 border-primary-300 dark:bg-primary-900/20 dark:border-primary-700' : '',
-                      isGroupInOtherChannel(group.id, section.platform) ? 'opacity-40' : ''
-                    ]"
-                  >
-                    <input
-                      type="checkbox"
-                      :checked="section.group_ids.includes(group.id)"
-                      :disabled="isGroupInOtherChannel(group.id, section.platform)"
-                      class="h-3 w-3 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      @change="toggleGroupInSection(sIdx, group.id)"
-                    />
-                    <span :class="['font-medium', platformTextClass(group.platform)]">{{ group.name }}</span>
-                    <span
-                      :class="['rounded-full px-1 py-0 text-[10px]', platformBadgeLightClass(group.platform)]"
-                    >{{ group.rate_multiplier }}x</span>
-                    <span class="text-[10px] text-gray-400">{{ group.account_count || 0 }}</span>
-                    <span
-                      v-if="isGroupInOtherChannel(group.id, section.platform)"
-                      class="text-[10px] text-gray-400"
-                    >{{ getGroupInOtherChannelLabel(group.id) }}</span>
-                  </label>
+                  <div v-for="group in getGroupsForPlatform(section.platform)" :key="group.id" class="channel-group-option" :class="{ 'channel-group-option--disabled': isGroupInOtherChannel(group.id, section.platform) }">
+                    <UiCheckbox :model-value="section.group_ids.includes(group.id)" :disabled="isGroupInOtherChannel(group.id, section.platform)" @update:model-value="toggleGroupInSection(sIdx, group.id)">
+                      <span :class="['font-medium', platformTextClass(group.platform)]">{{ group.name }}</span>
+                    </UiCheckbox>
+                    <UiBadge :label="`${group.rate_multiplier}x`" tone="info" />
+                    <span class="channel-group-option__meta">{{ group.account_count || 0 }}</span>
+                    <span v-if="isGroupInOtherChannel(group.id, section.platform)" class="channel-group-option__meta">{{ getGroupInOtherChannelLabel(group.id) }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -221,11 +187,9 @@
 
             <!-- Model Mapping -->
             <div>
-              <div class="mb-1 flex items-center justify-between">
-                <label class="input-label text-xs mb-0">{{ t('admin.channels.form.modelMapping', 'Model Mapping') }}</label>
-                <button type="button" @click="addMappingEntry(sIdx)" class="text-xs text-primary-600 hover:text-primary-700">
-                  + {{ t('common.add', 'Add') }}
-                </button>
+              <div class="channel-section-heading">
+                <label class="channel-field-label">{{ t('admin.channels.form.modelMapping', 'Model Mapping') }}</label>
+                <UiButton type="button" density="mini" variant="quiet" @click="addMappingEntry(sIdx)"><template #icon><Icon name="plus" size="xs" /></template>{{ t('common.add', 'Add') }}</UiButton>
               </div>
               <div
                 v-if="Object.keys(section.model_mapping).length === 0"
@@ -239,30 +203,10 @@
                   :key="srcModel"
                   class="flex items-center gap-2"
                 >
-                  <input
-                    :value="srcModel"
-                    type="text"
-                    class="input flex-1 text-xs"
-                    :class="platformTextClass(section.platform)"
-                    :placeholder="t('admin.channels.form.mappingSource', 'Source model')"
-                    @change="renameMappingKey(sIdx, srcModel, ($event.target as HTMLInputElement).value)"
-                  />
+                  <UiTextField density="mini" class="flex-1" :model-value="srcModel" :placeholder="t('admin.channels.form.mappingSource', 'Source model')" :monospace="true" @change="renameMappingKey(sIdx, srcModel, $event)" />
                   <span class="text-gray-400 text-xs">→</span>
-                  <input
-                    :value="section.model_mapping[srcModel]"
-                    type="text"
-                    class="input flex-1 text-xs"
-                    :class="platformTextClass(section.platform)"
-                    :placeholder="t('admin.channels.form.mappingTarget', 'Target model')"
-                    @input="section.model_mapping[srcModel] = ($event.target as HTMLInputElement).value"
-                  />
-                  <button
-                    type="button"
-                    @click="removeMappingEntry(sIdx, srcModel)"
-                    class="rounded p-0.5 text-gray-400 hover:text-red-500"
-                  >
-                    <Icon name="trash" size="sm" />
-                  </button>
+                  <UiTextField density="mini" class="flex-1" :model-value="section.model_mapping[srcModel]" :placeholder="t('admin.channels.form.mappingTarget', 'Target model')" :monospace="true" @update:model-value="section.model_mapping[srcModel] = $event" />
+                  <UiIconButton icon="trash" :label="t('common.delete')" variant="danger" density="mini" @click="removeMappingEntry(sIdx, srcModel)" />
                 </div>
               </div>
             </div>
@@ -270,20 +214,8 @@
             <!-- Model Pricing -->
             <div>
               <div class="mb-1 flex items-center justify-between">
-                <label class="input-label text-xs mb-0">{{ t('admin.channels.form.modelPricing', 'Model Pricing') }}</label>
-                <div class="flex items-center gap-2">
-                  <button
-                    type="button"
-                    @click="syncLatestModels(sIdx)"
-                    :disabled="syncingPlatform === section.platform"
-                    class="text-xs text-gray-500 hover:text-primary-600 disabled:opacity-50"
-                  >
-                    {{ syncingPlatform === section.platform ? t('admin.channels.form.syncingModels') : t('admin.channels.form.syncLatestModels') }}
-                  </button>
-                  <button type="button" @click="addPricingEntry(sIdx)" class="text-xs text-primary-600 hover:text-primary-700">
-                    + {{ t('common.add', 'Add') }}
-                  </button>
-                </div>
+                <label class="channel-field-label channel-field-label--small">{{ t('admin.channels.form.modelPricing', 'Model Pricing') }}</label>
+                <div class="channel-section-actions"><UiButton type="button" density="mini" variant="quiet" :loading="syncingPlatform === section.platform" @click="syncLatestModels(sIdx)"><template #icon><Icon name="refresh" size="xs" /></template>{{ syncingPlatform === section.platform ? t('admin.channels.form.syncingModels') : t('admin.channels.form.syncLatestModels') }}</UiButton><UiButton type="button" density="mini" variant="quiet" @click="addPricingEntry(sIdx)"><template #icon><Icon name="plus" size="xs" /></template>{{ t('common.add', 'Add') }}</UiButton></div>
               </div>
               <div
                 v-if="section.model_pricing.length === 0"
@@ -309,13 +241,7 @@
                 <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {{ t('admin.channels.form.accountStatsPricingRules') }}
                 </h4>
-                <button
-                  type="button"
-                  @click="addAccountStatsRule(sIdx)"
-                  class="rounded-lg border border-primary-300 px-3 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 dark:border-primary-600 dark:text-primary-400 dark:hover:bg-primary-900/20"
-                >
-                  + {{ t('admin.channels.form.addRule') }}
-                </button>
+                <UiButton type="button" density="mini" variant="quiet" @click="addAccountStatsRule(sIdx)"><template #icon><Icon name="plus" size="xs" /></template>{{ t('admin.channels.form.addRule') }}</UiButton>
               </div>
 
               <!-- Filter rules for this platform's groups -->
@@ -331,31 +257,15 @@
                 :key="ruleIndex"
                 class="space-y-3 rounded-lg border border-gray-200 p-4 dark:border-dark-600"
               >
-                <div class="flex items-center justify-between">
-                  <input
-                    v-model="rule.name"
-                    :placeholder="t('admin.channels.form.ruleName')"
-                    class="bg-transparent text-sm font-medium text-gray-700 placeholder-gray-400 outline-none dark:text-gray-300"
-                  />
-                  <button type="button" @click="removeAccountStatsRule(sIdx, ruleIndex)" class="text-xs text-red-500 hover:text-red-700">
-                    {{ t('common.delete') }}
-                  </button>
+                <div class="channel-section-heading">
+                  <UiTextField density="mini" v-model="rule.name" :placeholder="t('admin.channels.form.ruleName')" />
+                  <UiIconButton icon="trash" :label="t('common.delete')" variant="danger" density="mini" @click="removeAccountStatsRule(sIdx, ruleIndex)" />
                 </div>
 
                 <div>
                   <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.channels.form.ruleGroups') }}</label>
                   <div class="mt-1 flex flex-wrap gap-1">
-                    <label
-                      v-for="gid in section.group_ids"
-                      :key="gid"
-                      class="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors"
-                      :class="rule.group_ids.includes(gid)
-                        ? 'border-primary-300 bg-primary-50 dark:border-primary-700 dark:bg-primary-900/20'
-                        : 'border-gray-200 hover:bg-gray-50 dark:border-dark-600 dark:hover:bg-dark-700'"
-                    >
-                      <input type="checkbox" :checked="rule.group_ids.includes(gid)" class="h-3 w-3 rounded border-gray-300 text-primary-600 focus:ring-primary-500" @change="rule.group_ids.includes(gid) ? rule.group_ids.splice(rule.group_ids.indexOf(gid), 1) : rule.group_ids.push(gid)" />
-                      <span :class="['font-medium', platformTextClass(section.platform)]">{{ getGroupNameById(gid) }}</span>
-                    </label>
+                    <UiCheckbox v-for="gid in section.group_ids" :key="gid" :model-value="rule.group_ids.includes(gid)" @update:model-value="toggleRuleGroup(rule, gid)">{{ getGroupNameById(gid) }}</UiCheckbox>
                   </div>
                   <p v-if="section.group_ids.length === 0" class="mt-1 text-xs text-gray-400">
                     {{ t('admin.channels.form.noGroupsInChannel') }}
@@ -366,46 +276,13 @@
                   <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.channels.form.ruleAccounts') }}</label>
                   <!-- Selected account chips -->
                   <div class="mt-1 flex flex-wrap gap-1">
-                    <span
-                      v-for="accountId in rule.account_ids"
-                      :key="accountId"
-                      class="inline-flex items-center gap-1 rounded-md border border-primary-300 bg-primary-50 px-2 py-0.5 text-xs dark:border-primary-700 dark:bg-primary-900/20"
-                    >
-                      <span :class="['font-medium', platformTextClass(section.platform)]">{{ getRuleAccountLabel(accountId) }}</span>
-                      <button type="button" @click="removeRuleAccount(rule, accountId)" class="text-gray-400 hover:text-red-500">
-                        <Icon name="x" size="xs" />
-                      </button>
+                    <span v-for="accountId in rule.account_ids" :key="accountId" class="channel-account-chip">
+                      <span>{{ getRuleAccountLabel(accountId) }}</span>
+                      <UiIconButton icon="x" :label="t('common.remove')" variant="danger" density="mini" @click="removeRuleAccount(rule, accountId)" />
                     </span>
                   </div>
                   <!-- Account search input -->
-                  <div class="relative mt-1 rule-account-search-container">
-                    <input
-                      v-model="ruleAccountSearchKeyword[`${section.platform}-${ruleIndex}`]"
-                      type="text"
-                      class="input text-sm"
-                      :placeholder="t('admin.channels.form.searchAccountPlaceholder')"
-                      @input="onRuleAccountSearchInput(section.platform, ruleIndex)"
-                      @focus="onRuleAccountSearchFocus(section.platform, ruleIndex)"
-                    />
-                    <!-- Search results dropdown -->
-                    <div
-                      v-if="showRuleAccountDropdown[`${section.platform}-${ruleIndex}`] && (ruleAccountSearchResults[`${section.platform}-${ruleIndex}`]?.length ?? 0) > 0"
-                      class="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-lg border bg-white shadow-lg dark:border-dark-600 dark:bg-dark-800"
-                    >
-                      <button
-                        v-for="account in ruleAccountSearchResults[`${section.platform}-${ruleIndex}`]"
-                        :key="account.id"
-                        type="button"
-                        @click="selectRuleAccount(rule, account, section.platform, ruleIndex)"
-                        class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-dark-700"
-                        :class="{ 'opacity-50': rule.account_ids.includes(account.id) }"
-                        :disabled="rule.account_ids.includes(account.id)"
-                      >
-                        <span :class="platformTextClass(account.platform)">{{ account.name }}</span>
-                        <span class="ml-2 text-xs text-gray-400">#{{ account.id }}</span>
-                      </button>
-                    </div>
-                  </div>
+                  <UiAsyncEntityPicker :key="`${section.platform}-${ruleIndex}-${rule.account_ids.length}`" :model-value="null" :items="(ruleAccountSearchResults[`${section.platform}-${ruleIndex}`] || []).map(account => ({ value: account.id, label: account.name, description: `#${account.id}` }))" :placeholder="t('admin.channels.form.searchAccountPlaceholder')" @search="onRuleAccountSearchInput(section.platform, ruleIndex, $event)" @select="selectRuleAccount(rule, { id: Number($event.value), name: $event.label, platform: section.platform }, section.platform, ruleIndex)" />
                   <p class="mt-1 text-xs text-gray-400">
                     {{ t('admin.channels.form.ruleAccountsHint') }}
                   </p>
@@ -414,9 +291,7 @@
                 <div>
                   <div class="mb-1 flex items-center justify-between">
                     <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.channels.form.ruleModelPricing') }}</label>
-                    <button type="button" @click="addRulePricingEntry(sIdx, ruleIndex)" class="text-xs text-primary-600 hover:text-primary-700">
-                      + {{ t('common.add') }}
-                    </button>
+                    <UiButton type="button" density="mini" variant="quiet" @click="addRulePricingEntry(sIdx, ruleIndex)"><template #icon><Icon name="plus" size="xs" /></template>{{ t('common.add') }}</UiButton>
                   </div>
                   <div v-if="rule.pricing.length === 0" class="rounded border border-dashed border-gray-300 p-2 text-center text-xs text-gray-400 dark:border-dark-500">
                     {{ t('admin.channels.form.noPricingRules') }}
@@ -473,11 +348,10 @@ import type { PricingFormEntry } from '@/components/admin/channel/types'
 import { mTokToPerToken, perTokenToMTok, apiIntervalsToForm, formIntervalsToAPI, findModelConflict, validateIntervals } from '@/components/admin/channel/types'
 import type { AdminGroup, GroupPlatform } from '@/types'
 import type { Column } from '@/components/ui'
-import { platformTextClass, platformBadgeLightClass } from '@/utils/platformColors'
+import { platformTextClass } from '@/utils/platformColors'
 import { buildChannelGroupMap, fetchAllChannels } from '@/utils/channelConflict'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
-import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import PricingEntryCard from '@/components/admin/channel/PricingEntryCard.vue'
 import {
   AppPage,
@@ -490,6 +364,7 @@ import {
   UiDialog,
   UiEmptyState,
   UiIconButton,
+  UiAsyncEntityPicker,
   UiPagination,
   UiSearchInput,
   UiSelect,
@@ -829,12 +704,17 @@ function getGroupNameById(groupId: number): string {
   return group ? group.name : `#${groupId}`
 }
 
+function toggleRuleGroup(rule: { group_ids: number[] }, groupId: number) {
+  const index = rule.group_ids.indexOf(groupId)
+  if (index >= 0) rule.group_ids.splice(index, 1)
+  else rule.group_ids.push(groupId)
+}
+
 // ── Account search for pricing rules ──
 interface SimpleAccount { id: number; name: string; platform: string }
 
 const ruleAccountSearchKeyword = ref<Record<string, string>>({})
 const ruleAccountSearchResults = ref<Record<string, SimpleAccount[]>>({})
-const showRuleAccountDropdown = ref<Record<string, boolean>>({})
 // Cache: account ID → name, populated when search results are selected
 const ruleAccountNameCache = ref<Record<number, string>>({})
 
@@ -849,18 +729,10 @@ const ruleAccountSearchRunner = useKeyedDebouncedSearch<SimpleAccount[]>({
   onError: (key) => { ruleAccountSearchResults.value[key] = [] },
 })
 
-function onRuleAccountSearchInput(platform: string, ruleIndex: number) {
+function onRuleAccountSearchInput(platform: string, ruleIndex: number, keyword: string) {
   const key = `${platform}-${ruleIndex}`
-  showRuleAccountDropdown.value[key] = true
-  ruleAccountSearchRunner.trigger(key, ruleAccountSearchKeyword.value[key] || '')
-}
-
-function onRuleAccountSearchFocus(platform: string, ruleIndex: number) {
-  const key = `${platform}-${ruleIndex}`
-  showRuleAccountDropdown.value[key] = true
-  if (!ruleAccountSearchResults.value[key]?.length) {
-    ruleAccountSearchRunner.trigger(key, ruleAccountSearchKeyword.value[key] || '')
-  }
+  ruleAccountSearchKeyword.value[key] = keyword
+  ruleAccountSearchRunner.trigger(key, keyword)
 }
 
 function selectRuleAccount(
@@ -875,7 +747,6 @@ function selectRuleAccount(
   }
   const key = `${platform}-${ruleIndex}`
   ruleAccountSearchKeyword.value[key] = ''
-  showRuleAccountDropdown.value[key] = false
 }
 
 function removeRuleAccount(rule: { account_ids: number[] }, accountId: number) {
@@ -888,19 +759,9 @@ function getRuleAccountLabel(accountId: number): string {
   return name ? `${name} #${accountId}` : `#${accountId}`
 }
 
-function handleRuleAccountClickOutside(event: MouseEvent) {
-  const target = event.target as HTMLElement
-  if (!target.closest('.rule-account-search-container')) {
-    Object.keys(showRuleAccountDropdown.value).forEach(key => {
-      showRuleAccountDropdown.value[key] = false
-    })
-  }
-}
-
 function clearAllRuleAccountSearchState() {
   ruleAccountSearchKeyword.value = {}
   ruleAccountSearchResults.value = {}
-  showRuleAccountDropdown.value = {}
 }
 
 function accountStatsRulesToAPI(): AccountStatsPricingRule[] {
@@ -1474,13 +1335,11 @@ onMounted(() => {
   loadChannels()
   loadGroups()
   loadWebSearchGlobalState()
-  document.addEventListener('click', handleRuleAccountClickOutside)
 })
 
 onUnmounted(() => {
   clearTimeout(searchTimeout)
   abortController?.abort()
-  document.removeEventListener('click', handleRuleAccountClickOutside)
   ruleAccountSearchRunner.clearAll()
   clearAllRuleAccountSearchState()
 })
@@ -1522,5 +1381,15 @@ onUnmounted(() => {
   justify-content: flex-end;
   gap: 6px;
 }
+
+.channel-field-label{display:block;color:var(--ui-text-muted);font-size:13px;font-weight:500;line-height:22px}
+.channel-field-label--small{font-size:12px}
+.channel-platform-grid{display:flex;flex-wrap:wrap;gap:10px;padding:10px;border:1px solid var(--ui-border);border-radius:var(--ui-radius);background:var(--ui-surface-muted)}
+.channel-group-option{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--ui-border);border-radius:var(--ui-radius);background:var(--ui-surface)}
+.channel-group-option--disabled{opacity:.45}
+.channel-group-option__meta{color:var(--ui-text-soft);font-size:11px}
+.channel-section-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.channel-section-actions{display:flex;align-items:center;gap:4px}
+.channel-account-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 6px;border:1px solid var(--ui-border);border-radius:4px;background:var(--ui-surface-muted);font-family:var(--ui-font-mono);font-size:11px}
 
 </style>
