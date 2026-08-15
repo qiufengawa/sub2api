@@ -12,25 +12,27 @@
 
       <UiServerTableWorkspace :loading="loading" :empty="false">
         <template #toolbar>
-          <UiTableToolbar>
+          <UiFilterBar :active-count="filters.status ? 1 : 0" @clear="clearFilters">
             <UiSearchInput v-model="searchQuery" density="dense" :placeholder="t('admin.announcements.searchAnnouncements')" @search="handleSearch" />
             <UiSelect v-model="filters.status" density="dense" :options="statusFilterOptions" :aria-label="t('admin.announcements.columns.status')" @change="handleStatusChange" />
             <template #actions>
               <UiIconButton icon="refresh" density="dense" :label="t('common.refresh')" :disabled="loading" @click="loadAnnouncements" />
             </template>
-          </UiTableToolbar>
+          </UiFilterBar>
         </template>
 
-        <UiDataTable :columns="columns" :data="announcements" :loading="loading" :mobile-table="true" :aria-label="t('admin.announcements.title')" :server-side-sort="true" default-sort-key="created_at" default-sort-order="desc" @sort="handleSort">
-          <template #cell-title="{ value, row }"><div class="announcement-cell-title"><strong :title="String(value)">{{ value }}</strong><span>#{{ row.id }} · {{ formatDateTime(row.created_at) }}</span></div></template>
-          <template #cell-status="{ value }"><UiStatusBadge :status="String(value)" :label="statusLabel(String(value))" /></template>
-          <template #cell-notify_mode="{ row }"><UiBadge :tone="row.notify_mode === 'popup' ? 'warning' : 'neutral'" :label="row.notify_mode === 'popup' ? t('admin.announcements.notifyModeLabels.popup') : t('admin.announcements.notifyModeLabels.silent')" /></template>
-          <template #cell-targeting="{ row }"><span class="announcement-cell-muted" :title="targetingSummary(row.targeting)">{{ targetingSummary(row.targeting) }}</span></template>
-          <template #cell-timeRange="{ row }"><div class="announcement-cell-time"><span>{{ t('admin.announcements.form.startsAt') }}: {{ row.starts_at ? formatDateTime(row.starts_at) : t('admin.announcements.timeImmediate') }}</span><span>{{ t('admin.announcements.form.endsAt') }}: {{ row.ends_at ? formatDateTime(row.ends_at) : t('admin.announcements.timeNever') }}</span></div></template>
-          <template #cell-created_at="{ value }"><span class="announcement-cell-muted">{{ formatDateTime(value) }}</span></template>
-          <template #cell-actions="{ row }"><div class="announcement-row-actions"><UiIconButton icon="eye" density="dense" variant="ghost" :label="t('admin.announcements.preview')" @click="openPreview(row)" /><UiIconButton icon="chartBar" density="dense" variant="ghost" :label="t('admin.announcements.readStatus')" @click="openReadStatus(row)" /><UiIconButton icon="edit" density="dense" variant="ghost" :label="t('common.edit')" @click="openEditDialog(row)" /><UiIconButton icon="trash" density="dense" variant="danger" :label="t('common.delete')" @click="handleDelete(row)" /></div></template>
-          <template #empty><UiEmptyState :title="t('empty.noData')" :description="t('admin.announcements.failedToLoad')"><template #action><UiButton density="dense" variant="primary" @click="openCreateDialog">{{ t('admin.announcements.createAnnouncement') }}</UiButton></template></UiEmptyState></template>
-        </UiDataTable>
+        <UiMobileTableScroller :label="t('admin.announcements.title')" min-width="940px">
+          <UiDataTable :columns="columns" :data="announcements" :loading="loading" :mobile-table="true" :aria-label="t('admin.announcements.title')" :server-side-sort="true" default-sort-key="created_at" default-sort-order="desc" @sort="handleSort">
+            <template #cell-title="{ value, row }"><UiDataCell :value="String(value)" :meta="`#${row.id} · ${formatDateTime(row.created_at)}`" /></template>
+            <template #cell-status="{ value }"><UiStatusBadge :status="String(value)" :label="statusLabel(String(value))" /></template>
+            <template #cell-notify_mode="{ row }"><UiBadge :tone="row.notify_mode === 'popup' ? 'warning' : 'neutral'" :label="row.notify_mode === 'popup' ? t('admin.announcements.notifyModeLabels.popup') : t('admin.announcements.notifyModeLabels.silent')" /></template>
+            <template #cell-targeting="{ row }"><UiDataCell :value="targetingSummary(row.targeting)" /></template>
+            <template #cell-timeRange="{ row }"><UiDataCell :value="`${t('admin.announcements.form.startsAt')}: ${row.starts_at ? formatDateTime(row.starts_at) : t('admin.announcements.timeImmediate')}`" :meta="`${t('admin.announcements.form.endsAt')}: ${row.ends_at ? formatDateTime(row.ends_at) : t('admin.announcements.timeNever')}`" /></template>
+            <template #cell-created_at="{ value }"><UiDataCell :value="formatDateTime(value)" /></template>
+            <template #cell-actions="{ row }"><UiButtonGroup :label="t('admin.announcements.columns.actions')"><UiIconButton icon="eye" density="dense" variant="ghost" :label="t('admin.announcements.preview')" @click="openPreview(row)" /><UiIconButton icon="chartBar" density="dense" variant="ghost" :label="t('admin.announcements.readStatus')" @click="openReadStatus(row)" /><UiIconButton icon="edit" density="dense" variant="ghost" :label="t('common.edit')" @click="openEditDialog(row)" /><UiIconButton icon="trash" density="dense" variant="danger" :label="t('common.delete')" @click="handleDelete(row)" /></UiButtonGroup></template>
+            <template #empty><UiEmptyState :title="t('empty.noData')" :description="t('admin.announcements.failedToLoad')"><template #action><UiButton density="dense" variant="primary" @click="openCreateDialog">{{ t('admin.announcements.createAnnouncement') }}</UiButton></template></UiEmptyState></template>
+          </UiDataTable>
+        </UiMobileTableScroller>
 
         <template #pagination>
           <UiPagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" :reset-page-on-page-size-change="false" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" />
@@ -46,40 +48,34 @@
       :close-label="t('common.close')"
       @close="closeEdit"
     >
-      <form id="announcement-form" @submit.prevent="handleSave" class="space-y-4">
-        <UiTextField v-model="form.title" :label="t('admin.announcements.form.title')" required />
+      <form id="announcement-form" @submit.prevent="handleSave">
+        <AppStack :gap="16">
+          <UiTextField v-model="form.title" :label="t('admin.announcements.form.title')" required />
 
         <UiTextArea v-model="form.content" :label="t('admin.announcements.form.content')" :rows="6" required />
 
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <UiSelect v-model="form.status" :label="t('admin.announcements.form.status')" :options="statusOptions" />
-          </div>
-          <div>
-            <UiSelect v-model="form.notify_mode" :label="t('admin.announcements.form.notifyMode')" :description="t('admin.announcements.form.notifyModeHint')" :options="notifyModeOptions" />
-          </div>
-        </div>
+        <AppGrid min="220px" :gap="12">
+          <UiSelect v-model="form.status" :label="t('admin.announcements.form.status')" :options="statusOptions" />
+          <UiSelect v-model="form.notify_mode" :label="t('admin.announcements.form.notifyMode')" :description="t('admin.announcements.form.notifyModeHint')" :options="notifyModeOptions" />
+        </AppGrid>
 
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <UiTextField v-model="form.starts_at_str" type="datetime-local" :label="t('admin.announcements.form.startsAt')" :description="t('admin.announcements.form.startsAtHint')" />
-          </div>
-          <div>
-            <UiTextField v-model="form.ends_at_str" type="datetime-local" :label="t('admin.announcements.form.endsAt')" :description="t('admin.announcements.form.endsAtHint')" />
-          </div>
-        </div>
+        <AppGrid min="220px" :gap="12">
+          <UiTextField v-model="form.starts_at_str" type="datetime-local" :label="t('admin.announcements.form.startsAt')" :description="t('admin.announcements.form.startsAtHint')" />
+          <UiTextField v-model="form.ends_at_str" type="datetime-local" :label="t('admin.announcements.form.endsAt')" :description="t('admin.announcements.form.endsAtHint')" />
+        </AppGrid>
 
-        <AnnouncementTargetingEditor
-          v-model="form.targeting"
-          :groups="targetGroups"
-        />
+          <AnnouncementTargetingEditor
+            v-model="form.targeting"
+            :groups="targetGroups"
+          />
+        </AppStack>
       </form>
 
       <template #footer>
-        <div class="announcement-dialog-actions">
+        <AppInline justify="flex-end">
           <UiButton type="button" density="dense" @click="closeEdit">{{ t('common.cancel') }}</UiButton>
           <UiButton type="submit" form="announcement-form" density="dense" variant="primary" :loading="saving">{{ t('common.save') }}</UiButton>
-        </div>
+        </AppInline>
       </template>
     </UiDialog>
 
@@ -102,11 +98,19 @@
       @close="showReadStatusDialog = false"
     />
 
-    <AnnouncementPopup
-      :announcement="previewAnnouncement"
-      preview
+    <UiAnnouncementDialog
+      :show="Boolean(previewAnnouncement)"
+      :title="previewAnnouncement?.title || t('announcements.title')"
       @close="previewAnnouncement = null"
-    />
+    >
+      <AnnouncementDetail v-if="previewAnnouncement" :announcement="previewAnnouncement" />
+      <template #footer>
+        <UiButton type="button" density="compact" variant="primary" @click="previewAnnouncement = null">
+          <template #icon><Icon name="x" size="sm" /></template>
+          {{ t('common.close') }}
+        </UiButton>
+      </template>
+    </UiAnnouncementDialog>
   </AppLayout>
 </template>
 
@@ -123,28 +127,35 @@ import type { Column } from '@/components/ui'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import {
+  AppGrid,
+  AppInline,
   AppPage,
   AppPageHeader,
+  AppStack,
+  UiAnnouncementDialog,
   UiBadge,
   UiButton,
+  UiButtonGroup,
   UiConfirmDialog,
+  UiDataCell,
   UiDataTable,
   UiDialog,
   UiEmptyState,
+  UiFilterBar,
   UiIconButton,
+  UiMobileTableScroller,
   UiPagination,
   UiSearchInput,
   UiSelect,
   UiServerTableWorkspace,
   UiStatusBadge,
-  UiTableToolbar,
   UiTextArea,
   UiTextField,
 } from '@/components/ui'
 
 import AnnouncementTargetingEditor from '@/components/admin/announcements/AnnouncementTargetingEditor.vue'
 import AnnouncementReadStatusDialog from '@/components/admin/announcements/AnnouncementReadStatusDialog.vue'
-import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
+import AnnouncementDetail from '@/components/common/AnnouncementDetail.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -266,6 +277,12 @@ function handlePageSizeChange(pageSize: number) {
 }
 
 function handleStatusChange() {
+  pagination.page = 1
+  loadAnnouncements()
+}
+
+function clearFilters() {
+  filters.status = ''
   pagination.page = 1
   loadAnnouncements()
 }
@@ -486,45 +503,3 @@ onUnmounted(() => {
   currentController?.abort()
 })
 </script>
-
-<style scoped>
-.announcement-cell-title,
-.announcement-cell-time {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-}
-
-.announcement-cell-title strong {
-  overflow: hidden;
-  color: var(--ui-text);
-  font-size: 13px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.announcement-cell-title span,
-.announcement-cell-muted,
-.announcement-cell-time {
-  color: var(--ui-text-soft);
-  font-size: 11px;
-  line-height: 18px;
-}
-
-.announcement-cell-muted {
-  display: block;
-  max-width: 240px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.announcement-row-actions,
-.announcement-dialog-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-}
-</style>

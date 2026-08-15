@@ -1,6 +1,6 @@
 <template>
-  <div class="announcement-targeting">
-    <div class="announcement-targeting__header">
+  <AppStack :gap="14">
+    <AppInline justify="space-between">
       <div>
         <div class="announcement-targeting__title">
           {{ t('admin.announcements.form.targetingMode') }}
@@ -15,10 +15,10 @@
         name="announcement-targeting-mode"
         @update:model-value="setMode($event as Mode)"
       />
-    </div>
+    </AppInline>
 
-    <div v-if="mode === 'custom'" class="announcement-targeting__custom">
-      <div class="announcement-targeting__toolbar">
+    <AppStack v-if="mode === 'custom'" :gap="12" class="announcement-targeting__custom">
+      <AppInline justify="space-between">
         <div class="announcement-targeting__title">
           OR
           <span class="announcement-targeting__count ui-numeric">{{ anyOf.length }}/50</span>
@@ -32,7 +32,7 @@
           <template #icon><Icon name="plus" size="sm" /></template>
           {{ t('admin.announcements.form.addOrGroup') }}
         </UiButton>
-      </div>
+      </AppInline>
 
       <UiEmptyState
         v-if="anyOf.length === 0"
@@ -45,7 +45,7 @@
         :key="groupIndex"
         class="announcement-targeting__group"
       >
-        <div class="announcement-targeting__group-header">
+        <AppInline justify="space-between">
           <div>
             <div class="announcement-targeting__title">
               {{ t('admin.announcements.form.targetingCustom') }} #{{ groupIndex + 1 }}
@@ -56,9 +56,9 @@
             </div>
           </div>
           <UiIconButton icon="trash" :label="t('common.delete')" variant="danger" density="compact" @click="removeOrGroup(groupIndex)" />
-        </div>
+        </AppInline>
 
-        <div class="announcement-targeting__conditions">
+        <AppStack :gap="8">
           <div
             v-for="(cond, condIndex) in (group.all_of || [])"
             :key="condIndex"
@@ -75,14 +75,18 @@
               </div>
 
               <div v-if="cond.type === 'subscription'" class="announcement-targeting__condition-value">
-                <label class="announcement-targeting__field-label">{{ t('admin.announcements.form.selectPackages') }}</label>
-                <GroupSelector
-                  v-model="subscriptionSelections[groupIndex][condIndex]"
-                  :groups="groups"
+                <UiMultiCombobox
+                  :model-value="subscriptionSelections[groupIndex]?.[condIndex] ?? []"
+                  :options="groupOptions"
+                  :label="t('admin.announcements.form.selectPackages')"
+                  :placeholder="t('admin.announcements.form.selectPackages')"
+                  :search-placeholder="t('common.searchPlaceholder')"
+                  :empty-text="t('common.noGroupsAvailable')"
+                  @update:model-value="setSubscriptionSelection(groupIndex, condIndex, $event)"
                 />
               </div>
 
-              <div v-else class="announcement-targeting__balance">
+              <AppGrid v-else min="150px" :gap="10" class="announcement-targeting__condition-value">
                 <UiSelect
                     :model-value="cond.operator"
                     :label="t('admin.announcements.form.operator')"
@@ -98,12 +102,12 @@
                     :label="t('admin.announcements.form.balanceValue')"
                     @update:model-value="setBalanceValue(groupIndex, condIndex, String($event))"
                   />
-              </div>
+              </AppGrid>
 
               <UiIconButton icon="x" :label="t('common.delete')" variant="danger" density="compact" @click="removeAndCondition(groupIndex, condIndex)" />
           </div>
 
-          <div class="announcement-targeting__condition-actions">
+          <AppInline justify="flex-end">
             <UiButton
               type="button"
               density="compact"
@@ -113,13 +117,13 @@
               <template #icon><Icon name="plus" size="sm" /></template>
               {{ t('admin.announcements.form.addAndCondition') }}
             </UiButton>
-          </div>
-        </div>
+          </AppInline>
+        </AppStack>
       </section>
 
       <UiAlert v-if="validationError" tone="danger" :message="validationError" />
-    </div>
-  </div>
+    </AppStack>
+  </AppStack>
 </template>
 
 <script setup lang="ts">
@@ -134,13 +138,16 @@ import type {
   AnnouncementOperator
 } from '@/types'
 
-import GroupSelector from '@/components/common/GroupSelector.vue'
 import Icon from '@/components/icons/Icon.vue'
 import {
+  AppGrid,
+  AppInline,
+  AppStack,
   UiAlert,
   UiButton,
   UiEmptyState,
   UiIconButton,
+  UiMultiCombobox,
   UiRadioGroup,
   UiSelect,
   UiTextField,
@@ -178,6 +185,11 @@ const balanceOperatorOptions = computed(() => [
   { value: 'lte', label: t('admin.announcements.operators.lte') },
   { value: 'eq', label: t('admin.announcements.operators.eq') }
 ])
+
+const groupOptions = computed(() => props.groups.map((group) => ({
+  value: group.id,
+  label: `${group.name} · ${group.rate_multiplier}x · ${group.account_count || 0}`,
+})))
 
 function setMode(next: Mode) {
   if (next === 'all') {
@@ -293,6 +305,13 @@ function ensureSelectionPath(groupIndex: number, condIndex: number) {
   if (!subscriptionSelections[groupIndex][condIndex]) subscriptionSelections[groupIndex][condIndex] = []
 }
 
+function setSubscriptionSelection(groupIndex: number, condIndex: number, values: (string | number)[]) {
+  ensureSelectionPath(groupIndex, condIndex)
+  subscriptionSelections[groupIndex][condIndex] = values
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value))
+}
+
 // Sync from modelValue to subscriptionSelections (one-way: model -> local state)
 watch(
   () => props.modelValue,
@@ -378,26 +397,16 @@ const validationError = computed(() => {
 </script>
 
 <style scoped>
-.announcement-targeting { display: grid; gap: 14px; padding-block: 2px; }
-.announcement-targeting__header,
-.announcement-targeting__toolbar,
-.announcement-targeting__group-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .announcement-targeting__title { color: var(--ui-text); font-size: 13px; font-weight: 600; }
 .announcement-targeting__description,
 .announcement-targeting__count { margin-top: 2px; color: var(--ui-text-soft); font-size: 11px; font-weight: 400; }
 .announcement-targeting__count { margin-left: 6px; }
-.announcement-targeting__custom { display: grid; gap: 12px; padding-top: 14px; border-top: 1px solid var(--ui-border-soft); }
+.announcement-targeting__custom { padding-top: 14px; border-top: 1px solid var(--ui-border-soft); }
 .announcement-targeting__group { display: grid; gap: 12px; padding-block: 12px; border-top: 1px solid var(--ui-border); }
-.announcement-targeting__conditions { display: grid; gap: 8px; }
 .announcement-targeting__condition { display: grid; grid-template-columns: minmax(160px, .65fr) minmax(240px, 1.35fr) auto; align-items: end; gap: 10px; padding: 10px 0; border-top: 1px solid var(--ui-border-soft); }
 .announcement-targeting__condition-value { min-width: 0; }
-.announcement-targeting__balance { display: grid; grid-template-columns: minmax(130px, .7fr) minmax(160px, 1fr); gap: 10px; }
-.announcement-targeting__field-label { display: block; margin-bottom: 4px; color: var(--ui-text-muted); font-size: 11px; font-weight: 600; }
-.announcement-targeting__condition-actions { display: flex; justify-content: flex-end; }
 @media (max-width: 720px) {
-  .announcement-targeting__header { align-items: flex-start; flex-direction: column; }
   .announcement-targeting__condition { grid-template-columns: 1fr; }
-  .announcement-targeting__balance { grid-template-columns: 1fr; }
   .announcement-targeting__condition > .ui-icon-button { justify-self: end; }
 }
 </style>

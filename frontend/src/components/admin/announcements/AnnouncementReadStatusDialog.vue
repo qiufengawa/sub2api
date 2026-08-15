@@ -1,12 +1,11 @@
 <template>
-  <UiDialog
+  <UiDrawer
     :show="show"
     :title="t('admin.announcements.readStatus')"
-    width="extra-wide"
     @close="handleClose"
   >
-    <div class="space-y-4">
-      <UiTableToolbar>
+    <AppStack :gap="14">
+      <UiFilterBar>
         <UiSearchInput
           v-model="search"
           density="compact"
@@ -16,42 +15,42 @@
         <template #actions>
           <UiIconButton icon="refresh" density="compact" :label="t('common.refresh')" :disabled="loading" @click="load" />
         </template>
-      </UiTableToolbar>
+      </UiFilterBar>
 
-      <UiDataTable
-        :columns="columns"
-        :data="items"
-        :loading="loading"
-        mobile-table
-        :server-side-sort="true"
-        default-sort-key="email"
-        default-sort-order="asc"
-        @sort="handleSort"
-      >
-        <template #cell-email="{ value }">
-          <strong>{{ value }}</strong>
-        </template>
+      <UiMobileTableScroller :label="t('admin.announcements.readStatus')" min-width="680px">
+        <UiDataTable
+          :columns="columns"
+          :data="items"
+          :loading="loading"
+          mobile-table
+          :server-side-sort="true"
+          default-sort-key="email"
+          default-sort-order="asc"
+          @sort="handleSort"
+        >
+          <template #cell-email="{ value, row }">
+            <UiDataCell :value="String(value)" :meta="row.username" />
+          </template>
 
-        <template #cell-balance="{ value }">
-          <strong class="ui-numeric">${{ Number(value ?? 0).toFixed(2) }}</strong>
-        </template>
+          <template #cell-balance="{ value }">
+            <UiDataCell :value="`$${Number(value ?? 0).toFixed(2)}`" mono />
+          </template>
 
-        <template #cell-eligible="{ value }">
-          <UiStatusBadge
-            :status="value ? 'active' : 'inactive'"
-            :label="value ? t('admin.announcements.eligible') : t('common.no')"
-          />
-        </template>
+          <template #cell-eligible="{ value }">
+            <UiStatusBadge
+              :status="value ? 'active' : 'inactive'"
+              :label="value ? t('admin.announcements.eligible') : t('common.no')"
+            />
+          </template>
 
-        <template #cell-read_at="{ value }">
-          <span class="announcement-read-status__time ui-numeric">
-            {{ value ? formatDateTime(value) : t('admin.announcements.unread') }}
-          </span>
-        </template>
-        <template #empty>
-          <UiEmptyState :title="t('empty.noData')" />
-        </template>
-      </UiDataTable>
+          <template #cell-read_at="{ value }">
+            <UiDataCell :value="value ? formatDateTime(value) : t('admin.announcements.unread')" mono />
+          </template>
+          <template #empty>
+            <UiEmptyState :title="t('empty.noData')" />
+          </template>
+        </UiDataTable>
+      </UiMobileTableScroller>
 
       <UiPagination
         v-if="pagination.total > 0"
@@ -61,14 +60,14 @@
         @update:page="handlePageChange"
         @update:pageSize="handlePageSizeChange"
       />
-    </div>
+    </AppStack>
 
     <template #footer>
-      <div class="flex justify-end">
+      <AppInline justify="flex-end">
         <UiButton type="button" density="compact" @click="handleClose">{{ t('common.close') }}</UiButton>
-      </div>
+      </AppInline>
     </template>
-  </UiDialog>
+  </UiDrawer>
 </template>
 
 <script setup lang="ts">
@@ -82,15 +81,19 @@ import type { Column } from '@/components/ui'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 
 import {
+  AppInline,
+  AppStack,
   UiButton,
+  UiDataCell,
   UiDataTable,
-  UiDialog,
+  UiDrawer,
   UiEmptyState,
+  UiFilterBar,
   UiIconButton,
+  UiMobileTableScroller,
   UiPagination,
   UiSearchInput,
   UiStatusBadge,
-  UiTableToolbar,
 } from '@/components/ui'
 
 const { t } = useI18n()
@@ -260,10 +263,3 @@ onUnmounted(() => {
   cancelPendingLoad()
 })
 </script>
-
-<style scoped>
-.announcement-read-status__time {
-  color: var(--ui-text-soft);
-  font-size: 12px;
-}
-</style>
