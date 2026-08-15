@@ -396,52 +396,30 @@
               </div>
             </template>
             <template #cell-priority="{ row }">
-              <div
-                class="inline-flex h-8 items-stretch overflow-hidden rounded border border-gray-300 bg-white text-gray-700 shadow-sm dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200"
-                :class="prioritySavingIds.has(row.id) ? 'opacity-60' : ''"
-                :title="t('admin.accounts.priorityColumnHint')"
+              <UiNumberStepper
+                :model-value="row.priority"
+                :input-value="priorityDrafts[row.id] ?? String(row.priority)"
+                input-type="text"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                :min="0"
+                :max="ACCOUNT_PRIORITY_MAX"
+                :aria-label="t('admin.accounts.priority')"
+                :decrease-label="t('admin.accounts.priorityDecrease')"
+                :increase-label="t('admin.accounts.priorityIncrease')"
                 :aria-busy="prioritySavingIds.has(row.id)"
-              >
-                <button
-                  type="button"
-                  class="grid w-8 place-items-center border-r border-gray-300 text-base leading-none transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 dark:border-dark-600 dark:hover:bg-dark-700 dark:disabled:text-dark-500"
-                  :aria-label="t('admin.accounts.priorityDecrease')"
-                  :disabled="prioritySavingIds.has(row.id) || row.priority <= 0"
-                  @click.stop="stepAccountPriority(row, -1)"
-                >
-                  &minus;
-                </button>
-                <input
-                  :value="priorityDrafts[row.id] ?? String(row.priority)"
-                  type="text"
-                  inputmode="numeric"
-                  pattern="[0-9]*"
-                  class="h-full w-14 border-0 bg-transparent px-1 text-center font-mono text-sm font-medium tabular-nums text-gray-800 outline-none focus:ring-0 dark:text-gray-100"
-                  :aria-label="t('admin.accounts.priority')"
-                  :disabled="prioritySavingIds.has(row.id)"
-                  @click.stop
-                  @input="handlePriorityDraftInput(row.id, $event)"
-                  @blur="commitPriorityDraft(row)"
-                  @keydown.enter.prevent="commitPriorityDraft(row, $event)"
-                  @keydown.esc.prevent="resetPriorityDraft(row)"
-                />
-                <button
-                  type="button"
-                  class="grid w-8 place-items-center border-l border-gray-300 text-base leading-none transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 dark:border-dark-600 dark:hover:bg-dark-700 dark:disabled:text-dark-500"
-                  :aria-label="t('admin.accounts.priorityIncrease')"
-                  :disabled="prioritySavingIds.has(row.id) || row.priority >= ACCOUNT_PRIORITY_MAX"
-                  @click.stop="stepAccountPriority(row, 1)"
-                >
-                  +
-                </button>
-                <span class="sr-only" aria-live="polite">
-                  {{
-                    prioritySavingIds.has(row.id)
-                      ? t("admin.accounts.prioritySaving")
-                      : ""
-                  }}
-                </span>
-              </div>
+                :disabled="prioritySavingIds.has(row.id)"
+                :title="t('admin.accounts.priorityColumnHint')"
+                @click.stop
+                @input="handlePriorityDraftInput(row.id, $event)"
+                @blur="commitPriorityDraft(row)"
+                @enter="commitPriorityDraft(row, $event)"
+                @escape="resetPriorityDraft(row)"
+                @change="saveAccountPriority(row, $event)"
+              />
+              <span class="sr-only" aria-live="polite">
+                {{ prioritySavingIds.has(row.id) ? t('admin.accounts.prioritySaving') : '' }}
+              </span>
             </template>
             <template #cell-notes="{ value }">
               <span
@@ -915,6 +893,7 @@ import {
   UiCheckbox,
   UiDataTable,
   UiIconButton,
+  UiNumberStepper,
   UiPagination,
   UiServerTableWorkspace,
   UiSwitch,
@@ -1221,14 +1200,6 @@ const saveAccountPriority = async (account: Account, priority: number) => {
     hasPendingListSync.value = true;
     console.error("Failed to sync priority-sorted account list:", error);
   });
-};
-
-const stepAccountPriority = (account: Account, delta: -1 | 1) => {
-  const next = Math.min(
-    ACCOUNT_PRIORITY_MAX,
-    Math.max(0, account.priority + delta),
-  );
-  void saveAccountPriority(account, next);
 };
 
 const commitPriorityDraft = (account: Account, event?: Event) => {

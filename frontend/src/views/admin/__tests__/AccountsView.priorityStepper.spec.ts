@@ -117,8 +117,8 @@ describe('admin AccountsView priority stepper', () => {
     expect(cell.get('input').element.value).toBe('12')
     const buttons = cell.findAll('button')
     expect(buttons).toHaveLength(2)
-    expect(buttons[0].text()).toBe('−')
-    expect(buttons[1].text()).toBe('+')
+    expect(buttons[0].attributes('aria-label')).toBe('admin.accounts.priorityDecrease')
+    expect(buttons[1].attributes('aria-label')).toBe('admin.accounts.priorityIncrease')
     expect(cell.html()).not.toContain('primary-')
 
     await buttons[1].trigger('click')
