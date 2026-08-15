@@ -1423,21 +1423,10 @@
               {{ t('admin.accounts.interceptWarmupRequestsDesc') }}
             </p>
           </div>
-          <button
-            type="button"
-            @click="interceptWarmupRequests = !interceptWarmupRequests"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              interceptWarmupRequests ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                interceptWarmupRequests ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+          <UiSwitch
+            v-model="interceptWarmupRequests"
+            :label="t('admin.accounts.interceptWarmupRequests')"
+          />
         </div>
       </div>
 
@@ -1449,53 +1438,48 @@
         <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
       </div>
 
-      <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <AppGrid min="180px" :gap="12">
+        <UiTextField
+          v-model.number="form.concurrency"
+          type="number"
+          min="1"
+          :label="t('admin.accounts.concurrency')"
+          @input="form.concurrency = Math.max(1, form.concurrency || 1)"
+        />
+        <UiTextField
+          v-model.number="form.load_factor"
+          type="number"
+          min="1"
+          :label="t('admin.accounts.loadFactor')"
+          :description="t('admin.accounts.loadFactorHint')"
+          :placeholder="String(form.concurrency || 1)"
+          @input="form.load_factor = (form.load_factor &amp;&amp; form.load_factor >= 1) ? form.load_factor : null"
+        />
+        <UiTextField
+          v-model="priorityInput"
+          inputmode="numeric"
+          autocomplete="off"
+          min="0"
+          :label="t('admin.accounts.priority')"
+          :description="t('admin.accounts.priorityHint')"
+          data-tour="account-form-priority"
+          @input="priorityWasEdited = true"
+        />
         <div>
-          <label class="input-label">{{ t('admin.accounts.concurrency') }}</label>
-          <input v-model.number="form.concurrency" type="number" min="1" class="input"
-            @input="form.concurrency = Math.max(1, form.concurrency || 1)" />
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.loadFactor') }}</label>
-          <input v-model.number="form.load_factor" type="number" min="1"
-            class="input" :placeholder="String(form.concurrency || 1)"
-            @input="form.load_factor = (form.load_factor &amp;&amp; form.load_factor >= 1) ? form.load_factor : null" />
-          <p class="input-hint">{{ t('admin.accounts.loadFactorHint') }}</p>
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.priority') }}</label>
-          <input
-            v-model="priorityInput"
-            type="text"
-            inputmode="numeric"
-            autocomplete="off"
-            min="0"
-            class="input"
-            data-tour="account-form-priority"
-            @input="priorityWasEdited = true"
-          />
-          <p class="input-hint">{{ t('admin.accounts.priorityHint') }}</p>
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.billingRateMultiplier') }}</label>
-          <input
+          <UiTextField
             v-model.number="form.rate_multiplier"
             type="number"
             min="0"
             step="0.001"
-            class="input disabled:cursor-not-allowed disabled:opacity-60"
-            data-testid="account-rate-multiplier"
+            :label="t('admin.accounts.billingRateMultiplier')"
+            :description="t(
+              upstreamBillingRateSyncEnabled
+                ? 'admin.accounts.upstreamBilling.syncRateManagedHint'
+                : 'admin.accounts.billingRateMultiplierHint'
+            )"
+            test-id="account-rate-multiplier"
             :disabled="upstreamBillingRateSyncEnabled"
           />
-          <p class="input-hint">
-            {{
-              t(
-                upstreamBillingRateSyncEnabled
-                  ? 'admin.accounts.upstreamBilling.syncRateManagedHint'
-                  : 'admin.accounts.billingRateMultiplierHint'
-              )
-            }}
-          </p>
           <div
             v-if="account?.type === 'apikey'"
             class="mt-3 flex items-center justify-between gap-3"
@@ -1516,11 +1500,14 @@
             />
           </div>
         </div>
-      </div>
+      </AppGrid>
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
-        <label class="input-label">{{ t('admin.accounts.expiresAt') }}</label>
-        <input v-model="expiresAtInput" type="datetime-local" class="input" />
-        <p class="input-hint">{{ t('admin.accounts.expiresAtHint') }}</p>
+        <UiTextField
+          v-model="expiresAtInput"
+          type="datetime-local"
+          :label="t('admin.accounts.expiresAt')"
+          :description="t('admin.accounts.expiresAtHint')"
+        />
       </div>
 
       <!-- OpenAI 自动透传开关（OAuth/API Key） -->
@@ -1535,21 +1522,10 @@
               {{ t('admin.accounts.openai.oauthPassthroughDesc') }}
             </p>
           </div>
-          <button
-            type="button"
-            @click="openaiPassthroughEnabled = !openaiPassthroughEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              openaiPassthroughEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                openaiPassthroughEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+          <UiSwitch
+            v-model="openaiPassthroughEnabled"
+            :label="t('admin.accounts.openai.oauthPassthrough')"
+          />
         </div>
       </div>
 
@@ -1565,22 +1541,11 @@
               {{ t('admin.accounts.openai.flattenNamespacesDesc') }}
             </p>
           </div>
-          <button
-            type="button"
+          <UiSwitch
+            v-model="openaiFlattenNamespacesEnabled"
             data-testid="edit-openai-flatten-namespaces-toggle"
-            @click="openaiFlattenNamespacesEnabled = !openaiFlattenNamespacesEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              openaiFlattenNamespacesEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                openaiFlattenNamespacesEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+            :label="t('admin.accounts.openai.flattenNamespaces')"
+          />
         </div>
       </div>
 
@@ -2711,6 +2676,7 @@ import type {
 } from '@/types'
 import Icon from '@/components/icons/Icon.vue'
 import {
+  AppGrid,
   UiButton,
   UiConfirmDialog,
   UiDialog,
