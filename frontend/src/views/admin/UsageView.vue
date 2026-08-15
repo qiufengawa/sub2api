@@ -1,30 +1,31 @@
 <template>
   <AppLayout>
-    <div class="w-full min-w-0 space-y-6">
+    <AppPage density="compact" data-testid="admin-usage-page">
+      <AppPageHeader :title="t('nav.usage')" :description="t('usage.queryConditionsHint')" />
       <UsageStatsCards :stats="usageStats" show-cache-hit-rate />
       <!-- Charts Section -->
-      <div class="space-y-4">
-        <div class="card p-4">
-          <div class="flex flex-wrap items-end gap-4">
-            <div class="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.dashboard.timeRange') }}:</span>
-              <DateRangePicker
-                v-model:start-date="startDate"
-                v-model:end-date="endDate"
-                @change="onDateRangeChange"
-              />
-            </div>
-            <div class="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
-              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.dashboard.granularity') }}:</span>
-              <div class="w-28">
-                <Select v-model="granularity" :options="granularityOptions" @change="loadChartData" />
-              </div>
-            </div>
+      <AppSection :title="t('usage.analytics')" divided>
+        <div class="admin-usage-range-toolbar">
+          <div class="admin-usage-range-field">
+            <label>{{ t('admin.dashboard.timeRange') }}</label>
+            <UiDateRangePicker
+              v-model:start-date="startDate"
+              v-model:end-date="endDate"
+              density="compact"
+              @change="onDateRangeChange"
+            />
           </div>
+          <UiSelect
+            v-model="granularity"
+            :label="t('admin.dashboard.granularity')"
+            :options="granularityOptions"
+            density="compact"
+            @change="loadChartData"
+          />
         </div>
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3" data-testid="admin-usage-chart-grid">
+        <div class="admin-usage-chart-grid" data-testid="admin-usage-chart-grid">
           <TokenUsageTrend
-            class="lg:col-span-2 xl:col-span-3"
+            class="admin-usage-chart-grid__trend"
             data-testid="admin-usage-token-trend"
             :trend-data="trendData"
             :loading="chartsLoading"
@@ -55,7 +56,7 @@
             color-scheme="categorical"
           />
           <EndpointDistributionChart
-            class="lg:col-span-2 xl:col-span-1"
+            class="admin-usage-chart-grid__endpoint"
             v-model:source="endpointDistributionSource"
             v-model:metric="endpointDistributionMetric"
             :endpoint-stats="inboundEndpointStats"
@@ -71,64 +72,24 @@
             color-scheme="categorical"
           />
         </div>
-      </div>
-      <!-- 明细区：tab 栏 + 筛选 + 内容收进同一张卡片，消除割裂感 -->
-      <div class="card">
-        <div class="flex flex-wrap items-center border-b border-gray-200 px-2 dark:border-dark-700 sm:px-4">
-          <button
-            v-for="tab in detailTabs"
-            :key="tab.key"
-            type="button"
-            data-testid="usage-detail-tab"
-            class="-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-3 text-sm font-medium transition-colors sm:px-4"
-            :class="activeTab === tab.key
-              ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-              : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-dark-500 dark:hover:text-gray-200'"
-            @click="switchTab(tab.key)"
-          >
-            <Icon :name="tab.icon" size="sm" />
-            {{ tab.label }}
-          </button>
-        </div>
+      </AppSection>
+
+      <section class="admin-usage-detail">
+        <UiTabs v-model="activeTab" :tabs="detailTabs" :label="t('usage.tabs.usage')" test-id="usage-detail-tab" @update:model-value="switchTab(String($event) as DetailTab)" />
 
         <UsageFilters v-model="filters" ref="usageFiltersRef" flat :mode="activeTab" class="border-b border-gray-100 dark:border-dark-700/50" :start-date="startDate" :end-date="endDate" :exporting="exporting" :model-options="modelNameOptions" @change="applyFilters" @refresh="refreshData" @reset="resetFilters" @cleanup="openCleanupDialog" @export="exportToExcel">
           <template #after-reset>
-            <div v-if="activeTab !== 'ranking'" class="relative" ref="columnDropdownRef">
-              <button
-                @click="showColumnDropdown = !showColumnDropdown"
-                class="btn btn-secondary px-2 md:px-3"
-                :title="t('admin.users.columnSettings')"
-              >
-                <svg class="h-4 w-4 md:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125z" />
-                </svg>
-                <span class="hidden md:inline">{{ t('admin.users.columnSettings') }}</span>
-              </button>
-              <div
-                v-if="showColumnDropdown"
-                class="absolute right-0 top-full z-50 mt-1 max-h-80 w-48 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
-              >
-                <button
-                  v-for="col in currentToggleableColumns"
-                  :key="col.key"
-                  @click="toggleCurrentColumn(col.key)"
-                  class="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
-                >
-                  <span>{{ col.label }}</span>
-                  <Icon
-                    v-if="isCurrentColumnVisible(col.key)"
-                    name="check"
-                    size="sm"
-                    class="text-primary-500"
-                    :stroke-width="2"
-                  />
-                </button>
-              </div>
-            </div>
+            <UiColumnPicker
+              v-if="activeTab !== 'ranking'"
+              :model-value="currentVisibleColumnKeys"
+              :columns="currentColumnPickerColumns"
+              :label="t('admin.users.columnSettings')"
+              @update:model-value="updateCurrentVisibleColumns"
+            />
           </template>
         </UsageFilters>
 
-        <div v-show="activeTab === 'usage'" class="overflow-hidden rounded-b-2xl">
+        <div v-show="activeTab === 'usage'" class="admin-usage-tab-panel">
           <UsageTable
             flat
             mobile-table
@@ -142,9 +103,9 @@
             @userClick="handleUserClick"
             @ipGeoBatchFailed="handleIpGeoBatchFailed"
           />
-          <Pagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" />
+          <UiPagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" />
         </div>
-        <div v-show="activeTab === 'errors'" class="overflow-hidden rounded-b-2xl">
+        <div v-show="activeTab === 'errors'" class="admin-usage-tab-panel">
           <OpsErrorLogTable
             flat
             :rows="errRows" :total="errTotal" :loading="errLoading"
@@ -159,7 +120,7 @@
             @ipGeoBatchFailed="handleIpGeoBatchFailed" />
         </div>
         <!-- 懒挂载：首次切到该 tab 才请求排行数据，之后随筛选自动刷新 -->
-        <div v-if="rankingMounted" v-show="activeTab === 'ranking'" class="overflow-hidden rounded-b-2xl">
+        <div v-if="rankingMounted" v-show="activeTab === 'ranking'" class="admin-usage-tab-panel">
           <UserTokenRanking
             ref="rankingRef"
             :start-date="startDate"
@@ -169,9 +130,9 @@
             @select-user="handleRankingSelectUser"
           />
         </div>
-      </div>
+      </section>
       <OpsErrorDetailModal v-model:show="showErrorModal" :error-id="selectedErrorId" :error-type="'request'" />
-    </div>
+    </AppPage>
   </AppLayout>
   <UsageExportProgress :show="exportProgress.show" :progress="exportProgress.progress" :current="exportProgress.current" :total="exportProgress.total" :estimated-time="exportProgress.estimatedTime" @cancel="cancelExport" />
   <UsageCleanupDialog
@@ -199,7 +160,8 @@ import { useAppStore } from '@/stores/app'; import { adminAPI } from '@/api/admi
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { formatReasoningEffort } from '@/utils/format'
 import { resolveUsageRequestType, requestTypeToLegacyStream } from '@/utils/usageRequestType'
-import AppLayout from '@/components/layout/AppLayout.vue'; import Pagination from '@/components/common/Pagination.vue'; import Select from '@/components/common/Select.vue'; import DateRangePicker from '@/components/common/DateRangePicker.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
+import { AppPage, AppPageHeader, AppSection, UiColumnPicker, UiDateRangePicker, UiPagination, UiSelect, UiTabs } from '@/components/ui'
 import UsageStatsCards from '@/components/admin/usage/UsageStatsCards.vue'; import UsageFilters from '@/components/admin/usage/UsageFilters.vue'
 import UsageTable from '@/components/admin/usage/UsageTable.vue'; import UsageExportProgress from '@/components/admin/usage/UsageExportProgress.vue'
 import UserTokenRanking from '@/components/admin/usage/UserTokenRanking.vue'
@@ -211,7 +173,6 @@ import { listErrorLogs } from '@/api/admin/ops'
 import type { OpsErrorLog } from '@/api/admin/ops'
 import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'; import GroupDistributionChart from '@/components/charts/GroupDistributionChart.vue'; import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
 import EndpointDistributionChart from '@/components/charts/EndpointDistributionChart.vue'
-import Icon from '@/components/icons/Icon.vue'
 import type { AdminUsageLog, TrendDataPoint, ModelStat, GroupStat, EndpointStat, AdminUser } from '@/types'; import type { AdminUsageStatsResponse, AdminUsageQueryParams } from '@/api/admin/usage'
 
 const { t } = useI18n()
@@ -673,21 +634,6 @@ const visibleColumns = computed(() =>
   )
 )
 
-const isColumnVisible = (key: string) => !hiddenColumns.has(key)
-
-const toggleColumn = (key: string) => {
-  if (hiddenColumns.has(key)) {
-    hiddenColumns.delete(key)
-  } else {
-    hiddenColumns.add(key)
-  }
-  try {
-    localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify([...hiddenColumns]))
-  } catch (e) {
-    console.error('Failed to save columns:', e)
-  }
-}
-
 // ---- 错误请求 tab 列设置(与用量明细同机制,独立存储) ----
 const ERR_ALWAYS_VISIBLE = ['user', 'status', 'created_at', 'actions']
 const ERR_DEFAULT_HIDDEN_COLUMNS = ['user_agent']
@@ -724,19 +670,6 @@ const errVisibleColumnKeys = computed(() =>
     .map(col => col.key)
 )
 
-const toggleErrColumn = (key: string) => {
-  if (errHiddenColumns.has(key)) {
-    errHiddenColumns.delete(key)
-  } else {
-    errHiddenColumns.add(key)
-  }
-  try {
-    localStorage.setItem(ERR_HIDDEN_COLUMNS_KEY, JSON.stringify([...errHiddenColumns]))
-  } catch (e) {
-    console.error('Failed to save error columns:', e)
-  }
-}
-
 const loadSavedErrColumns = () => {
   try {
     const saved = localStorage.getItem(ERR_HIDDEN_COLUMNS_KEY)
@@ -747,14 +680,36 @@ const loadSavedErrColumns = () => {
   }
 }
 
-// 列设置下拉按当前 tab 分发
-const currentToggleableColumns = computed(() =>
-  activeTab.value === 'errors' ? errToggleableColumns.value : toggleableColumns.value
+const currentColumnPickerColumns = computed(() => {
+  const columns = activeTab.value === 'errors' ? errAllColumns.value : allColumns.value
+  const required = new Set(activeTab.value === 'errors' ? ERR_ALWAYS_VISIBLE : ALWAYS_VISIBLE)
+  return columns.map(column => ({
+    key: column.key,
+    label: column.label,
+    required: required.has(column.key),
+  }))
+})
+
+const currentVisibleColumnKeys = computed(() => activeTab.value === 'errors'
+  ? errVisibleColumnKeys.value
+  : visibleColumns.value.map(column => column.key)
 )
-const isCurrentColumnVisible = (key: string) =>
-  activeTab.value === 'errors' ? !errHiddenColumns.has(key) : isColumnVisible(key)
-const toggleCurrentColumn = (key: string) =>
-  activeTab.value === 'errors' ? toggleErrColumn(key) : toggleColumn(key)
+
+function updateCurrentVisibleColumns(keys: string[]) {
+  const selected = new Set(keys)
+  const columns = activeTab.value === 'errors' ? errToggleableColumns.value : toggleableColumns.value
+  const hidden = activeTab.value === 'errors' ? errHiddenColumns : hiddenColumns
+  const storageKey = activeTab.value === 'errors' ? ERR_HIDDEN_COLUMNS_KEY : HIDDEN_COLUMNS_KEY
+  columns.forEach(column => {
+    if (selected.has(column.key)) hidden.delete(column.key)
+    else hidden.add(column.key)
+  })
+  try {
+    localStorage.setItem(storageKey, JSON.stringify([...hidden]))
+  } catch (error) {
+    console.error('Failed to save columns:', error)
+  }
+}
 
 const loadSavedColumns = () => {
   try {
@@ -779,9 +734,9 @@ const loadSavedColumns = () => {
 type DetailTab = 'usage' | 'errors' | 'ranking'
 const activeTab = ref<DetailTab>('usage')
 const detailTabs = computed(() => [
-  { key: 'usage' as const, label: t('usage.tabs.usage'), icon: 'document' as const },
-  { key: 'errors' as const, label: t('usage.tabs.errors'), icon: 'exclamationTriangle' as const },
-  { key: 'ranking' as const, label: t('usage.tabs.ranking'), icon: 'chart' as const },
+  { value: 'usage' as const, label: t('usage.tabs.usage'), icon: 'document' as const },
+  { value: 'errors' as const, label: t('usage.tabs.errors'), icon: 'exclamationTriangle' as const },
+  { value: 'ranking' as const, label: t('usage.tabs.ranking'), icon: 'chart' as const },
 ])
 const usageFiltersRef = ref<InstanceType<typeof UsageFilters> | null>(null)
 const rankingMounted = ref(false)
@@ -848,15 +803,6 @@ const onErrPage = (p: number) => { errPage.value = p; loadAdminErrors() }
 const onErrPageSize = (s: number) => { errPageSize.value = s; errPage.value = 1; loadAdminErrors() }
 const openError = (id: number) => { selectedErrorId.value = id; showErrorModal.value = true }
 
-const showColumnDropdown = ref(false)
-const columnDropdownRef = ref<HTMLElement | null>(null)
-
-const handleColumnClickOutside = (event: MouseEvent) => {
-  if (columnDropdownRef.value && !columnDropdownRef.value.contains(event.target as HTMLElement)) {
-    showColumnDropdown.value = false
-  }
-}
-
 onMounted(() => {
   applyRouteQueryFilters()
   void loadRouteUserFilterLabel()
@@ -868,9 +814,8 @@ onMounted(() => {
   }, 120)
   loadSavedColumns()
   loadSavedErrColumns()
-  document.addEventListener('click', handleColumnClickOutside)
 })
-onUnmounted(() => { abortController?.abort(); exportAbortController?.abort(); document.removeEventListener('click', handleColumnClickOutside) })
+onUnmounted(() => { abortController?.abort(); exportAbortController?.abort() })
 
 watch(modelDistributionSource, (source) => {
   void loadModelStats(source)
@@ -878,3 +823,112 @@ watch(modelDistributionSource, (source) => {
 
 defineExpose({ requestedModelStats, refreshData })
 </script>
+
+<style scoped>
+.admin-usage-range-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0 16px;
+  border-bottom: 1px solid var(--ui-border-soft);
+}
+
+.admin-usage-range-field {
+  display: grid;
+  gap: 4px;
+  min-width: min(100%, 320px);
+}
+
+.admin-usage-range-field > label {
+  min-height: 22px;
+  color: var(--ui-text-muted);
+  font-size: 13px;
+  line-height: 22px;
+}
+
+.admin-usage-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  padding-top: 16px;
+}
+
+.admin-usage-chart-grid__trend {
+  grid-column: 1 / -1;
+}
+
+.admin-usage-detail {
+  min-width: 0;
+  margin-top: 20px;
+  border-top: 1px solid var(--ui-border-soft);
+}
+
+.admin-usage-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--ui-border-soft);
+}
+
+.admin-usage-tabs button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius);
+  color: var(--ui-text-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.admin-usage-tabs button:hover,
+.admin-usage-tabs button.is-active {
+  color: var(--ui-text);
+  background: var(--ui-surface-muted);
+}
+
+.admin-usage-tabs button.is-active {
+  border-color: var(--ui-border);
+  font-weight: 600;
+}
+
+.admin-usage-tab-panel {
+  min-width: 0;
+  overflow-x: auto;
+  padding-top: 12px;
+}
+
+@media (max-width: 1023px) {
+  .admin-usage-chart-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-usage-chart-grid__endpoint {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-usage-range-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-usage-range-field {
+    min-width: 0;
+  }
+
+  .admin-usage-chart-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-usage-chart-grid__endpoint {
+    grid-column: auto;
+  }
+}
+</style>
