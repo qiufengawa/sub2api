@@ -1,108 +1,77 @@
 <template>
   <AppLayout>
-    <TablePageLayout>
+    <UiServerTableWorkspace :loading="loading">
       <!-- Filters -->
       <template #filters>
-        <div class="space-y-3" data-testid="audit-filter-workspace">
-          <div class="flex flex-wrap items-end gap-3">
-            <div class="w-full sm:min-w-[240px] sm:flex-1">
-              <label class="input-label">{{ t('admin.audit.filters.q') }}</label>
-              <div class="relative">
-                <Icon
-                  name="search"
-                  size="md"
-                  class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  v-model.trim="filters.q"
-                  type="text"
-                  class="input pl-10"
-                  :placeholder="t('admin.audit.filters.qPlaceholder')"
-                  @keyup.enter="search"
-                />
-              </div>
-            </div>
-
-            <div class="w-full sm:w-40">
-              <label class="input-label">{{ t('admin.audit.filters.result') }}</label>
-              <Select v-model="filters.success" :options="resultOptions" @change="search" />
-            </div>
-
-            <div class="w-full sm:w-44">
-              <label class="input-label">{{ t('admin.dashboard.timeRange') }}</label>
-              <Select
-                :model-value="timeRange"
-                :options="timeRangeOptions"
-                @update:model-value="handleTimeRangeChange"
-              />
-            </div>
-
-            <button
-              type="button"
-              class="btn btn-secondary"
+        <div class="space-y-3 p-3" data-testid="audit-filter-workspace">
+          <div class="grid grid-cols-1 gap-2 md:grid-cols-[minmax(240px,1fr)_160px_180px_auto]">
+            <UiSearchInput
+              v-model="filters.q"
+              density="compact"
+              :debounce-ms="0"
+              :placeholder="t('admin.audit.filters.qPlaceholder')"
+              @search="search"
+            />
+            <UiSelect
+              v-model="filters.success"
+              :options="resultOptions"
+              density="compact"
+              :label="t('admin.audit.filters.result')"
+              @change="search"
+            />
+            <UiSelect
+              :model-value="timeRange"
+              :options="timeRangeOptions"
+              density="compact"
+              :label="t('admin.dashboard.timeRange')"
+              @update:model-value="handleTimeRangeChange"
+            />
+            <UiButton
+              density="compact"
               :aria-expanded="advancedFiltersExpanded"
               data-testid="audit-advanced-toggle"
               @click="advancedFiltersExpanded = !advancedFiltersExpanded"
             >
-              <Icon name="filter" size="sm" class="mr-1.5" />
-              {{ t('admin.audit.filters.advanced') }}
-              <span
-                v-if="advancedFilterCount > 0"
-                class="ml-1 inline-flex min-w-5 justify-center rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 dark:bg-primary-900/40 dark:text-primary-300"
-              >
-                {{ advancedFilterCount }}
-              </span>
-              <Icon :name="advancedFiltersExpanded ? 'chevronUp' : 'chevronDown'" size="xs" class="ml-1" />
-            </button>
+              <template #icon><Icon name="filter" size="sm" /></template>
+              {{ t('admin.audit.filters.advanced') }}{{ advancedFilterCount ? ` (${advancedFilterCount})` : '' }}
+            </UiButton>
+          </div>
 
-            <div class="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
-              <button type="button" class="btn btn-primary flex-1 sm:flex-none" :disabled="loading" @click="search">
-                {{ t('common.search') }}
-              </button>
-              <button type="button" class="btn btn-secondary flex-1 sm:flex-none" :disabled="loading" @click="resetFilters">
-                {{ t('common.reset') }}
-              </button>
-              <div class="w-full border-t border-gray-200 pt-2 sm:ml-1 sm:w-auto sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0 dark:border-dark-700">
-                <button type="button" class="btn btn-danger w-full sm:w-auto" @click="openClearDialog">
-                  <Icon name="trash" size="sm" class="mr-1.5" />
-                  {{ t('admin.audit.clearAll') }}
-                </button>
-              </div>
-            </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <UiButton density="compact" variant="primary" :disabled="loading" @click="search">
+              {{ t('common.search') }}
+            </UiButton>
+            <UiButton density="compact" :disabled="loading" @click="resetFilters">
+              {{ t('common.reset') }}
+            </UiButton>
+            <UiButton class="ml-auto" density="compact" variant="danger" @click="openClearDialog">
+              <template #icon><Icon name="trash" size="sm" /></template>
+              {{ t('admin.audit.clearAll') }}
+            </UiButton>
           </div>
 
           <div
             v-if="advancedFiltersExpanded || advancedFilterCount > 0"
-            class="flex flex-wrap items-end gap-3 border-t border-gray-100 pt-3 dark:border-dark-700"
+            class="grid grid-cols-1 gap-2 border-t border-gray-100 pt-3 sm:grid-cols-2 xl:grid-cols-5 dark:border-dark-700"
             data-testid="audit-advanced-filters"
           >
-            <div class="w-full sm:min-w-[200px] sm:flex-1">
-              <label class="input-label">{{ t('admin.audit.filters.actorEmail') }}</label>
-              <input v-model.trim="filters.actor_email" type="text" class="input" @keyup.enter="search" />
-            </div>
-            <div class="w-full sm:min-w-[180px] sm:flex-1">
-              <label class="input-label">{{ t('admin.audit.filters.action') }}</label>
-              <input v-model.trim="filters.action" type="text" class="input" @keyup.enter="search" />
-            </div>
-            <div class="w-full sm:w-44">
-              <label class="input-label">{{ t('admin.audit.filters.clientIp') }}</label>
-              <input v-model.trim="filters.client_ip" type="text" class="input" @keyup.enter="search" />
-            </div>
-            <div class="w-full sm:w-36">
-              <label class="input-label">{{ t('admin.audit.filters.method') }}</label>
-              <Select v-model="filters.method" :options="methodOptions" @change="search" />
-            </div>
-            <div class="w-full sm:w-44">
-              <label class="input-label">{{ t('admin.audit.filters.authMethod') }}</label>
-              <Select v-model="filters.auth_method" :options="authMethodOptions" @change="search" />
-            </div>
+            <UiTextField v-model="filters.actor_email" density="compact" :label="t('admin.audit.filters.actorEmail')" @enter="search" />
+            <UiTextField v-model="filters.action" density="compact" :label="t('admin.audit.filters.action')" @enter="search" />
+            <UiTextField v-model="filters.client_ip" density="compact" monospace :label="t('admin.audit.filters.clientIp')" @enter="search" />
+            <UiSelect v-model="filters.method" :options="methodOptions" density="compact" :label="t('admin.audit.filters.method')" @change="search" />
+            <UiSelect v-model="filters.auth_method" :options="authMethodOptions" density="compact" :label="t('admin.audit.filters.authMethod')" @change="search" />
           </div>
         </div>
       </template>
 
       <!-- Table -->
-      <template #table>
-        <DataTable :columns="columns" :data="logs" :loading="loading" row-key="id" mobile-table>
+      <UiDataTable
+        :columns="columns"
+        :data="logs"
+        :loading="loading"
+        row-key="id"
+        :aria-label="t('admin.audit.title')"
+      >
           <template #cell-created_at="{ value }">
             <span class="whitespace-nowrap text-gray-600 dark:text-gray-300">{{ formatTime(value) }}</span>
           </template>
@@ -130,10 +99,7 @@
           </template>
 
           <template #cell-status_code="{ row }">
-            <span :class="statusBadgeClass(row.status_code)">
-              <span class="h-1.5 w-1.5 rounded-full" :class="statusDotClass(row.status_code)"></span>
-              {{ row.status_code }}
-            </span>
+            <UiStatusBadge :status="statusTone(row.status_code)" :label="String(row.status_code)" />
           </template>
 
           <template #cell-latency_ms="{ value }">
@@ -145,182 +111,107 @@
           </template>
 
           <template #cell-actions="{ row }">
-            <button
-              type="button"
-              class="inline-flex items-center gap-1 font-medium text-primary-600 transition-colors hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+            <UiIconButton
+              icon="eye"
+              variant="ghost"
+              density="compact"
+              :label="t('admin.audit.columns.detail')"
               @click="openDetail(row.id)"
-            >
-              <Icon name="eye" size="sm" />
-              {{ t('admin.audit.columns.detail') }}
-            </button>
+            />
           </template>
 
           <template #empty>
-            <div class="flex flex-col items-center py-8">
-              <Icon name="shield" size="xl" class="mb-4 h-12 w-12 text-gray-300 dark:text-dark-600" />
-              <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('admin.audit.empty') }}</p>
-            </div>
+            <UiEmptyState :title="emptyStateTitle" />
           </template>
-        </DataTable>
-      </template>
+      </UiDataTable>
 
       <!-- Pagination -->
       <template #pagination>
-        <Pagination
+        <UiPagination
           v-if="total > 0"
           :total="total"
           :page="page"
           :page-size="pageSize"
+          :summary-label="t('pagination.showing')"
+          :page-size-label="t('pagination.perPage')"
+          :previous-label="t('pagination.previous')"
+          :next-label="t('pagination.next')"
           @update:page="onPageChange"
           @update:pageSize="onPageSizeChange"
         />
       </template>
-    </TablePageLayout>
+    </UiServerTableWorkspace>
 
     <!-- Detail dialog -->
-    <BaseDialog
+    <UiDrawer
       :show="detailVisible"
       :title="t('admin.audit.detail.title')"
-      width="wide"
-      :close-on-click-outside="true"
-      @close="detailVisible = false"
+      @close="closeDetail"
     >
       <div v-if="detailLoading" class="flex items-center justify-center py-16">
         <div class="flex flex-col items-center gap-3">
-          <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-primary-600"></div>
+          <UiSpinner />
           <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('common.loading') }}</div>
         </div>
       </div>
 
       <div v-else-if="detail" class="space-y-5 py-2">
-        <!-- Hero: action + result at a glance -->
-        <div class="rounded-2xl border border-gray-200 bg-gray-50/60 p-5 dark:border-dark-700 dark:bg-dark-900/60">
-          <div class="flex flex-wrap items-center gap-3">
-            <span :class="statusBadgeClass(detail.status_code)">
-              <span class="h-1.5 w-1.5 rounded-full" :class="statusDotClass(detail.status_code)"></span>
-              {{ detail.status_code }} {{ statusText(detail.status_code) }}
-            </span>
-            <span class="break-all font-mono text-base font-semibold text-gray-900 dark:text-white">
-              {{ detail.action }}
-            </span>
-          </div>
-
-          <div class="mt-3 flex items-center gap-2 rounded-lg bg-white px-3 py-2 ring-1 ring-gray-200 dark:bg-dark-800 dark:ring-dark-600">
-            <span class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-gray-700 dark:bg-dark-700 dark:text-gray-200">
-              {{ detail.method }}
-            </span>
-            <span class="break-all font-mono text-xs text-gray-600 dark:text-gray-300">{{ detail.path }}</span>
-          </div>
-
-          <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-gray-500 dark:text-gray-400">
-            <span class="inline-flex items-center gap-1.5">
-              <Icon name="clock" size="xs" />
-              {{ formatTime(detail.created_at) }}
-            </span>
-            <span>{{ t('admin.audit.detail.latency') }} {{ detail.latency_ms }} ms</span>
-            <span v-if="detail.request_id" class="inline-flex items-center gap-1">
-              {{ t('admin.audit.detail.requestId') }}
-              <span class="break-all font-mono">{{ detail.request_id }}</span>
-            </span>
-          </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <UiStatusBadge
+            :status="statusTone(detail.status_code)"
+            :label="`${detail.status_code} ${statusText(detail.status_code)}`"
+          />
+          <span class="break-all font-mono text-sm font-semibold">{{ detail.action }}</span>
         </div>
 
-        <!-- Actor / auth / source -->
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
-            <div class="text-xs font-bold uppercase tracking-wider text-gray-400">
-              {{ t('admin.audit.columns.actor') }}
-            </div>
-            <div class="mt-1 break-all text-sm font-medium text-gray-900 dark:text-white">
-              {{ detail.actor_email || '—' }}
-            </div>
-            <div class="mt-0.5 text-xs text-gray-400">{{ detail.actor_role }}</div>
-          </div>
-
-          <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
-            <div class="text-xs font-bold uppercase tracking-wider text-gray-400">
-              {{ t('admin.audit.filters.authMethod') }}
-            </div>
-            <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-              {{ authMethodLabel(detail.auth_method) || '—' }}
-            </div>
-            <div v-if="detail.credential_masked" class="mt-0.5 break-all font-mono text-xs text-gray-400">
-              {{ detail.credential_masked }}
-            </div>
-          </div>
-
-          <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
-            <div class="text-xs font-bold uppercase tracking-wider text-gray-400">
-              {{ t('admin.audit.columns.clientIp') }}
-            </div>
-            <div class="mt-1 break-all font-mono text-sm font-medium text-gray-900 dark:text-white">
-              {{ detail.client_ip || '—' }}
-            </div>
-          </div>
-        </div>
-
-        <!-- User-Agent -->
-        <section>
-          <h4 class="mb-1.5 text-xs font-bold uppercase tracking-wider text-gray-400">
-            {{ t('admin.audit.detail.userAgent') }}
-          </h4>
-          <div class="break-all rounded-xl bg-gray-50 p-3 font-mono text-xs leading-relaxed text-gray-600 dark:bg-dark-900 dark:text-gray-400">
-            {{ detail.user_agent || '—' }}
-          </div>
-        </section>
+        <UiCodeBlock :label="t('admin.audit.detail.methodPath')" :code="`${detail.method} ${detail.path}`" />
+        <UiDescriptionList :items="detailFacts" :columns="1" />
+        <UiCodeBlock :label="t('admin.audit.detail.userAgent')" :code="detail.user_agent || '—'" />
 
         <!-- Request body (redacted) -->
-        <section v-if="detail.request_body">
-          <h4 class="mb-1.5 text-xs font-bold uppercase tracking-wider text-gray-400">
-            {{ t('admin.audit.detail.requestBody') }}
-          </h4>
-          <pre class="max-h-72 overflow-auto rounded-xl bg-gray-50 p-4 font-mono text-xs leading-relaxed text-gray-600 dark:bg-dark-900 dark:text-gray-400">{{ prettyBody(detail.request_body) }}</pre>
-        </section>
+        <UiCodeBlock
+          v-if="detail.request_body"
+          :label="t('admin.audit.detail.requestBody')"
+          :code="prettyBody(detail.request_body)"
+        />
 
         <!-- Extra -->
-        <section v-if="detail.extra && Object.keys(detail.extra).length">
-          <h4 class="mb-1.5 text-xs font-bold uppercase tracking-wider text-gray-400">
-            {{ t('admin.audit.detail.extra') }}
-          </h4>
-          <pre class="max-h-48 overflow-auto rounded-xl bg-gray-50 p-4 font-mono text-xs leading-relaxed text-gray-600 dark:bg-dark-900 dark:text-gray-400">{{ JSON.stringify(detail.extra, null, 2) }}</pre>
-        </section>
+        <UiCodeBlock
+          v-if="detail.extra && Object.keys(detail.extra).length"
+          :label="t('admin.audit.detail.extra')"
+          :code="JSON.stringify(detail.extra, null, 2)"
+        />
       </div>
-    </BaseDialog>
+    </UiDrawer>
 
     <!-- Custom time range dialog (与 /admin/ops 时间下拉一致的自定义范围，支持时分) -->
-    <BaseDialog
+    <UiDialog
       :show="showCustomTimeRangeDialog"
       :title="t('admin.ops.timeRange.custom')"
       width="narrow"
       @close="handleCustomTimeRangeCancel"
     >
       <div class="space-y-4 py-2">
-        <div>
-          <label class="input-label">{{ t('admin.ops.customTimeRange.startTime') }}</label>
-          <input v-model="customStartTimeInput" type="datetime-local" class="input" />
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.ops.customTimeRange.endTime') }}</label>
-          <input v-model="customEndTimeInput" type="datetime-local" class="input" />
-        </div>
+        <UiTextField v-model="customStartTimeInput" type="datetime-local" density="compact" :label="t('admin.ops.customTimeRange.startTime')" />
+        <UiTextField v-model="customEndTimeInput" type="datetime-local" density="compact" :label="t('admin.ops.customTimeRange.endTime')" />
       </div>
       <template #footer>
-        <button type="button" class="btn btn-secondary" @click="handleCustomTimeRangeCancel">
+        <UiButton density="compact" @click="handleCustomTimeRangeCancel">
           {{ t('common.cancel') }}
-        </button>
-        <button
-          type="button"
-          class="btn btn-primary"
+        </UiButton>
+        <UiButton
+          density="compact"
+          variant="primary"
           :disabled="!customStartTimeInput || !customEndTimeInput"
           @click="handleCustomTimeRangeConfirm"
         >
           {{ t('common.confirm') }}
-        </button>
+        </UiButton>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
     <!-- Clear confirmation → step-up TOTP -->
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="clearConfirmVisible"
       :title="t('admin.audit.clearConfirm.title')"
       :message="t('admin.audit.clearConfirm.message')"
@@ -332,7 +223,7 @@
     />
 
     <!-- TOTP prompt for the clear operation -->
-    <BaseDialog
+    <UiDialog
       :show="clearTotpVisible"
       :title="t('admin.audit.clearConfirm.totpTitle')"
       width="narrow"
@@ -341,48 +232,64 @@
     >
       <div class="py-2">
         <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('admin.audit.clearConfirm.totpHint') }}</p>
-        <input
+        <UiTextField
           v-model.trim="clearTotpCode"
           type="text"
           inputmode="numeric"
-          maxlength="6"
+          :maxlength="6"
           autocomplete="one-time-code"
-          class="input mt-4 text-center text-lg tracking-[0.5em]"
+          class="mt-4"
+          density="compact"
+          monospace
+          text-align="center"
           placeholder="••••••"
-          @keyup.enter="submitClear"
+          @enter="submitClear"
         />
       </div>
       <template #footer>
-        <button type="button" class="btn btn-secondary" :disabled="clearing" @click="cancelClearTotp">
+        <UiButton density="compact" :disabled="clearing" @click="cancelClearTotp">
           {{ t('common.cancel') }}
-        </button>
-        <button
-          type="button"
-          class="btn btn-danger"
+        </UiButton>
+        <UiButton
+          density="compact"
+          variant="danger"
+          :loading="clearing"
           :disabled="clearing || clearTotpCode.length !== 6"
           @click="submitClear"
         >
           {{ clearing ? t('common.loading') : t('admin.audit.clearAll') }}
-        </button>
+        </UiButton>
       </template>
-    </BaseDialog>
+    </UiDialog>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI, type AuditLog } from '@/api/admin'
 import { totpAPI } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import TablePageLayout from '@/components/layout/TablePageLayout.vue'
-import DataTable from '@/components/common/DataTable.vue'
-import type { Column } from '@/components/common/types'
-import Pagination from '@/components/common/Pagination.vue'
-import Select from '@/components/common/Select.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import type { Column } from '@/components/ui'
+import {
+  UiButton,
+  UiCodeBlock,
+  UiConfirmDialog,
+  UiDataTable,
+  UiDescriptionList,
+  UiDialog,
+  UiDrawer,
+  UiEmptyState,
+  UiIconButton,
+  UiPagination,
+  UiSearchInput,
+  UiSelect,
+  UiServerTableWorkspace,
+  UiSpinner,
+  UiStatusBadge,
+  UiTextField
+} from '@/components/ui'
 import { useAppStore } from '@/stores'
 
 const { t } = useI18n()
@@ -411,6 +318,12 @@ const advancedFilterCount = computed(() => [
   filters.method,
   filters.auth_method
 ].filter(Boolean).length)
+const hasActiveFilters = computed(() => Boolean(
+  filters.q || filters.success || timeRange.value || advancedFilterCount.value
+))
+const emptyStateTitle = computed(() =>
+  t(hasActiveFilters.value ? 'admin.audit.filteredEmpty' : 'admin.audit.empty')
+)
 
 // 时间范围：预设窗口（同 /admin/ops 时间下拉）+ 自定义起止（datetime-local，支持时分）
 const timeRange = ref('')
@@ -548,10 +461,10 @@ function buildQuery() {
   return {
     page: page.value,
     page_size: pageSize.value,
-    q: filters.q || undefined,
-    actor_email: filters.actor_email || undefined,
-    action: filters.action || undefined,
-    client_ip: filters.client_ip || undefined,
+    q: filters.q.trim() || undefined,
+    actor_email: filters.actor_email.trim() || undefined,
+    action: filters.action.trim() || undefined,
+    client_ip: filters.client_ip.trim() || undefined,
     method: filters.method || undefined,
     auth_method: filters.auth_method || undefined,
     success: filters.success || undefined,
@@ -559,16 +472,21 @@ function buildQuery() {
   }
 }
 
+let listRequestId = 0
+
 async function fetchLogs() {
+  const requestId = ++listRequestId
   loading.value = true
   try {
     const res = await adminAPI.audit.list(buildQuery())
+    if (requestId !== listRequestId) return
     logs.value = res.items
     total.value = res.total
   } catch (err: any) {
+    if (requestId !== listRequestId) return
     appStore.showError(err?.message || t('admin.audit.loadFailed'))
   } finally {
-    loading.value = false
+    if (requestId === listRequestId) loading.value = false
   }
 }
 
@@ -606,19 +524,45 @@ function onPageSizeChange(ps: number) {
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const detail = ref<AuditLog | null>(null)
+const detailFacts = computed(() => {
+  const item = detail.value
+  if (!item) return []
+  return [
+    { label: t('admin.audit.columns.time'), value: formatTime(item.created_at) },
+    { label: t('admin.audit.detail.latency'), value: `${item.latency_ms} ms`, numeric: true },
+    { label: t('admin.audit.columns.actor'), value: item.actor_email || '—' },
+    { label: t('admin.audit.detail.actorRole'), value: item.actor_role || '—' },
+    { label: t('admin.audit.filters.authMethod'), value: authMethodLabel(item.auth_method) || '—' },
+    { label: t('admin.audit.detail.credential'), value: item.credential_masked || '—' },
+    { label: t('admin.audit.columns.clientIp'), value: item.client_ip || '—' },
+    { label: t('admin.audit.detail.requestId'), value: item.request_id || '—' }
+  ]
+})
+let detailRequestId = 0
 
 async function openDetail(id: number) {
+  const requestId = ++detailRequestId
   detailVisible.value = true
   detailLoading.value = true
   detail.value = null
   try {
-    detail.value = await adminAPI.audit.get(id)
+    const response = await adminAPI.audit.get(id)
+    if (requestId !== detailRequestId || !detailVisible.value) return
+    detail.value = response
   } catch (err: any) {
+    if (requestId !== detailRequestId) return
     appStore.showError(err?.message || t('admin.audit.loadFailed'))
     detailVisible.value = false
   } finally {
-    detailLoading.value = false
+    if (requestId === detailRequestId) detailLoading.value = false
   }
+}
+
+function closeDetail() {
+  detailRequestId++
+  detailVisible.value = false
+  detailLoading.value = false
+  detail.value = null
 }
 
 function prettyBody(body: string): string {
@@ -694,18 +638,15 @@ function statusText(status: number): string {
   return status < 400 ? t('admin.audit.filters.resultSuccess') : t('admin.audit.filters.resultFailure')
 }
 
-function statusBadgeClass(status: number): string {
-  const base = 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold '
-  if (status >= 500) return base + 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-  if (status >= 400) return base + 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-  return base + 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-}
-
-function statusDotClass(status: number): string {
-  if (status >= 500) return 'bg-red-500'
-  if (status >= 400) return 'bg-amber-500'
-  return 'bg-green-500'
+function statusTone(status: number): 'success' | 'warning' | 'danger' {
+  if (status >= 500) return 'danger'
+  if (status >= 400) return 'warning'
+  return 'success'
 }
 
 onMounted(fetchLogs)
+onUnmounted(() => {
+  listRequestId++
+  detailRequestId++
+})
 </script>

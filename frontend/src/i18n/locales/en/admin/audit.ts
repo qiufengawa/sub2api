@@ -4,6 +4,7 @@ export default {
     description: 'Records management-plane operations by admins and users. Header credentials keep only their first/last characters and request bodies are redacted. Entries cannot be deleted individually; clearing all requires two-factor verification.',
     clearAll: 'Clear All',
     empty: 'No audit logs yet',
+    filteredEmpty: 'No audit logs match the current filters',
     loadFailed: 'Failed to load audit logs',
     filters: {
       all: 'All',
