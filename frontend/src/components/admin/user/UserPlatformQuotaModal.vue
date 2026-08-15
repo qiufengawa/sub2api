@@ -32,59 +32,20 @@
               <td class="px-3 py-2 font-mono text-gray-900 dark:text-white">{{ row.platform }}</td>
               <td class="px-3 py-2">
                 <div class="flex items-center gap-1">
-                  <input
-                    v-model.number="row.daily_limit_usd"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    class="input w-24"
-                    :placeholder="t('admin.users.platformQuota.placeholder')"
-                  />
-                  <button
-                    type="button"
-                    class="text-xs text-gray-400 hover:text-amber-500 disabled:opacity-50"
-                    :disabled="!!resetting[`${row.platform}.daily`]"
-                    :title="t('admin.users.platformQuota.reset.button')"
-                    @click="onReset(row.platform, 'daily')"
-                  >↻</button>
+                  <UiTextField density="compact" type="number" min="0" step="0.01" :model-value="row.daily_limit_usd ?? ''" :placeholder="t('admin.users.platformQuota.placeholder')" @update:model-value="updateLimit(row, 'daily', String($event))" />
+                  <UiIconButton icon="refresh" density="mini" variant="ghost" :disabled="!!resetting[`${row.platform}.daily`]" :label="t('admin.users.platformQuota.reset.button')" @click="onReset(row.platform, 'daily')"><span class="sr-only">↻</span></UiIconButton>
                 </div>
               </td>
               <td class="px-3 py-2">
                 <div class="flex items-center gap-1">
-                  <input
-                    v-model.number="row.weekly_limit_usd"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    class="input w-24"
-                    :placeholder="t('admin.users.platformQuota.placeholder')"
-                  />
-                  <button
-                    type="button"
-                    class="text-xs text-gray-400 hover:text-amber-500 disabled:opacity-50"
-                    :disabled="!!resetting[`${row.platform}.weekly`]"
-                    :title="t('admin.users.platformQuota.reset.button')"
-                    @click="onReset(row.platform, 'weekly')"
-                  >↻</button>
+                  <UiTextField density="compact" type="number" min="0" step="0.01" :model-value="row.weekly_limit_usd ?? ''" :placeholder="t('admin.users.platformQuota.placeholder')" @update:model-value="updateLimit(row, 'weekly', String($event))" />
+                  <UiIconButton icon="refresh" density="mini" variant="ghost" :disabled="!!resetting[`${row.platform}.weekly`]" :label="t('admin.users.platformQuota.reset.button')" @click="onReset(row.platform, 'weekly')"><span class="sr-only">↻</span></UiIconButton>
                 </div>
               </td>
               <td class="px-3 py-2">
                 <div class="flex items-center gap-1">
-                  <input
-                    v-model.number="row.monthly_limit_usd"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    class="input w-24"
-                    :placeholder="t('admin.users.platformQuota.placeholder')"
-                  />
-                  <button
-                    type="button"
-                    class="text-xs text-gray-400 hover:text-amber-500 disabled:opacity-50"
-                    :disabled="!!resetting[`${row.platform}.monthly`]"
-                    :title="t('admin.users.platformQuota.reset.button')"
-                    @click="onReset(row.platform, 'monthly')"
-                  >↻</button>
+                  <UiTextField density="compact" type="number" min="0" step="0.01" :model-value="row.monthly_limit_usd ?? ''" :placeholder="t('admin.users.platformQuota.placeholder')" @update:model-value="updateLimit(row, 'monthly', String($event))" />
+                  <UiIconButton icon="refresh" density="mini" variant="ghost" :disabled="!!resetting[`${row.platform}.monthly`]" :label="t('admin.users.platformQuota.reset.button')" @click="onReset(row.platform, 'monthly')"><span class="sr-only">↻</span></UiIconButton>
                 </div>
               </td>
               <td class="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
@@ -95,20 +56,20 @@
         </table>
         <p class="mt-3 text-xs text-gray-500">{{ t('admin.users.platformQuota.hint') }}</p>
         <div class="mt-3">
-          <button type="button" class="btn btn-secondary text-sm" @click="onClearAll">
+          <UiButton type="button" density="compact" @click="onClearAll">
             {{ t('admin.users.platformQuota.clearAll') }}
-          </button>
+          </UiButton>
         </div>
       </div>
     </div>
     <template #footer>
       <div class="flex justify-end gap-3">
-        <button type="button" class="btn btn-secondary" @click="$emit('close')">
+        <UiButton type="button" @click="$emit('close')">
           {{ t('admin.users.platformQuota.cancel') }}
-        </button>
-        <button type="button" class="btn btn-primary" :disabled="submitting || loading" @click="onSave">
+        </UiButton>
+        <UiButton type="button" variant="primary" :loading="submitting" :disabled="loading" @click="onSave">
           {{ submitting ? t('admin.users.platformQuota.saving') : t('admin.users.platformQuota.save') }}
-        </button>
+        </UiButton>
       </div>
     </template>
   </BaseDialog>
@@ -121,6 +82,7 @@ import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { AdminUser, PlatformQuotaItem, PlatformQuotaPlatform, PlatformQuotaWindow } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import { UiButton, UiIconButton, UiTextField } from '@/components/ui'
 
 const props = defineProps<{ show: boolean; user: AdminUser | null }>()
 const emit = defineEmits(['close', 'success'])
@@ -182,6 +144,10 @@ function normalize(items: PlatformQuotaItem[]): QuotaRow[] {
 function formatUsage(n: number): string {
   if (n == null || Number.isNaN(n)) return '-'
   return n.toFixed(2)
+}
+
+function updateLimit(row: QuotaRow, window: 'daily' | 'weekly' | 'monthly', value: string) {
+  row[`${window}_limit_usd`] = value.trim() === '' ? null : Number(value)
 }
 
 async function load() {
