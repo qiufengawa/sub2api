@@ -360,27 +360,14 @@
             <p class="input-hint">{{ t('admin.accounts.vertexSaJsonEditHint') }}</p>
           </div>
           <div>
-            <label class="input-label">Location</label>
-            <select
+            <UiSelect
               v-model="editVertexLocation"
+              label="Location"
+              :description="t('admin.accounts.vertexLocationHint')"
+              :options="vertexLocationSelectOptions"
               required
-              class="input font-mono"
-            >
-              <optgroup
-                v-for="group in VERTEX_LOCATION_OPTIONS"
-                :key="group.label"
-                :label="group.label"
-              >
-                <option
-                  v-for="option in group.options"
-                  :key="option.value"
-                  :value="option.value"
-                >
-                  {{ option.label }}
-                </option>
-              </optgroup>
-            </select>
-            <p class="input-hint">{{ t('admin.accounts.vertexLocationHint') }}</p>
+              class="font-mono"
+            />
           </div>
         </div>
 
@@ -1744,17 +1731,13 @@
             />
           </div>
           <div v-if="cacheTTLOverrideEnabled" class="mt-3">
-            <label class="input-label text-xs">{{ t('admin.accounts.quotaControl.cacheTTLOverride.target') }}</label>
-            <select
+            <UiSelect
               v-model="cacheTTLOverrideTarget"
-              class="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-dark-500 dark:bg-dark-700 dark:text-white"
-            >
-              <option value="5m">5m</option>
-              <option value="1h">1h</option>
-            </select>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.quotaControl.cacheTTLOverride.targetHint') }}
-            </p>
+              :label="t('admin.accounts.quotaControl.cacheTTLOverride.target')"
+              :description="t('admin.accounts.quotaControl.cacheTTLOverride.targetHint')"
+              :options="cacheTTLOverrideOptions"
+              density="compact"
+            />
           </div>
         </div>
 
@@ -2151,8 +2134,16 @@ const tlsFingerprintProfiles = ref<{ id: number; name: string }[]>([])
 const sessionIdMaskingEnabled = ref(false)
 const cacheTTLOverrideEnabled = ref(false)
 const cacheTTLOverrideTarget = ref<string>('5m')
+const cacheTTLOverrideOptions = [
+  { value: '5m', label: '5m' },
+  { value: '1h', label: '1h' }
+]
 const customBaseUrlEnabled = ref(false)
 const customBaseUrl = ref('')
+const vertexLocationSelectOptions = VERTEX_LOCATION_OPTIONS.flatMap(group => [
+  { value: `__group_${group.label}`, label: group.label, kind: 'group' },
+  ...group.options.map(option => ({ value: option.value, label: option.label }))
+])
 
 // OpenAI 自动透传开关（OAuth/API Key）
 const openaiPassthroughEnabled = ref(false)

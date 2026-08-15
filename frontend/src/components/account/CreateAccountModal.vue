@@ -953,27 +953,14 @@
             />
           </div>
           <div>
-            <label class="input-label">Location</label>
-            <select
+            <UiSelect
               v-model="vertexLocation"
+              label="Location"
+              :description="t('admin.accounts.vertexLocationHint')"
+              :options="vertexLocationSelectOptions"
               required
-              class="input font-mono"
-            >
-              <optgroup
-                v-for="group in VERTEX_LOCATION_OPTIONS"
-                :key="group.label"
-                :label="group.label"
-              >
-                <option
-                  v-for="option in group.options"
-                  :key="option.value"
-                  :value="option.value"
-                >
-                  {{ option.label }}
-                </option>
-              </optgroup>
-            </select>
-            <p class="input-hint">{{ t('admin.accounts.vertexLocationHint') }}</p>
+              class="font-mono"
+            />
           </div>
         </div>
       </div>
@@ -1418,45 +1405,13 @@
         </div>
 
         <!-- Shared: Region -->
-        <div>
-          <label class="input-label">{{ t('admin.accounts.bedrockRegion') }}</label>
-          <select v-model="bedrockRegion" class="input">
-            <optgroup label="US">
-              <option value="us-east-1">us-east-1 (N. Virginia)</option>
-              <option value="us-east-2">us-east-2 (Ohio)</option>
-              <option value="us-west-1">us-west-1 (N. California)</option>
-              <option value="us-west-2">us-west-2 (Oregon)</option>
-              <option value="us-gov-east-1">us-gov-east-1 (GovCloud US-East)</option>
-              <option value="us-gov-west-1">us-gov-west-1 (GovCloud US-West)</option>
-            </optgroup>
-            <optgroup label="Europe">
-              <option value="eu-west-1">eu-west-1 (Ireland)</option>
-              <option value="eu-west-2">eu-west-2 (London)</option>
-              <option value="eu-west-3">eu-west-3 (Paris)</option>
-              <option value="eu-central-1">eu-central-1 (Frankfurt)</option>
-              <option value="eu-central-2">eu-central-2 (Zurich)</option>
-              <option value="eu-south-1">eu-south-1 (Milan)</option>
-              <option value="eu-south-2">eu-south-2 (Spain)</option>
-              <option value="eu-north-1">eu-north-1 (Stockholm)</option>
-            </optgroup>
-            <optgroup label="Asia Pacific">
-              <option value="ap-northeast-1">ap-northeast-1 (Tokyo)</option>
-              <option value="ap-northeast-2">ap-northeast-2 (Seoul)</option>
-              <option value="ap-northeast-3">ap-northeast-3 (Osaka)</option>
-              <option value="ap-south-1">ap-south-1 (Mumbai)</option>
-              <option value="ap-south-2">ap-south-2 (Hyderabad)</option>
-              <option value="ap-southeast-1">ap-southeast-1 (Singapore)</option>
-              <option value="ap-southeast-2">ap-southeast-2 (Sydney)</option>
-            </optgroup>
-            <optgroup label="Canada">
-              <option value="ca-central-1">ca-central-1 (Canada)</option>
-            </optgroup>
-            <optgroup label="South America">
-              <option value="sa-east-1">sa-east-1 (São Paulo)</option>
-            </optgroup>
-          </select>
-          <p class="input-hint">{{ t('admin.accounts.bedrockRegionHint') }}</p>
-        </div>
+        <UiSelect
+          v-model="bedrockRegion"
+          :label="t('admin.accounts.bedrockRegion')"
+          :description="t('admin.accounts.bedrockRegionHint')"
+          :options="bedrockRegionOptions"
+          class="font-mono"
+        />
 
         <!-- Shared: Force Global -->
         <div>
@@ -2131,17 +2086,13 @@
             />
           </div>
           <div v-if="cacheTTLOverrideEnabled" class="mt-3">
-            <label class="input-label text-xs">{{ t('admin.accounts.quotaControl.cacheTTLOverride.target') }}</label>
-            <select
+            <UiSelect
               v-model="cacheTTLOverrideTarget"
-              class="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-dark-500 dark:bg-dark-700 dark:text-white"
-            >
-              <option value="5m">5m</option>
-              <option value="1h">1h</option>
-            </select>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.quotaControl.cacheTTLOverride.targetHint') }}
-            </p>
+              :label="t('admin.accounts.quotaControl.cacheTTLOverride.target')"
+              :description="t('admin.accounts.quotaControl.cacheTTLOverride.targetHint')"
+              :options="cacheTTLOverrideOptions"
+              density="compact"
+            />
           </div>
         </div>
 
@@ -3234,6 +3185,36 @@ const bedrockAccessKeyId = ref('')
 const bedrockSecretAccessKey = ref('')
 const bedrockSessionToken = ref('')
 const bedrockRegion = ref('us-east-1')
+const bedrockRegionOptions = [
+  { value: '__group_us', label: 'US', kind: 'group' },
+  { value: 'us-east-1', label: 'us-east-1 (N. Virginia)' },
+  { value: 'us-east-2', label: 'us-east-2 (Ohio)' },
+  { value: 'us-west-1', label: 'us-west-1 (N. California)' },
+  { value: 'us-west-2', label: 'us-west-2 (Oregon)' },
+  { value: 'us-gov-east-1', label: 'us-gov-east-1 (GovCloud US-East)' },
+  { value: 'us-gov-west-1', label: 'us-gov-west-1 (GovCloud US-West)' },
+  { value: '__group_europe', label: 'Europe', kind: 'group' },
+  { value: 'eu-west-1', label: 'eu-west-1 (Ireland)' },
+  { value: 'eu-west-2', label: 'eu-west-2 (London)' },
+  { value: 'eu-west-3', label: 'eu-west-3 (Paris)' },
+  { value: 'eu-central-1', label: 'eu-central-1 (Frankfurt)' },
+  { value: 'eu-central-2', label: 'eu-central-2 (Zurich)' },
+  { value: 'eu-south-1', label: 'eu-south-1 (Milan)' },
+  { value: 'eu-south-2', label: 'eu-south-2 (Spain)' },
+  { value: 'eu-north-1', label: 'eu-north-1 (Stockholm)' },
+  { value: '__group_apac', label: 'Asia Pacific', kind: 'group' },
+  { value: 'ap-northeast-1', label: 'ap-northeast-1 (Tokyo)' },
+  { value: 'ap-northeast-2', label: 'ap-northeast-2 (Seoul)' },
+  { value: 'ap-northeast-3', label: 'ap-northeast-3 (Osaka)' },
+  { value: 'ap-south-1', label: 'ap-south-1 (Mumbai)' },
+  { value: 'ap-south-2', label: 'ap-south-2 (Hyderabad)' },
+  { value: 'ap-southeast-1', label: 'ap-southeast-1 (Singapore)' },
+  { value: 'ap-southeast-2', label: 'ap-southeast-2 (Sydney)' },
+  { value: '__group_canada', label: 'Canada', kind: 'group' },
+  { value: 'ca-central-1', label: 'ca-central-1 (Canada)' },
+  { value: '__group_south_america', label: 'South America', kind: 'group' },
+  { value: 'sa-east-1', label: 'sa-east-1 (São Paulo)' }
+]
 const bedrockForceGlobal = ref(false)
 const bedrockApiKeyValue = ref('')
 const vertexServiceAccountFileInput = ref<HTMLInputElement | null>(null)
@@ -3241,6 +3222,10 @@ const vertexServiceAccountJson = ref('')
 const vertexProjectId = ref('')
 const vertexClientEmail = ref('')
 const vertexLocation = ref('global')
+const vertexLocationSelectOptions = VERTEX_LOCATION_OPTIONS.flatMap(group => [
+  { value: `__group_${group.label}`, label: group.label, kind: 'group' },
+  ...group.options.map(option => ({ value: option.value, label: option.label }))
+])
 const vertexServiceAccountDragActive = ref(false)
 const tempUnschedEnabled = ref(false)
 const tempUnschedRules = ref<TempUnschedRuleForm[]>([])
@@ -3355,6 +3340,10 @@ const tlsFingerprintProfiles = ref<{ id: number; name: string }[]>([])
 const sessionIdMaskingEnabled = ref(false)
 const cacheTTLOverrideEnabled = ref(false)
 const cacheTTLOverrideTarget = ref<string>('5m')
+const cacheTTLOverrideOptions = [
+  { value: '5m', label: '5m' },
+  { value: '1h', label: '1h' }
+]
 const customBaseUrlEnabled = ref(false)
 const customBaseUrl = ref('')
 
