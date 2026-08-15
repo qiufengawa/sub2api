@@ -1,566 +1,845 @@
-# 账号调用优先度改造计划
+# Sub2API 全站前端重构计划
 
 ## 0. 文档状态
 
-- 状态：账号优先度实现、上游 `v0.1.175` 功能内容集成、自动化验证、最终 Code Review 与三档浏览器验收已完成；目标发行版本为 `v0.1.175-qiu.1`
-- 最近确认（2026-08-12）：调用优先度最小值为 `0`，不设产品最大值；`100` 不是上限，
-  `1000` 及更大的合法整数必须按同一规则参与排序和调度。
-- 本轮交付：账号调用优先度前后端、调度、迁移与发布语义闭环已实现；浏览器已在 1440px、900px、390px 验证默认排序、并列值、0、1000、2147483647、分页及长文本；未对现有部署执行数据迁移，也未重启服务
-- 目标页面：管理员账号管理 `/admin/accounts`，以及所有实际使用账号调度的后端路径
-- 核心字段：复用现有 `accounts.priority`，不新增仅用于展示的伪字段
-- 本文档定义后续开发范围、实施步骤、兼容策略和验收标准；它不是“已完成”声明
-- 当前工作区可能已有同一需求的未提交尝试改动。正式执行必须先审计
-  `git status --short` 与按文件归类的 `git diff`，逐项确认其正确性；不能把已有改动视为已验证，
-  也不能覆盖或回滚无关改动。
-- 当前已有的同需求代码只属于“候选实现”，不代表阶段完成。执行者必须从现状审计开始，补齐
-  调度、迁移、缓存、导入兼容、测试和浏览器验收后，才能给出完成结论。
+- 状态：规划与 Git 存档已完成，R0 已完成，R1 公共组件独立化正在实施，R2 认证与初始化已完成并通过定向验收；R3-R9 尚未完成。
+- 基线日期：2026-08-14。
+- 当前开发分支：`ui/main`；全部后续前端重构只在该开发线继续整合。
+- 设计基线：`UI.MD`、`frontend/src/styles/ui-tokens.css`、`frontend/src/components/ui/`。
+- 组件基线：114 个共享 `Ui/App` 组件已经建立；组件存在不代表业务页面已经迁移。
+- 本文替换原有“账号调用优先度改造计划”。旧计划对应功能已经完成，不再作为全站前端工作的执行依据。
+- 页面范围、重写边界、批次顺序和验收口径已经确认。
+- 长任务执行入口见本文第 15 节；执行者必须先读取全文，再按 R0 至 R9 连续推进。
+- 可直接复制的完整目标引导词同步维护在 [`docs/FRONTEND_REFACTOR_GOAL_PROMPT.md`](docs/FRONTEND_REFACTOR_GOAL_PROMPT.md)；该文件必须与第 15 节保持一致。
+- 本轮最终决策：旧前端的样式、组件外观、DOM、排版和布局全部丢弃并重写；旧前端只作为业务功能契约、数据字段和异常分支参考。
+- 最新确认（2026-08-14）：本次是前端整体重构，不是旧页面换色或局部修补。旧前端的样式、组件实现、页面 DOM、排版、布局、响应式补丁和视觉 CSS 均不作为新实现基础；先以 Git archive 作为唯一回退存档，再在 `ui/main` 逐页重写并装入原有业务功能。除非在例外清单中明确记录，否则不得保留旧视觉实现。
+- 文档唯一性：`plan.md` 是全量前端重构的唯一执行总纲；`UI.MD` 是设计令牌与公共组件基线，其他阶段性文档不得覆盖本文的边界、批次或验收标准。
+- 长任务启动门禁：开始删除或重写前，必须实际验证 archive 分支、提交和远端指向；若任一项不可验证，先创建并推送只包含前端基线的 archive 提交，完成验证后才能继续。
 
-## 1. 本轮决策冻结
+## 1. 目标
 
-以下决定由产品需求明确给出，执行阶段不得自行改回旧口径：
+基于现有 114 个共享组件，重新构建公共页、认证页、用户控制台、管理员控制台和辅助流程。现有页面只作为功能清单和行为参考，不作为样式、组件结构、DOM 或布局参考。
 
-| 项目 | 冻结决定 |
-| --- | --- |
-| 字段 | 继续使用 `accounts.priority`，API 字段名不改成 `weight`、`call_order` 等新字段 |
-| 最小值 | `0` 合法，表示最低调用优先度 |
-| 最大值 | 不设置业务最大值；不出现 `max=100`、`1..100` 或任何人为封顶 |
-| 技术边界 | PostgreSQL `INTEGER` 的闭区间 `0..2147483647`；越界、溢出、非整数和负数拒绝 |
-| 方向 | 数字越大，账号调用优先度越高；列表默认从高到低 |
-| 并列 | 允许任意多个账号使用同一数值 |
-| 含义 | 这是调度层级/优先顺序，不是流量百分比、固定分流比例或随机权重 |
-| 默认 | 新建账号未传值时服务层补 `0`，显式传入 `0` 必须与缺失字段区分 |
-| 分组字段 | `account_groups.priority` 是独立概念，保持其既有方向，不随本需求反转 |
-| 传输格式 | API/备份继续使用 `priority` JSON 整数；范围低于 JavaScript `Number.MAX_SAFE_INTEGER`，可无损传输 |
+本次重构的核心不是“给旧页面换颜色”，而是完成以下闭环：
 
-“无最大值”不等于接受任意长度的字符串。产品不设人为封顶，但当前数据库技术边界固定为
-`0..2147483647`；API、导入和表单必须拒绝无法安全解析为该范围整数的值，并返回可理解的错误。
-不得静默截断、取模、clamp、四舍五入或把非法值改写成 `0`。
+1. 在任何删除或重写前，先创建并推送可独立恢复的 Git 前端存档分支。
+2. 保留 114 个已确认的 `Ui/App` 组件、API 层、store、composable、类型、国际化资源和业务规则。
+3. 丢弃旧页面模板、旧布局 DOM、旧视觉组件、旧页面 CSS 和旧全局视觉规则，重新实现全部 61 个页面。
+4. 旧页面只用于逐项提取功能、字段、权限、状态机和异常分支，提取完成后不沿用其视觉实现。
+5. 按页面职责重新设计信息顺序、布局和交互，再将原有功能装入新的页面结构。
+6. 桌面端优先保证信息密度和扫描效率，移动端保持同一信息结构并做响应式适配。
+7. 最终生产代码只保留新 UI 体系，不以长期兼容为理由残留两套页面或两套视觉组件。
 
-本需求明确不包含：ORCA 或其他无关项目、登录注册流程、支付/订阅业务规则、数据库结构之外的
-业务改造、共享组件的无关视觉重构，以及任何与账号优先度无关的发布链路变更。
+## 2. 冻结原则
 
-### 1.1 最终不可变口径
+### 2.1 本轮允许修改
 
-以下三条是本需求的产品契约，后续实现、测试、迁移、文案和验收不得自行改写：
+- 删除并重写全部页面模板、页面结构、页面样式、布局壳和旧视觉组件。
+- 重新设计信息顺序、留白、栅格、表格、表单、导航、弹窗和响应式排版。
+- 将旧领域组件拆成“业务逻辑”和“新视觉实现”，必要时重新命名或重新建文件。
+- 加载、空状态、错误状态、成功反馈和响应式布局。
+- 在不改变业务含义的前提下精简文案、统一术语和格式。
+- 为功能搬运补充临时适配器、测试和验收 fixture；临时适配器不得成为最终视觉实现。
 
-```text
-最小值：0
-最大值：不设置业务上限
-排序语义：数值越大，账号调用优先度越高
-```
+### 2.2 本轮默认不修改
 
-数据库字段仍须使用 PostgreSQL `INTEGER` 的技术安全边界 `0..2147483647`，并在服务层拒绝
-负数、非整数、溢出和无法安全解析的输入；这属于数据完整性保护，不是产品最大值。该范围
-同时低于 JavaScript 的安全整数上限，因此 JSON number 可以无损表示。任何控件、API 文档或
-错误提示都不得出现 `max=100`、`1..100` 等旧产品口径。
+- `backend/` 目录中的任何文件（源码、配置、迁移、测试、嵌入产物和文档）均不得修改；本轮只允许修改 `frontend/`、UI 设计文档、前端重构记录和必要的前端测试。
+- API URL、请求参数、响应字段和错误协议。
+- 登录、权限、功能开关、菜单可见性和路由语义。
+- 计费、倍率、订阅、余额、订单、退款和支付状态机。
+- 调度、账号优先度、监控统计口径和后端数据计算。
+- 本地持久化 key、支付恢复快照、查询参数深链和第三方 SDK 生命周期。
+- `backend/cmd/server/VERSION`、`frontend/package.json` 的系统版本来源、任何版本号、tag、GitHub Release、GHCR 标签和线上发布元数据。
 
-## 2. 已确认的产品口径
+确需改变上述行为时，必须拆成独立需求，不得混入视觉重构。
 
-1. 展示名称统一为“账号调用优先度”。
-2. 调用优先度必须是整数，最小值为 `0`。
-3. 不设置业务最大值；仅保留数据库和运行时整数安全边界。
-4. 数字越大，账号调用优先度越高。
-5. 新建账号默认调用优先度为 `0`，不会因为新建而自动抢占已有高优先度账号。
-6. 允许多个账号设置相同调用优先度，不要求账号数量与数值一一对应。
-7. 调用优先度表示调度层级，不表示流量百分比，也不是按比例随机分流的“权重”。
-8. 同一调用优先度内，继续使用现有负载、队列、最近使用时间、配额、OAuth 偏好、粘性会话等规则。
-9. `load_factor` 继续表示负载因子，不与调用优先度合并。
-10. `account_groups.priority` 是独立的分组绑定顺序，本需求不反转其语义。
+### 2.3 视觉与结构约束
 
-## 3. 当前实现与问题
+- 沿用已经确认的 UI 组件体系：米白背景、黑白主体、暖灰边界和语义色。
+- 按仓库硬约束使用细长控件：默认 `36px`，compact `32px`，dense `28px`；`24px` 仅用于表格行内图标操作和紧凑标签，`40px` 仅用于有明确触控理由的独立主操作。超过 `36px` 必须在页面验收记录中说明交互理由。
+- 不使用大面积渐变、彩色标题条、无意义编号和解释实现方式的文案。
+- 不允许卡片套卡片；完整页面区块不因装饰目的被包进浮动卡片；不添加只为制造背景色的 wrapper；普通页面最多三层可见 surface（页面、section/tool、overlay）。相关值必须使用 grid 或 description list 对齐。
+- Lucide 是唯一界面图标来源；页面不得新增手绘 SVG 图标。
+- 独立工具图标可有描边容器；内嵌编辑、关闭、勾、叉、校验与状态图标保持无框。
+- 绿色只表示成功或确认，红色只表示失败、取消或删除，黄色表示警告或等待。
+- 蓝色只用于信息状态或图表序列，不作为通用按钮色；粉色只用于公共页装饰或次级图表；供应商品牌色只允许出现在图标或小标签中，不得铺满卡片或弹窗；黄色文字必须保持可读对比度；绿色不得作为页面背景；不得出现 logo 前的彩色条。
+- 英文与普通数字使用 `Inter, "SF Pro Text", "Segoe UI", Arial, sans-serif`；中英混排使用 `Inter, "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif`；JSON、API Key、模型 ID、端点和请求 ID 使用 `"SFMono-Regular", "Cascadia Code", "Roboto Mono", Consolas, "Liberation Mono", monospace`；金额和指标使用 `font-variant-numeric: tabular-nums`。
+- 字间距固定为 `0`；字重仅使用 `400/500/600/700`，`800+` 只允许首页 hero 或明确的公共营销标题；标题字号按固定 type scale 和断点切换，不按 viewport 连续缩放。
+- 高密度列表在手机端仍保持列表或表格，通过受控横向滚动完成比较，不改成大卡片流。
+- 普通页面最多保留三层可见 surface（页面、section/tool、overlay）；仅承载布局的 wrapper 不得拥有独立背景、边框、阴影或圆角。表格工具栏只承载搜索、筛选、批量、导出、刷新、列设置和创建等语义动作；数据单元格保持“一条主值 + 一条 metadata”，横向滚动区域必须可聚焦并有 accessible name。
 
-### 3.1 当前语义
+### 2.4 UI.MD 与 AGENTS 组件硬契约
 
-- `accounts.priority` 当前采用“数值越小越优先”。
-- 通用 Gateway、OpenAI 旧调度、OpenAI 高级调度、Gemini 等路径均依赖该语义。
-- 批量生图路径当前已经采用“数值越大越优先”，与其他路径不一致。
-- OpenAI 高级调度会把账号优先级归一化后加入综合调度分数，并非严格只按优先级选择。
+- 所有界面图标必须通过 `components/icons/Icon.vue` 使用 `lucide-vue-next`；禁止第二图标库、UCloud 图标和页面级 SVG。SVG 仅用于数据可视化；栅格插画仅限公共页、邮件、空状态和 onboarding，且必须服务于任务。
+- 共享组件必须按需提供 light/dark、`mini/dense/default/large` density、normal/hover/active/focus-visible/disabled/loading/invalid/readonly 状态，支持长中文、英文、数字、模型 ID 和 API 值，覆盖 1440/900/390 三视口、reduced-motion、键盘操作和 accessible name，并配套单测与 fixture。
+- 组件 props 表达语义（如 `intent="danger"`、`density="compact"`、`loading`），禁止 `blue`、`largeRounded`、`shadowHeavy` 等任意视觉 props。消费者只能调整 width、grid 和上下文间距，不得重定义颜色、高度、圆角、focus、disabled 或 motion；禁止用 `:deep()` 或 `!important` 打补丁。
+- 动效只解释状态变化：hover/focus `100-140ms`，tooltip/popover `120-140ms` 且位移不超过 `2px`，认证表单切换使用持久 shell 的 `140ms` 交叉淡入，dialog `180ms`、drawer/sheet `180-240ms`。普通过渡只动画 `opacity` 和 `transform`，禁止动画 height/width/top/left/padding/margin；表格排序、筛选、分页不得逐行入场，实时图表不得重复播放整段入场动画。
+- 桌面首行放主要指标与健康状态，toolbar 不得不可预测换行；平板先减列不减字号；移动端保留表头和比较能力，sticky 列不得遮挡内容，dialog 在键盘或浏览器 chrome 会遮挡时改用 sheet，并尊重 safe-area；页面不得横向溢出。
+- 认证路由必须复用 `AuthLayout`、`AuthFormPanel`、`AuthTextField` 的路由、行为和可访问性契约，并重写这些组件的 DOM/CSS 实现；相关路由保持持久认证壳，只切换表单内容，不出现空白中间帧。密码规则通过字段帮助/tooltip 提供，不常驻堆叠说明。
+- 共享组件必须使用语义 props 表达意图，不向页面暴露任意颜色、圆角、阴影或高度 props；页面不得通过 `:deep()`、`!important` 或局部 CSS 重定义共享状态。
+- Tooltip 只承载短只读说明，不承载必需操作；spinner 只用于短暂动作，页面首次加载必须用与最终布局同尺寸的 skeleton；toast 不能成为支付或破坏性失败的唯一记录；dialog 不用于普通导航或把完整页面塞进弹窗。
+- 每个正式页面默认由 `AppPage` + 一个 `AppPageHeader` 组成，例外必须在 review 记录中说明；新增状态必须同步更新 `ui-system` fixture；按钮、链接、tabs、switch 必须使用正确语义元素。
 
-### 3.2 当前前端
+### 2.5 完整重写边界
 
-- 账号列表已经拥有 `priority` 列和服务端排序能力。
-- 该列默认隐藏，单元格只显示裸数字，因此管理员很难观察。
-- 创建、编辑和批量编辑页面均能修改该字段，但提示文案仍为“数值越小越优先”。
-- 旧管理员浏览器可能已经把该列写入 `account-hidden-columns`，只改默认列无法让旧用户看到。
-- 列表当前默认按账号名称升序，而不是按调用优先度排序。
+以下内容必须丢弃并重新实现：
 
-### 3.3 当前数据风险
+- 61 个页面现有的 `<template>` 视觉结构和页面级 `<style>`。
+- `AppLayout`、`AuthLayout`、`AppHeader`、`AppSidebar`、`TablePageLayout` 的现有排版与视觉 DOM。
+- `components/common` 中仅承担视觉职责的旧按钮、输入框、弹窗、表格、状态、空态和加载组件。
+- `frontend/src/style.css` 中服务于旧页面外观的 `.btn`、`.input`、`.card`、`.modal`、旧表格和旧布局规则。
+- 页面自行维护的颜色、圆角、高度、阴影、图标容器和响应式补丁。
 
-- 数据库定义默认值、前端默认值和部分导入入口的默认值不一致。
-- 普通创建 API 省略 priority 时可能写入 Go 零值，绕过 Ent 默认值。
-- 部分入口只校验非负数，普通创建、更新和批量更新缺少统一的服务层校验。
-- 调度候选同时存在数据库查询结果和 Redis 调度快照；只更新数据库会留下旧缓存。
+以下内容保留并迁移到新页面：
 
-## 4. 目标调度逻辑
+- API、store、composable、router、类型、i18n key 和权限判断。
+- 业务计算、校验、轮询、取消、重试、缓存、持久化和第三方 SDK 生命周期。
+- 每个页面全部有效字段、操作、状态、错误分支和功能开关。
+- 已确认的 114 个 `Ui/App` 组件及其设计令牌；114 个组件必须全部完成独立化、统一令牌接入、状态覆盖、契约测试和验收页登记。如果组件行为不足，应增强组件本身，而不是恢复旧页面样式。这里的“保留”只指保留业务契约和可复用目标，不表示原样保留旧实现。
 
-候选账号必须依次经过以下流程，所有平台和调度器都遵守同一外层契约：
+实施采用“功能提取 -> 新页面实现 -> 行为对照 -> 切换路由 -> 删除旧视觉代码”的替换方式。允许为了保持应用可运行而短期存在适配器，但任何页面只有在旧视觉代码已经删除后才算完成。
 
-1. 按现有业务规则过滤平台、分组、模型支持、账号状态、可调度状态、过期状态、容量、配额、
-   速率限制和请求能力；优先度不能绕过任何硬性不可用条件。
-2. 在剩余候选中计算最高的 `accounts.priority`，只保留该最高值的候选层。数字越大越先，
-   低优先度账号即使负载更低、费率更低或最近未使用，也不得跨层抢占高优先度账号。
-3. 仅在同一优先度层内继续执行现有平台规则：负载率、队列、最近使用时间、OAuth 偏好、
-   费率偏好、Compact 能力、错误退避、随机打散及其他已存在的 tie-break。
-4. OpenAI Advanced 不再把 priority 与负载/错误/TTFT 合成一个可跨层反转的总分。若保留 score，
-   score 只用于已选中的 priority 层内排序；priority 层级必须先于 score 比较。
-5. OpenAI score preview 与真实选择复用同一候选过滤、优先度分层和层内评分 helper。预览缺少
-   运行时指标时必须明确标注静态/当前快照语义，不得用伪造的零值宣称等同于真实调度。
-6. Compact 的 `supported > unknown > unsupported` 只在同一账号优先度层内生效；不因请求能力
-   偏好而跨层选择低优先度账号。
-7. 粘性会话绑定属于现有硬性会话约束，优先级高于普通账号排序：有效绑定即使落在较低
-   priority 层也继续使用绑定账号，但仍须通过账号状态、容量、配额和请求能力过滤；绑定账号
-   失效、被硬过滤或会话未绑定时，才回到上述最高 priority 流程。改变优先度不自动改写既有
-   sticky 绑定，也不把 sticky 命中误报为普通优先度排序结果。
-8. 批量生图、Gemini、Grok、Gateway fallback 和所有平台特定路径都必须使用相同的外层分层规则，
-   同层才调用各自已有的负载/LRU/能力逻辑。
+### 2.6 Git 存档点
 
-### 4.1 运行时失败与降层规则
-
-- “最高 priority 层优先”是每次选号的初始层级，不是保证高层永不降级。请求在该层按现有
-  retry/fallback 策略逐个尝试；只有该层候选全部因可重试的上游错误、临时退避、容量耗尽或
-  请求级失败而不可用时，才重新执行硬过滤并进入下一高 priority 层。
-- 不可重试的请求参数、认证、模型能力或明确禁用状态不会触发盲目降层；应立即返回原有错误。
-- 降层不改变同层 tie-break，不允许低层因静态低负载直接越级；每次降层、重试和最终错误都要
-  写入现有调度诊断/日志字段，便于验收。
-- Sticky 绑定失败时可按同一规则降层；有效 sticky 命中不参与普通层间比较。
-
-严禁只修改前端文案、只反转数据库值或只修改部分比较器。
-
-### 4.2 与相近概念的边界
-
-- `accounts.priority`：本需求的账号调用优先度，数值越大越先进入调度层。
-- `account_groups.priority`：账号与分组绑定的既有排序字段，保持原语义，不得批量反转。
-- `load_factor`：负载/容量相关参数，继续由原有调度规则解释。
-- 上游费率、OAuth 偏好、LRU、队列和随机打散：只在同一优先度层或现有硬约束允许的范围内生效。
-- 任何 UI 文案都不得把 priority 称为“百分比”“权重比例”或承诺固定流量占比。
-
-## 5. 列表与卡片设计
-
-### 5.1 信息顺序
-
-桌面列表核心顺序：
+前端基线存档已经建立并推送：
 
 ```text
-选择 | 账号名称 | 服务状态 | 调用优先度 | ID | 平台类型 | 容量 | 状态 | ... | 操作
+branch: archive/frontend-before-full-rebuild-20260814
+commit: 215adfaa4aa893488c53cd3853dae27c8847dc91
+remote: origin (qiufengawa/sub2api)
 ```
 
-- “账号名称 + 服务状态”的现有观察关系保持不变。
-- “调用优先度”放在服务状态之后，使用紧凑独立列。
-- 建议列宽约 `96px`，避免扩大账号表格宽度；列宽是布局建议，不得通过截断数字
-  把大于 `100` 的合法优先度隐藏或改写。
-- 单元格显示上箭头图标和完整数字，例如 `↑ 1200`。
-- 使用稳定的浅蓝/中性色，不根据任意阈值映射成功、风险或错误颜色。
-- 不增加大卡片、渐变或嵌套容器。
+存档建立过程遵循以下规则：
 
-### 5.2 表头说明
+1. 审查工作区，确认当前前端和 UI 文档是需要保存的基线。
+2. 创建一个只包含 `frontend/`、`UI.MD`、`plan.md` 和相关 UI 展示文档的快照提交；不得混入无关后端改动。
+3. 从该提交创建并推送分支：`archive/frontend-before-full-rebuild-20260814`。
+4. 不创建 GitHub Release，不使用版本号 tag，也不触发线上更新。
+5. 用 `git show`、`git ls-tree` 和远端分支查询确认快照包含新 UI 组件、现有页面和文档。
+6. 在当前开发分支继续重构；需要回退时可从 archive 分支恢复完整前端或单个文件。
 
-表头增加帮助提示，内容必须覆盖：
+远端分支、提交哈希、114 个 UI 组件和重构计划均已核验。这个存档点只负责回退，不是后续继续复用旧样式的依据。
 
-> 数字越大，账号越优先进入调度。同一优先度仍会参考负载、队列、最近使用时间、配额和平台调度策略。该数值不是流量百分比，也不保证某个账号每次都被选中。
+## 3. 页面数量与统计口径
 
-### 5.3 排序
+### 3.1 总量
 
-- 服务端必须在分页之前排序，禁止只对当前页排序。
-- 页面首次进入、清除排序和旧排序配置升级后的默认顺序固定为 `priority DESC`。
-- 相同优先度使用 `id ASC` 保持刷新、翻页和自动刷新时稳定。
-- 桌面列表和手机卡片必须复用同一份服务端有序数据。
-- 目标基础顺序为：
+| 统计对象 | 数量 | 说明 |
+| --- | ---: | --- |
+| 生产路由记录 | 66 | 包含 4 个纯重定向、认证父壳和 404；alias 不重复计数 |
+| 独立页面组件 | 61 | 生产路由绑定的内容页；认证父壳 `AuthShellView` 不作为独立内容页重复计数 |
+| 静态主导航入口 | 37 | 用户侧 14 个、管理员侧 23 个；受权限和功能开关影响 |
+| 动态主导航入口 | `N` | `custom_menu_items` 可增加任意数量入口，但统一复用 `/custom/:id` |
+| 开发专用路由 | 1 | `/ui-system-preview` 仅开发环境存在，复用 `UiSystemView` |
 
-```sql
-ORDER BY priority DESC, id ASC
-```
+### 3.2 61 个独立页面的归属
 
-- 保留现有手动列排序能力时，管理员明确点击其他列可临时覆盖默认顺序；服务端必须正确支持该列
-  的升降序并提供稳定 ID tie-break，不能让 UI 显示升序而 API 实际仍返回降序。
-- 手机卡片不单独做客户端重排，始终沿用当前 API 排序结果；回到默认排序后恢复高值到低值。
+| 页面族 | 数量 | 说明 |
+| --- | ---: | --- |
+| 公共产品页 | 4 | 首页、公开 Key 用量、法律文档、模型广场 |
+| 认证主流程 | 5 | 登录、注册、邮箱验证、忘记密码、重置密码 |
+| 用户控制台主页面 | 13 | 用户日常工作页，不含购买与支付子流程 |
+| 管理员控制台主页面 | 23 | 不含 UI 组件验收页 |
+| 支付、回调和辅助流程 | 15 | 7 个认证回调、6 个支付流程、初始化、404 |
+| 内部验收页 | 1 | 管理员 UI System |
+| 合计 | 61 | 独立 Vue 页面组件口径 |
 
-### 5.4 列可见性兼容
+### 3.3 角色共享边界
 
-- 调用优先度成为账号页面的核心默认可见列。
-- 从默认隐藏列中删除 `priority`。
-- 升级本地列配置版本，并从旧 `account-hidden-columns` 中移除 `priority`。
-- 迁移完成后，管理员仍可按最终产品决定手动隐藏；首次升级必须保证该列可见。
-- 排序存储需要升级版本，将旧默认 `name ASC` 迁移为 `priority DESC`。
+- 管理员通过现有权限逻辑可以访问多数用户页面，但管理员默认入口仍为 `/admin/dashboard`。
+- `/monitor` 是用户与管理员共享的渠道状态页面，管理员可看到更多诊断信息。
+- `/model-plaza` 同时支持公开独立形态与控制台嵌入形态。
+- `/custom/:id` 是一个页面组件，实际内容与菜单可见性由后台配置决定。
+- `/purchase`、订单和支付回调属于一个交易流程族，页面计数分开，但实施时必须作为一个批次验收。
 
-### 5.5 手机端
-
-- 手机端账号卡片默认按调用优先度从高到低排列；显式手动排序时沿用服务端结果。
-- 调用优先度作为靠前的信息行显示，不放入折叠详情。
-- 长账号名、长邮箱和大位数优先度不能挤压服务状态或操作按钮。
-
-## 6. 创建、编辑和批量编辑
-
-- 创建、编辑和批量编辑统一使用相同控件和校验口径。
-- 输入类型为整数，`min=0`，不设置产品 `max`；例如 `101`、`1000` 和 `2147483647` 均可保存、
-  展示、排序和导入。`2147483647` 是 PostgreSQL `INTEGER` 的技术边界，不是产品套餐式上限。
-- 新建默认值为 `0`。
-- 表单内部先按十进制字符串处理，避免浏览器在提交前把大整数静默四舍五入。
-- 禁止小数、指数形式、负数、空字符串转换为异常值，以及超过运行时/数据库安全整数范围的数值。
-- 前端与后端采用同一技术边界：当前范围 `0..2147483647` 低于 JavaScript 安全整数上限，
-  因此 `priority` 在现有 JSON `number` wire contract 中可无损传输；服务端仍须拒绝超出范围、
-  非整数和异常 JSON 类型。若未来改为更宽的数据库类型，必须先单独设计字符串 wire contract，
-  不得在本需求中偷偷改变字段类型。
-- 帮助文案统一为“数字越大，调用优先度越高；相同数值继续按负载等规则调度”。
-- 批量修改必须继续通过显式启用开关，避免打开弹窗即覆盖账号值。
-
-## 7. API 与领域约束
-
-- 继续复用 JSON 字段 `priority`，避免无意义的 API 字段改名。
-- 创建请求必须能够区分“未传入”和“显式传入 0”。
-- 未传入时由服务层统一补默认值 `0`。
-- 更新请求的 `nil` 表示不修改，`0` 是合法的新值。
-- 校验必须下沉到公共服务/领域入口，不能只依赖 HTML `min` 或单个 handler。
-- 普通创建、普通更新、批量更新、OAuth、Codex、Grok、CRS、影子账号和账号数据导入必须使用相同口径。
-- 影子账号必须区分“未传入 priority，继承母账号”和“显式传入 0，设置为最低优先度”。
-- 非法值必须返回明确的 4xx 校验错误；不得 panic、溢出、静默 clamp 或部分写入。
-- API 响应继续返回原有 `priority` 字段，不伪造新字段。
-- API 创建/更新请求、备份和 CRS payload 中 `priority` 均按十进制 JSON 整数处理；JSON key 缺失才表示
-  创建时使用默认值或更新时不修改，JSON `null` 一律视为非法并返回 4xx（内部 Go `nil` 仅表示
-  “未传入”）。API 响应只返回规范化的十进制整数，不把缺失语义扩展到响应。不得接受 `"1e3"`、
-  `1.5`、指数词法、字符串或布尔值作为优先度。
-- 解析层必须使用 raw token/`UseNumber` 或等价的词法校验，在 JSON 解码阶段拒绝 `1e3`、`1.0`、
-  `-0` 和超范围数字；只接受词法 `0` 或不带前导零的正十进制整数。响应序列化为十进制整数，
-  不得四舍五入。
-
-## 8. 旧数据迁移
-
-### 8.1 迁移目标
-
-现有低值优先数据必须在比较方向切换时同步转换，保证升级前后的实际主备顺序不变。
-
-### 8.2 动态反转公式
-
-迁移前计算：
+## 4. 目标前端分层
 
 ```text
-K = 当前 accounts.priority 的最大旧值
-新 priority = K - 旧 priority
+views/
+  只负责页面编排、路由参数、页面级请求和业务状态
+
+components/<domain>/
+  负责账号、分组、支付、公告、监控等领域逻辑与组合
+
+components/ui/
+  负责通用视觉、交互、键盘、焦点、加载、响应式和无障碍
+
+styles/ui-tokens.css
+  唯一的字体、颜色、密度、圆角、边界、阴影和动效令牌
 ```
 
-该公式不引入固定上限，并保证迁移后的最小值为 `0`。
+业务页面只能从 `@/components/ui` 公共入口导入共享组件。禁止新增 `@/components/ui/UiXxx.vue` 文件路径导入，也禁止页面重新定义共享组件的高度、颜色、圆角和焦点状态。新页面必须重新编写模板结构，不允许把旧页面 DOM 包进 `AppPage` 后视为完成。
 
-示例：
+## 5. P0：公共组件整体替换
+
+公共组件替换是页面重构的前置任务。目标不是给旧组件换皮，而是让 114 个新组件独立承接所有通用行为，随后删除旧视觉组件。
+
+### 5.1 当前事实
+
+- `frontend/src/components/common/` 现有 42 个 Vue 组件。
+- 高频旧组件仍被大量业务页面直接依赖：`BaseDialog` 79 个文件、`Select` 54 个、`ConfirmDialog` 34 个、`Pagination` 28 个、`DataTable` 22 个、`EmptyState` 20 个、`HelpTooltip` 18 个、`LoadingSpinner` 18 个、`Toggle` 16 个。
+- `AppLayout` 被约 40 个页面使用，`TablePageLayout` 被 18 个页面使用。
+- 部分新组件仍是旧组件的样式包装：`UiDialog`、`UiConfirmDialog`、`UiDataTable`、`UiSelect`、`UiCombobox`、`UiDateRangePicker`、`UiTooltip`、`UiFieldHelp`、`UiSkeleton`。
+- 因此“把 import 名称改成 UiXxx”不等于完成替换，必须同时保留并最终收口旧组件的行为契约。
+
+### 5.2 替换类型
+
+| 类型 | 处理方式 | 适用对象 |
+| --- | --- | --- |
+| A：直接替换 | 接口等价，逐处换为 `Ui*` 并删除页面局部样式 | Input、TextArea、Toggle、SearchInput、Skeleton、LoadingSpinner |
+| B：临时行为适配 | 先把旧行为契约提取到 `Ui*`，迁移消费者后删除旧内部实现；适配器不得保留旧外观 | DataTable、Pagination、Select、DateRangePicker、Dialog、ConfirmDialog、Tooltip |
+| C：领域逻辑重装 | 保留领域 API 和计算，重新编写全部模板与样式，内部只组合 `Ui*` | GroupSelector、ProxySelector、PlatformIcon、Announcement、VersionBadge、Payment 组件 |
+| D：布局重建 | 保留权限、菜单数据和状态来源，布局壳的 DOM、CSS 与响应式行为全部重写 | AppLayout、AuthLayout、AppHeader、AppSidebar、TablePageLayout |
+| E：强制删除 | 新实现通过行为对照后删除旧文件、旧 DOM 和旧样式 | 所有已完成迁移的旧视觉实现 |
+
+### 5.3 高频组件替换矩阵
+
+| 旧组件/结构 | 目标组件 | 实施要求 | 风险 |
+| --- | --- | --- | --- |
+| `Input` | `UiTextField` | 对齐 label、error、prefix/suffix、事件和 autocomplete | 低 |
+| `TextArea` | `UiTextArea` | 保留 maxlength、计数、rows、resize 决策 | 低 |
+| `Toggle` | `UiSwitch` | 保留 v-model、disabled 和即时保存语义 | 低 |
+| `SearchInput` | `UiSearchInput` | 保留 debounce、clear 和 search 事件 | 低 |
+| `LoadingSpinner` | `UiSpinner` | 统一尺寸映射；已知结构优先改用 `UiSkeleton` | 低 |
+| `Skeleton` | `UiSkeleton` | 骨架尺寸必须匹配最终布局 | 低 |
+| `EmptyState` | `UiEmptyState` | 对齐标题、描述、图标、action slot 和默认文案 | 低 |
+| `StatCard` | `UiStatMetric` + `UiMetricTrend` | 指标不再拆成装饰性大卡片 | 中 |
+| `Pagination` | `UiPagination` | 保留跳页、页大小、持久化和移动端行为 | 中 |
+| `HelpTooltip` | `UiTooltip` / `UiFieldHelp` | 保留 hover/click、定位、外点关闭和键盘访问 | 中 |
+| `DateRangePicker` | `UiDateRangePicker` / `UiDateTimeRangePicker` | 保留预设、时区和“今天”边界语义 | 中高 |
+| `Select` | `UiSelect` / `UiCombobox` / `UiMultiCombobox` | 保留搜索、创建、分组、禁用、Teleport、键盘与定位 | 高 |
+| `BaseDialog` | `UiDialog` | 保留 overlay stack、focus trap、Esc、滚动锁和恢复焦点 | 高 |
+| `ConfirmDialog` | `UiConfirmDialog` | 保留 pending、confirmDisabled 和危险操作安全默认值 | 高 |
+| `DataTable` | `UiDataTable` + `UiMobileTableScroller` | 保留排序、虚拟化、选择、sticky、持久化和服务端分页 | 极高 |
+| `TablePageLayout` | `AppPage` + `UiServerTableWorkspace` | 先做兼容层，保持 actions/filters/table/pagination slots | 高 |
+| 全局 `Toast` | `UiToast`/`UiSnackbar` + 队列适配器 | 不能机械替换单条组件；保留全局队列和严重级别 | 高 |
+| `ImageUpload` | `UiFileUpload` + 领域预览 | 保留 data URL/SVG 清洗、尺寸比例和大小限制 | 高 |
+| `ExportProgressDialog` | `UiDialog` + `UiExportJob` | 保留进度、取消、重试、下载和估时 | 中高 |
+
+### 5.4 必须保留为领域组件的对象
+
+以下对象保留领域职责和对外业务契约，但其模板、排版和样式同样全部重写：
+
+- 公告：`AnnouncementBell`、`AnnouncementPopup`、`AnnouncementDetail`。
+- 分组和模型：`GroupBadge`、`GroupSelector`、`GroupOptionItem`、`ModelIcon`、`PlatformIcon`。
+- 代理和 IP：`ProxySelector`、`IpGeoCell`、`IpGeoBatchToolbar`。
+- 系统：`LocaleSwitcher`、`NavigationProgress`、`AutoRefreshButton`、`VersionBadge`。
+- 支付：支付方式选择、二维码、Provider 配置、订单状态和恢复流程组件。
+- 操练场：Composer、Message、参数面板、请求预览和 `usePlayground`。
+- 监控：矩阵、趋势、健康计算、查询同步和自动刷新组件。
+
+### 5.5 公共组件替换完成标准
+
+1. 业务代码从 `@/components/ui` 导入通用组件。
+2. A 类旧组件没有生产消费者。
+3. B 类组件的 `Ui*` API 覆盖旧行为，内部不再依赖不可控的页面样式覆写。
+4. C 类组件保留领域 API，但按钮、字段、弹窗、状态和排版来自 UI 层。
+5. 新代码不新增 `common` 通用组件，不新增第二套按钮、输入框、弹窗或表格。
+6. 所有兼容层都有迁移清单、测试和明确删除条件。
+7. 旧全局 CSS 仅保留尚有消费者的规则，并通过使用统计逐步归零。
+8. 最终页面不包含从旧页面复制的模板区块、旧 class 结构或旧响应式补丁。
+9. `components/common` 中纯视觉组件的生产消费者归零；领域组件必须完成新模板重写。
+
+## 6. 页面数据与展示形态
+
+### 6.1 列表工作台
+
+适用：账号、用户、密钥、分组、渠道、订单、用量、兑换码、代理、审计等。
 
 ```text
-旧值： 1   10   50
-K：    50
-新值：49   40    0
+AppPage
+├── AppPageHeader：标题、必要说明、主操作
+├── UiServerTableWorkspace
+│   ├── UiTableToolbar：搜索、筛选、刷新、列设置、导出
+│   ├── UiFilterChips：已应用筛选
+│   ├── UiBulkActionBar：有选择时出现
+│   ├── UiMobileTableScroller + UiDataTable
+│   └── UiPagination
+└── UiDrawer / UiDialog：详情与编辑
 ```
 
-### 8.3 迁移要求
+桌面优先显示名称、关键状态、核心指标和操作；手机保留表头与列比较，不转换为高大的卡片。
 
-1. 迁移前执行只读预检：账号总数、最小值、最大值、负值、空表、全部同值和超出新类型安全
-   边界的数据分布；发现负值或无法安全反转的数据时阻断迁移，不静默修正。
-2. 使用数据库事务执行数据转换，并使用宽整数中间值计算，防止减法溢出。
-3. 空账号表必须正常完成且记录明确的空迁移状态；全部同值时迁移后统一为 `0`。
-4. 迁移前记录语义版本、`K`、账号 ID、原值和迁移时间，支持审计和精确回滚。
-5. 新增迁移必须幂等，并遵守现有 migration checksum 规则；二次执行不得再次反转数据。
-6. 不修改历史迁移文件的已发布内容；通过新 migration 完成语义升级。
-7. 数据迁移与 scheduler 语义切换必须在同一数据库事务内写入可重放的 migration outbox/event
-   记录（或等价的事务内状态表）；提交后由独立的一次性 migration publisher（维护命令或已启动的
-   迁移 worker）按 migration key 幂等发布 `full_rebuild`。publisher 先锁定本次 bucket 集合快照，
-   为每个 bucket 写入幂等成功记录；只有集合中每个 bucket 都成功且没有 pending/failed 记录时才
-   推进 Redis semantic epoch。空 bucket 集合视为成功，迁移期间新出现的 bucket 由后续增量事件处理。
-   任一 bucket 失败则保持旧 epoch，按指数退避重试，禁止发布混合语义快照；发布失败、进程崩溃或
-   重复消费必须可恢复、可重试且不重复反转账号。禁止执行 Redis `FLUSHDB`，禁止清除登录、限流、
-   支付、订阅等无关键缓存。
-8. 本次开发阶段只新增/修正 migration、回滚工具、演练脚本和测试；不得连接生产库执行迁移，
-   不得为验证而停止服务或重启服务。真实数据迁移属于后续发布任务，必须由用户另行授权。
-9. 真实发布统一使用维护窗口停机切换：单实例停止旧服务后执行迁移并启动匹配新语义的版本；
-   多实例必须先确认全部旧实例退出，再迁移、重建缓存并启动新实例，禁止新旧语义同时运行。
-10. 回滚工具必须读取本次迁移记录中的原始 `K`，先恢复兼容约束，再恢复旧值与旧调度语义，
-    最后重新构建调度缓存；不得按当前最大值猜测回滚 pivot。
-11. 迁移审计记录必须保存原列默认值、相关约束与注释状态，以及被转换账号的原始 `updated_at`；
-    回滚不得硬编码假定旧默认值，也不得把所有历史更新时间覆盖为回滚时间。
-12. 迁移备份必须记录账号行数和可复核的完整性摘要。回滚前先验证备份未缺行、未被篡改且与
-    迁移记录匹配，校验失败时必须中止，不能继续写入猜测值。
-13. `full_rebuild` 事件必须携带 `priority_semantics`、migration key、pivot 和语义 epoch；消费端
-    只能按兼容语义重建快照，并确认待处理 outbox 的去重索引存在且有效。数据库 semantic state
-    表是启动闸门的唯一来源：新 higher-wins 二进制在启动/处理请求前必须读取并验证
-    `priority_semantics=higher_wins`、已知 migration key 和正 epoch；旧/未知/回退状态必须 fail closed。
-    维护窗口顺序固定为：停止旧实例 -> 备份并提交事务迁移/outbox -> 启动独立 publisher（不接流量）
-    -> 锁定并重建全部 bucket -> 写入成功记录并推进 epoch -> 校验 DB marker/Redis epoch/readiness
-    -> 启动新服务接流量。新服务不得承担首次 rebuild 的唯一执行者，避免启动闸门循环依赖。
-14. 手工回滚是版本级操作：数据库恢复旧值时必须同时切回兼容旧语义的二进制。新语义二进制
-    在检测到旧数据库语义时必须拒绝启动；回滚后的再次升级使用新的 forward migration，不直接
-    重放已经记录过的原 migration。
-
-### 8.4 发布与回滚原子性
-
-账号数据、调度代码和 Redis 快照必须被视为一个不可拆分的语义版本。本需求冻结采用“维护窗口
-停机切换”：停止全部旧实例 -> 备份并执行事务迁移 -> 可靠发布并完成 full rebuild -> 验证 Redis
-epoch/数据库 marker 一致 -> 启动新实例 -> 进行流量验收。兼容开关不是本次默认方案；若未来采用，
-必须另立变更并补充双阶段演练。本次只实现和测试演练，不执行生产切换。任何时刻都不能让旧
-二进制按“低值优先”解释已经反转的数据，或让新二进制按“高值优先”解释尚未迁移的数据。
-
-## 9. 账号备份导入导出
-
-- 账号备份格式升级版本，并明确记录 `priority_semantics`；新格式标记为 `higher_wins`。
-- 新格式直接保存高值优先的 priority。
-- 旧格式只有同时具备可识别的来源版本、`lower_wins` 语义和源系统 pivot `K` 时，才可按旧语义
-  导入并动态转换；来源版本本身不能替代 pivot。缺少任一项时一律拒绝写入既有账号库。
-- 新格式导出后再次导入时不做二次反转；同一批导入文件混用不同语义版本时必须拒绝并提示，
-  不能逐文件猜测后混合写入。
-- 旧格式若没有记录源系统 pivot，导入预览必须明确拒绝并提示重新导出或补充可信 pivot；不得使用
-  导入子集最大值或目标库当前最大值推测 pivot，也不得把这种推测描述为无损迁移。
-- 导入预览必须提示发生了优先度语义迁移。
-- 仅对新 `higher_wins` 格式规定导出后再次导入保持 priority 数值和稳定顺序不变；顺序定义为
-  `priority DESC, stable account ID ASC`。旧格式导入必须按其源 pivot 转换，不能要求数值不变。
-- 不得把 `account_groups.priority` 当作账号 priority 一起转换。
-
-### 9.1 CRS 与外部同步
-
-- CRS/远端同步载荷需要携带可选的 priority 语义版本；新来源明确声明 `higher_wins`。
-- 对缺失语义标记的旧来源使用兼容策略前，必须能确定其来源版本；无法判断时阻断 priority 写入
-  并返回可操作错误，不能把值静默改成 `0`。
-- 所有同步入口复用同一个非负整数校验，禁止各自维护 `1..100`、回退 `50` 等旧规则。
-- 增加旧来源、新来源、非法值和重复同步测试，保证同步不会每次都再次反转。
-
-## 10. 缓存与一致性
-
-- 数据库查询、Redis scheduler snapshot 和账号详情缓存必须返回相同 priority。
-- 账号单条更新和批量更新后都必须可靠触发相关 bucket 重建。
-- 数据 migration 必须在同一事务中持久化语义状态和 outbox；上线消费者从该记录幂等触发 full
-  scheduler rebuild，成功后再升级 Redis semantic epoch，避免数据库提交与事件发布之间的崩溃窗口。
-- 不清除无关 Redis 键，不影响登录、支付、订阅、限流和其他缓存。
-- 自动刷新、ETag 和列表分页不能短暂显示旧顺序。
-
-## 11. 影响文件
-
-### 11.1 前端
-
-- `frontend/src/views/admin/AccountsView.vue`
-- `frontend/src/components/account/CreateAccountModal.vue`
-- `frontend/src/components/account/EditAccountModal.vue`
-- `frontend/src/components/account/BulkEditAccountModal.vue`
-- `frontend/src/components/admin/account/ImportDataModal.vue`
-- `frontend/src/i18n/locales/zh/admin/accounts.ts`
-- `frontend/src/i18n/locales/en/admin/accounts.ts`
-- `frontend/src/types/index.ts`
-- `frontend/src/views/admin/__tests__/AccountsView*.spec.ts`
-- 对应 Create/Edit/Bulk/Import 表单测试
-
-原则上不修改共享 `DataTable`；确需扩展时必须使用可选参数并保留旧默认行为。
-
-### 11.2 后端
-
-- `backend/ent/schema/account.go`
-- `backend/ent/migrate/schema.go`（仅由 schema 变更产生的必要更新）
-- 新增 `backend/migrations/*_account_priority_higher_wins.sql`
-- 新增对应的迁移测试与 `backend/migrations/manual/` 回滚脚本
-- `backend/internal/handler/admin/account_handler.go`
-- `backend/internal/handler/admin/account_data.go`
-- `backend/internal/handler/admin/account_codex_import.go`
-- `backend/internal/handler/admin/openai_oauth_handler.go`
-- `backend/internal/handler/admin/grok_oauth_handler.go`
-- `backend/internal/service/admin_account.go`
-- `backend/internal/service/account_priority.go`（公共校验/比较 helper，如确有必要）
-- `backend/internal/service/gateway_scheduling.go`
-- `backend/internal/service/openai_gateway_scheduling.go`
-- `backend/internal/service/openai_account_scheduler.go`
-- `backend/internal/service/gemini_messages_compat_service.go`
-- `backend/internal/service/batch_image_public.go`
-- `backend/internal/repository/account_repo.go`
-- `backend/internal/repository/scheduler_cache.go`
-- `backend/internal/service/scheduler_snapshot_service.go`
-- 相关服务、仓储、迁移和集成测试
-
-实际开发前必须再次检索所有生产代码中的 `Account.Priority`、`FieldPriority` 和 priority factor，避免遗漏平台特定路径。
-
-## 12. 分阶段实施
-
-### 阶段 0：工作区与语义审计
-
-1. 读取 `AGENTS.md` 和本计划，记录当前分支、`git status --short`、未跟踪文件和按文件归类的 diff。
-2. 将已有改动分成“本需求候选改动”“无关用户改动”“生成产物”，只审计本需求候选改动。
-3. 全仓检索 `Account.Priority`、`FieldPriority`、priority factor、排序 SQL、scheduler snapshot、
-   账号导入/同步入口和旧 `1..100` 文案，形成可勾选清单。
-4. 对已有实现逐项与本计划核对；错误实现用最小修改修正，不使用 `reset`、`checkout` 或 `clean`。
-5. 在正式改动前记录后端和前端基线测试结果，区分既有失败与本需求引入的失败。
-
-### 阶段 A：契约和迁移准备
-
-1. 建立公共 priority 校验及比较 helper。
-2. 统一默认值、最小值和请求缺省语义。
-3. 编写向前迁移、审计记录和回滚脚本。
-4. 增加迁移前后及回滚集成测试。
-5. 在代码和隔离数据库中完成迁移演练；本阶段只验证脚本和测试，不执行生产数据迁移。
-6. 验证事务提交后进程崩溃、outbox 重试、重复 `full_rebuild` 和 semantic epoch 推进的恢复路径。
-
-### 阶段 B：调度语义统一
-
-1. 通用 Gateway 改为最高 priority 集合。
-2. OpenAI 旧调度、fallback、Compact retry 改为高值优先。
-3. OpenAI 高级调度先按最高 priority 分层，再在层内执行真实评分；分数预览复用同一 helper，
-   并明确静态指标缺失时的展示语义。
-4. Gemini 及其他平台特定选号路径统一修改。
-5. 批量生图保留高值优先并补充回归测试。
-6. 仓储调度查询改为账号 priority 降序；分组绑定 priority 保持原方向。
-7. OpenAI Compact 能力只在同一账号 priority 内比较，保持 `supported > unknown > unsupported`；
-   不得因改方向而删除既有能力层级。
-8. Gemini 等完全同分候选增加稳定 `account ID ASC` 决胜，避免刷新或缓存切换后顺序漂移。
-
-### 阶段 C：管理端展示与编辑
-
-1. 调整账号列表核心列顺序。
-2. 增加紧凑优先度展示和帮助说明。
-3. 默认服务端 priority 降序并迁移排序存储。
-4. 迁移旧隐藏列配置。
-5. 统一创建、编辑和批量编辑控件及文案。
-
-### 阶段 D：导入导出与缓存闭环
-
-1. 升级账号备份格式。
-2. 兼容旧格式优先级转换。
-3. 为 CRS/外部同步增加语义版本兼容和非法值阻断。
-4. 验证 outbox、scheduler snapshot 和缓存重建。
-5. 验证数据库回退路径和 Redis 命中路径一致。
-6. 为调度快照事件增加并验证语义 epoch，阻止旧版本 worker 消费新语义 rebuild；启动闸门必须
-   读取数据库 semantic state，而不是只依赖进程启动时的一次性缓存。
-
-### 阶段 E：全量验收
-
-1. 执行后端单元、集成和迁移测试。
-2. 执行前端定向 Vitest、全量 Vitest、vue-tsc、ESLint 和生产构建。
-3. 使用浏览器在 1440px、约 900px 和 390px 验收列表与卡片。
-4. 使用长名称、长邮箱、大位数 priority、重复 priority、0 值和大量账号分页验证。
-5. 执行 `git diff --check`，复核无关文件未被修改。
-6. 未经用户明确指示，不提交、不推送、不发布、不重启线上服务。
-
-## 13. 测试矩阵
-
-### 13.1 调度
-
-- priority `0 / 1 / 50 / 1000`，其他条件相同，必须选中 `1000`。
-- 高 priority 候选负载更高、低 priority 候选负载更低时，仍必须先在高 priority 层选号；
-  该测试覆盖 Gateway、OpenAI Advanced、Gemini 和 Batch Image。
-- 相同 priority 下验证负载、队列、LRU、OAuth 偏好和随机打散仍生效。
-- 验证 Anthropic/Gateway、OpenAI legacy、OpenAI advanced、fallback、Compact、Gemini、Grok 和 Batch Image。
-- 高级调度分别验证严格分层、全部 priority 相等、其他评分因素、Compact 能力和 sticky 场景；
-  不能再用“priority 权重为 0 允许低层跨越”作为产品行为。
-- OpenAI 低上游费率、Compact 偏好、负载回退和错误回退不得跨 priority 层意外反转方向。
-- 分数预览和真实调度必须使用同一候选过滤、分层方向和层内评分公式；静态预览不得伪造运行时
-  error rate/TTFT/sticky 数据。
-- 有效低 priority sticky 绑定仍命中绑定账号；绑定失效后回到最高层流程。最高层所有候选发生
-  可重试运行时失败时，按既有 retry/fallback 进入下一层；不可重试错误不得盲目降层。
-
-### 13.2 API
-
-- 创建：缺失、`0`、正整数、`1000`、`2147483647` 成功；负数、小数、`1e3`、`1.0`、字符串、
-  `null`、布尔值和超出技术范围返回 4xx，且数据库不发生部分写入。
-- 更新：`nil` 不修改，`0` 正常写入。
-- 批量更新：未启用不发送，启用后可写入 `0` 和大数值。
-- OAuth、Codex、Grok、CRS、shadow 和数据导入使用相同规则。
-
-### 13.3 数据与回滚
-
-- 空账号表、全部同值、含 0 和大值的成功迁移；含负历史值或溢出风险时必须阻断并保持原数据。
-- 迁移前后原主备顺序不变。
-- migration 重复执行不重复转换。
-- 回滚恢复旧语义和旧顺序。
-- 回滚精确恢复原列默认值、约束、注释和账号 `updated_at`，并在备份行数或完整性摘要不一致时阻断。
-- 维护窗口内验证旧实例全部退出后才执行迁移；新实例只有在数据库语义和缓存 epoch 匹配时就绪。
-- 回滚后新语义二进制必须拒绝在旧语义数据上运行，再次升级不得重放原 migration。
-- scheduler cache 重建后与数据库一致。
-- 迁移事件在提交/发布器崩溃后可重放，重复事件不重复转换；只有完整 rebuild 成功后 semantic
-  epoch 才推进。
-- `account_groups.priority` 在迁移、回滚和混合账号测试中保持原值、原排序方向和原查询结果。
-- 新旧备份格式、混合版本拒绝、缺失 pivot 提示和 CRS 语义版本均正确；新格式 round-trip 以
-  `priority DESC, stable ID ASC` 定义顺序。
-
-### 13.4 前端
-
-- 新管理员默认可见调用优先度。
-- 旧 localStorage 隐藏配置升级后可见。
-- 桌面列表和手机卡片均按 priority 降序。
-- 跨页数据仍保持全局 priority 降序。
-- 相同 priority 的 ID 次序稳定。
-- 显式切换 priority 升降序、切换其他列排序和恢复默认排序时，UI 与 API 结果一致。
-- 大位数不换行、不遮挡、不撑破列宽。
-- 表头说明、创建、编辑和批量编辑文案一致。
-- 数据库直查、Redis snapshot 命中、账号详情缓存和 ETag 分页返回同一 priority 与候选顺序；旧
-  epoch 事件被拒绝，批量更新后不会短暂显示旧顺序。
-
-## 14. 完成标准
-
-- 所有真实调度路径统一为数字越大越优先。
-- 列表与手机卡片默认在服务端分页前按 priority 从高到低排列，显式排序与 API 响应一致。
-- priority 最小值为 0，无业务最大值。
-- 任何入口都没有 `max=100`、`1..100`、非法值静默归零或大整数精度丢失。
-- 旧账号升级后保持原有主备关系。
-- 创建、更新、批量、导入和影子账号不存在默认值或 0 值歧义。
-- OpenAI 高级调度预览与真实评分一致。
-- Batch Image 与其他平台语义一致。
-- 数据库与 Redis 缓存一致，回滚方案经过演练。
-- 不影响分组绑定 priority、登录、支付、订阅、用量、账号凭据和其他业务。
-- 所有规定测试、静态检查、构建和浏览器验收通过。
-
-## 15. 执行约束
-
-- 开发前阅读仓库根目录 `AGENTS.md` 和本文件。
-- 保留工作区所有既有改动，不覆盖、不回滚无关文件。
-- 不触碰 ORCA、其他仓库、其他工作树或与本需求无关的本机服务。
-- 不修改无关业务，不新增无依据的字段。
-- 调度方向、数据转换、缓存切换必须作为一个闭环交付。
-- 发现影响最终结果的关键冲突时暂停并报告；能够通过代码和测试确定的问题自行解决。
-- 完成代码审查和全部验收前，不宣布任务完成。
-- 未经明确授权，不执行推送、发布或线上更新。
-
-## 16. 目标引导词
+### 6.2 仪表盘与监控
 
 ```text
-在仓库 /Users/qiu/Desktop/Sub2API 中执行“账号调用优先度”完整改造。开始前完整读取并严格
-遵守根目录 AGENTS.md 和 plan.md；plan.md 是本任务的产品契约、实施顺序和验收标准。
+AppPage
+├── AppPageHeader：时间范围、刷新、实时状态
+├── AppGrid：UiStatMetric / UiLiveMetric / UiThresholdMetric
+├── AppSection：主要健康或成本结论
+└── UiChartFrame：趋势、分布、图例、空态、错误、全屏
+```
 
-先审计，后实现：当前工作区已有同一需求的未提交尝试改动，也可能存在用户的无关改动。
-先检查 `git status --short`、未跟踪文件和按文件归类的 `git diff`，建立“已有实现/缺失实现/
-错误实现/无关改动”清单。对本需求已有代码逐项复核，不得因为文件已修改就视为完成；保留所有
-无关改动，不使用 reset、checkout、clean、stash 等会覆盖用户工作的命令，不触碰 ORCA、其他
-仓库、其他工作树或无关本机服务。宽而重的检索和独立核验按 AGENTS.md 使用子代理，最终方案、
-代码修改和验证由主代理统一负责。
+首屏先回答“是否正常、哪里异常、影响多大、下一步做什么”，其次展示支持判断的趋势和明细。
 
-冻结产品契约：继续复用 `accounts.priority`；最小值为 0；不设置业务最大值；数字越大，账号
-调用优先度越高；新建未传值默认 0；显式 0 与字段缺失必须可区分；允许任意多个账号同值。
-产品无最大值，但当前 PostgreSQL `INTEGER` 技术范围是 `0..2147483647`，该范围低于 JavaScript
-安全整数上限，因此现有 `priority` JSON number 可无损传输；超出范围必须报错，不能截断或改写。
-所有入口必须拒绝负数、小数、指数形式、溢出和无法安全解析的值，不得静默 clamp、截断、
-四舍五入或改写成 0。不得恢复 `max=100`、`1..100` 等旧限制。priority 是调度层级，不是
-流量百分比或固定分流权重；不得反转独立字段 `account_groups.priority`。
+### 6.3 表单与设置
 
-必须完成端到端闭环（本次只实现和验证代码、迁移与演练，不执行生产数据迁移）：
-1. 统一普通创建、更新、批量更新、OAuth、Codex、Grok、CRS、影子账号、备份导入等入口的
-   默认值、校验和显式 0 语义。
-2. 统一通用 Gateway、OpenAI legacy/load-aware/fallback/Compact、高级 scheduler 与 score
-   preview、Gemini、Grok、Batch Image 及所有平台特定路径为严格“最高 priority 层优先、同层再
-   比较平台规则”；费率、负载、LRU、队列和平台偏好不得跨层意外反转方向。
-3. 数据库调度查询、Redis scheduler snapshot、outbox/full rebuild 和批量修改后的即时缓存
-   刷新保持一致；事件携带并校验 priority 语义、migration key、pivot 和 epoch，禁止旧 worker
-   按错误语义重建缓存，禁止用 Redis FLUSHDB 解决缓存问题。
-4. 使用 plan.md 的动态 pivot 迁移旧数据，记录原 pivot 和语义版本，保证升级前后的主备关系
-   不变；备份原列元数据、约束、注释、账号更新时间、行数与完整性摘要，补齐幂等迁移、精确
-   回滚和新旧实例不可混跑的维护窗口切换方案。回滚后的再次升级必须使用新 migration。
-5. 升级账号备份/导入与 CRS 语义版本，防止旧低值优先数据被当作新语义；混合版本拒绝，
-   缺失 pivot 的兼容损失必须明确提示，不能伪称无损。
-6. 管理端桌面列表在账号名称、服务状态后显示紧凑“调用优先度”列，手机卡片靠前显示；首次
-   进入和旧本地配置迁移后默认按 `priority DESC, id ASC`，服务端分页前排序。保留明确手动
-   排序时，UI 指示与 API 实际顺序必须一致。创建、编辑、批量编辑均使用 min=0 且无业务 max。
+```text
+AppPage / UiDialog / UiDrawer
+├── AppPageHeader 或 overlay header
+├── AppSection + AppGrid：同级字段
+├── AppStack：长文本、JSON、动态字段
+├── UiStructuredEditor / UiKeyValueEditor：结构化配置
+└── UiSaveBar：脏状态、保存、撤销
+```
 
-运行时边界也必须固定：有效 sticky 绑定优先于普通层级但仍受硬过滤；最高层仅在可重试运行时
-失败后按既有 fallback 降到下一层；不可重试错误不盲目降层。JSON key 缺失表示默认/不修改，
-`null` 一律 4xx。迁移事件必须事务内持久化并可重放；本次不执行生产迁移，后续发布采用维护窗口
-停机切换。
+高级设置使用 `UiAccordion` 分层，不为每个字段套卡片。敏感信息使用 `UiSecretField`，帮助信息使用 `UiFieldHelp`。
 
-严格按 plan.md 的阶段 0、A、B、C、D、E 推进。每完成一个阶段立即运行对应定向测试，不把
-所有验证拖到最后；修复失败时区分既有失败和本任务回归。修改共享组件时只增加可选能力并保留
-旧默认，不改变登录、支付、订阅、用量、账号凭据和其他无关业务。
+### 6.4 详情与审计
 
-最终必须完成全量 code review，并运行后端单元/集成/迁移/回滚测试、前端定向与全量 Vitest、
-vue-tsc、ESLint、生产构建和 `git diff --check`。使用浏览器在 1440px、约 900px 和 390px
-验收桌面列表、手机卡片、0、重复值、1000 以上大值、长名称、长邮箱、分页、手动排序、加载、
-空状态和错误状态；验证数据库路径与 Redis 命中路径选号一致。
+- 基础事实使用 `UiDescriptionList`。
+- ID、端点、JSON 和原始响应使用 `UiDataCell`、`UiCodeBlock`、`UiStructuredEditor`。
+- 状态变化使用 `UiTimeline`，前后变化使用 `UiChangeSet`。
+- 错误诊断使用 `UiErrorDetailDialog`，保留 request ID、状态码、时间和原始错误。
 
-没有完成调度、迁移脚本、缓存、导入兼容、测试和浏览器验收闭环前不要宣布完成；不得把“脚本已
-实现”表述为“生产数据已迁移”。未经我另行明确授权，不连接生产数据库执行迁移，不提交、不推送、
-不发布、不修改版本号、不重启服务。完成后按“实现内容、迁移与兼容、
-测试结果、浏览器验收、代码审查发现、风险与剩余事项”报告，并逐项列出任何失败测试或阻塞。
+### 6.5 异步流程
+
+- 初次加载使用与最终布局同尺寸的 `UiSkeleton`。
+- 局部刷新使用 `UiLoadingOverlay`，不清空旧数据，也不让页面宽度收缩。
+- 空数据使用 `UiEmptyState`，请求失败使用 `UiErrorState`。
+- 普通操作结果使用 `UiToast`；支付、计费和危险操作错误必须在页面内留下持久说明。
+- 自动刷新不得改变筛选、滚动、选中项或重播整页入场动画。
+
+## 7. 全部页面规划矩阵
+
+以下为目标信息结构。组件名称表示计划使用的共享契约，领域组件继续保留业务逻辑。
+
+### 7.1 公共产品页：4 个
+
+| 路由 / 页面 | 目标内容 | 主要组件与结构 | 批次 |
+| --- | --- | --- | --- |
+| `/home` 首页 | 产品定位、模型覆盖、能力、价格参考、接入方式、FAQ、行动入口 | 现有首页专用区块、`HomeSiteHeader`、`UiButton`、`UiLink`、`UiAccordion` | R8 |
+| `/key-usage` Key 用量查询 | Key 输入、额度摘要、周期、请求记录、错误状态 | `AppPage`、`UiTextField`、`UiQuotaSummary`、`UiDataTable`、`UiErrorState` | R3 |
+| `/legal/:documentId` 法律文档 | 文档标题、更新时间、正文、目录与返回 | `AppPage`、`AppPageHeader`、`UiPageNav`、`UiBackToTop` | R8 |
+| `/model-plaza` 模型广场 | 搜索、厂商/能力/分组筛选、模型列表、多计费单位价格、详情 | `AppPage`、`UiSearchInput`、`UiFilterBar`、`UiTabs`、`UiDataTable`、`UiDrawer` | R5 |
+
+### 7.2 认证主流程：5 个
+
+| 路由 / 页面 | 目标内容 | 主要组件与结构 | 批次 |
+| --- | --- | --- | --- |
+| `/login` 登录 | 账号、密码、验证码/二步验证、第三方登录、忘记密码、注册入口 | `AuthLayout`、`AuthFormPanel`、`AuthTextField`、`UiButton` | R2 |
+| `/register` 注册 | 必要注册字段、动态校验、协议、验证码、登录入口 | 同一认证壳、`UiFormField`、`UiFieldHelp`、`UiCheckbox`、`UiButton` | R2 |
+| `/email-verify` 邮箱验证 | 验证状态、邮箱、重发、返回登录 | `AuthLayout`、`UiStatusBadge`、`UiAlert`、`UiButton` | R2 |
+| `/forgot-password` 忘记密码 | 邮箱、验证码、人机验证、提交状态 | `AuthLayout`、`AuthTextField`、`UiButton`、`UiAlert` | R2 |
+| `/reset-password` 重置密码 | 新密码、规则提示、确认密码、结果状态 | `AuthLayout`、`AuthTextField`、`UiFieldHelp`、`UiButton` | R2 |
+
+### 7.3 用户控制台主页面：13 个
+
+| 路由 / 页面 | 目标内容 | 主要组件与结构 | 批次 |
+| --- | --- | --- | --- |
+| `/dashboard` 用户仪表盘 | 余额/订阅/额度、趋势、模型分布、最近用量、快捷操作 | `AppPage`、`UiStatMetric`、`UiQuotaSummary`、`UiChartFrame`、`UiTimeline` | R3 |
+| `/keys` API 密钥 | 密钥列表、分组/订阅绑定、额度、限速、创建/编辑/使用 | `UiServerTableWorkspace`、`UiDataTable`、`UiStatusBadge`、`UiDialog`、`UiSecretField` | R3 |
+| `/playground` 操练场 | 对话、分组与模型、参数、流式状态、图片、响应指标、请求预览 | `AppSplitPane`、`PlaygroundComposer`、`UiConnectionStatus`、`UiImagePreview`、`UiCodeBlock` | R5 |
+| `/batch-image` 批量生图 | 任务列表、创建任务、进度、结果图片、详情、指南 | `UiServerTableWorkspace`、`UiProgressBar`、`UiDialog`、`UiImagePreview`、`UiExportJob` | R5 |
+| `/usage` 用户用量 | 时间筛选、统计、趋势、分布、请求列表、错误请求 | `UiDateRangePicker`、`UiStatMetric`、`UiChartFrame`、`UiDataTable`、`UiErrorDetailDialog` | R3 |
+| `/redeem` 兑换 | 兑换码输入、结果、历史记录 | `AppPage`、`UiTextField`、`UiButton`、`UiStatusBadge`、`UiTimeline` | R3 |
+| `/affiliate` 推广 | 邀请码/链接、返佣指标、记录、提现/转账说明 | `UiStatMetric`、`UiCopyButton`、`UiDataTable`、`UiConfirmDialog` | R3 |
+| `/available-channels` 可用渠道 | 分组筛选、渠道/模型能力、倍率与可用状态 | `UiFilterBar`、`UiCombobox`、`UiDataTable`、`UiStatusBadge` | R5 |
+| `/profile` 个人资料 | 头像、基本资料、密码、TOTP、Passkey、身份绑定、账单偏好 | `AppSection`、`AppGrid`、`UiFileUpload`、`UiSecretField`、`UiSaveBar` | R3 |
+| `/subscriptions` 我的订阅 | 多实例订阅、额度窗口、到期时间、绑定 Key、续费入口 | `UiQuotaSummary`、`UiProgressBar`、`UiStatusBadge`、`UiDialog`、`UiButton` | R4 |
+| `/orders` 我的订单 | 订单筛选、金额、支付方式、状态、取消、退款、详情 | `UiServerTableWorkspace`、`UiDataTable`、`UiTimeline`、`UiConfirmDialog` | R4 |
+| `/monitor` 渠道状态 | 健康概览、趋势、矩阵、筛选、错误与用户维度、自动刷新 | `UiLiveMetric`、`UiChartFrame`、`UiFilterBar`、监控矩阵领域组件、`UiFullscreenPanel` | R5 |
+| `/custom/:id` 自定义页 | 后台配置的 Markdown 或安全嵌入内容、加载和错误状态 | `AppPage`、`AppPageHeader`、`UiSkeleton`、`UiErrorState` | R5 |
+
+### 7.4 管理员控制台主页面：23 个
+
+| 路由 / 页面 | 目标内容 | 主要组件与结构 | 批次 |
+| --- | --- | --- | --- |
+| `/admin/dashboard` 管理仪表盘 | 核心业务指标、趋势、分布、风险摘要、快捷入口 | `UiStatMetric`、`UiMetricTrend`、`UiChartFrame`、`UiAlert` | R6 |
+| `/admin/ops` 运维监控 | 系统健康环、CPU/内存/Redis、吞吐、延迟、错误、日志、告警 | `UiProgressRing`、`UiThresholdMetric`、`UiLiveMetric`、`UiChartFrame`、`UiLogLine` | R7 |
+| `/admin/audit-logs` 审计日志 | 操作者、动作、资源、时间、IP、前后变化、详情 | `UiServerTableWorkspace`、`UiDateTimeRangePicker`、`UiChangeSet`、`UiDrawer` | R6 |
+| `/admin/users` 用户管理 | 用户、余额、分组、平台额度、状态、批量操作、详情 | `UiDataTable`、`UiBulkActionBar`、`UiDrawer`、`UiTransferList`、`UiNumberStepper` | R6 |
+| `/admin/groups` 分组管理 | 分组、倍率、模型、平台、优先级、复制、规则编辑 | `UiDataTable`、`UiInlineEdit`、`UiMultiCombobox`、`UiStructuredEditor`、`UiDialog` | R6 |
+| `/admin/channels/pricing` 渠道与定价 | 渠道列表、倍率、模型映射、价格、可用状态、编辑 | `UiServerTableWorkspace`、`UiDataTable`、`UiKeyValueEditor`、`UiDialog` | R6 |
+| `/admin/channels/monitor` 渠道监控配置 | V2 配置、旧监控 CRUD、立即运行、复制、模板 | `UiTabs`、`UiDataTable`、`UiDialog`、`UiConfirmDialog`、`UiSaveBar` | R7 |
+| `/admin/subscriptions` 订阅管理 | 用户订阅实例、套餐、额度窗口、状态、续期和调整 | `UiDataTable`、`UiQuotaSummary`、`UiDrawer`、`UiTimeline` | R6 |
+| `/admin/accounts` 账号管理 | 虚拟列表、服务状态、优先度、容量、排序、列设置、批量操作、测试 | `UiServerTableWorkspace`、`UiDataTable`、`UiInlineEdit`、`UiBulkActionBar`、`UiErrorDetailDialog` | R7 |
+| `/admin/announcements` 公告管理 | 公告列表、编辑、预览、发布状态、阅读统计 | `UiDataTable`、`UiStructuredEditor`、`UiAnnouncementDialog`、`UiDrawer` | R6 |
+| `/admin/proxies` 代理管理 | 代理列表、状态、批量测试、账号引用、导入导出 | `UiDataTable`、`UiBulkActionBar`、`UiExportJob`、领域 `ProxySelector` | R6 |
+| `/admin/redeem` 兑换码管理 | 批次、额度、状态、有效期、订阅、批量修改和导出 | `UiDataTable`、`UiBulkActionBar`、`UiDateInput`、`UiExportJob` | R6 |
+| `/admin/promo-codes` 优惠码管理 | 折扣规则、适用套餐、有效期、使用次数、状态 | `UiDataTable`、`UiFormField`、`UiDateTimeRangePicker`、`UiDialog` | R6 |
+| `/admin/settings` 系统设置 | 分类导航、通用/认证/支付/网关/安全设置、上传、JSON、高级配置 | `UiSideNavGroup`、`AppSection`、`UiSecretField`、`UiStructuredEditor`、`UiSaveBar` | R7 |
+| `/admin/risk-control` 风控 | 规则、阈值、命中记录、状态、测试与例外 | `UiDataTable`、`UiThresholdMetric`、`UiStructuredEditor`、`UiDialog` | R7 |
+| `/admin/prompt-audit` Prompt 审计 | 筛选、Prompt 记录、风险、上下文、详情和处置 | `UiFilterBar`、`UiDataTable`、`UiCodeBlock`、`UiErrorDetailDialog` | R7 |
+| `/admin/usage` 全站用量 | 时间筛选、全站指标、排行、趋势、请求和错误列表 | `UiDateRangePicker`、`UiStatMetric`、`UiChartFrame`、`UiDataTable` | R6 |
+| `/admin/affiliates/invites` 邀请记录 | 邀请人、被邀请人、状态、注册与转化时间 | `UiServerTableWorkspace`、`UiDataTable`、`UiFilterBar` | R6 |
+| `/admin/affiliates/rebates` 返佣记录 | 订单、返佣金额、比例、状态、时间 | `UiServerTableWorkspace`、`UiDataTable`、`UiStatusBadge` | R6 |
+| `/admin/affiliates/transfers` 转账记录 | 用户、金额、状态、时间、审核与详情 | `UiServerTableWorkspace`、`UiDataTable`、`UiConfirmDialog`、`UiTimeline` | R6 |
+| `/admin/orders/dashboard` 支付仪表盘 | 收入、订单、退款、支付渠道、趋势和异常 | `UiStatMetric`、`UiChartFrame`、`UiStatusBadge`、`UiAlert` | R7 |
+| `/admin/orders` 订单管理 | 订单、用户、金额、支付方式、状态、退款、详情 | `UiServerTableWorkspace`、`UiDataTable`、`UiTimeline`、`UiConfirmDialog` | R7 |
+| `/admin/orders/plans` 套餐管理 | 套餐、适用分组、额度窗口、价格、有效期、上下架、JSON 导入 | `UiDataTable`、`UiStructuredEditor`、`UiReviewSummary`、`UiDialog` | R7 |
+
+### 7.5 支付、回调和辅助流程：15 个
+
+| 路由 / 页面 | 目标内容 | 主要组件与结构 | 批次 |
+| --- | --- | --- | --- |
+| `/auth/callback` OAuth 回调 | 处理中、成功、失败、重试或返回登录 | `AuthLayout`、`UiSpinner`、`UiStatusBadge`、`UiAlert` | R2 |
+| `/auth/linuxdo/callback` LinuxDo 回调 | 同上，保留账号绑定/创建分支 | 同一回调状态模板 | R2 |
+| `/auth/wechat/callback` 微信回调 | 同上，保留微信授权错误与账号流程 | 同一回调状态模板 | R2 |
+| `/auth/wechat/payment/callback` 微信支付回调 | 支付授权、恢复订单、继续支付或错误 | `UiSpinner`、`PaymentStatusPanel`、`UiAlert` | R4 |
+| `/auth/dingtalk/callback` 钉钉回调 | 登录处理、账号状态和错误 | 同一回调状态模板 | R2 |
+| `/auth/dingtalk/email-completion` 钉钉邮箱补全 | 必填邮箱、校验、继续创建账号 | `AuthLayout`、`AuthTextField`、`UiButton` | R2 |
+| `/auth/oidc/callback` OIDC 回调 | 登录处理、账号状态和错误 | 同一回调状态模板 | R2 |
+| `/purchase` 购买/充值 | 充值与订阅切换、套餐、续费实例、金额、支付方式、确认与恢复 | `UiTabs`、`UiNumberStepper`、领域套餐组件、`UiReviewSummary`、`PaymentStatusPanel` | R4 |
+| `/payment/qrcode` 二维码支付 | 金额、订单、二维码、倒计时、轮询、取消和跳转 | 支付领域组件、`UiProgressBar`、`UiStatusBadge`、`UiButton` | R4 |
+| `/payment/result` 支付结果 | 订单状态、金额、支付方式、时间、重试或返回 | `UiStatusBadge`、`UiDescriptionList`、`UiTimeline`、`UiButton` | R4 |
+| `/payment/stripe` Stripe 支付 | 第三方 Payment Element、状态、恢复和结果跳转 | 支付领域壳、`UiAlert`、`UiSpinner` | R4 |
+| `/payment/airwallex` Airwallex 支付 | 第三方支付加载、恢复、状态和结果跳转 | 支付领域壳、`UiAlert`、`UiSpinner` | R4 |
+| `/payment/stripe-popup` Stripe 弹窗 | 父子窗口握手、支付状态、轮询和关闭 | 极简支付状态壳，不增加页面装饰 | R4 |
+| `/setup` 初始化向导 | 数据库、管理员、站点配置、校验和完成 | `UiSteps`、`UiFormField`、`UiSecretField`、`UiReviewSummary` | R2 |
+| `/:pathMatch(.*)*` 404 | 未找到说明、返回首页或控制台 | `AppPage`、`UiEmptyState`、`UiButton` | R8 |
+
+### 7.6 内部验收页：1 个
+
+| 路由 / 页面 | 目标内容 | 主要组件与结构 | 批次 |
+| --- | --- | --- | --- |
+| `/admin/ui-system` UI System | 114 个组件、全部状态、正式 mock 页面、响应式和动效验收 | 真实 `Ui/App` 组件，不复制静态外观 | 全程维护 |
+
+## 8. 实施批次
+
+### R0：规划冻结与回归基线
+
+- 确认本文页面数量、目标内容、组件映射和批次。
+- 创建并推送 `archive/frontend-before-full-rebuild-20260814` 前端存档分支。
+- 确认 archive 分支可恢复 `frontend/`、114 个 UI 组件、现有 61 个页面和相关文档。
+- 保存关键页面在 `1440 / 900 / 390px` 的重构前基线截图。
+- 记录路由、功能开关、API 调用、localStorage、query、滚动和选择状态。
+- 建立旧公共组件消费者统计，后续每批次更新。
+
+完成结果：旧前端拥有可验证的 Git 回退点，后续可以彻底删除旧视觉代码，同时仍能核对功能是否完整。
+
+### R1：公共组件整体替换
+
+1. R1A：直接迁移 Input、TextArea、Toggle、SearchInput、Spinner、Skeleton、EmptyState。
+2. R1B：补齐 Pagination、StatMetric、Tooltip 和全局反馈适配。
+3. R1C：从旧 DataTable 与 TablePageLayout 提取行为契约，在新 table workspace 中重新实现 toolbar、selection、pagination 和 mobile scroller。
+4. R1D：收口 Select、DateRange、Dialog、Confirm 和统一 overlay manager。
+5. R1E：让公告、分组、代理、支付、系统等领域组件内部使用共享 UI。
+6. R1F：删除已无消费者的旧通用组件和对应全局样式。
+
+完成结果：新公共组件不再依赖旧视觉实现；页面不再自行实现通用控件，后续 61 个页面全部使用新模板和领域组合重建。
+
+### R2：应用壳、认证与初始化
+
+- [x] 统一认证壳、认证表单、OAuth 回调、条款弹窗和初始化向导。
+- [x] 完成登录、注册、验证、找回、重置、回调和 setup 的共享组件迁移。
+- [x] 通过认证定向测试 166 项、路由 guards 35 项、TypeScript、ESLint、生产构建和三视口浏览器验收。
+- [ ] `AppLayout`、用户/管理员 header/sidebar 和完整页面加载骨架仍在 R1/R2 壳层收口中，不能因认证完成而标记全 R2 完成。
+
+证据：`docs/frontend-rebuild/R2-AUTH-ACCEPTANCE.md`。
+
+### R3：用户高频核心页
+
+- [x] Redeem：兑换、结果、历史和帮助工作台。
+- [x] Profile：资料、安全、绑定、账单偏好和提醒分区壳。
+- [x] Affiliate：推广指标、复制、转账确认和邀请人列表。
+- [x] Dashboard：状态首行、告警、阶段工作台和分析栅格壳。
+- [x] Usage：用户用量工作台与管理员 Usage 已完成第一轮共享壳迁移。
+- [~] Keys、公开 Key Usage：列表/查询外壳已迁移，表单与结果详情仍在 R1/R3 收口中。
+- 优先验证表格、筛选、配额、金额、时间和错误详情格式。
+
+页面证据：`docs/frontend-rebuild/R3-REDEEM-ACCEPTANCE.md`、`docs/frontend-rebuild/R3-PROFILE-ACCEPTANCE.md`、`docs/frontend-rebuild/R3-AFFILIATE-ACCEPTANCE.md`、`docs/frontend-rebuild/R3-DASHBOARD-ACCEPTANCE.md`、`docs/frontend-rebuild/R3-USAGE-ACCEPTANCE.md`、`docs/frontend-rebuild/R3-KEYS-ACCEPTANCE.md`、`docs/frontend-rebuild/R3-KEY-USAGE-ACCEPTANCE.md`。
+
+### R4：订阅、购买、订单与支付流程
+
+- 作为一个原子交易批次迁移。
+- 冻结支付恢复快照、订单 ID、续费实例、QR 轮询、WeChat resume token、Stripe popup 和 Airwallex 生命周期。
+- 任何页面视觉通过但恢复/回调失败，整个 R4 视为未完成。
+
+### R5：高交互用户工具
+
+- Model Plaza、Playground、Batch Image、Available Channels、Monitor、Custom Page。
+- 冻结流式 generation、AbortController、图片响应、query 深链、自动刷新、矩阵缩放和滚动语义。
+
+### R6：标准管理员工作台
+
+- Dashboard、Users、Groups、Channels Pricing、Subscriptions、Announcements、Proxies、Redeem、Promo、Usage、Audit、Affiliate。
+- 复用同一列表工作台，不在每个页面重新做筛选、分页、批量操作和详情弹窗。
+- [x] Users：列表工作台、跨页批量操作、分组浮层，以及创建、编辑、额度、API Key、允许分组、余额和历史记录弹窗已完成共享 UI 重构与定向验收。
+- [ ] R6 其余页面继续按页面验收记录逐项收口；Users 完成不代表整个 R6 完成。
+
+### R7：复杂管理员页面
+
+- Accounts、Ops、Channel Monitor、Settings、Risk Control、Prompt Audit、支付后台。
+- 每个页面单独做状态图、依赖审计和浏览器验收，不进行机械批量替换。
+
+### R8：公共和例外页面
+
+- Home、Legal、404 及未覆盖的结果/说明页。
+- 首页保留表达性；其余页面保持克制，不把营销布局带入工具页。
+
+### R9：清理与全量一致性
+
+- 删除全部已被新实现取代的旧页面模板、旧布局、旧视觉组件、旧 utility class、重复颜色和局部控件 CSS。
+- 扫描直接文件导入、手绘 SVG、重复图标库、卡片嵌套和硬编码控件尺寸。
+- 扫描旧 class、旧页面结构和 `components/common` 纯视觉消费者；除批准的第三方组件外必须归零。
+- 更新 `UI.MD` 的实际状态和组件消费者统计。
+
+## 9. 高风险页面保护条件
+
+### 9.1 支付
+
+- 不丢失订单恢复字段、续费实例和目标订阅 ID。
+- 不改变 QR 终态、轮询防重入、deep-link fallback 和取消行为。
+- 不重复初始化 Stripe/Airwallex SDK，不破坏 popup `postMessage`。
+- 未登录支付结果页仍可按原路由策略访问。
+
+### 9.2 操练场
+
+- 不改变 `usePlayground` 的用户隔离、session、generation token 和持久化。
+- stop 后的迟到 chunk 不得覆盖终态。
+- 文本、图片、错误响应和响应指标必须继续进入正确会话。
+
+### 9.3 Monitor V2
+
+- query 是页面状态的一部分，筛选和 tab 可刷新恢复、可深链。
+- 保留 abort + sequence 并发保护、自动刷新和 soft-prune。
+- 矩阵滚轮缩放/平移不被普通滚动容器覆盖。
+
+### 9.4 管理员账号页
+
+- 保留虚拟化、服务端排序、列设置、`include_scheduler_score`、所有结果选择和自动刷新。
+- 行内优先度更新继续拥有乐观更新、失败回滚和静默刷新窗口。
+- 手机和桌面共享同一排序结果，不在客户端重新排序。
+
+### 9.5 设置页
+
+- 不改变动态配置 schema、secret 保留语义、Provider 特有字段和保存 payload。
+- 长页面按设置域拆分导航与 section，不通过隐藏字段来获得“简洁”。
+
+## 10. 测试与验收标准
+
+### 10.1 公共组件验收
+
+- 114 个组件继续通过 inventory 测试和 `/admin/ui-system` 展示。
+- 关键组件覆盖 normal、hover、focus、disabled、loading、error、empty 和 long-content 状态。
+- Select、Menu、Tabs、Dialog、Drawer、Sheet 和 Table 完成键盘路径测试。
+- overlay 使用统一栈，只关闭顶层，焦点可圈定并返回触发器。
+- 390px 下触控目标可用，页面无横向溢出；表格横向滚动区域可聚焦并有名称。
+
+### 10.2 单页验收
+
+每个页面必须同时满足：
+
+1. 首屏可识别页面的主要任务、关键状态和下一步操作。
+2. 所有原有有效信息仍可访问，没有因“简洁”被删除。
+3. 权限、feature flag、路由、query 和 API payload 不变。
+4. 加载时宽度、标题、工具栏和主要内容骨架稳定。
+5. 空、错、无权限、超长文本、大数字和慢请求均有明确状态。
+6. `1440px`、`900px`、`390px` 无遮挡、重叠或页面级横向滚动。
+7. 表格在桌面和手机均保持列表语义与列比较能力。
+8. 重要操作可仅使用键盘完成，焦点清晰且顺序合理。
+9. 浏览器控制台没有本轮引入的 error 或 warning。
+10. 页面不新增共享控件的局部复制实现。
+
+### 10.3 自动化门禁
+
+每个实施批次结束必须执行：
+
+```bash
+cd frontend
+pnpm run test:run
+pnpm run typecheck
+pnpm run lint:check
+pnpm run build
+```
+
+并补充：
+
+- 对改造页面的定向单元/集成测试。
+- 真实浏览器主流程测试。
+- 三视口截图对比。
+- dark mode 与 `prefers-reduced-motion` 抽查。
+- `git diff --check` 和旧组件消费者数量复核。
+
+### 10.4 批次完成标准
+
+- 本批次所有页面和其弹窗、抽屉、空态、错误态一起完成。
+- 迁移后没有临时混用两套外观的关键流程。
+- 对应旧样式已删除或有明确的剩余消费者记录。
+- 业务回归测试和视觉验收均通过。
+- 未通过的页面不能以“主体完成”计入完成率。
+
+## 11. 量化指标
+
+| 指标 | 目标 |
+| --- | ---: |
+| 按钮、链接、表单控件共享组件使用率 | `>= 95%` |
+| 弹窗、提示、状态、加载共享组件使用率 | `>= 95%` |
+| 表格、筛选、分页共享组件使用率 | `>= 90%` |
+| 页面壳、标题、工具栏、间距共享组件使用率 | `>= 90%` |
+| 业务组合视觉复用率 | `>= 80%` |
+| 全站综合组件实例复用率 | `>= 85%` |
+| 新增 page-local 通用控件 | `0` |
+| 新增第二图标库或手绘界面 SVG | `0` |
+| 未记录的 legacy 兼容层 | `0` |
+
+## 12. 已确认的冻结决定
+
+1. 使用 `61 个独立页面组件` 作为全量重构口径，`37 + N` 作为主导航口径。
+2. 先创建并推送 Git 前端 archive 分支，再删除或重写任何旧页面。
+3. 保留 114 个新 UI 组件和业务能力，旧页面样式、DOM、组件外观、排版与布局全部淘汰。
+4. 先完成 R1 公共组件独立化，再进入 61 个页面的完整重写。
+5. 支付、操练场、监控、账号管理和设置页按完整业务批次迁移，不做机械换皮。
+6. 移动端高密度数据继续采用可横向滚动列表/表格，而非卡片。
+7. 按 R2 壳与认证、R3 用户核心、R4 支付、R5 工具、R6/R7 管理后台、R8 公共例外、R9 清理的顺序推进。
+8. dark mode 与 reduced motion 保留为正式验收范围。
+9. 全站旧前端视觉实现必须淘汰：可以删除的旧样式、旧组件、旧 DOM、旧排版和旧布局全部删除；Git archive 只用于回退，不作为新页面的视觉来源。
+
+## 13. 最终交付物
+
+- 统一后的 114 个共享组件及完整行为测试。
+- 61 个独立页面组件的重构实现。
+- 全站页面状态、数据格式和响应式规范。
+- 更新后的 `UI.MD`、页面迁移清单和旧组件消费者报告。
+- `/admin/ui-system` 真实组件验收页。
+- 每个批次的三视口截图、测试报告和回归记录。
+- 删除旧页面模板、旧布局、旧视觉组件、旧样式和重复实现；archive 分支作为唯一回退来源。
+
+## 14. Definition of Done
+
+全站前端重构只有在以下条件全部满足时才算完成：
+
+1. 61 个独立页面均按本文完成；例外只能由主代理在 `docs/frontend-rebuild/exceptions.md` 记录原因、影响范围、审批人、创建批次、撤销条件和到期批次，并在每个批次 review 时复核。未记录或过期的例外不计入完成。
+2. 所有有效业务信息、权限、状态机和数据语义保持完整。
+3. 页面通过共享组件完成视觉和行为统一，不依赖局部复制样式。
+4. 桌面、平板、手机、dark mode 和 reduced motion 均完成验收。
+5. 全量测试、类型检查、ESLint、生产构建和真实浏览器主流程通过。
+6. 旧页面模板、旧布局 DOM、旧纯视觉组件和旧页面样式已从生产代码删除；不得以兼容为由长期残留。
+7. `UI.MD`、组件验收页和实际生产界面保持一致。
+8. Git archive 分支可从远端检出并恢复重构前的完整前端。
+
+### 14.1 批次提交与回滚门禁
+
+- 每个 R 批次必须有独立提交，提交说明包含批次编号、页面/组件范围和验证命令。
+- 批次提交前必须保存定向测试、全量测试、类型、Lint、构建和三视口截图索引；产物统一放在 `docs/frontend-rebuild/`。
+- 批次验证失败时，只允许回退到最近一个已验收提交；不得使用 `git reset --hard`、不得覆盖其他任务改动、不得修改 archive 分支。
+- 合并到 `ui/main` 前由主代理完成 diff 审查；未通过门禁的批次不得进入下一批次。
+
+## 15. 长任务目标引导词
+
+以下内容是本计划唯一、正式且完整的执行提示词。设置长任务目标时应原样完整使用，不得只截取其中一个阶段，也不得另建内容不一致的目标文档。该提示词已经纳入“旧前端只保留功能契约、视觉实现全部丢弃”的最新决定。
+
+```text
+目标：按照 /Users/qiu/Desktop/Sub2API/plan.md，完整重写 Sub2API 全部前端，并在不改变业务契约的前提下完成 61 个独立页面、公共组件、布局壳、领域组件视觉层、响应式与交互状态的全面重构。
+
+一、执行基线
+
+1. 开始前完整阅读：
+   - /Users/qiu/Desktop/Sub2API/plan.md
+   - /Users/qiu/Desktop/Sub2API/UI.MD
+   - /Users/qiu/Desktop/Sub2API/AGENTS.md
+
+2. 验证远端 Git 存档点：
+   - branch: archive/frontend-before-full-rebuild-20260814
+   - commit: 215adfaa4aa893488c53cd3853dae27c8847dc91
+   - remote: origin / qiufengawa/sub2api
+
+   若该存档点不存在或远端不可验证，必须先创建只包含前端基线的 archive 提交并推送，完成验证后才能开始任何删除或重写。
+
+   长任务启动门禁：开始删除或重写前，必须实际验证 archive 分支、提交和远端指向；若任一项不可验证，先创建并推送只包含前端基线的 archive 提交，完成验证后才能继续。
+
+   若存档分支、提交或远端引用不存在，执行者必须先创建只包含前端基线的存档提交并推送到 `origin`，然后重新验证三者；在验证完成前不得删除或重写任何生产前端文件。
+
+3. 当前 archive 分支是旧前端唯一回退来源。不要覆盖、删除、force-push 或继续在该分支开发。
+
+4. 在 ui/main 开发分支执行并整合全部后续前端重构，不再建立第二条并行前端开发线。工作区可能存在其他任务的改动，不得回退、覆盖或提交与本任务无关的修改。
+
+二、重构定义
+
+1. 这不是旧页面换肤，不是局部 CSS 优化，也不是在旧 DOM 外包一层新组件。
+
+2. 旧页面只作为以下内容的功能参考：
+   - 页面字段与操作。
+   - API 调用与数据映射。
+   - 权限、功能开关和路由行为。
+   - 加载、空、错、成功、禁用和异常分支。
+   - 轮询、取消、重试、缓存、持久化和第三方 SDK 生命周期。
+
+   旧页面的截图、DOM、CSS、组件组合、间距、排版和信息布局均不属于参考基线；旧前端仅保留业务契约，任何旧视觉实现均不得保留。功能盘点完成后，应从新的页面职责和信息架构重新设计。
+
+3. 以下旧视觉实现全部丢弃并重写：
+   - 61 个页面的现有 template 视觉结构。
+   - 页面级 style、旧 class 和响应式补丁。
+   - AppLayout、AuthLayout、AppHeader、AppSidebar、TablePageLayout 的旧 DOM、排版和样式。
+   - components/common 中只承担视觉职责的旧组件。
+   - frontend/src/style.css 中服务于旧页面外观的按钮、输入框、卡片、弹窗、表格和布局规则。
+   - 页面自定义的颜色、圆角、高度、阴影、图标容器和控件外观。
+
+4. 以下能力保留并迁移到新实现：
+   - 已确认的 114 个 Ui/App 组件和 UI design tokens；114 个组件必须全部完成独立化、统一令牌接入、状态覆盖、契约测试和验收页登记，并脱离旧视觉实现，不是原样保留旧组件。这里的“保留”只指保留业务契约和可复用目标。
+   - API、store、composable、router、类型、i18n key 和权限判断。
+   - 业务计算、校验、状态机、请求并发保护和持久化协议。
+   - 支付、订阅、计费、调度、监控和第三方 SDK 行为。
+   - 每个页面全部有效信息与功能。
+
+5. 如果现有 Ui/App 组件能力不足，增强共享组件本身并补测试。不得恢复旧组件或在页面内复制一个新控件。
+
+三、实施方式
+
+1. 严格按照 plan.md 的 R0 至 R9 连续推进，不逐阶段等待确认。
+
+2. 每个页面采用以下闭环：
+   功能盘点 -> 新信息架构 -> 新页面模板 -> 接入业务逻辑 -> 状态补齐
+   -> 自动化测试 -> 浏览器验收 -> 删除旧视觉实现 -> Code Review。
+
+3. 页面只有在旧模板、旧视觉组件和旧页面样式已经删除后才算完成。
+
+4. 临时适配器只能搬运行为，不能保留旧外观。适配器必须有消费者清单、测试和删除条件，并在 R9 前清理。
+
+5. 优先完成 R1 公共组件独立化：
+   - 让 UiDialog、UiConfirmDialog、UiDataTable、UiSelect、UiCombobox、UiDateRangePicker、UiTooltip、UiFieldHelp、UiSkeleton 等摆脱旧视觉实现。
+   - 重建统一 overlay manager、table workspace、form、feedback、navigation 和 page shell。
+   - 将领域组件的模板与样式改写为 Ui/App 组合，同时保留领域 API 和业务计算。
+   - 删除无消费者的 common 纯视觉组件和旧全局样式。
+
+6. R1 完成后按以下顺序重写页面：
+   - R2：应用壳、认证、回调与初始化。
+   - R3：Dashboard、Keys、Usage、Profile、Redeem、Affiliate、Key Usage。
+   - R4：Subscriptions、Purchase、Orders 和完整支付流程。
+   - R5：Model Plaza、Playground、Batch Image、Available Channels、Monitor、Custom Page。
+   - R6：标准管理员工作台。
+   - R7：Accounts、Ops、Channel Monitor、Settings、Risk Control、Prompt Audit 和支付后台。
+   - R8：Home、Legal、404 和例外页面。
+   - R9：删除旧实现、统一全站并完成最终验收。
+
+7. 每个批次在 `ui/main` 形成独立提交，并在 `docs/frontend-rebuild/` 保存该批次的变更清单、测试结果和截图索引。批次失败时只回退到最近一个已验收提交，不得回退 archive 分支或覆盖其他任务改动。
+
+四、设计约束
+
+1. 使用已经确认的 UI 体系：米白背景、黑白主体、暖灰边界和克制语义色。
+
+2. 控件按仓库硬约束使用 `36px` 默认、`32px` compact、`28px` dense；`24px` 仅用于表格行内图标操作和紧凑标签，`40px` 仅用于有明确触控理由的独立主操作。超过 `36px` 必须记录交互理由。
+
+3. 禁止：
+   - 卡片套卡片。
+   - 为页面区块增加无意义外层容器。
+   - 大面积渐变和彩色标题条。
+   - 无意义编号、实现说明和面向开发者的垃圾文案。
+   - 负字距或随 viewport 连续缩放字号。
+   - 页面自行重定义共享组件的颜色、高度、圆角和焦点。
+
+4. Lucide 是唯一界面图标来源，不新增第二图标库或手绘界面 SVG。
+
+5. 独立工具图标可以有描边容器；关闭、编辑、勾、叉、校验和状态图标保持无框。绿色表示成功或确认，红色表示失败、取消或删除，黄色表示警告或等待。
+
+6. 英文与普通数字使用 Inter/SF Pro/Segoe UI Latin stack；中英混排使用带中文 fallback 的 sans stack；JSON、API Key、模型 ID、端点和请求 ID 使用 SFMono/Cascadia/Roboto Mono 等宽栈；金额、额度、延迟、速度、比例和计数使用 tabular numbers，letter-spacing 固定为 `0`。
+
+7. 首页可以有有意义的产品视觉和动画；认证页只保留认证任务；用户控制台以任务完成为中心；管理员控制台以数据扫描、比较和操作效率为中心。
+
+8. 所有页面避免多层容器嵌套。用排版、间距、对齐、分隔线和全宽 section 建立层级。
+
+9. 动效只使用 `opacity` 与 `transform`：hover/focus 100-140ms，tooltip 120-140ms 且位移不超过 2px，认证壳切换 140ms 交叉淡入，dialog 180ms，drawer/sheet 180-240ms。禁止动画 height/width/top/left/padding/margin；表格不逐行入场，实时图表不重复播放完整入场动画；reduced-motion 下移除非必要动画。
+
+10. 桌面端首行展示主要指标与健康状态，toolbar 不得不可预测换行；平板先减少列数而非缩小字号；移动端保留表头与比较能力，sticky 列不能遮挡，键盘可能遮挡时 dialog 改为 sheet，并尊重 safe-area。
+
+   普通页面最多保留三层可见 surface（页面、section/tool、overlay）；仅承载布局的 wrapper 不得拥有独立背景、边框、阴影或圆角。表格工具栏只承载搜索、筛选、批量、导出、刷新、列设置和创建等语义动作；数据单元格保持“一条主值 + 一条 metadata”，横向滚动区域必须可聚焦并有 accessible name。
+
+11. 共享组件必须覆盖 light/dark、density、hover/active/focus/disabled/loading/invalid/readonly、长文本、三视口、键盘、accessible name 和 reduced-motion，并有单测与视觉 fixture。页面只可改变 width/grid/context spacing，禁止 `:deep()`、`!important` 或局部重定义共享颜色、高度、圆角、焦点和动效。
+
+12. 认证页面强制复用 `AuthLayout`、`AuthFormPanel`、`AuthTextField` 的路由、行为和可访问性契约，并重写这些组件的 DOM/CSS 实现；相关路由保持持久 shell，只切换表单内容，不出现空白中间帧。
+
+   共享组件必须使用语义 props 表达意图，不向页面暴露任意颜色、圆角、阴影或高度 props；页面不得通过 `:deep()`、`!important` 或局部 CSS 重定义共享状态。
+
+五、功能保护
+
+1. 不修改：
+   - `backend/` 目录中的任何文件（包括源码、配置、迁移、测试、嵌入产物和文档）、数据库、后端配置、后端测试和 API 协议；本任务仅允许修改 `frontend/`、UI 文档、前端重构记录和必要的前端测试。
+   - API URL、请求参数、响应字段和错误协议。
+   - 权限、功能开关、菜单可见性和路由语义。
+   - 计费、倍率、订阅、余额、订单、退款和支付状态机。
+   - 调度、账号优先度和监控统计口径。
+   - localStorage key、支付恢复快照和 query 深链协议。
+   - `backend/cmd/server/VERSION`、`frontend/package.json` 的系统版本来源、任何版本号、tag、GitHub Release、GHCR 标签或线上发布元数据。
+
+2. 支付必须作为完整交易流程迁移，保护订单恢复、续费实例、QR 轮询、WeChat resume token、Stripe popup、Airwallex 和第三方 SDK 生命周期。
+
+3. Playground 必须保护用户隔离、session、generation token、AbortController、迟到 chunk、图片响应、滚动跟随和持久化。
+
+4. Monitor V2 必须保护 query 状态、abort + sequence、自动刷新、soft-prune、矩阵缩放和平移。
+
+5. Accounts 必须保护虚拟化、服务端排序、列设置、scheduler score、所有结果选择、自动刷新、行内优先度更新和失败回滚。
+
+6. Settings 必须保护动态 schema、secret 保留语义、Provider 特有字段、callback URL 和保存 payload。
+
+六、响应式与状态
+
+1. 每个页面必须支持 1440px、900px、390px。
+
+2. 移动端高密度数据继续使用可横向滚动的列表或表格，不转换为高大的卡片流。
+
+3. 首次加载使用与最终布局同尺寸的骨架。加载过程中页面宽度、标题、工具栏和主要栅格不得收缩或跳动。
+
+4. 局部刷新保留旧数据并使用局部 loading overlay，不清空页面。
+
+5. 每个页面必须实现并验收：loading、empty、error、success、disabled、long text、large number、slow request。
+
+6. 所有 overlay 必须处理安全区、虚拟键盘、滚动锁、焦点圈定、Esc 和关闭后焦点恢复。
+
+7. dark mode 与 prefers-reduced-motion 是正式验收范围，不是可选增强项。
+
+8. 每个正式页面默认使用一个 `AppPage` 和一个 `AppPageHeader`；例外必须在 `docs/frontend-rebuild/exceptions.md` 记录原因、审批人、创建批次、撤销条件和到期批次。未记录或过期的例外不计入完成。
+
+七、代理协作
+
+1. 按 AGENTS.md 使用子代理进行跨目录探索、页面功能盘点、独立核验和测试审计。
+
+2. 主代理负责设计决策、核心实现、文件编辑、整合、最终 Code Review 和浏览器验收。
+
+3. 子代理默认只做探索和核验，不得让多个代理同时修改同一文件。
+
+4. 主代理不得长时间只监控一个代理；独立任务应并行推进，但任何共享文件修改必须由主代理统一完成。
+
+八、验收门禁
+
+1. 每完成一个实施批次，立即执行定向测试、Code Review 和真实浏览器验收，发现问题直接修复后继续。
+
+2. 每个页面必须满足：
+   - 首屏明确主要任务、关键状态和下一步操作。
+   - 原有全部有效字段、操作、权限和异常分支仍可使用。
+   - 无旧页面 DOM、旧视觉 class 或旧页面控件样式残留。
+   - 无卡片嵌套、遮挡、重叠和页面级横向溢出。
+   - 表格在桌面和手机均保持比较能力。
+   - 键盘操作、焦点顺序和 accessible name 正确。
+   - 浏览器控制台没有本轮引入的 error 或 warning。
+
+3. 最终执行：
+   cd /Users/qiu/Desktop/Sub2API/frontend
+   pnpm run test:run
+   pnpm run typecheck
+   pnpm run lint:check
+   pnpm run build
+   cd /Users/qiu/Desktop/Sub2API
+   git diff --check
+
+4. 最终扫描：
+   - 旧 common 纯视觉组件消费者。
+   - 旧全局 CSS 和旧页面 class。
+   - 直接 Ui 文件路径导入。
+   - 第二图标库和手绘界面 SVG。
+   - 重复控件、硬编码颜色、控件高度、圆角和 overlay z-index。
+
+九、最终报告
+
+完成后必须报告：
+
+1. 实际完成的页面数量和组件数量。
+2. 每个 R0-R9 批次的完成状态。
+3. 删除的旧页面模板、布局、组件和样式。
+4. 保留的领域逻辑、临时例外及原因。
+5. 自动化测试、TypeScript、ESLint 和生产构建结果。
+6. 1440px、900px、390px 浏览器验收结果。
+7. dark mode、reduced motion、键盘与无障碍验收结果。
+8. 最终 Code Review 结论和剩余风险。
+9. archive 分支和恢复方式。
+
+十、停止条件
+
+1. 只有完成 plan.md Definition of Done 后，才能把目标标记为完成。
+
+2. 遇到问题应先自行排查和修复，不因任务规模大、耗时长或测试多而提前停止。
+
+3. 完成实现、测试、Code Review 和浏览器验收后停止。
+
+4. 不创建 GitHub Release，不修改 `backend/cmd/server/VERSION`、`frontend/package.json` 的系统版本来源、任何版本号/tag/package 版本元数据，不发布线上更新，等待单独发布指令。
 ```
