@@ -84,21 +84,22 @@ describe('channel-monitor-v2 design system structure', () => {
     expect(src).toContain('dropdown-item')
   })
 
-  it('MonitorSettingsPanel uses page-header, card, btn-primary, tabs', () => {
+  it('MonitorSettingsPanel uses the shared settings primitives', () => {
     const src = read('features/channel-monitor-v2/MonitorSettingsPanel.vue')
-    expect(src).toContain('page-header')
-    expect(src).toContain('btn btn-primary')
-    expect(src).toContain('class="card')
-    expect(src).toContain('tab-active')
-    expect(src).toMatch(/max-h-\[min\(40vh/)
+    expect(src).toContain('<AppSection')
+    expect(src).toContain('<UiSwitch')
+    expect(src).toContain('<UiSegmentedControl')
+    expect(src).toContain('<UiMultiCombobox')
+    expect(src).not.toContain('class="card')
+    expect(src).not.toContain('tab-active')
   })
 
-  it('admin ChannelMonitorView V2 tab chrome uses project tabs', () => {
+  it('admin ChannelMonitorView uses the shared page and table workspace', () => {
     const src = read('views/admin/ChannelMonitorView.vue')
-    expect(src).toContain('page-header')
-    expect(src).toContain('page-title')
-    expect(src).toContain('class="tabs')
-    expect(src).toContain('tab-active')
+    expect(src).toContain('<AppPageHeader')
+    expect(src).toContain('<UiTabs')
+    expect(src).toContain('<UiServerTableWorkspace')
+    expect(src).toContain('<UiMobileTableScroller')
     expect(src).toContain('MonitorSettingsPanel')
   })
 })
