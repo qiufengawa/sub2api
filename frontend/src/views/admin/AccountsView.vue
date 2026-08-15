@@ -1,37 +1,46 @@
 <template>
   <AppLayout>
-    <TablePageLayout>
-      <template #filters>
-        <div class="flex flex-wrap-reverse items-start justify-between gap-3">
-          <AccountTableFilters
-            v-model:searchQuery="params.search"
-            :filters="params"
-            :groups="groups"
-            @update:filters="(newFilters) => Object.assign(params, newFilters)"
-            @change="debouncedReload"
-            @update:searchQuery="debouncedReload"
-          />
-          <AccountTableActions
-            :loading="loading"
-            @refresh="handleManualRefresh"
-            @create="showCreate = true"
-          >
+    <AppPage class="accounts-page" density="compact">
+      <AppPageHeader
+        :title="t('admin.accounts.title')"
+        :description="t('admin.accounts.description')"
+      />
+      <UiServerTableWorkspace class="accounts-workspace">
+        <template #toolbar>
+          <UiTableToolbar>
+            <AccountTableFilters
+              v-model:searchQuery="params.search"
+              :filters="params"
+              :groups="groups"
+              @update:filters="(newFilters) => Object.assign(params, newFilters)"
+              @change="debouncedReload"
+              @update:searchQuery="debouncedReload"
+            />
+            <template #actions>
+              <AccountTableActions
+                :loading="loading"
+                @refresh="handleManualRefresh"
+                @create="showCreate = true"
+              >
             <template #after>
               <!-- Auto Refresh Dropdown -->
               <div class="relative" ref="autoRefreshDropdownRef">
-                <button
+                <UiButton
+                  density="compact"
+                  variant="secondary"
                   @click="
                     showAutoRefreshDropdown = !showAutoRefreshDropdown;
                     showAccountToolsDropdown = false;
                   "
-                  class="btn btn-secondary px-2 md:px-3"
                   :title="t('admin.accounts.autoRefresh')"
                 >
-                  <Icon
-                    name="refresh"
-                    size="sm"
-                    :class="[autoRefreshEnabled ? 'animate-spin' : '']"
-                  />
+                  <template #icon>
+                    <Icon
+                      name="refresh"
+                      size="sm"
+                      :class="[autoRefreshEnabled ? 'animate-spin' : '']"
+                    />
+                  </template>
                   <span class="hidden md:inline">
                     {{
                       autoRefreshEnabled
@@ -41,7 +50,7 @@
                         : t("admin.accounts.autoRefresh")
                     }}
                   </span>
-                </button>
+                </UiButton>
                 <div
                   v-if="showAutoRefreshDropdown"
                   class="absolute right-0 z-50 mt-2 max-h-[calc(100dvh-1rem)] w-56 max-w-[calc(100vw-1rem)] origin-top-right overflow-y-auto rounded-[4px] border border-gray-200 bg-white shadow-lg dark:border-dark-700 dark:bg-dark-800"
@@ -82,23 +91,25 @@
 
               <!-- More Tools Dropdown -->
               <div class="relative" ref="accountToolsDropdownRef">
-                <button
-                  ref="accountToolsTriggerRef"
-                  @click="toggleAccountToolsDropdown"
-                  class="btn btn-secondary px-2 md:px-3"
-                  :title="t('admin.accounts.moreActions')"
-                  :aria-expanded="showAccountToolsDropdown"
-                >
-                  <Icon name="more" size="sm" class="md:mr-1.5" />
-                  <span class="hidden md:inline">{{
-                    t("admin.accounts.moreActions")
-                  }}</span>
-                  <Icon
-                    name="chevronDown"
-                    size="xs"
-                    class="ml-1 hidden md:inline"
-                  />
-                </button>
+                <span ref="accountToolsTriggerRef" class="inline-flex">
+                  <UiButton
+                    density="compact"
+                    variant="secondary"
+                    @click="toggleAccountToolsDropdown"
+                    :title="t('admin.accounts.moreActions')"
+                    :aria-expanded="showAccountToolsDropdown"
+                  >
+                    <template #icon><Icon name="more" size="sm" /></template>
+                    <span class="hidden md:inline">{{
+                      t("admin.accounts.moreActions")
+                    }}</span>
+                    <Icon
+                      name="chevronDown"
+                      size="xs"
+                      class="hidden md:inline"
+                    />
+                  </UiButton>
+                </span>
                 <Teleport to="body">
                   <div
                     v-if="showAccountToolsDropdown"
@@ -244,22 +255,23 @@
                 </Teleport>
               </div>
             </template>
-          </AccountTableActions>
-        </div>
-        <div
-          v-if="hasPendingListSync"
-          class="mt-2 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-200"
-        >
-          <span>{{ t("admin.accounts.listPendingSyncHint") }}</span>
-          <button
-            class="btn btn-secondary px-2 py-1 text-xs"
-            @click="syncPendingListChanges"
+              </AccountTableActions>
+            </template>
+          </UiTableToolbar>
+          <div
+            v-if="hasPendingListSync"
+            class="mt-2 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-200"
           >
-            {{ t("admin.accounts.listPendingSyncAction") }}
-          </button>
-        </div>
-      </template>
-      <template #table>
+            <span>{{ t("admin.accounts.listPendingSyncHint") }}</span>
+            <UiButton
+              density="dense"
+              variant="secondary"
+              @click="syncPendingListChanges"
+            >
+              {{ t("admin.accounts.listPendingSyncAction") }}
+            </UiButton>
+          </div>
+        </template>
         <AccountBulkActionsBar
           :selected-ids="selIds"
           :total-results="pagination.total"
@@ -295,22 +307,24 @@
             :estimate-row-height="156"
             :overscan="5"
             :virtualize-threshold="50"
+            :mobile-table="false"
           >
             <template #header-select>
-              <input
-                type="checkbox"
-                class="h-4 w-4 cursor-pointer rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                :checked="allVisibleSelected"
+              <UiCheckbox
+                class="accounts-checkbox"
+                :model-value="allVisibleSelected"
+                :label="t('common.selectAll')"
                 @click.stop
-                @change="toggleSelectAllVisible($event)"
+                @update:model-value="toggleVisible"
               />
             </template>
             <template #cell-select="{ row }">
-              <input
-                type="checkbox"
-                :checked="isSelected(row.id)"
-                @change="toggleSel(row.id)"
-                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              <UiCheckbox
+                class="accounts-checkbox"
+                :model-value="isSelected(row.id)"
+                :label="t('common.selectOption')"
+                @click.stop
+                @update:model-value="toggleSel(row.id)"
               />
             </template>
             <template #cell-id="{ value }">
@@ -496,26 +510,16 @@
               </div>
             </template>
             <template #cell-schedulable="{ row }">
-              <button
-                @click="handleToggleSchedulable(row)"
+              <UiSwitch
+                :model-value="row.schedulable === true"
                 :disabled="togglingSchedulable === row.id"
-                class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-dark-800"
-                :class="[
-                  row.schedulable
-                    ? 'bg-primary-500 hover:bg-primary-600'
-                    : 'bg-gray-200 hover:bg-gray-300 dark:bg-dark-600 dark:hover:bg-dark-500',
-                ]"
-                :title="
+                :label="
                   row.schedulable
                     ? t('admin.accounts.schedulableEnabled')
                     : t('admin.accounts.schedulableDisabled')
                 "
-              >
-                <span
-                  class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                  :class="[row.schedulable ? 'translate-x-4' : 'translate-x-0']"
-                />
-              </button>
+                @update:model-value="handleToggleSchedulable(row)"
+              />
             </template>
             <template #cell-today_stats="{ row }">
               <AccountTodayStatsCell
@@ -707,38 +711,34 @@
             </template>
             <template #cell-actions="{ row }">
               <div class="flex items-center gap-1">
-                <button
+                <UiIconButton
                   type="button"
                   @click="handleEdit(row)"
-                  class="btn btn-ghost btn-icon text-gray-500 hover:text-primary-600 dark:hover:text-primary-400"
-                  :title="t('common.edit')"
-                  :aria-label="t('common.edit')"
-                >
-                  <Icon name="edit" size="sm" />
-                </button>
-                <button
+                  variant="ghost"
+                  density="dense"
+                  icon="edit"
+                  :label="t('common.edit')"
+                />
+                <UiIconButton
                   type="button"
                   @click="handleDelete(row)"
-                  class="btn btn-ghost btn-icon text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                  :title="t('common.delete')"
-                  :aria-label="t('common.delete')"
-                >
-                  <Icon name="trash" size="sm" />
-                </button>
-                <button
+                  variant="danger"
+                  density="dense"
+                  icon="trash"
+                  :label="t('common.delete')"
+                />
+                <UiIconButton
                   type="button"
                   @click="openMenu(row, $event)"
-                  class="btn btn-ghost btn-icon text-gray-500 hover:text-gray-900 dark:hover:text-white"
-                  :title="t('common.more')"
-                  :aria-label="t('common.more')"
-                >
-                  <Icon name="more" size="sm" />
-                </button>
+                  variant="ghost"
+                  density="dense"
+                  icon="more"
+                  :label="t('common.more')"
+                />
               </div>
             </template>
           </DataTable>
         </div>
-      </template>
       <template #pagination
         ><Pagination
           v-if="pagination.total > 0"
@@ -748,7 +748,8 @@
           @update:page="handlePageChange"
           @update:pageSize="handlePageSizeChange"
       /></template>
-    </TablePageLayout>
+      </UiServerTableWorkspace>
+    </AppPage>
     <CreateAccountModal
       :show="showCreate"
       :proxies="proxies"
@@ -859,16 +860,10 @@
       @confirm="handleExportData"
       @cancel="showExportDataDialog = false"
     >
-      <label
-        class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
-      >
-        <input
-          type="checkbox"
-          class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-          v-model="includeProxyOnExport"
-        />
-        <span>{{ t("admin.accounts.dataExportIncludeProxies") }}</span>
-      </label>
+      <UiCheckbox
+        v-model="includeProxyOnExport"
+        :label="t('admin.accounts.dataExportIncludeProxies')"
+      />
     </ConfirmDialog>
     <ErrorPassthroughRulesModal
       :show="showErrorPassthrough"
@@ -911,11 +906,20 @@ import {
 } from "@/composables/useStepUp";
 import TotpStepUpDialog from "@/components/auth/TotpStepUpDialog.vue";
 import AppLayout from "@/components/layout/AppLayout.vue";
-import TablePageLayout from "@/components/layout/TablePageLayout.vue";
-import DataTable from "@/components/common/DataTable.vue";
 import HelpTooltip from "@/components/common/HelpTooltip.vue";
-import Pagination from "@/components/common/Pagination.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
+import {
+  AppPage,
+  AppPageHeader,
+  UiButton,
+  UiCheckbox,
+  UiDataTable,
+  UiIconButton,
+  UiPagination,
+  UiServerTableWorkspace,
+  UiSwitch,
+  UiTableToolbar,
+} from "@/components/ui";
 import {
   CreateAccountModal,
   EditAccountModal,
@@ -975,6 +979,11 @@ import type {
   UpstreamBillingProbeSnapshot,
 } from "@/types";
 
+// Keep the legacy local component names so existing account-view test fixtures
+// can stub the page boundary while the implementation comes from the UI system.
+const DataTable = Object.assign({}, UiDataTable, { name: "DataTable" });
+const Pagination = Object.assign({}, UiPagination, { name: "Pagination" });
+
 const { t } = useI18n();
 const appStore = useAppStore();
 const authStore = useAuthStore();
@@ -982,7 +991,7 @@ const authStore = useAuthStore();
 const proxies = ref<AccountProxy[]>([]);
 const groups = ref<AdminGroup[]>([]);
 const accountTableRef = ref<HTMLElement | null>(null);
-const dataTableRef = ref<InstanceType<typeof DataTable> | null>(null);
+const dataTableRef = ref<InstanceType<typeof UiDataTable> | null>(null);
 type AccountBulkEditTarget =
   | {
       mode: "selected";
@@ -2369,10 +2378,6 @@ const openMenu = (a: Account, e: MouseEvent) => {
 
   menu.show = true;
 };
-const toggleSelectAllVisible = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  toggleVisible(target.checked);
-};
 const handleBulkDelete = async () => {
   const accountIds = [...selIds.value];
   if (
@@ -3287,6 +3292,43 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.accounts-page {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.accounts-workspace {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.accounts-workspace :deep(.ui-table-workspace__body),
+.accounts-workspace :deep(.ui-data-table) {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.accounts-checkbox :deep(span:last-child) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .account-tools-menu-item {
   @apply flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-dark-700;
 }
