@@ -192,16 +192,14 @@
                 :placeholder="t('admin.accounts.enterErrorCode')"
                 @keyup.enter="addCustomErrorCode"
               />
-              <button type="button" @click="addCustomErrorCode" class="btn btn-secondary px-3">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-              </button>
+              <UiIconButton
+                type="button"
+                variant="outlined"
+                :label="t('admin.accounts.addMapping')"
+                @click="addCustomErrorCode"
+              >
+                <Icon name="plus" size="sm" />
+              </UiIconButton>
             </div>
 
             <!-- Selected codes summary -->
@@ -1825,6 +1823,7 @@ import {
   UiButton,
   UiConfirmDialog,
   UiDialog,
+  UiIconButton,
   UiPasswordField,
   UiSelect,
   UiSwitch,
