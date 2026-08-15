@@ -6,6 +6,7 @@
 - Replaced platform, exclusivity, and status visual badges with shared semantic badges.
 - Replaced row edit, duplicate, composite-route, multiplier, RPM, and delete actions with shared icon buttons.
 - Replaced the empty state with `UiEmptyState` and a shared action button.
+- Rebuilt the reasoning-effort policy field component with shared selects, compact buttons, and icon actions.
 - Preserved server-side filters, sorting, pagination, duplicate workflow, composite-route workflow, rate/RPM dialogs, and form payload behavior.
 
 ## Verification
