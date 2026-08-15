@@ -1,205 +1,110 @@
 <template>
-  <BaseDialog :show="show" :title="title" width="full" :close-on-click-outside="true" @close="close">
-    <div v-if="loading" class="flex items-center justify-center py-16">
-      <div class="flex flex-col items-center gap-3">
-        <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-primary-600"></div>
-        <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('admin.ops.errorDetail.loading') }}</div>
-      </div>
-    </div>
+  <UiDialog :show="show" :title="title" width="full" :close-on-click-outside="true" @close="close">
+    <UiLoadingOverlay class="ops-error-detail" :show="loading" :label="t('admin.ops.errorDetail.loading')">
+      <UiEmptyState v-if="!detail && !loading" :title="emptyText" />
 
-    <div v-else-if="!detail" class="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-      {{ emptyText }}
-    </div>
-
-    <div v-else class="space-y-6 p-6">
-      <!-- Summary -->
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
-          <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.errorDetail.requestId') }}</div>
-          <div class="mt-1 break-all font-mono text-sm font-medium text-gray-900 dark:text-white">
-            {{ requestId || '—' }}
-          </div>
-        </div>
-
-        <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
-          <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.errorDetail.time') }}</div>
-          <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-            {{ formatDateTime(detail.created_at) }}
-          </div>
-        </div>
-
-        <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
-          <div class="text-xs font-bold uppercase tracking-wider text-gray-400">
-            {{ isUpstreamError(detail) ? t('admin.ops.errorDetail.account') : t('admin.ops.errorDetail.user') }}
-          </div>
-          <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-            <template v-if="isUpstreamError(detail)">
-              {{ detail.account_name || (detail.account_id != null ? String(detail.account_id) : '—') }}
-            </template>
-            <template v-else>
-              {{ detail.user_email || (detail.user_id != null ? String(detail.user_id) : '—') }}
-            </template>
-          </div>
-        </div>
-
-        <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
-          <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.errorDetail.platform') }}</div>
-          <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-            {{ detail.platform || '—' }}
-          </div>
-        </div>
-
-        <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
-          <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.errorDetail.group') }}</div>
-          <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-            {{ detail.group_name || (detail.group_id != null ? String(detail.group_id) : '—') }}
-          </div>
-        </div>
-
-        <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
-          <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.errorDetail.model') }}</div>
-          <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-            <template v-if="hasModelMapping(detail)">
-              <span class="font-mono">{{ detail.requested_model }}</span>
-              <span class="mx-1 text-gray-400">→</span>
-              <span class="font-mono text-primary-600 dark:text-primary-400">{{ detail.upstream_model }}</span>
-            </template>
-            <template v-else>
-              {{ displayModel(detail) || '—' }}
-            </template>
-          </div>
-        </div>
-
-        <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
-          <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.errorDetail.inboundEndpoint') }}</div>
-          <div class="mt-1 break-all font-mono text-sm font-medium text-gray-900 dark:text-white">
-            {{ detail.inbound_endpoint || '—' }}
-          </div>
-        </div>
-
-        <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
-          <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.errorDetail.upstreamEndpoint') }}</div>
-          <div class="mt-1 break-all font-mono text-sm font-medium text-gray-900 dark:text-white">
-            {{ detail.upstream_endpoint || '—' }}
-          </div>
-        </div>
-
-        <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
-          <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.errorDetail.status') }}</div>
-          <div class="mt-1">
-            <span :class="['inline-flex items-center rounded-lg px-2 py-1 text-xs font-black ring-1 ring-inset shadow-sm', statusClass]">
-              {{ detail.status_code }}
+      <AppStack v-else-if="detail" :gap="20">
+        <UiDescriptionList :items="summaryItems" :columns="3">
+          <template #requestId>
+            <AppInline :wrap="false">
+              <span class="ops-error-detail__mono">{{ requestId || '—' }}</span>
+              <UiCopyButton v-if="requestId" :value="requestId" variant="ghost" />
+            </AppInline>
+          </template>
+          <template #model>
+            <span v-if="hasModelMapping(detail)" class="ops-error-detail__mono">
+              {{ detail.requested_model }} -> {{ detail.upstream_model }}
             </span>
-          </div>
-        </div>
+            <span v-else>{{ displayModel(detail) || '—' }}</span>
+          </template>
+          <template #status>
+            <UiBadge :tone="statusTone" :label="String(detail.status_code)" />
+          </template>
+        </UiDescriptionList>
 
-        <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
-          <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.errorDetail.requestType') }}</div>
-          <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-            {{ formatRequestTypeLabel(detail.request_type) }}
-          </div>
-        </div>
+        <AppSection :title="t('admin.ops.errorDetail.responseBody')">
+          <UiCodeBlock :code="prettyJSON(primaryResponseBody || '')" />
+        </AppSection>
 
-        <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
-          <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.errorDetail.message') }}</div>
-          <div class="mt-1 truncate text-sm font-medium text-gray-900 dark:text-white" :title="detail.message">
-            {{ detail.message || '—' }}
-          </div>
-        </div>
+        <AppSection v-if="showUpstreamList" :title="t('admin.ops.errorDetails.upstreamErrors')">
+          <template #actions>
+            <AppInline v-if="correlatedUpstreamLoading" :wrap="false">
+              <UiSpinner />
+              <span class="ops-error-detail__loading-label">{{ t('common.loading') }}</span>
+            </AppInline>
+          </template>
 
-        <div v-if="detail.api_key_prefix" class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
-          <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.errorDetail.apiKeyPrefix') }}</div>
-          <div class="mt-1 font-mono text-sm font-medium text-gray-900 dark:text-white">
-            {{ detail.api_key_prefix }}
-          </div>
-        </div>
+          <UiEmptyState
+            v-if="!correlatedUpstreamLoading && !correlatedUpstreamErrors.length"
+            :title="t('common.noData')"
+          />
 
-      </div>
-
-      <!-- Response content (client request -> error_body; upstream -> upstream_error_detail/message) -->
-      <div class="rounded-xl bg-gray-50 p-6 dark:bg-dark-900">
-        <h3 class="text-sm font-black uppercase tracking-wider text-gray-900 dark:text-white">{{ t('admin.ops.errorDetail.responseBody') }}</h3>
-        <pre class="mt-4 max-h-[520px] overflow-auto rounded-xl border border-gray-200 bg-white p-4 text-xs text-gray-800 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-100"><code>{{ prettyJSON(primaryResponseBody || '') }}</code></pre>
-      </div>
-
-      <!-- Upstream errors list (only for request errors) -->
-      <div v-if="showUpstreamList" class="rounded-xl bg-gray-50 p-6 dark:bg-dark-900">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h3 class="text-sm font-black uppercase tracking-wider text-gray-900 dark:text-white">{{ t('admin.ops.errorDetails.upstreamErrors') }}</h3>
-          <div class="text-xs text-gray-500 dark:text-gray-400" v-if="correlatedUpstreamLoading">{{ t('common.loading') }}</div>
-        </div>
-
-        <div v-if="!correlatedUpstreamLoading && !correlatedUpstreamErrors.length" class="mt-3 text-sm text-gray-500 dark:text-gray-400">
-          {{ t('common.noData') }}
-        </div>
-
-        <div v-else class="mt-4 space-y-3">
-          <div
-            v-for="(ev, idx) in correlatedUpstreamErrors"
-            :key="ev.id"
-            class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-800"
-          >
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <div class="text-xs font-black text-gray-900 dark:text-white">
-                #{{ idx + 1 }}
-                <span v-if="ev.type" class="ml-2 rounded-md bg-gray-100 px-2 py-0.5 font-mono text-[10px] font-bold text-gray-700 dark:bg-dark-700 dark:text-gray-200">{{ ev.type }}</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <div class="font-mono text-xs text-gray-500 dark:text-gray-400">
-                  {{ ev.status_code ?? '—' }}
-                </div>
-                <button
-                  type="button"
-                  class="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px] font-bold text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-primary-200 dark:hover:bg-dark-700"
+          <div v-else class="ops-error-detail__events">
+            <article v-for="(ev, idx) in correlatedUpstreamErrors" :key="ev.id" class="ops-error-detail__event">
+              <header>
+                <AppInline :wrap="false">
+                  <strong>#{{ idx + 1 }}</strong>
+                  <UiBadge v-if="ev.type" tone="neutral" :label="ev.type" />
+                  <UiBadge :tone="statusToneFor(ev.status_code)" :label="String(ev.status_code ?? '—')" />
+                </AppInline>
+                <UiButton
+                  density="dense"
+                  variant="quiet"
                   :disabled="!getUpstreamResponsePreview(ev)"
                   :title="getUpstreamResponsePreview(ev) ? '' : t('common.noData')"
                   @click="toggleUpstreamDetail(ev.id)"
                 >
-                  <Icon
-                    :name="expandedUpstreamDetailIds.has(ev.id) ? 'chevronDown' : 'chevronRight'"
-                    size="xs"
-                    :stroke-width="2"
-                  />
-                  <span>
-                    {{
-                      expandedUpstreamDetailIds.has(ev.id)
-                        ? t('admin.ops.errorDetail.responsePreview.collapse')
-                        : t('admin.ops.errorDetail.responsePreview.expand')
-                    }}
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            <div class="mt-3 grid grid-cols-1 gap-2 text-xs text-gray-600 dark:text-gray-300 sm:grid-cols-2">
-              <div>
-                <span class="text-gray-400">{{ t('admin.ops.errorDetail.upstreamEvent.status') }}:</span>
-                <span class="ml-1 font-mono">{{ ev.status_code ?? '—' }}</span>
-              </div>
-              <div>
-                <span class="text-gray-400">{{ t('admin.ops.errorDetail.upstreamEvent.requestId') }}:</span>
-                <span class="ml-1 font-mono">{{ ev.request_id || ev.client_request_id || '—' }}</span>
-              </div>
-            </div>
-
-            <div v-if="ev.message" class="mt-3 break-words text-sm font-medium text-gray-900 dark:text-white">{{ ev.message }}</div>
-
-            <pre
-              v-if="expandedUpstreamDetailIds.has(ev.id)"
-              class="mt-3 max-h-[240px] overflow-auto rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs text-gray-800 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-100"
-            ><code>{{ prettyJSON(getUpstreamResponsePreview(ev)) }}</code></pre>
+                  <template #icon>
+                    <Icon
+                      :name="expandedUpstreamDetailIds.has(ev.id) ? 'chevronDown' : 'chevronRight'"
+                      size="xs"
+                    />
+                  </template>
+                  {{
+                    expandedUpstreamDetailIds.has(ev.id)
+                      ? t('admin.ops.errorDetail.responsePreview.collapse')
+                      : t('admin.ops.errorDetail.responsePreview.expand')
+                  }}
+                </UiButton>
+              </header>
+              <UiDescriptionList
+                :items="[
+                  { label: t('admin.ops.errorDetail.upstreamEvent.status'), value: ev.status_code ?? '—', numeric: true },
+                  { label: t('admin.ops.errorDetail.upstreamEvent.requestId'), value: ev.request_id || ev.client_request_id || '—' },
+                ]"
+                :columns="2"
+              />
+              <p v-if="ev.message">{{ ev.message }}</p>
+              <UiCodeBlock
+                v-if="expandedUpstreamDetailIds.has(ev.id)"
+                :code="prettyJSON(getUpstreamResponsePreview(ev))"
+              />
+            </article>
           </div>
-        </div>
-      </div>
-    </div>
-  </BaseDialog>
+        </AppSection>
+      </AppStack>
+    </UiLoadingOverlay>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  AppInline,
+  AppSection,
+  AppStack,
+  UiBadge,
+  UiButton,
+  UiCodeBlock,
+  UiCopyButton,
+  UiDescriptionList,
+  UiDialog,
+  UiEmptyState,
+  UiLoadingOverlay,
+  UiSpinner,
+} from '@/components/ui'
 import { useAppStore } from '@/stores'
 import { opsAPI, type OpsErrorDetail } from '@/api/admin/ops'
 import { formatDateTime } from '@/utils/format'
@@ -241,6 +146,35 @@ const title = computed(() => {
 })
 
 const emptyText = computed(() => t('admin.ops.errorDetail.noErrorSelected'))
+
+const summaryItems = computed(() => {
+  const current = detail.value
+  if (!current) return []
+  const identityLabel = isUpstreamError(current)
+    ? t('admin.ops.errorDetail.account')
+    : t('admin.ops.errorDetail.user')
+  const identityValue = isUpstreamError(current)
+    ? current.account_name || (current.account_id != null ? String(current.account_id) : '—')
+    : current.user_email || (current.user_id != null ? String(current.user_id) : '—')
+
+  const items = [
+    { key: 'requestId', label: t('admin.ops.errorDetail.requestId'), value: requestId.value || '—' },
+    { label: t('admin.ops.errorDetail.time'), value: formatDateTime(current.created_at) },
+    { label: identityLabel, value: identityValue },
+    { label: t('admin.ops.errorDetail.platform'), value: current.platform || '—' },
+    { label: t('admin.ops.errorDetail.group'), value: current.group_name || (current.group_id != null ? String(current.group_id) : '—') },
+    { key: 'model', label: t('admin.ops.errorDetail.model'), value: displayModel(current) || '—' },
+    { label: t('admin.ops.errorDetail.inboundEndpoint'), value: current.inbound_endpoint || '—' },
+    { label: t('admin.ops.errorDetail.upstreamEndpoint'), value: current.upstream_endpoint || '—' },
+    { key: 'status', label: t('admin.ops.errorDetail.status'), value: current.status_code, numeric: true },
+    { label: t('admin.ops.errorDetail.requestType'), value: formatRequestTypeLabel(current.request_type) },
+    { label: t('admin.ops.errorDetail.message'), value: current.message || '—' },
+  ]
+  if (current.api_key_prefix) {
+    items.push({ label: t('admin.ops.errorDetail.apiKeyPrefix'), value: current.api_key_prefix })
+  }
+  return items
+})
 
 function isUpstreamError(d: OpsErrorDetail | null): boolean {
   if (!d) return false
@@ -358,12 +292,60 @@ watch(
   { immediate: true }
 )
 
-const statusClass = computed(() => {
-  const code = detail.value?.status_code ?? 0
-  if (code >= 500) return 'bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-900/30 dark:text-red-400 dark:ring-red-500/30'
-  if (code === 429) return 'bg-purple-50 text-purple-700 ring-purple-600/20 dark:bg-purple-900/30 dark:text-purple-400 dark:ring-purple-500/30'
-  if (code >= 400) return 'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-900/30 dark:text-amber-400 dark:ring-amber-500/30'
-  return 'bg-gray-50 text-gray-700 ring-gray-600/20 dark:bg-gray-900/30 dark:text-gray-400 dark:ring-gray-500/30'
-})
+type BadgeTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info'
+
+function statusToneFor(code: number | null | undefined): BadgeTone {
+  if (typeof code !== 'number') return 'neutral'
+  if (code >= 500) return 'danger'
+  if (code === 429) return 'info'
+  if (code >= 400) return 'warning'
+  if (code >= 200 && code < 300) return 'success'
+  return 'neutral'
+}
+
+const statusTone = computed(() => statusToneFor(detail.value?.status_code))
 
 </script>
+
+<style scoped>
+.ops-error-detail {
+  min-height: 220px;
+}
+
+.ops-error-detail__mono {
+  font-family: var(--ui-font-mono);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.ops-error-detail__loading-label {
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+.ops-error-detail__events {
+  border-top: 1px solid var(--ui-border-soft);
+}
+
+.ops-error-detail__event {
+  display: grid;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--ui-border-soft);
+}
+
+.ops-error-detail__event > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ops-error-detail__event p {
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 13px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+</style>
