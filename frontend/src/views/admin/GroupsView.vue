@@ -280,40 +280,30 @@
         @submit.prevent="handleCreateGroup"
         class="space-y-5"
       >
-        <div>
-          <label class="input-label">{{ t("admin.groups.form.name") }}</label>
-          <input
+        <UiTextField
             v-model="createForm.name"
             type="text"
             required
-            class="input"
+            density="compact"
+            :label="t('admin.groups.form.name')"
             :placeholder="t('admin.groups.enterGroupName')"
             data-tour="group-form-name"
           />
-        </div>
-        <div>
-          <label class="input-label">{{
-            t("admin.groups.form.description")
-          }}</label>
-          <textarea
+        <UiTextArea
             v-model="createForm.description"
-            rows="3"
-            class="input"
+            :label="t('admin.groups.form.description')"
+            :rows="3"
             :placeholder="t('admin.groups.optionalDescription')"
-          ></textarea>
-        </div>
-        <div>
-          <label class="input-label">{{
-            t("admin.groups.form.platform")
-          }}</label>
-          <Select
+          />
+        <UiSelect
             v-model="createForm.platform"
             :options="platformOptions"
+            density="compact"
+            :label="t('admin.groups.form.platform')"
+            :description="t('admin.groups.platformHint')"
             data-tour="group-form-platform"
             @change="createForm.copy_accounts_from_group_ids = []"
           />
-          <p class="input-hint">{{ t("admin.groups.platformHint") }}</p>
-        </div>
         <GroupCopyAccountsPicker
           v-if="copyAccountsGroupOptions.length"
           :selected-ids="createForm.copy_accounts_from_group_ids"
@@ -325,33 +315,27 @@
           :remove-label="t('common.remove')"
           @update:selected-ids="createForm.copy_accounts_from_group_ids = $event"
         />
-        <div>
-          <label class="input-label">{{
-            t("admin.groups.form.rateMultiplier")
-          }}</label>
-          <input
+        <UiTextField
             v-model.number="createForm.rate_multiplier"
             type="number"
             step="0.001"
             min="0.001"
             required
-            class="input"
+            density="compact"
+            :label="t('admin.groups.form.rateMultiplier')"
+            :description="t('admin.groups.rateMultiplierHint')"
             data-tour="group-form-multiplier"
           />
-          <p class="input-hint">{{ t("admin.groups.rateMultiplierHint") }}</p>
-        </div>
-        <div>
-          <label class="input-label">{{ t("admin.groups.form.rpmLimit") }}</label>
-          <input
+        <UiTextField
             v-model.number="createForm.rpm_limit"
             type="number"
             min="0"
             step="1"
-            class="input"
+            density="compact"
+            :label="t('admin.groups.form.rpmLimit')"
+            :description="t('admin.groups.form.rpmLimitHint')"
             :placeholder="t('admin.groups.form.rpmLimitPlaceholder')"
           />
-          <p class="input-hint">{{ t("admin.groups.form.rpmLimitHint") }}</p>
-        </div>
         <ReasoningEffortPolicyFields
           v-if="supportsReasoningEffortPolicyPlatform(createForm.platform)"
           ref="createReasoningEffortPolicyRef"
@@ -405,23 +389,10 @@
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <button
-              type="button"
-              @click="createForm.is_exclusive = !createForm.is_exclusive"
-              :class="[
-                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                createForm.is_exclusive
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600',
-              ]"
-            >
-              <span
-                :class="[
-                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
-                  createForm.is_exclusive ? 'translate-x-6' : 'translate-x-1',
-                ]"
-              />
-            </button>
+            <UiSwitch
+              v-model="createForm.is_exclusive"
+              :label="t('admin.groups.form.exclusive')"
+            />
             <span class="text-sm text-gray-500 dark:text-gray-400">
               {{
                 createForm.is_exclusive
@@ -1683,38 +1654,28 @@
         @submit.prevent="handleUpdateGroup"
         class="space-y-5"
       >
-        <div>
-          <label class="input-label">{{ t("admin.groups.form.name") }}</label>
-          <input
+        <UiTextField
             v-model="editForm.name"
             type="text"
             required
-            class="input"
+            density="compact"
+            :label="t('admin.groups.form.name')"
             data-tour="edit-group-form-name"
           />
-        </div>
-        <div>
-          <label class="input-label">{{
-            t("admin.groups.form.description")
-          }}</label>
-          <textarea
+        <UiTextArea
             v-model="editForm.description"
-            rows="3"
-            class="input"
-          ></textarea>
-        </div>
-        <div>
-          <label class="input-label">{{
-            t("admin.groups.form.platform")
-          }}</label>
-          <Select
+            :label="t('admin.groups.form.description')"
+            :rows="3"
+          />
+        <UiSelect
             v-model="editForm.platform"
             :options="platformOptions"
             :disabled="true"
+            density="compact"
+            :label="t('admin.groups.form.platform')"
+            :description="t('admin.groups.platformNotEditable')"
             data-tour="group-form-platform"
           />
-          <p class="input-hint">{{ t("admin.groups.platformNotEditable") }}</p>
-        </div>
         <GroupCopyAccountsPicker
           v-if="copyAccountsGroupOptionsForEdit.length"
           :selected-ids="editForm.copy_accounts_from_group_ids"
@@ -1726,32 +1687,26 @@
           :remove-label="t('common.remove')"
           @update:selected-ids="editForm.copy_accounts_from_group_ids = $event"
         />
-        <div>
-          <label class="input-label">{{
-            t("admin.groups.form.rateMultiplier")
-          }}</label>
-          <input
+        <UiTextField
             v-model.number="editForm.rate_multiplier"
             type="number"
             step="0.001"
             min="0.001"
             required
-            class="input"
+            density="compact"
+            :label="t('admin.groups.form.rateMultiplier')"
             data-tour="group-form-multiplier"
           />
-        </div>
-        <div>
-          <label class="input-label">{{ t("admin.groups.form.rpmLimit") }}</label>
-          <input
+        <UiTextField
             v-model.number="editForm.rpm_limit"
             type="number"
             min="0"
             step="1"
-            class="input"
+            density="compact"
+            :label="t('admin.groups.form.rpmLimit')"
+            :description="t('admin.groups.form.rpmLimitHint')"
             :placeholder="t('admin.groups.form.rpmLimitPlaceholder')"
           />
-          <p class="input-hint">{{ t("admin.groups.form.rpmLimitHint") }}</p>
-        </div>
         <ReasoningEffortPolicyFields
           v-if="supportsReasoningEffortPolicyPlatform(editForm.platform)"
           ref="editReasoningEffortPolicyRef"
@@ -1805,23 +1760,10 @@
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <button
-              type="button"
-              @click="editForm.is_exclusive = !editForm.is_exclusive"
-              :class="[
-                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                editForm.is_exclusive
-                  ? 'bg-primary-500'
-                  : 'bg-gray-300 dark:bg-dark-600',
-              ]"
-            >
-              <span
-                :class="[
-                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
-                  editForm.is_exclusive ? 'translate-x-6' : 'translate-x-1',
-                ]"
-              />
-            </button>
+            <UiSwitch
+              v-model="editForm.is_exclusive"
+              :label="t('admin.groups.form.exclusive')"
+            />
             <span class="text-sm text-gray-500 dark:text-gray-400">
               {{
                 editForm.is_exclusive
@@ -1831,10 +1773,12 @@
             </span>
           </div>
         </div>
-        <div>
-          <label class="input-label">{{ t("admin.groups.form.status") }}</label>
-          <Select v-model="editForm.status" :options="editStatusOptions" />
-        </div>
+        <UiSelect
+          v-model="editForm.status"
+          :options="editStatusOptions"
+          density="compact"
+          :label="t('admin.groups.form.status')"
+        />
 
         <GroupModelsListEditor
           :state="editModelsListState"
@@ -3584,7 +3528,7 @@ import Pagination from "@/components/common/Pagination.vue";
 import BaseDialog from "@/components/common/BaseDialog.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import Icon from "@/components/icons/Icon.vue";
-import { UiBadge, UiButton, UiEmptyState, UiIconButton, UiSearchInput, UiSelect, UiStatusBadge } from '@/components/ui';
+import { UiBadge, UiButton, UiEmptyState, UiIconButton, UiSearchInput, UiSelect, UiStatusBadge, UiSwitch, UiTextArea, UiTextField } from '@/components/ui';
 import Select from "@/components/common/Select.vue";
 import PlatformIcon from "@/components/common/PlatformIcon.vue";
 import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipliersModal.vue";
