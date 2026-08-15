@@ -97,7 +97,8 @@ function mountFilters(filters = defaultFilters()) {
     },
     global: {
       stubs: {
-        Select: true,
+        UiSelect: true,
+        UiCombobox: true,
         Teleport: true,
       },
     },
@@ -136,10 +137,9 @@ describe('UsageFilters — user search dropdown', () => {
     const wrapper = mountFilters()
 
     // Trigger focus (sets showUserDropdown = true) then input (fires debounceUserSearch)
-    const input = wrapper.find('input[type="text"]')
+    const input = wrapper.findAll('input[type="search"]')[0]
     await input.trigger('focus')
     await input.setValue('test')
-    await input.trigger('input')
 
     // Advance debounce timer (300ms) then flush the resolved promise
     vi.advanceTimersByTime(300)
@@ -147,7 +147,7 @@ describe('UsageFilters — user search dropdown', () => {
 
     // --- (b) Sort: active user should appear BEFORE deleted user ---
     // Check the underlying component state via rendered DOM order
-    const buttons = wrapper.findAll('.usage-filter-dropdown button[type="button"]')
+    const buttons = wrapper.findAll('[role="option"]')
     const emailTexts = buttons.map((b) => b.text())
 
     // active@test.com should be listed first
@@ -188,7 +188,7 @@ describe('UsageFilters — user search dropdown', () => {
       .mockImplementationOnce(() => secondSearch.promise)
 
     const wrapper = mountFilters()
-    const input = wrapper.find('input[type="text"]')
+    const input = wrapper.findAll('input[type="search"]')[0]
     await input.trigger('focus')
 
     await input.setValue('a')
@@ -214,7 +214,7 @@ describe('UsageFilters — user search dropdown', () => {
     mockSearchUsers.mockImplementationOnce(() => pendingSearch.promise)
 
     const wrapper = mountFilters()
-    const input = wrapper.find('input[type="text"]')
+    const input = wrapper.findAll('input[type="search"]')[0]
     await input.trigger('focus')
 
     await input.setValue('stale')
@@ -249,7 +249,7 @@ describe('UsageFilters — model options come from prop (no dup request)', () =>
         showActions: false,
         modelOptions: ['claude-3', 'gpt-4o'],
       },
-      global: { stubs: { Select: true, Teleport: true } },
+      global: { stubs: { UiSelect: true, UiCombobox: true, Teleport: true } },
     })
     await flushPromises()
 
@@ -257,5 +257,18 @@ describe('UsageFilters — model options come from prop (no dup request)', () =>
 
     const opts = (wrapper.vm as any).modelOptions as Array<{ value: string | null; label: string }>
     expect(opts.map((o) => o.value)).toEqual([null, 'claude-3', 'gpt-4o'])
+  })
+
+  it('keeps the external user label and revision contract used by route deep links', async () => {
+    const wrapper = mountFilters({ ...defaultFilters(), user_id: 42 })
+    const vm = wrapper.vm as any
+    const before = vm.getUserSearchRevision()
+
+    vm.setUserKeyword('deep-link@example.com')
+    await flushPromises()
+
+    expect(vm.userKeyword).toBe('deep-link@example.com')
+    expect(vm.getUserSearchRevision()).toBeGreaterThan(before)
+    expect(wrapper.findAll('input[type="search"]')[0].element.value).toBe('deep-link@example.com')
   })
 })
