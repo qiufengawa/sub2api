@@ -196,8 +196,8 @@
       <form
         id="create-group-form"
         @submit.prevent="handleCreateGroup"
-        class="space-y-5"
       >
+        <AppStack :gap="12">
         <UiTextField
             v-model="createForm.name"
             type="text"
@@ -318,19 +318,10 @@
           <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
             {{ t(imagePricingI18nKey(createForm.platform, "modeHint")) }}
           </p>
-          <div class="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-            <div class="mb-1 font-medium">
-              {{ t(imagePricingI18nKey(createForm.platform, "finalPricePreview")) }}
-            </div>
-            <div class="grid grid-cols-3 gap-2">
-              <div
-                v-for="item in createImageFinalPricePreview"
-                :key="item.label"
-              >
-                {{ item.label }}: {{ item.value }}
-              </div>
-            </div>
-          </div>
+          <GroupPricingPreview
+            :title="t(imagePricingI18nKey(createForm.platform, 'finalPricePreview'))"
+            :items="createImageFinalPricePreview"
+          />
           <div v-if="createForm.platform === 'gemini' && createForm.allow_image_generation" class="mt-4 border-t border-dashed border-gray-200 pt-4 dark:border-dark-700">
             <UiCheckbox
               v-model="createForm.allow_batch_image_generation"
@@ -409,19 +400,10 @@
           <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
             {{ t(videoPricingI18nKey("modeHint")) }}
           </p>
-          <div class="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-            <div class="mb-1 font-medium">
-              {{ t(videoPricingI18nKey("finalPricePreview")) }}
-            </div>
-            <div class="grid grid-cols-3 gap-2">
-              <div
-                v-for="item in createVideoFinalPricePreview"
-                :key="item.label"
-              >
-                {{ item.label }}: {{ item.value }}
-              </div>
-            </div>
-          </div>
+          <GroupPricingPreview
+            :title="t(videoPricingI18nKey('finalPricePreview'))"
+            :items="createVideoFinalPricePreview"
+          />
         </div>
 
         <!-- 高峰时段倍率配置 -->
@@ -561,15 +543,11 @@
           </h4>
           <div>
             <UiTextField v-model.number="createForm.web_search_price_per_call" type="number" step="0.001" min="0" density="compact" :label="t('admin.groups.webSearchPricing.pricePerCall')" :description="t('admin.groups.webSearchPricing.pricePerCallHint')" placeholder="0.01" />
-            <div
-              class="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600 dark:bg-dark-700 dark:text-gray-300"
-            >
-              {{
-                t("admin.groups.webSearchPricing.finalPricePreview", {
-                  price: createWebSearchFinalPricePreview,
-                })
-              }}
-            </div>
+            <GroupPricingPreview
+              :title="t('admin.groups.webSearchPricing.finalPricePreview', { price: createWebSearchFinalPricePreview })"
+              :items="[{ label: t('admin.groups.webSearchPricing.pricePerCall'), value: createWebSearchFinalPricePreview }]"
+              :columns="1"
+            />
           </div>
         </div>
 
@@ -627,218 +605,23 @@
         </div>
 
         <!-- OpenAI Messages 调度配置（仅 openai 平台） -->
-        <div
+        <GroupMessagesDispatchFields
           v-if="createForm.platform === 'openai'"
-          class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
-        >
-          <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            {{ t("admin.groups.openaiMessages.title") }}
-          </h4>
-
-          <!-- 允许 Messages 调度开关 -->
-          <div class="flex items-center justify-between">
-            <label class="text-sm text-gray-600 dark:text-gray-400">{{
-              t("admin.groups.openaiMessages.allowDispatch")
-            }}</label>
-            <UiSwitch
-              v-model="createForm.allow_messages_dispatch"
-              :label="t('admin.groups.openaiMessages.allowDispatch')"
-            />
-          </div>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {{ t("admin.groups.openaiMessages.allowDispatchHint") }}
-          </p>
-
-          <div v-if="createForm.allow_messages_dispatch" class="mt-3">
-            <div
-              class="relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-dark-600 dark:bg-dark-800"
-            >
-              <div
-                class="border-b border-gray-100 bg-gray-50/80 px-4 py-3 dark:border-dark-700 dark:bg-dark-700/50"
-              >
-                <div class="flex items-center gap-2">
-                  <div class="h-2 w-2 rounded-full bg-blue-500"></div>
-                  <label
-                    class="text-sm font-medium text-gray-900 dark:text-white"
-                    >{{
-                      t("admin.groups.openaiMessages.familyMappingTitle")
-                    }}</label
-                  >
-                </div>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t("admin.groups.openaiMessages.familyMappingHint") }}
-                </p>
-              </div>
-              <div class="p-4">
-                <div class="grid gap-4 md:grid-cols-3">
-                  <UiTextField v-model="createForm.opus_mapped_model" :label="t('admin.groups.openaiMessages.opusModel')" :placeholder="t('admin.groups.openaiMessages.opusModelPlaceholder')" density="compact" monospace />
-                  <UiTextField v-model="createForm.sonnet_mapped_model" :label="t('admin.groups.openaiMessages.sonnetModel')" :placeholder="t('admin.groups.openaiMessages.sonnetModelPlaceholder')" density="compact" monospace />
-                  <UiTextField v-model="createForm.haiku_mapped_model" :label="t('admin.groups.openaiMessages.haikuModel')" :placeholder="t('admin.groups.openaiMessages.haikuModelPlaceholder')" density="compact" monospace />
-                </div>
-              </div>
-            </div>
-
-            <div
-              class="mt-5 relative overflow-hidden rounded-xl border border-primary-200 bg-white shadow-sm dark:border-primary-900/50 dark:bg-dark-800"
-            >
-              <div
-                class="border-b border-primary-100 bg-primary-50/80 px-4 py-3 dark:border-primary-900/40 dark:bg-primary-900/20"
-              >
-                <div class="flex items-start justify-between gap-3">
-                  <div>
-                    <div class="flex items-center gap-2">
-                      <div class="h-2 w-2 rounded-full bg-primary-500"></div>
-                      <label
-                        class="text-sm font-medium text-primary-900 dark:text-primary-100"
-                        >{{
-                          t("admin.groups.openaiMessages.exactMappingTitle")
-                        }}</label
-                      >
-                    </div>
-                    <p
-                      class="mt-1 text-xs text-primary-600/90 dark:text-primary-400/90"
-                    >
-                      {{ t("admin.groups.openaiMessages.exactMappingHint") }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div class="p-4 bg-gray-50/30 dark:bg-dark-800/30">
-                <div
-                  v-if="createForm.exact_model_mappings.length === 0"
-                  class="flex items-center justify-between gap-3 rounded-xl border-2 border-dashed border-primary-200 bg-white px-5 py-4 text-sm text-primary-700 transition-colors hover:border-primary-300 dark:border-primary-900/40 dark:bg-dark-800 dark:text-primary-300 dark:hover:border-primary-800"
-                >
-                  <span>{{
-                    t("admin.groups.openaiMessages.noExactMappings")
-                  }}</span>
-                  <UiButton
-                    type="button"
-                    density="compact"
-                    variant="quiet"
-                    @click="addCreateMessagesDispatchMapping"
-                  >
-                    <template #icon><Icon name="plus" size="sm" /></template>
-                    {{ t("admin.groups.openaiMessages.addExactMapping") }}
-                  </UiButton>
-                </div>
-
-                <div v-else class="space-y-3">
-                  <div
-                    v-for="row in createForm.exact_model_mappings"
-                    :key="getCreateMessagesDispatchRowKey(row)"
-                    class="group relative rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:border-primary-300 hover:shadow-md dark:border-dark-600 dark:bg-dark-700 dark:hover:border-primary-700"
-                  >
-                    <div class="flex items-center gap-4">
-                      <div
-                        class="grid flex-1 gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-start"
-                      >
-                        <UiTextField
-                          v-model="row.claude_model"
-                          :label="t('admin.groups.openaiMessages.claudeModel')"
-                          :placeholder="t('admin.groups.openaiMessages.claudeModelPlaceholder')"
-                          density="compact"
-                          monospace
-                        />
-                        <div
-                          class="hidden md:flex md:justify-center md:pt-7 text-primary-300 dark:text-primary-700"
-                        >
-                          <Icon
-                            name="arrowRight"
-                            size="sm"
-                            class="transition-transform group-hover:translate-x-1"
-                          />
-                        </div>
-                        <UiTextField
-                          v-model="row.target_model"
-                          :label="t('admin.groups.openaiMessages.targetModel')"
-                          :placeholder="t('admin.groups.openaiMessages.targetModelPlaceholder')"
-                          density="compact"
-                          monospace
-                        />
-                      </div>
-                      <UiIconButton
-                        icon="trash"
-                        variant="danger"
-                        density="compact"
-                        :label="t('admin.groups.openaiMessages.removeExactMapping')"
-                        type="button"
-                        @click="removeCreateMessagesDispatchMapping(row)"
-                        class="mt-6"
-                      />
-                    </div>
-                  </div>
-
-                  <UiButton
-                    type="button"
-                    block
-                    density="compact"
-                    variant="secondary"
-                    @click="addCreateMessagesDispatchMapping"
-                  >
-                    <template #icon><Icon name="plus" size="sm" /></template>
-                    {{ t("admin.groups.openaiMessages.addExactMapping") }}
-                  </UiButton>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
+          v-model:allow-dispatch="createForm.allow_messages_dispatch"
+          v-model:opus-model="createForm.opus_mapped_model"
+          v-model:sonnet-model="createForm.sonnet_mapped_model"
+          v-model:haiku-model="createForm.haiku_mapped_model"
+          :mappings="createForm.exact_model_mappings"
+          :row-key="getCreateMessagesDispatchRowKey"
+          @add="addCreateMessagesDispatchMapping"
+          @remove="removeCreateMessagesDispatchMapping"
+        />
         <!-- 账号过滤控制 (OpenAI/Antigravity/Anthropic/Gemini) -->
-        <div
-          v-if="
-            ['openai', 'antigravity', 'anthropic', 'gemini'].includes(
-              createForm.platform,
-            )
-          "
-          class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4 space-y-4"
-        >
-          <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            {{ t("admin.groups.accountFilters.title") }}
-          </h4>
-
-          <!-- require_oauth_only toggle -->
-          <div class="flex items-center justify-between">
-            <div>
-              <label class="text-sm text-gray-600 dark:text-gray-400"
-                >{{ t("admin.groups.accountFilters.oauthOnly") }}</label
-              >
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                {{
-                  createForm.require_oauth_only
-                    ? t("admin.groups.accountFilters.oauthOnlyEnabled")
-                    : t("admin.groups.accountFilters.disabled")
-                }}
-              </p>
-            </div>
-            <UiSwitch
-              v-model="createForm.require_oauth_only"
-              :label="t('admin.groups.accountFilters.oauthOnly')"
-            />
-          </div>
-
-          <!-- require_privacy_set toggle -->
-          <div class="flex items-center justify-between">
-            <div>
-              <label class="text-sm text-gray-600 dark:text-gray-400"
-                >{{ t("admin.groups.accountFilters.privacySetOnly") }}</label
-              >
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                {{
-                  createForm.require_privacy_set
-                    ? t("admin.groups.accountFilters.privacySetOnlyEnabled")
-                    : t("admin.groups.accountFilters.disabled")
-                }}
-              </p>
-            </div>
-            <UiSwitch
-              v-model="createForm.require_privacy_set"
-              :label="t('admin.groups.accountFilters.privacySetOnly')"
-            />
-          </div>
-        </div>
-
+        <GroupAccountFiltersFields
+          v-if="['openai', 'antigravity', 'anthropic', 'gemini'].includes(createForm.platform)"
+          v-model:oauth-only="createForm.require_oauth_only"
+          v-model:privacy-set-only="createForm.require_privacy_set"
+        />
         <!-- 无效请求兜底（仅 anthropic/antigravity 平台） -->
         <div
           v-if="['anthropic', 'antigravity'].includes(createForm.platform)"
@@ -971,10 +754,11 @@
             {{ t("admin.groups.modelRouting.addRule") }}
           </UiButton>
         </div>
+        </AppStack>
       </form>
 
       <template #footer>
-        <div class="flex justify-end gap-3 pt-4">
+        <AppInline justify="flex-end">
           <UiButton
             type="button"
             density="compact"
@@ -993,7 +777,7 @@
           >
             {{ submitting ? t("admin.groups.creating") : t("common.create") }}
           </UiButton>
-        </div>
+        </AppInline>
       </template>
     </UiDialog>
 
@@ -1008,8 +792,8 @@
         v-if="editingGroup"
         id="edit-group-form"
         @submit.prevent="handleUpdateGroup"
-        class="space-y-5"
       >
+        <AppStack :gap="12">
         <UiTextField
             v-model="editForm.name"
             type="text"
@@ -1130,19 +914,10 @@
           <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
             {{ t(imagePricingI18nKey(editForm.platform, "modeHint")) }}
           </p>
-          <div class="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-            <div class="mb-1 font-medium">
-              {{ t(imagePricingI18nKey(editForm.platform, "finalPricePreview")) }}
-            </div>
-            <div class="grid grid-cols-3 gap-2">
-              <div
-                v-for="item in editImageFinalPricePreview"
-                :key="item.label"
-              >
-                {{ item.label }}: {{ item.value }}
-              </div>
-            </div>
-          </div>
+          <GroupPricingPreview
+            :title="t(imagePricingI18nKey(editForm.platform, 'finalPricePreview'))"
+            :items="editImageFinalPricePreview"
+          />
           <div v-if="editForm.platform === 'gemini' && editForm.allow_image_generation" class="mt-4 border-t border-dashed border-gray-200 pt-4 dark:border-dark-700">
             <UiCheckbox
               v-model="editForm.allow_batch_image_generation"
@@ -1221,19 +996,10 @@
           <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
             {{ t(videoPricingI18nKey("modeHint")) }}
           </p>
-          <div class="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-            <div class="mb-1 font-medium">
-              {{ t(videoPricingI18nKey("finalPricePreview")) }}
-            </div>
-            <div class="grid grid-cols-3 gap-2">
-              <div
-                v-for="item in editVideoFinalPricePreview"
-                :key="item.label"
-              >
-                {{ item.label }}: {{ item.value }}
-              </div>
-            </div>
-          </div>
+          <GroupPricingPreview
+            :title="t(videoPricingI18nKey('finalPricePreview'))"
+            :items="editVideoFinalPricePreview"
+          />
         </div>
 
         <!-- 高峰时段倍率配置 -->
@@ -1373,15 +1139,11 @@
           </h4>
           <div>
             <UiTextField v-model.number="editForm.web_search_price_per_call" type="number" step="0.001" min="0" density="compact" :label="t('admin.groups.webSearchPricing.pricePerCall')" :description="t('admin.groups.webSearchPricing.pricePerCallHint')" placeholder="0.01" />
-            <div
-              class="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600 dark:bg-dark-700 dark:text-gray-300"
-            >
-              {{
-                t("admin.groups.webSearchPricing.finalPricePreview", {
-                  price: editWebSearchFinalPricePreview,
-                })
-              }}
-            </div>
+            <GroupPricingPreview
+              :title="t('admin.groups.webSearchPricing.finalPricePreview', { price: editWebSearchFinalPricePreview })"
+              :items="[{ label: t('admin.groups.webSearchPricing.pricePerCall'), value: editWebSearchFinalPricePreview }]"
+              :columns="1"
+            />
           </div>
         </div>
 
@@ -1439,218 +1201,23 @@
         </div>
 
         <!-- OpenAI Messages 调度配置（仅 openai 平台） -->
-        <div
+        <GroupMessagesDispatchFields
           v-if="editForm.platform === 'openai'"
-          class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4"
-        >
-          <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            {{ t("admin.groups.openaiMessages.title") }}
-          </h4>
-
-          <!-- 允许 Messages 调度开关 -->
-          <div class="flex items-center justify-between">
-            <label class="text-sm text-gray-600 dark:text-gray-400">{{
-              t("admin.groups.openaiMessages.allowDispatch")
-            }}</label>
-            <UiSwitch
-              v-model="editForm.allow_messages_dispatch"
-              :label="t('admin.groups.openaiMessages.allowDispatch')"
-            />
-          </div>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {{ t("admin.groups.openaiMessages.allowDispatchHint") }}
-          </p>
-
-          <div v-if="editForm.allow_messages_dispatch" class="mt-3">
-            <div
-              class="relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-dark-600 dark:bg-dark-800"
-            >
-              <div
-                class="border-b border-gray-100 bg-gray-50/80 px-4 py-3 dark:border-dark-700 dark:bg-dark-700/50"
-              >
-                <div class="flex items-center gap-2">
-                  <div class="h-2 w-2 rounded-full bg-blue-500"></div>
-                  <label
-                    class="text-sm font-medium text-gray-900 dark:text-white"
-                    >{{
-                      t("admin.groups.openaiMessages.familyMappingTitle")
-                    }}</label
-                  >
-                </div>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t("admin.groups.openaiMessages.familyMappingHint") }}
-                </p>
-              </div>
-              <div class="p-4">
-                <div class="grid gap-4 md:grid-cols-3">
-                  <UiTextField v-model="editForm.opus_mapped_model" :label="t('admin.groups.openaiMessages.opusModel')" :placeholder="t('admin.groups.openaiMessages.opusModelPlaceholder')" density="compact" monospace />
-                  <UiTextField v-model="editForm.sonnet_mapped_model" :label="t('admin.groups.openaiMessages.sonnetModel')" :placeholder="t('admin.groups.openaiMessages.sonnetModelPlaceholder')" density="compact" monospace />
-                  <UiTextField v-model="editForm.haiku_mapped_model" :label="t('admin.groups.openaiMessages.haikuModel')" :placeholder="t('admin.groups.openaiMessages.haikuModelPlaceholder')" density="compact" monospace />
-                </div>
-              </div>
-            </div>
-
-            <div
-              class="mt-5 relative overflow-hidden rounded-xl border border-primary-200 bg-white shadow-sm dark:border-primary-900/50 dark:bg-dark-800"
-            >
-              <div
-                class="border-b border-primary-100 bg-primary-50/80 px-4 py-3 dark:border-primary-900/40 dark:bg-primary-900/20"
-              >
-                <div class="flex items-start justify-between gap-3">
-                  <div>
-                    <div class="flex items-center gap-2">
-                      <div class="h-2 w-2 rounded-full bg-primary-500"></div>
-                      <label
-                        class="text-sm font-medium text-primary-900 dark:text-primary-100"
-                        >{{
-                          t("admin.groups.openaiMessages.exactMappingTitle")
-                        }}</label
-                      >
-                    </div>
-                    <p
-                      class="mt-1 text-xs text-primary-600/90 dark:text-primary-400/90"
-                    >
-                      {{ t("admin.groups.openaiMessages.exactMappingHint") }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div class="p-4 bg-gray-50/30 dark:bg-dark-800/30">
-                <div
-                  v-if="editForm.exact_model_mappings.length === 0"
-                  class="flex items-center justify-between gap-3 rounded-xl border-2 border-dashed border-primary-200 bg-white px-5 py-4 text-sm text-primary-700 transition-colors hover:border-primary-300 dark:border-primary-900/40 dark:bg-dark-800 dark:text-primary-300 dark:hover:border-primary-800"
-                >
-                  <span>{{
-                    t("admin.groups.openaiMessages.noExactMappings")
-                  }}</span>
-                  <UiButton
-                    type="button"
-                    density="compact"
-                    variant="quiet"
-                    @click="addEditMessagesDispatchMapping"
-                  >
-                    <template #icon><Icon name="plus" size="sm" /></template>
-                    {{ t("admin.groups.openaiMessages.addExactMapping") }}
-                  </UiButton>
-                </div>
-
-                <div v-else class="space-y-3">
-                  <div
-                    v-for="row in editForm.exact_model_mappings"
-                    :key="getEditMessagesDispatchRowKey(row)"
-                    class="group relative rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:border-primary-300 hover:shadow-md dark:border-dark-600 dark:bg-dark-700 dark:hover:border-primary-700"
-                  >
-                    <div class="flex items-center gap-4">
-                      <div
-                        class="grid flex-1 gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-start"
-                      >
-                        <UiTextField
-                          v-model="row.claude_model"
-                          :label="t('admin.groups.openaiMessages.claudeModel')"
-                          :placeholder="t('admin.groups.openaiMessages.claudeModelPlaceholder')"
-                          density="compact"
-                          monospace
-                        />
-                        <div
-                          class="hidden md:flex md:justify-center md:pt-7 text-primary-300 dark:text-primary-700"
-                        >
-                          <Icon
-                            name="arrowRight"
-                            size="sm"
-                            class="transition-transform group-hover:translate-x-1"
-                          />
-                        </div>
-                        <UiTextField
-                          v-model="row.target_model"
-                          :label="t('admin.groups.openaiMessages.targetModel')"
-                          :placeholder="t('admin.groups.openaiMessages.targetModelPlaceholder')"
-                          density="compact"
-                          monospace
-                        />
-                      </div>
-                      <UiIconButton
-                        icon="trash"
-                        variant="danger"
-                        density="compact"
-                        :label="t('admin.groups.openaiMessages.removeExactMapping')"
-                        type="button"
-                        @click="removeEditMessagesDispatchMapping(row)"
-                        class="mt-6"
-                      />
-                    </div>
-                  </div>
-
-                  <UiButton
-                    type="button"
-                    block
-                    density="compact"
-                    variant="secondary"
-                    @click="addEditMessagesDispatchMapping"
-                  >
-                    <template #icon><Icon name="plus" size="sm" /></template>
-                    {{ t("admin.groups.openaiMessages.addExactMapping") }}
-                  </UiButton>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
+          v-model:allow-dispatch="editForm.allow_messages_dispatch"
+          v-model:opus-model="editForm.opus_mapped_model"
+          v-model:sonnet-model="editForm.sonnet_mapped_model"
+          v-model:haiku-model="editForm.haiku_mapped_model"
+          :mappings="editForm.exact_model_mappings"
+          :row-key="getEditMessagesDispatchRowKey"
+          @add="addEditMessagesDispatchMapping"
+          @remove="removeEditMessagesDispatchMapping"
+        />
         <!-- 账号过滤控制 (OpenAI/Antigravity/Anthropic/Gemini) -->
-        <div
-          v-if="
-            ['openai', 'antigravity', 'anthropic', 'gemini'].includes(
-              editForm.platform,
-            )
-          "
-          class="border-t border-gray-200 dark:border-dark-400 pt-4 mt-4 space-y-4"
-        >
-          <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            {{ t("admin.groups.accountFilters.title") }}
-          </h4>
-
-          <!-- require_oauth_only toggle -->
-          <div class="flex items-center justify-between">
-            <div>
-              <label class="text-sm text-gray-600 dark:text-gray-400"
-                >{{ t("admin.groups.accountFilters.oauthOnly") }}</label
-              >
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                {{
-                  editForm.require_oauth_only
-                    ? t("admin.groups.accountFilters.oauthOnlyEnabled")
-                    : t("admin.groups.accountFilters.disabled")
-                }}
-              </p>
-            </div>
-            <UiSwitch
-              v-model="editForm.require_oauth_only"
-              :label="t('admin.groups.accountFilters.oauthOnly')"
-            />
-          </div>
-
-          <!-- require_privacy_set toggle -->
-          <div class="flex items-center justify-between">
-            <div>
-              <label class="text-sm text-gray-600 dark:text-gray-400"
-                >{{ t("admin.groups.accountFilters.privacySetOnly") }}</label
-              >
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                {{
-                  editForm.require_privacy_set
-                    ? t("admin.groups.accountFilters.privacySetOnlyEnabled")
-                    : t("admin.groups.accountFilters.disabled")
-                }}
-              </p>
-            </div>
-            <UiSwitch
-              v-model="editForm.require_privacy_set"
-              :label="t('admin.groups.accountFilters.privacySetOnly')"
-            />
-          </div>
-        </div>
-
+        <GroupAccountFiltersFields
+          v-if="['openai', 'antigravity', 'anthropic', 'gemini'].includes(editForm.platform)"
+          v-model:oauth-only="editForm.require_oauth_only"
+          v-model:privacy-set-only="editForm.require_privacy_set"
+        />
         <!-- 无效请求兜底（仅 anthropic/antigravity 平台） -->
         <div
           v-if="['anthropic', 'antigravity'].includes(editForm.platform)"
@@ -1783,10 +1350,11 @@
             {{ t("admin.groups.modelRouting.addRule") }}
           </UiButton>
         </div>
+        </AppStack>
       </form>
 
       <template #footer>
-        <div class="flex justify-end gap-3 pt-4">
+        <AppInline justify="flex-end">
           <UiButton
             type="button"
             density="compact"
@@ -1805,7 +1373,7 @@
           >
             {{ submitting ? t("admin.groups.updating") : t("common.update") }}
           </UiButton>
-        </div>
+        </AppInline>
       </template>
     </UiDialog>
 
@@ -2202,6 +1770,9 @@ import GroupAccountSummary from "@/components/admin/group/GroupAccountSummary.vu
 import GroupCapacitySummary from "@/components/admin/group/GroupCapacitySummary.vue";
 import GroupUsageSummaryCell from "@/components/admin/group/GroupUsageSummary.vue";
 import GroupSortList from "@/components/admin/group/GroupSortList.vue";
+import GroupMessagesDispatchFields from "@/components/admin/group/GroupMessagesDispatchFields.vue";
+import GroupPricingPreview from "@/components/admin/group/GroupPricingPreview.vue";
+import GroupAccountFiltersFields from "@/components/admin/group/GroupAccountFiltersFields.vue";
 import ReasoningEffortPolicyFields from "@/components/admin/group/ReasoningEffortPolicyFields.vue";
 import PricingEntryCard from "@/components/admin/channel/PricingEntryCard.vue";
 import type { PricingFormEntry } from "@/components/admin/channel/types";
