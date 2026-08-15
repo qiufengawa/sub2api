@@ -5,30 +5,22 @@
     width="normal"
     @close="$emit('close')"
   >
-    <form id="create-user-form" @submit.prevent="submit" class="space-y-5">
+    <form id="create-user-form" class="user-modal-form" @submit.prevent="submit">
       <UiTextField v-model="form.email" type="email" required :label="t('admin.users.email')" :placeholder="t('admin.users.enterEmail')" />
       <div class="user-modal-inline-field"><UiTextField v-model="form.password" type="text" required :label="t('admin.users.password')" :placeholder="t('admin.users.enterPassword')" /><UiIconButton icon="refresh" density="compact" :label="t('common.refresh')" @click="generateRandomPassword" /></div>
       <UiTextField v-model="form.username" :label="t('admin.users.username')" :placeholder="t('admin.users.enterUsername')" />
       <UiSelect v-model="form.role" :label="t('admin.users.form.roleLabel')" :options="[{ value: 'user', label: t('admin.users.roles.user') }, { value: 'admin', label: t('admin.users.roles.admin') }]" />
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <UiTextField v-model="form.balance" type="number" step="any" :label="t('admin.users.columns.balance')" />
-        </div>
-        <div>
-          <UiTextField type="number" :label="t('admin.users.columns.concurrency')" :model-value="form.concurrency" @update:model-value="form.concurrency = Number($event) || 0" />
-        </div>
+      <div class="user-modal-grid">
+        <UiTextField v-model="form.balance" type="number" step="any" :label="t('admin.users.columns.balance')" />
+        <UiTextField type="number" :label="t('admin.users.columns.concurrency')" :model-value="form.concurrency" @update:model-value="form.concurrency = Number($event) || 0" />
       </div>
-      <div>
-        <UiTextField type="number" min="0" step="1" :label="t('admin.users.form.rpmLimit')" :description="t('admin.users.form.rpmLimitHint')" :placeholder="t('admin.users.form.rpmLimitPlaceholder')" :model-value="form.rpm_limit" @update:model-value="form.rpm_limit = Number($event) || 0" />
-      </div>
+      <UiTextField type="number" min="0" step="1" :label="t('admin.users.form.rpmLimit')" :description="t('admin.users.form.rpmLimitHint')" :placeholder="t('admin.users.form.rpmLimitPlaceholder')" :model-value="form.rpm_limit" @update:model-value="form.rpm_limit = Number($event) || 0" />
     </form>
     <template #footer>
-      <div class="flex justify-end gap-3">
-        <UiButton @click="$emit('close')" type="button">{{ t('common.cancel') }}</UiButton>
-        <UiButton type="submit" form="create-user-form" :loading="loading" variant="primary">
-          {{ loading ? t('admin.users.creating') : t('common.create') }}
-        </UiButton>
-      </div>
+      <UiButton density="compact" @click="$emit('close')" type="button">{{ t('common.cancel') }}</UiButton>
+      <UiButton density="compact" type="submit" form="create-user-form" :loading="loading" variant="primary">
+        {{ loading ? t('admin.users.creating') : t('common.create') }}
+      </UiButton>
     </template>
   </UiDialog>
 
@@ -91,4 +83,6 @@ const generateRandomPassword = () => {
 }
 </script>
 
-<style scoped>.user-modal-inline-field{display:flex;align-items:end;gap:8px}.user-modal-inline-field>.ui-form-field{min-width:0;flex:1}</style>
+<style scoped>
+.user-modal-form{display:grid;gap:14px}.user-modal-inline-field{display:flex;align-items:end;gap:8px}.user-modal-inline-field>.ui-form-field{min-width:0;flex:1}.user-modal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}@media(max-width:640px){.user-modal-grid{grid-template-columns:1fr}}
+</style>

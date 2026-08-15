@@ -5,7 +5,7 @@
     width="normal"
     @close="$emit('close')"
   >
-    <form v-if="user" id="edit-user-form" @submit.prevent="handleUpdateUser" class="space-y-5">
+    <form v-if="user" id="edit-user-form" class="user-modal-form" @submit.prevent="handleUpdateUser">
       <UiTextField v-model="form.email" type="email" :label="t('admin.users.email')" />
       <div class="user-modal-inline-field"><UiTextField v-model="form.password" type="text" :label="t('admin.users.password')" :placeholder="t('admin.users.enterNewPassword')" /><UiIconButton v-if="form.password" :icon="passwordCopied ? 'check' : 'copy'" :variant="passwordCopied ? 'success' : 'ghost'" density="compact" :label="t('admin.users.passwordCopied')" @click="copyPassword" /><UiIconButton icon="refresh" density="compact" :label="t('common.refresh')" @click="generatePassword" /></div>
       <UiTextField v-model="form.username" :label="t('admin.users.username')" />
@@ -16,12 +16,10 @@
       <UserAttributeForm v-model="form.customAttributes" :user-id="user?.id" />
     </form>
     <template #footer>
-      <div class="flex justify-end gap-3">
-        <UiButton @click="$emit('close')" type="button">{{ t('common.cancel') }}</UiButton>
-        <UiButton type="submit" form="edit-user-form" :loading="submitting" variant="primary">
-          {{ submitting ? t('admin.users.updating') : t('common.update') }}
-        </UiButton>
-      </div>
+      <UiButton density="compact" @click="$emit('close')" type="button">{{ t('common.cancel') }}</UiButton>
+      <UiButton density="compact" type="submit" form="edit-user-form" :loading="submitting" variant="primary">
+        {{ submitting ? t('admin.users.updating') : t('common.update') }}
+      </UiButton>
     </template>
   </UiDialog>
 
@@ -103,4 +101,6 @@ const handleUpdateUser = async () => {
 }
 </script>
 
-<style scoped>.user-modal-inline-field{display:flex;align-items:end;gap:8px}.user-modal-inline-field>.ui-form-field{min-width:0;flex:1}</style>
+<style scoped>
+.user-modal-form{display:grid;gap:14px}.user-modal-inline-field{display:flex;align-items:end;gap:8px}.user-modal-inline-field>.ui-form-field{min-width:0;flex:1}
+</style>

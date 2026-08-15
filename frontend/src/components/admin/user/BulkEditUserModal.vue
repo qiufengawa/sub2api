@@ -5,24 +5,21 @@
     width="normal"
     @close="closeModal"
   >
-    <form id="bulk-edit-user-limits-form" class="space-y-5" @submit.prevent="handleSubmit">
-      <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
+    <form id="bulk-edit-user-limits-form" class="bulk-edit-user" @submit.prevent="handleSubmit">
+      <p class="bulk-edit-user__summary">
         {{ t('admin.users.bulkLimits.selectedCount', { count: selectedIds.length }) }}
       </p>
 
-      <div class="divide-y divide-gray-200 border-y border-gray-200 dark:divide-dark-700 dark:border-dark-700">
-        <div class="space-y-3 py-4">
-          <div class="flex items-center justify-between gap-4">
-            <label for="bulk-concurrency" class="user-field-label">
-              {{ t('admin.users.columns.concurrency') }}
-            </label>
+      <div class="bulk-edit-user__fields">
+        <UiFormField for-id="bulk-concurrency" :label="t('admin.users.columns.concurrency')">
+          <template #help>
             <UiSwitch
               v-model="enableConcurrency"
               :label="t('admin.users.bulkLimits.enableConcurrency')"
               :aria-label="t('admin.users.bulkLimits.enableConcurrency')"
               data-test="enable-concurrency"
             />
-          </div>
+          </template>
           <UiTextField
             v-if="enableConcurrency"
             id="bulk-concurrency"
@@ -34,20 +31,17 @@
             @update:model-value="concurrencyValue = $event"
             data-test="concurrency-input"
           />
-        </div>
+        </UiFormField>
 
-        <div class="space-y-3 py-4">
-          <div class="flex items-center justify-between gap-4">
-            <label for="bulk-rpm-limit" class="user-field-label">
-              {{ t('admin.users.form.rpmLimit') }}
-            </label>
+        <UiFormField for-id="bulk-rpm-limit" :label="t('admin.users.form.rpmLimit')">
+          <template #help>
             <UiSwitch
               v-model="enableRPMLimit"
               :label="t('admin.users.bulkLimits.enableRPMLimit')"
               :aria-label="t('admin.users.bulkLimits.enableRPMLimit')"
               data-test="enable-rpm-limit"
             />
-          </div>
+          </template>
           <div v-if="enableRPMLimit">
             <UiTextField
               id="bulk-rpm-limit"
@@ -62,33 +56,22 @@
               {{ t('admin.users.bulkLimits.unlimited') }}
             </p>
           </div>
-        </div>
+        </UiFormField>
       </div>
 
-      <p v-if="hasInvalidValue" class="text-sm text-red-600 dark:text-red-400">
+      <UiAlert v-if="hasInvalidValue" tone="danger">
         {{ t('admin.users.bulkLimits.nonNegativeInteger') }}
-      </p>
-      <p v-if="selectionTooLarge" class="text-sm text-red-600 dark:text-red-400">
+      </UiAlert>
+      <UiAlert v-if="selectionTooLarge" tone="danger">
         {{ t('admin.users.bulkLimits.selectionLimit', { max: MAX_BATCH_USER_IDS }) }}
-      </p>
+      </UiAlert>
     </form>
 
     <template #footer>
-      <div class="flex justify-end gap-3">
-        <UiButton type="button" @click="closeModal">
-          {{ t('common.cancel') }}
-        </UiButton>
-        <UiButton
-          type="submit"
-          form="bulk-edit-user-limits-form"
-          variant="primary"
-          :loading="submitting"
-          :disabled="!canSubmit"
-          data-test="submit"
-        >
-          {{ submitting ? t('admin.users.bulkLimits.applying') : t('admin.users.bulkLimits.apply') }}
-        </UiButton>
-      </div>
+      <UiButton density="compact" type="button" @click="closeModal">{{ t('common.cancel') }}</UiButton>
+      <UiButton density="compact" type="submit" form="bulk-edit-user-limits-form" variant="primary" :loading="submitting" :disabled="!canSubmit" data-test="submit">
+        {{ submitting ? t('admin.users.bulkLimits.applying') : t('admin.users.bulkLimits.apply') }}
+      </UiButton>
     </template>
   </UiDialog>
 
@@ -111,7 +94,7 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { BatchUpdateUserLimitsRequest } from '@/api/admin/users'
 import { useAppStore } from '@/stores/app'
-import { UiButton, UiConfirmDialog, UiDialog, UiSwitch, UiTextField } from '@/components/ui'
+import { UiAlert, UiButton, UiConfirmDialog, UiDialog, UiFormField, UiSwitch, UiTextField } from '@/components/ui'
 
 const props = defineProps<{
   show: boolean
@@ -254,4 +237,6 @@ const applyPendingRequest = async () => {
 }
 </script>
 
-<style scoped>.user-field-label{color:var(--ui-text-muted);font-size:13px;font-weight:500;line-height:22px}.user-field-hint{margin:4px 0 0;color:var(--ui-text-soft);font-size:12px;line-height:18px}</style>
+<style scoped>
+.bulk-edit-user{display:grid;gap:16px}.bulk-edit-user__summary{margin:0;color:var(--ui-text);font-size:13px;font-weight:500}.bulk-edit-user__fields{display:grid;border-block:1px solid var(--ui-border-soft)}.bulk-edit-user__fields>.ui-form-field{padding:14px 0}.bulk-edit-user__fields>.ui-form-field+.ui-form-field{border-top:1px solid var(--ui-border-soft)}.user-field-hint{margin:4px 0 0;color:var(--ui-text-soft);font-size:12px;line-height:18px}
+</style>
