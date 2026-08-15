@@ -1,10 +1,77 @@
+<template>
+  <AppStack :gap="6" class="quota-dimension">
+    <AppGrid min="180px" :gap="8">
+      <UiTextField
+        :model-value="limit ?? ''"
+        type="number"
+        density="dense"
+        :label="label"
+        :placeholder="t('admin.accounts.quotaLimitPlaceholder')"
+        :min="0"
+        :step="0.01"
+        @update:model-value="updateLimit"
+      >
+        <template #prefix>$</template>
+      </UiTextField>
+      <QuotaNotifyToggle
+        v-if="quotaNotifyGlobalEnabled && limit && limit > 0"
+        :enabled="notifyEnabled"
+        :threshold="notifyThreshold"
+        :threshold-type="notifyThresholdType"
+        @update:enabled="emit('update:notifyEnabled', $event)"
+        @update:threshold="emit('update:notifyThreshold', $event)"
+        @update:threshold-type="emit('update:notifyThresholdType', $event)"
+      />
+    </AppGrid>
+
+    <template v-if="hasResetMode">
+      <AppGrid min="140px" :gap="8" class="quota-dimension__reset-grid">
+        <UiSelect
+          :model-value="resetMode || 'rolling'"
+          :options="resetModeOptions"
+          density="dense"
+          :label="t('admin.accounts.quotaResetMode')"
+          @update:model-value="updateResetMode"
+        />
+        <UiSelect
+          v-if="resetMode === 'fixed' && dim === 'weekly'"
+          :model-value="resetDay ?? 1"
+          :options="daySelectOptions"
+          density="dense"
+          :label="t('admin.accounts.quotaWeeklyResetDay')"
+          @update:model-value="emit('update:resetDay', Number($event))"
+        />
+        <UiSelect
+          v-if="resetMode === 'fixed'"
+          :model-value="resetHour ?? 0"
+          :options="hourSelectOptions"
+          density="dense"
+          :label="t('admin.accounts.quotaResetHour')"
+          @update:model-value="emit('update:resetHour', Number($event))"
+        />
+        <UiSelect
+          v-if="resetMode === 'fixed' && timezoneOptions?.length"
+          :model-value="resetTimezone || 'UTC'"
+          :options="timezoneSelectOptions"
+          density="dense"
+          :label="t('admin.accounts.quotaResetTimezone')"
+          @update:model-value="emit('update:resetTimezone', String($event))"
+        />
+      </AppGrid>
+      <p class="quota-dimension__hint">{{ resetMode === 'fixed' ? hintFixed : hintRolling }}</p>
+    </template>
+    <p v-else class="quota-dimension__hint">{{ hintRolling }}</p>
+  </AppStack>
+</template>
+
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { AppGrid, AppStack, UiSelect, UiTextField } from '@/components/ui'
 import QuotaNotifyToggle from './QuotaNotifyToggle.vue'
 import type { QuotaThresholdType, QuotaResetMode } from '@/constants/account'
 
 const { t } = useI18n()
-
 const props = defineProps<{
   dim: 'daily' | 'weekly' | 'total'
   label: string
@@ -13,14 +80,12 @@ const props = defineProps<{
   notifyEnabled: boolean | null
   notifyThreshold: number | null
   notifyThresholdType: QuotaThresholdType | null
-  // Reset mode (only for daily/weekly, null for total)
   resetMode: QuotaResetMode | null
   resetHour: number | null
-  resetDay: number | null  // weekly only
+  resetDay: number | null
   resetTimezone: string | null
   hintRolling: string
   hintFixed: string
-  // Shared options passed from parent
   hourOptions: number[]
   dayOptions: { value: number; key: string }[]
   timezoneOptions?: string[]
@@ -38,89 +103,54 @@ const emit = defineEmits<{
 }>()
 
 const hasResetMode = props.dim !== 'total'
+const resetModeOptions = computed(() => [
+  { value: 'rolling', label: t('admin.accounts.quotaResetModeRolling') },
+  { value: 'fixed', label: t('admin.accounts.quotaResetModeFixed') }
+])
+const daySelectOptions = computed(() => props.dayOptions.map(day => ({
+  value: day.value,
+  label: t(`admin.accounts.dayOfWeek.${day.key}`)
+})))
+const hourSelectOptions = computed(() => props.hourOptions.map(hour => ({
+  value: hour,
+  label: `${String(hour).padStart(2, '0')}:00`
+})))
+const timezoneSelectOptions = computed(() => (props.timezoneOptions || []).map(timezone => ({
+  value: timezone,
+  label: `${timezone} (${getTimezoneOffsetLabel(timezone)})`
+})))
 
-const onLimitInput = (e: Event) => {
-  const raw = (e.target as HTMLInputElement).valueAsNumber
-  emit('update:limit', Number.isNaN(raw) ? null : raw)
+function updateLimit(value: string | number): void {
+  const parsed = Number(value)
+  emit('update:limit', value === '' || Number.isNaN(parsed) ? null : parsed)
 }
 
-const onModeChange = (e: Event) => {
-  const val = (e.target as HTMLSelectElement).value as QuotaResetMode
-  emit('update:resetMode', val)
-  if (val === 'fixed') {
-    if (props.resetHour == null) emit('update:resetHour', 0)
-    if (props.dim === 'weekly' && props.resetDay == null) emit('update:resetDay', 1)
-    if (!props.resetTimezone) emit('update:resetTimezone', 'UTC')
-  }
+function updateResetMode(value: string | number | boolean | null): void {
+  const mode = String(value) as QuotaResetMode
+  emit('update:resetMode', mode)
+  if (mode !== 'fixed') return
+  if (props.resetHour == null) emit('update:resetHour', 0)
+  if (props.dim === 'weekly' && props.resetDay == null) emit('update:resetDay', 1)
+  if (!props.resetTimezone) emit('update:resetTimezone', 'UTC')
 }
 
-function getTimezoneOffsetLabel(tz: string): string {
+function getTimezoneOffsetLabel(timezone: string): string {
   try {
-    const dtf = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' })
-    const parts = dtf.formatToParts(new Date())
-    const tzPart = parts.find(p => p.type === 'timeZoneName')
-    return tzPart ? (tzPart.value === 'GMT' ? 'GMT+0' : tzPart.value) : ''
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      timeZoneName: 'shortOffset'
+    })
+    const zone = formatter.formatToParts(new Date()).find(part => part.type === 'timeZoneName')
+    return zone ? (zone.value === 'GMT' ? 'GMT+0' : zone.value) : ''
   } catch {
     return ''
   }
 }
 </script>
 
-<template>
-  <div>
-    <!-- Title row (only when global notify is enabled) -->
-    <div v-if="quotaNotifyGlobalEnabled" class="flex items-center gap-2 mb-1">
-      <span class="text-xs font-medium text-gray-700 dark:text-gray-300 flex-1 min-w-0">{{ label }}</span>
-      <span v-if="limit && limit > 0" class="text-xs font-medium text-gray-700 dark:text-gray-300 flex-1 min-w-0">{{ t('admin.accounts.quotaNotify.alert') }}</span>
-    </div>
-    <label v-else class="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 block">{{ label }}</label>
-
-    <!-- Input row -->
-    <div class="flex items-center gap-2">
-      <div :class="['relative', quotaNotifyGlobalEnabled ? 'flex-1 min-w-0' : 'flex-1']">
-        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">$</span>
-        <input :value="limit" @input="onLimitInput" type="number" min="0" step="0.01" class="input pl-6 py-1.5 text-sm" :placeholder="t('admin.accounts.quotaLimitPlaceholder')" />
-      </div>
-      <QuotaNotifyToggle
-        v-if="quotaNotifyGlobalEnabled && limit && limit > 0"
-        class="flex-1 min-w-0"
-        :enabled="notifyEnabled" :threshold="notifyThreshold" :threshold-type="notifyThresholdType"
-        @update:enabled="emit('update:notifyEnabled', $event)" @update:threshold="emit('update:notifyThreshold', $event)" @update:threshold-type="emit('update:notifyThresholdType', $event)"
-      />
-    </div>
-
-    <!-- Reset mode row (daily/weekly only) -->
-    <div v-if="hasResetMode" class="mt-1 flex items-center gap-2 flex-wrap">
-      <label class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ t('admin.accounts.quotaResetMode') }}</label>
-      <select :value="resetMode || 'rolling'" @change="onModeChange" class="input py-1 text-xs w-auto">
-        <option value="rolling">{{ t('admin.accounts.quotaResetModeRolling') }}</option>
-        <option value="fixed">{{ t('admin.accounts.quotaResetModeFixed') }}</option>
-      </select>
-      <template v-if="resetMode === 'fixed'">
-        <!-- Weekly: day of week selector -->
-        <template v-if="dim === 'weekly'">
-          <label class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ t('admin.accounts.quotaWeeklyResetDay') }}</label>
-          <select :value="resetDay ?? 1" @change="emit('update:resetDay', Number(($event.target as HTMLSelectElement).value))" class="input py-1 text-xs w-28">
-            <option v-for="d in dayOptions" :key="d.value" :value="d.value">{{ t('admin.accounts.dayOfWeek.' + d.key) }}</option>
-          </select>
-        </template>
-        <label class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ t('admin.accounts.quotaResetHour') }}</label>
-        <select :value="resetHour ?? 0" @change="emit('update:resetHour', Number(($event.target as HTMLSelectElement).value))" class="input py-1 text-xs w-24">
-          <option v-for="h in hourOptions" :key="h" :value="h">{{ String(h).padStart(2, '0') }}:00</option>
-        </select>
-        <template v-if="timezoneOptions && timezoneOptions.length > 0">
-          <select :value="resetTimezone || 'UTC'" @change="emit('update:resetTimezone', ($event.target as HTMLSelectElement).value)" class="input py-1 text-xs w-auto">
-            <option v-for="tz in timezoneOptions" :key="tz" :value="tz">{{ tz }} ({{ getTimezoneOffsetLabel(tz) }})</option>
-          </select>
-        </template>
-      </template>
-      <span class="text-[11px] text-gray-500 dark:text-gray-400">
-        <template v-if="resetMode === 'fixed'">{{ hintFixed }}</template>
-        <template v-else>{{ hintRolling }}</template>
-      </span>
-    </div>
-
-    <!-- Total dimension hint (no reset mode) -->
-    <p v-if="!hasResetMode" class="input-hint mb-0 text-[11px]">{{ hintRolling }}</p>
-  </div>
-</template>
+<style scoped>
+.quota-dimension{min-width:0;padding:8px 0;border-bottom:1px solid var(--ui-border-soft)}
+.quota-dimension:last-child{border-bottom:0}
+.quota-dimension__reset-grid{align-items:end}
+.quota-dimension__hint{margin:0;color:var(--ui-text-soft);font-size:11px;line-height:17px}
+</style>
