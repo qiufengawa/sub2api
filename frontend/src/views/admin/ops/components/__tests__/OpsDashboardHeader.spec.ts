@@ -109,9 +109,9 @@ function mountHeader(fullscreen = false) {
     },
     global: {
       stubs: {
-        Select: SelectStub,
-        HelpTooltip: true,
-        BaseDialog: true,
+        UiSelect: SelectStub,
+        UiFieldHelp: true,
+        UiDialog: true,
         Icon: true,
       },
     },

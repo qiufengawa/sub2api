@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import Select from '@/components/common/Select.vue'
-import HelpTooltip from '@/components/common/HelpTooltip.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { UiDialog, UiFieldHelp, UiSelect } from '@/components/ui'
 import { adminAPI } from '@/api'
 import { opsAPI, type OpsDashboardOverview, type OpsMetricThresholds, type OpsRealtimeTrafficSummary } from '@/api/admin/ops'
 import type { OpsRequestDetailsPreset } from './OpsRequestDetailsModal.vue'
@@ -927,34 +925,38 @@ function handleToolbarRefresh() {
 
       <div class="ops-toolbar-controls flex flex-1 flex-wrap items-center justify-end gap-2">
         <template v-if="!props.fullscreen">
-          <Select
+          <UiSelect
             :model-value="platform"
             :options="platformOptions"
+            density="compact"
             class="w-full sm:w-[140px]"
             @update:model-value="handlePlatformChange"
           />
 
-          <Select
+          <UiSelect
             :model-value="groupId"
             :options="groupOptions"
+            density="compact"
             class="w-full sm:w-[160px]"
             @update:model-value="handleGroupChange"
           />
 
           <div class="mx-1 hidden h-4 w-px bg-gray-200 dark:bg-dark-700 sm:block"></div>
 
-          <Select
+          <UiSelect
             :model-value="timeRange"
             :options="timeRangeOptions"
+            density="compact"
             class="relative w-full sm:w-[150px]"
             @update:model-value="handleTimeRangeChange"
           />
         </template>
 
-        <Select
+        <UiSelect
           v-if="false"
           :model-value="queryMode"
           :options="queryModeOptions"
+          density="compact"
           class="relative w-full sm:w-[170px]"
           @update:model-value="handleQueryModeChange"
         />
@@ -1156,7 +1158,7 @@ function handleToolbarRefresh() {
             <div class="mt-4 text-center" v-if="!props.fullscreen">
               <div class="flex items-center justify-center gap-1 text-xs font-medium text-gray-500">
                 {{ t('admin.ops.healthCondition') }}
-                <HelpTooltip :content="t('admin.ops.healthHelp')" />
+                <UiFieldHelp :content="t('admin.ops.healthHelp')" />
               </div>
               <div class="mt-1 text-xs font-bold" :class="healthScoreClass">
                 {{
@@ -1182,7 +1184,7 @@ function handleToolbarRefresh() {
             <div class="flex items-center gap-1.5">
               <span class="h-2 w-2 rounded-full bg-blue-500"></span>
               <span class="text-[10px] font-bold uppercase text-gray-400">{{ t('admin.ops.overviewSections.traffic') }}</span>
-              <HelpTooltip v-if="!props.fullscreen" :content="t('admin.ops.tooltips.qps')" />
+              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.qps')" />
             </div>
             <div class="flex items-center gap-1">
               <button
@@ -1267,7 +1269,7 @@ function handleToolbarRefresh() {
             <div class="flex items-center gap-2">
               <span class="text-[10px] font-bold uppercase text-gray-400">{{ t('admin.ops.overviewSections.stability') }}</span>
               <span class="text-[10px] font-semibold text-gray-400">SLA</span>
-              <HelpTooltip v-if="!props.fullscreen" :content="t('admin.ops.tooltips.sla')" />
+              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.sla')" />
               <span class="h-1.5 w-1.5 rounded-full" :class="getSLAThresholdLevel(slaPercent) === 'critical' ? 'bg-red-500' : getSLAThresholdLevel(slaPercent) === 'warning' ? 'bg-yellow-500' : 'bg-green-500'"></span>
             </div>
             <button
@@ -1301,7 +1303,7 @@ function handleToolbarRefresh() {
               <span class="h-2 w-2 rounded-full bg-purple-500"></span>
               <span class="text-[10px] font-bold uppercase text-gray-400">{{ t('admin.ops.overviewSections.latency') }}</span>
               <span class="text-[10px] font-semibold text-gray-400">{{ t('admin.ops.latencyDuration') }}</span>
-              <HelpTooltip v-if="!props.fullscreen" :content="t('admin.ops.tooltips.latency')" />
+              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.latency')" />
             </div>
             <button
               v-if="!props.fullscreen"
@@ -1353,7 +1355,7 @@ function handleToolbarRefresh() {
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-1">
               <span class="text-[10px] font-bold uppercase text-gray-400">TTFT</span>
-              <HelpTooltip v-if="!props.fullscreen" :content="t('admin.ops.tooltips.ttft')" />
+              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.ttft')" />
             </div>
             <button
               v-if="!props.fullscreen"
@@ -1405,7 +1407,7 @@ function handleToolbarRefresh() {
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-1">
               <span class="text-[10px] font-bold uppercase text-gray-400">{{ t('admin.ops.requestErrors') }}</span>
-              <HelpTooltip v-if="!props.fullscreen" :content="t('admin.ops.tooltips.errors')" />
+              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.errors')" />
             </div>
             <button v-if="!props.fullscreen" class="inline-flex h-6 w-6 items-center justify-center rounded-[3px] text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20" type="button" :title="t('admin.ops.requestDetails.details')" @click="openErrorDetails('request')">
               <Icon name="eye" size="xs" />
@@ -1431,7 +1433,7 @@ function handleToolbarRefresh() {
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-1">
               <span class="text-[10px] font-bold uppercase text-gray-400">{{ t('admin.ops.upstreamErrors') }}</span>
-              <HelpTooltip v-if="!props.fullscreen" :content="t('admin.ops.tooltips.upstreamErrors')" />
+              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.upstreamErrors')" />
             </div>
             <button v-if="!props.fullscreen" class="inline-flex h-6 w-6 items-center justify-center rounded-[3px] text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20" type="button" :title="t('admin.ops.requestDetails.details')" @click="openErrorDetails('upstream')">
               <Icon name="eye" size="xs" />
@@ -1474,7 +1476,7 @@ function handleToolbarRefresh() {
           <div class="flex items-start justify-between gap-2">
             <div class="flex items-center gap-1">
               <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">CPU</div>
-              <HelpTooltip v-if="!props.fullscreen" :content="t('admin.ops.tooltips.cpu')" />
+              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.cpu')" />
             </div>
             <div class="text-lg font-black leading-none" :class="cpuPercentClass">
               {{ cpuPercentValue == null ? '-' : `${cpuPercentValue.toFixed(1)}%` }}
@@ -1500,7 +1502,7 @@ function handleToolbarRefresh() {
           <div class="flex items-start justify-between gap-2">
             <div class="flex items-center gap-1">
               <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.memory') }}</div>
-              <HelpTooltip v-if="!props.fullscreen" :content="t('admin.ops.tooltips.memory')" />
+              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.memory')" />
             </div>
             <div class="text-lg font-black leading-none" :class="memPercentClass">
               {{ memPercentValue == null ? '-' : `${memPercentValue.toFixed(1)}%` }}
@@ -1530,7 +1532,7 @@ function handleToolbarRefresh() {
           <div class="flex items-start justify-between gap-2">
             <div class="flex items-center gap-1">
               <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.db') }}</div>
-              <HelpTooltip v-if="!props.fullscreen" :content="t('admin.ops.tooltips.db')" />
+              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.db')" />
             </div>
             <div class="flex items-center gap-1.5">
               <span class="h-1.5 w-1.5 rounded-full" :class="systemMetrics?.db_ok === false ? 'bg-red-500' : systemMetrics?.db_ok === true ? 'bg-emerald-500' : 'bg-gray-400'"></span>
@@ -1562,7 +1564,7 @@ function handleToolbarRefresh() {
           <div class="flex items-start justify-between gap-2">
             <div class="flex items-center gap-1">
               <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Redis</div>
-              <HelpTooltip v-if="!props.fullscreen" :content="t('admin.ops.tooltips.redis')" />
+              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.redis')" />
             </div>
             <div class="flex items-center gap-1.5">
               <span class="h-1.5 w-1.5 rounded-full" :class="systemMetrics?.redis_ok === false ? 'bg-red-500' : systemMetrics?.redis_ok === true ? 'bg-emerald-500' : 'bg-gray-400'"></span>
@@ -1593,7 +1595,7 @@ function handleToolbarRefresh() {
           <div class="flex items-start justify-between gap-2">
             <div class="flex items-center gap-1">
               <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.goroutines') }}</div>
-              <HelpTooltip v-if="!props.fullscreen" :content="t('admin.ops.tooltips.goroutines')" />
+              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.goroutines')" />
             </div>
             <span class="inline-flex items-center gap-1 rounded-[3px] bg-white px-1.5 py-0.5 text-[10px] font-semibold shadow-sm ring-1 ring-gray-200 dark:bg-dark-800 dark:ring-dark-600" :class="goroutineStatusClass">
               <span class="h-1.5 w-1.5 rounded-full" :class="goroutineStatus === 'critical' ? 'bg-red-500' : goroutineStatus === 'warning' ? 'bg-amber-500' : goroutineStatus === 'ok' ? 'bg-emerald-500' : 'bg-gray-400'"></span>
@@ -1618,7 +1620,7 @@ function handleToolbarRefresh() {
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-1">
               <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.jobs') }}</div>
-              <HelpTooltip v-if="!props.fullscreen" :content="t('admin.ops.tooltips.jobs')" />
+              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.jobs')" />
             </div>
             <button v-if="!props.fullscreen" class="inline-flex h-6 w-6 items-center justify-center rounded-[3px] text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20" type="button" :title="t('admin.ops.requestDetails.details')" @click="openJobsDetails">
               <Icon name="eye" size="xs" />
@@ -1640,7 +1642,7 @@ function handleToolbarRefresh() {
       </div>
     </div>
 
-    <BaseDialog :show="showJobsDetails" :title="t('admin.ops.jobs')" width="wide" @close="showJobsDetails = false">
+    <UiDialog :show="showJobsDetails" :title="t('admin.ops.jobs')" width="wide" @close="showJobsDetails = false">
       <div v-if="!jobHeartbeats.length" class="text-sm text-gray-500 dark:text-gray-400">
         {{ t('admin.ops.noData') }}
       </div>
@@ -1678,10 +1680,10 @@ function handleToolbarRefresh() {
           </div>
         </div>
       </div>
-    </BaseDialog>
+    </UiDialog>
 
     <!-- Custom Time Range Dialog -->
-    <BaseDialog :show="showCustomTimeRangeDialog" :title="t('admin.ops.timeRange.custom')" width="narrow" @close="handleCustomTimeRangeCancel">
+    <UiDialog :show="showCustomTimeRangeDialog" :title="t('admin.ops.timeRange.custom')" width="narrow" @close="handleCustomTimeRangeCancel">
       <div class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1720,7 +1722,7 @@ function handleToolbarRefresh() {
           </button>
         </div>
       </div>
-    </BaseDialog>
+    </UiDialog>
   </div>
 </template>
 
