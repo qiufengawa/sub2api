@@ -1201,21 +1201,7 @@
                 {{ t('admin.accounts.poolModeHint') }}
               </p>
             </div>
-            <button
-              type="button"
-              @click="poolModeEnabled = !poolModeEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                poolModeEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                  poolModeEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
+            <UiSwitch v-model="poolModeEnabled" :label="t('admin.accounts.poolMode')" />
           </div>
           <div v-if="poolModeEnabled" class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
             <p class="text-xs text-blue-700 dark:text-blue-400">
@@ -1265,21 +1251,7 @@
                 {{ t('admin.accounts.customErrorCodesHint') }}
               </p>
             </div>
-            <button
-              type="button"
-              @click="customErrorCodesEnabled = !customErrorCodesEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                customErrorCodesEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                  customErrorCodesEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
+            <UiSwitch v-model="customErrorCodesEnabled" :label="t('admin.accounts.customErrorCodes')" />
           </div>
 
           <div v-if="customErrorCodesEnabled" class="space-y-3">
@@ -1547,21 +1519,7 @@
                 {{ t('admin.accounts.poolModeHint') }}
               </p>
             </div>
-            <button
-              type="button"
-              @click="poolModeEnabled = !poolModeEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                poolModeEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                  poolModeEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
+            <UiSwitch v-model="poolModeEnabled" :label="t('admin.accounts.poolMode')" />
           </div>
           <div v-if="poolModeEnabled" class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
             <p class="text-xs text-blue-700 dark:text-blue-400">
@@ -1719,22 +1677,11 @@
               {{ t('admin.accounts.grokCustomBaseUrl.hint') }}
             </p>
           </div>
-          <button
-            type="button"
+          <UiSwitch
+            v-model="grokOAuthCustomBaseUrlEnabled"
+            :label="t('admin.accounts.grokCustomBaseUrl.title')"
             data-testid="grok-custom-base-url-toggle"
-            @click="grokOAuthCustomBaseUrlEnabled = !grokOAuthCustomBaseUrlEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              grokOAuthCustomBaseUrlEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                grokOAuthCustomBaseUrlEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+          />
         </div>
         <div v-if="grokOAuthCustomBaseUrlEnabled" class="space-y-2">
           <input
@@ -1816,21 +1763,7 @@
               {{ t('admin.accounts.tempUnschedulable.hint') }}
             </p>
           </div>
-          <button
-            type="button"
-            @click="tempUnschedEnabled = !tempUnschedEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              tempUnschedEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                tempUnschedEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+          <UiSwitch v-model="tempUnschedEnabled" :label="t('admin.accounts.tempUnschedulable.title')" />
         </div>
 
         <div v-if="tempUnschedEnabled" class="space-y-3">
@@ -1969,21 +1902,7 @@
               {{ t('admin.accounts.interceptWarmupRequestsDesc') }}
             </p>
           </div>
-          <button
-            type="button"
-            @click="interceptWarmupRequests = !interceptWarmupRequests"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              interceptWarmupRequests ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                interceptWarmupRequests ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+          <UiSwitch v-model="interceptWarmupRequests" :label="t('admin.accounts.interceptWarmupRequests')" />
         </div>
       </div>
 
@@ -2478,21 +2397,7 @@
               {{ t('admin.accounts.anthropic.apiKeyPassthroughDesc') }}
             </p>
           </div>
-          <button
-            type="button"
-            @click="anthropicPassthroughEnabled = !anthropicPassthroughEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              anthropicPassthroughEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                anthropicPassthroughEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+          <UiSwitch v-model="anthropicPassthroughEnabled" :label="t('admin.accounts.anthropic.apiKeyPassthrough')" />
         </div>
       </div>
 
@@ -2546,24 +2451,12 @@
               {{ t('admin.accounts.openai.longContextBillingDesc') }}
             </p>
           </div>
-          <button
-            type="button"
+          <UiSwitch
+            :model-value="openAILongContextBillingEnabled"
+            :label="t('admin.accounts.openai.longContextBilling')"
             data-testid="openai-long-context-billing-toggle"
-            role="switch"
-            :aria-checked="openAILongContextBillingEnabled"
-            @click="toggleOpenAILongContextBilling"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              openAILongContextBillingEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                openAILongContextBillingEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+            @update:model-value="toggleOpenAILongContextBilling"
+          />
         </div>
       </div>
 
@@ -2578,21 +2471,7 @@
               {{ t('admin.accounts.openai.codexCLIOnlyDesc') }}
             </p>
           </div>
-          <button
-            type="button"
-            @click="codexCLIOnlyEnabled = !codexCLIOnlyEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              codexCLIOnlyEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                codexCLIOnlyEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+          <UiSwitch v-model="codexCLIOnlyEnabled" :label="t('admin.accounts.openai.codexCLIOnly')" />
         </div>
         <div
           v-if="codexCLIOnlyEnabled"
@@ -2604,21 +2483,7 @@
               {{ t('admin.accounts.openai.codexCLIOnlyAppServerDesc') }}
             </p>
           </div>
-          <button
-            type="button"
-            @click="codexCLIOnlyAppServerEnabled = !codexCLIOnlyAppServerEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              codexCLIOnlyAppServerEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                codexCLIOnlyAppServerEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+          <UiSwitch v-model="codexCLIOnlyAppServerEnabled" :label="t('admin.accounts.openai.codexCLIOnlyAppServer')" />
         </div>
       </div>
 
@@ -2739,21 +2604,7 @@
               {{ t('admin.accounts.autoPauseOnExpiredDesc') }}
             </p>
           </div>
-          <button
-            type="button"
-            @click="autoPauseOnExpired = !autoPauseOnExpired"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              autoPauseOnExpired ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                autoPauseOnExpired ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
+          <UiSwitch v-model="autoPauseOnExpired" :label="t('admin.accounts.autoPauseOnExpired')" />
         </div>
       </div>
 
