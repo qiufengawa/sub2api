@@ -1,62 +1,45 @@
 <template>
-  <div v-if="rows.length > 0" class="space-y-2">
-    <div
-      v-for="(row, index) in rows"
-      :key="getHeaderOverrideRowKey(row)"
-      class="flex items-center gap-2"
-    >
-      <input
-        v-model="row.name"
-        type="text"
-        class="input flex-1"
-        :placeholder="t('admin.accounts.headerOverride.namePlaceholder')"
-      />
-      <input
-        v-model="row.value"
-        type="text"
-        class="input flex-1"
-        :placeholder="t('admin.accounts.headerOverride.valuePlaceholder')"
-      />
-      <button
-        type="button"
-        class="rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
-        @click="removeRow(index)"
-      >
-        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-          />
-        </svg>
-      </button>
+  <AppStack :gap="8">
+    <div v-if="rows.length" class="header-override__rows">
+      <div v-for="(row, index) in rows" :key="getHeaderOverrideRowKey(row)" class="header-override__row">
+        <UiTextField
+          v-model="row.name"
+          density="dense"
+          :placeholder="t('admin.accounts.headerOverride.namePlaceholder')"
+          :input-attrs="{ 'aria-label': t('admin.accounts.headerOverride.namePlaceholder') }"
+        />
+        <UiTextField
+          v-model="row.value"
+          density="dense"
+          :placeholder="t('admin.accounts.headerOverride.valuePlaceholder')"
+          :input-attrs="{ 'aria-label': t('admin.accounts.headerOverride.valuePlaceholder') }"
+        />
+        <UiIconButton
+          :label="t('common.delete')"
+          variant="danger"
+          density="dense"
+          @click="removeRow(index)"
+        >
+          <Icon name="trash" size="sm" />
+        </UiIconButton>
+      </div>
     </div>
-  </div>
 
-  <button
-    type="button"
-    class="w-full rounded-lg border-2 border-dashed border-gray-300 px-4 py-2 text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-700 dark:border-dark-500 dark:text-gray-400 dark:hover:border-dark-400 dark:hover:text-gray-300"
-    @click="addRow"
-  >
-    <svg class="mr-1 inline h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-    </svg>
-    {{ t('admin.accounts.headerOverride.addRow') }}
-  </button>
+    <UiButton block density="dense" variant="secondary" @click="addRow">
+      <template #icon><Icon name="plus" size="sm" /></template>
+      {{ t('admin.accounts.headerOverride.addRow') }}
+    </UiButton>
 
-  <div class="flex flex-wrap gap-2">
     <HeaderOverrideJsonTools :rows="rows" @update:rows="emit('update:rows', $event)" />
-  </div>
-
-  <p class="text-xs text-gray-500 dark:text-gray-400">
-    {{ t('admin.accounts.headerOverride.emptyValueHint') }}
-  </p>
+    <p class="header-override__hint">{{ t('admin.accounts.headerOverride.emptyValueHint') }}</p>
+  </AppStack>
 </template>
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
+import Icon from '@/components/icons/Icon.vue'
+import { AppStack, UiButton, UiIconButton, UiTextField } from '@/components/ui'
 import HeaderOverrideJsonTools from './HeaderOverrideJsonTools.vue'
 import type { HeaderOverrideRow } from './credentialsBuilder'
 
@@ -82,3 +65,10 @@ const removeRow = (index: number) => {
   emit('update:rows', props.rows.filter((_, i) => i !== index))
 }
 </script>
+
+<style scoped>
+.header-override__rows{display:grid;gap:6px}
+.header-override__row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 28px;align-items:center;gap:6px}
+.header-override__hint{margin:0;color:var(--ui-text-soft);font-size:12px;line-height:18px}
+@media(max-width:540px){.header-override__row{grid-template-columns:minmax(0,1fr) 28px}.header-override__row>:nth-child(2){grid-column:1/2}}
+</style>

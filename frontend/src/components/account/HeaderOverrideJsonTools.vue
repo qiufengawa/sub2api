@@ -1,48 +1,36 @@
 <template>
-  <button
-    type="button"
-    class="rounded-lg bg-primary-50 px-3 py-1 text-xs text-primary-700 transition-colors hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-400 dark:hover:bg-primary-900/50"
-    @click="toggleImportPanel"
-  >
-    {{ t('admin.accounts.headerOverride.importJson') }}
-  </button>
-  <button
-    type="button"
-    class="rounded-lg bg-primary-50 px-3 py-1 text-xs text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-primary-900/30 dark:text-primary-400 dark:hover:bg-primary-900/50"
-    :disabled="!hasNamedRows"
-    @click="copyAsJson"
-  >
-    {{ t('admin.accounts.headerOverride.copyJson') }}
-  </button>
+  <AppStack :gap="8">
+    <AppInline :gap="4">
+      <UiButton density="dense" variant="quiet" @click="toggleImportPanel">
+        <template #icon><Icon name="document" size="sm" /></template>
+        {{ t('admin.accounts.headerOverride.importJson') }}
+      </UiButton>
+      <UiButton density="dense" variant="quiet" :disabled="!hasNamedRows" @click="copyAsJson">
+        <template #icon><Icon name="copy" size="sm" /></template>
+        {{ t('admin.accounts.headerOverride.copyJson') }}
+      </UiButton>
+    </AppInline>
 
-  <div v-if="showImportPanel" ref="importPanelRef" class="w-full space-y-2">
-    <textarea
-      ref="importTextareaRef"
-      v-model="importText"
-      rows="5"
-      class="input font-mono text-xs"
-      :placeholder="IMPORT_JSON_PLACEHOLDER"
-    ></textarea>
-    <div class="flex gap-2">
-      <button
-        type="button"
-        class="rounded-lg bg-primary-600 px-3 py-1 text-xs text-white transition-colors hover:bg-primary-700"
-        @click="applyImport"
-      >
-        {{ t('admin.accounts.headerOverride.importJsonApply') }}
-      </button>
-      <button
-        type="button"
-        class="rounded-lg bg-gray-100 px-3 py-1 text-xs text-gray-600 transition-colors hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500"
-        @click="closeImportPanel"
-      >
-        {{ t('admin.accounts.headerOverride.importJsonCancel') }}
-      </button>
+    <div v-if="showImportPanel" ref="importPanelRef" class="header-json-tools__panel">
+      <UiTextArea
+        ref="importTextareaRef"
+        v-model="importText"
+        :rows="5"
+        monospace
+        :label="t('admin.accounts.headerOverride.importJson')"
+        :description="t('admin.accounts.headerOverride.importJsonHint')"
+        :placeholder="IMPORT_JSON_PLACEHOLDER"
+      />
+      <AppInline :gap="6">
+        <UiButton density="dense" variant="primary" @click="applyImport">
+          {{ t('admin.accounts.headerOverride.importJsonApply') }}
+        </UiButton>
+        <UiButton density="dense" variant="secondary" @click="closeImportPanel">
+          {{ t('admin.accounts.headerOverride.importJsonCancel') }}
+        </UiButton>
+      </AppInline>
     </div>
-    <p class="text-xs text-gray-500 dark:text-gray-400">
-      {{ t('admin.accounts.headerOverride.importJsonHint') }}
-    </p>
-  </div>
+  </AppStack>
 </template>
 
 <script setup lang="ts">
@@ -50,6 +38,8 @@ import { computed, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { useClipboard } from '@/composables/useClipboard'
+import Icon from '@/components/icons/Icon.vue'
+import { AppInline, AppStack, UiButton, UiTextArea } from '@/components/ui'
 import {
   parseHeaderOverridesJson,
   serializeHeaderOverrideRows,
@@ -75,7 +65,7 @@ const IMPORT_JSON_PLACEHOLDER = '{"user-agent": "my-client/1.0", "x-relay-token"
 const showImportPanel = ref(false)
 const importText = ref('')
 const importPanelRef = ref<HTMLElement | null>(null)
-const importTextareaRef = ref<HTMLTextAreaElement | null>(null)
+const importTextareaRef = ref<InstanceType<typeof UiTextArea> | null>(null)
 
 const hasNamedRows = computed(() => props.rows.some((row) => row.name.trim()))
 
@@ -85,8 +75,8 @@ const toggleImportPanel = async () => {
   showImportPanel.value = !showImportPanel.value
   if (!showImportPanel.value) return
   await nextTick()
-  importPanelRef.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-  importTextareaRef.value?.focus({ preventScroll: true })
+  importPanelRef.value?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+  importTextareaRef.value?.focus()
 }
 
 const closeImportPanel = () => {
@@ -108,3 +98,7 @@ const copyAsJson = () => {
   void copyToClipboard(serializeHeaderOverrideRows(props.rows))
 }
 </script>
+
+<style scoped>
+.header-json-tools__panel{display:grid;gap:8px;min-width:0}
+</style>
