@@ -138,19 +138,22 @@
               </AccountTableActions>
             </template>
           </UiTableToolbar>
-          <div
+          <UiBanner
             v-if="hasPendingListSync"
-            class="mt-2 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-200"
+            class="mt-2"
+            tone="warning"
           >
-            <span>{{ t("admin.accounts.listPendingSyncHint") }}</span>
-            <UiButton
-              density="dense"
-              variant="secondary"
-              @click="syncPendingListChanges"
-            >
-              {{ t("admin.accounts.listPendingSyncAction") }}
-            </UiButton>
-          </div>
+            <div class="flex items-center justify-between gap-3">
+              <span>{{ t("admin.accounts.listPendingSyncHint") }}</span>
+              <UiButton
+                density="dense"
+                variant="secondary"
+                @click="syncPendingListChanges"
+              >
+                {{ t("admin.accounts.listPendingSyncAction") }}
+              </UiButton>
+            </div>
+          </UiBanner>
         </template>
         <AccountBulkActionsBar
           :selected-ids="selIds"
@@ -771,6 +774,7 @@ import {
   AppPageHeader,
   UiBadge,
   UiButton,
+  UiBanner,
   UiCheckbox,
   UiDataTable,
   UiDivider,
