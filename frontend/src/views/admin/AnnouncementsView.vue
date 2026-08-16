@@ -11,6 +11,11 @@
       </AppPageHeader>
 
       <UiServerTableWorkspace :loading="loading" :empty="false">
+        <UiAlert
+          v-if="loadError && announcements.length"
+          tone="danger"
+          :message="t('admin.announcements.failedToLoad')"
+        />
         <template #toolbar>
           <UiFilterBar :active-count="filters.status ? 1 : 0" @clear="clearFilters">
             <UiSearchInput v-model="searchQuery" density="dense" :placeholder="t('admin.announcements.searchAnnouncements')" @search="handleSearch" />
@@ -30,7 +35,17 @@
             <template #cell-timeRange="{ row }"><UiDataCell :value="`${t('admin.announcements.form.startsAt')}: ${row.starts_at ? formatDateTime(row.starts_at) : t('admin.announcements.timeImmediate')}`" :meta="`${t('admin.announcements.form.endsAt')}: ${row.ends_at ? formatDateTime(row.ends_at) : t('admin.announcements.timeNever')}`" /></template>
             <template #cell-created_at="{ value }"><UiDataCell :value="formatDateTime(value)" /></template>
             <template #cell-actions="{ row }"><UiButtonGroup :label="t('admin.announcements.columns.actions')"><UiIconButton icon="eye" density="dense" variant="ghost" :label="t('admin.announcements.preview')" @click="openPreview(row)" /><UiIconButton icon="chartBar" density="dense" variant="ghost" :label="t('admin.announcements.readStatus')" @click="openReadStatus(row)" /><UiIconButton icon="edit" density="dense" variant="ghost" :label="t('common.edit')" @click="openEditDialog(row)" /><UiIconButton icon="trash" density="dense" variant="danger" :label="t('common.delete')" @click="handleDelete(row)" /></UiButtonGroup></template>
-            <template #empty><UiEmptyState :title="t('empty.noData')" :description="t('admin.announcements.failedToLoad')"><template #action><UiButton density="dense" variant="primary" @click="openCreateDialog">{{ t('admin.announcements.createAnnouncement') }}</UiButton></template></UiEmptyState></template>
+            <template #empty>
+              <UiErrorState
+                v-if="loadError"
+                :title="t('admin.announcements.failedToLoad')"
+                :retry-text="t('common.retry')"
+                @retry="loadAnnouncements"
+              />
+              <UiEmptyState v-else :title="t('empty.noData')">
+                <template #action><UiButton density="dense" variant="primary" @click="openCreateDialog">{{ t('admin.announcements.createAnnouncement') }}</UiButton></template>
+              </UiEmptyState>
+            </template>
           </UiDataTable>
         </UiMobileTableScroller>
 
@@ -74,7 +89,16 @@
       <template #footer>
         <AppInline justify="flex-end">
           <UiButton type="button" density="dense" @click="closeEdit">{{ t('common.cancel') }}</UiButton>
-          <UiButton type="submit" form="announcement-form" density="dense" variant="primary" :loading="saving">{{ t('common.save') }}</UiButton>
+          <UiButton
+            type="submit"
+            form="announcement-form"
+            density="dense"
+            variant="primary"
+            :loading="saving"
+            :disabled="Boolean(targetingValidationError)"
+          >
+            {{ t('common.save') }}
+          </UiButton>
         </AppInline>
       </template>
     </UiDialog>
@@ -86,6 +110,7 @@
       :message="t('admin.announcements.deleteConfirm')"
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
+      :pending="deleting"
       danger
       @confirm="confirmDelete"
       @cancel="showDeleteDialog = false"
@@ -132,6 +157,7 @@ import {
   AppPage,
   AppPageHeader,
   AppStack,
+  UiAlert,
   UiAnnouncementDialog,
   UiBadge,
   UiButton,
@@ -141,6 +167,7 @@ import {
   UiDataTable,
   UiDialog,
   UiEmptyState,
+  UiErrorState,
   UiFilterBar,
   UiIconButton,
   UiMobileTableScroller,
@@ -155,13 +182,15 @@ import {
 
 import AnnouncementTargetingEditor from '@/components/admin/announcements/AnnouncementTargetingEditor.vue'
 import AnnouncementReadStatusDialog from '@/components/admin/announcements/AnnouncementReadStatusDialog.vue'
-import AnnouncementDetail from '@/components/common/AnnouncementDetail.vue'
+import AnnouncementDetail from '@/components/announcements/AnnouncementDetail.vue'
+import { getAnnouncementTargetingValidationKey } from '@/components/admin/announcements/targetingValidation'
 
 const { t } = useI18n()
 const appStore = useAppStore()
 
 const announcements = ref<Announcement[]>([])
-const loading = ref(false)
+const loading = ref(true)
+const loadError = ref(false)
 
 const filters = reactive({
   status: '',
@@ -232,6 +261,7 @@ async function loadAnnouncements() {
 
   try {
     loading.value = true
+    loadError.value = false
     const res = await adminAPI.announcements.list(pagination.page, pagination.page_size, {
       status: filters.status || undefined,
       search: searchQuery.value || undefined,
@@ -255,7 +285,7 @@ async function loadAnnouncements() {
     ) {
       return
     }
-    console.error('Error loading announcements:', error)
+    loadError.value = true
     appStore.showError(error.response?.data?.detail || t('admin.announcements.failedToLoad'))
   } finally {
     if (currentController === requestController) {
@@ -317,6 +347,7 @@ const form = reactive({
 })
 
 const targetGroups = ref<AdminGroup[]>([])
+const targetingValidationError = computed(() => getAnnouncementTargetingValidationKey(form.targeting))
 
 async function loadTargetGroups() {
   try {
@@ -324,9 +355,8 @@ async function loadTargetGroups() {
     targetGroups.value = (all || []).filter(
       (group) => group.status === 'active' && group.subscription_type === 'standard'
     )
-  } catch (error: any) {
-    console.error('Error loading groups:', error)
-    // not fatal
+  } catch {
+    appStore.showError(t('admin.announcements.failedToLoadGroups'))
   }
 }
 
@@ -416,18 +446,10 @@ function buildUpdatePayload(original: Announcement) {
 }
 
 async function handleSave() {
-  // Frontend validation for targeting (to avoid ANNOUNCEMENT_INVALID_TARGET)
-  const anyOf = form.targeting?.any_of ?? []
-  if (anyOf.length > 50) {
-    appStore.showError(t('admin.announcements.failedToCreate'))
+  if (saving.value) return
+  if (targetingValidationError.value) {
+    appStore.showError(t(targetingValidationError.value))
     return
-  }
-  for (const g of anyOf) {
-    const allOf = g?.all_of ?? []
-    if (allOf.length > 50) {
-      appStore.showError(t('admin.announcements.failedToCreate'))
-      return
-    }
   }
 
   saving.value = true
@@ -449,7 +471,6 @@ async function handleSave() {
     editingAnnouncement.value = null
     await loadAnnouncements()
   } catch (error: any) {
-    console.error('Failed to save announcement:', error)
     appStore.showError(error.response?.data?.detail || (editingAnnouncement.value ? t('admin.announcements.failedToUpdate') : t('admin.announcements.failedToCreate')))
   } finally {
     saving.value = false
@@ -459,6 +480,7 @@ async function handleSave() {
 // ===== Delete =====
 const showDeleteDialog = ref(false)
 const deletingAnnouncement = ref<Announcement | null>(null)
+const deleting = ref(false)
 
 function handleDelete(row: Announcement) {
   deletingAnnouncement.value = row
@@ -466,8 +488,9 @@ function handleDelete(row: Announcement) {
 }
 
 async function confirmDelete() {
-  if (!deletingAnnouncement.value) return
+  if (!deletingAnnouncement.value || deleting.value) return
 
+  deleting.value = true
   try {
     await adminAPI.announcements.delete(deletingAnnouncement.value.id)
     appStore.showSuccess(t('common.success'))
@@ -475,8 +498,9 @@ async function confirmDelete() {
     deletingAnnouncement.value = null
     await loadAnnouncements()
   } catch (error: any) {
-    console.error('Failed to delete announcement:', error)
     appStore.showError(error.response?.data?.detail || t('admin.announcements.failedToDelete'))
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -494,9 +518,8 @@ function openReadStatus(row: Announcement) {
   showReadStatusDialog.value = true
 }
 
-onMounted(async () => {
-  await loadTargetGroups()
-  await loadAnnouncements()
+onMounted(() => {
+  void Promise.all([loadTargetGroups(), loadAnnouncements()])
 })
 
 onUnmounted(() => {

@@ -47,7 +47,13 @@
             <UiDataCell :value="value ? formatDateTime(value) : t('admin.announcements.unread')" mono />
           </template>
           <template #empty>
-            <UiEmptyState :title="t('empty.noData')" />
+            <UiErrorState
+              v-if="loadError"
+              :title="t('admin.announcements.failedToLoadReadStatus')"
+              :retry-text="t('common.retry')"
+              @retry="load"
+            />
+            <UiEmptyState v-else :title="t('empty.noData')" />
           </template>
         </UiDataTable>
       </UiMobileTableScroller>
@@ -88,6 +94,7 @@ import {
   UiDataTable,
   UiDrawer,
   UiEmptyState,
+  UiErrorState,
   UiFilterBar,
   UiIconButton,
   UiMobileTableScroller,
@@ -109,6 +116,7 @@ const emit = defineEmits<{
 }>()
 
 const loading = ref(false)
+const loadError = ref(false)
 const search = ref('')
 
 const pagination = reactive({
@@ -140,6 +148,7 @@ function resetDialogState() {
   loading.value = false
   search.value = ''
   items.value = []
+  loadError.value = false
   pagination.page = 1
   pagination.total = 0
   pagination.pages = 0
@@ -169,6 +178,7 @@ async function load() {
 
   try {
     loading.value = true
+    loadError.value = false
     const res = await adminAPI.announcements.getReadStatus(
       props.announcementId,
       pagination.page,
@@ -197,7 +207,7 @@ async function load() {
     ) {
       return
     }
-    console.error('Failed to load read status:', error)
+    loadError.value = true
     appStore.showError(error.response?.data?.detail || t('admin.announcements.failedToLoadReadStatus'))
   } finally {
     if (currentController === requestController) {

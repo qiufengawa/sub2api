@@ -424,7 +424,8 @@ export default {
         conditionBalance: '余额',
         operator: '运算符',
         balanceValue: '余额阈值',
-        selectPackages: '选择订阅覆盖的路由分组'
+        selectPackages: '选择订阅覆盖的路由分组',
+        invalidTargeting: '请检查投放规则并移除无效条件'
       },
       operators: {
         gt: '>',
@@ -444,6 +445,7 @@ export default {
       unread: '未读',
       searchUsers: '搜索用户...',
       failedToLoad: '加载公告失败',
+      failedToLoadGroups: '加载公告投放分组失败',
       failedToCreate: '创建公告失败',
       failedToUpdate: '更新公告失败',
       failedToDelete: '删除公告失败',

@@ -5,6 +5,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AnnouncementBell from '../AnnouncementBell.vue'
 import { useAnnouncementStore } from '@/stores/announcements'
 
+vi.mock('@/utils/format', () => ({
+  formatRelativeTime: (value: string) => value,
+}))
+
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({ showError: vi.fn(), showSuccess: vi.fn() }),
 }))

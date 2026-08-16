@@ -427,7 +427,8 @@ export default {
         conditionBalance: 'Balance',
         operator: 'Operator',
         balanceValue: 'Balance threshold',
-        selectPackages: 'Select covered routing groups'
+        selectPackages: 'Select covered routing groups',
+        invalidTargeting: 'Review the targeting rules and remove invalid conditions'
       },
       operators: {
         gt: '>',
@@ -447,6 +448,7 @@ export default {
       unread: 'Unread',
       searchUsers: 'Search users...',
       failedToLoad: 'Failed to load announcements',
+      failedToLoadGroups: 'Failed to load announcement targeting groups',
       failedToCreate: 'Failed to create announcement',
       failedToUpdate: 'Failed to update announcement',
       failedToDelete: 'Failed to delete announcement',

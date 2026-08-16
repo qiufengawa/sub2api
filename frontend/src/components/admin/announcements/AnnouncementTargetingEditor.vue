@@ -139,6 +139,7 @@ import type {
 } from '@/types'
 
 import Icon from '@/components/icons/Icon.vue'
+import { getAnnouncementTargetingValidationKey } from './targetingValidation'
 import {
   AppGrid,
   AppInline,
@@ -373,26 +374,8 @@ watch(
 )
 
 const validationError = computed(() => {
-  if (mode.value !== 'custom') return ''
-
-  const groups = anyOf.value
-  if (groups.length === 0) return t('admin.announcements.form.addOrGroup')
-
-  if (groups.length > 50) return 'any_of > 50'
-
-  for (const g of groups) {
-    const allOf = g?.all_of ?? []
-    if (allOf.length === 0) return t('admin.announcements.form.addAndCondition')
-    if (allOf.length > 50) return 'all_of > 50'
-
-    for (const c of allOf) {
-      if (c.type === 'subscription') {
-        if (!c.group_ids || c.group_ids.length === 0) return t('admin.announcements.form.selectPackages')
-      }
-    }
-  }
-
-  return ''
+  const key = getAnnouncementTargetingValidationKey(props.modelValue)
+  return key ? t(key) : ''
 })
 </script>
 

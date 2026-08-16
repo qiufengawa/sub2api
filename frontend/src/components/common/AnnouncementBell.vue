@@ -113,7 +113,7 @@ import { useAnnouncementStore } from '@/stores/announcements'
 import { formatRelativeTime } from '@/utils/format'
 import type { UserAnnouncement } from '@/types'
 import Icon from '@/components/icons/Icon.vue'
-import AnnouncementDetail from '@/components/common/AnnouncementDetail.vue'
+import AnnouncementDetail from '@/components/announcements/AnnouncementDetail.vue'
 import {
   UiButton,
   UiDialog,

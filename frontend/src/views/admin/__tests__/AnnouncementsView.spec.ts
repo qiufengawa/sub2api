@@ -43,6 +43,16 @@ const announcement = {
   updated_at: '2026-08-15T00:00:00Z',
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, reject, resolve }
+}
+
 const mountView = () => mount(AnnouncementsView, {
   global: {
     stubs: {
@@ -64,11 +74,16 @@ const mountView = () => mount(AnnouncementsView, {
       UiDialog: { props: ['show'], template: '<div v-if="show"><slot/><slot name="footer"/></div>' },
       UiConfirmDialog: true,
       UiEmptyState: { template: '<div data-test="empty"><slot name="action"/></div>' },
+      UiErrorState: { props: ['title'], emits: ['retry'], template: '<div data-test="error-state">{{ title }}<button data-test="retry" @click="$emit(\'retry\')">retry</button></div>' },
       UiBadge: true,
       UiStatusBadge: true,
       UiTextField: true,
       UiTextArea: true,
-      AnnouncementTargetingEditor: true,
+      AnnouncementTargetingEditor: {
+        props: ['modelValue'],
+        emits: ['update:modelValue'],
+        template: '<div />',
+      },
       AnnouncementReadStatusDialog: true,
       AnnouncementPopup: true,
       Icon: true,
@@ -101,6 +116,32 @@ describe('admin AnnouncementsView', () => {
     expect(wrapper.get('[data-test="table"]').text()).toContain('Maintenance')
   })
 
+  it('reserves the table workspace while the first request is pending', async () => {
+    const request = deferred<any>()
+    list.mockReturnValueOnce(request.promise)
+    const wrapper = mountView()
+
+    expect((wrapper.vm as any).loading).toBe(true)
+    request.resolve({ items: [], total: 0, page: 1, page_size: 20, pages: 0 })
+    await flushPromises()
+    expect((wrapper.vm as any).loading).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('keeps existing rows and a persistent alert when refresh fails', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    list.mockRejectedValueOnce(new Error('network'))
+
+    await (wrapper.vm as any).loadAnnouncements()
+
+    expect((wrapper.vm as any).loadError).toBe(true)
+    expect((wrapper.vm as any).announcements).toEqual([announcement])
+    expect(wrapper.text()).toContain('admin.announcements.failedToLoad')
+    expect(showError).toHaveBeenCalledWith('admin.announcements.failedToLoad')
+    wrapper.unmount()
+  })
+
   it('reloads from page one when searching or changing status', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -121,5 +162,44 @@ describe('admin AnnouncementsView', () => {
     await flushPromises()
 
     expect(wrapper.get('[data-test="empty"]')).toBeTruthy()
+  })
+
+  it('prevents duplicate deletes until the table refresh completes', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const request = deferred<unknown>()
+    remove.mockReturnValueOnce(request.promise)
+    const vm = wrapper.vm as any
+    vm.handleDelete(announcement)
+
+    const first = vm.confirmDelete()
+    const second = vm.confirmDelete()
+    expect(remove).toHaveBeenCalledOnce()
+    expect(remove).toHaveBeenCalledWith(announcement.id)
+    expect(vm.deleting).toBe(true)
+
+    request.resolve({})
+    await Promise.all([first, second])
+    expect(vm.deleting).toBe(false)
+    expect(vm.showDeleteDialog).toBe(false)
+    expect(showSuccess).toHaveBeenCalledWith('common.success')
+    expect(list).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+
+  it('does not submit an invalid custom targeting rule', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.form.targeting = {
+      any_of: [{ all_of: [{ type: 'subscription', operator: 'in', group_ids: [] }] }],
+    }
+
+    await vm.handleSave()
+
+    expect(create).not.toHaveBeenCalled()
+    expect(update).not.toHaveBeenCalled()
+    expect(showError).toHaveBeenCalledWith('admin.announcements.form.selectPackages')
+    wrapper.unmount()
   })
 })

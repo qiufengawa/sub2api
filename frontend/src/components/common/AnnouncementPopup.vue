@@ -36,7 +36,7 @@ import { useAnnouncementStore } from '@/stores/announcements'
 import type { Announcement, UserAnnouncement } from '@/types'
 import Icon from '@/components/icons/Icon.vue'
 import { UiButton, UiDialog } from '@/components/ui'
-import AnnouncementDetail from '@/components/common/AnnouncementDetail.vue'
+import AnnouncementDetail from '@/components/announcements/AnnouncementDetail.vue'
 
 type PreviewAnnouncement = Pick<Announcement | UserAnnouncement, 'title' | 'content' | 'created_at'>
 

@@ -36,10 +36,21 @@ vi.mock('@/composables/usePersistedPageSize', () => ({
   getPersistedPageSize: () => 20,
 }))
 
-const UiDialogStub = {
+const UiDrawerStub = {
   props: ['show', 'title', 'width'],
   emits: ['close'],
-  template: '<div><slot /><slot name="footer" /></div>',
+  template: '<div v-if="show"><slot /><slot name="footer" /></div>',
+}
+
+const UiDataTableStub = {
+  props: ['data'],
+  template: '<div><slot v-if="!data?.length" name="empty" /></div>',
+}
+
+const UiErrorStateStub = {
+  props: ['title'],
+  emits: ['retry'],
+  template: '<div>{{ title }}<button @click="$emit(\'retry\')">retry</button></div>',
 }
 
 describe('AnnouncementReadStatusDialog', () => {
@@ -63,7 +74,7 @@ describe('AnnouncementReadStatusDialog', () => {
       },
       global: {
         stubs: {
-          UiDialog: UiDialogStub,
+          UiDrawer: UiDrawerStub,
           UiDataTable: true,
           UiPagination: true,
           Icon: true,
@@ -91,5 +102,31 @@ describe('AnnouncementReadStatusDialog', () => {
     await flushPromises()
 
     expect(getReadStatus).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a retryable error state when read-status loading fails', async () => {
+    getReadStatus.mockRejectedValueOnce(new Error('network'))
+    const wrapper = mount(AnnouncementReadStatusDialog, {
+      props: {
+        show: false,
+        announcementId: 1,
+      },
+      global: {
+        stubs: {
+          UiDrawer: UiDrawerStub,
+          UiDataTable: UiDataTableStub,
+          UiErrorState: UiErrorStateStub,
+          UiPagination: true,
+          Icon: true,
+        },
+      },
+    })
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+
+    expect((wrapper.vm as any).loadError).toBe(true)
+    expect(wrapper.text()).toContain('admin.announcements.failedToLoadReadStatus')
+    expect(showError).toHaveBeenCalledWith('admin.announcements.failedToLoadReadStatus')
+    wrapper.unmount()
   })
 })
