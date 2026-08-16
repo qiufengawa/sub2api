@@ -11,6 +11,11 @@
       </AppPageHeader>
 
       <UiServerTableWorkspace :loading="loading" :empty="false">
+        <UiAlert
+          v-if="loadError && codes.length"
+          tone="danger"
+          :message="t('admin.promo.failedToLoad')"
+        />
         <template #toolbar>
           <UiFilterBar :active-count="filters.status ? 1 : 0" @clear="clearFilters">
             <UiSearchInput v-model="searchQuery" density="dense" :placeholder="t('admin.promo.searchCodes')" @search="handleSearch" />
@@ -126,6 +131,7 @@
       :message="t('admin.promo.deleteCodeConfirm')"
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
+      :pending="deleting"
       danger
       @confirm="confirmDelete"
       @cancel="showDeleteDialog = false"
@@ -150,6 +156,7 @@ import {
   AppPage,
   AppPageHeader,
   AppStack,
+  UiAlert,
   UiBadge,
   UiButton,
   UiButtonGroup,
@@ -176,10 +183,11 @@ const { copyToClipboard: clipboardCopy } = useClipboard()
 
 // State
 const codes = ref<PromoCode[]>([])
-const loading = ref(false)
+const loading = ref(true)
 const loadError = ref(false)
 const creating = ref(false)
 const updating = ref(false)
+const deleting = ref(false)
 const searchQuery = ref('')
 const copiedCode = ref<string | null>(null)
 
@@ -317,7 +325,6 @@ const loadCodes = async () => {
     }
     loadError.value = true
     appStore.showError(t('admin.promo.failedToLoad'))
-    console.error('Error loading promo codes:', error)
   } finally {
     if (abortController === currentController) {
       loading.value = false
@@ -359,8 +366,10 @@ const copyToClipboard = async (text: string) => {
   const success = await clipboardCopy(text, t('admin.promo.copied'))
   if (success) {
     copiedCode.value = text
-    setTimeout(() => {
+    if (copyResetTimer) clearTimeout(copyResetTimer)
+    copyResetTimer = setTimeout(() => {
       copiedCode.value = null
+      copyResetTimer = null
     }, 2000)
   }
 }
@@ -464,16 +473,19 @@ const handleDelete = (code: PromoCode) => {
 }
 
 const confirmDelete = async () => {
-  if (!deletingCode.value) return
+  if (!deletingCode.value || deleting.value) return
 
+  deleting.value = true
   try {
     await adminAPI.promo.delete(deletingCode.value.id)
     appStore.showSuccess(t('admin.promo.codeDeleted'))
     showDeleteDialog.value = false
     deletingCode.value = null
-    loadCodes()
+    await loadCodes()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.promo.failedToDelete'))
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -486,6 +498,7 @@ const handleViewUsages = async (code: PromoCode) => {
 }
 
 let usagesRequestId = 0
+let copyResetTimer: ReturnType<typeof setTimeout> | null = null
 
 const loadUsages = async () => {
   if (!currentViewingCode.value) return
@@ -536,5 +549,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   abortController?.abort()
+  usagesRequestId += 1
+  if (copyResetTimer) clearTimeout(copyResetTimer)
 })
 </script>

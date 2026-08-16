@@ -35,6 +35,16 @@ const code = {
   created_at: '2026-08-15T00:00:00Z',
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, reject, resolve }
+}
+
 const mountView = () => mount(PromoCodesView, {
   global: {
     stubs: {
@@ -84,6 +94,32 @@ describe('admin PromoCodesView', () => {
       sort_order: 'desc',
     }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
     expect(wrapper.get('[data-test="table"]').text()).toContain('WELCOME')
+  })
+
+  it('reserves the table workspace while the first list request is pending', async () => {
+    const request = deferred<{ items: Array<typeof code>; total: number; page: number; page_size: number }>()
+    list.mockReturnValueOnce(request.promise)
+    const wrapper = mountView()
+
+    expect((wrapper.vm as any).loading).toBe(true)
+    request.resolve({ items: [code], total: 1, page: 1, page_size: 20 })
+    await flushPromises()
+    expect((wrapper.vm as any).loading).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('keeps existing rows and a persistent alert when refresh fails', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    list.mockRejectedValueOnce(new Error('network'))
+
+    await (wrapper.vm as any).loadCodes()
+
+    expect((wrapper.vm as any).loadError).toBe(true)
+    expect((wrapper.vm as any).codes).toEqual([code])
+    expect(wrapper.text()).toContain('admin.promo.failedToLoad')
+    expect(showError).toHaveBeenCalledWith('admin.promo.failedToLoad')
+    wrapper.unmount()
   })
 
   it('reloads from page one when search or status changes', async () => {
@@ -172,6 +208,29 @@ describe('admin PromoCodesView', () => {
       expires_at: 0,
       notes: 'paused',
     })
+  })
+
+  it('prevents duplicate deletes until deletion and refresh complete', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const request = deferred<unknown>()
+    remove.mockReturnValueOnce(request.promise)
+    const vm = wrapper.vm as any
+    vm.handleDelete(code)
+
+    const first = vm.confirmDelete()
+    const second = vm.confirmDelete()
+    expect(remove).toHaveBeenCalledOnce()
+    expect(remove).toHaveBeenCalledWith(code.id)
+    expect(vm.deleting).toBe(true)
+
+    request.resolve({})
+    await Promise.all([first, second])
+    expect(vm.deleting).toBe(false)
+    expect(vm.showDeleteDialog).toBe(false)
+    expect(showSuccess).toHaveBeenCalledWith('admin.promo.codeDeleted')
+    expect(list).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
   })
 
   it('keeps usage pagination server-side and ignores stale code responses', async () => {
