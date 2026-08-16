@@ -1,5 +1,6 @@
 export default {
   batchImage: {
+    pageDescription: 'Create, track, and download Gemini batch image jobs in one workspace.',
     columns: {
       taskName: 'Task name',
       model: 'Model',
@@ -50,6 +51,8 @@ export default {
       submitJob: 'Submit job',
     },
     list: {
+      selectAll: 'Select every job on this page',
+      selectJob: 'Select job {name}',
       selectedJobs: 'Selected {count} job | Selected {count} jobs',
       expandChildren: 'Expand {n} subtask | Expand {n} subtasks',
       collapseChildren: 'Collapse subtasks',

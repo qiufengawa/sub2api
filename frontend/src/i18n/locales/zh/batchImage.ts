@@ -1,5 +1,6 @@
 export default {
   batchImage: {
+    pageDescription: '集中创建、跟踪和下载 Gemini 批量生图任务。',
     columns: {
       taskName: '任务名称',
       model: '模型',
@@ -50,6 +51,8 @@ export default {
       submitJob: '提交任务',
     },
     list: {
+      selectAll: '选择本页全部任务',
+      selectJob: '选择任务 {name}',
       selectedJobs: '已选择 {count} 个任务',
       expandChildren: '展开 {n} 个子任务',
       collapseChildren: '收起子任务',

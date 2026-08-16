@@ -1,777 +1,559 @@
 <template>
   <AppLayout>
-    <TablePageLayout>
-      <template #filters>
-        <div class="flex flex-col gap-2">
-          <div class="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
-            <div class="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[220px_140px_132px_140px] xl:w-auto">
-              <div class="min-w-0">
-                <SearchInput
-                  v-model="filters.taskName"
-                  :placeholder="t('batchImage.filters.searchTaskName')"
-                  class="w-full"
-                  @search="applyFilters"
-                />
-              </div>
-              <Select v-model="filters.apiKeyId" :options="apiKeyFilterOptions" class="w-full" @change="applyFilters" />
-              <Select v-model="filters.status" :options="statusFilterOptions" class="w-full" @change="applyFilters" />
-              <Select v-model="filters.downloaded" :options="downloadFilterOptions" class="w-full" @change="applyFilters" />
-            </div>
-            <div class="flex flex-wrap items-center justify-start gap-2 sm:justify-end xl:flex-shrink-0">
-              <button type="button" class="btn btn-secondary" :disabled="loadingJobs" @click="resetFilters">
-                {{ t('common.reset') }}
-              </button>
-              <button type="button" class="btn btn-secondary btn-icon" :disabled="loadingKeys || loadingJobs" :title="t('common.refresh')" :aria-label="t('common.refresh')" @click="refreshPage">
-                <Icon name="refresh" size="md" :class="loadingKeys || loadingJobs ? 'animate-spin' : ''" />
-              </button>
-              <button type="button" class="btn btn-secondary" @click="showGuideModal = true">
-                <Icon name="book" size="md" class="mr-2" />
-                {{ t('batchImage.actions.usageGuide') }}
-              </button>
-              <button type="button" class="btn btn-primary" @click="openCreateModal">
-                <Icon name="plus" size="md" class="mr-2" />
-                {{ t('batchImage.actions.createJob') }}
-              </button>
-            </div>
-          </div>
+    <AppPage width="full" density="compact" class="batch-image-page">
+      <AppPageHeader :title="t('nav.batchImage')" :description="t('batchImage.pageDescription')">
+        <template #actions>
+          <UiButton density="compact" @click="showGuideModal = true">
+            <template #icon><Icon name="book" size="sm" /></template>
+            {{ t('batchImage.actions.usageGuide') }}
+          </UiButton>
+          <UiButton variant="primary" density="compact" @click="openCreateModal">
+            <template #icon><Icon name="plus" size="sm" /></template>
+            {{ t('batchImage.actions.createJob') }}
+          </UiButton>
+        </template>
+      </AppPageHeader>
 
-          <div
-            v-if="selectedJobIds.size"
-            class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 px-1 pt-2 dark:border-dark-700"
+      <UiServerTableWorkspace
+        :loading="loadingKeys || loadingJobs"
+        :empty="!loadingKeys && !loadingJobs && visibleBatchJobs.length === 0"
+        :loading-text="t('common.loading')"
+        :empty-title="t('batchImage.list.empty')"
+        :empty-description="t('batchImage.list.emptyHint')"
+      >
+        <template #toolbar>
+          <UiTableToolbar>
+            <UiSearchInput
+              v-model="filters.taskName"
+              density="compact"
+              :placeholder="t('batchImage.filters.searchTaskName')"
+              :aria-label="t('batchImage.filters.searchTaskName')"
+              @search="applyFilters"
+            />
+            <template #actions>
+              <UiIconButton
+                icon="refresh"
+                density="compact"
+                :label="t('common.refresh')"
+                :disabled="loadingKeys || loadingJobs"
+                @click="refreshPage"
+              />
+            </template>
+          </UiTableToolbar>
+        </template>
+
+        <template #filters>
+          <UiFilterBar
+            :active-count="activeFilterCount"
+            :clear-label="t('common.reset')"
+            @clear="resetFilters"
           >
-            <i18n-t
-              keypath="batchImage.list.selectedJobs"
-              tag="span"
-              scope="global"
-              :plural="selectedJobIds.size"
-              class="text-sm text-gray-600 dark:text-gray-300"
-            >
-              <template #count>
-                <span class="font-medium text-gray-900 dark:text-white">{{ selectedJobIds.size }}</span>
-              </template>
-            </i18n-t>
-            <div class="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                class="btn btn-secondary btn-sm"
-                :disabled="bulkDownloading || selectedDownloadableRows.length === 0"
-                @click="downloadSelectedJobs"
-              >
-                <Icon :name="bulkDownloading ? 'refresh' : 'download'" size="sm" class="mr-1.5" :class="bulkDownloading ? 'animate-spin' : ''" />
-                {{ t('batchImage.actions.downloadSelected') }}
-              </button>
-              <button
-                type="button"
-                class="btn btn-secondary btn-sm text-red-600 hover:text-red-700 dark:text-red-400"
-                :disabled="bulkDeleting"
-                @click="deleteSelectedJobs"
-              >
-                <Icon :name="bulkDeleting ? 'refresh' : 'trash'" size="sm" class="mr-1.5" :class="bulkDeleting ? 'animate-spin' : ''" />
-                {{ t('batchImage.actions.deleteRecords') }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </template>
+            <UiSelect
+              v-model="filters.apiKeyId"
+              density="compact"
+              :aria-label="t('batchImage.columns.apiKey')"
+              :options="apiKeyFilterOptions"
+              @change="applyFilters"
+            />
+            <UiSelect
+              v-model="filters.status"
+              density="compact"
+              :aria-label="t('common.status')"
+              :options="statusFilterOptions"
+              @change="applyFilters"
+            />
+            <UiSelect
+              v-model="filters.downloaded"
+              density="compact"
+              :aria-label="t('batchImage.columns.downloadStatus')"
+              :options="downloadFilterOptions"
+              @change="applyFilters"
+            />
+          </UiFilterBar>
+        </template>
 
-      <template #table>
-        <DataTable
+        <UiBulkActionBar
+          v-if="selectedJobIds.size"
+          :selected-count="selectedJobIds.size"
+          :all-selected="allVisibleSelected"
+          :indeterminate="someVisibleSelected"
+          :selection-label="t('batchImage.list.selectedJobs', { count: selectedJobIds.size }, selectedJobIds.size)"
+          @clear="selectedJobIds = new Set()"
+          @toggle-all="toggleAllVisible"
+        >
+          <UiButton
+            density="dense"
+            :loading="bulkDownloading"
+            :disabled="selectedDownloadableRows.length === 0"
+            @click="downloadSelectedJobs"
+          >
+            <template #icon><Icon name="download" size="sm" /></template>
+            {{ t('batchImage.actions.downloadSelected') }}
+          </UiButton>
+          <UiButton
+            variant="danger"
+            density="dense"
+            :loading="bulkDeleting"
+            @click="requestDeleteSelectedJobs"
+          >
+            <template #icon><Icon name="trash" size="sm" /></template>
+            {{ t('batchImage.actions.deleteRecords') }}
+          </UiButton>
+        </UiBulkActionBar>
+
+        <UiDataTable
           :columns="columns"
           :data="visibleBatchJobs"
           :loading="loadingKeys || loadingJobs"
+          :aria-label="t('nav.batchImage')"
           :expandable-actions="false"
-          mobile-table
           row-key="id"
+          mobile-table
         >
           <template #header-select>
-            <input
-              type="checkbox"
-              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              :checked="allVisibleSelected"
+            <UiCheckbox
+              :model-value="allVisibleSelected"
               :indeterminate="someVisibleSelected"
-              @change="toggleAllVisible(($event.target as HTMLInputElement).checked)"
+              :aria-label="t('batchImage.list.selectAll')"
+              @update:model-value="toggleAllVisible"
             />
           </template>
 
           <template #cell-select="{ row }">
-            <input
-              type="checkbox"
-              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              :checked="selectedJobIds.has(row.id)"
-              @change="toggleJobSelection(row.id, ($event.target as HTMLInputElement).checked)"
+            <UiCheckbox
+              :model-value="selectedJobIds.has(row.id)"
+              :aria-label="t('batchImage.list.selectJob', { name: row.task_name || row.id })"
+              @update:model-value="checked => toggleJobSelection(row.id, checked)"
               @click.stop
             />
           </template>
 
           <template #cell-id="{ row }">
-	            <div class="flex w-[184px] items-start gap-1" :class="row.is_child ? 'pl-5' : ''">
-	              <button
-	                v-if="row.child_count > 0 && !row.is_child"
-	                type="button"
-	                class="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-[3px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:text-gray-400 dark:hover:bg-dark-700 dark:hover:text-white"
-	                :title="expandedParentIds.has(row.id) ? t('batchImage.list.collapseChildren') : t('batchImage.list.expandChildren', { n: row.child_count }, row.child_count)"
-	                @click.stop="toggleChildRows(row.id)"
-	              >
-	                <Icon :name="expandedParentIds.has(row.id) ? 'chevronDown' : 'chevronRight'" size="xs" />
-	              </button>
-	              <span v-else class="w-6 flex-shrink-0" />
-	              <button type="button" class="min-w-0 flex-1 rounded-[3px] py-1 text-left transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:hover:bg-dark-700" @click="selectJob(row.id)">
-	                <span
-	                  class="flex min-w-0 items-center gap-2 text-sm font-medium"
-	                  :class="row.task_name ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'"
-                >
-                  <span class="min-w-0 truncate">{{ row.task_name || defaultTaskName(row.created_at) }}</span>
-                  <span v-if="row.child_count > 0 && !row.is_child" class="flex-shrink-0 rounded-[3px] bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600 dark:bg-dark-700 dark:text-gray-300">
-                    {{ t('batchImage.list.childCount', { n: row.child_count }, row.child_count) }}
-                  </span>
-                  <span v-if="row.is_child" class="flex-shrink-0 rounded-[3px] bg-amber-50 px-2 py-0.5 text-xs font-normal text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-                    {{ t('batchImage.list.childBadge') }}
-                  </span>
-	                </span>
-	                <span class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-	                  <span>{{ formatDate(row.created_at) }}</span>
-	                </span>
-	              </button>
-	            </div>
-	          </template>
+            <div class="batch-job-name" :class="{ 'batch-job-name--child': row.is_child }">
+              <UiIconButton
+                v-if="row.child_count > 0 && !row.is_child"
+                variant="ghost"
+                density="mini"
+                :icon="expandedParentIds.has(row.id) ? 'chevronDown' : 'chevronRight'"
+                :label="expandedParentIds.has(row.id) ? t('batchImage.list.collapseChildren') : t('batchImage.list.expandChildren', { n: row.child_count }, row.child_count)"
+                @click.stop="toggleChildRows(row.id)"
+              />
+              <span v-else class="batch-job-name__indent" aria-hidden="true" />
+              <button type="button" class="batch-job-name__button" @click="selectJob(row.id)">
+                <span class="batch-job-name__title">
+                  <span :title="row.task_name || defaultTaskName(row.created_at)">{{ row.task_name || defaultTaskName(row.created_at) }}</span>
+                  <UiBadge v-if="row.child_count > 0 && !row.is_child" :label="t('batchImage.list.childCount', { n: row.child_count }, row.child_count)" />
+                  <UiBadge v-if="row.is_child" tone="warning" :label="t('batchImage.list.childBadge')" />
+                </span>
+                <time :datetime="new Date(row.created_at * 1000).toISOString()">{{ formatDate(row.created_at) }}</time>
+              </button>
+            </div>
+          </template>
 
           <template #cell-model="{ row }">
-	            <div class="mx-auto max-w-[140px] text-center">
-	              <p class="truncate text-sm text-gray-700 dark:text-gray-300" :title="row.model">{{ row.model }}</p>
-	            </div>
-	          </template>
+            <span class="batch-cell-ellipsis" :title="row.model">{{ row.model }}</span>
+          </template>
 
           <template #cell-api_key_name="{ value }">
-            <span class="block max-w-[130px] truncate text-center text-sm text-gray-700 dark:text-gray-300" :title="value || t('batchImage.list.keyNotRecorded')">
+            <span class="batch-cell-ellipsis" :title="value || t('batchImage.list.keyNotRecorded')">
               {{ value || t('batchImage.list.keyNotRecorded') }}
             </span>
           </template>
 
           <template #cell-status="{ row }">
-            <div class="flex justify-center">
-              <span :class="statusBadgeClass(displayJob(row))" class="badge">
-                {{ statusLabel(displayJob(row)) }}
-              </span>
-            </div>
+            <UiBadge :tone="statusTone(displayJob(row))" :label="statusLabel(displayJob(row))" dot />
           </template>
 
           <template #cell-counts="{ row }">
-            <div class="flex items-center justify-center gap-2 text-sm tabular-nums">
-              <span class="text-emerald-600 dark:text-emerald-300">{{ displayJob(row).success_count }}</span>
-              <span class="text-gray-300 dark:text-dark-500">/</span>
-              <span :class="displayJob(row).fail_count > 0 ? 'text-red-600 dark:text-red-300' : 'text-gray-400 dark:text-gray-500'">{{ displayJob(row).fail_count }}</span>
-              <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('batchImage.list.totalCount', { n: displayJob(row).item_count }) }}</span>
-            </div>
+            <span class="batch-result-count ui-numeric">
+              <strong class="is-success">{{ displayJob(row).success_count }}</strong>
+              <span>/</span>
+              <strong :class="{ 'is-danger': displayJob(row).fail_count > 0 }">{{ displayJob(row).fail_count }}</strong>
+              <small>{{ t('batchImage.list.totalCount', { n: displayJob(row).item_count }) }}</small>
+            </span>
           </template>
 
           <template #cell-cost="{ row }">
-            <span class="block max-w-[100px] truncate text-center text-sm text-gray-700 dark:text-gray-300" :title="costLabel(displayJob(row))">
-              {{ costLabel(displayJob(row)) }}
-            </span>
+            <span class="batch-cell-ellipsis ui-numeric" :title="costLabel(displayJob(row))">{{ costLabel(displayJob(row)) }}</span>
           </template>
 
           <template #cell-downloaded="{ row }">
-            <span class="block max-w-[120px] truncate text-center text-sm" :title="row.downloaded_at ? formatDate(row.downloaded_at) : t('batchImage.list.notDownloaded')" :class="row.downloaded_at ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-500 dark:text-gray-400'">
-              {{ row.downloaded_at ? formatDate(row.downloaded_at) : t('batchImage.list.notDownloaded') }}
-            </span>
+            <UiStatusBadge
+              :status="row.downloaded_at ? 'success' : 'pending'"
+              :label="row.downloaded_at ? formatDate(row.downloaded_at) : t('batchImage.list.notDownloaded')"
+            />
           </template>
 
-	          <template #cell-actions="{ row }">
-	            <div class="flex items-center justify-center gap-1">
-              <button
-                type="button"
-                class="batch-row-action inline-flex h-7 w-7 items-center justify-center rounded-[3px] text-gray-500 transition-colors hover:bg-primary-50 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:hover:bg-primary-900/20 dark:hover:text-primary-400"
-                :title="t('batchImage.actions.viewDetail')"
+          <template #cell-actions="{ row }">
+            <div class="batch-row-actions">
+              <UiIconButton
+                variant="ghost"
+                density="dense"
+                icon="eye"
+                :label="t('batchImage.actions.viewDetail')"
                 @click="selectJob(row.id)"
-              >
-                <Icon name="eye" size="sm" />
-                <span class="sr-only">{{ t('common.view') }}</span>
-              </button>
-              <button
-                type="button"
-                class="batch-row-action inline-flex h-7 w-7 items-center justify-center rounded-[3px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30"
-                :class="canDownload(row) ? 'text-gray-500 hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20 dark:hover:text-green-400' : 'text-gray-300 dark:text-dark-500'"
+              />
+              <UiIconButton
+                variant="ghost"
+                density="dense"
+                icon="download"
+                :label="t('batchImage.actions.downloadZip')"
                 :disabled="!canDownload(row) || downloading"
-                :title="t('batchImage.actions.downloadZip')"
                 @click="downloadJob(row)"
-              >
-                <Icon
-                  :name="isDownloadingJob(row.id) ? 'refresh' : 'download'"
-	                  size="sm"
-	                  :class="isDownloadingJob(row.id) ? 'animate-spin' : ''"
-	                />
-                <span class="sr-only">{{ t('batchImage.actions.download') }}</span>
-	              </button>
-              <div v-if="canRetry(row) || canDeleteRecord(row)">
-                <button
-                  type="button"
-                  class="batch-row-action inline-flex h-7 w-7 items-center justify-center rounded-[3px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:hover:bg-dark-700 dark:hover:text-white"
-                  :class="{ 'bg-gray-100 text-gray-900 dark:bg-dark-700 dark:text-white': openMoreJobId === row.id }"
-                  :title="t('batchImage.actions.moreActions')"
-                  @click.stop="toggleMoreMenu(row, $event)"
-                >
-                  <Icon name="more" size="sm" />
-                  <span class="sr-only">{{ t('common.more') }}</span>
-                </button>
-              </div>
-	            </div>
-	          </template>
-
-          <template #empty>
-            <div class="flex min-h-[200px] flex-col items-center justify-center py-6 md:min-h-[220px]">
-              <Icon name="sparkles" size="xl" class="mb-4 h-12 w-12 text-gray-400 dark:text-dark-500" />
-              <p class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ t('batchImage.list.empty') }}</p>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ t('batchImage.list.emptyHint') }}
-              </p>
+              />
+              <UiIconButton
+                v-if="canRetry(row)"
+                variant="ghost"
+                density="dense"
+                icon="refresh"
+                :label="t('batchImage.actions.retryFailedItems')"
+                :disabled="retryingBatchId === row.id"
+                @click="retryFailedJob(row)"
+              />
+              <UiIconButton
+                v-if="canDeleteRecord(row)"
+                variant="danger"
+                density="dense"
+                icon="trash"
+                :label="t('batchImage.actions.deleteRecords')"
+                :disabled="deletingBatchId === row.id"
+                @click="requestDeleteJob(row)"
+              />
             </div>
           </template>
-        </DataTable>
-      </template>
+        </UiDataTable>
 
-      <template #pagination>
-        <div
-          v-if="visibleBatchJobs.length > 0 || pagination.page > 1"
-          class="flex flex-col gap-2 border-t border-gray-200 bg-white px-3 py-2 dark:border-dark-700 dark:bg-dark-800 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div class="flex flex-wrap items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
-            <i18n-t keypath="batchImage.pagination.pageNumber" tag="span" scope="global">
-              <template #page>
-                <span class="font-medium">{{ pagination.page }}</span>
-              </template>
-            </i18n-t>
-            <i18n-t keypath="batchImage.pagination.pageItems" tag="span" scope="global">
-              <template #count>
-                <span class="font-medium">{{ visibleBatchJobs.length }}</span>
-              </template>
-            </i18n-t>
-            <div class="flex items-center gap-2">
-              <span>{{ t('pagination.perPage') }}</span>
-              <Select
-                v-model="pagination.page_size"
+        <template #pagination>
+          <div v-if="visibleBatchJobs.length > 0 || pagination.page > 1" class="batch-pagination">
+            <div class="batch-pagination__summary">
+              <span>{{ t('batchImage.pagination.pageNumber', { page: pagination.page }) }}</span>
+              <span>{{ t('batchImage.pagination.pageItems', { count: visibleBatchJobs.length }) }}</span>
+              <UiSelect
+                :model-value="pagination.page_size"
+                density="dense"
+                :aria-label="t('pagination.perPage')"
                 :options="batchPageSizeOptions"
-                class="w-24"
                 @change="handlePageSizeChange"
               />
             </div>
+            <div class="batch-pagination__actions">
+              <UiButton density="dense" :disabled="pagination.page <= 1 || loadingJobs" @click="handlePageChange(pagination.page - 1)">
+                <template #icon><Icon name="chevronLeft" size="sm" /></template>
+                {{ t('pagination.previous') }}
+              </UiButton>
+              <UiButton density="dense" :disabled="!pagination.has_more || loadingJobs" @click="handlePageChange(pagination.page + 1)">
+                {{ t('pagination.next') }}
+                <template #icon><Icon name="chevronRight" size="sm" /></template>
+              </UiButton>
+            </div>
           </div>
-          <div class="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              class="btn btn-secondary btn-sm"
-              :disabled="pagination.page <= 1 || loadingJobs"
-              @click="handlePageChange(pagination.page - 1)"
-            >
-              <Icon name="chevronLeft" size="sm" class="mr-1" />
-              {{ t('pagination.previous') }}
-            </button>
-            <button
-              type="button"
-              class="btn btn-secondary btn-sm"
-              :disabled="!pagination.has_more || loadingJobs"
-              @click="handlePageChange(pagination.page + 1)"
-            >
-              {{ t('pagination.next') }}
-              <Icon name="chevronRight" size="sm" class="ml-1" />
-            </button>
-          </div>
-        </div>
-      </template>
-    </TablePageLayout>
-
-    <Teleport to="body">
-      <div
-        v-if="openMoreJobId"
-        class="fixed z-[9999] w-44 overflow-hidden rounded-[4px] bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 dark:bg-dark-800 dark:ring-white/10"
-        :style="moreMenuStyle"
-        @click.stop
-      >
-        <template v-for="job in batchJobs" :key="job.id">
-          <template v-if="job.id === openMoreJobId">
-            <button
-              v-if="canRetry(job)"
-              type="button"
-              class="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 transition-colors hover:bg-amber-50 hover:text-amber-700 disabled:opacity-60 dark:text-gray-200 dark:hover:bg-amber-900/20 dark:hover:text-amber-300"
-              :disabled="retryingBatchId === job.id"
-              @click="retryFailedJob(job)"
-            >
-              <Icon name="refresh" size="sm" :class="retryingBatchId === job.id ? 'animate-spin' : ''" />
-              {{ t('batchImage.actions.retryFailedItems') }}
-            </button>
-            <button
-              v-if="canDeleteRecord(job)"
-              type="button"
-              class="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60 dark:text-red-400 dark:hover:bg-red-900/20"
-              :disabled="deletingBatchId === job.id"
-              @click="deleteJob(job)"
-            >
-              <Icon :name="deletingBatchId === job.id ? 'refresh' : 'trash'" size="sm" :class="deletingBatchId === job.id ? 'animate-spin' : ''" />
-              {{ t('batchImage.actions.deleteRecords') }}
-            </button>
-          </template>
         </template>
-      </div>
-    </Teleport>
+      </UiServerTableWorkspace>
+    </AppPage>
 
-    <Teleport to="body">
-      <div
-        v-if="promptPopover.visible"
-        class="batch-prompt-popover fixed z-[9999] rounded-[4px] border border-gray-200 bg-white p-3 text-sm text-gray-800 shadow-xl ring-1 ring-black/5 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-100 dark:ring-white/10"
-        :style="promptPopover.style"
-        @mouseenter="cancelPromptPopoverClose"
-        @mouseleave="schedulePromptPopoverClose"
-      >
-        <div class="mb-2 flex items-center justify-between gap-3">
-          <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('batchImage.promptPopover.title') }}</span>
-          <button
-            type="button"
-            class="rounded-[3px] px-2 py-1 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:text-primary-300 dark:hover:bg-primary-900/20"
-            @click="copyPromptPopover"
-          >
-            {{ t('common.copy') }}
-          </button>
-        </div>
-        <p class="max-h-48 overflow-y-auto whitespace-pre-wrap break-words leading-6 selection:bg-primary-100 selection:text-primary-900 dark:selection:bg-primary-900/60 dark:selection:text-primary-100">
-          {{ promptPopover.text }}
-        </p>
-      </div>
-    </Teleport>
-
-    <BaseDialog :show="!!currentJob" :title="t('batchImage.detail.title')" width="extra-wide" @close="closeDetail">
-      <div v-if="currentJob" class="space-y-4">
-        <div class="flex flex-col gap-2 border-b border-gray-100 pb-3 sm:flex-row sm:items-center sm:justify-between dark:border-dark-700">
-          <div class="min-w-0">
-            <p class="truncate text-sm font-semibold text-gray-900 dark:text-white" :title="currentJob.task_name || currentJob.id">
-              {{ currentJob.task_name || defaultTaskName(currentJob.created_at) }}
-            </p>
-            <p class="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400" :title="currentJob.id">{{ currentJob.id }}</p>
+    <UiDialog :show="!!currentJob" :title="t('batchImage.detail.title')" width="extra-wide" @close="closeDetail">
+      <div v-if="currentJob" class="batch-detail">
+        <header class="batch-detail__header">
+          <div>
+            <strong :title="currentJob.task_name || currentJob.id">{{ currentJob.task_name || defaultTaskName(currentJob.created_at) }}</strong>
+            <span class="ui-mono" :title="currentJob.id">{{ currentJob.id }}</span>
           </div>
-          <div class="flex flex-wrap items-center gap-2 text-xs">
-            <span class="rounded-[3px] border border-gray-200 bg-gray-50 px-2 py-1 text-gray-700 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-300">{{ currentJob.provider }}</span>
-            <span class="max-w-[260px] truncate rounded-[3px] border border-primary-100 bg-primary-50 px-2 py-1 font-medium text-primary-700 dark:border-primary-900 dark:bg-primary-950/20 dark:text-primary-300" :title="currentJob.model">{{ currentJob.model }}</span>
+          <div>
+            <UiBadge :label="currentJob.provider" />
+            <UiBadge tone="info" :label="currentJob.model" />
           </div>
+        </header>
+
+        <div class="batch-detail__metrics">
+          <UiStatMetric :label="t('common.status')" :value="statusLabel(currentDisplayJob || currentJob)">
+            <template #status><UiBadge :tone="statusTone(currentDisplayJob || currentJob)" dot /></template>
+          </UiStatMetric>
+          <UiStatMetric
+            :label="hasChildJobs(currentJob.id) ? t('batchImage.detail.aggregatedResult') : t('batchImage.detail.result')"
+            :value="`${(currentDisplayJob || currentJob).success_count} / ${(currentDisplayJob || currentJob).fail_count}`"
+          />
+          <UiStatMetric :label="t('batchImage.detail.cost')" :value="costLabel(currentDisplayJob || currentJob)" />
+          <UiStatMetric
+            :label="t('batchImage.detail.downloadStatus')"
+            :value="currentJob.downloaded_at ? formatDate(currentJob.downloaded_at) : t('batchImage.list.notDownloaded')"
+          />
         </div>
 
-        <div class="border-b border-gray-100 pb-3 dark:border-dark-700">
-          <div class="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div class="min-w-0 text-center">
-              <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('common.status') }}</p>
-              <div class="mt-1 flex justify-center">
-                <span :class="statusBadgeClass(currentDisplayJob || currentJob)" class="badge whitespace-nowrap">
-                  {{ statusLabel(currentDisplayJob || currentJob) }}
-                </span>
-              </div>
-            </div>
-            <div class="min-w-0 text-center">
-              <p class="text-xs text-gray-500 dark:text-gray-400">{{ hasChildJobs(currentJob.id) ? t('batchImage.detail.aggregatedResult') : t('batchImage.detail.result') }}</p>
-              <p class="mt-1 flex items-center justify-center gap-2 font-medium tabular-nums">
-              <span class="text-emerald-600 dark:text-emerald-300">{{ (currentDisplayJob || currentJob).success_count }}</span>
-              <span class="text-gray-300 dark:text-dark-500">/</span>
-              <span :class="(currentDisplayJob || currentJob).fail_count > 0 ? 'text-red-600 dark:text-red-300' : 'text-gray-400 dark:text-gray-500'">{{ (currentDisplayJob || currentJob).fail_count }}</span>
-            </p>
-            </div>
-            <div class="min-w-0 text-center">
-              <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('batchImage.detail.cost') }}</p>
-              <p class="mt-1 truncate font-medium text-gray-900 dark:text-white">{{ costLabel(currentDisplayJob || currentJob) }}</p>
-            </div>
-            <div class="min-w-0 text-center">
-              <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('batchImage.detail.downloadStatus') }}</p>
-              <p class="mt-1 truncate font-medium text-gray-900 dark:text-white">
-              {{ currentJob.downloaded_at ? formatDate(currentJob.downloaded_at) : t('batchImage.list.notDownloaded') }}
-            </p>
-            </div>
-          </div>
-        </div>
+        <UiAlert
+          v-if="detailFailedItems.length"
+          tone="danger"
+          :title="`${t('batchImage.status.failed')} · ${detailFailedItems.length}`"
+          :message="detailFailedItems[0]?.error?.message || ''"
+        />
 
-        <div v-if="detailFailedItems.length" class="rounded-[4px] border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/20 dark:text-red-300">
-          <div class="flex items-start gap-2">
-            <Icon name="exclamationCircle" size="sm" class="mt-0.5 shrink-0" />
-            <div class="min-w-0">
-              <p class="font-medium">{{ t('batchImage.status.failed') }} · {{ detailFailedItems.length }}</p>
-              <p v-if="detailFailedItems[0]?.error?.message" class="mt-0.5 line-clamp-2 text-xs">{{ detailFailedItems[0].error?.message }}</p>
-            </div>
-          </div>
-        </div>
+        <AppSection :title="t('batchImage.detail.items')" divided>
+          <template #actions>
+            <UiButton density="dense" :loading="refreshing || loadingItems" @click="refreshDetail">
+              <template #icon><Icon name="refresh" size="sm" /></template>
+              {{ t('common.refresh') }}
+            </UiButton>
+          </template>
 
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('batchImage.detail.items') }}</h3>
-          <button type="button" class="btn btn-secondary btn-sm" :disabled="refreshing || loadingItems" @click="refreshDetail">
-            <Icon name="refresh" size="sm" class="mr-1.5" :class="refreshing || loadingItems ? 'animate-spin' : ''" />
-            {{ t('common.refresh') }}
-          </button>
-        </div>
-
-        <div v-if="items.length" class="overflow-x-auto rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900">
-          <table class="w-full min-w-[860px] table-fixed divide-y divide-gray-200 text-sm dark:divide-dark-700">
-            <colgroup>
-              <col class="w-[18%]" />
-              <col class="w-[34%]" />
-              <col class="w-[12%]" />
-              <col class="w-[10%]" />
-              <col class="w-[26%]" />
-            </colgroup>
-            <thead class="bg-gray-50 dark:bg-dark-800/80">
-              <tr>
-                <th class="px-3 py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400">Custom ID</th>
-                <th class="px-3 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Prompt</th>
-                <th class="px-3 py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('common.status') }}</th>
-                <th class="px-3 py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('batchImage.detail.preview') }}</th>
-                <th class="px-3 py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('batchImage.detail.result') }}</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100 dark:divide-dark-700">
-              <tr
-                v-for="item in items"
-                :key="itemPreviewKey(item)"
-                class="align-middle"
-                :class="detailItemRowClass(item)"
-              >
-                <td class="px-3 py-2.5 text-center">
-                  <span
-                    class="block min-w-0 truncate font-mono text-sm"
-                    :class="isRecoveredOriginalFailure(item) ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'"
-                    :title="item.custom_id"
-                  >
-                    {{ item.custom_id }}
-                  </span>
-                </td>
-                <td class="px-3 py-2.5 text-left" :class="isRecoveredOriginalFailure(item) ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300'">
-                  <div
-                    class="batch-prompt-trigger cursor-default truncate rounded px-1 text-sm leading-6 focus:outline-none"
-                    tabindex="0"
-                    @pointerenter="schedulePromptPopoverOpen($event, item.prompt_preview || '-')"
-                    @pointerleave="schedulePromptPopoverClose"
-                    @mouseenter="schedulePromptPopoverOpen($event, item.prompt_preview || '-')"
-                    @mouseleave="schedulePromptPopoverClose"
-                    @click="showPromptPopover($event, item.prompt_preview || '-')"
-                    @focus="showPromptPopover($event, item.prompt_preview || '-')"
-                    @focusin="showPromptPopover($event, item.prompt_preview || '-')"
-                    @blur="schedulePromptPopoverClose"
-                  >
-                    {{ item.prompt_preview || '-' }}
-                  </div>
-                </td>
-                <td class="px-3 py-2.5 text-center">
-                  <span :class="itemDisplayStatusBadgeClass(item)" class="badge max-w-full truncate whitespace-nowrap" :title="itemDisplayStatusLabel(item)">
-                    {{ itemDisplayStatusLabel(item) }}
-                  </span>
-                </td>
-                <td class="px-3 py-2.5 text-center">
-                  <div class="mx-auto h-12 w-12 overflow-hidden rounded-[3px] border border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-800">
+          <UiMobileTableScroller v-if="items.length" :label="t('batchImage.detail.items')" min-width="920px">
+            <table class="batch-detail-table">
+              <thead>
+                <tr>
+                  <th>Custom ID</th>
+                  <th>Prompt</th>
+                  <th>{{ t('common.status') }}</th>
+                  <th>{{ t('batchImage.detail.preview') }}</th>
+                  <th>{{ t('batchImage.detail.result') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in items" :key="itemPreviewKey(item)" :class="{ 'is-recovered': isRecoveredOriginalFailure(item) }">
+                  <td><span class="ui-mono" :title="item.custom_id">{{ item.custom_id }}</span></td>
+                  <td>
+                    <UiTooltip :content="item.prompt_preview || '-'">
+                      <span class="batch-prompt-cell" tabindex="0">{{ item.prompt_preview || '-' }}</span>
+                    </UiTooltip>
+                  </td>
+                  <td><UiBadge :tone="itemStatusTone(item)" :label="itemDisplayStatusLabel(item)" dot /></td>
+                  <td>
                     <button
                       v-if="itemPreviewUrls[itemPreviewKey(item)] && !previewErrorIds.has(itemPreviewKey(item))"
                       type="button"
-                      class="block h-full w-full overflow-hidden"
+                      class="batch-thumbnail"
                       :title="t('batchImage.detail.previewZoom', { id: item.custom_id })"
                       @click="openImagePreview(item)"
                     >
-                      <img
-                        :src="itemPreviewUrls[itemPreviewKey(item)]"
-                        class="h-full w-full object-cover"
-                        alt=""
-                        @error="handlePreviewError(itemPreviewKey(item))"
-                      />
+                      <img :src="itemPreviewUrls[itemPreviewKey(item)]" alt="" draggable="false" @error="handlePreviewError(itemPreviewKey(item))" />
                     </button>
-                    <button
+                    <UiIconButton
                       v-else-if="canLoadItemPreview(item)"
-                      type="button"
-                      class="flex h-full w-full items-center justify-center text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 disabled:cursor-wait disabled:opacity-70 dark:text-gray-400 dark:hover:bg-dark-700"
+                      variant="ghost"
+                      density="dense"
+                      :icon="previewLoadingIds.has(itemPreviewKey(item)) ? 'refresh' : 'eye'"
+                      :label="previewErrorIds.has(itemPreviewKey(item)) ? t('batchImage.detail.previewReload') : t('batchImage.detail.previewLoad')"
                       :disabled="previewLoadingIds.has(itemPreviewKey(item))"
-                      :title="previewErrorIds.has(itemPreviewKey(item)) ? t('batchImage.detail.previewReload') : t('batchImage.detail.previewLoad')"
                       @click="loadItemPreview(item)"
-                    >
-                      <Icon :name="previewLoadingIds.has(itemPreviewKey(item)) ? 'refresh' : 'eye'" size="sm" :class="previewLoadingIds.has(itemPreviewKey(item)) ? 'animate-spin' : ''" />
-                    </button>
-                    <div v-else class="flex h-full w-full items-center justify-center text-gray-400" :title="item.image_count > 0 ? t('batchImage.detail.previewUnavailable') : t('batchImage.detail.noImage')">
+                    />
+                    <span v-else class="batch-preview-unavailable" :title="item.image_count > 0 ? t('batchImage.detail.previewUnavailable') : t('batchImage.detail.noImage')">
                       <Icon name="document" size="sm" />
-                    </div>
-                  </div>
-                </td>
-                <td class="px-3 py-2.5 text-center">
-                  <span
-                    class="inline-flex max-w-full items-center justify-center truncate rounded-[3px] px-2.5 py-1 text-xs font-medium leading-5 ring-1 ring-inset"
-                    :class="itemResultClass(item)"
-                    :title="itemResultLabel(item)"
-                  >
-                    {{ itemResultLabel(item) }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div v-else class="rounded-[4px] border border-dashed border-gray-200 py-10 text-center dark:border-dark-700">
-          <Icon name="refresh" size="lg" class="mx-auto mb-3 text-gray-400" :class="loadingItems ? 'animate-spin' : ''" />
-          <p class="text-sm font-medium text-gray-700 dark:text-gray-200">
-            {{ loadingItems ? t('batchImage.detail.loadingItems') : t('batchImage.detail.noItems') }}
-          </p>
-          <p v-if="!loadingItems" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {{ t('batchImage.detail.noItemsHint') }}
-          </p>
-        </div>
+                    </span>
+                  </td>
+                  <td><UiBadge :tone="itemResultTone(item)" :label="itemResultLabel(item)" /></td>
+                </tr>
+              </tbody>
+            </table>
+          </UiMobileTableScroller>
+          <UiEmptyState
+            v-else
+            :icon="loadingItems ? 'refresh' : 'inbox'"
+            :title="loadingItems ? t('batchImage.detail.loadingItems') : t('batchImage.detail.noItems')"
+            :description="loadingItems ? undefined : t('batchImage.detail.noItemsHint')"
+          />
+        </AppSection>
       </div>
 
       <template #footer>
-        <div class="flex justify-end gap-3">
-	          <button type="button" class="btn btn-secondary" :disabled="!currentJob || !canCancel(currentJob) || cancelling" @click="cancelSelected">
-	            <Icon v-if="cancelling" name="refresh" size="sm" class="mr-2 animate-spin" />
-	            {{ t('batchImage.actions.cancelJob') }}
-	          </button>
-	          <button
-	            v-if="currentJob && currentDisplayJob && canRetry(currentDisplayJob)"
-	            type="button"
-	            class="btn btn-secondary inline-flex min-w-[116px] items-center justify-center"
-	            :disabled="retryingBatchId === currentJob.id"
-	            @click="retrySelected"
-	          >
-	            <Icon name="refresh" size="sm" class="mr-2" :class="currentJob && retryingBatchId === currentJob.id ? 'animate-spin' : ''" />
-	            {{ t('batchImage.actions.retryFailedItems') }}
-	          </button>
-	          <button
-            type="button"
-            class="btn btn-primary inline-flex min-w-[112px] items-center justify-center"
-            :disabled="!currentJob || !canDownload(currentJob) || downloading"
+        <div class="batch-dialog-actions">
+          <UiButton
+            :disabled="!currentJob || !canCancel(currentJob)"
+            :loading="cancelling"
+            @click="requestCancelSelected"
+          >
+            {{ t('batchImage.actions.cancelJob') }}
+          </UiButton>
+          <UiButton
+            v-if="currentJob && currentDisplayJob && canRetry(currentDisplayJob)"
+            :loading="retryingBatchId === currentJob.id"
+            @click="retrySelected"
+          >
+            <template #icon><Icon name="refresh" size="sm" /></template>
+            {{ t('batchImage.actions.retryFailedItems') }}
+          </UiButton>
+          <UiButton
+            variant="primary"
+            :disabled="!currentJob || !canDownload(currentJob)"
+            :loading="downloading"
             @click="downloadSelected"
           >
-            <Icon
-              :name="currentJob && isDownloadingJob(currentJob.id) ? 'refresh' : 'download'"
-              size="sm"
-              class="mr-2"
-              :class="currentJob && isDownloadingJob(currentJob.id) ? 'animate-spin' : ''"
-            />
+            <template #icon><Icon name="download" size="sm" /></template>
             {{ t('batchImage.actions.downloadZip') }}
-          </button>
+          </UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
-    <BaseDialog :show="!!previewImageItem" :title="previewImageItem?.custom_id || t('batchImage.imagePreview.title')" width="extra-wide" :z-index="60" @close="closeImagePreview">
-      <div class="space-y-3">
-        <div class="rounded-[4px] border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
-          {{ t('batchImage.imagePreview.notice') }}
-        </div>
-        <div class="flex min-h-[420px] items-center justify-center rounded-[4px] bg-gray-50 p-4 dark:bg-dark-900">
-          <img
-            v-if="previewImageUrl"
-            :src="previewImageUrl"
-            class="max-h-[70vh] max-w-full rounded-[3px] object-contain"
-            :alt="previewImageItem?.custom_id || ''"
+    <UiImagePreview
+      :show="!!previewImageItem"
+      :src="previewImageUrl"
+      :alt="previewImageItem?.custom_id || t('batchImage.imagePreview.title')"
+      :filename="previewImageItem?.custom_id || 'batch-image-preview'"
+      @close="closeImagePreview"
+    />
+
+    <UiDialog :show="showCreateModal" :title="t('batchImage.create.title')" width="extra-wide" @close="closeCreateModal">
+      <form class="batch-create" @submit.prevent="submitJob">
+        <section class="batch-create__settings">
+          <UiTextField
+            v-model="form.taskName"
+            density="compact"
+            :label="t('batchImage.create.taskName')"
+            :placeholder="t('batchImage.create.taskNamePlaceholder')"
+            :maxlength="255"
           />
-        </div>
-      </div>
-    </BaseDialog>
-
-    <BaseDialog :show="showCreateModal" :title="t('batchImage.create.title')" width="wide" @close="closeCreateModal">
-      <form class="grid items-start gap-4 lg:grid-cols-[minmax(260px,0.72fr)_minmax(0,1.28fr)]" @submit.prevent="submitJob">
-        <section class="space-y-3 border-b border-gray-100 pb-4 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4 dark:border-dark-700">
-          <div>
-            <label class="input-label">{{ t('batchImage.create.taskName') }}</label>
-            <input
-              v-model="form.taskName"
-              type="text"
-              maxlength="255"
-              class="input"
-              :placeholder="t('batchImage.create.taskNamePlaceholder')"
-            />
-          </div>
-
-          <div>
-            <label class="input-label">API Key</label>
-            <select v-model.number="form.apiKeyId" class="input" :disabled="loadingKeys">
-              <option :value="0">{{ loadingKeys ? t('batchImage.create.loadingKeys') : t('batchImage.create.selectKeyPlaceholder') }}</option>
-              <option v-for="key in geminiApiKeys" :key="key.id" :value="key.id">
-                {{ key.name }} · {{ key.group?.name || 'Gemini' }}
-              </option>
-            </select>
-            <p v-if="!loadingKeys && geminiApiKeys.length === 0" class="input-hint text-amber-600 dark:text-amber-400">
-              {{ t('batchImage.create.noKeysHint') }}
-            </p>
-          </div>
-
-          <div>
-            <label class="input-label">{{ t('batchImage.create.model') }}</label>
-            <select v-model="form.model" class="input" :disabled="loadingModels || availableBatchImageModels.length === 0">
-              <option v-if="loadingModels" value="">{{ batchImageText('loadingModels') }}</option>
-              <option v-else-if="availableBatchImageModels.length === 0" value="">{{ batchImageText('noModels') }}</option>
-              <option v-for="model in availableBatchImageModels" :key="model.value" :value="model.value">
-                {{ model.label }}
-              </option>
-            </select>
-            <p v-if="modelLoadError" class="input-hint text-amber-600 dark:text-amber-400">
-              {{ modelLoadError }}
-            </p>
-            <p v-else-if="selectedApiKey && !loadingModels && availableBatchImageModels.length === 0" class="input-hint text-amber-600 dark:text-amber-400">
-              {{ batchImageText('noModelsHint') }}
-            </p>
-          </div>
-
-          <div>
-            <label class="input-label">{{ t('batchImage.create.imageSize') }}</label>
-            <div class="input flex items-center bg-gray-50 text-gray-600 dark:bg-dark-900 dark:text-gray-300">
-              1K
-            </div>
-            <p class="input-hint">{{ t('batchImage.create.imageSizeHint') }}</p>
-          </div>
-
-          <div>
-            <label class="input-label">{{ t('batchImage.create.outputFormat') }}</label>
-            <select v-model="form.responseMimeType" class="input">
-              <option value="image/png">PNG</option>
-              <option value="image/jpeg">JPEG</option>
-              <option value="image/webp">WebP</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="input-label">{{ t('batchImage.create.estimatedOutput') }}</label>
-            <div class="input flex items-center bg-gray-50 text-gray-600 dark:bg-dark-900 dark:text-gray-300">
-              {{ t('batchImage.create.estimatedOutputValue', { images: estimatedOutputCount, prompts: promptRows.length }) }}
-            </div>
-          </div>
+          <UiSelect
+            :model-value="form.apiKeyId"
+            density="compact"
+            label="API Key"
+            :placeholder="loadingKeys ? t('batchImage.create.loadingKeys') : t('batchImage.create.selectKeyPlaceholder')"
+            :options="createApiKeyOptions"
+            :disabled="loadingKeys"
+            :description="!loadingKeys && geminiApiKeys.length === 0 ? t('batchImage.create.noKeysHint') : undefined"
+            @change="value => form.apiKeyId = Number(value || 0)"
+          />
+          <UiSelect
+            v-model="form.model"
+            density="compact"
+            :label="t('batchImage.create.model')"
+            :placeholder="loadingModels ? batchImageText('loadingModels') : batchImageText('noModels')"
+            :options="availableBatchImageModels"
+            :disabled="loadingModels || availableBatchImageModels.length === 0"
+            :error="modelLoadError || undefined"
+            :description="selectedApiKey && !loadingModels && availableBatchImageModels.length === 0 ? batchImageText('noModelsHint') : undefined"
+          />
+          <UiTextField
+            model-value="1K"
+            density="compact"
+            :label="t('batchImage.create.imageSize')"
+            :description="t('batchImage.create.imageSizeHint')"
+            readonly
+          />
+          <UiSelect
+            v-model="form.responseMimeType"
+            density="compact"
+            :label="t('batchImage.create.outputFormat')"
+            :options="outputFormatOptions"
+          />
+          <UiTextField
+            :model-value="t('batchImage.create.estimatedOutputValue', { images: estimatedOutputCount, prompts: promptRows.length })"
+            density="compact"
+            :label="t('batchImage.create.estimatedOutput')"
+            readonly
+          />
         </section>
 
-        <section class="min-w-0 space-y-3">
-          <div class="flex items-center justify-between gap-3">
-            <label class="input-label mb-0">Prompt</label>
-            <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('batchImage.create.promptAdded', { count: promptRows.length }) }}</span>
+        <section class="batch-create__prompts">
+          <div class="batch-create__prompt-heading">
+            <span>Prompt</span>
+            <UiBadge :label="t('batchImage.create.promptAdded', { count: promptRows.length })" />
           </div>
-          <div class="rounded-[4px] border border-gray-200 p-3 dark:border-dark-700">
-            <textarea
-              v-model="promptDraft"
-              rows="3"
-              class="h-[76px] w-full resize-y rounded-[3px] border border-gray-300 px-3 py-2 text-sm leading-5 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:border-dark-600 dark:bg-dark-900 dark:text-gray-100 dark:focus:border-primary-500 dark:focus:ring-primary-900/40"
-              :placeholder="t('batchImage.create.promptPlaceholder')"
+          <UiTextArea v-model="promptDraft" :rows="3" :placeholder="t('batchImage.create.promptPlaceholder')" />
+          <div class="batch-create__prompt-fields">
+            <UiTextField
+              v-model="customIdDraft"
+              density="compact"
+              monospace
+              :maxlength="255"
+              :placeholder="t('batchImage.create.customIdPlaceholder')"
             />
-            <div class="mt-2 grid gap-2 md:grid-cols-[minmax(0,1fr)_112px_132px_112px] md:items-center">
-              <input
-                v-model="customIdDraft"
-                type="text"
-                maxlength="255"
-                class="input h-9 text-sm"
-                :placeholder="t('batchImage.create.customIdPlaceholder')"
-              />
-              <select
-                v-model.number="outputCountDraft"
-                class="batch-output-count-select input h-9 text-sm"
-                :title="t('batchImage.create.outputCountPerPrompt')"
-                :aria-label="t('batchImage.create.outputCountPerPrompt')"
-              >
-                <option v-for="count in outputCountOptions" :key="count" :value="count">
-                  {{ t('batchImage.create.outputCountOption', { n: count }, count) }}
-                </option>
-              </select>
-              <label
-                class="btn btn-secondary h-9 cursor-pointer justify-center text-sm"
-                :class="referenceImageDrafts.length >= selectedModelReferenceLimit ? 'pointer-events-none opacity-60' : ''"
-              >
-                <Icon name="upload" size="sm" class="mr-1.5" />
-                {{ t('batchImage.create.referenceImage') }}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  multiple
-                  class="hidden"
-                  :disabled="referenceImageDrafts.length >= selectedModelReferenceLimit"
-                  @change="handleReferenceImageFiles"
-                />
-              </label>
-              <button type="button" class="btn btn-secondary h-9 justify-center whitespace-nowrap px-4 text-sm" :disabled="!promptDraft.trim()" @click="addPromptRow">
-                <Icon name="plus" size="sm" class="mr-1.5" />
-                {{ t('common.add') }}
-              </button>
-            </div>
-            <div v-if="referenceImageDrafts.length" class="mt-3 flex flex-wrap gap-2">
-              <span
-                v-for="(ref, refIndex) in referenceImageDrafts"
-                :key="`${ref.name}-${refIndex}`"
-                class="inline-flex max-w-full items-center gap-1 rounded-[3px] border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-700 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-200"
-              >
-                <span class="max-w-[180px] truncate">{{ ref.name }}</span>
-                <button type="button" class="text-gray-400 hover:text-red-600" :title="t('batchImage.create.removeReferenceImage')" @click="removeReferenceImageDraft(refIndex)">
+            <UiSelect
+              :model-value="outputCountDraft"
+              density="compact"
+              :aria-label="t('batchImage.create.outputCountPerPrompt')"
+              :options="outputCountSelectOptions"
+              @change="value => outputCountDraft = Number(value || 1)"
+            />
+            <UiButton density="compact" :disabled="!promptDraft.trim()" @click="addPromptRow">
+              <template #icon><Icon name="plus" size="sm" /></template>
+              {{ t('common.add') }}
+            </UiButton>
+          </div>
+
+          <UiFileUpload
+            :label="t('batchImage.create.referenceImage')"
+            :description="t('batchImage.create.limitsHint', { maxPerItem: BATCH_IMAGE_MAX_OUTPUTS_PER_ITEM, maxPerJob: BATCH_IMAGE_MAX_OUTPUTS_PER_JOB, refLimit: selectedModelReferenceLimit })"
+            accept="image/png,image/jpeg,image/webp"
+            multiple
+            :disabled="selectedModelReferenceLimit <= 0 || referenceImageDrafts.length >= selectedModelReferenceLimit"
+            @select="handleReferenceImageFiles"
+          />
+
+          <div v-if="referenceImageDrafts.length" class="batch-reference-list">
+            <UiBadge v-for="(ref, refIndex) in referenceImageDrafts" :key="`${ref.name}-${refIndex}`" :label="ref.name">
+              <template #default>
+                <span :title="ref.name">{{ ref.name }}</span>
+                <button type="button" :aria-label="t('batchImage.create.removeReferenceImage')" @click="removeReferenceImageDraft(refIndex)">
                   <Icon name="x" size="xs" />
                 </button>
-              </span>
-            </div>
-            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('batchImage.create.limitsHint', { maxPerItem: BATCH_IMAGE_MAX_OUTPUTS_PER_ITEM, maxPerJob: BATCH_IMAGE_MAX_OUTPUTS_PER_JOB, refLimit: selectedModelReferenceLimit }) }}
-            </p>
+              </template>
+            </UiBadge>
           </div>
-          <div v-if="promptRows.length" class="overflow-hidden rounded-[4px] border border-gray-200 dark:border-dark-700">
-            <div
-              v-for="(row, index) in promptRows"
-              :key="row.localId"
-              class="flex items-center gap-3 border-b border-gray-100 px-3 py-2 last:border-b-0 dark:border-dark-700"
-            >
-              <span class="w-20 flex-shrink-0 font-mono text-xs text-gray-500 dark:text-gray-400">{{ row.custom_id }}</span>
-              <p class="min-w-0 flex-1 truncate text-sm text-gray-800 dark:text-gray-100">{{ row.prompt }}</p>
-              <span v-if="row.output_count > 1" class="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">
-                x{{ row.output_count }}
-              </span>
-              <span v-if="row.reference_images.length" class="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">
-                {{ t('batchImage.create.referenceCount', { n: row.reference_images.length }, row.reference_images.length) }}
-              </span>
-              <button type="button" class="btn-ghost btn-icon flex-shrink-0 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20" :title="t('common.delete')" @click="removePromptRow(index)">
-                <Icon name="trash" size="sm" />
-              </button>
+
+          <div v-if="promptRows.length" class="batch-prompt-list">
+            <div v-for="(row, index) in promptRows" :key="row.localId" class="batch-prompt-list__row">
+              <span class="ui-mono" :title="row.custom_id">{{ row.custom_id }}</span>
+              <span :title="row.prompt">{{ row.prompt }}</span>
+              <UiBadge v-if="row.output_count > 1" :label="`×${row.output_count}`" />
+              <UiBadge v-if="row.reference_images.length" :label="t('batchImage.create.referenceCount', { n: row.reference_images.length }, row.reference_images.length)" />
+              <UiIconButton variant="danger" density="dense" icon="trash" :label="t('common.delete')" @click="removePromptRow(index)" />
             </div>
           </div>
-          <div v-else class="rounded-[4px] border border-dashed border-gray-200 px-3 py-6 text-center text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400">
-            {{ t('batchImage.create.noPrompts') }}
-          </div>
+          <UiEmptyState v-else :title="t('batchImage.create.noPrompts')" icon="sparkles" />
         </section>
 
-		        <div class="rounded-[4px] border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900 lg:col-span-2 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
-	          {{ t('batchImage.create.cancelNotice') }}
-	        </div>
-		        <div v-if="submitting" class="rounded-[4px] border border-sky-200 bg-sky-50 p-3 text-sm leading-6 text-sky-800 lg:col-span-2 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-100">
-	          {{ t('batchImage.create.submittingNotice') }}
-	        </div>
-	      </form>
+        <UiAlert class="batch-create__notice" tone="warning" :message="t('batchImage.create.cancelNotice')" />
+        <UiAlert v-if="submitting" class="batch-create__notice" tone="info" :message="t('batchImage.create.submittingNotice')" />
+      </form>
 
       <template #footer>
-        <div class="flex justify-end gap-3">
-          <button type="button" class="btn btn-secondary" :disabled="submitting" @click="closeCreateModal">{{ t('common.cancel') }}</button>
-	          <button type="button" class="btn btn-primary inline-flex min-w-[120px] justify-center" :disabled="submitting || loadingModels || (parsedItems.length === 0 && !promptDraft.trim()) || !selectedApiKey || !form.model" @click="submitJob">
-            <Icon v-if="submitting" name="refresh" size="sm" class="mr-2 animate-spin" />
-            {{ submitting ? t('common.submitting') : t('batchImage.actions.submitJob') }}
-          </button>
+        <div class="batch-dialog-actions">
+          <UiButton :disabled="submitting" @click="closeCreateModal">{{ t('common.cancel') }}</UiButton>
+          <UiButton
+            variant="primary"
+            :loading="submitting"
+            :disabled="loadingModels || (parsedItems.length === 0 && !promptDraft.trim()) || !selectedApiKey || !form.model"
+            @click="submitJob"
+          >
+            {{ t('batchImage.actions.submitJob') }}
+          </UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
-    <BaseDialog :show="showGuideModal" :title="t('batchImage.guide.title')" width="wide" @close="showGuideModal = false">
-	      <div class="space-y-5">
-	        <section class="space-y-3">
-	          <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('batchImage.guide.uiTitle') }}</h3>
-	          <div class="border-l-2 border-primary-200 pl-3 text-sm leading-6 text-gray-700 dark:border-primary-800 dark:text-gray-200">
-	            <p>{{ t('batchImage.guide.step1') }}</p>
-	            <p>{{ t('batchImage.guide.step2') }}</p>
-	            <p>{{ t('batchImage.guide.step3') }}</p>
-	            <p>{{ t('batchImage.guide.step4') }}</p>
-	          </div>
-	        </section>
-	        <section class="space-y-3">
-	          <div class="flex flex-wrap items-center justify-between gap-3">
-	            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('batchImage.guide.skillTitle') }}</h3>
-	            <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('batchImage.guide.skillDesc') }}</p>
-	          </div>
-	        <textarea
-	          :value="agentInstruction"
-	          readonly
-	          class="min-h-[420px] w-full resize-y rounded-[3px] border border-gray-200 bg-gray-50 p-4 font-mono text-sm leading-6 text-gray-800 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 dark:border-dark-600 dark:bg-dark-900 dark:text-gray-100 dark:focus:border-primary-500 dark:focus:ring-primary-900/40"
-	        />
-	        </section>
-	      </div>
+    <UiDialog :show="showGuideModal" :title="t('batchImage.guide.title')" width="wide" @close="showGuideModal = false">
+      <div class="batch-guide">
+        <AppSection :title="t('batchImage.guide.uiTitle')" divided>
+          <ol>
+            <li>{{ t('batchImage.guide.step1') }}</li>
+            <li>{{ t('batchImage.guide.step2') }}</li>
+            <li>{{ t('batchImage.guide.step3') }}</li>
+            <li>{{ t('batchImage.guide.step4') }}</li>
+          </ol>
+        </AppSection>
+        <AppSection :title="t('batchImage.guide.skillTitle')" :description="t('batchImage.guide.skillDesc')" divided>
+          <UiCodeBlock :code="agentInstruction" :label="t('batchImage.guide.skillTitle')" />
+        </AppSection>
+      </div>
       <template #footer>
-        <div class="flex justify-end gap-3">
-          <button type="button" class="btn btn-secondary" @click="showGuideModal = false">{{ t('common.close') }}</button>
-          <button type="button" class="btn btn-primary" @click="copyInstruction">
-            <Icon name="copy" size="sm" class="mr-2" />
+        <div class="batch-dialog-actions">
+          <UiButton @click="showGuideModal = false">{{ t('common.close') }}</UiButton>
+          <UiButton variant="primary" @click="copyInstruction">
+            <template #icon><Icon name="copy" size="sm" /></template>
             {{ t('batchImage.actions.copyInstruction') }}
-          </button>
+          </UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
+
+    <UiConfirmDialog
+      :show="!!pendingConfirmation"
+      :title="confirmationTitle"
+      :message="confirmationMessage"
+      :confirm-text="t('common.confirm')"
+      :cancel-text="t('common.cancel')"
+      :danger="pendingConfirmation?.kind !== 'cancel'"
+      :pending="confirmationPending"
+      @confirm="confirmPendingAction"
+      @cancel="pendingConfirmation = null"
+    />
   </AppLayout>
 </template>
 
@@ -779,12 +561,38 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import TablePageLayout from '@/components/layout/TablePageLayout.vue'
-import DataTable from '@/components/common/DataTable.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import Select, { type SelectOption } from '@/components/common/Select.vue'
-import SearchInput from '@/components/common/SearchInput.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  AppPage,
+  AppPageHeader,
+  AppSection,
+  UiAlert,
+  UiBadge,
+  UiBulkActionBar,
+  UiButton,
+  UiCheckbox,
+  UiCodeBlock,
+  UiConfirmDialog,
+  UiDataTable,
+  UiDialog,
+  UiEmptyState,
+  UiFileUpload,
+  UiFilterBar,
+  UiIconButton,
+  UiImagePreview,
+  UiMobileTableScroller,
+  UiSearchInput,
+  UiSelect,
+  UiServerTableWorkspace,
+  UiStatMetric,
+  UiStatusBadge,
+  UiTableToolbar,
+  UiTextArea,
+  UiTextField,
+  UiTooltip,
+  type Column,
+  type SelectOption,
+} from '@/components/ui'
 import { useClipboard } from '@/composables/useClipboard'
 import { getPersistedPageSize, setPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useAppStore } from '@/stores/app'
@@ -808,7 +616,6 @@ import {
   type BatchImageSubmitItem,
 } from '@/api/batchImage'
 import type { ApiKey } from '@/types'
-import type { Column } from '@/components/common/types'
 
 type BatchImageJobRow = Pick<BatchImageJob, 'id' | 'task_name' | 'parent_batch_id' | 'status' | 'model' | 'provider' | 'item_count' | 'success_count' | 'fail_count' | 'estimated_cost' | 'hold_amount' | 'actual_cost' | 'created_at' | 'downloaded_at'> & {
   api_key_id: number
@@ -845,6 +652,11 @@ type PreviewCacheRecord = {
 
 type PreviewImageSource = ImageBitmap | HTMLImageElement
 
+type PendingConfirmation =
+  | { kind: 'cancel' }
+  | { kind: 'delete'; job: BatchImageJobRow }
+  | { kind: 'delete-selected' }
+
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled', 'output_deleted'])
 const PREVIEW_CACHE_DB_NAME = 'sub2api-batch-image-preview-cache'
 const PREVIEW_CACHE_STORE_NAME = 'thumbnails'
@@ -855,7 +667,6 @@ const PREVIEW_CACHE_MAX_ENTRIES = 120
 const PREVIEW_CACHE_MAX_BYTES = 48 * 1024 * 1024
 const BATCH_IMAGE_MAX_OUTPUTS_PER_ITEM = 4
 const BATCH_IMAGE_MAX_OUTPUTS_PER_JOB = 200
-const outputCountOptions = Array.from({ length: BATCH_IMAGE_MAX_OUTPUTS_PER_ITEM }, (_, index) => index + 1)
 const batchPageSizeOptions: SelectOption[] = [20, 50, 100].map(size => ({ value: size, label: String(size) }))
 
 const appStore = useAppStore()
@@ -947,20 +758,15 @@ const previewErrorIds = ref(new Set<string>())
 const previewImageItem = ref<BatchImageItem | null>(null)
 const availableBatchImageModels = ref<Array<{ value: string; label: string }>>([])
 const modelLoadError = ref('')
-const openMoreJobId = ref('')
-const moreMenuStyle = ref<Record<string, string>>({})
-const promptPopover = reactive({
-  visible: false,
-  text: '',
-  style: {} as Record<string, string>,
-})
+const pendingConfirmation = ref<PendingConfirmation | null>(null)
 let modelRequestSeq = 0
+let jobsRequestSeq = 0
+let detailRequestSeq = 0
+let itemsRequestSeq = 0
+let previewSessionSeq = 0
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let previewCacheDBPromise: Promise<IDBDatabase | null> | null = null
 let previewCacheCleanupTimer: ReturnType<typeof setInterval> | null = null
-let promptPopoverCloseTimer: ReturnType<typeof setTimeout> | null = null
-let promptPopoverOpenTimer: ReturnType<typeof setTimeout> | null = null
-let activePromptPopoverTarget: HTMLElement | null = null
 
 const geminiApiKeys = computed(() =>
   apiKeys.value.filter((key) =>
@@ -987,6 +793,46 @@ const apiKeyFilterOptions = computed<SelectOption[]>(() => [
     label: key.name || `API Key #${key.id}`,
   })),
 ])
+
+const createApiKeyOptions = computed<SelectOption[]>(() => geminiApiKeys.value.map(key => ({
+  value: key.id,
+  label: `${key.name || `API Key #${key.id}`} · ${key.group?.name || 'Gemini'}`,
+})))
+
+const outputFormatOptions: SelectOption[] = [
+  { value: 'image/png', label: 'PNG' },
+  { value: 'image/jpeg', label: 'JPEG' },
+  { value: 'image/webp', label: 'WebP' },
+]
+
+const outputCountSelectOptions = computed<SelectOption[]>(() =>
+  Array.from({ length: BATCH_IMAGE_MAX_OUTPUTS_PER_ITEM }, (_, index) => {
+    const count = index + 1
+    return { value: count, label: t('batchImage.create.outputCountOption', { n: count }, count) }
+  }),
+)
+
+const activeFilterCount = computed(() => [
+  filters.taskName.trim(),
+  filters.apiKeyId,
+  filters.status,
+  filters.downloaded,
+].filter(Boolean).length)
+
+const confirmationPending = computed(() =>
+  cancelling.value || bulkDeleting.value || Boolean(deletingBatchId.value),
+)
+
+const confirmationTitle = computed(() => {
+  if (pendingConfirmation.value?.kind === 'cancel') return t('batchImage.actions.cancelJob')
+  return t('batchImage.actions.deleteRecords')
+})
+
+const confirmationMessage = computed(() => {
+  if (pendingConfirmation.value?.kind === 'cancel') return batchImageText('cancelConfirm')
+  if (pendingConfirmation.value?.kind === 'delete-selected') return batchImageText('deleteSelectedConfirm')
+  return batchImageText('deleteConfirm')
+})
 
 const selectedRows = computed(() =>
   batchJobs.value.filter(job => selectedJobIds.value.has(job.id)),
@@ -1209,10 +1055,7 @@ function removeReferenceImageDraft(index: number) {
   referenceImageDrafts.value = referenceImageDrafts.value.filter((_, currentIndex) => currentIndex !== index)
 }
 
-async function handleReferenceImageFiles(event: Event) {
-  const input = event.target as HTMLInputElement
-  const files = Array.from(input.files || [])
-  input.value = ''
+async function handleReferenceImageFiles(files: File[]) {
   if (files.length === 0) return
   const limit = selectedModelReferenceLimit.value
   if (limit <= 0) {
@@ -1248,7 +1091,13 @@ async function handleReferenceImageFiles(event: Event) {
       size: file.size,
     })
   }
-  referenceImageDrafts.value = [...referenceImageDrafts.value, ...next]
+  const currentLimit = selectedModelReferenceLimit.value
+  const currentSlots = Math.max(0, currentLimit - referenceImageDrafts.value.length)
+  const currentAccepted = next.slice(0, currentSlots)
+  if (currentAccepted.length < next.length) {
+    appStore.showError(t('batchImage.create.refLimitExceededIgnored', { limit: currentLimit }))
+  }
+  referenceImageDrafts.value = [...referenceImageDrafts.value, ...currentAccepted]
 }
 
 function readFileAsBase64(file: File): Promise<string> {
@@ -1416,118 +1265,17 @@ function toggleChildRows(batchId: string) {
   expandedParentIds.value = next
 }
 
-function closeMoreMenu() {
-  openMoreJobId.value = ''
-}
-
-function toggleMoreMenu(job: BatchImageJobRow, event: MouseEvent) {
-  if (openMoreJobId.value === job.id) {
-    closeMoreMenu()
-    return
-  }
-  const trigger = event.currentTarget as HTMLElement | null
-  const rect = trigger?.getBoundingClientRect()
-  if (!rect) return
-  const menuWidth = 176
-  const margin = 8
-  const left = Math.max(margin, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - margin))
-  const top = Math.min(rect.bottom + margin, window.innerHeight - 96)
-  moreMenuStyle.value = {
-    left: `${left}px`,
-    top: `${Math.max(margin, top)}px`,
-  }
-  openMoreJobId.value = job.id
-}
-
-function cancelPromptPopoverClose() {
-  if (!promptPopoverCloseTimer) return
-  clearTimeout(promptPopoverCloseTimer)
-  promptPopoverCloseTimer = null
-}
-
-function cancelPromptPopoverOpen() {
-  if (!promptPopoverOpenTimer) return
-  clearTimeout(promptPopoverOpenTimer)
-  promptPopoverOpenTimer = null
-}
-
-function closePromptPopover() {
-  cancelPromptPopoverOpen()
-  cancelPromptPopoverClose()
-  promptPopover.visible = false
-  promptPopover.text = ''
-  promptPopover.style = {}
-  activePromptPopoverTarget = null
-}
-
-function schedulePromptPopoverClose() {
-  cancelPromptPopoverOpen()
-  cancelPromptPopoverClose()
-  promptPopoverCloseTimer = setTimeout(() => {
-    closePromptPopover()
-  }, 180)
-}
-
-function schedulePromptPopoverOpen(event: MouseEvent | PointerEvent, text: string) {
-  const target = event.currentTarget as HTMLElement | null
-  if (!target) return
-  const value = String(text || '').trim()
-  if (!value || value === '-') return
-  activePromptPopoverTarget = target
-  cancelPromptPopoverOpen()
-  cancelPromptPopoverClose()
-  promptPopoverOpenTimer = setTimeout(() => {
-    if (activePromptPopoverTarget !== target || !document.body.contains(target)) return
-    openPromptPopover(target, value)
-  }, 520)
-}
-
-function showPromptPopover(event: MouseEvent | FocusEvent, text: string) {
-  const value = String(text || '').trim()
-  if (!value || value === '-') return
-  const target = event.currentTarget as HTMLElement | null
-  cancelPromptPopoverClose()
-  cancelPromptPopoverOpen()
-  if (!target) return
-  activePromptPopoverTarget = target
-  openPromptPopover(target, value)
-}
-
-function openPromptPopover(target: HTMLElement, value: string) {
-  const rect = target.getBoundingClientRect()
-  if (!rect) return
-  const viewportWidth = window.innerWidth || 1280
-  const viewportHeight = window.innerHeight || 720
-  const width = Math.min(440, Math.max(320, viewportWidth - 32))
-  const left = Math.max(16, Math.min(rect.left, viewportWidth - width - 16))
-  const estimatedHeight = 178
-  const preferredTop = rect.bottom + 8
-  const top = preferredTop + estimatedHeight > viewportHeight
-    ? Math.max(16, rect.top - estimatedHeight - 8)
-    : preferredTop
-  promptPopover.text = value
-  promptPopover.style = {
-    left: `${left}px`,
-    top: `${top}px`,
-    width: `${width}px`,
-  }
-  promptPopover.visible = true
-}
-
-function copyPromptPopover() {
-  if (!promptPopover.text) return
-  void copyToClipboard(promptPopover.text, t('batchImage.promptPopover.copied'))
-}
 
 async function loadBatchJobs() {
+  const requestID = ++jobsRequestSeq
   const keys = filteredApiKeys.value
   if (!keys.length) {
     batchJobs.value = []
     pagination.has_more = false
+    loadingJobs.value = false
     return
   }
   loadingJobs.value = true
-  closeMoreMenu()
   try {
     const options = listOptions()
     const results = await Promise.all(keys.map(async (key) => {
@@ -1537,6 +1285,7 @@ async function loadBatchJobs() {
         rows: (result.data || []).map(job => toJobRow(job, key)),
       }
     }))
+    if (requestID !== jobsRequestSeq) return
     batchJobs.value = applyChildCounts(results
       .flatMap(result => result.rows)
       .sort((a, b) => b.created_at - a.created_at)
@@ -1544,9 +1293,10 @@ async function loadBatchJobs() {
     pagination.has_more = results.some(result => result.hasMore)
     selectedJobIds.value = new Set([...selectedJobIds.value].filter(id => visibleBatchJobs.value.some(job => job.id === id)))
   } catch (error: any) {
+    if (requestID !== jobsRequestSeq) return
     appStore.showError(batchImageErrorMessage(error, batchImageText('loadJobsFailed')))
   } finally {
-    loadingJobs.value = false
+    if (requestID === jobsRequestSeq) loadingJobs.value = false
   }
 }
 
@@ -1603,7 +1353,8 @@ function resetCreateDraft() {
 }
 
 function closeDetail() {
-  closePromptPopover()
+  detailRequestSeq += 1
+  itemsRequestSeq += 1
   currentJob.value = null
   selectedBatchId.value = ''
   selectedBatchApiKeyId.value = 0
@@ -1686,19 +1437,23 @@ async function submitJob() {
 }
 
 async function refreshSelected() {
-  if (!selectedBatchId.value) return
+  const batchId = selectedBatchId.value
+  if (!batchId) return
+  const requestID = ++detailRequestSeq
   const key = keyForSelectedBatch() || requireApiKey()
   if (!key) return
   refreshing.value = true
   try {
-    const job = await getBatchImageJob(key.key, selectedBatchId.value)
+    const job = await getBatchImageJob(key.key, batchId)
+    if (requestID !== detailRequestSeq || selectedBatchId.value !== batchId) return
     currentJob.value = job
     upsertJob(job)
     if (TERMINAL_STATUSES.has(job.status)) stopPolling()
   } catch (error: any) {
+    if (requestID !== detailRequestSeq || selectedBatchId.value !== batchId) return
     appStore.showError(batchImageErrorMessage(error, batchImageText('refreshFailed')))
   } finally {
-    refreshing.value = false
+    if (requestID === detailRequestSeq) refreshing.value = false
   }
 }
 
@@ -1755,10 +1510,6 @@ function canRetry(job: Pick<BatchImageJob, 'status' | 'fail_count'>) {
   return TERMINAL_STATUSES.has(display.status) && display.fail_count > 0
 }
 
-function isDownloadingJob(batchId: string) {
-  return downloading.value && downloadingBatchId.value === batchId
-}
-
 function applyJobApiKey(job: BatchImageJobRow | Pick<BatchImageJob, 'id'>) {
   if ('api_key_id' in job && job.api_key_id && geminiApiKeys.value.some(key => key.id === job.api_key_id)) {
     form.apiKeyId = job.api_key_id
@@ -1792,11 +1543,37 @@ function canDeleteRecord(job: Pick<BatchImageJob, 'status'>) {
   return TERMINAL_STATUSES.has(job.status)
 }
 
+function requestCancelSelected() {
+  if (!currentJob.value || !canCancel(currentJob.value) || cancelling.value) return
+  pendingConfirmation.value = { kind: 'cancel' }
+}
+
+function requestDeleteJob(job: BatchImageJobRow) {
+  if (!canDeleteRecord(job) || deletingBatchId.value) return
+  pendingConfirmation.value = { kind: 'delete', job }
+}
+
+function requestDeleteSelectedJobs() {
+  if (bulkDeleting.value || !selectedRows.value.some(job => canDeleteRecord(job))) return
+  pendingConfirmation.value = { kind: 'delete-selected' }
+}
+
+async function confirmPendingAction() {
+  const action = pendingConfirmation.value
+  if (!action || confirmationPending.value) return
+  try {
+    if (action.kind === 'cancel') await cancelSelected()
+    else if (action.kind === 'delete') await deleteJob(action.job)
+    else await deleteSelectedJobs()
+  } finally {
+    pendingConfirmation.value = null
+  }
+}
+
 async function cancelSelected() {
   if (!currentJob.value) return
   const key = keyForSelectedBatch() || requireApiKey()
   if (!key) return
-  if (!window.confirm(batchImageText('cancelConfirm'))) return
   cancelling.value = true
   try {
     const job = await cancelBatchImageJob(key.key, currentJob.value.id)
@@ -1822,7 +1599,6 @@ async function retrySelected() {
 
 async function retryFailedJob(job: BatchImageJobRow | BatchImageJob) {
   if (!canRetry(job) || retryingBatchId.value) return
-  closeMoreMenu()
   const key = apiKeyForJob(job) || keyForSelectedBatch() || requireApiKey()
   if (!key) return
   retryingBatchId.value = job.id
@@ -1886,7 +1662,6 @@ function rootBatchIdForRetry(job: BatchImageJobRow | BatchImageJob) {
 
 async function downloadJob(job: (BatchImageJobRow | Pick<BatchImageJob, 'id'>)) {
   if (downloading.value) return
-  closeMoreMenu()
   applyJobApiKey(job)
   const key = apiKeyForJob(job) || requireApiKey()
   if (!key) return
@@ -1929,10 +1704,8 @@ async function downloadSelectedJobs() {
 
 async function deleteJob(job: BatchImageJobRow) {
   if (!canDeleteRecord(job) || deletingBatchId.value) return
-  closeMoreMenu()
   const key = apiKeyForJob(job)
   if (!key) return
-  if (!window.confirm(batchImageText('deleteConfirm'))) return
   deletingBatchId.value = job.id
   try {
     await deleteBatchImageJobRecord(key.key, job.id)
@@ -1948,7 +1721,6 @@ async function deleteJob(job: BatchImageJobRow) {
 async function deleteSelectedJobs() {
   const rows = selectedRows.value.filter(job => canDeleteRecord(job))
   if (bulkDeleting.value || rows.length === 0) return
-  if (!window.confirm(batchImageText('deleteSelectedConfirm'))) return
   bulkDeleting.value = true
   try {
     for (const row of rows) {
@@ -2012,13 +1784,6 @@ function isRecoveredOriginalFailure(item: BatchImageDetailItem) {
   )
 }
 
-function detailItemRowClass(item: BatchImageDetailItem) {
-  if (isRecoveredOriginalFailure(item)) {
-    return 'bg-gray-50/80 text-gray-400 hover:bg-gray-100/80 dark:bg-dark-900/60 dark:text-gray-500 dark:hover:bg-dark-800/70'
-  }
-  return 'hover:bg-gray-50/70 dark:hover:bg-dark-800/60'
-}
-
 function previewCacheSupported() {
   return typeof window !== 'undefined' && 'indexedDB' in window
 }
@@ -2076,6 +1841,7 @@ async function getCachedPreviewBlob(cacheKey: string): Promise<Blob | null> {
 }
 
 async function hydrateCachedItemPreviews(detailItems: BatchImageDetailItem[]) {
+  const sessionID = previewSessionSeq
   const previewableItems = detailItems.filter(item => canLoadItemPreview(item))
   if (!previewableItems.length || !previewCacheSupported()) return
 
@@ -2084,7 +1850,7 @@ async function hydrateCachedItemPreviews(detailItems: BatchImageDetailItem[]) {
     const previewKey = itemPreviewKey(item)
     if (!batchId || itemPreviewUrls[previewKey] || previewErrorIds.value.has(previewKey)) return
     const cached = await getCachedPreviewBlob(previewCacheKey(batchId, item.custom_id, 0)).catch(() => null)
-    if (!cached || itemPreviewUrls[previewKey]) return
+    if (!cached || itemPreviewUrls[previewKey] || sessionID !== previewSessionSeq) return
     itemPreviewUrls[previewKey] = URL.createObjectURL(cached)
   }))
 }
@@ -2215,11 +1981,11 @@ async function loadPreviewImageSource(blob: Blob): Promise<{ image: PreviewImage
 async function loadItems() {
   const batchId = selectedBatchId.value || currentJob.value?.id || ''
   if (!batchId) return
+  const requestID = ++itemsRequestSeq
   const key = keyForSelectedBatch() || requireApiKey()
   if (!key) return
   loadingItems.value = true
   try {
-    clearItemPreviews()
     const jobs = detailJobsForBatch(batchId)
     const results = await Promise.all(jobs.map(async (job) => {
       const result = await listBatchImageItems(key.key, job.id)
@@ -2229,13 +1995,16 @@ async function loadItems() {
         source_task_name: detailSourceName(job, batchId),
       }))
     }))
+    if (requestID !== itemsRequestSeq || selectedBatchId.value !== batchId) return
     const detailItems = results.flat()
+    clearItemPreviews()
     items.value = detailItems
     void hydrateCachedItemPreviews(detailItems)
   } catch (error: any) {
+    if (requestID !== itemsRequestSeq || selectedBatchId.value !== batchId) return
     appStore.showError(batchImageErrorMessage(error, batchImageText('loadItemsFailed')))
   } finally {
-    loadingItems.value = false
+    if (requestID === itemsRequestSeq) loadingItems.value = false
   }
 }
 
@@ -2259,6 +2028,7 @@ async function loadItemPreview(item: BatchImageItem) {
   if (!batchId || !canLoadItemPreview(item) || (itemPreviewUrls[previewKey] && !previewErrorIds.value.has(previewKey))) return
   const key = keyForSelectedBatch() || requireApiKey()
   if (!key) return
+  const sessionID = previewSessionSeq
   const cacheKey = previewCacheKey(batchId, item.custom_id, 0)
   previewLoadingIds.value = new Set([...previewLoadingIds.value, previewKey])
   try {
@@ -2269,22 +2039,27 @@ async function loadItemPreview(item: BatchImageItem) {
     }
     const cached = await getCachedPreviewBlob(cacheKey)
     if (cached) {
+      if (sessionID !== previewSessionSeq || selectedBatchId.value !== batchId) return
       itemPreviewUrls[previewKey] = URL.createObjectURL(cached)
       return
     }
     const blob = await getBatchImageItemContent(key.key, batchId, item.custom_id, 0)
     const thumbnail = await createThumbnailBlob(blob).catch(() => blob)
+    if (sessionID !== previewSessionSeq || selectedBatchId.value !== batchId) return
     itemPreviewUrls[previewKey] = URL.createObjectURL(thumbnail)
     if (thumbnail !== blob || thumbnail.size <= 1024 * 1024) {
       void putCachedPreviewBlob(cacheKey, thumbnail)
     }
   } catch (error: any) {
+    if (sessionID !== previewSessionSeq || selectedBatchId.value !== batchId) return
     previewErrorIds.value = new Set([...previewErrorIds.value, previewKey])
     appStore.showError(batchImageErrorMessage(error, batchImageText('loadPreviewFailed')))
   } finally {
-    const next = new Set(previewLoadingIds.value)
-    next.delete(previewKey)
-    previewLoadingIds.value = next
+    if (sessionID === previewSessionSeq) {
+      const next = new Set(previewLoadingIds.value)
+      next.delete(previewKey)
+      previewLoadingIds.value = next
+    }
   }
 }
 
@@ -2307,7 +2082,7 @@ function handlePreviewError(customID: string) {
 }
 
 function clearItemPreviews() {
-  closePromptPopover()
+  previewSessionSeq += 1
   for (const url of Object.values(itemPreviewUrls)) {
     if (url) URL.revokeObjectURL(url)
   }
@@ -2344,16 +2119,16 @@ function statusLabel(jobOrStatus: BatchImageStatus | Pick<BatchImageJob, 'status
   return key ? t(`batchImage.status.${key}`) : status
 }
 
-function statusBadgeClass(jobOrStatus: BatchImageStatus | Pick<BatchImageJob, 'status' | 'success_count' | 'fail_count'>) {
+function statusTone(jobOrStatus: BatchImageStatus | Pick<BatchImageJob, 'status' | 'success_count' | 'fail_count'>): 'neutral' | 'success' | 'warning' | 'danger' | 'info' {
   const status = typeof jobOrStatus === 'string' ? jobOrStatus : jobOrStatus.status
   if (typeof jobOrStatus !== 'string' && status === 'completed' && jobOrStatus.fail_count > 0) {
-    if (jobOrStatus.success_count > 0) return 'badge-warning'
-    return 'badge-danger'
+    if (jobOrStatus.success_count > 0) return 'warning'
+    return 'danger'
   }
-  if (status === 'completed') return 'badge-success'
-  if (status === 'failed' || status === 'cancelled') return 'badge-danger'
-  if (status === 'output_deleted') return 'badge-gray'
-  return 'badge-primary'
+  if (status === 'completed') return 'success'
+  if (status === 'failed' || status === 'cancelled') return 'danger'
+  if (status === 'output_deleted') return 'neutral'
+  return 'info'
 }
 
 function itemStatusLabel(status: string) {
@@ -2373,15 +2148,11 @@ function itemDisplayStatusLabel(item: BatchImageDetailItem) {
   return itemStatusLabel(item.status)
 }
 
-function itemStatusBadgeClass(status: string) {
-  if (status === 'succeeded' || status === 'success') return 'badge-success'
-  if (status === 'failed' || status === 'cancelled') return 'badge-danger'
-  return 'badge-primary'
-}
-
-function itemDisplayStatusBadgeClass(item: BatchImageDetailItem) {
-  if (isRecoveredOriginalFailure(item)) return 'badge-gray'
-  return itemStatusBadgeClass(item.status)
+function itemStatusTone(item: BatchImageDetailItem): 'neutral' | 'success' | 'warning' | 'danger' | 'info' {
+  if (isRecoveredOriginalFailure(item)) return 'neutral'
+  if (item.status === 'succeeded' || item.status === 'success') return 'success'
+  if (item.status === 'failed' || item.status === 'cancelled') return 'danger'
+  return 'info'
 }
 
 function itemResultLabel(item: BatchImageDetailItem) {
@@ -2395,11 +2166,11 @@ function itemResultLabel(item: BatchImageDetailItem) {
   return t('batchImage.itemResult.waiting')
 }
 
-function itemResultClass(item: BatchImageDetailItem) {
-  if (isRecoveredOriginalFailure(item)) return 'bg-gray-100 text-gray-500 ring-gray-200 dark:bg-dark-800 dark:text-gray-400 dark:ring-dark-700'
-  if (item.error || item.status === 'failed' || item.status === 'cancelled') return 'bg-red-50 text-red-700 ring-red-100 dark:bg-red-950/30 dark:text-red-300 dark:ring-red-900/50'
-  if (item.status === 'succeeded' || item.status === 'success') return 'bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-900/50'
-  return 'bg-gray-50 text-gray-500 ring-gray-200 dark:bg-dark-800 dark:text-gray-400 dark:ring-dark-700'
+function itemResultTone(item: BatchImageDetailItem): 'neutral' | 'success' | 'warning' | 'danger' | 'info' {
+  if (isRecoveredOriginalFailure(item)) return 'neutral'
+  if (item.error || item.status === 'failed' || item.status === 'cancelled') return 'danger'
+  if (item.status === 'succeeded' || item.status === 'success') return 'success'
+  return 'neutral'
 }
 
 function friendlyItemError(error: BatchImageItem['error']) {
@@ -2631,11 +2402,6 @@ onMounted(() => {
   previewCacheCleanupTimer = setInterval(() => {
     void cleanupPreviewCache()
   }, 60 * 60 * 1000)
-  document.addEventListener('click', closeMoreMenu)
-  window.addEventListener('resize', closeMoreMenu)
-  window.addEventListener('scroll', closeMoreMenu, true)
-  window.addEventListener('resize', closePromptPopover)
-  window.addEventListener('scroll', closePromptPopover, true)
 })
 
 watch(
@@ -2666,53 +2432,9 @@ onBeforeUnmount(() => {
     previewCacheCleanupTimer = null
   }
   clearItemPreviews()
-  document.removeEventListener('click', closeMoreMenu)
-  window.removeEventListener('resize', closeMoreMenu)
-  window.removeEventListener('scroll', closeMoreMenu, true)
-  window.removeEventListener('resize', closePromptPopover)
-  window.removeEventListener('scroll', closePromptPopover, true)
 })
 </script>
 
 <style scoped>
-.batch-row-action {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  min-width: 42px;
-  line-height: 1;
-  outline: none;
-}
-
-.batch-row-action:focus {
-  outline: none;
-}
-
-.batch-row-action :deep(svg) {
-  margin-right: 0 !important;
-}
-
-.batch-prompt-trigger:focus {
-  outline: none;
-  box-shadow: none;
-}
-
-.batch-prompt-popover {
-  user-select: text;
-}
-
-.batch-prompt-popover p {
-  scrollbar-width: thin;
-}
-
-.batch-output-count-select {
-  height: 36px;
-  min-height: 36px;
-  padding-top: 0;
-  padding-bottom: 0;
-  padding-left: 14px;
-  padding-right: 34px;
-  line-height: 36px;
-}
+.batch-image-page{display:grid;gap:18px}.batch-job-name{display:flex;width:210px;align-items:flex-start;gap:4px}.batch-job-name--child{padding-left:18px}.batch-job-name__indent{width:24px;flex:0 0 24px}.batch-job-name__button{display:grid;min-width:0;flex:1;gap:3px;padding:2px 4px;border:0;border-radius:var(--ui-radius);color:var(--ui-text);background:transparent;text-align:left}.batch-job-name__button:hover{background:var(--ui-surface-muted)}.batch-job-name__button:focus-visible{outline:2px solid color-mix(in srgb,var(--ui-focus) 24%,transparent);outline-offset:1px}.batch-job-name__title{display:flex;min-width:0;align-items:center;gap:6px}.batch-job-name__title>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.batch-job-name time{color:var(--ui-text-soft);font-size:11px;line-height:16px}.batch-cell-ellipsis{display:block;max-width:150px;overflow:hidden;color:var(--ui-text-muted);text-align:center;text-overflow:ellipsis;white-space:nowrap}.batch-result-count{display:inline-flex;align-items:center;gap:6px;color:var(--ui-text-soft)}.batch-result-count strong{color:var(--ui-text-muted);font-weight:600}.batch-result-count .is-success{color:var(--ui-success)}.batch-result-count .is-danger{color:var(--ui-danger)}.batch-result-count small{font-size:10px}.batch-row-actions{display:flex;align-items:center;justify-content:center;gap:2px}.batch-pagination{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px}.batch-pagination__summary,.batch-pagination__actions{display:flex;align-items:center;gap:10px}.batch-pagination__summary{color:var(--ui-text-muted);font-size:12px}.batch-pagination__summary>*:last-child{width:82px}.batch-detail{display:grid;gap:18px}.batch-detail__header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding-bottom:12px;border-bottom:1px solid var(--ui-border-soft)}.batch-detail__header>div{display:grid;min-width:0;gap:4px}.batch-detail__header>div:last-child{display:flex;max-width:48%;flex-wrap:wrap;justify-content:flex-end;gap:6px}.batch-detail__header strong,.batch-detail__header span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.batch-detail__header strong{font-size:14px}.batch-detail__header .ui-mono{color:var(--ui-text-soft);font-size:11px}.batch-detail__metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.batch-detail-table{width:100%;border-collapse:collapse;color:var(--ui-text);background:var(--ui-surface);font-size:12px;table-layout:fixed}.batch-detail-table th,.batch-detail-table td{padding:9px 10px;border-bottom:1px solid var(--ui-border-soft);text-align:center;vertical-align:middle}.batch-detail-table th{color:var(--ui-text-soft);background:var(--ui-surface-muted);font-weight:500}.batch-detail-table th:nth-child(1){width:17%}.batch-detail-table th:nth-child(2){width:34%;text-align:left}.batch-detail-table th:nth-child(3){width:13%}.batch-detail-table th:nth-child(4){width:10%}.batch-detail-table th:nth-child(5){width:26%}.batch-detail-table td:nth-child(2){text-align:left}.batch-detail-table tr.is-recovered{color:var(--ui-text-soft);background:var(--ui-surface-muted)}.batch-detail-table .ui-mono,.batch-prompt-cell{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.batch-prompt-cell{max-width:100%;border-radius:var(--ui-radius);line-height:24px}.batch-prompt-cell:focus-visible{outline:2px solid color-mix(in srgb,var(--ui-focus) 24%,transparent);outline-offset:1px}.batch-thumbnail{display:block;width:44px;height:44px;margin:auto;padding:0;overflow:hidden;border:1px solid var(--ui-border);border-radius:var(--ui-radius);background:var(--ui-surface-muted)}.batch-thumbnail img{display:block;width:100%;height:100%;object-fit:cover;user-select:none}.batch-preview-unavailable{display:grid;width:28px;height:28px;margin:auto;place-items:center;color:var(--ui-text-soft)}.batch-dialog-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}.batch-create{display:grid;grid-template-columns:minmax(240px,.72fr) minmax(0,1.28fr);gap:20px}.batch-create__settings,.batch-create__prompts{display:grid;align-content:start;gap:12px}.batch-create__settings{padding-right:20px;border-right:1px solid var(--ui-border-soft)}.batch-create__prompt-heading{display:flex;min-height:24px;align-items:center;justify-content:space-between;gap:10px;color:var(--ui-text-muted);font-size:13px}.batch-create__prompt-fields{display:grid;grid-template-columns:minmax(130px,1fr) 132px auto;gap:8px;align-items:end}.batch-reference-list{display:flex;flex-wrap:wrap;gap:6px}.batch-reference-list span{display:block;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.batch-reference-list button{display:grid;width:16px;height:16px;padding:0;place-items:center;border:0;color:var(--ui-text-soft);background:transparent}.batch-reference-list button:hover{color:var(--ui-danger)}.batch-prompt-list{border-top:1px solid var(--ui-border-soft)}.batch-prompt-list__row{display:grid;grid-template-columns:90px minmax(0,1fr) auto auto 28px;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--ui-border-soft)}.batch-prompt-list__row>span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.batch-prompt-list__row>.ui-mono{color:var(--ui-text-soft);font-size:11px}.batch-create__notice{grid-column:1/-1}.batch-guide{display:grid;gap:20px}.batch-guide ol{display:grid;gap:8px;margin:0;padding-left:20px;color:var(--ui-text-muted);font-size:13px;line-height:21px}@media(max-width:900px){.batch-detail__metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.batch-create{grid-template-columns:1fr}.batch-create__settings{padding-right:0;padding-bottom:18px;border-right:0;border-bottom:1px solid var(--ui-border-soft)}}@media(max-width:640px){.batch-pagination{align-items:flex-start;flex-direction:column}.batch-pagination__summary{width:100%;flex-wrap:wrap}.batch-pagination__actions{width:100%;justify-content:flex-end}.batch-detail__header{flex-direction:column}.batch-detail__header>div:last-child{max-width:100%;justify-content:flex-start}.batch-detail__metrics{grid-template-columns:1fr}.batch-create__prompt-fields{grid-template-columns:1fr 1fr}.batch-create__prompt-fields>*:last-child{grid-column:1/-1}.batch-prompt-list__row{grid-template-columns:72px minmax(0,1fr) 28px}.batch-prompt-list__row>*:nth-child(3),.batch-prompt-list__row>*:nth-child(4){display:none}}
 </style>
