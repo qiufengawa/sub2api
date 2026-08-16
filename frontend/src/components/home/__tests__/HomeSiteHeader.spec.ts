@@ -62,7 +62,8 @@ describe('HomeSiteHeader', () => {
       isDark: true,
     })
 
-    expect(wrapper.get('.qiu-site-logo img').attributes('src')).toBe('/logo.svg')
+    expect(wrapper.get('.qiu-site-name').text()).toBe('Qiu API')
+    expect(wrapper.find('.qiu-site-logo img').exists()).toBe(false)
     expect(wrapper.get('a[href="/admin/dashboard"]').exists()).toBe(true)
     expect(wrapper.find('a[href="/model-plaza"]').exists()).toBe(false)
     expect(wrapper.find('.qiu-doc-button').exists()).toBe(false)
@@ -85,5 +86,17 @@ describe('HomeSiteHeader', () => {
     await wrapper.vm.$nextTick()
     expect(toggle.attributes('aria-expanded')).toBe('false')
     expect(menu.attributes('style')).toContain('display: none')
+  })
+
+  it('uses the shared compact navigation on authentication pages', () => {
+    const wrapper = mountHeader({ compact: true })
+
+    expect(wrapper.get('.qiu-site-brand').attributes('href')).toBe('/home')
+    expect(wrapper.get('.qiu-auth-link').attributes('href')).toBe('/home')
+    expect(wrapper.get('.qiu-auth-link').text()).toContain('common.goHome')
+    expect(wrapper.find('.qiu-desktop-links').exists()).toBe(false)
+    expect(wrapper.find('.qiu-doc-button').exists()).toBe(false)
+    expect(wrapper.find('.qiu-menu-button').exists()).toBe(false)
+    expect(wrapper.find('#qiu-mobile-menu').exists()).toBe(false)
   })
 })

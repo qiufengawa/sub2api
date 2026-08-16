@@ -1,162 +1,180 @@
 <template>
   <AppLayout>
-    <div class="grid grid-cols-1 items-start gap-4 md:grid-cols-12">
-      <section class="card order-2 overflow-hidden md:order-1 md:col-span-8 md:row-span-2" data-testid="redeem-history">
-        <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-dark-700">
-          <div>
-            <h2 class="text-sm font-semibold text-gray-950 dark:text-white">{{ t('redeem.recentActivity') }}</h2>
-            <p class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">{{ t('redeem.description') }}</p>
-          </div>
-          <span v-if="history.length" class="badge badge-gray tabular-nums">{{ history.length }}</span>
-        </div>
+    <AppPage density="compact">
+      <AppPageHeader
+        :title="t('redeem.title')"
+        :description="t('redeem.description')"
+      />
 
-        <div v-if="loadingHistory" class="flex min-h-56 items-center justify-center">
-          <Icon name="refresh" size="md" class="animate-spin text-primary-500" />
-        </div>
-
-        <div v-else-if="history.length" class="divide-y divide-gray-100 dark:divide-dark-700">
-          <article
-            v-for="item in history"
-            :key="item.id"
-            class="grid gap-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(120px,0.6fr)_auto] sm:items-center sm:gap-4"
-          >
-            <div class="flex min-w-0 items-center gap-3">
-              <div
-                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px]"
-                :class="historyIconClass(item)"
-              >
-                <Icon :name="historyIconName(item)" size="sm" :stroke-width="1.8" />
-              </div>
-              <div class="min-w-0">
-                <p class="truncate text-sm font-medium text-gray-900 dark:text-white" :title="getHistoryItemTitle(item)">
-                  {{ getHistoryItemTitle(item) }}
-                </p>
-                <p class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">{{ formatDateTime(item.used_at) }}</p>
-              </div>
-            </div>
-
-            <div class="min-w-0 pl-10 sm:pl-0">
-              <p v-if="!isAdminAdjustment(item.type)" class="truncate font-mono text-xs text-gray-500 dark:text-dark-400" :title="item.code">
-                {{ item.code }}
-              </p>
-              <p v-else class="text-xs text-gray-500 dark:text-dark-400">{{ t('redeem.adminAdjustment') }}</p>
-              <p v-if="item.notes" class="mt-0.5 truncate text-xs text-gray-400 dark:text-dark-500" :title="item.notes">
-                {{ item.notes }}
-              </p>
-            </div>
-
-            <p class="pl-10 text-sm font-semibold tabular-nums sm:pl-0 sm:text-right" :class="historyValueClass(item)">
-              {{ formatHistoryValue(item) }}
-            </p>
-          </article>
-        </div>
-
-        <div v-else class="flex min-h-56 flex-col items-center justify-center px-4 py-8 text-center">
-          <div class="flex h-9 w-9 items-center justify-center rounded-[3px] bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
-            <Icon name="clock" size="md" />
-          </div>
-          <p class="mt-3 text-sm text-gray-500 dark:text-dark-400">{{ t('redeem.historyWillAppear') }}</p>
-        </div>
-      </section>
-
-      <aside class="card order-1 overflow-hidden md:order-2 md:col-span-4" data-testid="redeem-actions">
-        <section class="border-b border-gray-100 p-4 dark:border-dark-700">
-          <div class="flex items-center justify-between gap-3">
+      <div class="redeem-layout">
+        <section class="redeem-history" data-testid="redeem-history">
+          <header class="redeem-section-header">
             <div>
-              <p class="text-xs font-medium text-gray-500 dark:text-dark-400">{{ t('redeem.currentBalance') }}</p>
-              <p class="mt-1 text-2xl font-semibold tracking-tight text-gray-950 dark:text-white">
-                ${{ user?.balance?.toFixed(2) || '0.00' }}
-              </p>
+              <h2>{{ t('redeem.recentActivity') }}</h2>
+              <p>{{ t('redeem.description') }}</p>
             </div>
-            <div class="flex h-8 w-8 items-center justify-center rounded-[3px] bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
-              <Icon name="creditCard" size="sm" />
+            <UiBadge v-if="history.length" :label="String(history.length)" tone="neutral" />
+          </header>
+
+          <UiLoadingOverlay
+            :show="historyLoaded && loadingHistory"
+            :label="t('common.loading')"
+          >
+            <div v-if="historyLoadError && history.length" class="redeem-history-refresh-error">
+              <UiAlert
+                tone="danger"
+                :message="t('redeem.historyLoadFailed')"
+              />
+              <UiButton
+                variant="quiet"
+                density="dense"
+                data-testid="redeem-history-retry"
+                @click="fetchHistory"
+              >
+                {{ t('common.retry') }}
+              </UiButton>
             </div>
-          </div>
-          <div class="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 text-xs dark:border-dark-700">
-            <span class="text-gray-500 dark:text-dark-400">{{ t('redeem.concurrency') }}</span>
-            <span class="font-medium tabular-nums text-gray-900 dark:text-white">
-              {{ user?.concurrency || 0 }} {{ t('redeem.requests') }}
-            </span>
-          </div>
+
+            <div v-if="!historyLoaded" class="redeem-history-skeleton" role="status">
+              <span class="sr-only">{{ t('common.loading') }}</span>
+              <div v-for="index in 4" :key="index" class="redeem-history-skeleton__row">
+                <UiSkeleton variant="circle" width="28px" height="28px" />
+                <UiSkeleton variant="text" width="58%" height="14px" />
+                <UiSkeleton variant="text" width="84px" height="14px" />
+              </div>
+            </div>
+
+            <div v-else-if="history.length" class="redeem-history-list">
+              <article v-for="item in history" :key="item.id" class="redeem-history-row">
+                <div class="redeem-history-row__main">
+                  <span class="redeem-history-row__icon" :class="historyIconClass(item)" aria-hidden="true">
+                    <Icon :name="historyIconName(item)" size="sm" :stroke-width="1.8" />
+                  </span>
+                  <div class="redeem-history-row__title">
+                    <strong :title="getHistoryItemTitle(item)">{{ getHistoryItemTitle(item) }}</strong>
+                    <span>{{ formatDateTime(item.used_at) }}</span>
+                  </div>
+                </div>
+
+                <div class="redeem-history-row__meta">
+                  <code v-if="!isAdminAdjustment(item.type)" :title="item.code">{{ item.code }}</code>
+                  <span v-else>{{ t('redeem.adminAdjustment') }}</span>
+                  <small v-if="item.notes" :title="item.notes">{{ item.notes }}</small>
+                </div>
+
+                <strong class="redeem-history-row__value" :class="historyValueClass(item)">
+                  {{ formatHistoryValue(item) }}
+                </strong>
+              </article>
+            </div>
+
+            <UiErrorState
+              v-else-if="historyLoadError"
+              :title="t('redeem.historyLoadFailed')"
+              :description="t('redeem.historyLoadFailedDescription')"
+              :retry-text="t('common.retry')"
+              @retry="fetchHistory"
+            />
+
+            <UiEmptyState
+              v-else
+              icon="clock"
+              :title="t('redeem.historyWillAppear')"
+            />
+          </UiLoadingOverlay>
         </section>
 
-        <section>
-          <div class="border-b border-gray-100 px-4 py-3 dark:border-dark-700">
-            <h2 class="text-sm font-semibold text-gray-950 dark:text-white">{{ t('redeem.title') }}</h2>
-            <p class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">{{ t('redeem.redeemCodeHint') }}</p>
-          </div>
-          <form class="space-y-3 p-4" @submit.prevent="handleRedeem">
-            <label for="code" class="sr-only">{{ t('redeem.redeemCodeLabel') }}</label>
-            <div class="flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
-              <div class="relative min-w-0 flex-1">
-                <Icon name="gift" size="sm" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-dark-500" />
-                <input
-                  id="code"
-                  v-model="redeemCode"
-                  type="text"
-                  required
-                  autocomplete="off"
-                  :placeholder="t('redeem.redeemCodePlaceholder')"
-                  :disabled="submitting"
-                  class="input pl-9 font-mono"
-                />
-              </div>
-              <button type="submit" :disabled="!redeemCode.trim() || submitting" class="btn btn-primary shrink-0">
-                <Icon :name="submitting ? 'refresh' : 'checkCircle'" size="sm" :class="submitting ? 'animate-spin' : ''" />
-                {{ submitting ? t('redeem.redeeming') : t('redeem.redeemButton') }}
-              </button>
+        <aside class="redeem-sidebar" data-testid="redeem-actions">
+          <section class="redeem-balance">
+            <div>
+              <span>{{ t('redeem.currentBalance') }}</span>
+              <strong>${{ user?.balance?.toFixed(2) || '0.00' }}</strong>
             </div>
+            <span class="redeem-balance__icon" aria-hidden="true"><Icon name="creditCard" size="sm" /></span>
+            <dl>
+              <dt>{{ t('redeem.concurrency') }}</dt>
+              <dd>{{ user?.concurrency || 0 }} {{ t('redeem.requests') }}</dd>
+            </dl>
+          </section>
 
-            <transition name="fade">
-              <div v-if="redeemResult" class="flex items-start gap-2 rounded-[3px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-900/20 dark:text-emerald-200">
-                <Icon name="checkCircle" size="sm" class="mt-0.5 shrink-0" />
-                <div class="min-w-0">
-                  <p class="font-semibold">{{ t('redeem.redeemSuccess') }}</p>
-                  <p class="mt-0.5">{{ redeemResult.message }}</p>
-                  <p v-if="redeemResult.type === 'balance'" class="mt-1 font-medium">{{ t('redeem.added') }}: ${{ redeemResult.value.toFixed(2) }}</p>
-                  <p v-else-if="redeemResult.type === 'concurrency'" class="mt-1 font-medium">{{ t('redeem.added') }}: {{ redeemResult.value }} {{ t('redeem.concurrentRequests') }}</p>
-                  <p v-else-if="redeemResult.type === 'subscription'" class="mt-1 font-medium">
+          <section class="redeem-form-section">
+            <header class="redeem-section-header">
+              <div>
+                <h2>{{ t('redeem.redeemCodeLabel') }}</h2>
+                <p>{{ t('redeem.redeemCodeHint') }}</p>
+              </div>
+            </header>
+
+            <form class="redeem-form" @submit.prevent="handleRedeem">
+              <UiTextField
+                id="code"
+                v-model="redeemCode"
+                :label="t('redeem.redeemCodeLabel')"
+                :placeholder="t('redeem.redeemCodePlaceholder')"
+                type="text"
+                autocomplete="off"
+                required
+                monospace
+                density="compact"
+                :disabled="submitting"
+              >
+                <template #prefix><Icon name="gift" size="sm" /></template>
+              </UiTextField>
+              <UiButton
+                type="submit"
+                variant="primary"
+                density="compact"
+                block
+                :disabled="!redeemCode.trim() || submitting"
+                :loading="submitting"
+              >
+                <template v-if="!submitting" #icon><Icon name="checkCircle" size="sm" /></template>
+                {{ submitting ? t('redeem.redeeming') : t('redeem.redeemButton') }}
+              </UiButton>
+
+              <div v-if="redeemResult" class="redeem-result redeem-result--success" role="status">
+                <Icon name="checkCircle" size="sm" aria-hidden="true" />
+                <div>
+                  <strong>{{ t('redeem.redeemSuccess') }}</strong>
+                  <p>{{ redeemResult.message }}</p>
+                  <p v-if="redeemResult.type === 'balance'">{{ t('redeem.added') }}: ${{ redeemResult.value.toFixed(2) }}</p>
+                  <p v-else-if="redeemResult.type === 'concurrency'">{{ t('redeem.added') }}: {{ redeemResult.value }} {{ t('redeem.concurrentRequests') }}</p>
+                  <p v-else-if="redeemResult.type === 'subscription'">
                     {{ t('redeem.subscriptionAssigned') }}<span v-if="redeemResult.plan_name"> · {{ redeemResult.plan_name }}</span><span v-if="redeemResult.validity_days"> · {{ t('redeem.subscriptionDays', { days: redeemResult.validity_days }) }}</span>
                   </p>
-                  <p v-if="redeemResult.new_balance !== undefined" class="mt-0.5">{{ t('redeem.newBalance') }}: ${{ redeemResult.new_balance.toFixed(2) }}</p>
-                  <p v-if="redeemResult.new_concurrency !== undefined" class="mt-0.5">{{ t('redeem.newConcurrency') }}: {{ redeemResult.new_concurrency }} {{ t('redeem.requests') }}</p>
+                  <p v-if="redeemResult.new_balance !== undefined">{{ t('redeem.newBalance') }}: ${{ redeemResult.new_balance.toFixed(2) }}</p>
+                  <p v-if="redeemResult.new_concurrency !== undefined">{{ t('redeem.newConcurrency') }}: {{ redeemResult.new_concurrency }} {{ t('redeem.requests') }}</p>
                 </div>
               </div>
-            </transition>
 
-            <transition name="fade">
-              <div v-if="errorMessage" class="flex items-start gap-2 rounded-[3px] border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-800/60 dark:bg-red-900/20 dark:text-red-200">
-                <Icon name="exclamationCircle" size="sm" class="mt-0.5 shrink-0" />
+              <div v-if="errorMessage" class="redeem-result redeem-result--error" role="alert">
+                <Icon name="exclamationCircle" size="sm" aria-hidden="true" />
                 <div>
-                  <p class="font-semibold">{{ t('redeem.redeemFailed') }}</p>
-                  <p class="mt-0.5">{{ errorMessage }}</p>
+                  <strong>{{ t('redeem.redeemFailed') }}</strong>
+                  <p>{{ errorMessage }}</p>
                 </div>
               </div>
-            </transition>
-          </form>
-        </section>
+            </form>
+          </section>
 
-        <section class="border-t border-gray-100 p-4 dark:border-dark-700" data-testid="redeem-help">
-          <div class="flex items-start gap-3">
-            <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px] bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
-              <Icon name="infoCircle" size="sm" />
-            </div>
-            <div class="min-w-0 flex-1">
-              <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('redeem.aboutCodes') }}</h2>
-              <ul class="mt-2 space-y-1.5 text-xs leading-5 text-gray-500 dark:text-dark-400">
+          <section class="redeem-help" data-testid="redeem-help">
+            <div class="redeem-help__icon" aria-hidden="true"><Icon name="infoCircle" size="sm" /></div>
+            <div>
+              <h2>{{ t('redeem.aboutCodes') }}</h2>
+              <ul>
                 <li>{{ t('redeem.codeRule1') }}</li>
                 <li>{{ t('redeem.codeRule2') }}</li>
                 <li>
                   {{ t('redeem.codeRule3') }}
-                  <span v-if="contactInfo" class="ml-1 font-medium text-primary-600 dark:text-primary-400">{{ contactInfo }}</span>
+                  <span v-if="contactInfo" class="redeem-help__contact">{{ contactInfo }}</span>
                 </li>
                 <li>{{ t('redeem.codeRule4') }}</li>
               </ul>
             </div>
-          </div>
-        </section>
-      </aside>
-    </div>
+          </section>
+        </aside>
+      </div>
+    </AppPage>
   </AppLayout>
 </template>
 
@@ -169,6 +187,18 @@ import { useSubscriptionStore } from '@/stores/subscriptions'
 import { redeemAPI, authAPI, type RedeemHistoryItem } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  AppPage,
+  AppPageHeader,
+  UiBadge,
+  UiAlert,
+  UiButton,
+  UiEmptyState,
+  UiErrorState,
+  UiLoadingOverlay,
+  UiSkeleton,
+  UiTextField
+} from '@/components/ui'
 import { formatDateTime } from '@/utils/format'
 
 const { t } = useI18n()
@@ -195,6 +225,8 @@ const errorMessage = ref('')
 // History data
 const history = ref<RedeemHistoryItem[]>([])
 const loadingHistory = ref(false)
+const historyLoaded = ref(false)
+const historyLoadError = ref(false)
 const contactInfo = ref('')
 
 // Helper functions for history display
@@ -218,18 +250,18 @@ const historyIconName = (item: RedeemHistoryItem): 'dollar' | 'badge' | 'bolt' =
 
 const historyIconClass = (item: RedeemHistoryItem) => {
   if (isBalanceType(item.type) && item.value < 0) {
-    return 'bg-red-50 text-red-600 dark:bg-red-900/25 dark:text-red-400'
+    return 'is-negative'
   }
   if (isBalanceType(item.type)) {
-    return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/25 dark:text-emerald-400'
+    return 'is-positive'
   }
-  return 'bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300'
+  return 'is-subscription'
 }
 
 const historyValueClass = (item: RedeemHistoryItem) => {
-  if (isBalanceType(item.type) && item.value < 0) return 'text-red-600 dark:text-red-400'
-  if (isBalanceType(item.type)) return 'text-emerald-600 dark:text-emerald-400'
-  return 'text-primary-600 dark:text-primary-400'
+  if (isBalanceType(item.type) && item.value < 0) return 'is-negative'
+  if (isBalanceType(item.type)) return 'is-positive'
+  return 'is-subscription'
 }
 
 const getHistoryItemTitle = (item: RedeemHistoryItem) => {
@@ -263,17 +295,21 @@ const formatHistoryValue = (item: RedeemHistoryItem) => {
 }
 
 const fetchHistory = async () => {
+  if (loadingHistory.value) return
   loadingHistory.value = true
+  historyLoadError.value = false
   try {
     history.value = await redeemAPI.getHistory()
-  } catch (error) {
-    console.error('Failed to fetch history:', error)
+  } catch {
+    historyLoadError.value = true
   } finally {
     loadingHistory.value = false
+    historyLoaded.value = true
   }
 }
 
 const handleRedeem = async () => {
+  if (submitting.value) return
   if (!redeemCode.value.trim()) {
     appStore.showError(t('redeem.pleaseEnterCode'))
     return
@@ -330,14 +366,56 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: all 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
+.redeem-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, .85fr); gap: 16px; padding-top: 16px; }
+.redeem-history, .redeem-sidebar { min-width: 0; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-panel); background: var(--ui-surface); }
+.redeem-sidebar { display: grid; align-content: start; overflow: hidden; }
+.redeem-section-header { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--ui-border-soft); }
+.redeem-section-header h2, .redeem-section-header p { margin: 0; }
+.redeem-section-header h2 { color: var(--ui-text); font-size: 14px; font-weight: 600; line-height: 22px; }
+.redeem-section-header p { margin-top: 2px; color: var(--ui-text-muted); font-size: 12px; line-height: 18px; }
+.redeem-history-skeleton { display: grid; min-height: 224px; align-content: start; }
+.redeem-history-skeleton__row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 84px; align-items: center; gap: 12px; min-height: 56px; padding: 10px 16px; border-bottom: 1px solid var(--ui-border-soft); }
+.redeem-history-refresh-error { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--ui-border-soft); }
+.redeem-history-list { display: grid; }
+.redeem-history-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, .7fr) auto; align-items: center; gap: 16px; min-width: 0; padding: 12px 16px; border-bottom: 1px solid var(--ui-border-soft); }
+.redeem-history-row:last-child { border-bottom: 0; }
+.redeem-history-row__main { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.redeem-history-row__icon, .redeem-balance__icon, .redeem-help__icon { display: grid; flex: 0 0 auto; place-items: center; border: 1px solid var(--ui-border-soft); border-radius: var(--ui-radius-sm); }
+.redeem-history-row__icon { width: 28px; height: 28px; }
+.redeem-history-row__icon.is-negative, .redeem-help__icon { color: var(--ui-danger); background: var(--ui-danger-soft); }
+.redeem-history-row__icon.is-positive { color: var(--ui-success); background: var(--ui-success-soft); }
+.redeem-history-row__icon.is-subscription { color: var(--ui-info); background: var(--ui-info-soft); }
+.redeem-history-row__title, .redeem-history-row__meta { display: grid; min-width: 0; gap: 2px; }
+.redeem-history-row__title strong { overflow: hidden; color: var(--ui-text); font-size: 13px; font-weight: 600; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
+.redeem-history-row__title span, .redeem-history-row__meta span, .redeem-history-row__meta small { overflow: hidden; color: var(--ui-text-muted); font-size: 12px; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
+.redeem-history-row__meta code { overflow: hidden; color: var(--ui-text-muted); font-family: var(--ui-font-mono); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.redeem-history-row__meta small { color: var(--ui-text-soft); }
+.redeem-history-row__value { font-size: 13px; font-weight: 600; line-height: 20px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.redeem-history-row__value.is-negative { color: var(--ui-danger); }
+.redeem-history-row__value.is-positive { color: var(--ui-success); }
+.redeem-history-row__value.is-subscription { color: var(--ui-info); }
+.redeem-balance { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 16px; border-bottom: 1px solid var(--ui-border-soft); }
+.redeem-balance > div { display: grid; gap: 3px; }
+.redeem-balance span, .redeem-balance dt { color: var(--ui-text-muted); font-size: 12px; line-height: 18px; }
+.redeem-balance strong { color: var(--ui-text-strong); font-size: 24px; font-weight: 600; line-height: 30px; font-variant-numeric: tabular-nums; }
+.redeem-balance__icon { width: 30px; height: 30px; color: var(--ui-info); background: var(--ui-info-soft); }
+.redeem-balance dl { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding-top: 10px; border-top: 1px solid var(--ui-border-soft); }
+.redeem-balance dd { margin: 0; color: var(--ui-text); font-size: 12px; font-weight: 600; line-height: 18px; font-variant-numeric: tabular-nums; }
+.redeem-form-section { display: grid; }
+.redeem-form { display: grid; gap: 12px; padding: 16px; }
+.redeem-result { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 9px; padding: 10px 12px; border: 1px solid; border-radius: var(--ui-radius); font-size: 12px; line-height: 18px; }
+.redeem-result--success { border-color: color-mix(in srgb, var(--ui-success) 25%, var(--ui-border)); color: var(--ui-success); background: var(--ui-success-soft); }
+.redeem-result--error { border-color: color-mix(in srgb, var(--ui-danger) 25%, var(--ui-border)); color: var(--ui-danger); background: var(--ui-danger-soft); }
+.redeem-result strong, .redeem-result p { margin: 0; }
+.redeem-result strong { display: block; font-weight: 600; }
+.redeem-result p { margin-top: 2px; color: var(--ui-text-muted); }
+.redeem-help { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; padding: 16px; border-top: 1px solid var(--ui-border-soft); }
+.redeem-help__icon { width: 28px; height: 28px; color: var(--ui-info); background: var(--ui-info-soft); }
+.redeem-help h2, .redeem-help ul { margin: 0; }
+.redeem-help h2 { color: var(--ui-text); font-size: 13px; font-weight: 600; line-height: 20px; }
+.redeem-help ul { display: grid; gap: 5px; margin-top: 8px; padding-left: 16px; color: var(--ui-text-muted); font-size: 12px; line-height: 18px; }
+.redeem-help__contact { margin-left: 4px; color: var(--ui-link); font-family: var(--ui-font-mono); }
+@media (max-width: 900px) { .redeem-layout { grid-template-columns: minmax(0, 1fr); } .redeem-sidebar { order: -1; } }
+@media (max-width: 640px) { .redeem-layout { gap: 12px; } .redeem-history-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 12px; } .redeem-history-row__meta { grid-column: 1 / -1; padding-left: 38px; } .redeem-history-row__value { grid-column: 2; grid-row: 1; } .redeem-section-header, .redeem-form, .redeem-balance, .redeem-help { padding-inline: 12px; } }
+@media (prefers-reduced-motion: reduce) { .redeem-result { transition: none; } }
 </style>

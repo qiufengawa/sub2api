@@ -1,14 +1,20 @@
 <template>
-  <header class="qiu-site-header">
+  <header class="qiu-site-header" :class="{ 'qiu-site-header--compact': compact }">
     <div class="qiu-site-nav">
-      <a href="#home-top" class="qiu-site-brand" @click="closeMenu">
-        <span class="qiu-site-logo">
-          <img :src="siteLogo || '/logo.svg'" :alt="`${siteName} Logo`" />
+      <RouterLink v-if="compact" to="/home" class="qiu-site-brand" @click="closeMenu">
+        <span v-if="siteLogo" class="qiu-site-logo">
+          <img :src="siteLogo" :alt="`${siteName} Logo`" />
         </span>
-        <span class="qiu-site-name" :title="siteName">{{ siteName }}</span>
+        <span v-else class="qiu-site-name" :title="siteName">{{ siteName }}</span>
+      </RouterLink>
+      <a v-else href="#home-top" class="qiu-site-brand" @click="closeMenu">
+        <span v-if="siteLogo" class="qiu-site-logo">
+          <img :src="siteLogo" :alt="`${siteName} Logo`" />
+        </span>
+        <span v-else class="qiu-site-name" :title="siteName">{{ siteName }}</span>
       </a>
 
-      <nav class="qiu-desktop-links" :aria-label="t('home.nav.primary')">
+      <nav v-if="!compact" class="qiu-desktop-links" :aria-label="t('home.nav.primary')">
         <a href="#advantages">{{ t('home.nav.advantages') }}</a>
         <a href="#model-coverage">{{ t('home.nav.models') }}</a>
         <a href="#integration">{{ t('home.nav.integration') }}</a>
@@ -20,10 +26,10 @@
 
       <div class="qiu-site-actions">
         <div class="qiu-locale-control">
-          <LocaleSwitcher />
+          <LocaleSwitcher :compact="compact" />
         </div>
         <a
-          v-if="docUrl"
+          v-if="docUrl && !compact"
           :href="docUrl"
           target="_blank"
           rel="noopener noreferrer"
@@ -42,11 +48,16 @@
         >
           <Icon :name="isDark ? 'sun' : 'moon'" size="sm" />
         </button>
-        <RouterLink :to="isAuthenticated ? dashboardPath : '/login'" class="qiu-auth-link">
-          {{ isAuthenticated ? t('home.dashboard') : t('home.login') }}
+        <RouterLink
+          :to="compact ? '/home' : isAuthenticated ? dashboardPath : '/login'"
+          class="qiu-auth-link"
+          :class="{ 'qiu-auth-link--quiet': compact }"
+        >
+          {{ compact ? t('common.goHome') : isAuthenticated ? t('home.dashboard') : t('home.login') }}
           <Icon name="arrowRight" size="xs" />
         </RouterLink>
         <button
+          v-if="!compact"
           type="button"
           class="qiu-icon-button qiu-menu-button"
           :aria-label="t('home.nav.toggleMenu')"
@@ -60,6 +71,7 @@
     </div>
 
     <nav
+      v-if="!compact"
       v-show="menuOpen"
       id="qiu-mobile-menu"
       class="qiu-mobile-menu"
@@ -93,6 +105,7 @@ defineProps<{
   isAuthenticated: boolean
   dashboardPath: string
   modelPlazaEnabled: boolean
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -119,20 +132,22 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
   position: sticky;
   top: 0;
   z-index: 40;
-  border-bottom: 2px solid var(--qiu-ink);
-  background: color-mix(in srgb, var(--qiu-paper) 94%, transparent);
-  backdrop-filter: blur(12px);
+  width: 100%;
+  color: var(--ui-text);
+  background: color-mix(in srgb, var(--ui-bg) 94%, transparent);
+  backdrop-filter: blur(16px);
 }
 
 .qiu-site-nav {
   display: flex;
-  min-height: 58px;
-  max-width: 1180px;
+  width: calc(100% - 56px);
+  max-width: 1260px;
+  min-height: 54px;
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 4px 0;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px;
 }
 
 .qiu-site-brand,
@@ -145,54 +160,61 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
 .qiu-site-brand {
   min-width: 0;
   max-width: 250px;
-  gap: 10px;
-  color: var(--qiu-ink);
+  gap: 8px;
+  color: var(--ui-text);
   text-decoration: none;
 }
 
 .qiu-site-logo {
-  display: grid;
-  width: 34px;
-  height: 34px;
+  display: block;
+  width: clamp(112px, 11vw, 160px);
+  height: 32px;
   flex: 0 0 auto;
-  place-items: center;
   overflow: hidden;
-  border: 2px solid var(--qiu-ink);
-  border-radius: 4px;
-  background: var(--qiu-surface);
-  box-shadow: 3px 3px 0 var(--qiu-shadow);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .qiu-site-logo img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  object-position: center;
 }
 
 .qiu-site-name {
   overflow: hidden;
-  font-size: 15px;
-  font-weight: 900;
+  color: var(--ui-text);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .qiu-desktop-links {
-  gap: 22px;
+  gap: 6px;
 }
 
 .qiu-desktop-links a {
-  color: var(--qiu-muted);
-  font-size: 13px;
-  font-weight: 800;
+  display: inline-flex;
+  height: 36px;
+  padding: 8px 16px;
+  align-items: center;
+  border-radius: 6px;
+  color: var(--ui-text);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .qiu-desktop-links a:hover {
-  color: var(--qiu-ink);
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 5px;
+  color: var(--ui-text);
+  background: var(--ui-surface-muted);
 }
 
 .qiu-site-actions {
@@ -202,42 +224,86 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
 
 .qiu-icon-button {
   display: inline-flex;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 4px;
-  color: var(--qiu-muted);
+  border-radius: 6px;
+  color: var(--ui-text);
   background: transparent;
   cursor: pointer;
 }
 
 .qiu-icon-button:hover {
-  color: var(--qiu-ink);
-  background: var(--qiu-surface);
+  color: var(--ui-text);
+  background: var(--ui-surface-muted);
 }
 
 .qiu-auth-link {
   display: inline-flex;
-  min-height: 34px;
+  height: 36px;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 0 12px;
-  border: 2px solid var(--qiu-ink);
-  border-radius: 4px;
-  color: var(--qiu-ink);
-  background: var(--qiu-pink);
-  box-shadow: 3px 3px 0 var(--qiu-shadow);
-  font-size: 12px;
-  font-weight: 900;
+  gap: 4px;
+  padding: 5px 17px;
+  border: 1px solid var(--ui-text);
+  border-radius: 6px;
+  color: var(--ui-inverse);
+  background: var(--ui-text);
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
   text-decoration: none;
 }
 
 .qiu-auth-link:active {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 var(--qiu-shadow);
+  transform: none;
+  box-shadow: none;
+}
+
+.qiu-auth-link--quiet {
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+  background: var(--ui-surface);
+}
+
+.qiu-auth-link--quiet:hover {
+  border-color: var(--ui-text-muted);
+  background: var(--ui-surface-muted);
+}
+
+.qiu-site-header--compact .qiu-site-nav {
+  min-height: 52px;
+}
+
+.qiu-site-header--compact .qiu-site-actions {
+  gap: 4px;
+}
+
+.qiu-site-header--compact .qiu-icon-button,
+.qiu-site-header--compact .qiu-auth-link {
+  height: 32px;
+  min-height: 32px;
+  border-radius: 5px;
+}
+
+.qiu-site-header--compact .qiu-icon-button {
+  width: 32px;
+  border: 1px solid transparent;
+}
+
+.qiu-site-header--compact .qiu-icon-button:hover {
+  border-color: var(--ui-border);
+  background: var(--ui-surface-muted);
+}
+
+.qiu-site-header--compact .qiu-auth-link {
+  gap: 5px;
+  padding: 0 11px;
+  font-size: 12px;
+  line-height: 1;
 }
 
 .qiu-menu-button {
@@ -248,7 +314,24 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
   display: none;
 }
 
-@media (max-width: 980px) {
+@media (min-width: 1440px) {
+  .qiu-site-nav {
+    width: 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  .qiu-site-header {
+    position: sticky;
+    background: color-mix(in srgb, var(--ui-bg) 97%, transparent);
+  }
+
+  .qiu-site-nav {
+    width: 100%;
+    min-height: 52px;
+    padding: 8px 28px;
+  }
+
   .qiu-desktop-links {
     display: none;
   }
@@ -259,60 +342,70 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
 
   .qiu-mobile-menu {
     display: grid;
-    max-width: 1180px;
+    width: calc(100% - 56px);
+    max-width: 1260px;
     margin: 0 auto;
-    padding: 6px 24px 14px;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
+    padding: 8px 0 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .qiu-mobile-menu a {
     min-width: 0;
-    padding: 9px 10px;
-    border: 1px solid color-mix(in srgb, var(--qiu-ink) 24%, transparent);
-    border-radius: 4px;
-    color: var(--qiu-ink);
-    background: var(--qiu-surface);
-    font-size: 12px;
-    font-weight: 800;
+    min-height: 36px;
+    padding: 7px 12px;
+    border: 1px solid var(--ui-border-soft);
+    border-radius: 6px;
+    color: var(--ui-text);
+    background: var(--ui-surface);
+    font-size: 13px;
+    font-weight: 400;
     text-align: center;
     text-decoration: none;
   }
 }
 
 @media (max-width: 640px) {
-  .qiu-site-nav {
-    min-height: 54px;
-    padding: 0 14px;
-    gap: 8px;
-  }
-
   .qiu-site-brand {
     max-width: min(46vw, 170px);
   }
 
   .qiu-site-logo {
-    width: 30px;
-    height: 30px;
+    width: clamp(96px, 28vw, 132px);
+    height: 28px;
   }
 
   .qiu-site-name {
     font-size: 13px;
   }
 
-  .qiu-locale-control,
   .qiu-doc-button {
+    display: none;
+  }
+
+  .qiu-site-header:not(.qiu-site-header--compact) .qiu-locale-control {
     display: none;
   }
 
   .qiu-auth-link {
     min-height: 32px;
-    padding: 0 9px;
+    height: 32px;
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+
+  .qiu-site-header--compact .qiu-site-nav {
+    min-height: 52px;
+    padding: 8px 20px;
+  }
+
+  .qiu-site-header--compact .qiu-site-brand {
+    max-width: min(36vw, 150px);
   }
 
   .qiu-mobile-menu {
-    padding: 4px 14px 12px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-bottom: 12px;
   }
 }
+
 </style>

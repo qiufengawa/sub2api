@@ -105,22 +105,13 @@ describe('user RedeemView', () => {
     fetchActiveSubscriptions.mockResolvedValue(undefined)
   })
 
-  it('uses the full-width activity and compact action layout in stable responsive order', async () => {
+  it('uses the stable activity and action workspace layout', async () => {
     const wrapper = mountRedeemView()
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="redeem-history"]').classes()).toEqual(expect.arrayContaining([
-      'order-2',
-      'md:order-1',
-      'md:col-span-8',
-    ]))
-    expect(wrapper.get('[data-testid="redeem-actions"]').classes()).toEqual(expect.arrayContaining([
-      'order-1',
-      'md:order-2',
-      'md:col-span-4',
-    ]))
+    expect(wrapper.get('[data-testid="redeem-history"]').classes()).toContain('redeem-history')
+    expect(wrapper.get('[data-testid="redeem-actions"]').classes()).toContain('redeem-sidebar')
     expect(wrapper.get('[data-testid="redeem-actions"]').find('[data-testid="redeem-help"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="redeem-actions"]').classes()).toContain('card')
     expect(wrapper.findAll('article')).toHaveLength(2)
     expect(wrapper.text()).toContain('TEST-UI-BALANCE-20')
     expect(wrapper.text()).toContain('$82.36')
@@ -131,7 +122,7 @@ describe('user RedeemView', () => {
       message: 'ok',
       type: 'subscription',
       value: 1,
-      group_name: 'Claude Team',
+      plan_name: 'Claude Team',
       validity_days: 30,
     })
 
@@ -147,5 +138,84 @@ describe('user RedeemView', () => {
     expect(getHistory).toHaveBeenCalledTimes(2)
     expect(showSuccess).toHaveBeenCalledWith('redeem.codeRedeemSuccess')
     expect(wrapper.text()).toContain('redeem.redeemSuccess')
+    expect(wrapper.text()).toContain('Claude Team')
+  })
+
+  it('shows stable history rows while the initial request is pending', async () => {
+    let resolveHistory!: (rows: typeof historyRows) => void
+    getHistory.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveHistory = resolve
+    }))
+
+    const wrapper = mountRedeemView()
+    expect(wrapper.find('.redeem-history-skeleton').exists()).toBe(true)
+
+    resolveHistory(historyRows)
+    await flushPromises()
+
+    expect(wrapper.find('.redeem-history-skeleton').exists()).toBe(false)
+    expect(wrapper.findAll('article')).toHaveLength(2)
+    wrapper.unmount()
+  })
+
+  it('prevents duplicate redemption submissions while one request is pending', async () => {
+    let resolveRedeem!: (value: {
+      message: string
+      type: string
+      value: number
+    }) => void
+    redeem.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveRedeem = resolve
+    }))
+
+    const wrapper = mountRedeemView()
+    await flushPromises()
+    await wrapper.get('#code').setValue('TEST-UI-BALANCE-20')
+    await wrapper.get('form').trigger('submit')
+    await wrapper.get('form').trigger('submit')
+
+    expect(redeem).toHaveBeenCalledTimes(1)
+
+    resolveRedeem({ message: 'ok', type: 'balance', value: 20 })
+    await flushPromises()
+    wrapper.unmount()
+  })
+
+  it('renders a retryable history error instead of the empty state', async () => {
+    getHistory.mockRejectedValueOnce(new Error('network unavailable'))
+    const wrapper = mountRedeemView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('redeem.historyLoadFailed')
+    expect(wrapper.text()).not.toContain('redeem.historyWillAppear')
+
+    getHistory.mockResolvedValueOnce(historyRows)
+    await wrapper.get('[data-testid="redeem-history"] button').trigger('click')
+    await flushPromises()
+
+    expect(getHistory).toHaveBeenCalledTimes(2)
+    expect(wrapper.findAll('article')).toHaveLength(2)
+    wrapper.unmount()
+  })
+
+  it('preserves existing history when a refresh fails', async () => {
+    const wrapper = mountRedeemView()
+    await flushPromises()
+    expect(wrapper.findAll('article')).toHaveLength(2)
+
+    getHistory.mockRejectedValueOnce(new Error('refresh unavailable'))
+    await (wrapper.vm as unknown as { fetchHistory: () => Promise<void> }).fetchHistory()
+    await flushPromises()
+
+    expect(wrapper.findAll('article')).toHaveLength(2)
+    expect(wrapper.text()).toContain('redeem.historyLoadFailed')
+
+    getHistory.mockResolvedValueOnce(historyRows)
+    await wrapper.get('[data-testid="redeem-history-retry"]').trigger('click')
+    await flushPromises()
+
+    expect(getHistory).toHaveBeenCalledTimes(3)
+    expect(wrapper.text()).not.toContain('redeem.historyLoadFailed')
+    wrapper.unmount()
   })
 })

@@ -240,6 +240,8 @@ export default {
     dateRangeCustom: 'Custom',
     customStartDate: 'Custom range start date',
     customEndDate: 'Custom range end date',
+    customRangeRequired: 'Select both a start date and an end date.',
+    customRangeInvalid: 'The start date cannot be later than the end date.',
     apply: 'Apply',
     used: 'Used',
     detailInfo: 'Detail Information',

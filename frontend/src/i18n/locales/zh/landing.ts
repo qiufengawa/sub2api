@@ -249,6 +249,8 @@ export default {
     dateRangeCustom: '自定义',
     customStartDate: '自定义范围开始日期',
     customEndDate: '自定义范围结束日期',
+    customRangeRequired: '请选择开始日期和结束日期。',
+    customRangeInvalid: '开始日期不能晚于结束日期。',
     apply: '应用',
     used: '已使用',
     detailInfo: '详细信息',

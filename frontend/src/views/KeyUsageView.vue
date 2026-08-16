@@ -1,427 +1,213 @@
 <template>
-  <div class="relative flex min-h-screen flex-col bg-gray-50 dark:bg-dark-950">
-    <!-- Header (same pattern as HomeView) -->
-    <header class="relative z-20 px-4 py-4 sm:px-6">
-      <nav class="mx-auto flex max-w-6xl items-center justify-between">
-        <router-link to="/home" class="flex items-center gap-3">
-          <div class="h-10 w-10 overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900">
-            <img :src="siteLogo || '/logo.svg'" :alt="siteName" class="h-full w-full object-contain" />
-          </div>
-          <span class="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">{{ siteName }}</span>
-        </router-link>
-        <div class="flex items-center gap-3">
-          <LocaleSwitcher />
-          <a
-            v-if="docUrl"
-            :href="docUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="btn btn-ghost btn-icon"
-            :aria-label="t('home.viewDocs')"
-            :title="t('home.viewDocs')"
-          >
-            <Icon name="book" size="md" />
-          </a>
-          <button
-            type="button"
-            @click="toggleTheme"
-            class="btn btn-ghost btn-icon"
-            :aria-label="isDark ? t('home.switchToLight') : t('home.switchToDark')"
-            :title="isDark ? t('home.switchToLight') : t('home.switchToDark')"
-          >
-            <Icon v-if="isDark" name="sun" size="md" />
-            <Icon v-else name="moon" size="md" />
-          </button>
-        </div>
-      </nav>
-    </header>
+  <div class="key-usage-page">
+    <HomeSiteHeader
+      :site-name="siteName"
+      :site-logo="siteLogo"
+      :doc-url="docUrl"
+      :is-dark="isDark"
+      :is-authenticated="false"
+      dashboard-path="/dashboard"
+      :model-plaza-enabled="false"
+      compact
+      @toggle-theme="toggleTheme"
+    />
 
-    <!-- Main Content -->
-    <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-7 sm:px-6 sm:py-10">
-      <!-- Hero -->
-      <div class="mb-7 text-center sm:mb-9">
-        <h1 class="mb-2 text-3xl font-semibold text-gray-900 dark:text-white">
-          {{ t('keyUsage.title') }}
-        </h1>
-        <p class="text-gray-500 dark:text-dark-400 text-base max-w-md mx-auto">
-          {{ t('keyUsage.subtitle') }}
-        </p>
-      </div>
+    <AppPage width="wide" density="comfortable" class="key-usage-content">
+      <AppPageHeader :title="t('keyUsage.title')" :description="t('keyUsage.subtitle')">
+        <template #actions>
+          <UiBadge tone="info" :label="t('keyUsage.privacyNote')" />
+        </template>
+      </AppPageHeader>
 
-      <!-- Input Section -->
-      <div class="mx-auto mb-8 max-w-2xl sm:mb-10">
-        <div class="flex flex-col gap-3 sm:flex-row" data-testid="key-query-row">
-          <div class="relative min-w-0 flex-1">
-            <label for="key-usage-api-key" class="sr-only">{{ t('keyUsage.title') }}</label>
-            <div class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-dark-500">
-              <Icon name="lock" size="md" />
-            </div>
-            <input
-              id="key-usage-api-key"
-              v-model="apiKey"
-              :type="keyVisible ? 'text' : 'password'"
-              autocomplete="off"
-              autocapitalize="none"
-              spellcheck="false"
-              :placeholder="t('keyUsage.placeholder')"
-              class="input-ring h-11 w-full rounded-[4px] border border-gray-200 bg-white pl-12 pr-12 text-sm text-gray-900 placeholder:text-gray-400 transition-all dark:border-dark-700 dark:bg-dark-900 dark:text-white dark:placeholder:text-dark-500"
-              @keydown.enter="queryKey"
-            />
-            <button
-              type="button"
-              :aria-label="keyVisible ? t('keyUsage.hideApiKey') : t('keyUsage.showApiKey')"
-              :title="keyVisible ? t('keyUsage.hideApiKey') : t('keyUsage.showApiKey')"
-              data-testid="key-visibility-toggle"
-              @click="keyVisible = !keyVisible"
-              class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 dark:text-dark-500 dark:hover:text-white transition-colors"
-            >
-              <Icon :name="keyVisible ? 'eyeOff' : 'eye'" size="md" />
-            </button>
-          </div>
-          <button
-            type="button"
-            @click="queryKey"
+      <AppSection class="key-usage-query" :title="t('keyUsage.query')">
+        <div class="key-usage-query__row" data-testid="key-query-row">
+          <UiTextField
+            id="key-usage-api-key"
+            v-model="apiKey"
+            :type="keyVisible ? 'text' : 'password'"
+            :input-attrs="{ 'aria-label': t('keyUsage.title') }"
+            :placeholder="t('keyUsage.placeholder')"
+            autocomplete="off"
+            inputmode="text"
+            monospace
+            density="compact"
+            @enter="queryKey"
+          >
+            <template #prefix><Icon name="lock" size="sm" /></template>
+            <template #suffix>
+              <UiIconButton
+                :icon="keyVisible ? 'eyeOff' : 'eye'"
+                variant="ghost"
+                density="mini"
+                :label="keyVisible ? t('keyUsage.hideApiKey') : t('keyUsage.showApiKey')"
+                data-testid="key-visibility-toggle"
+                @click="keyVisible = !keyVisible"
+              />
+            </template>
+          </UiTextField>
+          <UiButton
+            variant="primary"
+            density="compact"
+            :loading="isQuerying"
             :disabled="isQuerying"
             :aria-busy="isQuerying"
-            class="btn btn-primary h-11 w-full whitespace-nowrap px-6 sm:w-auto"
+            @click="queryKey"
           >
-            <svg v-if="isQuerying" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
-              <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-            </svg>
-            <Icon v-else name="search" size="sm" />
+            <template #icon><Icon name="search" size="sm" /></template>
             {{ isQuerying ? t('keyUsage.querying') : t('keyUsage.query') }}
-          </button>
+          </UiButton>
         </div>
-        <p class="text-xs text-gray-400 dark:text-dark-500 mt-3 text-center">
-          {{ t('keyUsage.privacyNote') }}
-        </p>
 
-        <!-- Date Range Picker -->
-        <div v-if="showDatePicker" class="mt-4 border-t border-gray-200 pt-4 dark:border-dark-700">
-          <div class="flex flex-wrap items-center justify-start gap-2 sm:justify-center">
-            <span class="w-full text-xs text-gray-500 sm:w-auto dark:text-dark-400">{{ t('keyUsage.dateRange') }}</span>
-            <button
+        <div v-if="showDatePicker" class="key-usage-range">
+          <span class="key-usage-range__label">{{ t('keyUsage.dateRange') }}</span>
+          <div class="key-usage-range__controls">
+            <UiButton
               v-for="range in dateRanges"
               :key="range.key"
-              type="button"
-              @click="setDateRange(range.key)"
+              :variant="currentRange === range.key ? 'primary' : 'secondary'"
+              density="dense"
               :aria-pressed="currentRange === range.key"
-              class="rounded-[3px] border px-3 py-1.5 text-xs transition-colors"
-              :class="currentRange === range.key
-                ? 'bg-primary-500 text-white border-primary-500'
-                : 'border-gray-200 bg-white text-gray-700 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-200 hover:border-primary-300 dark:hover:border-dark-600'"
-            >{{ range.label }}</button>
-            <div
-              v-if="currentRange === 'custom'"
-              class="flex w-full flex-col gap-2 sm:ml-1 sm:w-auto sm:flex-row sm:items-center"
-              data-testid="custom-date-range"
-            >
-              <input
-                :aria-label="t('keyUsage.customStartDate')"
-                v-model="customStartDate"
-                type="date"
-                class="input-ring w-full rounded-[3px] border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-900 sm:w-auto dark:border-dark-700 dark:bg-dark-900 dark:text-white"
-              />
-              <span class="hidden text-xs text-gray-400 sm:inline">-</span>
-              <input
-                :aria-label="t('keyUsage.customEndDate')"
-                v-model="customEndDate"
-                type="date"
-                class="input-ring w-full rounded-[3px] border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-900 sm:w-auto dark:border-dark-700 dark:bg-dark-900 dark:text-white"
-              />
-              <button
-                type="button"
-                @click="queryKey"
-                class="btn btn-primary btn-sm w-full sm:w-auto"
-              >{{ t('keyUsage.apply') }}</button>
-            </div>
+              @click="setDateRange(range.key)"
+            >{{ range.label }}</UiButton>
+          </div>
+          <div v-if="currentRange === 'custom'" class="key-usage-custom-range" data-testid="custom-date-range">
+            <UiDateInput
+              v-model="customStartDate"
+              :label="t('keyUsage.customStartDate')"
+              :max="customEndDate || undefined"
+              :error="customStartDateError || undefined"
+              density="compact"
+            />
+            <UiDateInput
+              v-model="customEndDate"
+              :label="t('keyUsage.customEndDate')"
+              :min="customStartDate || undefined"
+              :error="customEndDateError || undefined"
+              density="compact"
+            />
+            <UiButton variant="primary" density="compact" @click="applyCustomRange">{{ t('keyUsage.apply') }}</UiButton>
           </div>
         </div>
-      </div>
+      </AppSection>
 
-      <!-- Results Container -->
-      <div v-if="showResults" :aria-busy="showLoading" aria-live="polite">
-        <!-- Loading Skeleton -->
-        <div v-if="showLoading" class="space-y-6" role="status">
+      <div v-if="showResults" class="key-usage-results" :aria-busy="showLoading" aria-live="polite">
+        <div v-if="showLoading" class="key-usage-loading" role="status">
           <span class="sr-only">{{ t('keyUsage.querying') }}</span>
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div class="rounded-[4px] border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900 sm:p-6">
-              <div class="skeleton h-5 w-24 mb-6"></div>
-              <div class="flex justify-center"><div class="skeleton w-44 h-44 rounded-full"></div></div>
-            </div>
-            <div class="rounded-[4px] border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900 sm:p-6">
-              <div class="skeleton h-5 w-24 mb-6"></div>
-              <div class="flex justify-center"><div class="skeleton w-44 h-44 rounded-full"></div></div>
+          <div class="key-usage-loading__quotas">
+            <div v-for="i in 3" :key="i" class="key-usage-loading__quota">
+              <UiSkeleton variant="text" width="34%" height="14px" />
+              <UiSkeleton variant="rect" width="100%" height="7px" />
+              <UiSkeleton variant="text" width="52%" height="12px" />
             </div>
           </div>
-          <div class="rounded-[4px] border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900 sm:p-6">
-            <div class="skeleton h-5 w-32 mb-6"></div>
-            <div class="space-y-4">
-              <div class="skeleton h-4 w-full"></div>
-              <div class="skeleton h-4 w-3/4"></div>
-              <div class="skeleton h-4 w-5/6"></div>
-              <div class="skeleton h-4 w-2/3"></div>
-            </div>
+          <div class="key-usage-loading__rows">
+            <UiSkeleton v-for="i in 6" :key="i" variant="text" :width="`${55 + (i % 3) * 12}%`" height="14px" />
           </div>
         </div>
 
-        <!-- Result Content -->
-        <div v-else-if="resultData" class="space-y-4">
-          <!-- Status Badge -->
-          <div v-if="statusInfo" class="fade-up flex items-center justify-center border-y border-gray-200 py-3 dark:border-dark-700">
-            <div class="inline-flex items-center gap-2 px-2">
-              <span
-                class="w-2.5 h-2.5 rounded-full pulse-dot"
-                :class="statusInfo.isActive ? 'bg-emerald-500' : 'bg-rose-500'"
-              ></span>
-              <span class="text-sm font-medium text-gray-900 dark:text-white">{{ statusInfo.label }}</span>
-              <span class="text-xs text-gray-400 dark:text-dark-500">|</span>
-              <span class="text-xs text-gray-500 dark:text-dark-400">{{ statusInfo.statusText }}</span>
-            </div>
+        <div v-else-if="resultData" class="key-usage-results__content">
+          <div v-if="statusInfo" class="key-usage-status">
+            <span class="key-usage-status__mode">{{ statusInfo.label }}</span>
+            <UiStatusBadge :status="statusInfo.status" :label="statusInfo.statusText" dot />
           </div>
 
-          <!-- Ring Cards Grid -->
-          <div v-if="ringItems.length > 0" :class="ringGridClass">
-            <div
-              v-for="(ring, i) in ringItems"
-              :key="i"
-              class="fade-up rounded-[4px] border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900 sm:p-6"
-              :class="`fade-up-delay-${Math.min(i + 1, 4)}`"
+          <div v-if="ringItems.length > 0" class="key-usage-quota-grid">
+            <template v-for="ring in ringItems" :key="ring.title">
+              <UiStatMetric
+                v-if="ring.isBalance"
+                :label="ring.title"
+                :value="ring.amount"
+              />
+              <UiQuotaSummary
+                v-else
+                :label="ring.title"
+                :used="ring.used"
+                :total="ring.total"
+                :reset-text="ring.resetAt && formatResetTime(ring.resetAt)
+                  ? t('keyUsage.resetsIn', { time: formatResetTime(ring.resetAt) })
+                  : undefined"
+              />
+            </template>
+          </div>
+
+          <section v-if="detailRows.length > 0" class="key-usage-section">
+            <header class="key-usage-section__header"><h3>{{ t('keyUsage.detailInfo') }}</h3></header>
+            <UiDescriptionList :items="detailRows" :columns="2" />
+          </section>
+
+          <section v-if="usageStatCells.length > 0" class="key-usage-section">
+            <header class="key-usage-section__header"><h3>{{ t('keyUsage.tokenStats') }}</h3></header>
+            <div class="key-usage-stat-grid">
+              <UiStatMetric v-for="cell in usageStatCells" :key="cell.label" :label="cell.label" :value="cell.value" />
+            </div>
+          </section>
+
+          <section v-if="showDailyUsage" class="key-usage-section">
+            <header class="key-usage-section__header">
+              <h3>{{ t('keyUsage.dailyDetail') }}</h3>
+              <UiSegmentedControl
+                :model-value="dailyUsageDays"
+                :options="dailyUsageOptions"
+                :label="t('keyUsage.dailyDetail')"
+                @update:model-value="handleDailyUsageDays"
+              />
+            </header>
+            <UiDataTable
+              :columns="dailyColumns"
+              :data="dailyUsageRows"
+              :mobile-table="false"
+              :aria-label="t('keyUsage.dailyDetail')"
             >
-              <div class="mb-4 flex items-center justify-between">
-                <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">
-                  {{ ring.title }}
-                </h3>
-                <Icon :name="ring.iconType" size="md" class="text-gray-400 dark:text-dark-500" />
-              </div>
-              <div class="flex justify-center">
-                <div class="relative">
-                  <svg class="h-40 w-40" viewBox="0 0 160 160">
-                    <circle cx="80" cy="80" r="68" fill="none" :stroke="ringTrackColor" stroke-width="10"/>
-                    <circle
-                      class="progress-ring"
-                      cx="80" cy="80" r="68" fill="none"
-                      :stroke="`url(#ring-grad-${i})`"
-                      stroke-width="10" stroke-linecap="round"
-                      :stroke-dasharray="CIRCUMFERENCE.toFixed(2)"
-                      :stroke-dashoffset="getRingOffset(ring)"
-                    />
-                    <defs>
-                      <linearGradient :id="`ring-grad-${i}`" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" :stop-color="RING_GRADIENTS[i % 4].from"/>
-                        <stop offset="100%" :stop-color="RING_GRADIENTS[i % 4].to"/>
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                  <div class="absolute inset-0 flex flex-col items-center justify-center">
-                    <template v-if="ring.isBalance">
-                      <span class="text-2xl font-bold tabular-nums" :style="{ color: RING_GRADIENTS[i % 4].from }">
-                        {{ ring.amount }}
-                      </span>
-                    </template>
-                    <template v-else>
-                      <span class="text-3xl font-bold tabular-nums text-gray-900 dark:text-white">
-                        {{ displayPcts[i] ?? 0 }}%
-                      </span>
-                      <span class="text-xs text-gray-500 dark:text-dark-400 mt-0.5">{{ t('keyUsage.used') }}</span>
-                      <span
-                        class="text-sm font-semibold mt-1 tabular-nums"
-                        :style="{ color: RING_GRADIENTS[i % 4].from }"
-                      >{{ ring.amount }}</span>
-                      <p v-if="ring.resetAt && formatResetTime(ring.resetAt)" class="mt-0.5 inline-flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 tabular-nums">
-                        <Icon name="refresh" size="xs" aria-hidden="true" />
-                        {{ t('keyUsage.resetsIn', { time: formatResetTime(ring.resetAt) }) }}
-                      </p>
-                    </template>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+              <template #empty><div class="key-usage-empty">{{ t('keyUsage.noDailyUsage') }}</div></template>
+            </UiDataTable>
+          </section>
 
-          <!-- Detail Card -->
-          <div
-            v-if="detailRows.length > 0"
-            class="fade-up fade-up-delay-3 overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900"
-          >
-            <div class="border-b border-gray-200 px-4 py-4 dark:border-dark-700 sm:px-6">
-              <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.detailInfo') }}</h3>
-            </div>
-            <div class="divide-y divide-gray-100 dark:divide-dark-800">
-              <div
-                v-for="(row, i) in detailRows"
-                :key="i"
-                class="flex items-center justify-between gap-4 px-4 py-3 sm:px-6"
-              >
-                <div class="flex items-center gap-3">
-                  <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[4px]" :class="row.iconBg">
-                    <Icon :name="row.iconName" size="sm" :class="row.iconColor" />
-                  </div>
-                  <span class="text-sm text-gray-700 dark:text-dark-200">{{ row.label }}</span>
-                </div>
-                <span class="text-sm font-semibold tabular-nums" :class="row.valueClass || 'text-gray-900 dark:text-white'">
-                  {{ row.value }}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Usage Stats Card -->
-          <div
-            v-if="usageStatCells.length > 0"
-            class="fade-up fade-up-delay-3 overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900"
-          >
-            <div class="border-b border-gray-200 px-4 py-4 dark:border-dark-700 sm:px-6">
-              <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.tokenStats') }}</h3>
-            </div>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-100 dark:bg-dark-800">
-              <div
-                v-for="(cell, i) in usageStatCells"
-                :key="i"
-                class="bg-white px-4 py-3 dark:bg-dark-900 sm:px-5"
-              >
-                <div class="text-xs text-gray-500 dark:text-dark-400 mb-1">{{ cell.label }}</div>
-                <div class="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">{{ cell.value }}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Daily Usage Table -->
-          <div
-            v-if="showDailyUsage"
-            class="fade-up fade-up-delay-4 overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900"
-          >
-            <div class="flex flex-col gap-3 border-b border-gray-200 px-4 py-4 dark:border-dark-700 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-              <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.dailyDetail') }}</h3>
-              <div class="inline-flex rounded-lg border border-gray-200 bg-white p-0.5 dark:border-dark-700 dark:bg-dark-950">
-                <button
-                  v-for="option in dailyUsageOptions"
-                  :key="option.value"
-                  type="button"
-                  @click="setDailyUsageDays(option.value)"
-                  :aria-pressed="dailyUsageDays === option.value"
-                  class="min-w-12 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-                  :class="dailyUsageDays === option.value
-                    ? 'bg-primary-500 text-white'
-                    : 'text-gray-600 hover:bg-gray-100 dark:text-dark-300 dark:hover:bg-dark-800'"
-                >
-                  {{ option.label }}
-                </button>
-              </div>
-            </div>
-            <div v-if="dailyUsageRows.length > 0" class="overflow-x-auto">
-              <table class="w-full min-w-[760px]" :aria-label="t('keyUsage.dailyDetail')">
-                <thead>
-                  <tr class="border-b border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-950">
-                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.date') }}</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.requests') }}</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.inputTokens') }}</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.outputTokens') }}</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.cacheReadTokens') }}</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.cacheWriteTokens') }}</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.cost') }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    v-for="row in dailyUsageRows"
-                    :key="row.date"
-                    class="border-b border-gray-100 last:border-b-0 dark:border-dark-800"
-                  >
-                    <td class="px-4 py-3 text-sm font-medium whitespace-nowrap text-gray-900 dark:text-white">{{ row.date }}</td>
-                    <td class="px-4 py-3 text-sm tabular-nums text-right text-gray-700 dark:text-dark-200">{{ fmtNum(row.requests) }}</td>
-                    <td class="px-4 py-3 text-sm tabular-nums text-right text-gray-700 dark:text-dark-200">{{ fmtNum(row.input_tokens) }}</td>
-                    <td class="px-4 py-3 text-sm tabular-nums text-right text-gray-700 dark:text-dark-200">{{ fmtNum(row.output_tokens) }}</td>
-                    <td class="px-4 py-3 text-sm tabular-nums text-right text-gray-700 dark:text-dark-200">{{ fmtNum(row.cache_read_tokens) }}</td>
-                    <td class="px-4 py-3 text-sm tabular-nums text-right text-gray-700 dark:text-dark-200">{{ fmtNum(row.cache_write_tokens) }}</td>
-                    <td class="px-4 py-3 text-sm tabular-nums text-right font-medium text-gray-900 dark:text-white">{{ usd(row.actual_cost != null ? row.actual_cost : row.cost) }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div v-else class="px-8 py-8 text-center text-sm text-gray-500 dark:text-dark-400">
-              {{ t('keyUsage.noDailyUsage') }}
-            </div>
-          </div>
-
-          <!-- Model Stats Table -->
-          <div
-            v-if="modelStats.length > 0"
-            class="fade-up fade-up-delay-4 overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900"
-          >
-            <div class="border-b border-gray-200 px-4 py-4 dark:border-dark-700 sm:px-6">
-              <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.modelStats') }}</h3>
-            </div>
-            <div class="overflow-x-auto">
-              <table class="w-full min-w-[900px]" :aria-label="t('keyUsage.modelStats')">
-                <thead>
-                  <tr class="border-b border-gray-200 bg-gray-50 dark:border-dark-700 dark:bg-dark-950">
-                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.model') }}</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.requests') }}</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.inputTokens') }}</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.outputTokens') }}</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.cacheCreationTokens') }}</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.cacheReadTokens') }}</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.totalTokens') }}</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-dark-400">{{ t('keyUsage.cost') }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    v-for="(m, i) in modelStats"
-                    :key="i"
-                    class="border-b border-gray-100 last:border-b-0 dark:border-dark-800"
-                  >
-                    <td class="px-4 py-3 text-sm font-medium whitespace-nowrap text-gray-900 dark:text-white">{{ m.model || '-' }}</td>
-                    <td class="px-4 py-3 text-sm tabular-nums text-right text-gray-700 dark:text-dark-200">{{ fmtNum(m.requests) }}</td>
-                    <td class="px-4 py-3 text-sm tabular-nums text-right text-gray-700 dark:text-dark-200">{{ fmtNum(m.input_tokens) }}</td>
-                    <td class="px-4 py-3 text-sm tabular-nums text-right text-gray-700 dark:text-dark-200">{{ fmtNum(m.output_tokens) }}</td>
-                    <td class="px-4 py-3 text-sm tabular-nums text-right text-gray-700 dark:text-dark-200">{{ fmtNum(m.cache_creation_tokens) }}</td>
-                    <td class="px-4 py-3 text-sm tabular-nums text-right text-gray-700 dark:text-dark-200">{{ fmtNum(m.cache_read_tokens) }}</td>
-                    <td class="px-4 py-3 text-sm tabular-nums text-right text-gray-700 dark:text-dark-200">{{ fmtNum(m.total_tokens) }}</td>
-                    <td class="px-4 py-3 text-sm tabular-nums text-right font-medium text-gray-900 dark:text-white">{{ usd(m.actual_cost != null ? m.actual_cost : m.cost) }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <section v-if="modelStats.length > 0" class="key-usage-section">
+            <header class="key-usage-section__header"><h3>{{ t('keyUsage.modelStats') }}</h3></header>
+            <UiDataTable
+              :columns="modelColumns"
+              :data="modelStats"
+              :mobile-table="false"
+              :aria-label="t('keyUsage.modelStats')"
+            />
+          </section>
         </div>
       </div>
-    </main>
+    </AppPage>
 
-    <!-- Footer (same pattern as HomeView) -->
-    <footer class="relative z-10 border-t border-gray-200/50 px-6 py-8 dark:border-dark-800/50">
-      <div class="mx-auto flex max-w-6xl flex-col items-center justify-center gap-4 text-center sm:flex-row sm:text-left">
-        <p class="text-sm text-gray-500 dark:text-dark-400">
-          &copy; {{ currentYear }} {{ siteName }}. {{ t('home.footer.allRightsReserved') }}
-        </p>
-        <div class="flex items-center gap-4">
-          <a
-            v-if="docUrl"
-            :href="docUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-dark-400 dark:hover:text-white"
-          >{{ t('home.docs') }}</a>
-          <a
-            :href="githubUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-dark-400 dark:hover:text-white"
-          >{{ t('nav.github') }}</a>
-        </div>
-      </div>
+    <footer class="key-usage-footer">
+      <span>&copy; {{ currentYear }} {{ siteName }}. {{ t('home.footer.allRightsReserved') }}</span>
+      <span class="key-usage-footer__links">
+        <a v-if="docUrl" :href="docUrl" target="_blank" rel="noopener noreferrer">{{ t('home.docs') }}</a>
+        <a :href="githubUrl" target="_blank" rel="noopener noreferrer">{{ t('nav.github') }}</a>
+      </span>
     </footer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores'
-import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import Icon from '@/components/icons/Icon.vue'
+import HomeSiteHeader from '@/components/home/HomeSiteHeader.vue'
+import {
+  AppPage,
+  AppPageHeader,
+  AppSection,
+  UiBadge,
+  UiButton,
+  UiDataTable,
+  UiDateInput,
+  UiDescriptionList,
+  UiIconButton,
+  UiQuotaSummary,
+  UiSegmentedControl,
+  UiSkeleton,
+  UiStatMetric,
+  UiStatusBadge,
+  UiTextField,
+} from '@/components/ui'
 import { buildGatewayUrl } from '@/api/client'
 import { formatDateLocalInput } from '@/utils/format'
 import { sanitizeUrl } from '@/utils/url'
@@ -467,7 +253,28 @@ type DateRangeKey = 'today' | '7d' | '30d' | 'custom'
 const currentRange = ref<DateRangeKey>('today')
 const customStartDate = ref('')
 const customEndDate = ref('')
+const customRangeTouched = ref(false)
 const dailyUsageDays = ref<7 | 30 | 90>(30)
+
+const customStartDateError = computed(() => {
+  if (!customRangeTouched.value || currentRange.value !== 'custom') return ''
+  if (!customStartDate.value) return t('keyUsage.customRangeRequired')
+  if (customEndDate.value && customStartDate.value > customEndDate.value) {
+    return t('keyUsage.customRangeInvalid')
+  }
+  return ''
+})
+
+const customEndDateError = computed(() => {
+  if (!customRangeTouched.value || currentRange.value !== 'custom') return ''
+  return customEndDate.value ? '' : t('keyUsage.customRangeRequired')
+})
+
+const customRangeValid = computed(() => Boolean(
+  customStartDate.value
+  && customEndDate.value
+  && customStartDate.value <= customEndDate.value
+))
 
 const dateRanges = computed(() => [
   { key: 'today' as const, label: t('keyUsage.dateRangeToday') },
@@ -484,9 +291,16 @@ const dailyUsageOptions = computed(() => [
 
 function setDateRange(key: DateRangeKey) {
   currentRange.value = key
+  customRangeTouched.value = false
   if (key !== 'custom') {
-    queryKey()
+    void queryKey()
   }
+}
+
+function applyCustomRange() {
+  customRangeTouched.value = true
+  if (!customRangeValid.value) return
+  void queryKey()
 }
 
 function getDateParams(): string {
@@ -494,10 +308,8 @@ function getDateParams(): string {
   const params = new URLSearchParams()
 
   if (currentRange.value === 'custom') {
-    if (customStartDate.value && customEndDate.value) {
-      params.set('start_date', customStartDate.value)
-      params.set('end_date', customEndDate.value)
-    }
+    params.set('start_date', customStartDate.value)
+    params.set('end_date', customEndDate.value)
   } else {
     const end = formatDateLocalInput(now)
     let start: string
@@ -523,61 +335,15 @@ function setDailyUsageDays(days: 7 | 30 | 90) {
   }
 }
 
-// ==================== Ring Animation ====================
-
-const CIRCUMFERENCE = 2 * Math.PI * 68
-const RING_GRADIENTS = [
-  { from: '#14b8a6', to: '#5eead4' },
-  { from: '#6366F1', to: '#A5B4FC' },
-  { from: '#10B981', to: '#6EE7B7' },
-  { from: '#F59E0B', to: '#FCD34D' },
-]
-
-const ringAnimated = ref(false)
-const displayPcts = ref<number[]>([])
-
-const ringTrackColor = computed(() => isDark.value ? '#222222' : '#F0F0EE')
-
 interface RingItem {
   title: string
   pct: number
   amount: string
+  used: number
+  total: number
   isBalance?: boolean
   iconType: 'clock' | 'calendar' | 'dollar'
   resetAt?: string | null
-}
-
-function getRingOffset(ring: RingItem): number {
-  if (!ringAnimated.value) return CIRCUMFERENCE
-  if (ring.isBalance) return 0
-  return CIRCUMFERENCE - (Math.min(ring.pct, 100) / 100) * CIRCUMFERENCE
-}
-
-function triggerRingAnimation(items: RingItem[]) {
-  ringAnimated.value = false
-  displayPcts.value = items.map(() => 0)
-
-  nextTick(() => {
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        ringAnimated.value = true
-
-        // Animate percentage numbers
-        const duration = 1000
-        const startTime = performance.now()
-        const targets = items.map(item => item.isBalance ? 0 : item.pct)
-
-        function tick() {
-          const elapsed = performance.now() - startTime
-          const p = Math.min(elapsed / duration, 1)
-          const ease = 1 - Math.pow(1 - p, 3)
-          displayPcts.value = targets.map(target => Math.round(ease * target))
-          if (p < 1) requestAnimationFrame(tick)
-        }
-        requestAnimationFrame(tick)
-      }, 50)
-    })
-  })
 }
 
 // ==================== Computed Data ====================
@@ -596,6 +362,7 @@ const statusInfo = computed(() => {
     return {
       label: t('keyUsage.quotaMode'),
       statusText: statusMap[data.status] || data.status || t('keyUsage.statusUnknown'),
+      status: data.status || 'unknown',
       isActive: isValid && data.status === 'active',
     }
   }
@@ -603,6 +370,7 @@ const statusInfo = computed(() => {
   return {
     label: data.planName || t('keyUsage.walletBalance'),
     statusText: t('keyUsage.statusActive'),
+    status: 'active',
     isActive: true,
   }
 })
@@ -616,7 +384,14 @@ const ringItems = computed<RingItem[]>(() => {
   if (data.mode === 'quota_limited') {
     if (data.quota) {
       const pct = data.quota.limit > 0 ? Math.min(Math.round((data.quota.used / data.quota.limit) * 100), 100) : 0
-      items.push({ title: t('keyUsage.totalQuota'), pct, amount: `${usd(data.quota.used)} / ${usd(data.quota.limit)}`, iconType: 'dollar' })
+      items.push({
+        title: t('keyUsage.totalQuota'),
+        pct,
+        used: data.quota.used,
+        total: data.quota.limit,
+        amount: `${usd(data.quota.used)} / ${usd(data.quota.limit)}`,
+        iconType: 'dollar',
+      })
     }
     if (data.rate_limits) {
       const windowLabels: Record<string, string> = { '5h': t('keyUsage.limit5h'), '1d': t('keyUsage.limitDaily'), '7d': t('keyUsage.limit7d') }
@@ -626,6 +401,8 @@ const ringItems = computed<RingItem[]>(() => {
         items.push({
           title: windowLabels[rl.window] || rl.window,
           pct,
+          used: rl.used,
+          total: rl.limit,
           amount: `${usd(rl.used)} / ${usd(rl.limit)}`,
           iconType: windowIcons[rl.window] || 'clock',
           resetAt: rl.reset_at,
@@ -643,38 +420,36 @@ const ringItems = computed<RingItem[]>(() => {
       for (const l of limits) {
         if (l.limit != null && l.limit > 0) {
           const pct = Math.min(Math.round((l.usage / l.limit) * 100), 100)
-          items.push({ title: l.label, pct, amount: `${usd(l.usage)} / ${usd(l.limit)}`, iconType: 'calendar' })
+        items.push({
+          title: l.label,
+          pct,
+          used: l.usage,
+          total: l.limit,
+          amount: `${usd(l.usage)} / ${usd(l.limit)}`,
+          iconType: 'calendar',
+        })
         }
       }
     }
     if (!data.subscription && data.balance != null) {
-      items.push({ title: t('keyUsage.walletBalance'), pct: 0, amount: usd(data.balance), isBalance: true, iconType: 'dollar' })
+      items.push({
+        title: t('keyUsage.walletBalance'),
+        pct: 0,
+        used: 0,
+        total: 0,
+        amount: usd(data.balance),
+        isBalance: true,
+        iconType: 'dollar',
+      })
     }
   }
 
   return items
 })
 
-const ringGridClass = computed(() => {
-  const len = ringItems.value.length
-  if (len === 1) return 'grid grid-cols-1 max-w-md mx-auto gap-6'
-  if (len === 2) return 'grid grid-cols-1 md:grid-cols-2 gap-6'
-  return 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-})
-
 interface DetailRow {
-  iconBg: string
-  iconColor: string
-  iconName: 'shield' | 'calendar' | 'dollar' | 'check'
   label: string
   value: string
-  valueClass: string
-}
-
-function getUsageColor(pct: number): string {
-  if (pct > 90) return 'text-rose-500'
-  if (pct > 70) return 'text-amber-500'
-  return 'text-emerald-500'
 }
 
 const detailRows = computed<DetailRow[]>(() => {
@@ -684,12 +459,9 @@ const detailRows = computed<DetailRow[]>(() => {
   const rows: DetailRow[] = []
   if (data.mode === 'quota_limited') {
     if (data.quota) {
-      const remainColor = data.quota.remaining <= 0 ? 'text-rose-500'
-        : data.quota.remaining < data.quota.limit * 0.1 ? 'text-amber-500'
-        : 'text-emerald-500'
       rows.push({
-        iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconName: 'shield',
-        label: t('keyUsage.remainingQuota'), value: usd(data.quota.remaining), valueClass: remainColor,
+        label: t('keyUsage.remainingQuota'),
+        value: usd(data.quota.remaining),
       })
     }
     if (data.expires_at) {
@@ -699,70 +471,61 @@ const detailRows = computed<DetailRow[]>(() => {
         expiryStr += daysLeft > 0 ? ` ${t('keyUsage.daysLeft', { days: daysLeft })}` : daysLeft === 0 ? ` ${t('keyUsage.todayExpires')}` : ''
       }
       rows.push({
-        iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500', iconName: 'calendar',
-        label: t('keyUsage.expiresAt'), value: expiryStr, valueClass: '',
+        label: t('keyUsage.expiresAt'),
+        value: expiryStr,
       })
     }
     if (data.rate_limits) {
       const windowMap: Record<string, string> = { '5h': '5H', '1d': locale.value === 'zh' ? '日' : 'D', '7d': '7D' }
       for (const rl of data.rate_limits) {
-        const pct = rl.limit > 0 ? (rl.used / rl.limit) * 100 : 0
         let valueStr = `${usd(rl.used)} / ${usd(rl.limit)}`
         const resetStr = formatResetTime(rl.reset_at)
         if (resetStr) {
           valueStr += ` (${t('keyUsage.resetsIn', { time: resetStr })})`
         }
         rows.push({
-          iconBg: 'bg-primary-500/10', iconColor: 'text-primary-500', iconName: 'dollar',
           label: `${t('keyUsage.usedQuota')} (${windowMap[rl.window] || rl.window})`,
           value: valueStr,
-          valueClass: getUsageColor(pct),
         })
       }
     }
   } else {
     rows.push({
-      iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconName: 'check',
-      label: t('keyUsage.subscriptionType'), value: data.planName || t('keyUsage.walletBalance'), valueClass: '',
+      label: t('keyUsage.subscriptionType'),
+      value: data.planName || t('keyUsage.walletBalance'),
     })
 
     if (data.subscription) {
       const sub = data.subscription
       if (sub.daily_limit_usd > 0) {
-        const pct = (sub.daily_usage_usd / sub.daily_limit_usd) * 100
         rows.push({
-          iconBg: 'bg-primary-500/10', iconColor: 'text-primary-500', iconName: 'dollar',
-          label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '日' : 'D'})`, value: `${usd(sub.daily_usage_usd)} / ${usd(sub.daily_limit_usd)}`, valueClass: getUsageColor(pct),
+          label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '日' : 'D'})`,
+          value: `${usd(sub.daily_usage_usd)} / ${usd(sub.daily_limit_usd)}`,
         })
       }
       if (sub.weekly_limit_usd > 0) {
-        const pct = (sub.weekly_usage_usd / sub.weekly_limit_usd) * 100
         rows.push({
-          iconBg: 'bg-indigo-500/10', iconColor: 'text-indigo-500', iconName: 'dollar',
-          label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '周' : 'W'})`, value: `${usd(sub.weekly_usage_usd)} / ${usd(sub.weekly_limit_usd)}`, valueClass: getUsageColor(pct),
+          label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '周' : 'W'})`,
+          value: `${usd(sub.weekly_usage_usd)} / ${usd(sub.weekly_limit_usd)}`,
         })
       }
       if (sub.monthly_limit_usd > 0) {
-        const pct = (sub.monthly_usage_usd / sub.monthly_limit_usd) * 100
         rows.push({
-          iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconName: 'dollar',
-          label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '月' : 'M'})`, value: `${usd(sub.monthly_usage_usd)} / ${usd(sub.monthly_limit_usd)}`, valueClass: getUsageColor(pct),
+          label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '月' : 'M'})`,
+          value: `${usd(sub.monthly_usage_usd)} / ${usd(sub.monthly_limit_usd)}`,
         })
       }
       if (sub.expires_at) {
         rows.push({
-          iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500', iconName: 'calendar',
-          label: t('keyUsage.subscriptionExpires'), value: formatDate(sub.expires_at), valueClass: '',
+          label: t('keyUsage.subscriptionExpires'),
+          value: formatDate(sub.expires_at),
         })
       }
     }
 
-    const remainColor = data.remaining != null
-      ? (data.remaining <= 0 ? 'text-rose-500' : data.remaining < 10 ? 'text-amber-500' : 'text-emerald-500')
-      : ''
     rows.push({
-      iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconName: 'shield',
-      label: t('keyUsage.remainingQuota'), value: data.remaining != null ? usd(data.remaining) : '-', valueClass: remainColor,
+      label: t('keyUsage.remainingQuota'),
+      value: data.remaining != null ? usd(data.remaining) : '-',
     })
   }
 
@@ -822,6 +585,42 @@ const dailyUsageRows = computed<DailyUsageRow[]>(() => {
 
 const showDailyUsage = computed(() => Boolean(resultData.value && Array.isArray(resultData.value.daily_usage)))
 
+const dailyColumns = computed(() => [
+  { key: 'date', label: t('keyUsage.date'), sortable: false },
+  { key: 'requests', label: t('keyUsage.requests'), formatter: (value: number) => fmtNum(value) },
+  { key: 'input_tokens', label: t('keyUsage.inputTokens'), formatter: (value: number) => fmtNum(value) },
+  { key: 'output_tokens', label: t('keyUsage.outputTokens'), formatter: (value: number) => fmtNum(value) },
+  { key: 'cache_read_tokens', label: t('keyUsage.cacheReadTokens'), formatter: (value: number) => fmtNum(value) },
+  { key: 'cache_write_tokens', label: t('keyUsage.cacheWriteTokens'), formatter: (value: number) => fmtNum(value) },
+  {
+    key: 'cost',
+    label: t('keyUsage.cost'),
+    formatter: (_value: number, row: DailyUsageRow) => usd(row.actual_cost != null ? row.actual_cost : row.cost),
+  },
+])
+
+const modelColumns = computed(() => [
+  { key: 'model', label: t('keyUsage.model'), formatter: (value: string) => value || '-' },
+  { key: 'requests', label: t('keyUsage.requests'), formatter: (value: number) => fmtNum(value) },
+  { key: 'input_tokens', label: t('keyUsage.inputTokens'), formatter: (value: number) => fmtNum(value) },
+  { key: 'output_tokens', label: t('keyUsage.outputTokens'), formatter: (value: number) => fmtNum(value) },
+  { key: 'cache_creation_tokens', label: t('keyUsage.cacheCreationTokens'), formatter: (value: number) => fmtNum(value) },
+  { key: 'cache_read_tokens', label: t('keyUsage.cacheReadTokens'), formatter: (value: number) => fmtNum(value) },
+  { key: 'total_tokens', label: t('keyUsage.totalTokens'), formatter: (value: number) => fmtNum(value) },
+  {
+    key: 'cost',
+    label: t('keyUsage.cost'),
+    formatter: (_value: number, row: Record<string, number>) => usd(row.actual_cost != null ? row.actual_cost : row.cost),
+  },
+])
+
+function handleDailyUsageDays(value: string | number) {
+  const days = Number(value)
+  if (days === 7 || days === 30 || days === 90) {
+    setDailyUsageDays(days)
+  }
+}
+
 // ==================== Utility Functions ====================
 
 function usd(value: number | null | undefined): string {
@@ -872,6 +671,10 @@ async function queryKey() {
     appStore.showInfo(t('keyUsage.enterApiKey'))
     return
   }
+  if (currentRange.value === 'custom') {
+    customRangeTouched.value = true
+    if (!customRangeValid.value) return
+  }
 
   isQuerying.value = true
   showResults.value = true
@@ -883,11 +686,6 @@ async function queryKey() {
     resultData.value = data
     showLoading.value = false
     showDatePicker.value = true
-
-    // Trigger ring animations after DOM update
-    nextTick(() => {
-      triggerRingAnimation(ringItems.value)
-    })
 
     appStore.showSuccess(t('keyUsage.querySuccess'))
   } catch (err) {
@@ -935,64 +733,110 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Input focus ring */
-.input-ring {
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+ .key-usage-page {
+  min-height: 100vh;
+  color: var(--ui-text);
+  background: var(--ui-page);
 }
-.input-ring:focus {
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.2);
-  border-color: #14b8a6;
-  outline: none;
+.key-usage-content {
+  max-width: 1080px;
+  margin: 0 auto;
 }
-
-/* Ring animation */
-.progress-ring {
-  transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);
-  transform: rotate(-90deg);
-  transform-origin: 50% 50%;
+.key-usage-query {
+  max-width: 760px;
+  margin: 0 auto;
 }
-
-/* Skeleton loading */
-@keyframes shimmer-kv {
-  0%   { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+.key-usage-query__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
 }
-.skeleton {
-  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
-  background-size: 200% 100%;
-  animation: shimmer-kv 1.8s ease-in-out infinite;
-  border-radius: 8px;
+.key-usage-range {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ui-border-soft);
 }
-:global(.dark) .skeleton {
-  background: linear-gradient(90deg, #334155 25%, #1e293b 50%, #334155 75%);
-  background-size: 200% 100%;
+.key-usage-range__label {
+  color: var(--ui-text-muted);
+  font-size: 12px;
 }
-
-/* Fade up animation */
-@keyframes fade-up-kv {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+.key-usage-range__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
-.fade-up {
-  animation: fade-up-kv 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+.key-usage-custom-range {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: 8px;
 }
-.fade-up-delay-1 { animation-delay: 0.1s; opacity: 0; }
-.fade-up-delay-2 { animation-delay: 0.2s; opacity: 0; }
-.fade-up-delay-3 { animation-delay: 0.3s; opacity: 0; }
-.fade-up-delay-4 { animation-delay: 0.4s; opacity: 0; }
-
-/* Pulse dot */
-@keyframes pulse-dot-kv {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
-  50% { opacity: 0.6; box-shadow: 0 0 8px 2px currentColor; }
+.key-usage-footer {
+  display: flex;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 18px 16px 28px;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ui-text-soft);
+  font-size: 12px;
 }
-.pulse-dot {
-  animation: pulse-dot-kv 2s ease-in-out infinite;
+.key-usage-footer__links { display: inline-flex; gap: 12px; }
+.key-usage-footer a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.key-usage-results { display: grid; gap: 16px; }
+.key-usage-results__content { display: grid; gap: 16px; }
+.key-usage-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 10px;
+  border-block: 1px solid var(--ui-border-soft);
 }
-
-/* Tabular nums */
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0;
+.key-usage-status__mode { color: var(--ui-text-muted); font-size: 12px; }
+.key-usage-quota-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.key-usage-section {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--ui-border-soft);
+}
+.key-usage-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.key-usage-section__header h3 { margin: 0; color: var(--ui-text); font-size: 14px; font-weight: 600; }
+.key-usage-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.key-usage-empty { padding: 32px 16px; color: var(--ui-text-muted); text-align: center; font-size: 13px; }
+.key-usage-loading { display: grid; gap: 16px; }
+.key-usage-loading__quotas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.key-usage-loading__quota,
+.key-usage-loading__rows {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--ui-border-soft);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+}
+.key-usage-loading__rows { gap: 14px; }
+@media (max-width: 640px) {
+  .key-usage-query__row,
+  .key-usage-custom-range { grid-template-columns: 1fr; }
+  .key-usage-footer { flex-direction: column; }
+  .key-usage-quota-grid,
+  .key-usage-loading__quotas { grid-template-columns: 1fr; }
+  .key-usage-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .key-usage-section__header { align-items: flex-start; flex-direction: column; }
 }
 </style>

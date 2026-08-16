@@ -26,6 +26,8 @@ const messages: Record<string, string> = {
   'keyUsage.dateRangeCustom': 'Custom',
   'keyUsage.customStartDate': 'Custom range start date',
   'keyUsage.customEndDate': 'Custom range end date',
+  'keyUsage.customRangeRequired': 'Select both dates',
+  'keyUsage.customRangeInvalid': 'Start must not follow end',
   'keyUsage.apply': 'Apply',
   'keyUsage.showApiKey': 'Show API key',
   'keyUsage.hideApiKey': 'Hide API key',
@@ -40,6 +42,11 @@ const messages: Record<string, string> = {
   'keyUsage.cacheReadTokens': 'Cache Read',
   'keyUsage.cacheWriteTokens': 'Cache Write',
   'keyUsage.cost': 'Cost',
+  'keyUsage.model': 'Model',
+  'keyUsage.modelStats': 'Model Statistics',
+  'keyUsage.cacheCreationTokens': 'Cache Creation',
+  'keyUsage.totalTokens': 'Total Tokens',
+  'keyUsage.noDailyUsage': 'No daily usage',
   'keyUsage.quotaMode': 'Key Quota Mode',
   'keyUsage.walletBalance': 'Wallet Balance',
   'keyUsage.statusActive': 'Active',
@@ -215,11 +222,11 @@ describe('KeyUsageView daily detail', () => {
     expect(text).toContain('$0.12')
     expect(text).toContain('Active')
 
-    const dailyTable = wrapper.get('table[aria-label="Daily Detail"]')
+    const dailyTable = wrapper.get('[role="region"][aria-label="Daily Detail"]')
     expect(dailyTable.exists()).toBe(true)
 
-    const rangeButtons = wrapper.findAll('button[aria-pressed]')
-    expect(rangeButtons.some(button => button.text() === '30 Days' && button.attributes('aria-pressed') === 'true')).toBe(true)
+    const dailyRange = wrapper.get('[role="radiogroup"][aria-label="Daily Detail"]')
+    expect(dailyRange.get('button[aria-checked="true"]').text()).toBe('30 Days')
 
     wrapper.unmount()
   })
@@ -235,12 +242,9 @@ describe('KeyUsageView daily detail', () => {
       },
     })
 
-    expect(wrapper.get('[data-testid="key-query-row"]').classes()).toEqual(expect.arrayContaining([
-      'flex-col',
-      'sm:flex-row',
-    ]))
+    expect(wrapper.get('[data-testid="key-query-row"]').classes()).toContain('key-usage-query__row')
     expect(wrapper.get('[data-testid="key-visibility-toggle"]').attributes('aria-label')).toBe('Show API key')
-    expect(wrapper.get('button.btn-primary').attributes('aria-busy')).toBe('false')
+    expect(wrapper.get('button[aria-busy]').attributes('aria-busy')).toBe('false')
 
     wrapper.unmount()
   })
@@ -267,6 +271,174 @@ describe('KeyUsageView daily detail', () => {
     expect(requestUrl).toContain('start_date=2026-07-13')
     expect(requestUrl).toContain('end_date=2026-07-13')
 
+    wrapper.unmount()
+  })
+
+  it('does not request when the API key is empty', async () => {
+    const wrapper = mount(KeyUsageView, {
+      global: {
+        stubs: {
+          RouterLink: { template: '<a><slot /></a>' },
+          LocaleSwitcher: true,
+          Icon: true,
+        },
+      },
+    })
+
+    await wrapper.find('button[aria-busy]').trigger('click')
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled()
+    expect(showInfo).toHaveBeenCalledWith('keyUsage.enterApiKey')
+    wrapper.unmount()
+  })
+
+  it('blocks incomplete or reversed custom ranges and queries a valid range', async () => {
+    const wrapper = mount(KeyUsageView, {
+      global: {
+        stubs: {
+          RouterLink: { template: '<a><slot /></a>' },
+          LocaleSwitcher: true,
+          Icon: true,
+        },
+      },
+    })
+
+    await wrapper.find('input').setValue('sk-test-key')
+    await wrapper.find('input').trigger('keydown.enter')
+    await flushPromises()
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1)
+
+    const customButton = wrapper.findAll('button').find(button => button.text() === 'Custom')
+    expect(customButton).toBeDefined()
+    await customButton!.trigger('click')
+    await wrapper.findAll('[data-testid="custom-date-range"] button').at(-1)!.trigger('click')
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('Select both dates')
+
+    const dateInputs = wrapper.findAll('[data-testid="custom-date-range"] input')
+    await dateInputs[0].setValue('2026-08-20')
+    await dateInputs[1].setValue('2026-08-10')
+    await wrapper.findAll('[data-testid="custom-date-range"] button').at(-1)!.trigger('click')
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('Start must not follow end')
+
+    await dateInputs[0].setValue('2026-08-01')
+    await dateInputs[1].setValue('2026-08-10')
+    await wrapper.findAll('[data-testid="custom-date-range"] button').at(-1)!.trigger('click')
+    await flushPromises()
+
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2)
+    const requestUrl = String(vi.mocked(fetch).mock.calls.at(-1)?.[0])
+    expect(requestUrl).toContain('start_date=2026-08-01')
+    expect(requestUrl).toContain('end_date=2026-08-10')
+    wrapper.unmount()
+  })
+
+  it('keeps the result surface stable while loading and hides it after a failed request', async () => {
+    let resolveRequest!: (response: Response) => void
+    const pendingRequest = new Promise<Response>(resolve => { resolveRequest = resolve })
+    vi.stubGlobal('fetch', vi.fn().mockReturnValue(pendingRequest))
+
+    const wrapper = mount(KeyUsageView, {
+      global: {
+        stubs: {
+          RouterLink: { template: '<a><slot /></a>' },
+          LocaleSwitcher: true,
+          Icon: true,
+        },
+      },
+    })
+
+    await wrapper.find('input').setValue('sk-test-key')
+    await wrapper.find('input').trigger('keydown.enter')
+    await nextTick()
+    expect(wrapper.get('.key-usage-results').attributes('aria-busy')).toBe('true')
+    expect(wrapper.find('.key-usage-loading').exists()).toBe(true)
+
+    resolveRequest({
+      ok: false,
+      status: 503,
+      json: async () => ({ message: 'upstream unavailable' }),
+    } as Response)
+    await flushPromises()
+    expect(wrapper.find('.key-usage-results').exists()).toBe(false)
+    expect(showError).toHaveBeenCalledWith('upstream unavailable')
+    wrapper.unmount()
+  })
+
+  it('renders wallet subscription data and model statistics', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        mode: 'wallet',
+        planName: 'Starter',
+        balance: 12.5,
+        remaining: 8.25,
+        subscription: {
+          daily_usage_usd: 1,
+          daily_limit_usd: 5,
+          weekly_usage_usd: 2,
+          weekly_limit_usd: 15,
+          monthly_usage_usd: 4,
+          monthly_limit_usd: 60,
+          expires_at: '2026-08-30T00:00:00Z',
+        },
+        usage: { today: {}, total: {}, rpm: 1, tpm: 2 },
+        model_stats: [{ model: 'gpt-test', requests: 2, total_tokens: 42, cost: 0.2 }],
+      }),
+    }))
+
+    const wrapper = mount(KeyUsageView, {
+      global: {
+        stubs: {
+          RouterLink: { template: '<a><slot /></a>' },
+          LocaleSwitcher: true,
+          Icon: true,
+        },
+      },
+    })
+
+    await wrapper.find('input').setValue('sk-test-key')
+    await wrapper.find('input').trigger('keydown.enter')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Starter')
+    expect(wrapper.text()).toContain('$8.25')
+    expect(wrapper.text()).toContain('gpt-test')
+    expect(wrapper.get('[role="region"][aria-label="Model Statistics"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('shows an empty daily usage section and refetches when its range changes', async () => {
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        mode: 'quota_limited',
+        isValid: true,
+        status: 'active',
+        quota: { limit: 10, used: 0, remaining: 10 },
+        usage: { today: {}, total: {} },
+        daily_usage: [],
+      }),
+    } as Response)
+
+    const wrapper = mount(KeyUsageView, {
+      global: {
+        stubs: {
+          RouterLink: { template: '<a><slot /></a>' },
+          LocaleSwitcher: true,
+          Icon: true,
+        },
+      },
+    })
+
+    await wrapper.find('input').setValue('sk-test-key')
+    await wrapper.find('input').trigger('keydown.enter')
+    await flushPromises()
+    expect(wrapper.text()).toContain('No daily usage')
+
+    await wrapper.get('[role="radiogroup"][aria-label="Daily Detail"] button').trigger('click')
+    await flushPromises()
+    expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain('days=7')
     wrapper.unmount()
   })
 })
