@@ -683,6 +683,7 @@ export default {
       paymentConfigDesc: 'Configure payment providers and settings',
 	      plansPageTitle: 'Subscription Plans',
 	      plansPageDesc: 'Manage subscription plan configuration',
+	      plansLoadFailed: 'Failed to load subscription plans',
 	      catalogImport: {
 	        openButton: 'Import JSON',
 	        downloadTemplate: 'Download Template',

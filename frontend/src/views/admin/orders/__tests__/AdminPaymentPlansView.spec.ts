@@ -13,16 +13,22 @@ import {
 } from '../catalogTemplate'
 import type { PaymentCatalogImportRequest } from '@/types/payment'
 
-const { getPlans, getConfig, getGroups } = vi.hoisted(() => ({
+const { deletePlan, getPlans, getConfig, getGroups, showError, showSuccess, updatePlan } = vi.hoisted(() => ({
+  deletePlan: vi.fn(),
   getPlans: vi.fn(),
   getConfig: vi.fn(),
   getGroups: vi.fn(),
+  showError: vi.fn(),
+  showSuccess: vi.fn(),
+  updatePlan: vi.fn(),
 }))
 
 vi.mock('@/api/admin/payment', () => ({
   adminPaymentAPI: {
+    deletePlan,
     getPlans,
     getConfig,
+    updatePlan,
   },
 }))
 
@@ -32,6 +38,10 @@ vi.mock('@/api/admin', () => ({
       getAll: getGroups,
     },
   },
+}))
+
+vi.mock('@/stores/app', () => ({
+  useAppStore: () => ({ showError, showSuccess }),
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {
@@ -59,10 +69,41 @@ const DataTableStub = {
   `,
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, reject, resolve }
+}
+
+function mountPlansView() {
+  return mount(AdminPaymentPlansView, {
+    global: {
+      plugins: [createPinia()],
+      stubs: {
+        AppLayout: { template: '<div><slot /></div>' },
+        DataTable: DataTableStub,
+        UiConfirmDialog: true,
+        GroupBadge: true,
+        Icon: true,
+        PlanEditDialog: true,
+      },
+    },
+  })
+}
+
 describe('AdminPaymentPlansView', () => {
   beforeEach(() => {
+    for (const fn of [deletePlan, getPlans, getConfig, getGroups, showError, showSuccess, updatePlan]) {
+      fn.mockReset()
+    }
     getGroups.mockResolvedValue([])
     getConfig.mockResolvedValue({ data: {} })
+    deletePlan.mockResolvedValue({})
+    updatePlan.mockResolvedValue({})
     getPlans.mockResolvedValue({
       data: [
         {
@@ -104,19 +145,7 @@ describe('AdminPaymentPlansView', () => {
   })
 
   it('uses the configured currency symbol and keeps legacy prices in USD', async () => {
-    const wrapper = mount(AdminPaymentPlansView, {
-      global: {
-        plugins: [createPinia()],
-        stubs: {
-          AppLayout: { template: '<div><slot /></div>' },
-          DataTable: DataTableStub,
-          UiConfirmDialog: true,
-          GroupBadge: true,
-          Icon: true,
-          PlanEditDialog: true,
-        },
-      },
-    })
+    const wrapper = mountPlansView()
 
     await flushPromises()
 
@@ -131,6 +160,76 @@ describe('AdminPaymentPlansView', () => {
 		expect(wrapper.text()).toContain('payment.admin.unlimitedTotalQuota')
     expect(wrapper.text()).toContain('30 payment.admin.days')
     expect(wrapper.text()).not.toContain('payment.admin.day ')
+  })
+
+  it('reserves the table workspace while the initial request is pending', async () => {
+    const request = deferred<{ data: [] }>()
+    getPlans.mockReturnValueOnce(request.promise)
+    const wrapper = mountPlansView()
+
+    expect((wrapper.vm as any).plansLoading).toBe(true)
+    request.resolve({ data: [] })
+    await flushPromises()
+    expect((wrapper.vm as any).plansLoading).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('keeps a persistent retryable error state when plan loading fails', async () => {
+    getPlans.mockRejectedValueOnce(new Error('network'))
+    const wrapper = mountPlansView()
+    await flushPromises()
+
+    expect((wrapper.vm as any).plansLoadError).toBe(true)
+    expect(wrapper.text()).toContain('payment.admin.plansLoadFailed')
+    expect(showError).toHaveBeenCalledOnce()
+
+    getPlans.mockResolvedValueOnce({ data: [] })
+    await (wrapper.vm as any).loadPlans()
+    expect((wrapper.vm as any).plansLoadError).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('prevents duplicate sale toggles while the first update is pending', async () => {
+    const wrapper = mountPlansView()
+    await flushPromises()
+    const request = deferred<unknown>()
+    updatePlan.mockReturnValueOnce(request.promise)
+    const plan = (wrapper.vm as any).plans[0]
+
+    const first = (wrapper.vm as any).toggleForSale(plan)
+    const second = (wrapper.vm as any).toggleForSale(plan)
+    expect(updatePlan).toHaveBeenCalledOnce()
+    expect(updatePlan).toHaveBeenCalledWith(1, { for_sale: false })
+    expect((wrapper.vm as any).updatingPlanIds).toEqual([1])
+
+    request.resolve({})
+    await Promise.all([first, second])
+    expect(plan.for_sale).toBe(false)
+    expect((wrapper.vm as any).updatingPlanIds).toEqual([])
+    wrapper.unmount()
+  })
+
+  it('keeps deletion pending and sends one request until the refresh completes', async () => {
+    const wrapper = mountPlansView()
+    await flushPromises()
+    const request = deferred<unknown>()
+    deletePlan.mockReturnValueOnce(request.promise)
+    const vm = wrapper.vm as any
+    vm.confirmDeletePlan(vm.plans[0])
+
+    const first = vm.handleDeletePlan()
+    const second = vm.handleDeletePlan()
+    expect(deletePlan).toHaveBeenCalledOnce()
+    expect(deletePlan).toHaveBeenCalledWith(1)
+    expect(vm.deletingPlan).toBe(true)
+
+    request.resolve({})
+    await Promise.all([first, second])
+    expect(vm.deletingPlan).toBe(false)
+    expect(vm.showDeletePlanDialog).toBe(false)
+    expect(showSuccess).toHaveBeenCalledWith('common.deleted')
+    expect(getPlans).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
   })
 
   it('personalizes the template with active account groups without mutating the source', () => {

@@ -707,6 +707,7 @@ export default {
       paymentConfigDesc: '管理支付服务商与相关设置',
 	      plansPageTitle: '订阅套餐管理',
 	      plansPageDesc: '管理订阅套餐配置',
+	      plansLoadFailed: '订阅套餐加载失败',
 	      catalogImport: {
 	        openButton: '导入 JSON',
 	        downloadTemplate: '下载模板',

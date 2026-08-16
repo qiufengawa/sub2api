@@ -17,7 +17,7 @@
               {{ t('payment.admin.catalogImport.exportCurrent') }}
             </UiButton>
             <UiIconButton icon="refresh" variant="ghost" density="compact" :disabled="plansLoading" :label="t('common.refresh')" @click="loadPlans" />
-            <UiButton type="button" variant="primary" @click="openPlanEdit(null)">
+            <UiButton density="compact" type="button" variant="primary" @click="openPlanEdit(null)">
               <template #icon><Icon name="plus" size="sm" /></template>
               {{ t('payment.admin.createPlan') }}
             </UiButton>
@@ -26,8 +26,13 @@
       </AppPageHeader>
 
       <UiServerTableWorkspace :loading="plansLoading">
-      <UiMobileTableScroller :label="t('payment.admin.plansPageTitle')" min-width="1120px">
-      <UiDataTable :columns="planColumns" :data="plans" :loading="plansLoading" mobile-table :aria-label="t('payment.admin.plansPageTitle')">
+        <UiAlert
+          v-if="plansLoadError && plans.length"
+          tone="danger"
+          :message="t('payment.admin.plansLoadFailed')"
+        />
+        <UiMobileTableScroller :label="t('payment.admin.plansPageTitle')" min-width="1120px">
+        <UiDataTable :columns="planColumns" :data="plans" :loading="plansLoading" mobile-table :aria-label="t('payment.admin.plansPageTitle')">
         <template #cell-name="{ value }">
           <UiDataCell :value="String(value)" />
         </template>
@@ -59,11 +64,16 @@
         <template #cell-validity_days="{ value, row }">
           <UiDataCell :value="`${value} ${t(`payment.admin.${validityUnitKey(row.validity_unit)}`)}`" />
         </template>
-		<template #cell-max_subscriptions_per_user="{ value }">
-		  <UiDataCell :value="value || 1" mono />
-		</template>
+        <template #cell-max_subscriptions_per_user="{ value }">
+          <UiDataCell :value="value || 1" mono />
+        </template>
         <template #cell-for_sale="{ value, row }">
-          <UiSwitch :model-value="Boolean(value)" :label="t('payment.admin.forSale')" @update:model-value="toggleForSale(row)" />
+          <UiSwitch
+            :model-value="Boolean(value)"
+            :label="t('payment.admin.forSale')"
+            :disabled="updatingPlanIds.includes(row.id)"
+            @update:model-value="toggleForSale(row)"
+          />
         </template>
         <template #cell-actions="{ row }">
           <UiButtonGroup :label="t('common.actions')">
@@ -71,9 +81,17 @@
             <UiIconButton icon="trash" variant="danger" density="compact" :label="t('common.delete')" @click="confirmDeletePlan(row)" />
           </UiButtonGroup>
         </template>
-        <template #empty><UiEmptyState :title="t('empty.noData')" /></template>
-      </UiDataTable>
-      </UiMobileTableScroller>
+        <template #empty>
+          <UiErrorState
+            v-if="plansLoadError"
+            :title="t('payment.admin.plansLoadFailed')"
+            :retry-text="t('common.retry')"
+            @retry="loadPlans"
+          />
+          <UiEmptyState v-else :title="t('empty.noData')" />
+        </template>
+        </UiDataTable>
+        </UiMobileTableScroller>
       </UiServerTableWorkspace>
     </AppPage>
 
@@ -87,7 +105,7 @@
       @imported="handleCatalogImported"
     />
 
-    <UiConfirmDialog :show="showDeletePlanDialog" :title="t('payment.admin.deletePlan')" :message="t('payment.admin.deletePlanConfirm')" :confirm-text="t('common.delete')" danger @confirm="handleDeletePlan" @cancel="showDeletePlanDialog = false" />
+    <UiConfirmDialog :show="showDeletePlanDialog" :title="t('payment.admin.deletePlan')" :message="t('payment.admin.deletePlanConfirm')" :confirm-text="t('common.delete')" :pending="deletingPlan" danger @confirm="handleDeletePlan" @cancel="showDeletePlanDialog = false" />
   </AppLayout>
 </template>
 
@@ -108,6 +126,7 @@ import {
   AppInline,
   AppPage,
   AppPageHeader,
+  UiAlert,
   UiBadge,
   UiButton,
   UiButtonGroup,
@@ -115,6 +134,7 @@ import {
   UiDataCell,
   UiDataTable,
   UiEmptyState,
+  UiErrorState,
   UiIconButton,
   UiMobileTableScroller,
   UiServerTableWorkspace,
@@ -159,25 +179,28 @@ async function loadPaymentConfig() {
 
 // ==================== Plans ====================
 
-const plansLoading = ref(false)
+const plansLoading = ref(true)
+const plansLoadError = ref(false)
 const plans = ref<SubscriptionPlan[]>([])
 const showPlanDialog = ref(false)
 const showImportDialog = ref(false)
 const showDeletePlanDialog = ref(false)
 const catalogExporting = ref(false)
 const catalogTemplateDownloading = ref(false)
+const deletingPlan = ref(false)
+const updatingPlanIds = ref<number[]>([])
 const editingPlan = ref<SubscriptionPlan | null>(null)
 const deletingPlanId = ref<number | null>(null)
 
 const planColumns = computed((): Column[] => [
   { key: 'name', label: t('payment.admin.planName') },
   { key: 'included_groups', label: t('payment.admin.includedGroups') },
-	{ key: 'five_hour_quota_usd', label: t('payment.admin.fiveHourQuota') },
+  { key: 'five_hour_quota_usd', label: t('payment.admin.fiveHourQuota') },
   { key: 'cycle_quota_usd', label: t('payment.admin.cycleQuota') },
   { key: 'total_quota_usd', label: t('payment.admin.totalQuota') },
   { key: 'price', label: t('payment.admin.price') },
   { key: 'validity_days', label: t('payment.admin.validity') },
-	{ key: 'max_subscriptions_per_user', label: t('payment.admin.maxSubscriptionsPerUser') },
+  { key: 'max_subscriptions_per_user', label: t('payment.admin.maxSubscriptionsPerUser') },
   { key: 'for_sale', label: t('payment.admin.forSale') },
   { key: 'sort_order', label: t('payment.admin.sortOrder') },
   { key: 'actions', label: t('common.actions') },
@@ -191,6 +214,7 @@ function formatResetInterval(seconds?: number): string {
 
 async function loadPlans() {
   plansLoading.value = true
+  plansLoadError.value = false
   try {
     const res = await adminPaymentAPI.getPlans()
     // Backend returns features as newline-separated string; parse to array
@@ -201,7 +225,10 @@ async function loadPlans() {
         : (p.features || []),
     }))
   }
-  catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
+  catch (err: unknown) {
+    plansLoadError.value = true
+    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+  }
   finally { plansLoading.value = false }
 }
 
@@ -213,19 +240,32 @@ function openPlanEdit(plan: SubscriptionPlan | null) {
 
 /** Quick toggle for_sale from the list */
 async function toggleForSale(plan: SubscriptionPlan) {
+  if (updatingPlanIds.value.includes(plan.id)) return
+  updatingPlanIds.value = [...updatingPlanIds.value, plan.id]
+  const nextValue = !plan.for_sale
   try {
-    await adminPaymentAPI.updatePlan(plan.id, { for_sale: !plan.for_sale })
-    plan.for_sale = !plan.for_sale
+    await adminPaymentAPI.updatePlan(plan.id, { for_sale: nextValue })
+    plan.for_sale = nextValue
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+  } finally {
+    updatingPlanIds.value = updatingPlanIds.value.filter(id => id !== plan.id)
   }
 }
 
 function confirmDeletePlan(plan: SubscriptionPlan) { deletingPlanId.value = plan.id; showDeletePlanDialog.value = true }
 async function handleDeletePlan() {
-  if (!deletingPlanId.value) return
-  try { await adminPaymentAPI.deletePlan(deletingPlanId.value); appStore.showSuccess(t('common.deleted')); showDeletePlanDialog.value = false; loadPlans() }
+  if (!deletingPlanId.value || deletingPlan.value) return
+  deletingPlan.value = true
+  try {
+    await adminPaymentAPI.deletePlan(deletingPlanId.value)
+    appStore.showSuccess(t('common.deleted'))
+    showDeletePlanDialog.value = false
+    deletingPlanId.value = null
+    await loadPlans()
+  }
   catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
+  finally { deletingPlan.value = false }
 }
 
 function saveCatalogFile(catalog: unknown, filename: string) {
