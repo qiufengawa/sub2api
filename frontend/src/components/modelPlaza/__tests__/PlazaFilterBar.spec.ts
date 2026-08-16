@@ -32,7 +32,7 @@ function mountFilter(overrides: Record<string, unknown> = {}) {
 describe('PlazaFilterBar', () => {
   it('桌面保留平台、分组、倍率三组联动筛选', () => {
     const wrapper = mountFilter()
-    const desktop = wrapper.find('.desktop-filter-list')
+    const desktop = wrapper.find('.plaza-filter-desktop')
 
     expect(desktop.exists()).toBe(true)
     expect(desktop.findAll('.filter-row')).toHaveLength(3)
@@ -40,7 +40,7 @@ describe('PlazaFilterBar', () => {
     expect(desktop.text()).toContain('0.8x')
   })
 
-  it('手机端默认显示筛选摘要,点击后在原位展开三个选择器', async () => {
+  it('手机端默认显示筛选摘要,点击后打开底部筛选面板', async () => {
     const wrapper = mountFilter({ platform: 'anthropic', groupId: 1, rate: 0.8 })
     const toggle = wrapper.find('button[aria-expanded]')
 
@@ -51,8 +51,8 @@ describe('PlazaFilterBar', () => {
     await toggle.trigger('click')
 
     expect(toggle.attributes('aria-expanded')).toBe('true')
-    expect(wrapper.find('.mobile-filter-controls').exists()).toBe(true)
-    expect(wrapper.findAll('.mobile-filter-field')).toHaveLength(3)
+    expect(wrapper.getComponent({ name: 'UiSheet' }).props('show')).toBe(true)
+    expect(wrapper.findAllComponents({ name: 'UiSelect' })).toHaveLength(3)
   })
 
   it('继续禁用当前组合下没有结果的筛选项', () => {
@@ -63,5 +63,18 @@ describe('PlazaFilterBar', () => {
 
     expect(openAIGroup).toBeDefined()
     expect(openAIGroup?.attributes('disabled')).toBeDefined()
+  })
+
+  it('共享筛选栏清除操作会同时重置平台、分组和倍率', async () => {
+    const wrapper = mountFilter({ platform: 'anthropic', groupId: 1, rate: 0.8 })
+    const clearButton = wrapper
+      .findAll('.plaza-filter-desktop button')
+      .find((button) => button.text().includes('modelPlaza.filters.clear'))
+
+    expect(clearButton).toBeDefined()
+    await clearButton?.trigger('click')
+    expect(wrapper.emitted('update:platform')?.at(-1)).toEqual(['all'])
+    expect(wrapper.emitted('update:groupId')?.at(-1)).toEqual(['all'])
+    expect(wrapper.emitted('update:rate')?.at(-1)).toEqual(['all'])
   })
 })

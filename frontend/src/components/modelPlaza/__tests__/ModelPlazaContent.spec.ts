@@ -32,6 +32,8 @@ const response: ModelPlazaResponse = {
       peak_end: '',
       peak_rate_multiplier: 1,
       is_exclusive: false,
+      image_rate_independent: false,
+      image_rate_multiplier: 1,
       models: [
         { name: 'model-alpha', platform: 'anthropic', pricing: null, official_pricing: null },
         { name: 'model-beta', platform: 'anthropic', pricing: null, official_pricing: null }
@@ -49,6 +51,8 @@ const response: ModelPlazaResponse = {
       peak_end: '',
       peak_rate_multiplier: 1,
       is_exclusive: false,
+      image_rate_independent: false,
+      image_rate_multiplier: 1,
       models: [
         { name: 'model-alpha', platform: 'openai', pricing: null, official_pricing: null }
       ]
@@ -56,9 +60,9 @@ const response: ModelPlazaResponse = {
   ]
 }
 
-function mountContent() {
+function mountContent(props: Partial<InstanceType<typeof ModelPlazaContent>['$props']> = {}) {
   return mount(ModelPlazaContent, {
-    props: { response, loading: false, error: false },
+    props: { response, loading: false, error: false, ...props },
     global: {
       stubs: {
         PlazaFilterBar: { template: '<div data-testid="filter-stub"></div>' },
@@ -91,5 +95,27 @@ describe('ModelPlazaContent', () => {
 
     expect(wrapper.findAll('.group-stub')).toHaveLength(1)
     expect(wrapper.get('.group-stub').text()).toBe('Anthropic Standard')
+  })
+
+  it('使用稳定骨架保留加载几何', () => {
+    const wrapper = mountContent({ response: null, loading: true })
+    const status = wrapper.get('[role="status"]')
+
+    expect(status.attributes('aria-busy')).toBe('true')
+    expect(status.findAll('.ui-skeleton')).toHaveLength(6)
+  })
+
+  it('加载失败时提供页面内重试操作', async () => {
+    const wrapper = mountContent({ response: null, error: true })
+
+    await wrapper.get('.ui-error-state button').trigger('click')
+    expect(wrapper.emitted('retry')).toHaveLength(1)
+  })
+
+  it('空数据使用共享空态而不是伪造模型行', () => {
+    const wrapper = mountContent({ response: { description: '', groups: [] } })
+
+    expect(wrapper.find('.ui-empty').exists()).toBe(true)
+    expect(wrapper.findAll('.group-stub')).toHaveLength(0)
   })
 })

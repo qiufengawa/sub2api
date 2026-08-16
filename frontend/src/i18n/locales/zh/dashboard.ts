@@ -701,10 +701,12 @@ export default {
   modelPlaza: {
     title: '模型广场',
     description: '按分组浏览可用模型与价格',
+    controlsLabel: '模型广场筛选与搜索',
     summary: '共 {models} 个模型 · {groups} 个分组 · {platforms} 个平台',
     loading: '加载中...',
     empty: '暂无可展示的分组',
     loadFailed: '加载模型广场失败',
+    loadFailedHint: '请检查网络连接后重试，已选择的筛选条件会保留。',
     noSearchResult: '没有匹配的模型',
     anonymousHint: '登录后可查看你的专属分组与专属倍率',
     filters: {
@@ -715,7 +717,9 @@ export default {
       searchPlaceholder: '搜索模型名称',
       all: '全部',
       allModels: '全部模型',
-      filterButton: '筛选'
+      filterButton: '筛选',
+      clear: '清除筛选',
+      apply: '查看结果'
     },
     badges: {
       exclusive: '专属分组',

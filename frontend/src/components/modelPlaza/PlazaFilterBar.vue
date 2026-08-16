@@ -1,144 +1,137 @@
 <template>
   <div class="plaza-filter-bar">
-    <div class="sm:hidden">
-      <button
-        type="button"
-        class="flex w-full min-w-0 items-center justify-between gap-3 py-0.5 text-left"
+    <div class="plaza-filter-mobile">
+      <UiButton
+        variant="secondary"
+        density="compact"
+        block
         :aria-expanded="mobileFiltersOpen"
-        @click="mobileFiltersOpen = !mobileFiltersOpen"
+        @click="mobileFiltersOpen = true"
       >
-        <span class="flex min-w-0 items-center gap-2">
-          <span class="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[3px] bg-gray-100 text-gray-500 dark:bg-dark-800 dark:text-dark-300">
-            <Icon name="filter" size="sm" />
-          </span>
-          <span class="min-w-0">
-            <span class="flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-gray-100">
-              {{ t('modelPlaza.filters.filterButton') }}
-              <span
-                v-if="activeFilterCount"
-                class="inline-flex min-w-5 items-center justify-center rounded-full bg-primary-600 px-1.5 py-0.5 text-[10px] leading-none text-white"
-              >
-                {{ activeFilterCount }}
-              </span>
-            </span>
-            <span class="mt-0.5 block truncate text-xs text-gray-400 dark:text-dark-500">
-              {{ activeSummary }}
-            </span>
-          </span>
-        </span>
-        <Icon
-          name="chevronDown"
-          size="sm"
-          class="flex-shrink-0 text-gray-400 transition-transform dark:text-dark-500"
-          :class="mobileFiltersOpen && 'rotate-180'"
-        />
-      </button>
+        <template #icon><Icon name="filter" size="sm" aria-hidden="true" /></template>
+        {{ t('modelPlaza.filters.filterButton') }}
+        <UiBadge v-if="activeFilterCount" :label="String(activeFilterCount)" />
+        <span class="plaza-filter-mobile__summary">{{ activeSummary }}</span>
+      </UiButton>
 
-      <div v-if="mobileFiltersOpen" class="mobile-filter-controls">
-        <div class="mobile-filter-field">
-          <span>{{ t('modelPlaza.filters.platformLabel') }}</span>
-          <Select
+      <UiSheet
+        :show="mobileFiltersOpen"
+        :title="t('modelPlaza.filters.filterButton')"
+        @close="mobileFiltersOpen = false"
+      >
+        <AppStack :gap="12">
+          <UiSelect
             :model-value="platform"
             :options="platformSelectOptions"
-            :aria-label="t('modelPlaza.filters.platformLabel')"
+            :label="t('modelPlaza.filters.platformLabel')"
+            density="compact"
             @update:model-value="updatePlatform"
           />
-        </div>
-        <div class="mobile-filter-field">
-          <span>{{ t('modelPlaza.filters.groupLabel') }}</span>
-          <Select
+          <UiSelect
             :model-value="groupId"
             :options="groupSelectOptions"
-            :aria-label="t('modelPlaza.filters.groupLabel')"
+            :label="t('modelPlaza.filters.groupLabel')"
             searchable="auto"
+            density="compact"
             @update:model-value="updateGroup"
           />
-        </div>
-        <div class="mobile-filter-field">
-          <span>{{ t('modelPlaza.filters.rateLabel') }}</span>
-          <Select
+          <UiSelect
             :model-value="rate"
             :options="rateSelectOptions"
-            :aria-label="t('modelPlaza.filters.rateLabel')"
+            :label="t('modelPlaza.filters.rateLabel')"
             :searchable="false"
+            density="compact"
             @update:model-value="updateRate"
           />
-        </div>
-      </div>
+        </AppStack>
+
+        <template #footer>
+          <AppInline justify="space-between">
+            <UiButton variant="quiet" density="compact" :disabled="activeFilterCount === 0" @click="clearFilters">
+              {{ t('modelPlaza.filters.clear') }}
+            </UiButton>
+            <UiButton variant="primary" density="compact" @click="mobileFiltersOpen = false">
+              {{ t('modelPlaza.filters.apply') }}
+            </UiButton>
+          </AppInline>
+        </template>
+      </UiSheet>
     </div>
 
-    <div class="desktop-filter-list">
+    <UiFilterBar
+      class="plaza-filter-desktop"
+      :active-count="activeFilterCount"
+      :clear-label="t('modelPlaza.filters.clear')"
+      @clear="clearFilters"
+    >
       <div class="filter-row">
         <span class="filter-label">{{ t('modelPlaza.filters.platformLabel') }}</span>
         <div class="filter-options">
-          <button
-            v-for="p in ['all', ...platforms]"
-            :key="`platform-${p}`"
-            type="button"
-            class="filter-chip inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:grayscale"
-            :class="p === 'all' ? chipClass(platform === 'all') : platform === p ? 'chip-tinted-active' : 'chip-tinted'"
-            :style="p === 'all' ? undefined : { '--chip-accent': platformAccentColor(p) }"
-            :disabled="p !== 'all' && !platformEnabled(p)"
-            @click="$emit('update:platform', p)"
+          <UiButton
+            v-for="item in ['all', ...platforms]"
+            :key="`platform-${item}`"
+            class="filter-chip"
+            :variant="platform === item ? 'primary' : 'quiet'"
+            density="dense"
+            :disabled="item !== 'all' && !platformEnabled(item)"
+            :aria-pressed="platform === item"
+            @click="emit('update:platform', item)"
           >
-            <PlatformIcon v-if="p !== 'all'" :platform="p as GroupPlatform" size="xs" />
-            {{ p === 'all' ? t('modelPlaza.filters.all') : p }}
-          </button>
+            <template v-if="item !== 'all'" #icon>
+              <PlatformIcon :platform="item as GroupPlatform" size="xs" />
+            </template>
+            {{ item === 'all' ? t('modelPlaza.filters.all') : item }}
+          </UiButton>
         </div>
       </div>
 
-      <div class="filter-row">
+      <div class="filter-row filter-row--wide">
         <span class="filter-label">{{ t('modelPlaza.filters.groupLabel') }}</span>
         <div class="filter-options">
-          <button
-            type="button"
+          <UiButton
             class="filter-chip"
-            :class="chipClass(groupId === 'all')"
-            @click="$emit('update:groupId', 'all')"
-          >
-            {{ t('modelPlaza.filters.all') }}
-          </button>
-          <button
-            v-for="g in groups"
-            :key="`group-${g.id}`"
-            type="button"
-            class="filter-chip max-w-56 truncate disabled:cursor-not-allowed disabled:opacity-40 disabled:grayscale"
-            :class="groupId === g.id ? 'chip-tinted-active' : 'chip-tinted'"
-            :style="{ '--chip-accent': platformAccentColor(g.platform) }"
-            :title="g.name"
-            :disabled="!groupEnabled(g)"
-            @click="$emit('update:groupId', g.id)"
-          >
-            {{ g.name }}
-          </button>
+            :variant="groupId === 'all' ? 'primary' : 'quiet'"
+            density="dense"
+            :aria-pressed="groupId === 'all'"
+            @click="emit('update:groupId', 'all')"
+          >{{ t('modelPlaza.filters.all') }}</UiButton>
+          <UiButton
+            v-for="group in groups"
+            :key="group.id"
+            class="filter-chip"
+            :variant="groupId === group.id ? 'primary' : 'quiet'"
+            density="dense"
+            :disabled="!groupEnabled(group)"
+            :aria-pressed="groupId === group.id"
+            :title="group.name"
+            @click="emit('update:groupId', group.id)"
+          >{{ group.name }}</UiButton>
         </div>
       </div>
 
       <div class="filter-row">
         <span class="filter-label">{{ t('modelPlaza.filters.rateLabel') }}</span>
         <div class="filter-options">
-          <button
-            type="button"
+          <UiButton
             class="filter-chip"
-            :class="chipClass(rate === 'all')"
-            @click="$emit('update:rate', 'all')"
-          >
-            {{ t('modelPlaza.filters.all') }}
-          </button>
-          <button
-            v-for="r in rates"
-            :key="`rate-${r}`"
-            type="button"
-            class="filter-chip font-mono disabled:cursor-not-allowed disabled:opacity-40 disabled:grayscale"
-            :class="chipClass(rate === r)"
-            :disabled="!rateEnabled(r)"
-            @click="$emit('update:rate', r)"
-          >
-            {{ r }}x
-          </button>
+            :variant="rate === 'all' ? 'primary' : 'quiet'"
+            density="dense"
+            :aria-pressed="rate === 'all'"
+            @click="emit('update:rate', 'all')"
+          >{{ t('modelPlaza.filters.all') }}</UiButton>
+          <UiButton
+            v-for="value in rates"
+            :key="value"
+            class="filter-chip"
+            :variant="rate === value ? 'primary' : 'quiet'"
+            density="dense"
+            :disabled="!rateEnabled(value)"
+            :aria-pressed="rate === value"
+            @click="emit('update:rate', value)"
+          >{{ value }}x</UiButton>
         </div>
       </div>
-    </div>
+    </UiFilterBar>
   </div>
 </template>
 
@@ -147,9 +140,17 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
-import Select, { type SelectOption } from '@/components/common/Select.vue'
-import { platformAccentColor } from '@/utils/platformColors'
 import type { GroupPlatform } from '@/types'
+import {
+  AppInline,
+  AppStack,
+  UiBadge,
+  UiButton,
+  UiFilterBar,
+  UiSelect,
+  UiSheet,
+  type SelectOption,
+} from '@/components/ui'
 
 const props = defineProps<{
   platforms: string[]
@@ -168,11 +169,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const mobileFiltersOpen = ref(false)
-
-const activeFilterCount = computed(
-  () => Number(props.platform !== 'all') + Number(props.groupId !== 'all') + Number(props.rate !== 'all')
-)
-
+const activeFilterCount = computed(() => Number(props.platform !== 'all') + Number(props.groupId !== 'all') + Number(props.rate !== 'all'))
 const activeSummary = computed(() => {
   const selected: string[] = []
   if (props.platform !== 'all') selected.push(props.platform)
@@ -186,29 +183,15 @@ const activeSummary = computed(() => {
 
 const platformSelectOptions = computed<SelectOption[]>(() => [
   { value: 'all', label: t('modelPlaza.filters.all') },
-  ...props.platforms.map((value) => ({
-    value,
-    label: value,
-    disabled: !platformEnabled(value)
-  }))
+  ...props.platforms.map((value) => ({ value, label: value, disabled: !platformEnabled(value) })),
 ])
-
 const groupSelectOptions = computed<SelectOption[]>(() => [
   { value: 'all', label: t('modelPlaza.filters.all') },
-  ...props.groups.map((group) => ({
-    value: group.id,
-    label: group.name,
-    disabled: !groupEnabled(group)
-  }))
+  ...props.groups.map((group) => ({ value: group.id, label: group.name, disabled: !groupEnabled(group) })),
 ])
-
 const rateSelectOptions = computed<SelectOption[]>(() => [
   { value: 'all', label: t('modelPlaza.filters.all') },
-  ...props.rates.map((value) => ({
-    value,
-    label: `${value}x`,
-    disabled: !rateEnabled(value)
-  }))
+  ...props.rates.map((value) => ({ value, label: `${value}x`, disabled: !rateEnabled(value) })),
 ])
 
 function updatePlatform(value: string | number | boolean | null): void {
@@ -223,177 +206,36 @@ function updateRate(value: string | number | boolean | null): void {
   if (value === 'all' || typeof value === 'number') emit('update:rate', value)
 }
 
+function clearFilters(): void {
+  emit('update:platform', 'all')
+  emit('update:groupId', 'all')
+  emit('update:rate', 'all')
+}
+
 function platformEnabled(platform: string): boolean {
-  return props.groups.some(
-    (group) =>
-      group.platform === platform &&
-      (props.groupId === 'all' || group.id === props.groupId) &&
-      (props.rate === 'all' || group.rate === props.rate)
-  )
+  return props.groups.some((group) => group.platform === platform && (props.groupId === 'all' || group.id === props.groupId) && (props.rate === 'all' || group.rate === props.rate))
 }
 
 function groupEnabled(group: { platform: string; rate: number }): boolean {
-  return (
-    (props.platform === 'all' || group.platform === props.platform) &&
-    (props.rate === 'all' || group.rate === props.rate)
-  )
+  return (props.platform === 'all' || group.platform === props.platform) && (props.rate === 'all' || group.rate === props.rate)
 }
 
 function rateEnabled(rate: number): boolean {
-  return props.groups.some(
-    (group) =>
-      group.rate === rate &&
-      (props.platform === 'all' || group.platform === props.platform) &&
-      (props.groupId === 'all' || group.id === props.groupId)
-  )
-}
-
-function chipClass(active: boolean): string {
-  return active ? 'filter-chip-active' : 'filter-chip-default'
+  return props.groups.some((group) => group.rate === rate && (props.platform === 'all' || group.platform === props.platform) && (props.groupId === 'all' || group.id === props.groupId))
 }
 </script>
 
 <style scoped>
-.plaza-filter-bar {
-  @apply border-y border-gray-200 py-3 dark:border-dark-700;
-}
-
-.desktop-filter-list {
-  @apply hidden space-y-2 sm:block;
-}
-
-.mobile-filter-controls {
-  @apply mt-3 grid gap-3 border-t border-gray-100 pt-3 dark:border-dark-800;
-}
-
-.mobile-filter-field {
-  @apply grid gap-1.5 text-xs font-semibold text-gray-500 dark:text-dark-400;
-}
-
-.filter-row {
-  @apply grid min-w-0 grid-cols-[4rem_minmax(0,1fr)] items-start gap-2;
-}
-
-.filter-label {
-  @apply pt-1 text-xs font-semibold text-gray-400 dark:text-dark-500;
-}
-
-.filter-options {
-  @apply flex min-w-0 flex-wrap gap-1.5;
-}
-
-.filter-chip {
-  @apply min-w-0 flex-shrink-0 rounded-[3px] border border-transparent px-2.5 py-1 text-xs font-medium transition-colors;
-}
-
-.filter-chip-default {
-  @apply border-gray-200 bg-white text-gray-600 enabled:hover:border-gray-300 enabled:hover:bg-gray-50 enabled:hover:text-gray-900 dark:border-dark-700 dark:bg-dark-800/60 dark:text-dark-300 dark:enabled:hover:bg-dark-800 dark:enabled:hover:text-white;
-}
-
-.filter-chip-active {
-  @apply border-primary-600 bg-primary-600 text-white;
-}
-
-.chip-tinted {
-  color: var(--chip-accent);
-  color: color-mix(in srgb, var(--chip-accent) 78%, black);
-  background-color: color-mix(in srgb, var(--chip-accent) 9%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--chip-accent) 25%, transparent);
-}
-
-.chip-tinted:not(:disabled):hover {
-  background-color: color-mix(in srgb, var(--chip-accent) 16%, transparent);
-}
-
-.dark .chip-tinted {
-  color: color-mix(in srgb, var(--chip-accent) 72%, white);
-  background-color: color-mix(in srgb, var(--chip-accent) 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--chip-accent) 30%, transparent);
-}
-
-.dark .chip-tinted:not(:disabled):hover {
-  background-color: color-mix(in srgb, var(--chip-accent) 18%, transparent);
-}
-
-.chip-tinted-active {
-  color: #fff;
-  background-color: var(--chip-accent);
-  background-color: color-mix(in srgb, var(--chip-accent) 85%, black);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--chip-accent) 75%, black);
-}
-
-.chip-tinted-active:not(:disabled):hover {
-  background-color: color-mix(in srgb, var(--chip-accent) 75%, black);
-}
-
-.dark .chip-tinted-active {
-  background-color: color-mix(in srgb, var(--chip-accent) 80%, transparent);
-}
-
-.dark .chip-tinted-active:not(:disabled):hover {
-  background-color: var(--chip-accent);
-}
-
-@media (min-width: 1280px) {
-  .plaza-filter-bar {
-    @apply border-y-0 border-r border-gray-200 py-0 pr-5 dark:border-dark-700;
-  }
-
-  .desktop-filter-list {
-    @apply space-y-5;
-  }
-
-  .filter-row {
-    @apply block;
-  }
-
-  .filter-label {
-    @apply mb-2 block pt-0 text-[11px] text-gray-500 dark:text-dark-400;
-  }
-
-  .filter-options {
-    @apply flex-col items-stretch gap-1;
-  }
-
-  .filter-chip {
-    @apply flex w-full max-w-none items-center justify-start overflow-hidden px-2 py-1.5 text-left;
-  }
-
-  .filter-chip-default {
-    @apply border-transparent bg-transparent text-gray-600 enabled:hover:border-transparent enabled:hover:bg-gray-100 enabled:hover:text-gray-900 dark:border-transparent dark:bg-transparent dark:text-dark-300 dark:enabled:hover:bg-dark-800 dark:enabled:hover:text-white;
-  }
-
-  .filter-chip-active {
-    @apply border-transparent bg-primary-50 text-primary-700 dark:border-transparent dark:bg-primary-500/10 dark:text-primary-300;
-  }
-
-  .chip-tinted,
-  .chip-tinted-active {
-    border-color: transparent;
-    box-shadow: none;
-  }
-
-  .chip-tinted {
-    background-color: transparent;
-  }
-
-  .chip-tinted:not(:disabled):hover {
-    background-color: color-mix(in srgb, var(--chip-accent) 8%, transparent);
-  }
-
-  .chip-tinted-active,
-  .dark .chip-tinted-active {
-    color: color-mix(in srgb, var(--chip-accent) 78%, black);
-    background-color: color-mix(in srgb, var(--chip-accent) 11%, transparent);
-  }
-
-  .chip-tinted-active:not(:disabled):hover,
-  .dark .chip-tinted-active:not(:disabled):hover {
-    background-color: color-mix(in srgb, var(--chip-accent) 16%, transparent);
-  }
-
-  .dark .chip-tinted-active {
-    color: color-mix(in srgb, var(--chip-accent) 70%, white);
-  }
+.plaza-filter-bar { min-width: 0; }
+.plaza-filter-mobile { display: none; }
+.filter-row { display: grid; min-width: 180px; gap: 5px; }
+.filter-row--wide { flex: 1 1 360px; }
+.filter-label { color: var(--ui-text-soft); font-size: 11px; font-weight: 600; }
+.filter-options { display: flex; min-width: 0; flex-wrap: wrap; gap: 4px; }
+.filter-chip { min-width: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plaza-filter-mobile__summary { min-width: 0; flex: 1; overflow: hidden; color: var(--ui-text-soft); font-size: 12px; font-weight: 400; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 767px) {
+  .plaza-filter-mobile { display: block; }
+  .plaza-filter-desktop { display: none; }
 }
 </style>

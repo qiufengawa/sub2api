@@ -696,10 +696,12 @@ export default {
   modelPlaza: {
     title: 'Model Plaza',
     description: 'Browse available models and pricing by group',
+    controlsLabel: 'Model plaza filters and search',
     summary: '{models} models · {groups} groups · {platforms} platforms',
     loading: 'Loading...',
     empty: 'No groups to display',
     loadFailed: 'Failed to load model plaza',
+    loadFailedHint: 'Check your connection and try again. Your current filters will be preserved.',
     noSearchResult: 'No matching models',
     anonymousHint: 'Sign in to see your exclusive groups and personal rates',
     filters: {
@@ -710,7 +712,9 @@ export default {
       searchPlaceholder: 'Search models',
       all: 'All',
       allModels: 'All models',
-      filterButton: 'Filters'
+      filterButton: 'Filters',
+      clear: 'Clear filters',
+      apply: 'View results'
     },
     badges: {
       exclusive: 'Exclusive',

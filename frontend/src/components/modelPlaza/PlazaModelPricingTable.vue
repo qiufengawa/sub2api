@@ -1,7 +1,6 @@
 <template>
   <div
-    class="plaza-pricing-table min-w-0 overflow-x-auto focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500/25"
-    :style="accentStyle"
+    class="plaza-pricing-table ui-focus-ring"
     role="region"
     :aria-label="t('modelPlaza.table.pricingTableLabel')"
     tabindex="0"
@@ -36,24 +35,19 @@
       :data-model="m.name"
     >
       <div class="model-cell">
-        <ModelIcon :model="m.name" size="20px" class="mt-0.5 flex-shrink-0" />
-        <div class="min-w-0">
-          <span class="model-name min-w-0" :title="m.name">{{ m.name }}</span>
-          <span
+        <ModelIcon :model="m.name" size="20px" class="model-icon-placement" />
+        <div class="model-copy">
+          <span class="model-name" :title="m.name">{{ m.name }}</span>
+          <UiBadge
             v-if="platform && m.platform !== platform"
-            :class="[
-              'mt-1 inline-flex items-center rounded-[3px] px-1.5 py-0.5 text-[10px] font-medium',
-              platformBadgeLightClass(m.platform)
-            ]"
-          >
-            {{ platformLabel(m.platform) }}
-          </span>
-          <span
+            class="model-badge"
+            :label="platformLabel(m.platform)"
+          />
+          <UiBadge
             v-if="billingMode(m) !== BILLING_MODE_TOKEN"
-            class="mt-1 inline-flex rounded-[3px] bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-dark-700/70 dark:text-dark-300"
-          >
-            {{ billingModeLabel(m) }}
-          </span>
+            class="model-badge"
+            :label="billingModeLabel(m)"
+          />
         </div>
       </div>
 
@@ -135,10 +129,10 @@
             </span>
           </div>
           <template v-else-if="m.pricing?.per_request_price != null">
-            <strong class="font-mono text-sm text-gray-900 dark:text-gray-50">
+            <strong class="special-price-value">
               {{ paidRequestPrice(m, m.pricing.per_request_price) }}
             </strong>
-            <span class="ml-1 text-xs text-gray-400 dark:text-dark-500">{{ perUnitSuffix(m) }}</span>
+            <span class="price-suffix">{{ perUnitSuffix(m) }}</span>
           </template>
           <strong v-else class="missing-price">-</strong>
         </div>
@@ -188,11 +182,11 @@
       </div>
 
       <div class="rate-cell" data-testid="rate-cell">
-        <span class="rate-caption xl:hidden">{{ t('modelPlaza.table.rate') }}</span>
+        <span class="rate-caption">{{ t('modelPlaza.table.rate') }}</span>
         <strong v-if="usesIndependentImageRate(m)">{{ requestRate(m) }}x</strong>
         <template v-else-if="hasCustomRate">
-          <span class="text-gray-400 line-through dark:text-dark-500">{{ rateMultiplier }}x</span>
-          <strong class="text-primary-600 dark:text-primary-400">{{ effectiveRate }}x</strong>
+          <span class="rate-original">{{ rateMultiplier }}x</span>
+          <strong class="rate-effective">{{ effectiveRate }}x</strong>
         </template>
         <strong v-else>{{ effectiveRate }}x</strong>
       </div>
@@ -205,7 +199,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ModelIcon from '@/components/common/ModelIcon.vue'
 import { formatScaled } from '@/utils/pricing'
-import { platformAccentColor, platformBadgeLightClass, platformLabel } from '@/utils/platformColors'
+import { platformLabel } from '@/utils/platformColors'
 import {
   BILLING_MODE_TOKEN,
   BILLING_MODE_IMAGE,
@@ -213,6 +207,7 @@ import {
 } from '@/constants/channel'
 import type { PlazaModel } from '@/api/modelPlaza'
 import type { UserPricingInterval } from '@/api/channels'
+import { UiBadge } from '@/components/ui'
 
 const props = defineProps<{
   models: PlazaModel[]
@@ -224,7 +219,6 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const accentStyle = computed(() => ({ '--plaza-accent': platformAccentColor(props.platform ?? '') }))
 const PER_MILLION = 1_000_000
 const MIN_DECIMALS = 2
 
@@ -336,17 +330,10 @@ function trimZero(value: number): string {
 
 <style scoped>
 .plaza-pricing-table {
-  --pz-title: color-mix(in srgb, var(--plaza-accent) 82%, black);
-}
-
-.dark .plaza-pricing-table {
-  --pz-title: color-mix(in srgb, var(--plaza-accent) 70%, white);
-}
-
-.dark .plaza-pricing-table :deep(.model-icon path[fill='#000000']),
-.dark .plaza-pricing-table :deep(.model-icon path[fill='#16191E']),
-.dark .plaza-pricing-table :deep(.model-icon path[fill='#003425']) {
-  fill: #e5e7eb;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
 }
 
 .pricing-head {
@@ -354,108 +341,229 @@ function trimZero(value: number): string {
 }
 
 .plaza-model-row {
-  @apply grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0 border-b border-gray-100 px-3 py-2.5 last:border-b-0 dark:border-dark-700/60 sm:px-4 sm:py-3;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ui-border-soft);
+  transition: background-color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.plaza-model-row:last-child {
+  border-bottom: 0;
+}
+
+.plaza-model-row:hover {
+  background: var(--ui-surface-muted);
 }
 
 .model-cell {
-  @apply flex min-w-0 items-start gap-2.5;
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 10px;
   grid-column: 1;
   grid-row: 1;
 }
 
+.model-icon-placement {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.model-copy {
+  min-width: 0;
+}
+
 .model-name {
-  @apply block min-w-0 font-medium leading-5 text-gray-900 dark:text-white;
+  display: block;
+  min-width: 0;
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
   overflow-wrap: anywhere;
 }
 
+.model-badge {
+  margin-top: 4px;
+  margin-right: 4px;
+}
+
 .rate-cell {
-  @apply flex flex-shrink-0 items-center justify-end gap-1 font-mono text-xs text-gray-700 dark:text-gray-300;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  color: var(--ui-text-muted);
+  font-family: var(--ui-font-mono);
+  font-size: 12px;
   grid-column: 2;
   grid-row: 1;
 }
 
 .rate-caption {
-  @apply mr-0.5 font-sans text-[10px] text-gray-400 dark:text-dark-500;
+  margin-right: 2px;
+  color: var(--ui-text-soft);
+  font-family: var(--ui-font-sans);
+  font-size: 10px;
+}
+
+.rate-original {
+  color: var(--ui-text-soft);
+  text-decoration: line-through;
+}
+
+.rate-effective {
+  color: var(--ui-text);
 }
 
 .price-band {
-  @apply grid min-w-0 grid-cols-3 gap-x-2 gap-y-2 px-0 py-2.5;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px 0;
   grid-column: 1 / -1;
 }
 
 .paid-band {
-  @apply mt-2.5 border-t border-gray-100 dark:border-dark-700/60;
+  margin-top: 10px;
+  border-top: 1px solid var(--ui-border-soft);
 }
 
 .official-band {
-  @apply border-t border-gray-100 dark:border-dark-700/60;
+  border-top: 1px solid var(--ui-border-soft);
 }
 
 .band-title {
-  @apply col-span-3 flex min-w-0 items-center justify-between gap-2 text-xs font-semibold;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  grid-column: 1 / -1;
 }
 
 .paid-band .band-title {
-  color: var(--plaza-accent);
-  color: var(--pz-title);
+  color: var(--ui-text);
 }
 
 .official-band .band-title {
-  @apply text-gray-500 dark:text-dark-400;
+  color: var(--ui-text-soft);
 }
 
 .band-unit {
-  @apply flex-shrink-0 font-normal text-gray-400 dark:text-dark-500;
+  flex: 0 0 auto;
+  color: var(--ui-text-soft);
+  font-weight: 400;
 }
 
 .price-value {
-  @apply min-w-0 font-mono text-xs text-gray-600 dark:text-dark-300;
+  min-width: 0;
+  color: var(--ui-text-muted);
+  font-family: var(--ui-font-mono);
+  font-size: 12px;
 }
 
 .paid-band .price-value > strong,
 .paid-wide > strong {
-  @apply text-sm font-semibold text-gray-900 dark:text-gray-50;
+  color: var(--ui-text);
+  font-size: 14px;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
 .price-label {
-  @apply mb-1 block font-sans text-[10px] font-medium text-gray-400 dark:text-dark-500;
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ui-text-soft);
+  font-family: var(--ui-font-sans);
+  font-size: 10px;
+  font-weight: 500;
 }
 
 .tier-value {
-  @apply mb-1 min-w-0 last:mb-0;
+  min-width: 0;
+  margin-bottom: 4px;
+}
+
+.tier-value:last-child {
+  margin-bottom: 0;
 }
 
 .tier-value > span {
-  @apply block overflow-hidden text-ellipsis whitespace-nowrap font-sans text-[10px] text-gray-400 dark:text-dark-500;
+  display: block;
+  overflow: hidden;
+  color: var(--ui-text-soft);
+  font-family: var(--ui-font-sans);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tier-value > strong {
-  @apply block text-xs font-semibold text-gray-900 dark:text-gray-100;
+  display: block;
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .token-tier-list {
-  @apply col-span-3 min-w-0 divide-y divide-gray-200/70 dark:divide-dark-700/70;
+  min-width: 0;
+  grid-column: 1 / -1;
 }
 
 .token-tier-row {
-  @apply grid min-w-0 grid-cols-[minmax(3.5rem,0.8fr)_repeat(2,minmax(0,1fr))] items-start gap-2 py-2 first:pt-0 last:pb-0;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(56px, .8fr) repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--ui-border-soft);
+}
+
+.token-tier-row:first-child {
+  padding-top: 0;
+}
+
+.token-tier-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
 .token-tier-label {
-  @apply break-words text-xs font-medium text-gray-500 dark:text-dark-300;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .token-tier-price {
-  @apply flex min-w-0 flex-col gap-0.5 font-mono;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--ui-font-mono);
 }
 
 .token-tier-price small {
-  @apply font-sans text-[10px] text-gray-400 dark:text-dark-500;
+  color: var(--ui-text-soft);
+  font-family: var(--ui-font-sans);
+  font-size: 10px;
 }
 
 .token-tier-price strong {
-  @apply break-words text-xs font-semibold text-gray-900 dark:text-gray-100;
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .tier-price-column {
@@ -463,70 +571,125 @@ function trimZero(value: number): string {
 }
 
 .paid-cache.tier-cache-cell {
-  @apply col-span-3 border-t border-gray-200/70 pt-2 dark:border-dark-700/70;
+  padding-top: 8px;
+  border-top: 1px solid var(--ui-border-soft);
+  grid-column: 1 / -1;
 }
 
 .paid-cache.tier-cache-cell .cache-values {
-  @apply grid grid-cols-2 gap-2 space-y-0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .cache-values {
-  @apply space-y-1;
+  display: grid;
+  gap: 4px;
 }
 
 .cache-values > div {
-  @apply min-w-0;
+  min-width: 0;
 }
 
 .cache-values span {
-  @apply mr-1 font-sans text-[10px] text-gray-400 dark:text-dark-500;
+  margin-right: 4px;
+  color: var(--ui-text-soft);
+  font-family: var(--ui-font-sans);
+  font-size: 10px;
 }
 
 .cache-values strong {
-  @apply min-w-0 break-words font-mono text-xs font-medium;
+  min-width: 0;
+  font-family: var(--ui-font-mono);
+  font-size: 12px;
+  font-weight: 500;
   overflow-wrap: anywhere;
 }
 
 .cache-values small {
-  @apply block font-sans text-[9px] font-normal text-gray-400 dark:text-dark-500;
+  display: block;
+  color: var(--ui-text-soft);
+  font-family: var(--ui-font-sans);
+  font-size: 9px;
+  font-weight: 400;
 }
 
 .missing-price {
-  @apply font-mono text-xs font-normal text-gray-400 dark:text-dark-500;
+  color: var(--ui-text-soft);
+  font-family: var(--ui-font-mono);
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .paid-wide {
-  @apply col-span-3 min-w-0;
+  min-width: 0;
+  grid-column: 1 / -1;
 }
 
 .special-price-label {
-  @apply hidden flex-shrink-0 text-xs font-medium xl:inline;
-  color: var(--plaza-accent);
-  color: var(--pz-title);
+  display: none;
+  flex: 0 0 auto;
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.special-price-value {
+  color: var(--ui-text);
+  font-family: var(--ui-font-mono);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.price-suffix {
+  margin-left: 4px;
+  color: var(--ui-text-soft);
+  font-size: 12px;
 }
 
 .official-wide {
-  @apply col-span-3;
+  grid-column: 1 / -1;
 }
 
 .request-tiers {
-  @apply grid min-w-0 divide-y divide-gray-200/70 dark:divide-dark-700/70;
+  display: grid;
+  min-width: 0;
 }
 
 .request-tier {
-  @apply grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-2 py-1.5 font-mono text-xs;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--ui-border-soft);
+  font-family: var(--ui-font-mono);
+  font-size: 12px;
+}
+
+.request-tier:last-child {
+  border-bottom: 0;
 }
 
 .request-tier > span {
-  @apply min-w-0 break-words font-sans text-[10px] text-gray-400 dark:text-dark-500;
+  min-width: 0;
+  color: var(--ui-text-soft);
+  font-family: var(--ui-font-sans);
+  font-size: 10px;
+  overflow-wrap: anywhere;
 }
 
 .request-tier > small {
-  @apply whitespace-nowrap font-sans text-[10px] text-gray-400 dark:text-dark-500;
+  color: var(--ui-text-soft);
+  font-family: var(--ui-font-sans);
+  font-size: 10px;
+  white-space: nowrap;
 }
 
 .request-tier > strong {
-  @apply min-w-0 text-gray-900 dark:text-gray-100;
+  min-width: 0;
+  color: var(--ui-text);
   overflow-wrap: anywhere;
 }
 
@@ -538,18 +701,25 @@ function trimZero(value: number): string {
 
   .pricing-head,
   .plaza-model-row {
-    min-width: 920px;
-    grid-template-columns: minmax(200px, 1.45fr) repeat(3, minmax(108px, 0.8fr)) repeat(3, minmax(108px, 0.8fr)) minmax(72px, 0.55fr);
+    min-width: 1064px;
+    grid-template-columns: minmax(200px, 1.45fr) repeat(6, minmax(132px, 0.8fr)) minmax(72px, 0.55fr);
   }
 
   .pricing-head {
-    @apply grid border-b border-gray-200 bg-gray-50/40 text-[11px] text-gray-500 dark:border-dark-700 dark:bg-dark-800/20 dark:text-dark-400;
+    display: grid;
+    border-bottom: 1px solid var(--ui-border);
+    color: var(--ui-text-muted);
+    background: var(--ui-surface-muted);
+    font-size: 11px;
     grid-template-rows: auto auto;
   }
 
   .head-model,
   .head-rate {
-    @apply flex items-center px-3 py-2 font-semibold;
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    font-weight: 600;
     grid-row: 1 / span 2;
   }
 
@@ -558,56 +728,67 @@ function trimZero(value: number): string {
   }
 
   .head-rate {
-    @apply justify-end border-l border-gray-100 dark:border-dark-700/60;
+    justify-content: flex-end;
+    border-left: 1px solid var(--ui-border-soft);
     grid-column: 8;
   }
 
   .head-paid,
   .head-official {
-    @apply flex items-center justify-center gap-1 border-b px-2 py-1.5 font-semibold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--ui-border-soft);
+    font-weight: 600;
   }
 
   .head-paid {
-    color: var(--plaza-accent);
-    color: var(--pz-title);
-    border-color: color-mix(in srgb, var(--plaza-accent) 24%, transparent);
+    color: var(--ui-text);
     grid-column: 2 / span 3;
   }
 
   .head-official {
-    @apply border-l border-gray-200 text-gray-400 dark:border-dark-600 dark:text-dark-500;
+    border-left: 1px solid var(--ui-border);
+    color: var(--ui-text-soft);
     grid-column: 5 / span 3;
   }
 
   .head-paid span,
   .head-official span {
-    @apply font-normal;
+    font-weight: 400;
   }
 
   .head-sub {
-    @apply px-2 py-1.5 text-[9px] font-medium text-gray-400 dark:text-dark-500;
+    padding: 6px 8px;
+    color: var(--ui-text-soft);
+    font-size: 9px;
+    font-weight: 500;
     grid-row: 2;
   }
 
   .head-sub.paid-col {
-    color: var(--pz-title);
+    color: var(--ui-text-muted);
   }
 
   .plaza-model-row {
-    @apply gap-0 px-0 py-0;
+    gap: 0;
+    padding: 0;
     grid-template-rows: minmax(56px, auto);
   }
 
   .model-cell {
-    @apply items-center px-3 py-2.5;
+    align-items: center;
+    padding: 10px 12px;
     grid-column: 1;
     grid-row: 1;
   }
 
   .model-name {
-    @apply truncate;
     display: block;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .price-band {
@@ -620,8 +801,18 @@ function trimZero(value: number): string {
   }
 
   .price-value {
-    @apply flex min-w-0 flex-col justify-center rounded-none px-2 py-2.5 text-[11px];
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    padding: 10px 8px;
+    font-size: 11px;
     grid-row: 1;
+  }
+
+  .price-value > strong,
+  .cache-values strong {
+    white-space: nowrap;
   }
 
   .token-tier-list {
@@ -637,35 +828,48 @@ function trimZero(value: number): string {
   .paid-cache { grid-column: 4; }
 
   .paid-cache.tier-cache-cell {
-    @apply col-span-1 border-t-0 pt-2.5;
+    padding-top: 10px;
+    border-top: 0;
     grid-column: 4;
   }
 
   .paid-cache.tier-cache-cell .cache-values {
-    @apply block space-y-1;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 
   .official-input {
-    @apply border-l border-gray-100 dark:border-dark-700/60;
+    border-left: 1px solid var(--ui-border-soft);
     grid-column: 5;
   }
   .official-output { grid-column: 6; }
   .official-cache { grid-column: 7; }
 
   .paid-wide {
-    @apply flex min-w-0 items-center gap-2 px-2 py-2.5;
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 8px;
     grid-column: 2 / span 3;
     grid-row: 1;
   }
 
   .official-wide {
-    @apply flex min-w-0 items-center border-l border-gray-100 px-2 py-2.5 dark:border-dark-700/60;
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    padding: 10px 8px;
+    border-left: 1px solid var(--ui-border-soft);
     grid-column: 5 / span 3;
     grid-row: 1;
   }
 
   .rate-cell {
-    @apply border-l border-gray-100 px-2 py-2.5 text-right dark:border-dark-700/60;
+    padding: 10px 8px;
+    border-left: 1px solid var(--ui-border-soft);
+    text-align: right;
     grid-column: 8;
     grid-row: 1;
   }
@@ -675,33 +879,35 @@ function trimZero(value: number): string {
   }
 
   .tier-value > span {
-    @apply whitespace-normal;
+    white-space: normal;
   }
 }
 
 @media (min-width: 768px) and (max-width: 1279px) {
   .price-band {
     grid-template-columns: minmax(7rem, 0.72fr) repeat(3, minmax(0, 1fr));
-    @apply items-start gap-x-3 px-3;
+    align-items: start;
+    column-gap: 12px;
+    padding-inline: 12px;
   }
 
   .band-title {
     grid-column: 1;
-    @apply col-span-1 block pt-0.5;
+    display: block;
+    padding-top: 2px;
   }
 
   .band-unit {
-    @apply mt-1 block;
+    display: block;
+    margin-top: 4px;
   }
 
   .paid-wide {
     grid-column: 2 / -1;
-    @apply col-span-1;
   }
 
   .official-wide {
     grid-column: 2 / -1;
-    @apply col-span-1;
   }
 
   .token-tier-list {
@@ -713,11 +919,15 @@ function trimZero(value: number): string {
   }
 
   .paid-cache.tier-cache-cell {
-    @apply col-span-1 border-t-0 pt-0;
+    padding-top: 0;
+    border-top: 0;
+    grid-column: auto;
   }
 
   .paid-cache.tier-cache-cell .cache-values {
-    @apply block space-y-1;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 }
 
@@ -728,13 +938,21 @@ function trimZero(value: number): string {
   }
 
   .pricing-head {
-    @apply grid min-w-0 border-b border-gray-200 bg-gray-50/40 text-xs text-gray-500 dark:border-dark-700 dark:bg-dark-800/20 dark:text-dark-400;
+    display: grid;
+    min-width: 0;
+    border-bottom: 1px solid var(--ui-border);
+    color: var(--ui-text-muted);
+    background: var(--ui-surface-muted);
+    font-size: 12px;
     grid-template-rows: auto auto;
   }
 
   .head-model,
   .head-rate {
-    @apply flex items-center px-4 py-2.5 font-semibold;
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    font-weight: 600;
     grid-row: 1 / span 2;
   }
 
@@ -743,58 +961,70 @@ function trimZero(value: number): string {
   }
 
   .head-rate {
-    @apply justify-end border-l border-gray-100 dark:border-dark-700/60;
+    justify-content: flex-end;
+    border-left: 1px solid var(--ui-border-soft);
     grid-column: 8;
   }
 
   .head-paid,
   .head-official {
-    @apply flex items-center justify-center gap-1.5 border-b px-3 py-1.5 font-semibold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--ui-border-soft);
+    font-weight: 600;
   }
 
   .head-paid {
-    color: var(--plaza-accent);
-    color: var(--pz-title);
-    border-color: color-mix(in srgb, var(--plaza-accent) 24%, transparent);
+    color: var(--ui-text);
     grid-column: 2 / span 3;
   }
 
   .head-official {
-    @apply border-l border-gray-200 text-gray-400 dark:border-dark-600 dark:text-dark-500;
+    border-left: 1px solid var(--ui-border);
+    color: var(--ui-text-soft);
     grid-column: 5 / span 3;
   }
 
   .head-paid span,
   .head-official span {
-    @apply font-normal;
+    font-weight: 400;
   }
 
   .head-sub {
-    @apply px-3 py-1.5 text-[10px] font-medium text-gray-400 dark:text-dark-500;
+    padding: 6px 12px;
+    color: var(--ui-text-soft);
+    font-size: 10px;
+    font-weight: 500;
     grid-row: 2;
   }
 
   .head-sub.paid-col {
-    color: var(--pz-title);
+    color: var(--ui-text-muted);
   }
 
   .head-sub.official-col:first-of-type {
-    @apply border-l border-gray-100 dark:border-dark-700/60;
+    border-left: 1px solid var(--ui-border-soft);
   }
 
   .plaza-model-row {
-    @apply gap-0 px-0 py-0 transition-colors hover:bg-gray-50/70 dark:hover:bg-dark-800/40;
+    gap: 0;
+    padding: 0;
     grid-template-rows: minmax(58px, auto);
   }
 
   .model-cell {
-    @apply items-center px-4 py-3;
+    align-items: center;
+    padding: 12px 16px;
     grid-column: 1;
     grid-row: 1;
   }
 
   .model-name {
-    @apply truncate;
+    overflow: hidden;
+    text-overflow: ellipsis;
     display: block;
     white-space: nowrap;
   }
@@ -809,7 +1039,11 @@ function trimZero(value: number): string {
   }
 
   .price-value {
-    @apply flex min-w-0 flex-col justify-center rounded-none px-3 py-3;
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    padding: 12px;
     grid-row: 1;
   }
 
@@ -825,39 +1059,58 @@ function trimZero(value: number): string {
   .paid-output { grid-column: 3; }
   .paid-cache { grid-column: 4; }
   .paid-cache.tier-cache-cell {
-    @apply col-span-1 border-t-0 pt-3;
+    padding-top: 12px;
+    border-top: 0;
     grid-column: 4;
   }
   .paid-cache.tier-cache-cell .cache-values {
-    @apply block space-y-1;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
   .official-input {
     grid-column: 5;
-    @apply border-l border-gray-100 dark:border-dark-700/60;
+    border-left: 1px solid var(--ui-border-soft);
   }
   .official-output { grid-column: 6; }
   .official-cache { grid-column: 7; }
 
   .paid-wide {
-    @apply flex min-w-0 items-center gap-2 px-3 py-3;
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
     grid-column: 2 / span 3;
     grid-row: 1;
   }
 
   .official-wide {
-    @apply flex min-w-0 items-center border-l border-gray-100 px-3 py-3 dark:border-dark-700/60;
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    padding: 12px;
+    border-left: 1px solid var(--ui-border-soft);
     grid-column: 5 / span 3;
     grid-row: 1;
   }
 
   .rate-cell {
-    @apply border-l border-gray-100 px-3 py-3 text-right dark:border-dark-700/60;
+    padding: 12px;
+    border-left: 1px solid var(--ui-border-soft);
+    text-align: right;
     grid-column: 8;
     grid-row: 1;
   }
 
   .tier-value > span {
-    @apply whitespace-normal;
+    white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plaza-model-row {
+    transition: none;
   }
 }
 </style>

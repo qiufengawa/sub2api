@@ -1,39 +1,23 @@
 <template>
-  <header class="sticky top-0 z-30 border-b border-gray-200 bg-white/95 dark:border-dark-700 dark:bg-dark-950/95">
-    <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
-      <!-- 左:站点 logo + 名称 -->
-      <div class="flex min-w-0 items-center gap-3">
-        <template v-if="settings">
-          <span
-            class="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800"
-          >
-            <img :src="siteLogo || '/logo.svg'" :alt="siteName" class="h-full w-full object-contain" />
-          </span>
-          <span class="truncate text-base font-semibold text-gray-950 dark:text-white">
-            {{ siteName }}
-          </span>
-        </template>
+  <header class="plaza-nav">
+    <div class="plaza-nav__inner">
+      <RouterLink to="/" class="plaza-nav__brand" :aria-label="siteName">
+        <img v-if="siteLogo" :src="siteLogo" :alt="siteName" class="plaza-nav__logo" />
+        <span v-else-if="settings" class="plaza-nav__name">{{ siteName }}</span>
         <template v-else>
-          <span class="h-9 w-9 flex-shrink-0 animate-pulse rounded-[4px] bg-gray-200 dark:bg-dark-700" aria-hidden="true"></span>
-          <span class="h-5 w-28 animate-pulse rounded bg-gray-200 dark:bg-dark-700" aria-hidden="true"></span>
+          <UiSkeleton variant="rect" width="32px" height="32px" />
+          <UiSkeleton variant="text" width="112px" height="18px" />
         </template>
-      </div>
+      </RouterLink>
 
-      <!-- 右:登录 / 回到后台 -->
-      <RouterLink
+      <UiLink
         v-if="isAuthenticated"
         :to="backTarget"
-        class="btn btn-primary flex-shrink-0"
-      >
-        {{ t('modelPlaza.nav.backToDashboard') }}
-      </RouterLink>
-      <RouterLink
+      >{{ t('modelPlaza.nav.backToDashboard') }}</UiLink>
+      <UiLink
         v-else
         :to="{ path: '/login', query: { redirect: '/model-plaza' } }"
-        class="btn btn-primary flex-shrink-0"
-      >
-        {{ t('modelPlaza.nav.login') }}
-      </RouterLink>
+      >{{ t('modelPlaza.nav.login') }}</UiLink>
     </div>
   </header>
 </template>
@@ -44,16 +28,23 @@ import { useI18n } from 'vue-i18n'
 import { sanitizeUrl } from '@/utils/url'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
+import { UiLink, UiSkeleton } from '@/components/ui'
 
 const { t } = useI18n()
 const appStore = useAppStore()
 const authStore = useAuthStore()
-
 const settings = computed(() => appStore.cachedPublicSettings)
 const siteName = computed(() => settings.value?.site_name || 'Sub2API')
-const siteLogo = computed(() =>
-  sanitizeUrl(settings.value?.site_logo || '', { allowRelative: true, allowDataUrl: true })
-)
+const siteLogo = computed(() => sanitizeUrl(settings.value?.site_logo || '', { allowRelative: true, allowDataUrl: true }))
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const backTarget = computed(() => (authStore.isAdmin ? '/admin/dashboard' : '/dashboard'))
 </script>
+
+<style scoped>
+.plaza-nav { position: sticky; top: 0; z-index: 30; border-bottom: 1px solid var(--ui-border-soft); background: color-mix(in srgb, var(--ui-bg) 94%, transparent); backdrop-filter: blur(12px); }
+.plaza-nav__inner { display: flex; max-width: 1540px; min-height: 56px; align-items: center; justify-content: space-between; gap: 16px; margin: 0 auto; padding: 10px 24px; }
+.plaza-nav__brand { display: flex; min-width: 0; align-items: center; gap: 10px; color: var(--ui-text); text-decoration: none; }
+.plaza-nav__logo { display: block; width: auto; max-width: 180px; height: 30px; object-fit: contain; object-position: left center; }
+.plaza-nav__name { overflow: hidden; font-size: 15px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) { .plaza-nav__inner { padding: 8px 12px; } .plaza-nav__logo { max-width: 140px; } }
+</style>

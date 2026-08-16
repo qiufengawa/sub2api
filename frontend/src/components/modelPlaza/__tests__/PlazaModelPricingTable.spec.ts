@@ -82,7 +82,7 @@ describe('PlazaModelPricingTable', () => {
     expect(text).toContain('$2.40')
     expect(text).toContain('$12.00')
     // 倍率列:原倍率划线 + 专属倍率
-    const struck = wrapper.find('[data-testid="rate-cell"] .line-through')
+    const struck = wrapper.find('[data-testid="rate-cell"] .rate-original')
     expect(struck.exists()).toBe(true)
     expect(struck.text()).toBe('1x')
     expect(text).toContain('0.8x')
@@ -401,13 +401,15 @@ describe('PlazaModelPricingTable', () => {
     const row = wrapper.find('[data-testid="pricing-row"]')
     const modelName = row.find('.model-name')
 
-    expect(surface.classes()).toContain('overflow-x-auto')
+    expect(surface.classes()).toContain('ui-focus-ring')
+    expect(surface.attributes('role')).toBe('region')
+    expect(surface.attributes('tabindex')).toBe('0')
     expect(wrapper.find('table').exists()).toBe(false)
     expect(row.exists()).toBe(true)
     expect(row.findAll('.price-band')).toHaveLength(2)
     expect(modelName.text()).toBe(longName)
     expect(modelName.attributes('title')).toBe(longName)
-    expect(modelName.classes()).toContain('min-w-0')
+    expect(row.find('.model-copy').exists()).toBe(true)
   })
 
   it('Composite 分组中相同模型名按具体平台分别展示徽章', () => {
