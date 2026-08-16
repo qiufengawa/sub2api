@@ -1,8 +1,8 @@
-<template><div class="ui-filter-bar"><div class="ui-filter-bar__fields"><slot/></div><div class="ui-filter-bar__actions"><slot name="actions"/><UiButton v-if="activeCount" variant="quiet" density="dense" @click="emit('clear')">清除筛选 <UiBadge :label="String(activeCount)"/></UiButton></div></div></template>
+<template><div class="ui-filter-bar"><div class="ui-filter-bar__fields"><slot/></div><div class="ui-filter-bar__actions"><slot name="actions"/><UiButton v-if="activeCount" variant="quiet" density="dense" @click="emit('clear')">{{ clearLabel }} <UiBadge :label="String(activeCount)"/></UiButton></div></div></template>
 <script setup lang="ts">
 import UiBadge from './UiBadge.vue';
 import UiButton from './UiButton.vue';
-withDefaults(defineProps<{activeCount?:number}>(),{activeCount:0});
+withDefaults(defineProps<{activeCount?:number;clearLabel?:string}>(),{activeCount:0,clearLabel:'清除筛选'});
 const emit=defineEmits<{clear:[]}>()
 </script>
 <style scoped>.ui-filter-bar{display:flex;

@@ -12,4 +12,5 @@ margin-bottom:16px}.app-section h2{margin:0;
 font-size:18px;
 line-height:28px}.app-section p{margin:3px 0 0;
 color:var(--ui-text-muted);
-font-size:12px}</style>
+font-size:12px}@media(max-width:640px){.app-section>header{align-items:flex-start;
+flex-direction:column}.app-section>header>div:last-child{width:100%}}</style>

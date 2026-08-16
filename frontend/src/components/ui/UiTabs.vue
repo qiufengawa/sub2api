@@ -1,6 +1,6 @@
 <template>
   <div class="ui-tabs" role="tablist" :aria-label="label">
-    <button v-for="tab in tabs" :key="String(tab.value)" :data-testid="testId || undefined" type="button" role="tab" :aria-selected="modelValue===tab.value" :tabindex="modelValue===tab.value?0:-1" :disabled="tab.disabled" :class="{ 'is-active': modelValue===tab.value }" @click="emit('update:modelValue',tab.value)" @keydown="navigate($event,tab.value)">
+    <button v-for="tab in tabs" :key="String(tab.value)" :data-testid="tab.testId || testId || undefined" :data-test="tab.dataTest || undefined" type="button" role="tab" :aria-selected="modelValue===tab.value" :tabindex="modelValue===tab.value?0:-1" :disabled="tab.disabled" :class="{ 'is-active': modelValue===tab.value }" @click="emit('update:modelValue',tab.value)" @keydown="navigate($event,tab.value)">
       <Icon v-if="tab.icon" :name="tab.icon" size="sm" /><span>{{ tab.label }}</span><small v-if="tab.count!==undefined" class="ui-numeric">{{ tab.count }}</small>
     </button>
   </div>
@@ -13,7 +13,9 @@ export interface UiTabOption { label:string;
 value:string|number;
 icon?:IconName;
 count?:number;
-disabled?:boolean }
+disabled?:boolean;
+testId?:string;
+dataTest?:string }
 const props=defineProps<{modelValue:string|number;
 tabs:UiTabOption[];
 label:string;

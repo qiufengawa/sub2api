@@ -7,6 +7,7 @@ export interface UiChoiceOption {
   value: string | number
   disabled?: boolean
   description?: string
+  dataTest?: string
 }
 
 export const densityHeight: Record<UiDensity, string> = {

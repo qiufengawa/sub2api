@@ -1,9 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
-import type { PromptAuditConfig, PromptAuditRuntime } from '../types'
+import type { PromptAuditConfig, PromptAuditEvent, PromptAuditRuntime, PromptDeletePreview, PromptEventPage } from '../types'
 import { SCANNER_CATALOG } from '../viewModel'
 import PromptAuditView from '../PromptAuditView.vue'
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
 
 const mocks = vi.hoisted(() => ({
   getConfig: vi.fn(), updateConfig: vi.fn(), probeEndpoint: vi.fn(), getRuntime: vi.fn(), listEvents: vi.fn(),
@@ -54,7 +64,7 @@ const FilterDeleteStub = defineComponent({
 
 function mountView() {
   return mount(PromptAuditView, {
-    global: { stubs: { AppLayout: AppLayoutStub, RuntimeOverview: RuntimeStub, EndpointPool: EndpointStub, PolicyPanel: PolicyStub, EventWorkspace: EventsStub, EventDetailDialog: DetailStub, FilterDeleteDialog: FilterDeleteStub, ConfirmDialog: ConfirmStub } },
+    global: { stubs: { AppLayout: AppLayoutStub, RuntimeOverview: RuntimeStub, EndpointPool: EndpointStub, PolicyPanel: PolicyStub, EventWorkspace: EventsStub, EventDetailDialog: DetailStub, FilterDeleteDialog: FilterDeleteStub, UiConfirmDialog: ConfirmStub } },
   })
 }
 
@@ -149,6 +159,25 @@ describe('PromptAuditView', () => {
     expect(wrapper.html()).not.toContain('PROMPT_AUDIT_CANARY_SECRET_DO_NOT_PERSIST')
   })
 
+  it('preserves edits made while a save is pending and still clears the submitted token', async () => {
+    const pendingSave = deferred<PromptAuditConfig>()
+    mocks.updateConfig.mockReturnValue(pendingSave.promise)
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-test="tab-config"]').trigger('click')
+    await wrapper.get('[data-test="inject-secret"]').trigger('click')
+    await wrapper.get('[data-test="save-config"]').trigger('click')
+    await wrapper.get('[data-test="store-pass-toggle"]').trigger('click')
+
+    pendingSave.resolve({ ...baseConfig(), config_version: 8 })
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="store-pass-toggle"]').attributes('aria-checked')).toBe('true')
+    const endpointProps = wrapper.getComponent(EndpointStub).props('endpoints') as Array<{ token: string }>
+    expect(endpointProps[0].token).toBe('')
+    expect(wrapper.text()).toContain('admin.promptAudit.saveBar.dirty')
+  })
+
   it('reports real probe progress/results and invalidates filter confirmation when filters change', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -173,6 +202,51 @@ describe('PromptAuditView', () => {
     expect(wrapper.get('[data-test="dialog-preview-state"]').text()).toBe('none')
   })
 
+  it('does not restore a stale delete preview after the criteria change', async () => {
+    const pendingPreview = deferred<PromptDeletePreview>()
+    mocks.previewDelete.mockReturnValueOnce(pendingPreview.promise)
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-test="preview"]').trigger('click')
+    await wrapper.get('[data-test="dialog-preview"]').trigger('click')
+    await wrapper.get('[data-test="change-filter"]').trigger('click')
+    pendingPreview.resolve({ matched_count: 2, filter_summary: {}, snapshot_max_id: 10, filter_hash: 'a'.repeat(64), confirmation_token: 'stale', expires_at: '2026-07-16T00:05:00Z' })
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="dialog-preview-state"]').text()).toBe('none')
+    expect(mocks.deleteEventsByFilter).not.toHaveBeenCalled()
+  })
+
+  it('keeps the newest event list and detail when requests resolve out of order', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const firstList = deferred<PromptEventPage>()
+    const secondList = deferred<PromptEventPage>()
+    mocks.listEvents.mockReset()
+    mocks.listEvents.mockReturnValueOnce(firstList.promise).mockReturnValueOnce(secondList.promise)
+    const workspace = wrapper.getComponent(EventsStub)
+    workspace.vm.$emit('search', { ...workspace.props('filters'), keyword: 'first' })
+    workspace.vm.$emit('search', { ...workspace.props('filters'), keyword: 'second' })
+    secondList.resolve({ items: [{ id: 2 } as PromptAuditEvent], total: 1, page: 1, page_size: 20, pages: 1 })
+    await flushPromises()
+    firstList.resolve({ items: [{ id: 1 } as PromptAuditEvent], total: 1, page: 1, page_size: 20, pages: 1 })
+    await flushPromises()
+    expect((wrapper.getComponent(EventsStub).props('events') as Array<{ id: number }>)[0].id).toBe(2)
+
+    const firstDetail = deferred<PromptAuditEvent>()
+    const secondDetail = deferred<PromptAuditEvent>()
+    mocks.getEvent.mockReturnValueOnce(firstDetail.promise).mockReturnValueOnce(secondDetail.promise)
+    wrapper.getComponent(EventsStub).vm.$emit('view', 1)
+    wrapper.getComponent(EventsStub).vm.$emit('view', 2)
+    secondDetail.resolve({ id: 2 } as PromptAuditEvent)
+    await flushPromises()
+    firstDetail.resolve({ id: 1 } as PromptAuditEvent)
+    await flushPromises()
+    expect((wrapper.getComponent(DetailStub).props('event') as { id: number }).id).toBe(2)
+  })
+
   it('uses native labeled switches and a responsive fixed save surface', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -180,8 +254,8 @@ describe('PromptAuditView', () => {
     const switches = wrapper.findAll('[role="switch"]')
     expect(switches).toHaveLength(4)
     expect(switches.every((item) => Boolean(item.attributes('aria-label')))).toBe(true)
-    expect(wrapper.html()).toContain('fixed inset-x-0 bottom-0')
-    expect(wrapper.html()).toContain('flex-wrap')
+    expect(wrapper.find('.prompt-audit-save').exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'UiSaveBar' }).exists()).toBe(true)
   })
 
   it('executes single, selected-batch, and preview-confirmed filter deletion flows', async () => {

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
 import EndpointPool from '../components/EndpointPool.vue'
 import PolicyPanel from '../components/PolicyPanel.vue'
 import EventWorkspace from '../components/EventWorkspace.vue'
@@ -16,6 +17,7 @@ vi.mock('vue-i18n', async () => {
 
 const DialogStub = defineComponent({ props: ['show', 'title'], emits: ['close'], template: '<div v-if="show" data-test="dialog"><slot /><slot name="footer" /></div>' })
 const PaginationStub = defineComponent({ props: ['total', 'page', 'pageSize'], emits: ['update:page', 'update:pageSize'], template: '<div data-test="pagination" />' })
+const SelectStub = defineComponent({ inheritAttrs: false, props: ['modelValue', 'options'], emits: ['update:modelValue', 'change'], template: '<select v-bind="$attrs" :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value); $emit(\'change\', $event.target.value)"><option v-for="option in options" :key="option.value" :value="option.value">{{ option.label }}</option></select>' })
 
 const endpoint = (): PromptAuditEndpointDraft => ({
   id: 'guard-1', name: 'Guard One', protocol: 'openai_compatible', base_url: 'http://127.0.0.1:8000',
@@ -29,7 +31,7 @@ describe('Prompt Audit components', () => {
   it('edits a saved endpoint with blank-secret keep, explicit clear, replacement, and probe actions', async () => {
     const wrapper = mount(EndpointPool, {
       props: { endpoints: [endpoint()], probeResults: {}, probingIds: [] },
-      global: { stubs: { BaseDialog: DialogStub } },
+      global: { stubs: { UiDialog: DialogStub, UiSelect: SelectStub } },
     })
     expect(wrapper.text()).toContain('admin.promptAudit.pool.configured')
     const edit = wrapper.findAll('button').find((button) => button.text().includes('common.edit'))
@@ -48,13 +50,19 @@ describe('Prompt Audit components', () => {
     const probe = wrapper.findAll('button').find((button) => button.text().includes('admin.promptAudit.pool.probe'))
     await probe!.trigger('click')
     expect(wrapper.emitted('probe')?.[0]?.[0]).toMatchObject({ id: 'guard-1' })
+
+    const rowDelete = wrapper.findAll('button').find((button) => button.text() === 'common.delete')
+    await rowDelete!.trigger('click')
+    const confirmDelete = wrapper.findAll('button').filter((button) => button.text() === 'common.delete').at(-1)
+    await confirmDelete!.trigger('click')
+    expect(wrapper.emitted('update:endpoints')?.at(-1)?.[0]).toEqual([])
   })
 
   it('surfaces an undecryptable saved credential and prompts for re-entry', async () => {
     const invalidEndpoint = { ...endpoint(), token_status: 'invalid' }
     const wrapper = mount(EndpointPool, {
       props: { endpoints: [invalidEndpoint], probeResults: {}, probingIds: [] },
-      global: { stubs: { BaseDialog: DialogStub } },
+      global: { stubs: { UiDialog: DialogStub } },
     })
     expect(wrapper.text()).toContain('admin.promptAudit.pool.invalid')
     expect(wrapper.text()).not.toContain('admin.promptAudit.pool.configured')
@@ -91,7 +99,7 @@ describe('Prompt Audit components', () => {
     }
     const wrapper = mount(EventWorkspace, {
       props: { events: [event], total: 1, page: 1, pageSize: 20, filters: emptyEventFilters(), selectedIds: [], loading: false, error: '' },
-      global: { stubs: { Pagination: PaginationStub } },
+      global: { plugins: [createPinia()], stubs: { UiPagination: PaginationStub } },
     })
     expect(wrapper.text()).toContain('alice')
     expect(wrapper.text()).toContain('alice@example.test')
@@ -120,7 +128,7 @@ describe('Prompt Audit components', () => {
   it('drives filter deletion through presets, custom validation, preview, and confirm', async () => {
     const wrapper = mount(FilterDeleteDialog, {
       props: { show: true, initialFilters: emptyEventFilters(), preview: null, previewing: false, deleting: false },
-      global: { stubs: { BaseDialog: DialogStub } },
+      global: { stubs: { UiDialog: DialogStub, UiSelect: SelectStub } },
     })
     expect(wrapper.get<HTMLInputElement>('[data-test="range-preset-7d"]').element.checked).toBe(true)
     expect(wrapper.find('[data-test="custom-range"]').exists()).toBe(false)
@@ -180,7 +188,7 @@ describe('Prompt Audit components', () => {
         previewing: false,
         deleting: false,
       },
-      global: { stubs: { BaseDialog: DialogStub } },
+      global: { stubs: { UiDialog: DialogStub, UiSelect: SelectStub } },
     })
     expect(wrapper.get('[data-test="confirm-filter-delete"]').attributes()).toHaveProperty('disabled')
     expect(wrapper.get('[data-test="confirm-disabled-reason"]').text()).toBe('admin.promptAudit.events.filterDeleteConfirmNoMatches')
@@ -193,7 +201,7 @@ describe('Prompt Audit components', () => {
     const initialFilters = { ...emptyEventFilters(), start_at: '2026-07-01T00:00', end_at: '2026-07-02T00:00', decision: 'critical' }
     const wrapper = mount(FilterDeleteDialog, {
       props: { show: true, initialFilters, preview: null, previewing: false, deleting: false },
-      global: { stubs: { BaseDialog: DialogStub } },
+      global: { stubs: { UiDialog: DialogStub, UiSelect: SelectStub } },
     })
     expect(wrapper.get<HTMLInputElement>('[data-test="range-preset-custom"]').element.checked).toBe(true)
     expect(wrapper.get<HTMLInputElement>('[data-test="custom-range"] [aria-label="admin.promptAudit.events.startAt"]').element.value).toBe('2026-07-01T00:00')
@@ -227,19 +235,18 @@ describe('Prompt Audit components', () => {
     }
     const wrapper = mount(EventDetailDialog, {
       props: { show: true, event, loading: false },
-      global: { stubs: { BaseDialog: DialogStub } },
+      global: { stubs: { UiDialog: DialogStub } },
     })
     const panel = wrapper.get('[data-test="event-detail-tab-panel"]')
-    expect(panel.classes()).toContain('h-[min(62vh,36rem)]')
-    expect(panel.classes()).toContain('overflow-y-auto')
+    expect(panel.classes()).toContain('prompt-detail__panel')
 
     const riskTab = wrapper.findAll('[role="tab"]').find((tab) => tab.text().includes('admin.promptAudit.events.tabs.risks'))
     expect(riskTab).toBeTruthy()
     await riskTab!.trigger('click')
-    expect(wrapper.get('[data-test="event-detail-tab-panel"]').classes()).toContain('h-[min(62vh,36rem)]')
+    expect(wrapper.get('[data-test="event-detail-tab-panel"]').classes()).toContain('prompt-detail__panel')
     expect(wrapper.get('[data-test="risk-prompt-preview"]').text()).toContain('complete unmasked prompt body')
     expect(wrapper.get('[data-test="risk-prompt-preview"]').text()).not.toContain('redacted prompt body')
-    expect(wrapper.get('[data-test="risk-prompt-full"]').classes()).toContain('overflow-auto')
+    expect(wrapper.get('[data-test="risk-prompt-full"] pre').exists()).toBe(true)
     expect(wrapper.get('[data-test="risk-guard-return"]').text()).toContain('"decision": "admin.promptAudit.decisions.critical"')
     expect(wrapper.get('[data-test="risk-guard-return"]').text()).toContain('admin.promptAudit.scanners.sexual_content_or_sexual_acts')
     expect(wrapper.get('[data-test="risk-issue"]').text()).toContain('admin.promptAudit.scanners.sexual_content_or_sexual_acts')
@@ -262,7 +269,7 @@ describe('Prompt Audit components', () => {
     }
     const wrapper = mount(EventDetailDialog, {
       props: { show: true, event, loading: false },
-      global: { stubs: { BaseDialog: DialogStub } },
+      global: { stubs: { UiDialog: DialogStub } },
     })
     const riskTab = wrapper.findAll('[role="tab"]').find((tab) => tab.text().includes('admin.promptAudit.events.tabs.risks'))
     await riskTab!.trigger('click')
