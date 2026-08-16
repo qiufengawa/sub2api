@@ -65,7 +65,9 @@ const TableStub = defineComponent({
       'data-testid': 'table-stub',
       'data-row-count': props.rows.length,
       'data-platform-count': props.rows[0]?.platforms?.length ?? 0,
-      'data-rates': JSON.stringify(props.userGroupRates)
+      'data-rates': JSON.stringify(props.userGroupRates),
+      'data-first-row': props.rows[0]?.name ?? '',
+      'data-loading': String(props.loading)
     })
   }
 })
@@ -134,6 +136,21 @@ describe('AvailableChannelsView', () => {
     consoleSpy.mockRestore()
   })
 
+  it('preserves the last known rates when only a refresh rate request fails', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    getUserGroupRatesMock.mockRejectedValueOnce(new Error('rates unavailable'))
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await wrapper.get('button[aria-label="common.refresh"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="table-stub"]').attributes('data-rates')).toBe('{"1":0.8}')
+    expect(showErrorMock).not.toHaveBeenCalled()
+    consoleSpy.mockRestore()
+    wrapper.unmount()
+  })
+
   it('shows an inline retry state and a toast when the channel request fails', async () => {
     getAvailableMock.mockRejectedValueOnce(new Error('channel load failed'))
     const wrapper = mountView()
@@ -142,5 +159,73 @@ describe('AvailableChannelsView', () => {
     expect(showErrorMock).toHaveBeenCalledWith('channel load failed')
     expect(wrapper.text()).toContain('channel load failed')
     expect(wrapper.find('[data-testid="table-stub"]').exists()).toBe(false)
+  })
+
+  it('keeps existing rows visible under a local refresh overlay', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    let resolveRefresh: ((value: UserAvailableChannel[]) => void) | undefined
+    getAvailableMock.mockReturnValueOnce(new Promise<UserAvailableChannel[]>((resolve) => {
+      resolveRefresh = resolve
+    }))
+
+    await wrapper.get('button[aria-label="common.refresh"]').trigger('click')
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="table-stub"]').attributes('data-row-count')).toBe('1')
+    expect(wrapper.get('[data-testid="table-stub"]').attributes('data-loading')).toBe('false')
+    expect(wrapper.get('[aria-busy="true"]').exists()).toBe(true)
+
+    resolveRefresh?.(rows)
+    await flushPromises()
+    wrapper.unmount()
+  })
+
+  it('retains existing rows and shows an inline error when refresh fails', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    getAvailableMock.mockRejectedValueOnce(new Error('refresh failed'))
+    await wrapper.get('button[aria-label="common.refresh"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="table-stub"]').attributes('data-row-count')).toBe('1')
+    expect(wrapper.text()).toContain('refresh failed')
+    expect(showErrorMock).toHaveBeenLastCalledWith('refresh failed')
+    wrapper.unmount()
+  })
+
+  it('ignores a stale request that resolves after a newer refresh', async () => {
+    let resolveInitial: ((value: UserAvailableChannel[]) => void) | undefined
+    getAvailableMock.mockReturnValueOnce(new Promise<UserAvailableChannel[]>((resolve) => {
+      resolveInitial = resolve
+    }))
+
+    const wrapper = mountView()
+    const initialSignal = getAvailableMock.mock.calls[0]?.[0]?.signal as AbortSignal
+    const newestRows = [{ ...rows[0], name: 'Newest channel' }]
+    getAvailableMock.mockResolvedValueOnce(newestRows)
+
+    await (wrapper.vm as unknown as { loadChannels: () => Promise<void> }).loadChannels()
+    await flushPromises()
+
+    expect(initialSignal.aborted).toBe(true)
+    expect(wrapper.get('[data-testid="table-stub"]').attributes('data-first-row')).toBe('Newest channel')
+
+    resolveInitial?.(rows)
+    await flushPromises()
+    expect(wrapper.get('[data-testid="table-stub"]').attributes('data-first-row')).toBe('Newest channel')
+    wrapper.unmount()
+  })
+
+  it('aborts the active request when the page unmounts', () => {
+    getAvailableMock.mockReturnValueOnce(new Promise<UserAvailableChannel[]>(() => undefined))
+    const wrapper = mountView()
+    const signal = getAvailableMock.mock.calls[0]?.[0]?.signal as AbortSignal
+
+    expect(signal.aborted).toBe(false)
+    wrapper.unmount()
+    expect(signal.aborted).toBe(true)
   })
 })

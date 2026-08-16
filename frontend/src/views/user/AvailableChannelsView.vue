@@ -14,7 +14,7 @@
             density="compact"
             :placeholder="t('availableChannels.searchPlaceholder')"
             :aria-label="t('availableChannels.searchPlaceholder')"
-            :disabled="loading && channels.length === 0"
+            :disabled="initialLoading"
           />
           <template #actions>
             <UiBadge data-testid="available-channel-count">
@@ -31,30 +31,34 @@
         </UiTableToolbar>
 
         <UiErrorState
-          v-if="loadError && channels.length === 0 && !loading"
+          v-if="loadError && channels.length === 0 && !initialLoading"
           :title="t('common.error')"
           :description="loadError"
           :retry-text="t('common.retry')"
           @retry="loadChannels"
         />
-        <AvailableChannelsTable
-          v-else
-          :columns="columnLabels"
-          :rows="filteredChannels"
-          :loading="loading"
-          :user-group-rates="userGroupRates"
-          pricing-key-prefix="availableChannels.pricing"
-          :no-pricing-label="t('availableChannels.noPricing')"
-          :no-models-label="t('availableChannels.noModels')"
-          :empty-label="t('availableChannels.empty')"
-        />
+        <AppStack v-else :gap="12">
+          <UiAlert v-if="loadError" tone="danger" :message="loadError" />
+          <UiLoadingOverlay :show="refreshing" :label="t('common.loading')">
+            <AvailableChannelsTable
+              :columns="columnLabels"
+              :rows="filteredChannels"
+              :loading="initialLoading"
+              :user-group-rates="userGroupRates"
+              pricing-key-prefix="availableChannels.pricing"
+              :no-pricing-label="t('availableChannels.noPricing')"
+              :no-models-label="t('availableChannels.noModels')"
+              :empty-label="t('availableChannels.empty')"
+            />
+          </UiLoadingOverlay>
+        </AppStack>
       </AppSection>
     </AppPage>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AvailableChannelsTable from '@/components/channels/AvailableChannelsTable.vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -62,9 +66,12 @@ import {
   AppPage,
   AppPageHeader,
   AppSection,
+  AppStack,
+  UiAlert,
   UiBadge,
   UiErrorState,
   UiIconButton,
+  UiLoadingOverlay,
   UiSearchInput,
   UiTableToolbar
 } from '@/components/ui'
@@ -81,6 +88,17 @@ const userGroupRates = ref<Record<number, number>>({})
 const loading = ref(false)
 const loadError = ref('')
 const searchQuery = ref('')
+const initialLoading = computed(() => loading.value && channels.value.length === 0)
+const refreshing = computed(() => loading.value && channels.value.length > 0)
+
+let requestController: AbortController | null = null
+let requestSequence = 0
+
+function isAbortError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const requestError = error as { name?: string; code?: string }
+  return requestError.name === 'AbortError' || requestError.code === 'ERR_CANCELED'
+}
 
 const columnLabels = computed(() => ({
   channelInfo: t('availableChannels.columns.channelInfo'),
@@ -114,27 +132,43 @@ const filteredChannels = computed(() => {
 })
 
 async function loadChannels(): Promise<void> {
+  requestController?.abort()
+  const controller = new AbortController()
+  const sequence = ++requestSequence
+  requestController = controller
   loading.value = true
   loadError.value = ''
+  const fallbackRates = userGroupRates.value
   try {
     const [list, rates] = await Promise.all([
-      userChannelsAPI.getAvailable(),
-      userGroupsAPI.getUserGroupRates().catch((error: unknown) => {
+      userChannelsAPI.getAvailable({ signal: controller.signal }),
+      userGroupsAPI.getUserGroupRates({ signal: controller.signal }).catch((error: unknown) => {
+        if (isAbortError(error)) throw error
         console.error('Failed to load user group rates:', error)
-        return {} as Record<number, number>
+        return fallbackRates
       })
     ])
+    if (controller.signal.aborted || sequence !== requestSequence) return
     channels.value = list
     userGroupRates.value = rates
   } catch (error: unknown) {
+    if (controller.signal.aborted || sequence !== requestSequence || isAbortError(error)) return
     loadError.value = extractApiErrorMessage(error, t('common.error'))
     appStore.showError(loadError.value)
   } finally {
-    loading.value = false
+    if (requestController === controller) {
+      loading.value = false
+      requestController = null
+    }
   }
 }
 
 onMounted(loadChannels)
+onBeforeUnmount(() => {
+  requestSequence += 1
+  requestController?.abort()
+  requestController = null
+})
 </script>
 
 <style scoped>
