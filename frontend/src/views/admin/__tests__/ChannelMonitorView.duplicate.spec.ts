@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChannelMonitor } from '@/api/admin/channelMonitor'
 import MonitorActionsCell from '@/components/admin/monitor/MonitorActionsCell.vue'
 import MonitorFiltersBar from '@/components/admin/monitor/MonitorFiltersBar.vue'
+import MonitorHistoryDialog from '@/components/admin/monitor/MonitorHistoryDialog.vue'
 import { UiAlert, UiDataTable, UiServerTableWorkspace } from '@/components/ui'
 import ChannelMonitorView from '@/views/admin/ChannelMonitorView.vue'
 
@@ -135,6 +136,7 @@ function mountView() {
         MonitorFormDialog: true,
         MonitorTemplateManagerDialog: true,
         MonitorRunResultDialog: true,
+        MonitorHistoryDialog: true,
         MonitorPrimaryModelCell: true,
       },
     },
@@ -249,6 +251,18 @@ describe('ChannelMonitorView duplicate action', () => {
     await Promise.all([first, second])
     expect(vm.deletingId).toBeNull()
     expect(vm.showDeleteDialog).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('opens history for the selected monitor row', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    wrapper.findComponent(MonitorActionsCell).vm.$emit('history', monitor)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.getComponent(MonitorHistoryDialog).props('show')).toBe(true)
+    expect(wrapper.getComponent(MonitorHistoryDialog).props('monitor')).toEqual(monitor)
     wrapper.unmount()
   })
 

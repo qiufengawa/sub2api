@@ -543,6 +543,24 @@ export default {
         kindRequired: 'Please select a provider'
       },
       runResultTitle: 'Check Result',
+      history: {
+        action: 'View check history',
+        title: 'Check history for "{name}"',
+        modelFilter: 'Filter model',
+        allModels: 'All models',
+        limit: 'Result limit',
+        limitOption: 'Latest {count}',
+        empty: 'No check history',
+        loadError: 'Failed to load check history',
+        columns: {
+          checkedAt: 'Checked at',
+          model: 'Model',
+          status: 'Status',
+          latency: 'Response latency',
+          pingLatency: 'Ping latency',
+          message: 'Check message'
+        }
+      },
       noMonitorsYet: 'No monitors yet',
       createFirstMonitor: 'Create your first monitor to track channel availability',
       advanced: {

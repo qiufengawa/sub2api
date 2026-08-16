@@ -268,11 +268,12 @@ export async function runNow(id: number): Promise<RunNowResponse> {
  */
 export async function listHistory(
   id: number,
-  params: HistoryParams = {}
+  params: HistoryParams = {},
+  options?: { signal?: AbortSignal },
 ): Promise<HistoryResponse> {
   const { data } = await apiClient.get<HistoryResponse>(
     `/admin/channel-monitors/${id}/history`,
-    { params }
+    { params, signal: options?.signal },
   )
   return data
 }

@@ -20,6 +20,14 @@
       :disabled="duplicating || Boolean(row.api_key_decrypt_failed)"
       @click="emit('duplicate', row)"
     />
+    <UiIconButton
+      data-testid="monitor-history"
+      icon="clock"
+      density="dense"
+      variant="ghost"
+      :label="t('admin.channelMonitor.history.action')"
+      @click="emit('history', row)"
+    />
     <UiIconButton icon="edit" density="dense" variant="ghost" :label="t('common.edit')" @click="emit('edit', row)" />
     <UiIconButton icon="trash" density="dense" variant="danger" :label="t('common.delete')" @click="emit('delete', row)" />
   </UiButtonGroup>
@@ -42,6 +50,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: 'run', row: ChannelMonitor): void
   (e: 'duplicate', row: ChannelMonitor): void
+  (e: 'history', row: ChannelMonitor): void
   (e: 'edit', row: ChannelMonitor): void
   (e: 'delete', row: ChannelMonitor): void
 }>()

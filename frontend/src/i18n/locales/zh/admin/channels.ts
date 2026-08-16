@@ -543,6 +543,24 @@ export default {
         kindRequired: '请选择供应商'
       },
       runResultTitle: '检测结果',
+      history: {
+        action: '查看检测历史',
+        title: '「{name}」检测历史',
+        modelFilter: '筛选模型',
+        allModels: '全部模型',
+        limit: '显示条数',
+        limitOption: '最近 {count} 条',
+        empty: '暂无检测历史',
+        loadError: '加载检测历史失败',
+        columns: {
+          checkedAt: '检测时间',
+          model: '模型',
+          status: '状态',
+          latency: '响应延迟',
+          pingLatency: 'Ping 延迟',
+          message: '检测信息'
+        }
+      },
       noMonitorsYet: '暂无监控',
       createFirstMonitor: '创建第一个监控来跟踪渠道可用性',
       advanced: {

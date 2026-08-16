@@ -76,6 +76,7 @@
               :can-run="isV1Mode"
               @run="handleRunNow"
               @duplicate="handleDuplicate"
+              @history="openHistory"
               @edit="openEditDialog"
               @delete="handleDelete"
             />
@@ -131,6 +132,12 @@
       @close="showRunResult = false"
     />
 
+    <MonitorHistoryDialog
+      :show="Boolean(historyMonitor)"
+      :monitor="historyMonitor"
+      @close="historyMonitor = null"
+    />
+
     <UiConfirmDialog
       :show="showDeleteDialog"
       :title="t('common.delete')"
@@ -179,6 +186,7 @@ import MonitorFiltersBar from '@/components/admin/monitor/MonitorFiltersBar.vue'
 import MonitorFormDialog from '@/components/admin/monitor/MonitorFormDialog.vue'
 import MonitorTemplateManagerDialog from '@/components/admin/monitor/MonitorTemplateManagerDialog.vue'
 import MonitorRunResultDialog from '@/components/admin/monitor/MonitorRunResultDialog.vue'
+import MonitorHistoryDialog from '@/components/admin/monitor/MonitorHistoryDialog.vue'
 import MonitorPrimaryModelCell from '@/components/admin/monitor/MonitorPrimaryModelCell.vue'
 import MonitorActionsCell from '@/components/admin/monitor/MonitorActionsCell.vue'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
@@ -234,6 +242,7 @@ const showDeleteDialog = ref(false)
 const deleting = ref<ChannelMonitor | null>(null)
 const showRunResult = ref(false)
 const runResults = ref<CheckResult[]>([])
+const historyMonitor = ref<ChannelMonitor | null>(null)
 const duplicatingIds = reactive(new Set<number>())
 const togglingIds = reactive(new Set<number>())
 const deletingId = ref<number | null>(null)
@@ -382,6 +391,10 @@ async function handleDuplicate(row: ChannelMonitor) {
   } finally {
     duplicatingIds.delete(row.id)
   }
+}
+
+function openHistory(row: ChannelMonitor) {
+  historyMonitor.value = row
 }
 
 function handleDelete(row: ChannelMonitor) {

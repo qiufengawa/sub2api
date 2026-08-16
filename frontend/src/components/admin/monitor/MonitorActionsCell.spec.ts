@@ -70,6 +70,18 @@ describe('MonitorActionsCell duplicate action', () => {
     expect(wrapper.emitted('duplicate')).toEqual([[row]])
   })
 
+  it('emits the selected monitor when history is clicked', async () => {
+    const row = makeMonitor()
+    const wrapper = mount(MonitorActionsCell, {
+      props: { row, running: false, duplicating: false },
+    })
+
+    await wrapper.get('[data-testid="monitor-history"]').trigger('click')
+
+    expect(wrapper.emitted('history')).toEqual([[row]])
+    wrapper.unmount()
+  })
+
   it('disables the action while the same monitor is being duplicated', () => {
     const wrapper = mount(MonitorActionsCell, {
       props: { row: makeMonitor(), running: false, duplicating: true },
