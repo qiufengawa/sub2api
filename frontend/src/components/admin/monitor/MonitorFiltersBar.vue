@@ -12,14 +12,14 @@
       :options="providerFilterOptions"
       density="compact"
       :aria-label="t('admin.channelMonitor.allProviders')"
-      @change="emit('reload')"
+      @change="emit('filter-change')"
     />
     <UiSelect
       v-model="enabled"
       :options="enabledFilterOptions"
       density="compact"
       :aria-label="t('admin.channelMonitor.enabledFilter')"
-      @change="emit('reload')"
+      @change="emit('filter-change')"
     />
 
     <template #actions>
@@ -55,6 +55,7 @@ defineProps<{ loading: boolean }>()
 
 const emit = defineEmits<{
   (e: 'reload'): void
+  (e: 'filter-change'): void
   (e: 'create'): void
   (e: 'manage-templates'): void
   (e: 'search-input'): void
@@ -65,7 +66,9 @@ const provider = defineModel<Provider | ''>('provider', { required: true })
 const enabled = defineModel<'' | 'true' | 'false'>('enabled', { required: true })
 
 const { t } = useI18n()
-const activeFilterCount = computed(() => Number(Boolean(provider.value)) + Number(Boolean(enabled.value)))
+const activeFilterCount = computed(() =>
+  Number(Boolean(search.value.trim())) + Number(Boolean(provider.value)) + Number(Boolean(enabled.value)),
+)
 
 const providerFilterOptions = computed(() => [
   { value: '', label: t('admin.channelMonitor.allProviders') },
@@ -82,8 +85,9 @@ const enabledFilterOptions = computed(() => [
 ])
 
 function clearFilters() {
+  search.value = ''
   provider.value = ''
   enabled.value = ''
-  emit('reload')
+  emit('filter-change')
 }
 </script>

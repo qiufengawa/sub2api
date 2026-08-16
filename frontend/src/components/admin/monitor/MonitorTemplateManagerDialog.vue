@@ -10,7 +10,23 @@
     <AppStack v-if="!editing" :gap="10">
       <AppInline justify="flex-end"><UiButton density="dense" variant="primary" @click="openCreateForm"><template #icon><Icon name="plus" size="sm" /></template>{{ t('admin.channelMonitor.template.createButton') }}</UiButton></AppInline>
 
-      <UiSkeleton v-if="loading" height="180px" />
+      <UiAlert
+        v-if="loadError && templates.length"
+        tone="danger"
+        :message="t('admin.channelMonitor.template.loadError')"
+      >
+        <template #default>
+          {{ t('admin.channelMonitor.template.loadError') }}
+          <UiButton density="dense" variant="quiet" @click="fetchTemplates">{{ t('common.retry') }}</UiButton>
+        </template>
+      </UiAlert>
+      <UiSkeleton v-if="loading && templates.length === 0" height="180px" />
+      <UiErrorState
+        v-else-if="loadError && templates.length === 0"
+        :title="t('admin.channelMonitor.template.loadError')"
+        :retry-text="t('common.retry')"
+        @retry="fetchTemplates"
+      />
       <UiEmptyState v-else-if="templatesForActiveProvider.length === 0" :title="t('admin.channelMonitor.template.emptyState')" />
 
       <AppInline
@@ -83,13 +99,14 @@
     :confirm-text="t('common.delete')"
     :cancel-text="t('common.cancel')"
     :danger="true"
+    :pending="deleting"
     @confirm="doDelete"
     @cancel="confirmDelete.show = false"
   />
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage } from '@/utils/apiError'
@@ -106,6 +123,7 @@ import MonitorTemplateApplyPickerDialog from '@/components/admin/monitor/Monitor
 import {
   AppInline,
   AppStack,
+  UiAlert,
   UiBadge,
   UiButton,
   UiButtonGroup,
@@ -113,6 +131,7 @@ import {
   UiDataCell,
   UiDialog,
   UiEmptyState,
+  UiErrorState,
   UiIconButton,
   UiRadioGroup,
   UiSkeleton,
@@ -148,6 +167,15 @@ const providerTabs = computed<{ value: Provider; label: string }[]>(() => [
 const activeProvider = ref<Provider>(PROVIDER_ANTHROPIC)
 const templates = ref<ChannelMonitorTemplate[]>([])
 const loading = ref(false)
+const loadError = ref(false)
+let listRequestId = 0
+let listRequestController: AbortController | null = null
+
+function isAbortError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const requestError = error as { name?: string; code?: string }
+  return requestError.name === 'AbortError' || requestError.code === 'ERR_CANCELED'
+}
 
 const templatesForActiveProvider = computed(() =>
   templates.value.filter((t) => t.provider === activeProvider.value),
@@ -225,14 +253,25 @@ function backToList() {
 
 // --- data fetch ---
 async function fetchTemplates() {
+  listRequestController?.abort()
+  const controller = new AbortController()
+  const requestId = ++listRequestId
+  listRequestController = controller
   loading.value = true
+  loadError.value = false
   try {
-    const { items } = await adminAPI.channelMonitorTemplate.list()
+    const { items } = await adminAPI.channelMonitorTemplate.list({}, { signal: controller.signal })
+    if (controller.signal.aborted || requestId !== listRequestId) return
     templates.value = items
   } catch (err: unknown) {
+    if (controller.signal.aborted || requestId !== listRequestId || isAbortError(err)) return
+    loadError.value = true
     appStore.showError(extractApiErrorMessage(err, t('common.error')))
   } finally {
-    loading.value = false
+    if (listRequestController === controller) {
+      loading.value = false
+      listRequestController = null
+    }
   }
 }
 
@@ -242,10 +281,21 @@ watch(
     if (show) {
       editing.value = null
       fetchTemplates()
+      return
     }
+    listRequestId++
+    listRequestController?.abort()
+    listRequestController = null
+    loading.value = false
   },
   { immediate: true },
 )
+
+onBeforeUnmount(() => {
+  listRequestId++
+  listRequestController?.abort()
+  listRequestController = null
+})
 
 // --- submit ---
 async function handleSubmit() {
@@ -310,6 +360,7 @@ const confirmDelete = reactive<{ show: boolean; tpl: ChannelMonitorTemplate | nu
   show: false,
   tpl: null,
 })
+const deleting = ref(false)
 
 function handleDelete(tpl: ChannelMonitorTemplate) {
   confirmDelete.tpl = tpl
@@ -327,15 +378,19 @@ const confirmDeleteMessage = computed(() => {
 
 async function doDelete() {
   const tpl = confirmDelete.tpl
-  confirmDelete.show = false
-  if (!tpl) return
+  if (!tpl || deleting.value) return
+  deleting.value = true
   try {
     await adminAPI.channelMonitorTemplate.del(tpl.id)
     appStore.showSuccess(t('admin.channelMonitor.template.deleteSuccess'))
     await fetchTemplates()
+    confirmDelete.show = false
+    confirmDelete.tpl = null
     emit('updated')
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, t('common.error')))
+  } finally {
+    deleting.value = false
   }
 }
 

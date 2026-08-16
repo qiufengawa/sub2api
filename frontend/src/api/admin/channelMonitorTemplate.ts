@@ -67,9 +67,13 @@ export interface AssociatedMonitorsResponse {
   items: AssociatedMonitorBrief[]
 }
 
-export async function list(params: ListParams = {}): Promise<ListResponse> {
+export async function list(
+  params: ListParams = {},
+  options?: { signal?: AbortSignal },
+): Promise<ListResponse> {
   const { data } = await apiClient.get<ListResponse>('/admin/channel-monitor-templates', {
     params,
+    signal: options?.signal,
   })
   return data
 }

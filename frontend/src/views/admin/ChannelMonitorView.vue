@@ -3,33 +3,42 @@
     <AppPage density="compact">
       <AppPageHeader
         :title="t('admin.channelMonitor.title')"
-        :description="
-            isV1Mode
-              ? t('channelMonitorV2.admin.descriptionV1')
-              : t('channelMonitorV2.admin.descriptionV2')
-        "
+        :description="pageDescription"
       />
 
-      <UiTabs v-model="adminMonitorTab" :tabs="monitorTabs" :label="t('channelMonitorV2.admin.tabAria')" />
+      <UiEmptyState
+        v-if="!featureEnabled"
+        :title="t('admin.channelMonitor.featureDisabledTitle')"
+        :description="t('admin.channelMonitor.featureDisabledDescription')"
+      />
 
-      <MonitorSettingsPanel v-if="adminMonitorTab === 'v2'" />
+      <template v-else>
+        <UiTabs v-model="adminMonitorTab" :tabs="monitorTabs" :label="t('channelMonitorV2.admin.tabAria')" />
 
-      <UiServerTableWorkspace v-else :loading="loading">
-        <template #filters>
-          <MonitorFiltersBar
-            v-model:search="searchQuery"
-            v-model:provider="providerFilter"
-            v-model:enabled="enabledFilter"
-            :loading="loading"
-            @reload="reload"
-            @create="openCreateDialog"
-            @manage-templates="showTemplateManager = true"
-            @search-input="handleSearch"
+        <MonitorSettingsPanel v-if="adminMonitorTab === 'v2'" />
+
+        <UiServerTableWorkspace v-else :loading="refreshing">
+          <template #filters>
+            <MonitorFiltersBar
+              v-model:search="searchQuery"
+              v-model:provider="providerFilter"
+              v-model:enabled="enabledFilter"
+              :loading="loading"
+              @reload="reload"
+              @filter-change="handleFilterChange"
+              @create="openCreateDialog"
+              @manage-templates="showTemplateManager = true"
+              @search-input="handleSearch"
+            />
+          </template>
+
+          <UiAlert
+            v-if="loadError && monitors.length"
+            tone="danger"
+            :message="t('admin.channelMonitor.loadError')"
           />
-        </template>
 
-        <UiMobileTableScroller :label="t('admin.channelMonitor.title')" min-width="860px">
-        <UiDataTable :columns="columns" :data="monitors" :loading="loading" mobile-table :aria-label="t('admin.channelMonitor.title')">
+          <UiDataTable :columns="columns" :data="monitors" :loading="initialLoading" mobile-table :aria-label="t('admin.channelMonitor.title')">
           <template #cell-name="{ row, value }">
             <UiDataCell :value="String(value)" :meta="row.api_key_decrypt_failed ? t('admin.channelMonitor.apiKeyDecryptFailed') : undefined" />
           </template>
@@ -51,7 +60,12 @@
           </template>
 
           <template #cell-enabled="{ row }">
-            <UiSwitch :model-value="row.enabled" :label="t('admin.channelMonitor.columns.enabled')" @update:model-value="toggleEnabled(row)" />
+            <UiSwitch
+              :model-value="row.enabled"
+              :label="t('admin.channelMonitor.columns.enabled')"
+              :disabled="togglingIds.has(row.id)"
+              @update:model-value="toggleEnabled(row)"
+            />
           </template>
 
           <template #cell-actions="{ row }">
@@ -68,25 +82,34 @@
           </template>
 
           <template #empty>
+            <UiErrorState
+              v-if="loadError"
+              :title="t('admin.channelMonitor.loadError')"
+              :retry-text="t('common.retry')"
+              @retry="reload"
+            />
             <UiEmptyState
+              v-else
               :title="t('admin.channelMonitor.noMonitorsYet')"
               :description="t('admin.channelMonitor.createFirstMonitor')"
-            ><template #action><UiButton density="dense" variant="primary" @click="openCreateDialog">{{ t('admin.channelMonitor.createButton') }}</UiButton></template></UiEmptyState>
+            >
+              <template #action><UiButton density="dense" variant="primary" @click="openCreateDialog">{{ t('admin.channelMonitor.createButton') }}</UiButton></template>
+            </UiEmptyState>
           </template>
-        </UiDataTable>
-        </UiMobileTableScroller>
+          </UiDataTable>
 
-      <template #pagination>
-        <UiPagination
-          v-if="pagination.total > 0"
-          :page="pagination.page"
-          :total="pagination.total"
-          :page-size="pagination.page_size"
-          @update:page="onPageChange"
-          @update:pageSize="onPageSizeChange"
-        />
+          <template #pagination>
+            <UiPagination
+              v-if="pagination.total > 0"
+              :page="pagination.page"
+              :total="pagination.total"
+              :page-size="pagination.page_size"
+              @update:page="onPageChange"
+              @update:pageSize="onPageSizeChange"
+            />
+          </template>
+        </UiServerTableWorkspace>
       </template>
-      </UiServerTableWorkspace>
     </AppPage>
 
     <MonitorFormDialog
@@ -115,6 +138,7 @@
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
       :danger="true"
+      :pending="deletingId !== null"
       @confirm="confirmDelete"
       @cancel="showDeleteDialog = false"
     />
@@ -139,12 +163,13 @@ import {
   AppPage,
   AppPageHeader,
   UiBadge,
+  UiAlert,
   UiButton,
   UiConfirmDialog,
   UiDataCell,
   UiDataTable,
   UiEmptyState,
-  UiMobileTableScroller,
+  UiErrorState,
   UiPagination,
   UiServerTableWorkspace,
   UiSwitch,
@@ -159,12 +184,14 @@ import MonitorActionsCell from '@/components/admin/monitor/MonitorActionsCell.vu
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useChannelMonitorFormat } from '@/composables/useChannelMonitorFormat'
 import MonitorSettingsPanel from '@/features/channel-monitor-v2/MonitorSettingsPanel.vue'
-import { isChannelMonitorV1Mode } from '@/utils/featureFlags'
+import { getChannelMonitorMode, isChannelMonitorRouteEnabled } from '@/utils/featureFlags'
 
 const { t } = useI18n()
 const appStore = useAppStore()
-const isV1Mode = computed(() => isChannelMonitorV1Mode())
-const adminMonitorTab = ref<'v2' | 'legacy'>(isChannelMonitorV1Mode() ? 'legacy' : 'v2')
+const featureEnabled = computed(() => isChannelMonitorRouteEnabled())
+const monitorMode = computed(() => getChannelMonitorMode())
+const isV1Mode = computed(() => featureEnabled.value && monitorMode.value === 'v1')
+const adminMonitorTab = ref<'v2' | 'legacy'>(monitorMode.value === 'v1' ? 'legacy' : 'v2')
 const {
   providerLabel,
   formatLatency,
@@ -175,6 +202,12 @@ const monitorTabs = computed(() => [
   { value: 'v2', label: t('channelMonitorV2.admin.tabV2') },
   { value: 'legacy', label: isV1Mode.value ? t('channelMonitorV2.admin.tabV1Active') : t('channelMonitorV2.admin.tabV1History') },
 ])
+const pageDescription = computed(() => {
+  if (!featureEnabled.value) return t('admin.channelMonitor.featureDisabledDescription')
+  return isV1Mode.value
+    ? t('channelMonitorV2.admin.descriptionV1')
+    : t('channelMonitorV2.admin.descriptionV2')
+})
 
 function providerTone(provider: Provider): 'neutral' | 'info' | 'warning' {
   if (provider === 'openai') return 'info'
@@ -184,6 +217,10 @@ function providerTone(provider: Provider): 'neutral' | 'info' | 'warning' {
 
 const monitors = ref<ChannelMonitor[]>([])
 const loading = ref(false)
+const hasLoaded = ref(false)
+const loadError = ref(false)
+const initialLoading = computed(() => !hasLoaded.value || (loading.value && monitors.value.length === 0))
+const refreshing = computed(() => loading.value && hasLoaded.value)
 const runningId = ref<number | null>(null)
 const searchQuery = ref('')
 const providerFilter = ref<Provider | ''>('')
@@ -198,6 +235,8 @@ const deleting = ref<ChannelMonitor | null>(null)
 const showRunResult = ref(false)
 const runResults = ref<CheckResult[]>([])
 const duplicatingIds = reactive(new Set<number>())
+const togglingIds = reactive(new Set<number>())
+const deletingId = ref<number | null>(null)
 
 let abortController: AbortController | null = null
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
@@ -222,6 +261,7 @@ async function reload() {
   const ctrl = new AbortController()
   abortController = ctrl
   loading.value = true
+  loadError.value = false
   try {
     const params: ListParams = {
       page: pagination.page,
@@ -236,13 +276,16 @@ async function reload() {
     if (ctrl.signal.aborted || abortController !== ctrl) return
     monitors.value = res.items || []
     pagination.total = res.total
+    loadError.value = false
   } catch (err: unknown) {
     const e = err as { name?: string; code?: string }
     if (e?.name === 'AbortError' || e?.code === 'ERR_CANCELED') return
+    loadError.value = true
     appStore.showError(extractApiErrorMessage(err, t('admin.channelMonitor.loadError')))
   } finally {
     if (abortController === ctrl) {
       loading.value = false
+      hasLoaded.value = true
       abortController = null
     }
   }
@@ -254,6 +297,11 @@ function handleSearch() {
     pagination.page = 1
     reload()
   }, 300)
+}
+
+function handleFilterChange() {
+  pagination.page = 1
+  void reload()
 }
 
 function onPageChange(page: number) {
@@ -283,12 +331,16 @@ function closeDialog() {
 }
 
 async function toggleEnabled(row: ChannelMonitor) {
+  if (togglingIds.has(row.id)) return
   const next = !row.enabled
+  togglingIds.add(row.id)
   try {
     await adminAPI.channelMonitor.update(row.id, { enabled: next })
     row.enabled = next
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, t('common.error')))
+  } finally {
+    togglingIds.delete(row.id)
   }
 }
 
@@ -338,23 +390,30 @@ function handleDelete(row: ChannelMonitor) {
 }
 
 async function confirmDelete() {
-  if (!deleting.value) return
+  const target = deleting.value
+  if (!target || deletingId.value !== null) return
+  deletingId.value = target.id
   try {
-    await adminAPI.channelMonitor.del(deleting.value.id)
+    await adminAPI.channelMonitor.del(target.id)
     appStore.showSuccess(t('admin.channelMonitor.deleteSuccess'))
     showDeleteDialog.value = false
     deleting.value = null
-    reload()
+    await reload()
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, t('common.error')))
+  } finally {
+    deletingId.value = null
   }
 }
 
 watch(adminMonitorTab, (tab) => {
-  if (tab === 'legacy' && monitors.value.length === 0) void reload()
+  if (featureEnabled.value && tab === 'legacy' && !hasLoaded.value) void reload()
+})
+watch(monitorMode, (mode) => {
+  adminMonitorTab.value = mode === 'v1' ? 'legacy' : 'v2'
 })
 onMounted(() => {
-  if (adminMonitorTab.value === 'legacy') void reload()
+  if (featureEnabled.value && adminMonitorTab.value === 'legacy') void reload()
 })
 onUnmounted(() => {
   if (searchTimeout) clearTimeout(searchTimeout)

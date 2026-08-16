@@ -141,7 +141,7 @@ export default {
       tabAria: 'Monitor management',
       tabV2: 'V2 data monitor config',
       tabV1Active: 'V1 active probes',
-      tabV1History: 'V1 history (probes not active in current mode)',
+      tabV1History: 'V1 legacy config (active probes do not run in this mode)',
     },
   },
 }

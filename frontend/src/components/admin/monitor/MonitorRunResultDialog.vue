@@ -5,7 +5,7 @@
         <UiDataCell :value="result.model" :meta="result.message || undefined" mono />
         <AppInline :wrap="false">
           <UiStatusBadge :status="result.status" :label="statusLabel(result.status)" />
-          <UiDataCell :value="`${formatLatency(result.latency_ms)} ms`" mono />
+          <UiDataCell :value="latencyLabel(result.latency_ms)" mono />
         </AppInline>
       </AppInline>
       <UiEmptyState v-if="results.length === 0" :title="t('empty.noData')" />
@@ -29,4 +29,8 @@ defineProps<{ show: boolean; results: CheckResult[] }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 const { t } = useI18n()
 const { statusLabel, formatLatency } = useChannelMonitorFormat()
+
+function latencyLabel(latency: number | null): string {
+  return latency == null ? formatLatency(latency) : `${formatLatency(latency)} ms`
+}
 </script>

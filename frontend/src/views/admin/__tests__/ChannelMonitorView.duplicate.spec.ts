@@ -4,22 +4,29 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ChannelMonitor } from '@/api/admin/channelMonitor'
 import MonitorActionsCell from '@/components/admin/monitor/MonitorActionsCell.vue'
+import MonitorFiltersBar from '@/components/admin/monitor/MonitorFiltersBar.vue'
+import { UiAlert, UiDataTable, UiServerTableWorkspace } from '@/components/ui'
 import ChannelMonitorView from '@/views/admin/ChannelMonitorView.vue'
 
 const {
   listMonitors,
   duplicateMonitor,
+  updateMonitor,
+  deleteMonitor,
   showSuccess,
   showError,
 } = vi.hoisted(() => ({
   listMonitors: vi.fn(),
   duplicateMonitor: vi.fn(),
+  updateMonitor: vi.fn(),
+  deleteMonitor: vi.fn(),
   showSuccess: vi.fn(),
   showError: vi.fn(),
 }))
 
 
 vi.mock('@/utils/featureFlags', () => ({
+  isChannelMonitorRouteEnabled: () => true,
   isChannelMonitorV1Mode: () => true,
   isChannelMonitorV2Mode: () => false,
   getChannelMonitorMode: () => 'v1' as const,
@@ -34,9 +41,9 @@ vi.mock('@/api/admin', () => ({
     channelMonitor: {
       list: listMonitors,
       duplicate: duplicateMonitor,
-      update: vi.fn(),
+      update: updateMonitor,
       runNow: vi.fn(),
-      del: vi.fn(),
+      del: deleteMonitor,
     },
   },
 }))
@@ -102,6 +109,16 @@ function makeMonitor(overrides: Partial<ChannelMonitor> = {}): ChannelMonitor {
 
 const monitor = makeMonitor()
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, reject, resolve }
+}
+
 function mountView() {
   return mount(ChannelMonitorView, {
     global: {
@@ -127,7 +144,7 @@ function mountView() {
 describe('ChannelMonitorView duplicate action', () => {
   beforeEach(() => {
     localStorage.clear()
-    for (const fn of [listMonitors, duplicateMonitor, showSuccess, showError]) fn.mockReset()
+    for (const fn of [listMonitors, duplicateMonitor, updateMonitor, deleteMonitor, showSuccess, showError]) fn.mockReset()
     listMonitors.mockResolvedValue({
       items: [monitor],
       total: 1,
@@ -136,6 +153,103 @@ describe('ChannelMonitorView duplicate action', () => {
       pages: 1,
     })
     duplicateMonitor.mockResolvedValue(makeMonitor({ id: 43, name: 'primary (Copy)', enabled: false }))
+    updateMonitor.mockResolvedValue(monitor)
+    deleteMonitor.mockResolvedValue(undefined)
+  })
+
+  it('uses a table skeleton initially and keeps current rows under the refresh overlay', async () => {
+    const initial = deferred<{ items: ChannelMonitor[]; total: number; page: number; page_size: number; pages: number }>()
+    listMonitors.mockReturnValueOnce(initial.promise)
+    const wrapper = mountView()
+
+    expect(wrapper.getComponent(UiDataTable).props('loading')).toBe(true)
+    expect(wrapper.getComponent(UiServerTableWorkspace).props('loading')).toBe(false)
+
+    initial.resolve({ items: [monitor], total: 1, page: 1, page_size: 20, pages: 1 })
+    await flushPromises()
+    const refresh = deferred<{ items: ChannelMonitor[]; total: number; page: number; page_size: number; pages: number }>()
+    listMonitors.mockReturnValueOnce(refresh.promise)
+    const request = (wrapper.vm as any).reload()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.getComponent(UiServerTableWorkspace).props('loading')).toBe(true)
+    expect(wrapper.getComponent(UiDataTable).props('loading')).toBe(false)
+    expect(wrapper.getComponent(UiDataTable).props('data')).toEqual([monitor])
+
+    refresh.resolve({ items: [monitor], total: 1, page: 1, page_size: 20, pages: 1 })
+    await request
+    wrapper.unmount()
+  })
+
+  it('keeps current rows and a persistent alert when a refresh fails', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    listMonitors.mockRejectedValueOnce(new Error('refresh failed'))
+
+    await (wrapper.vm as any).reload()
+    await flushPromises()
+
+    expect((wrapper.vm as any).monitors).toEqual([monitor])
+    expect((wrapper.vm as any).loadError).toBe(true)
+    expect(wrapper.getComponent(UiAlert).props('message')).toBe('admin.channelMonitor.loadError')
+    expect(showError).toHaveBeenLastCalledWith('refresh failed')
+    wrapper.unmount()
+  })
+
+  it('resets to page one when a provider, status, or clear-filter action changes filters', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    listMonitors.mockClear()
+    const vm = wrapper.vm as any
+    vm.pagination.page = 4
+
+    wrapper.getComponent(MonitorFiltersBar).vm.$emit('filter-change')
+    await flushPromises()
+
+    expect(vm.pagination.page).toBe(1)
+    expect(listMonitors).toHaveBeenCalledWith(
+      expect.objectContaining({ page: 1 }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
+    wrapper.unmount()
+  })
+
+  it('prevents repeated enable toggles while the row update is pending', async () => {
+    const pending = deferred<ChannelMonitor>()
+    updateMonitor.mockReturnValueOnce(pending.promise)
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+
+    const first = vm.toggleEnabled(vm.monitors[0])
+    const second = vm.toggleEnabled(vm.monitors[0])
+    expect(updateMonitor).toHaveBeenCalledOnce()
+    expect(vm.togglingIds.has(monitor.id)).toBe(true)
+
+    pending.resolve(monitor)
+    await Promise.all([first, second])
+    expect(vm.togglingIds.has(monitor.id)).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('prevents duplicate deletes until the first request and refresh finish', async () => {
+    const pending = deferred<void>()
+    deleteMonitor.mockReturnValueOnce(pending.promise)
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.handleDelete(vm.monitors[0])
+
+    const first = vm.confirmDelete()
+    const second = vm.confirmDelete()
+    expect(deleteMonitor).toHaveBeenCalledOnce()
+    expect(vm.deletingId).toBe(monitor.id)
+
+    pending.resolve()
+    await Promise.all([first, second])
+    expect(vm.deletingId).toBeNull()
+    expect(vm.showDeleteDialog).toBe(false)
+    wrapper.unmount()
   })
 
   it('duplicates the selected monitor, reports success, and refreshes the list', async () => {

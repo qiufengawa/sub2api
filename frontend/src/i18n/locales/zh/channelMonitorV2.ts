@@ -136,7 +136,7 @@ export default {
       tabAria: '监控管理',
       tabV2: 'V2 数据监控配置',
       tabV1Active: 'V1 主动探测',
-      tabV1History: 'V1 历史（当前模式未启用探测）',
+      tabV1History: 'V1 旧版配置（当前模式不运行主动探测）',
     },
   },
 }
