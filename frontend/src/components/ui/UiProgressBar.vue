@@ -1,9 +1,10 @@
-<template><div class="ui-progress"><div v-if="label||showValue" class="ui-progress__meta"><span>{{ label }}</span><b v-if="showValue" class="ui-numeric">{{ normalized }}%</b></div><div class="ui-progress__track" role="progressbar" :aria-valuenow="normalized" aria-valuemin="0" aria-valuemax="100" :aria-label="label"><span :class="`is-${tone}`" :style="{width:`${normalized}%`}"/></div></div></template>
+<template><div class="ui-progress"><div v-if="label||showValue" class="ui-progress__meta"><span>{{ label }}</span><b v-if="showValue" class="ui-numeric">{{ normalized }}%</b></div><div :data-testid="testId" class="ui-progress__track" role="progressbar" :aria-valuenow="normalized" aria-valuemin="0" aria-valuemax="100" :aria-label="label"><span :class="`is-${tone}`" :style="{width:`${normalized}%`}"/></div></div></template>
 <script setup lang="ts">
 import {computed} from 'vue';
 const props=withDefaults(defineProps<{value:number;
 label?:string;
 showValue?:boolean;
+testId?:string;
 tone?:'neutral'|'success'|'warning'|'danger'|'info'}>(),{showValue:true,tone:'neutral'});
 const normalized=computed(()=>Math.round(Math.max(0,Math.min(100,props.value))))
 </script>

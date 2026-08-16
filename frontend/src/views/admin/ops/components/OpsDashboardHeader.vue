@@ -6,14 +6,23 @@ import {
   AppInline,
   AppStack,
   AppToolbar,
+  UiAlert,
   UiButton,
   UiDialog,
+  UiEmptyState,
   UiFieldHelp,
   UiIconButton,
+  UiLiveMetric,
+  UiPopover,
+  UiProgressBar,
+  UiProgressRing,
   UiPulseIndicator,
   UiSegmentedControl,
   UiSelect,
+  UiStatMetric,
+  UiStatusBadge,
   UiTextField,
+  UiThresholdMetric,
 } from '@/components/ui'
 import { adminAPI } from '@/api'
 import { opsAPI, type OpsDashboardOverview, type OpsMetricThresholds, type OpsRealtimeTrafficSummary } from '@/api/admin/ops'
@@ -238,62 +247,6 @@ function openErrorDetails(kind: 'request' | 'upstream') {
   emit('openErrorDetails', kind)
 }
 
-// --- Threshold checking helpers ---
-type ThresholdLevel = 'normal' | 'warning' | 'critical'
-
-function getSLAThresholdLevel(slaPercent: number | null): ThresholdLevel {
-  if (slaPercent == null) return 'normal'
-  const threshold = props.thresholds?.sla_percent_min
-  if (threshold == null) return 'normal'
-
-  // SLA is "higher is better":
-  // - below threshold => critical
-  // - within +0.1% buffer => warning
-  const warningBuffer = 0.1
-
-  if (slaPercent < threshold) return 'critical'
-  if (slaPercent < threshold + warningBuffer) return 'warning'
-  return 'normal'
-}
-
-function getTTFTThresholdLevel(ttftMs: number | null): ThresholdLevel {
-  if (ttftMs == null) return 'normal'
-  const threshold = props.thresholds?.ttft_p99_ms_max
-  if (threshold == null) return 'normal'
-  if (ttftMs >= threshold) return 'critical'
-  if (ttftMs >= threshold * 0.8) return 'warning'
-  return 'normal'
-}
-
-function getRequestErrorRateThresholdLevel(errorRatePercent: number | null): ThresholdLevel {
-  if (errorRatePercent == null) return 'normal'
-  const threshold = props.thresholds?.request_error_rate_percent_max
-  if (threshold == null) return 'normal'
-  if (errorRatePercent >= threshold) return 'critical'
-  if (errorRatePercent >= threshold * 0.8) return 'warning'
-  return 'normal'
-}
-
-function getUpstreamErrorRateThresholdLevel(upstreamErrorRatePercent: number | null): ThresholdLevel {
-  if (upstreamErrorRatePercent == null) return 'normal'
-  const threshold = props.thresholds?.upstream_error_rate_percent_max
-  if (threshold == null) return 'normal'
-  if (upstreamErrorRatePercent >= threshold) return 'critical'
-  if (upstreamErrorRatePercent >= threshold * 0.8) return 'warning'
-  return 'normal'
-}
-
-function getThresholdColorClass(level: ThresholdLevel): string {
-  switch (level) {
-    case 'critical':
-      return 'text-red-600 dark:text-red-400'
-    case 'warning':
-      return 'text-yellow-600 dark:text-yellow-400'
-    default:
-      return 'text-green-600 dark:text-green-400'
-  }
-}
-
 // --- Realtime / Overview labels ---
 
 const totalRequestsLabel = computed(() => formatNumber(overview.value?.request_count_total ?? 0))
@@ -456,35 +409,6 @@ const isSystemIdle = computed(() => {
 const healthScoreValue = computed<number | null>(() => {
   const v = overview.value?.health_score
   return typeof v === 'number' && Number.isFinite(v) ? v : null
-})
-
-const healthScoreColor = computed(() => {
-  if (isSystemIdle.value) return '#9ca3af' // gray-400
-  const score = healthScoreValue.value
-  if (score == null) return '#9ca3af'
-  if (score >= 90) return '#10b981' // green
-  if (score >= 60) return '#f59e0b' // yellow
-  return '#ef4444' // red
-})
-
-const healthScoreClass = computed(() => {
-  if (isSystemIdle.value) return 'text-gray-400'
-  const score = healthScoreValue.value
-  if (score == null) return 'text-gray-400'
-  if (score >= 90) return 'text-green-500'
-  if (score >= 60) return 'text-yellow-500'
-  return 'text-red-500'
-})
-
-const circleSize = computed(() => props.fullscreen ? 140 : 100)
-const strokeWidth = computed(() => props.fullscreen ? 10 : 8)
-const radius = computed(() => (circleSize.value - strokeWidth.value) / 2)
-const circumference = computed(() => 2 * Math.PI * radius.value)
-const dashOffset = computed(() => {
-  if (isSystemIdle.value) return 0
-  if (healthScoreValue.value == null) return 0
-  const score = Math.max(0, Math.min(100, healthScoreValue.value))
-  return circumference.value - (score / 100) * circumference.value
 })
 
 interface DiagnosisItem {
@@ -671,46 +595,10 @@ const cpuPercentValue = computed<number | null>(() => {
   return typeof v === 'number' && Number.isFinite(v) ? v : null
 })
 
-const cpuPercentClass = computed(() => {
-  const v = cpuPercentValue.value
-  if (v == null) return 'text-gray-900 dark:text-white'
-  if (v >= 95) return 'text-rose-600 dark:text-rose-400'
-  if (v >= 80) return 'text-yellow-600 dark:text-yellow-400'
-  return 'text-emerald-600 dark:text-emerald-400'
-})
-
 const memPercentValue = computed<number | null>(() => {
   const v = systemMetrics.value?.memory_usage_percent
   return typeof v === 'number' && Number.isFinite(v) ? v : null
 })
-
-const memPercentClass = computed(() => {
-  const v = memPercentValue.value
-  if (v == null) return 'text-gray-900 dark:text-white'
-  if (v >= 95) return 'text-rose-600 dark:text-rose-400'
-  if (v >= 85) return 'text-yellow-600 dark:text-yellow-400'
-  return 'text-emerald-600 dark:text-emerald-400'
-})
-
-function clampResourcePercent(value: number | null): number | null {
-  if (value == null || !Number.isFinite(value)) return null
-  return Math.min(100, Math.max(0, value))
-}
-
-function resourceProgressStyle(value: number | null) {
-  const percent = clampResourcePercent(value)
-  return { width: `${percent ?? 0}%` }
-}
-
-function resourceProgressClass(value: number | null, warning: number, critical: number, normalClass: string) {
-  if (value == null) return 'bg-gray-300 dark:bg-dark-600'
-  if (value >= critical) return 'bg-red-500'
-  if (value >= warning) return 'bg-amber-500'
-  return normalClass
-}
-
-const cpuProgressClass = computed(() => resourceProgressClass(cpuPercentValue.value, 80, 95, 'bg-blue-500'))
-const memProgressClass = computed(() => resourceProgressClass(memPercentValue.value, 85, 95, 'bg-cyan-500'))
 
 const dbConnActiveValue = computed<number | null>(() => {
   const v = systemMetrics.value?.db_conn_active
@@ -749,22 +637,6 @@ const dbMiddleLabel = computed(() => {
   return t('admin.ops.noData')
 })
 
-const dbMiddleClass = computed(() => {
-  if (systemMetrics.value?.db_ok === false) return 'text-rose-600 dark:text-rose-400'
-  if (dbUsagePercent.value != null) {
-    if (dbUsagePercent.value >= 90) return 'text-rose-600 dark:text-rose-400'
-    if (dbUsagePercent.value >= 70) return 'text-yellow-600 dark:text-yellow-400'
-    return 'text-emerald-600 dark:text-emerald-400'
-  }
-  if (systemMetrics.value?.db_ok === true) return 'text-emerald-600 dark:text-emerald-400'
-  return 'text-gray-900 dark:text-white'
-})
-
-const dbProgressClass = computed(() => {
-  if (systemMetrics.value?.db_ok === false) return 'bg-red-500'
-  return resourceProgressClass(dbUsagePercent.value, 70, 90, 'bg-indigo-500')
-})
-
 const redisConnTotalValue = computed<number | null>(() => {
   const v = systemMetrics.value?.redis_conn_total
   return typeof v === 'number' && Number.isFinite(v) ? v : null
@@ -797,22 +669,6 @@ const redisMiddleLabel = computed(() => {
   return t('admin.ops.noData')
 })
 
-const redisMiddleClass = computed(() => {
-  if (systemMetrics.value?.redis_ok === false) return 'text-rose-600 dark:text-rose-400'
-  if (redisUsagePercent.value != null) {
-    if (redisUsagePercent.value >= 90) return 'text-rose-600 dark:text-rose-400'
-    if (redisUsagePercent.value >= 70) return 'text-yellow-600 dark:text-yellow-400'
-    return 'text-emerald-600 dark:text-emerald-400'
-  }
-  if (systemMetrics.value?.redis_ok === true) return 'text-emerald-600 dark:text-emerald-400'
-  return 'text-gray-900 dark:text-white'
-})
-
-const redisProgressClass = computed(() => {
-  if (systemMetrics.value?.redis_ok === false) return 'bg-red-500'
-  return resourceProgressClass(redisUsagePercent.value, 70, 90, 'bg-sky-500')
-})
-
 const goroutineCountValue = computed<number | null>(() => {
   const v = systemMetrics.value?.goroutine_count
   return typeof v === 'number' && Number.isFinite(v) ? v : null
@@ -839,19 +695,6 @@ const goroutineStatusLabel = computed(() => {
       return t('common.critical')
     default:
       return t('admin.ops.noData')
-  }
-})
-
-const goroutineStatusClass = computed(() => {
-  switch (goroutineStatus.value) {
-    case 'ok':
-      return 'text-emerald-600 dark:text-emerald-400'
-    case 'warning':
-      return 'text-yellow-600 dark:text-yellow-400'
-    case 'critical':
-      return 'text-rose-600 dark:text-rose-400'
-    default:
-      return 'text-gray-900 dark:text-white'
   }
 })
 
@@ -887,17 +730,6 @@ const jobsStatusLabel = computed(() => {
   }
 })
 
-const jobsStatusClass = computed(() => {
-  switch (jobsStatus.value) {
-    case 'ok':
-      return 'text-emerald-600 dark:text-emerald-400'
-    case 'warn':
-      return 'text-yellow-600 dark:text-yellow-400'
-    default:
-      return 'text-gray-900 dark:text-white'
-  }
-})
-
 const showJobsDetails = ref(false)
 
 function openJobsDetails() {
@@ -911,1194 +743,268 @@ function handleToolbarRefresh() {
 </script>
 
 <template>
-  <div :class="['flex flex-col gap-3 rounded-[4px] border border-gray-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-800', props.fullscreen ? 'p-6' : 'p-4 sm:p-5']">
+  <section class="ops-command" :class="{ 'ops-command--fullscreen': props.fullscreen }">
     <AppToolbar class="ops-toolbar">
-      <div class="ops-toolbar-status">
-        <h1 v-if="props.fullscreen" class="ops-toolbar__title">
-          <Icon name="chart" size="lg" />
-          {{ t('admin.ops.title') }}
-        </h1>
-
-        <div v-if="!props.fullscreen" class="ops-toolbar__status-line">
+      <div class="ops-toolbar__status">
+        <h1 v-if="props.fullscreen"><Icon name="chart" size="lg" />{{ t('admin.ops.title') }}</h1>
+        <div v-else class="ops-toolbar__status-line">
           <UiPulseIndicator
             :label="props.loading ? t('admin.ops.loadingText') : t('admin.ops.ready')"
             :tone="props.loading ? 'info' : 'success'"
             :animated="props.loading"
           />
-          <span aria-hidden="true">·</span>
-          <span>{{ t('common.refresh') }}: {{ props.lastUpdated ? props.lastUpdated.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\//g, '-') : t('common.unknown') }}</span>
-
-          <template v-if="props.autoRefreshEnabled && props.autoRefreshCountdown !== undefined">
-            <span aria-hidden="true">·</span>
-            <span>{{ t('admin.ops.autoRefreshRemaining', { seconds: props.autoRefreshCountdown }) }}</span>
-          </template>
+          <span>{{ props.lastUpdated ? props.lastUpdated.toLocaleString() : t('common.unknown') }}</span>
+          <span v-if="props.autoRefreshEnabled && props.autoRefreshCountdown !== undefined">
+            {{ t('admin.ops.autoRefreshRemaining', { seconds: props.autoRefreshCountdown }) }}
+          </span>
         </div>
       </div>
-
       <template #actions>
-        <div class="ops-toolbar-controls">
-        <template v-if="!props.fullscreen">
-          <UiSelect
-            :model-value="platform"
-            :options="platformOptions"
-            density="compact"
-            class="w-full sm:w-[140px]"
-            @update:model-value="handlePlatformChange"
-          />
-
-          <UiSelect
-            :model-value="groupId"
-            :options="groupOptions"
-            density="compact"
-            class="w-full sm:w-[160px]"
-            @update:model-value="handleGroupChange"
-          />
-
-          <span class="ops-toolbar__separator" aria-hidden="true"></span>
-
-          <UiSelect
-            :model-value="timeRange"
-            :options="timeRangeOptions"
-            density="compact"
-            class="relative w-full sm:w-[150px]"
-            @update:model-value="handleTimeRangeChange"
-          />
-        </template>
-
-        <UiSelect
-          v-if="false"
-          :model-value="queryMode"
-          :options="queryModeOptions"
-          density="compact"
-          class="relative w-full sm:w-[170px]"
-          @update:model-value="handleQueryModeChange"
-        />
-
-        <UiIconButton
-          v-if="!props.fullscreen"
-          data-testid="ops-toolbar-refresh"
-          :label="t('common.refresh')"
-          variant="ghost"
-          :disabled="loading"
-          @click="handleToolbarRefresh"
-        >
-          <Icon name="refresh" size="sm" :class="{ 'ops-toolbar__refresh-icon--loading': loading }" />
-        </UiIconButton>
-
-        <span v-if="!props.fullscreen" class="ops-toolbar__separator" aria-hidden="true"></span>
-
-        <UiButton
-          v-if="!props.fullscreen"
-          data-testid="ops-toolbar-alert-rules"
-          density="compact"
-          variant="secondary"
-          :aria-label="t('admin.ops.alertRules.title')"
-          :title="t('admin.ops.alertRules.title')"
-          @click="emit('openAlertRules')"
-        >
-          <template #icon><Icon name="bell" size="sm" /></template>
-          <span class="ops-toolbar__button-label">{{ t('admin.ops.alertRules.manage') }}</span>
-        </UiButton>
-
-        <UiButton
-          v-if="!props.fullscreen"
-          data-testid="ops-toolbar-settings"
-          density="compact"
-          variant="secondary"
-          :aria-label="t('admin.ops.settings.title')"
-          :title="t('admin.ops.settings.title')"
-          @click="emit('openSettings')"
-        >
-          <template #icon><Icon name="cog" size="sm" /></template>
-          <span class="ops-toolbar__button-label">{{ t('common.settings') }}</span>
-        </UiButton>
-
-        <UiIconButton
-          v-if="!props.fullscreen"
-          data-testid="ops-toolbar-fullscreen"
-          icon="grid"
-          variant="ghost"
-          :label="t('admin.ops.fullscreen.enter')"
-          @click="emit('enterFullscreen')"
-        />
+        <div class="ops-toolbar__controls">
+          <template v-if="!props.fullscreen">
+            <UiSelect class="ops-filter" :model-value="platform" :options="platformOptions" density="compact" @update:model-value="handlePlatformChange" />
+            <UiSelect class="ops-filter ops-filter--group" :model-value="groupId" :options="groupOptions" density="compact" @update:model-value="handleGroupChange" />
+            <UiSelect class="ops-filter" :model-value="timeRange" :options="timeRangeOptions" density="compact" @update:model-value="handleTimeRangeChange" />
+          </template>
+          <UiSelect v-if="false" :model-value="queryMode" :options="queryModeOptions" density="compact" @update:model-value="handleQueryModeChange" />
+          <UiIconButton v-if="!props.fullscreen" data-testid="ops-toolbar-refresh" :label="t('common.refresh')" icon="refresh" variant="ghost" :disabled="loading" @click="handleToolbarRefresh" />
+          <UiButton v-if="!props.fullscreen" data-testid="ops-toolbar-alert-rules" density="compact" :aria-label="t('admin.ops.alertRules.manage')" :title="t('admin.ops.alertRules.manage')" @click="emit('openAlertRules')">
+            <template #icon><Icon name="bell" size="sm" /></template><span class="ops-toolbar__button-label">{{ t('admin.ops.alertRules.manage') }}</span>
+          </UiButton>
+          <UiButton v-if="!props.fullscreen" data-testid="ops-toolbar-settings" density="compact" :aria-label="t('common.settings')" :title="t('common.settings')" @click="emit('openSettings')">
+            <template #icon><Icon name="cog" size="sm" /></template><span class="ops-toolbar__button-label">{{ t('common.settings') }}</span>
+          </UiButton>
+          <UiIconButton v-if="!props.fullscreen" data-testid="ops-toolbar-fullscreen" icon="grid" variant="ghost" :label="t('admin.ops.fullscreen.enter')" @click="emit('enterFullscreen')" />
+          <UiIconButton v-else data-testid="ops-toolbar-exit-fullscreen" icon="x" variant="ghost" :label="t('common.close')" @click="emit('exitFullscreen')" />
         </div>
       </template>
     </AppToolbar>
 
-    <div
+    <UiAlert
       v-if="overview && !props.fullscreen && diagnosisReport[0]"
       data-testid="ops-primary-diagnosis"
-      class="flex flex-col gap-2 border-l-[3px] px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
-      :class="diagnosisReport[0].type === 'critical'
-        ? 'border-l-red-500 bg-red-50/70 dark:bg-red-950/20'
-        : diagnosisReport[0].type === 'warning'
-          ? 'border-l-amber-500 bg-amber-50/70 dark:bg-amber-950/20'
-          : 'border-l-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/15'"
+      :tone="diagnosisReport[0].type === 'critical' ? 'danger' : diagnosisReport[0].type === 'warning' ? 'warning' : 'success'"
+      :title="diagnosisReport[0].message"
     >
-      <div class="flex min-w-0 items-start gap-2.5">
-        <Icon
-          name="brain"
-          size="sm"
-          class="mt-0.5 shrink-0"
-          :class="diagnosisReport[0].type === 'critical'
-            ? 'text-red-500'
-            : diagnosisReport[0].type === 'warning'
-              ? 'text-amber-500'
-              : 'text-emerald-500'"
-        />
-        <div class="min-w-0">
-          <div class="text-xs font-semibold text-gray-900 dark:text-white">
-            {{ diagnosisReport[0].message }}
-          </div>
-          <div class="mt-0.5 text-[11px] leading-4 text-gray-500 dark:text-gray-400">
-            {{ diagnosisReport[0].impact }}
-          </div>
-        </div>
-      </div>
-      <div v-if="diagnosisReport[0].action" class="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-blue-600 dark:text-blue-400">
-        <Icon name="lightbulb" size="xs" />
-        <span>{{ diagnosisReport[0].action }}</span>
-        <span v-if="diagnosisReport.length > 1" class="text-gray-400">+{{ diagnosisReport.length - 1 }}</span>
-      </div>
-    </div>
+      {{ diagnosisReport[0].impact }}
+      <span v-if="diagnosisReport[0].action" class="ops-diagnosis__action">
+        {{ diagnosisReport[0].action }}<b v-if="diagnosisReport.length > 1">+{{ diagnosisReport.length - 1 }}</b>
+      </span>
+    </UiAlert>
 
-    <div v-if="overview" class="ops-overview-grid grid grid-cols-1 border-y border-gray-100 lg:grid-cols-[200px_minmax(0,1fr)] dark:border-dark-700">
-      <!-- Health status -->
-      <div data-overview-section="health" :class="['ops-overview-health border-b border-gray-100 lg:border-b-0 lg:border-r dark:border-dark-700', props.fullscreen ? 'p-6' : 'p-4']">
-        <div class="h-full">
-          <!-- 1) Health Score -->
-          <div
-            class="group relative flex h-full cursor-pointer flex-col items-center justify-center py-2"
-          >
-            <!-- Diagnosis Popover (hover) -->
-            <div
-              class="pointer-events-none absolute left-1/2 top-full z-50 mt-2 w-72 -translate-x-1/2 opacity-0 transition-opacity duration-200 group-hover:pointer-events-auto group-hover:opacity-100 lg:left-full lg:top-0 lg:ml-2 lg:mt-0 lg:translate-x-0"
-            >
-              <div class="rounded-[4px] bg-white p-4 shadow-xl ring-1 ring-black/5 dark:bg-dark-800 dark:ring-white/10">
-                <h4 class="mb-3 border-b border-gray-100 pb-2 text-sm font-bold text-gray-900 dark:border-dark-700 dark:text-white flex items-center gap-2">
-                  <Icon name="brain" size="sm" class="text-blue-500" />
-                  {{ t('admin.ops.diagnosis.title') }}
-                </h4>
-
-                <div class="space-y-3">
-                  <div v-for="(item, idx) in diagnosisReport" :key="idx" class="flex gap-3">
-                    <div class="mt-0.5 shrink-0">
-                      <svg v-if="item.type === 'critical'" class="h-4 w-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path
-                          fill-rule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
-                      <svg v-else-if="item.type === 'warning'" class="h-4 w-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path
-                          fill-rule="evenodd"
-                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
-                      <svg v-else class="h-4 w-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path
-                          fill-rule="evenodd"
-                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 100 2 1 1 0 000-2zm-1 3a1 1 0 012 0v4a1 1 0 11-2 0v-4z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <div class="flex-1">
-                      <div class="text-xs font-semibold text-gray-900 dark:text-white">{{ item.message }}</div>
-                      <div class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">{{ item.impact }}</div>
-                      <div v-if="item.action" class="mt-1 text-[11px] text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                        <Icon name="lightbulb" size="xs" />
-                        {{ item.action }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="mt-3 border-t border-gray-100 pt-2 text-[10px] text-gray-400 dark:border-dark-700">
-                  {{ t('admin.ops.diagnosis.footer') }}
-                </div>
-              </div>
-            </div>
-
-            <div class="relative flex items-center justify-center">
-              <svg :width="circleSize" :height="circleSize" class="-rotate-90 transform">
-                <circle
-                  :cx="circleSize / 2"
-                  :cy="circleSize / 2"
-                  :r="radius"
-                  :stroke-width="strokeWidth"
-                  fill="transparent"
-                  class="text-gray-200 dark:text-dark-700"
-                  stroke="currentColor"
-                />
-                <circle
-                  :cx="circleSize / 2"
-                  :cy="circleSize / 2"
-                  :r="radius"
-                  :stroke-width="strokeWidth"
-                  fill="transparent"
-                  :stroke="healthScoreColor"
-                  stroke-linecap="round"
-                  :stroke-dasharray="circumference"
-                  :stroke-dashoffset="dashOffset"
-                  class="transition-all duration-1000 ease-out"
-                />
-              </svg>
-
-              <div class="absolute flex flex-col items-center">
-                <span :class="[props.fullscreen ? 'text-5xl' : 'text-3xl', 'font-black', healthScoreClass]">
-                  {{ isSystemIdle ? t('admin.ops.idleStatus') : (overview.health_score ?? '--') }}
-                </span>
-                <span :class="[props.fullscreen ? 'text-xs' : 'text-[10px]', 'font-bold uppercase tracking-wider text-gray-400']">{{ t('admin.ops.health') }}</span>
-              </div>
-            </div>
-
-            <div class="mt-4 text-center" v-if="!props.fullscreen">
-              <div class="flex items-center justify-center gap-1 text-xs font-medium text-gray-500">
-                {{ t('admin.ops.healthCondition') }}
-                <UiFieldHelp :content="t('admin.ops.healthHelp')" />
-              </div>
-              <div class="mt-1 text-xs font-bold" :class="healthScoreClass">
-                {{
-                  isSystemIdle
-                    ? t('admin.ops.idleStatus')
-                    : typeof overview.health_score === 'number' && overview.health_score >= 90
-                      ? t('admin.ops.healthyStatus')
-                      : t('admin.ops.riskyStatus')
-                }}
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-      </div>
-
-      <!-- Traffic, stability and latency -->
-      <div class="ops-kpi-grid grid min-w-0 grid-cols-1 md:grid-cols-3">
-        <!-- Traffic overview -->
-        <div data-overview-section="traffic" class="ops-kpi-cell ops-traffic-cell p-4">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="flex items-center gap-1.5">
-              <span class="h-2 w-2 rounded-full bg-blue-500"></span>
-              <span class="text-[10px] font-bold uppercase text-gray-400">{{ t('admin.ops.overviewSections.traffic') }}</span>
-              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.qps')" />
-            </div>
-            <div class="flex items-center gap-1">
-              <UiSegmentedControl
-                :model-value="realtimeWindow"
-                :options="realtimeWindowOptions"
-                :label="t('admin.ops.overviewSections.traffic')"
-                @update:model-value="handleRealtimeWindowChange"
-              />
-              <UiIconButton
-                v-if="!props.fullscreen"
-                data-testid="ops-traffic-details"
-                icon="eye"
-                density="mini"
-                variant="ghost"
-                :label="t('admin.ops.requestDetails.details')"
-                @click="openDetails({ title: t('admin.ops.requestDetails.title') })"
-              />
-            </div>
-          </div>
-
-          <div class="mt-3 grid grid-cols-2 gap-3">
-            <div>
-              <div class="text-[10px] font-semibold uppercase text-gray-400">{{ t('admin.ops.current') }} QPS</div>
-              <div class="mt-1 text-2xl font-black text-blue-600 dark:text-blue-400">{{ displayRealTimeQps.toFixed(1) }}</div>
-            </div>
-            <div>
-              <div class="text-[10px] font-semibold uppercase text-gray-400">{{ t('admin.ops.current') }} TPS</div>
-              <div class="mt-1 text-2xl font-black text-cyan-600 dark:text-cyan-400">{{ displayRealTimeTps.toFixed(1) }}</div>
-            </div>
-          </div>
-
-          <div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-gray-100 pt-2 text-xs dark:border-dark-700">
-            <div class="flex items-baseline justify-between gap-2">
-              <span class="text-gray-500">{{ t('admin.ops.peak') }} QPS</span>
-              <span class="font-bold text-gray-900 dark:text-white">{{ realtimeQpsPeakLabel }}</span>
-            </div>
-            <div class="flex items-baseline justify-between gap-2">
-              <span class="text-gray-500">{{ t('admin.ops.peak') }} TPS</span>
-              <span class="font-bold text-gray-900 dark:text-white">{{ realtimeTpsPeakLabel }}</span>
-            </div>
-            <div class="flex items-baseline justify-between gap-2">
-              <span class="text-gray-500">{{ t('admin.ops.average') }} QPS</span>
-              <span class="font-bold text-gray-900 dark:text-white">{{ realtimeQpsAvgLabel }}</span>
-            </div>
-            <div class="flex items-baseline justify-between gap-2">
-              <span class="text-gray-500">{{ t('admin.ops.average') }} TPS</span>
-              <span class="font-bold text-gray-900 dark:text-white">{{ realtimeTpsAvgLabel }}</span>
-            </div>
-          </div>
-
-          <div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-gray-100 pt-2 text-xs dark:border-dark-700">
-            <div class="flex justify-between gap-2">
-              <span class="text-gray-500">{{ t('admin.ops.requests') }}</span>
-              <span class="font-bold text-gray-900 dark:text-white">{{ totalRequestsLabel }}</span>
-            </div>
-            <div class="flex justify-between gap-2">
-              <span class="text-gray-500">{{ t('admin.ops.tokens') }}</span>
-              <span class="font-bold text-cyan-600 dark:text-cyan-400">{{ totalTokensLabel }}</span>
-            </div>
-            <div class="flex justify-between gap-2">
-              <span class="text-gray-500">{{ t('admin.ops.avgQps') }}</span>
-              <span class="font-bold text-gray-900 dark:text-white">{{ qpsAvgLabel }}</span>
-            </div>
-            <div class="flex justify-between gap-2">
-              <span class="text-gray-500">{{ t('admin.ops.avgTps') }}</span>
-              <span class="font-bold text-gray-900 dark:text-white">{{ tpsAvgLabel }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="ops-service-grid grid min-w-0 grid-cols-1 md:grid-cols-2">
-        <!-- Stability: SLA -->
-        <div data-overview-section="stability" class="ops-kpi-cell ops-stability-sla p-4">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="text-[10px] font-bold uppercase text-gray-400">{{ t('admin.ops.overviewSections.stability') }}</span>
-              <span class="text-[10px] font-semibold text-gray-400">SLA</span>
-              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.sla')" />
-              <span class="h-1.5 w-1.5 rounded-full" :class="getSLAThresholdLevel(slaPercent) === 'critical' ? 'bg-red-500' : getSLAThresholdLevel(slaPercent) === 'warning' ? 'bg-yellow-500' : 'bg-green-500'"></span>
-            </div>
-            <UiIconButton
-              v-if="!props.fullscreen"
-              icon="eye"
-              density="mini"
-              variant="ghost"
-              :label="t('admin.ops.requestDetails.details')"
-              @click="openDetails({ title: t('admin.ops.requestDetails.title'), kind: 'error' })"
+    <div v-if="overview" class="ops-overview">
+      <UiPopover placement="bottom-start" panel-role="dialog" :aria-label="t('admin.ops.diagnosis.title')" width="320px">
+        <template #trigger>
+          <button type="button" class="ops-health ui-focus-ring" data-overview-section="health">
+            <UiProgressRing
+              :value="isSystemIdle ? 0 : healthScoreValue ?? 0"
+              :size="props.fullscreen ? 132 : 104"
+              :display-value="isSystemIdle ? t('admin.ops.idleStatus') : healthScoreValue == null ? '-' : String(Math.round(healthScoreValue))"
+              :label="t('admin.ops.health')"
+              :tone="isSystemIdle || healthScoreValue == null ? 'neutral' : healthScoreValue >= 90 ? 'success' : healthScoreValue >= 60 ? 'warning' : 'danger'"
+              :aria-label="t('admin.ops.healthScoreAria', { value: isSystemIdle ? t('admin.ops.idleStatus') : healthScoreValue == null ? t('admin.ops.noData') : Math.round(healthScoreValue), description: t('admin.ops.healthHelp') })"
             />
+            <span class="ops-health__copy"><strong>{{ t('admin.ops.healthCondition') }}</strong><small>{{ t('admin.ops.healthHelp') }}</small></span>
+          </button>
+        </template>
+        <div class="ops-diagnosis">
+          <header><Icon name="brain" size="sm" /><strong>{{ t('admin.ops.diagnosis.title') }}</strong></header>
+          <div v-for="(item, index) in diagnosisReport" :key="[item.type, index].join('-')" class="ops-diagnosis__item">
+            <Icon :name="item.type === 'critical' ? 'exclamationCircle' : item.type === 'warning' ? 'exclamationTriangle' : 'infoCircle'" size="sm" />
+            <div><strong>{{ item.message }}</strong><p>{{ item.impact }}</p><small v-if="item.action">{{ item.action }}</small></div>
           </div>
-          <div class="mt-2 text-3xl font-black" :class="getThresholdColorClass(getSLAThresholdLevel(slaPercent))">
-            {{ slaPercent == null ? '-' : `${slaPercent.toFixed(3)}%` }}
-          </div>
-          <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700">
-            <div class="h-full transition-all" :class="getSLAThresholdLevel(slaPercent) === 'critical' ? 'bg-red-500' : getSLAThresholdLevel(slaPercent) === 'warning' ? 'bg-yellow-500' : 'bg-green-500'" :style="{ width: `${Math.max((slaPercent ?? 0) - 90, 0) * 10}%` }"></div>
-          </div>
-          <div class="mt-3 text-xs">
-            <div class="flex justify-between">
-              <span class="text-gray-500">{{ t('admin.ops.exceptions') }}:</span>
-              <span class="font-bold text-red-600 dark:text-red-400">{{ formatNumber((overview.request_count_sla ?? 0) - (overview.success_count ?? 0)) }}</span>
-            </div>
-          </div>
+          <footer>{{ t('admin.ops.diagnosis.footer') }}</footer>
         </div>
+      </UiPopover>
 
-        <!-- Latency: Request Duration -->
-        <div data-overview-section="latency" class="ops-kpi-cell ops-latency-duration p-4">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-1">
-              <span class="h-2 w-2 rounded-full bg-purple-500"></span>
-              <span class="text-[10px] font-bold uppercase text-gray-400">{{ t('admin.ops.overviewSections.latency') }}</span>
-              <span class="text-[10px] font-semibold text-gray-400">{{ t('admin.ops.latencyDuration') }}</span>
-              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.latency')" />
-            </div>
-            <UiIconButton
-              v-if="!props.fullscreen"
-              icon="eye"
-              density="mini"
-              variant="ghost"
-              :label="t('admin.ops.requestDetails.details')"
-              @click="openDetails({ title: t('admin.ops.latencyDuration'), sort: 'duration_desc' })"
-            />
-          </div>
-          <div class="mt-2 flex items-baseline gap-2">
-            <div class="text-3xl font-black text-purple-600 dark:text-purple-400">
-              {{ durationP99Ms ?? '-' }}
-            </div>
-            <span class="text-xs font-bold text-gray-400">ms (P99)</span>
-          </div>
-          <div class="mt-3 grid grid-cols-1 gap-x-3 gap-y-1 text-xs 2xl:grid-cols-2">
-            <div class="flex items-baseline gap-1 whitespace-nowrap">
-              <span class="text-gray-500">P95:</span>
-              <span class="font-bold text-gray-900 dark:text-white">{{ durationP95Ms ?? '-' }}</span>
-              <span class="text-gray-400">ms</span>
-            </div>
-            <div class="flex items-baseline gap-1 whitespace-nowrap">
-              <span class="text-gray-500">P90:</span>
-              <span class="font-bold text-gray-900 dark:text-white">{{ durationP90Ms ?? '-' }}</span>
-              <span class="text-gray-400">ms</span>
-            </div>
-            <div class="flex items-baseline gap-1 whitespace-nowrap">
-              <span class="text-gray-500">P50:</span>
-              <span class="font-bold text-gray-900 dark:text-white">{{ durationP50Ms ?? '-' }}</span>
-              <span class="text-gray-400">ms</span>
-            </div>
-            <div class="flex items-baseline gap-1 whitespace-nowrap">
-              <span class="text-gray-500">Avg:</span>
-              <span class="font-bold text-gray-900 dark:text-white">{{ durationAvgMs ?? '-' }}</span>
-              <span class="text-gray-400">ms</span>
-            </div>
-            <div class="flex items-baseline gap-1 whitespace-nowrap">
-              <span class="text-gray-500">Max:</span>
-              <span class="font-bold text-gray-900 dark:text-white">{{ durationMaxMs ?? '-' }}</span>
-              <span class="text-gray-400">ms</span>
-            </div>
-          </div>
+      <div class="ops-traffic" data-overview-section="traffic">
+        <header class="ops-section-heading">
+          <div><strong>{{ t('admin.ops.overviewSections.traffic') }}</strong><small>{{ t('admin.ops.window') }}</small></div>
+          <UiSegmentedControl :model-value="realtimeWindow" :options="realtimeWindowOptions" :label="t('admin.ops.window')" @update:model-value="handleRealtimeWindowChange" />
+        </header>
+        <div class="ops-traffic__grid">
+          <UiLiveMetric label="QPS" :value="displayRealTimeQps.toFixed(1)" :live="adminSettingsStore.opsRealtimeMonitoringEnabled" :stale="realtimeTrafficLoading">
+            <template #context><span>{{ t('admin.ops.peak') }} {{ realtimeQpsPeakLabel }}</span><span>{{ t('admin.ops.average') }} {{ realtimeQpsAvgLabel }}</span></template>
+          </UiLiveMetric>
+          <UiLiveMetric label="TPS" :value="displayRealTimeTps.toFixed(1)" :live="adminSettingsStore.opsRealtimeMonitoringEnabled" :stale="realtimeTrafficLoading">
+            <template #context><span>{{ t('admin.ops.peak') }} {{ realtimeTpsPeakLabel }}</span><span>{{ t('admin.ops.average') }} {{ realtimeTpsAvgLabel }}</span></template>
+          </UiLiveMetric>
+          <UiStatMetric :label="t('admin.ops.totalRequests')" :value="totalRequestsLabel" :context="t('admin.ops.avgQps') + ' ' + qpsAvgLabel" />
+          <UiStatMetric :label="t('admin.ops.tokens')" :value="totalTokensLabel" :context="t('admin.ops.avgTps') + ' ' + tpsAvgLabel" />
         </div>
-
-        <!-- Latency: TTFT -->
-        <div data-overview-metric="latency" class="ops-kpi-cell ops-latency-ttft p-4">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-1">
-              <span class="text-[10px] font-bold uppercase text-gray-400">TTFT</span>
-              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.ttft')" />
-            </div>
-            <UiIconButton
-              v-if="!props.fullscreen"
-              icon="eye"
-              density="mini"
-              variant="ghost"
-              :label="t('admin.ops.requestDetails.details')"
-              @click="openDetails({ title: t('admin.ops.ttftLabel'), sort: 'duration_desc' })"
-            />
-          </div>
-          <div class="mt-2 flex items-baseline gap-2">
-            <div class="text-3xl font-black" :class="getThresholdColorClass(getTTFTThresholdLevel(ttftP99Ms))">
-              {{ ttftP99Ms ?? '-' }}
-            </div>
-            <span class="text-xs font-bold text-gray-400">ms (P99)</span>
-          </div>
-          <div class="mt-3 grid grid-cols-1 gap-x-3 gap-y-1 text-xs 2xl:grid-cols-2">
-            <div class="flex items-baseline gap-1 whitespace-nowrap">
-              <span class="text-gray-500">P95:</span>
-              <span class="font-bold" :class="getThresholdColorClass(getTTFTThresholdLevel(ttftP95Ms))">{{ ttftP95Ms ?? '-' }}</span>
-              <span class="text-gray-400">ms</span>
-            </div>
-            <div class="flex items-baseline gap-1 whitespace-nowrap">
-              <span class="text-gray-500">P90:</span>
-              <span class="font-bold" :class="getThresholdColorClass(getTTFTThresholdLevel(ttftP90Ms))">{{ ttftP90Ms ?? '-' }}</span>
-              <span class="text-gray-400">ms</span>
-            </div>
-            <div class="flex items-baseline gap-1 whitespace-nowrap">
-              <span class="text-gray-500">P50:</span>
-              <span class="font-bold" :class="getThresholdColorClass(getTTFTThresholdLevel(ttftP50Ms))">{{ ttftP50Ms ?? '-' }}</span>
-              <span class="text-gray-400">ms</span>
-            </div>
-            <div class="flex items-baseline gap-1 whitespace-nowrap">
-              <span class="text-gray-500">Avg:</span>
-              <span class="font-bold" :class="getThresholdColorClass(getTTFTThresholdLevel(ttftAvgMs))">{{ ttftAvgMs ?? '-' }}</span>
-              <span class="text-gray-400">ms</span>
-            </div>
-            <div class="flex items-baseline gap-1 whitespace-nowrap">
-              <span class="text-gray-500">Max:</span>
-              <span class="font-bold" :class="getThresholdColorClass(getTTFTThresholdLevel(ttftMaxMs))">{{ ttftMaxMs ?? '-' }}</span>
-              <span class="text-gray-400">ms</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Stability: Request Errors -->
-        <div data-overview-metric="stability" class="ops-kpi-cell ops-stability-request p-4">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-1">
-              <span class="text-[10px] font-bold uppercase text-gray-400">{{ t('admin.ops.requestErrors') }}</span>
-              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.errors')" />
-            </div>
-            <UiIconButton
-              v-if="!props.fullscreen"
-              icon="eye"
-              density="mini"
-              variant="ghost"
-              :label="t('admin.ops.requestDetails.details')"
-              @click="openErrorDetails('request')"
-            />
-          </div>
-          <div class="mt-2 text-3xl font-black" :class="getThresholdColorClass(getRequestErrorRateThresholdLevel(errorRatePercent))">
-            {{ errorRatePercent == null ? '-' : `${errorRatePercent.toFixed(2)}%` }}
-          </div>
-          <div class="mt-3 space-y-1 text-xs">
-            <div class="flex justify-between">
-              <span class="text-gray-500">{{ t('admin.ops.errorCount') }}:</span>
-              <span class="font-bold text-gray-900 dark:text-white">{{ formatNumber(overview.error_count_sla ?? 0) }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-500">{{ t('admin.ops.businessLimited') }}:</span>
-              <span class="font-bold text-gray-900 dark:text-white">{{ formatNumber(overview.business_limited_count ?? 0) }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Stability: Upstream Errors -->
-        <div data-overview-metric="stability" class="ops-kpi-cell ops-stability-upstream p-4">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-1">
-              <span class="text-[10px] font-bold uppercase text-gray-400">{{ t('admin.ops.upstreamErrors') }}</span>
-              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.upstreamErrors')" />
-            </div>
-            <UiIconButton
-              v-if="!props.fullscreen"
-              icon="eye"
-              density="mini"
-              variant="ghost"
-              :label="t('admin.ops.requestDetails.details')"
-              @click="openErrorDetails('upstream')"
-            />
-          </div>
-          <div class="mt-2 text-3xl font-black" :class="getThresholdColorClass(getUpstreamErrorRateThresholdLevel(upstreamErrorRatePercent))">
-            {{ upstreamErrorRatePercent == null ? '-' : `${upstreamErrorRatePercent.toFixed(2)}%` }}
-          </div>
-          <div class="mt-3 space-y-1 text-xs">
-            <div class="flex justify-between">
-              <span class="text-gray-500">{{ t('admin.ops.errorCountExcl429529') }}:</span>
-              <span class="font-bold text-gray-900 dark:text-white">{{ formatNumber(overview.upstream_error_count_excl_429_529 ?? 0) }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-500">429/529:</span>
-              <span class="font-bold text-gray-900 dark:text-white">{{ formatNumber((overview.upstream_429_count ?? 0) + (overview.upstream_529_count ?? 0)) }}</span>
-            </div>
-          </div>
-        </div>
-        </div>
+        <UiButton v-if="!props.fullscreen" data-testid="ops-traffic-details" density="dense" variant="quiet" @click="openDetails()">
+          <template #icon><Icon name="eye" size="sm" /></template>{{ t('admin.ops.requestDetails.details') }}
+        </UiButton>
       </div>
     </div>
 
-    <!-- Integrated: System resources -->
-    <div v-if="overview" class="ops-resource-section">
-      <div class="mb-2 flex items-center justify-between px-0.5">
-        <div class="flex items-center gap-2">
-          <span class="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            {{ t('admin.ops.systemHealth') }}
-          </span>
-          <span class="h-1.5 w-1.5 rounded-full" :class="systemMetrics ? 'bg-emerald-500' : 'bg-gray-400'"></span>
-        </div>
-        <span v-if="!props.fullscreen" class="text-[10px] text-gray-400">
-          {{ t('admin.ops.collectedAt') }}{{ systemMetrics?.created_at ? formatTimeShort(systemMetrics.created_at) : '-' }}
-        </span>
-      </div>
-      <div class="ops-resource-grid grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
-        <!-- CPU -->
-        <div data-resource-kind="cpu" class="ops-resource-cell">
-          <div class="flex items-start justify-between gap-2">
-            <div class="flex items-center gap-1">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">CPU</div>
-              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.cpu')" />
-            </div>
-            <div class="text-lg font-black leading-none" :class="cpuPercentClass">
-              {{ cpuPercentValue == null ? '-' : `${cpuPercentValue.toFixed(1)}%` }}
-            </div>
-          </div>
-          <div
-            data-testid="ops-resource-cpu-progress"
-            role="progressbar"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            :aria-valuenow="clampResourcePercent(cpuPercentValue) ?? undefined"
-            class="mt-3 h-1.5 w-full overflow-hidden rounded-[3px] bg-gray-200 dark:bg-dark-700"
-          >
-            <div class="h-full rounded-[3px] transition-[width]" :class="cpuProgressClass" :style="resourceProgressStyle(cpuPercentValue)"></div>
-          </div>
-          <div v-if="!props.fullscreen" class="mt-2 text-[10px] text-gray-500 dark:text-gray-400">
-            {{ t('common.warning') }} 80% · {{ t('common.critical') }} 95%
-          </div>
-        </div>
-
-        <!-- MEM -->
-        <div data-resource-kind="memory" class="ops-resource-cell">
-          <div class="flex items-start justify-between gap-2">
-            <div class="flex items-center gap-1">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.memory') }}</div>
-              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.memory')" />
-            </div>
-            <div class="text-lg font-black leading-none" :class="memPercentClass">
-              {{ memPercentValue == null ? '-' : `${memPercentValue.toFixed(1)}%` }}
-            </div>
-          </div>
-          <div
-            data-testid="ops-resource-memory-progress"
-            role="progressbar"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            :aria-valuenow="clampResourcePercent(memPercentValue) ?? undefined"
-            class="mt-3 h-1.5 w-full overflow-hidden rounded-[3px] bg-gray-200 dark:bg-dark-700"
-          >
-            <div class="h-full rounded-[3px] transition-[width]" :class="memProgressClass" :style="resourceProgressStyle(memPercentValue)"></div>
-          </div>
-          <div v-if="!props.fullscreen" class="mt-2 truncate text-[10px] text-gray-500 dark:text-gray-400">
-            {{
-              systemMetrics?.memory_used_mb == null || systemMetrics?.memory_total_mb == null
-                ? '-'
-                : `${formatMemorySizeMB(systemMetrics.memory_used_mb)} / ${formatMemorySizeMB(systemMetrics.memory_total_mb)}`
-            }}
-          </div>
-        </div>
-
-        <!-- DB -->
-        <div data-resource-kind="database" class="ops-resource-cell">
-          <div class="flex items-start justify-between gap-2">
-            <div class="flex items-center gap-1">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.db') }}</div>
-              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.db')" />
-            </div>
-            <div class="flex items-center gap-1.5">
-              <span class="h-1.5 w-1.5 rounded-full" :class="systemMetrics?.db_ok === false ? 'bg-red-500' : systemMetrics?.db_ok === true ? 'bg-emerald-500' : 'bg-gray-400'"></span>
-              <div class="text-lg font-black leading-none" :class="dbMiddleClass">
-                {{ dbMiddleLabel }}
-              </div>
-            </div>
-          </div>
-          <div
-            data-testid="ops-resource-database-progress"
-            role="progressbar"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            :aria-valuenow="clampResourcePercent(dbUsagePercent) ?? undefined"
-            class="mt-3 h-1.5 w-full overflow-hidden rounded-[3px] bg-gray-200 dark:bg-dark-700"
-          >
-            <div class="h-full rounded-[3px] transition-[width]" :class="dbProgressClass" :style="resourceProgressStyle(dbUsagePercent)"></div>
-          </div>
-          <div v-if="!props.fullscreen" class="mt-2 truncate text-[10px] text-gray-500 dark:text-gray-400" :title="`${t('admin.ops.conns')} ${dbConnOpenValue ?? '-'} / ${dbMaxOpenConnsValue ?? '-'} · ${t('admin.ops.active')} ${dbConnActiveValue ?? '-'} · ${t('admin.ops.idle')} ${dbConnIdleValue ?? '-'}`">
-            {{ t('admin.ops.conns') }} {{ dbConnOpenValue ?? '-' }} / {{ dbMaxOpenConnsValue ?? '-' }}
-            · {{ t('admin.ops.active') }} {{ dbConnActiveValue ?? '-' }}
-            · {{ t('admin.ops.idle') }} {{ dbConnIdleValue ?? '-' }}
-            <span v-if="dbConnWaitingValue != null"> · {{ t('admin.ops.waiting') }} {{ dbConnWaitingValue }} </span>
-          </div>
-        </div>
-
-        <!-- Redis -->
-        <div data-resource-kind="redis" class="ops-resource-cell">
-          <div class="flex items-start justify-between gap-2">
-            <div class="flex items-center gap-1">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Redis</div>
-              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.redis')" />
-            </div>
-            <div class="flex items-center gap-1.5">
-              <span class="h-1.5 w-1.5 rounded-full" :class="systemMetrics?.redis_ok === false ? 'bg-red-500' : systemMetrics?.redis_ok === true ? 'bg-emerald-500' : 'bg-gray-400'"></span>
-              <div class="text-lg font-black leading-none" :class="redisMiddleClass">
-                {{ redisMiddleLabel }}
-              </div>
-            </div>
-          </div>
-          <div
-            data-testid="ops-resource-redis-progress"
-            role="progressbar"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            :aria-valuenow="clampResourcePercent(redisUsagePercent) ?? undefined"
-            class="mt-3 h-1.5 w-full overflow-hidden rounded-[3px] bg-gray-200 dark:bg-dark-700"
-          >
-            <div class="h-full rounded-[3px] transition-[width]" :class="redisProgressClass" :style="resourceProgressStyle(redisUsagePercent)"></div>
-          </div>
-          <div v-if="!props.fullscreen" class="mt-2 truncate text-[10px] text-gray-500 dark:text-gray-400" :title="`${t('admin.ops.conns')} ${redisConnTotalValue ?? '-'} / ${redisPoolSizeValue ?? '-'} · ${t('admin.ops.active')} ${redisConnActiveValue ?? '-'} · ${t('admin.ops.idle')} ${redisConnIdleValue ?? '-'}`">
-            {{ t('admin.ops.conns') }} {{ redisConnTotalValue ?? '-' }} / {{ redisPoolSizeValue ?? '-' }}
-            <span v-if="redisConnActiveValue != null"> · {{ t('admin.ops.active') }} {{ redisConnActiveValue }} </span>
-            <span v-if="redisConnIdleValue != null"> · {{ t('admin.ops.idle') }} {{ redisConnIdleValue }} </span>
-          </div>
-        </div>
-
-        <!-- Goroutines -->
-        <div data-resource-kind="goroutines" class="ops-resource-cell ops-resource-status-cell">
-          <div class="flex items-start justify-between gap-2">
-            <div class="flex items-center gap-1">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.goroutines') }}</div>
-              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.goroutines')" />
-            </div>
-            <span class="inline-flex items-center gap-1 rounded-[3px] bg-white px-1.5 py-0.5 text-[10px] font-semibold shadow-sm ring-1 ring-gray-200 dark:bg-dark-800 dark:ring-dark-600" :class="goroutineStatusClass">
-              <span class="h-1.5 w-1.5 rounded-full" :class="goroutineStatus === 'critical' ? 'bg-red-500' : goroutineStatus === 'warning' ? 'bg-amber-500' : goroutineStatus === 'ok' ? 'bg-emerald-500' : 'bg-gray-400'"></span>
-              {{ goroutineStatusLabel }}
-            </span>
-          </div>
-          <div class="mt-3 flex items-baseline gap-1.5">
-            <span class="text-xl font-black text-gray-900 dark:text-white">{{ goroutineCountValue ?? '-' }}</span>
-            <span class="text-[10px] text-gray-400">{{ t('admin.ops.current') }}</span>
-          </div>
-          <div v-if="!props.fullscreen" class="mt-2 truncate text-[10px] text-gray-500 dark:text-gray-400">
-            {{ t('common.warning') }} <span class="font-mono">{{ goroutinesWarnThreshold }}</span>
-            · {{ t('common.critical') }} <span class="font-mono">{{ goroutinesCriticalThreshold }}</span>
-            <span v-if="systemMetrics?.concurrency_queue_depth != null">
-              · {{ t('admin.ops.queue') }} <span class="font-mono">{{ systemMetrics.concurrency_queue_depth }}</span>
-            </span>
-          </div>
-        </div>
-
-        <!-- Jobs -->
-        <div data-resource-kind="jobs" class="ops-resource-cell ops-resource-status-cell">
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-1">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.jobs') }}</div>
-              <UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.jobs')" />
-            </div>
-            <UiIconButton
-              v-if="!props.fullscreen"
-              icon="eye"
-              density="mini"
-              variant="ghost"
-              :label="t('admin.ops.requestDetails.details')"
-              @click="openJobsDetails"
+    <div v-if="overview" class="ops-quality">
+      <section data-overview-section="stability">
+        <header class="ops-section-heading"><strong>{{ t('admin.ops.overviewSections.stability') }}</strong></header>
+        <div class="ops-quality__grid">
+          <div class="ops-metric-with-action">
+            <UiThresholdMetric
+              data-testid="ops-sla-metric"
+              :label="t('admin.ops.sla')" :value="(overview.request_count_sla ?? 0) > 0 ? slaPercent : null" :threshold="props.thresholds?.sla_percent_min ?? 99" :max="100" unit="%" inverse
+              :context="formatNumber(overview.success_count ?? 0) + ' / ' + formatNumber(overview.request_count_sla ?? 0)"
+              :threshold-label="t('admin.ops.metricStatus.threshold')" :normal-label="t('admin.ops.metricStatus.normal')"
+              :near-label="t('admin.ops.metricStatus.near')" :breached-label="t('admin.ops.metricStatus.breached')" :no-data-label="t('admin.ops.noData')"
             />
+            <UiIconButton v-if="!props.fullscreen" data-testid="ops-sla-details" icon="eye" density="mini" variant="ghost" :label="t('admin.ops.requestDetails.details')" @click="openDetails({ title: t('admin.ops.requestDetails.title'), kind: 'error' })" />
           </div>
-
-          <div class="mt-3 flex items-center justify-between gap-2">
-            <span class="text-xl font-black text-gray-900 dark:text-white">{{ jobHeartbeats.length }}</span>
-            <span class="inline-flex items-center gap-1 rounded-[3px] bg-white px-1.5 py-0.5 text-[10px] font-semibold shadow-sm ring-1 ring-gray-200 dark:bg-dark-800 dark:ring-dark-600" :class="jobsStatusClass">
-              <span class="h-1.5 w-1.5 rounded-full" :class="jobsStatus === 'warn' ? 'bg-amber-500' : jobsStatus === 'ok' ? 'bg-emerald-500' : 'bg-gray-400'"></span>
-              {{ jobsStatusLabel }}
-            </span>
+          <div data-overview-metric="stability" class="ops-metric-with-action">
+            <UiThresholdMetric
+              data-testid="ops-request-error-metric"
+              :label="t('admin.ops.requestErrors')" :value="errorRatePercent" :threshold="props.thresholds?.request_error_rate_percent_max ?? 3"
+              :max="Math.max(10, props.thresholds?.request_error_rate_percent_max ?? 3)" unit="%"
+              :context="t('admin.ops.errorCount') + ' ' + formatNumber(overview.error_count_sla ?? 0)"
+              :threshold-label="t('admin.ops.metricStatus.threshold')" :normal-label="t('admin.ops.metricStatus.normal')"
+              :near-label="t('admin.ops.metricStatus.near')" :breached-label="t('admin.ops.metricStatus.breached')" :no-data-label="t('admin.ops.noData')"
+            />
+            <UiIconButton v-if="!props.fullscreen" icon="eye" density="mini" variant="ghost" :label="t('admin.ops.requestDetails.details')" @click="openErrorDetails('request')" />
           </div>
-
-          <div v-if="!props.fullscreen" class="mt-2 text-[10px] text-gray-500 dark:text-gray-400">
-            {{ t('common.warning') }} <span class="font-mono">{{ jobsWarnCount }}</span>
+          <div data-overview-metric="stability" class="ops-metric-with-action">
+            <UiThresholdMetric
+              data-testid="ops-upstream-error-metric"
+              :label="t('admin.ops.upstreamErrors')" :value="upstreamErrorRatePercent" :threshold="props.thresholds?.upstream_error_rate_percent_max ?? 5"
+              :max="Math.max(10, props.thresholds?.upstream_error_rate_percent_max ?? 5)" unit="%"
+              :context="t('admin.ops.errorCountExcl429529') + ' ' + formatNumber(overview.upstream_error_count_excl_429_529 ?? 0)"
+              :threshold-label="t('admin.ops.metricStatus.threshold')" :normal-label="t('admin.ops.metricStatus.normal')"
+              :near-label="t('admin.ops.metricStatus.near')" :breached-label="t('admin.ops.metricStatus.breached')" :no-data-label="t('admin.ops.noData')"
+            />
+            <UiIconButton v-if="!props.fullscreen" icon="eye" density="mini" variant="ghost" :label="t('admin.ops.requestDetails.details')" @click="openErrorDetails('upstream')" />
           </div>
         </div>
-      </div>
+      </section>
+
+      <section data-overview-section="latency">
+        <header class="ops-section-heading"><strong>{{ t('admin.ops.overviewSections.latency') }}</strong></header>
+        <div class="ops-latency-grid">
+          <div data-overview-metric="latency" class="ops-latency ops-metric-with-action">
+            <UiStatMetric :label="t('admin.ops.latencyDuration')" :value="durationP99Ms ?? '-'" unit="ms" :context="'P99 · ' + t('admin.ops.avg') + ' ' + (durationAvgMs ?? '-') + ' ms'" />
+            <UiIconButton v-if="!props.fullscreen" data-testid="ops-duration-details" icon="eye" density="mini" variant="ghost" :label="t('admin.ops.requestDetails.details')" @click="openDetails({ title: t('admin.ops.latencyDuration'), sort: 'duration_desc' })" />
+            <div class="ops-percentiles"><span>P95 <b>{{ durationP95Ms ?? '-' }}</b></span><span>P90 <b>{{ durationP90Ms ?? '-' }}</b></span><span>P50 <b>{{ durationP50Ms ?? '-' }}</b></span><span>Max <b>{{ durationMaxMs ?? '-' }}</b></span></div>
+          </div>
+          <div class="ops-latency ops-metric-with-action">
+            <UiThresholdMetric
+              data-testid="ops-ttft-metric"
+              :label="t('admin.ops.ttftLabel')" :value="ttftP99Ms" :threshold="props.thresholds?.ttft_p99_ms_max ?? 500"
+              :max="Math.max(1000, props.thresholds?.ttft_p99_ms_max ?? 500)" unit="ms"
+              :context="'P99 · ' + t('admin.ops.avg') + ' ' + (ttftAvgMs ?? '-') + ' ms'"
+              :threshold-label="t('admin.ops.metricStatus.threshold')" :normal-label="t('admin.ops.metricStatus.normal')"
+              :near-label="t('admin.ops.metricStatus.near')" :breached-label="t('admin.ops.metricStatus.breached')" :no-data-label="t('admin.ops.noData')"
+            />
+            <UiIconButton v-if="!props.fullscreen" data-testid="ops-ttft-details" icon="eye" density="mini" variant="ghost" :label="t('admin.ops.requestDetails.details')" @click="openDetails({ title: t('admin.ops.ttftLabel'), sort: 'duration_desc' })" />
+            <div class="ops-percentiles"><span>P95 <b>{{ ttftP95Ms ?? '-' }}</b></span><span>P90 <b>{{ ttftP90Ms ?? '-' }}</b></span><span>P50 <b>{{ ttftP50Ms ?? '-' }}</b></span><span>Max <b>{{ ttftMaxMs ?? '-' }}</b></span></div>
+          </div>
+        </div>
+      </section>
     </div>
+
+    <section v-if="overview" class="ops-resources">
+      <header class="ops-section-heading">
+        <div><strong>{{ t('admin.ops.systemHealth') }}</strong><small>{{ t('admin.ops.collectedAt') }}{{ systemMetrics?.created_at ? formatTimeShort(systemMetrics.created_at) : '-' }}</small></div>
+        <UiStatusBadge :status="systemMetrics ? 'healthy' : 'neutral'" :label="systemMetrics ? t('admin.ops.ok') : t('admin.ops.noData')" />
+      </header>
+      <div class="ops-resources__grid">
+        <article data-resource-kind="cpu" class="ops-resource">
+          <header><span>CPU</span><UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.cpu')" /></header>
+          <UiProgressBar :value="cpuPercentValue ?? 0" :tone="cpuPercentValue == null ? 'neutral' : cpuPercentValue >= 95 ? 'danger' : cpuPercentValue >= 80 ? 'warning' : 'success'" label="CPU" test-id="ops-resource-cpu-progress" />
+          <small>{{ t('common.warning') }} 80% · {{ t('common.critical') }} 95%</small>
+        </article>
+        <article data-resource-kind="memory" class="ops-resource">
+          <header><span>{{ t('admin.ops.memory') }}</span><UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.memory')" /></header>
+          <UiProgressBar :value="memPercentValue ?? 0" :tone="memPercentValue == null ? 'neutral' : memPercentValue >= 95 ? 'danger' : memPercentValue >= 85 ? 'warning' : 'success'" :label="t('admin.ops.memory')" test-id="ops-resource-memory-progress" />
+          <small>{{ systemMetrics?.memory_used_mb == null || systemMetrics?.memory_total_mb == null ? '-' : formatMemorySizeMB(systemMetrics.memory_used_mb) + ' / ' + formatMemorySizeMB(systemMetrics.memory_total_mb) }}</small>
+        </article>
+        <article data-resource-kind="database" class="ops-resource">
+          <header><span>{{ t('admin.ops.db') }}</span><UiStatusBadge :status="systemMetrics?.db_ok === false ? 'offline' : systemMetrics?.db_ok === true ? 'healthy' : 'neutral'" :label="dbMiddleLabel" /></header>
+          <UiProgressBar :value="dbUsagePercent ?? 0" :tone="systemMetrics?.db_ok === false ? 'danger' : dbUsagePercent == null ? 'neutral' : dbUsagePercent >= 90 ? 'danger' : dbUsagePercent >= 70 ? 'warning' : 'success'" :label="t('admin.ops.conns')" test-id="ops-resource-database-progress" />
+          <small>{{ t('admin.ops.active') }} {{ dbConnActiveValue ?? '-' }} · {{ t('admin.ops.idle') }} {{ dbConnIdleValue ?? '-' }} · {{ t('admin.ops.waiting') }} {{ dbConnWaitingValue ?? '-' }}</small>
+        </article>
+        <article data-resource-kind="redis" class="ops-resource">
+          <header><span>Redis</span><UiStatusBadge :status="systemMetrics?.redis_ok === false ? 'offline' : systemMetrics?.redis_ok === true ? 'healthy' : 'neutral'" :label="redisMiddleLabel" /></header>
+          <UiProgressBar :value="redisUsagePercent ?? 0" :tone="systemMetrics?.redis_ok === false ? 'danger' : redisUsagePercent == null ? 'neutral' : redisUsagePercent >= 90 ? 'danger' : redisUsagePercent >= 70 ? 'warning' : 'success'" :label="t('admin.ops.conns')" test-id="ops-resource-redis-progress" />
+          <small>{{ t('admin.ops.active') }} {{ redisConnActiveValue ?? '-' }} · {{ t('admin.ops.idle') }} {{ redisConnIdleValue ?? '-' }}</small>
+        </article>
+        <article data-resource-kind="goroutines" class="ops-resource ops-resource--status">
+          <header><span>{{ t('admin.ops.goroutines') }}</span><UiStatusBadge :status="goroutineStatus === 'ok' ? 'healthy' : goroutineStatus === 'critical' ? 'danger' : goroutineStatus" :label="goroutineStatusLabel" /></header>
+          <strong class="ui-numeric">{{ goroutineCountValue ?? '-' }}</strong>
+          <small>{{ t('common.warning') }} {{ goroutinesWarnThreshold }} · {{ t('common.critical') }} {{ goroutinesCriticalThreshold }} · {{ t('admin.ops.queue') }} {{ systemMetrics?.concurrency_queue_depth ?? '-' }}</small>
+        </article>
+        <article data-resource-kind="jobs" class="ops-resource ops-resource--status">
+          <header><span>{{ t('admin.ops.jobs') }}</span><UiIconButton v-if="!props.fullscreen" icon="eye" density="mini" variant="ghost" :label="t('admin.ops.requestDetails.details')" @click="openJobsDetails" /></header>
+          <div class="ops-resource__status-value"><strong class="ui-numeric">{{ jobHeartbeats.length }}</strong><UiStatusBadge :status="jobsStatus === 'ok' ? 'healthy' : jobsStatus === 'warn' ? 'warning' : 'neutral'" :label="jobsStatusLabel" /></div>
+          <small>{{ t('common.warning') }} {{ jobsWarnCount }}</small>
+        </article>
+      </div>
+    </section>
 
     <UiDialog :show="showJobsDetails" :title="t('admin.ops.jobs')" width="wide" @close="showJobsDetails = false">
-      <div v-if="!jobHeartbeats.length" class="text-sm text-gray-500 dark:text-gray-400">
-        {{ t('admin.ops.noData') }}
-      </div>
-      <div v-else class="space-y-3">
-        <div
-          v-for="hb in jobHeartbeats"
-          :key="hb.job_name"
-          class="rounded-[4px] border border-gray-100 bg-white p-4 dark:border-dark-700 dark:bg-dark-900"
-        >
-          <div class="flex items-center justify-between gap-3">
-            <div class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ hb.job_name }}</div>
-            <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-              <span v-if="hb.last_duration_ms != null" class="font-mono">{{ hb.last_duration_ms }}ms</span>
-              <span>{{ formatTimeShort(hb.updated_at) }}</span>
-            </div>
-          </div>
-
-          <div class="mt-2 grid grid-cols-1 gap-2 text-xs text-gray-600 dark:text-gray-300 sm:grid-cols-2">
-            <div>
-              {{ t('admin.ops.lastSuccess') }} <span class="font-mono">{{ formatTimeShort(hb.last_success_at) }}</span>
-            </div>
-            <div>
-              {{ t('admin.ops.lastError') }} <span class="font-mono">{{ formatTimeShort(hb.last_error_at) }}</span>
-            </div>
-            <div>
-              {{ t('admin.ops.result') }} <span class="font-mono">{{ hb.last_result || '-' }}</span>
-            </div>
-          </div>
-
-          <div
-            v-if="hb.last_error"
-            class="mt-3 rounded-lg bg-rose-50 p-2 text-xs text-rose-700 dark:bg-rose-900/20 dark:text-rose-300"
-          >
-            {{ hb.last_error }}
-          </div>
-        </div>
-      </div>
+      <UiEmptyState v-if="!jobHeartbeats.length" :title="t('admin.ops.noData')" icon="inbox" />
+      <AppStack v-else :gap="8">
+        <article v-for="heartbeat in jobHeartbeats" :key="heartbeat.job_name" class="ops-job">
+          <header><strong>{{ heartbeat.job_name }}</strong><UiStatusBadge :status="heartbeat.last_error_at && (!heartbeat.last_success_at || heartbeat.last_error_at > heartbeat.last_success_at) ? 'warning' : 'healthy'" :label="heartbeat.last_error_at && (!heartbeat.last_success_at || heartbeat.last_error_at > heartbeat.last_success_at) ? t('common.warning') : t('admin.ops.ok')" /></header>
+          <dl>
+            <div><dt>{{ t('admin.ops.lastSuccess') }}</dt><dd>{{ formatTimeShort(heartbeat.last_success_at) }}</dd></div>
+            <div><dt>{{ t('admin.ops.lastError') }}</dt><dd>{{ formatTimeShort(heartbeat.last_error_at) }}</dd></div>
+            <div><dt>{{ t('admin.ops.result') }}</dt><dd>{{ heartbeat.last_result || '-' }}</dd></div>
+            <div><dt>{{ t('admin.ops.lastRun') }}</dt><dd>{{ formatTimeShort(heartbeat.updated_at) }}</dd></div>
+          </dl>
+          <UiAlert v-if="heartbeat.last_error" tone="danger">{{ heartbeat.last_error }}</UiAlert>
+        </article>
+      </AppStack>
     </UiDialog>
 
     <UiDialog :show="showCustomTimeRangeDialog" :title="t('admin.ops.timeRange.custom')" width="narrow" @close="handleCustomTimeRangeCancel">
       <AppStack :gap="16">
-        <UiTextField
-          v-model="customStartTimeInput"
-          type="datetime-local"
-          density="compact"
-          test-id="ops-custom-start-time"
-          :label="t('admin.ops.customTimeRange.startTime')"
-        />
-        <UiTextField
-          v-model="customEndTimeInput"
-          type="datetime-local"
-          density="compact"
-          test-id="ops-custom-end-time"
-          :label="t('admin.ops.customTimeRange.endTime')"
-        />
+        <UiTextField v-model="customStartTimeInput" type="datetime-local" density="compact" test-id="ops-custom-start-time" :label="t('admin.ops.customTimeRange.startTime')" />
+        <UiTextField v-model="customEndTimeInput" type="datetime-local" density="compact" test-id="ops-custom-end-time" :label="t('admin.ops.customTimeRange.endTime')" />
       </AppStack>
       <template #footer>
         <AppInline justify="flex-end">
-          <UiButton
-            data-testid="ops-custom-time-cancel"
-            density="compact"
-            variant="secondary"
-            @click="handleCustomTimeRangeCancel"
-          >
-            {{ t('common.cancel') }}
-          </UiButton>
-          <UiButton
-            data-testid="ops-custom-time-confirm"
-            density="compact"
-            variant="primary"
-            :disabled="!customStartTimeInput || !customEndTimeInput"
-            @click="handleCustomTimeRangeConfirm"
-          >
-            {{ t('common.confirm') }}
-          </UiButton>
+          <UiButton data-testid="ops-custom-time-cancel" density="compact" @click="handleCustomTimeRangeCancel">{{ t('common.cancel') }}</UiButton>
+          <UiButton data-testid="ops-custom-time-confirm" density="compact" variant="primary" :disabled="!customStartTimeInput || !customEndTimeInput" @click="handleCustomTimeRangeConfirm">{{ t('common.confirm') }}</UiButton>
         </AppInline>
       </template>
     </UiDialog>
-  </div>
+  </section>
 </template>
 
 <style scoped>
-.ops-kpi-cell,
-.ops-resource-cell {
-  min-width: 0;
-}
-
-.ops-kpi-cell {
-  background: transparent;
-  border-bottom: 1px solid rgb(243 244 246);
-}
-
-.ops-traffic-cell { order: 1; }
-.ops-stability-sla { order: 2; }
-.ops-stability-request { order: 3; }
-.ops-stability-upstream { order: 4; }
-.ops-latency-duration { order: 5; }
-.ops-latency-ttft { order: 6; border-bottom: 0; }
-
-.ops-resource-cell {
-  border-bottom: 1px solid rgb(243 244 246);
-}
-
-.ops-resource-cell:nth-last-child(-n + 2) {
-  border-bottom: 0;
-}
-
-.ops-toolbar {
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--ui-border-soft);
-}
-
-.ops-toolbar-status {
-  min-width: 0;
-}
-
-.ops-toolbar__title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  color: var(--ui-text);
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.ops-toolbar__status-line,
-.ops-toolbar-controls {
-  display: flex;
-  align-items: center;
-}
-
-.ops-toolbar__status-line {
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  color: var(--ui-text-muted);
-  font-size: 12px;
-}
-
-.ops-toolbar-controls {
-  flex: 1;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.ops-toolbar__separator {
-  width: 1px;
-  height: 16px;
-  margin: 0 4px;
-  background: var(--ui-border);
-}
-
-.ops-toolbar__refresh-icon--loading {
-  animation: ops-toolbar-spin 0.8s linear infinite;
-}
-
-@keyframes ops-toolbar-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-:global(.dark) .ops-kpi-cell,
-:global(.dark) .ops-resource-cell {
-  border-color: rgb(55 65 81);
-}
-
-@media (min-width: 640px) {
-  .ops-kpi-grid {
-    grid-template-rows: auto repeat(6, minmax(0, 1fr));
-  }
-
-  .ops-traffic-cell {
-    grid-column: 1 / -1;
-    grid-row: 1;
-  }
-
-  .ops-stability-sla {
-    grid-column: 1;
-    grid-row: 2 / 4;
-    border-right: 1px solid rgb(243 244 246);
-  }
-
-  .ops-stability-request {
-    grid-column: 1;
-    grid-row: 4 / 6;
-    border-right: 1px solid rgb(243 244 246);
-  }
-
-  .ops-stability-upstream {
-    grid-column: 1;
-    grid-row: 6 / 8;
-    border-right: 1px solid rgb(243 244 246);
-  }
-
-  .ops-latency-duration {
-    grid-column: 2;
-    grid-row: 2 / 5;
-  }
-
-  .ops-latency-ttft {
-    grid-column: 2;
-    grid-row: 5 / 8;
-  }
-
-  .ops-resource-cell:not(:nth-child(3n)) {
-    border-right: 1px solid rgb(243 244 246);
-  }
-
-  .ops-resource-cell:nth-last-child(-n + 3) {
-    border-bottom: 0;
-  }
-
-  :global(.dark) .ops-stability-sla,
-  :global(.dark) .ops-stability-request,
-  :global(.dark) .ops-stability-upstream,
-  :global(.dark) .ops-resource-cell:not(:nth-child(3n)) {
-    border-right-color: rgb(55 65 81);
-  }
-}
-
-@media (max-width: 1359px) {
-  .ops-toolbar {
-    align-items: flex-start;
-  }
-
-  .ops-toolbar-status,
-  .ops-toolbar-controls {
-    width: 100%;
-  }
-
-  .ops-toolbar-controls {
-    flex: none;
-    justify-content: flex-start;
-  }
-}
-
-@media (max-width: 639px) {
-  .ops-toolbar__separator,
-  .ops-toolbar__button-label {
-    display: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ops-toolbar__refresh-icon--loading {
-    animation: none;
-  }
-}
-
-@media (min-width: 1024px) {
-  .ops-resource-cell {
-    border-right: 1px solid rgb(243 244 246);
-    border-bottom: 0;
-  }
-
-  .ops-resource-cell:last-child {
-    border-right: 0;
-  }
-
-  :global(.dark) .ops-resource-cell {
-    border-right-color: rgb(55 65 81);
-  }
-}
-
-@media (min-width: 1280px) {
-  .ops-kpi-grid {
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1.2fr);
-    grid-template-rows: repeat(6, minmax(0, 1fr));
-  }
-
-  .ops-kpi-cell {
-    grid-column: auto;
-    border-bottom: 0;
-    border-right: 0;
-  }
-
-  .ops-traffic-cell {
-    grid-column: 1;
-    grid-row: 1 / 7;
-    border-right: 1px solid rgb(243 244 246);
-  }
-
-  .ops-stability-sla {
-    grid-column: 2;
-    grid-row: 1 / 3;
-    border-right: 1px solid rgb(243 244 246);
-    border-bottom: 1px solid rgb(243 244 246);
-  }
-
-  .ops-stability-request {
-    grid-column: 2;
-    grid-row: 3 / 5;
-    border-right: 1px solid rgb(243 244 246);
-    border-bottom: 1px solid rgb(243 244 246);
-  }
-
-  .ops-stability-upstream {
-    grid-column: 2;
-    grid-row: 5 / 7;
-    border-right: 1px solid rgb(243 244 246);
-  }
-
-  .ops-latency-duration {
-    grid-column: 3;
-    grid-row: 1 / 4;
-    border-bottom: 1px solid rgb(243 244 246);
-  }
-
-  .ops-latency-ttft {
-    grid-column: 3;
-    grid-row: 4 / 7;
-  }
-
-  :global(.dark) .ops-traffic-cell,
-  :global(.dark) .ops-stability-sla,
-  :global(.dark) .ops-stability-request,
-  :global(.dark) .ops-stability-upstream {
-    border-right-color: rgb(55 65 81);
-  }
-
-  :global(.dark) .ops-stability-sla,
-  :global(.dark) .ops-stability-request,
-  :global(.dark) .ops-latency-duration {
-    border-bottom-color: rgb(55 65 81);
-  }
-}
-
-/* Command overview: one health cell, one traffic cell, and a grouped service-quality area. */
-.ops-overview-health {
-  min-height: 250px;
-}
-
-.ops-kpi-grid,
-.ops-service-grid {
-  min-width: 0;
-}
-
-.ops-traffic-cell {
-  order: 0;
-  border-bottom: 1px solid rgb(243 244 246);
-}
-
-.ops-service-grid {
-  order: 0;
-}
-
-.ops-service-grid .ops-kpi-cell {
-  min-height: 0;
-  border-right: 0;
-  border-bottom: 1px solid rgb(243 244 246);
-}
-
-.ops-service-grid .ops-stability-sla { grid-row: 1; }
-.ops-service-grid .ops-stability-request { grid-row: 2; }
-.ops-service-grid .ops-stability-upstream { grid-row: 3; }
-.ops-service-grid .ops-latency-duration { grid-row: 4; }
-.ops-service-grid .ops-latency-ttft { grid-row: 5; }
-
-.ops-resource-grid > .ops-resource-cell.ops-resource-cell {
-  min-height: 108px;
-  padding: 12px;
-  border: 1px solid rgb(229 231 235);
-  border-right: 1px solid rgb(229 231 235);
-  border-bottom: 1px solid rgb(229 231 235);
-  border-radius: 4px;
-  background: rgb(249 250 251 / 0.72);
-}
-
-:global(.dark) .ops-service-grid .ops-kpi-cell {
-  border-color: rgb(55 65 81);
-}
-
-:global(.dark) .ops-resource-grid > .ops-resource-cell.ops-resource-cell {
-  border-color: rgb(55 65 81);
-  background: rgb(17 24 39 / 0.34);
-}
-
-@media (min-width: 768px) {
-  .ops-kpi-grid {
-    grid-template-columns: minmax(230px, 1fr) minmax(0, 2.15fr);
-  }
-
-  .ops-traffic-cell {
-    grid-column: 1;
-    grid-row: 1;
-    border-right: 1px solid rgb(243 244 246);
-    border-bottom: 0;
-  }
-
-  .ops-service-grid {
-    grid-column: 2;
-    grid-row: 1;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-    grid-template-rows: repeat(6, minmax(0, 1fr));
-  }
-
-  .ops-service-grid .ops-stability-sla {
-    grid-column: 1;
-    grid-row: 1 / 3;
-    border-right: 1px solid rgb(243 244 246);
-  }
-
-  .ops-service-grid .ops-stability-request {
-    grid-column: 1;
-    grid-row: 3 / 5;
-    border-right: 1px solid rgb(243 244 246);
-  }
-
-  .ops-service-grid .ops-stability-upstream {
-    grid-column: 1;
-    grid-row: 5 / 7;
-    border-right: 1px solid rgb(243 244 246);
-    border-bottom: 0;
-  }
-
-  .ops-service-grid .ops-latency-duration {
-    grid-column: 2;
-    grid-row: 1 / 4;
-  }
-
-  .ops-service-grid .ops-latency-ttft {
-    grid-column: 2;
-    grid-row: 4 / 7;
-    border-bottom: 0;
-  }
-
-  :global(.dark) .ops-traffic-cell,
-  :global(.dark) .ops-service-grid .ops-stability-sla,
-  :global(.dark) .ops-service-grid .ops-stability-request,
-  :global(.dark) .ops-service-grid .ops-stability-upstream {
-    border-right-color: rgb(55 65 81);
-  }
-}
-
-@media (min-width: 1024px) {
-  .ops-overview-health,
-  .ops-kpi-grid {
-    min-height: 352px;
-  }
-}
-
-@media (min-width: 1280px) {
-  .ops-kpi-grid {
-    grid-template-columns: minmax(245px, 1.02fr) minmax(0, 2.18fr);
-    grid-template-rows: minmax(0, 1fr);
-  }
-
-  .ops-service-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.18fr);
-  }
-}
+.ops-command{display:grid;min-width:0;gap:16px;color:var(--ui-text)}
+.ops-command--fullscreen{min-height:100%;padding:24px;background:var(--ui-bg)}
+.ops-toolbar{border-bottom:1px solid var(--ui-border-soft)}
+.ops-toolbar__status,.ops-toolbar__status-line,.ops-toolbar__controls,.ops-toolbar h1{display:flex;min-width:0;align-items:center;gap:8px}
+.ops-toolbar h1{margin:0;font-size:20px;line-height:28px}
+.ops-toolbar__status-line{flex-wrap:wrap;color:var(--ui-text-soft);font-size:11px}
+.ops-toolbar__controls{justify-content:flex-end}.ops-filter{min-width:132px}.ops-filter--group{min-width:156px}
+.ops-diagnosis__action{display:block;margin-top:4px;color:var(--ui-text)}.ops-diagnosis__action b{margin-left:6px}
+.ops-overview{display:grid;min-width:0;grid-template-columns:minmax(180px,.45fr) minmax(0,1.55fr);gap:12px}
+.ops-health{display:flex;width:100%;min-height:196px;align-items:center;justify-content:center;gap:18px;padding:20px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius-panel);color:var(--ui-text);background:var(--ui-surface);text-align:left;cursor:pointer}
+.ops-health:hover{border-color:var(--ui-border);background:var(--ui-surface-muted)}
+.ops-health__copy{display:grid;max-width:150px;gap:4px}.ops-health__copy strong{font-size:14px}.ops-health__copy small{color:var(--ui-text-soft);font-size:11px;line-height:17px}
+.ops-diagnosis{display:grid;gap:10px;padding:6px}.ops-diagnosis>header{display:flex;align-items:center;gap:8px;padding:4px 4px 10px;border-bottom:1px solid var(--ui-border-soft)}
+.ops-diagnosis__item{display:grid;grid-template-columns:16px minmax(0,1fr);gap:9px;padding:4px}.ops-diagnosis__item strong{display:block;font-size:12px;line-height:18px}
+.ops-diagnosis__item p,.ops-diagnosis__item small{display:block;margin:2px 0 0;color:var(--ui-text-muted);font-size:11px;line-height:17px}.ops-diagnosis__item small{color:var(--ui-text)}
+.ops-diagnosis footer{padding:8px 4px 2px;border-top:1px solid var(--ui-border-soft);color:var(--ui-text-soft);font-size:10px}
+.ops-traffic{display:grid;min-width:0;gap:10px}.ops-section-heading{display:flex;min-height:32px;align-items:center;justify-content:space-between;gap:12px}
+.ops-section-heading>div{display:flex;min-width:0;align-items:baseline;gap:8px}.ops-section-heading strong{font-size:13px;font-weight:600}.ops-section-heading small{color:var(--ui-text-soft);font-size:10px}
+.ops-traffic__grid{display:grid;min-width:0;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.ops-traffic>.ui-button{justify-self:end}
+.ops-quality{display:grid;min-width:0;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:16px;padding-top:4px;border-top:1px solid var(--ui-border-soft)}
+.ops-quality>section{display:grid;min-width:0;gap:8px}.ops-quality__grid{display:grid;min-width:0;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ops-metric-with-action{position:relative;min-width:0}.ops-metric-with-action>.ui-icon-button{position:absolute;z-index:1;top:6px;right:6px}
+.ops-latency-grid{display:grid;min-width:0;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ops-latency{display:grid;min-width:0;gap:6px}
+.ops-percentiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;color:var(--ui-text-soft);font-size:10px}.ops-percentiles span{display:flex;min-width:0;justify-content:space-between;gap:4px;padding:0 4px}.ops-percentiles b{color:var(--ui-text);font-weight:500;font-variant-numeric:tabular-nums}
+.ops-resources{display:grid;min-width:0;gap:8px;padding-top:4px;border-top:1px solid var(--ui-border-soft)}.ops-resources__grid{display:grid;min-width:0;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.ops-resource{display:grid;min-width:0;min-height:112px;align-content:start;gap:9px;padding:10px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius);background:var(--ui-surface)}
+.ops-resource>header,.ops-resource__status-value{display:flex;min-width:0;align-items:center;justify-content:space-between;gap:8px}.ops-resource>header>span{color:var(--ui-text-muted);font-size:11px;font-weight:600}
+.ops-resource>small{overflow:hidden;color:var(--ui-text-soft);font-size:10px;line-height:16px;text-overflow:ellipsis;white-space:nowrap}.ops-resource--status>strong,.ops-resource__status-value>strong{font-size:22px;font-weight:500;line-height:28px}
+.ops-job{display:grid;gap:10px;padding:12px 0;border-bottom:1px solid var(--ui-border-soft)}.ops-job:last-child{border-bottom:0}.ops-job>header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ops-job dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;gap:8px 16px}.ops-job dl>div{display:grid;grid-template-columns:minmax(80px,.6fr) minmax(0,1fr);gap:8px}
+.ops-job dt{color:var(--ui-text-soft);font-size:11px}.ops-job dd{min-width:0;margin:0;overflow-wrap:anywhere;font-family:var(--ui-font-mono);font-size:11px}
+@media(max-width:1199px){.ops-overview{grid-template-columns:minmax(160px,.4fr) minmax(0,1.6fr)}.ops-traffic__grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ops-quality{grid-template-columns:1fr}.ops-resources__grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:767px){.ops-toolbar__controls{width:100%;flex-wrap:wrap}.ops-filter{min-width:min(100%,140px);flex:1 1 140px}.ops-overview{grid-template-columns:1fr}.ops-health{min-height:150px}.ops-quality__grid{grid-template-columns:1fr}.ops-resources__grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:479px){.ops-command{gap:12px}.ops-command--fullscreen{padding:16px}.ops-toolbar__button-label{display:none}.ops-health{justify-content:flex-start}.ops-traffic__grid,.ops-latency-grid,.ops-resources__grid{grid-template-columns:1fr}.ops-percentiles{grid-template-columns:repeat(2,minmax(0,1fr))}.ops-job dl{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.ops-health{transition:none}}
 </style>

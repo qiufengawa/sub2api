@@ -468,8 +468,8 @@ onMounted(async () => {
           <UiProgressBar class="ops-system-log__queue-progress" :value="queueUsagePercent" :show-value="false" />
         </div>
         <div class="ops-system-log__metric"><span>{{ t('admin.ops.systemLogs.written') }}</span><strong>{{ health.written_count }}</strong></div>
-        <div class="ops-system-log__metric"><span>{{ t('admin.ops.systemLogs.dropped') }}</span><strong :class="{ 'is-warning': health.dropped_count > 0 }">{{ health.dropped_count }}</strong></div>
-        <div class="ops-system-log__metric"><span>{{ t('admin.ops.systemLogs.failed') }}</span><strong :class="{ 'is-danger': health.write_failed_count > 0 }">{{ health.write_failed_count }}</strong></div>
+        <div class="ops-system-log__metric"><span>{{ t('admin.ops.systemLogs.dropped') }}</span><strong :class="{ 'ops-system-log__metric-value--warning': health.dropped_count > 0 }">{{ health.dropped_count }}</strong></div>
+        <div class="ops-system-log__metric"><span>{{ t('admin.ops.systemLogs.failed') }}</span><strong :class="{ 'ops-system-log__metric-value--danger': health.write_failed_count > 0 }">{{ health.write_failed_count }}</strong></div>
         <div class="ops-system-log__metric"><span>{{ t('admin.ops.systemLogs.avgWriteDelay') }}</span><strong>{{ health.avg_write_delay_ms }} ms</strong></div>
       </div>
     </header>
@@ -587,7 +587,7 @@ onMounted(async () => {
 .ops-system-log__metric strong { display: block; margin-top: 2px; overflow: hidden; color: var(--ui-text); font-size: 13px; font-variant-numeric: tabular-nums; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
 .ops-system-log__metric--queue { display: grid; grid-template-columns: 1fr auto; column-gap: 8px; }
 .ops-system-log__queue-progress { grid-column: 1 / -1; gap: 0; margin-top: 4px; }
-.is-warning { color: var(--ui-warning) !important; }.is-danger { color: var(--ui-danger) !important; }
+.ops-system-log__metric .ops-system-log__metric-value--warning { color: var(--ui-warning); }.ops-system-log__metric .ops-system-log__metric-value--danger { color: var(--ui-danger); }
 .ops-system-log__health-error { margin: 0; padding: 8px 16px; border-bottom: 1px solid color-mix(in srgb,var(--ui-danger) 20%,var(--ui-border)); color: var(--ui-danger); background: color-mix(in srgb,var(--ui-danger) 6%,var(--ui-surface)); font-size: 12px; line-height: 18px; }
 .ops-system-log__controls { padding: 8px 16px 14px; border-bottom: 1px solid var(--ui-border-soft); }
 .ops-system-log__filter { min-width: 140px; flex: 1; }.ops-system-log__filter--wide { min-width: 220px; flex: 1.5; }

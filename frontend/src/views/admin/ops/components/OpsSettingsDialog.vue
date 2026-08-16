@@ -5,6 +5,7 @@ import { useAppStore } from '@/stores/app'
 import { opsAPI } from '@/api/admin/ops'
 import {
   UiAlert,
+  UiAccordion,
   UiButton,
   UiDialog,
   UiEmptyState,
@@ -42,6 +43,54 @@ const advancedSettings = ref<OpsAdvancedSettings | null>(null)
 // 指标阈值配置
 const metricThresholds = ref<OpsMetricThresholds | null>(null)
 
+const runtimeSections = computed(() => [
+  { key: 'runtime', title: t('admin.ops.runtime.advancedSettingsSummary') }
+])
+
+function normalizeRuntimeSettings(runtime: OpsAlertRuntimeSettings): OpsAlertRuntimeSettings {
+  return {
+    ...runtime,
+    distributed_lock: runtime.distributed_lock ?? { enabled: false, key: 'ops:alert:evaluator', ttl_seconds: 60 },
+    silencing: {
+      ...runtime.silencing,
+      enabled: runtime.silencing?.enabled ?? false,
+      global_until_rfc3339: runtime.silencing?.global_until_rfc3339 ?? '',
+      global_reason: runtime.silencing?.global_reason ?? '',
+      entries: runtime.silencing?.entries ?? []
+    },
+    thresholds: runtime.thresholds ?? {}
+  }
+}
+
+function normalizeEmailConfig(email: EmailNotificationConfig): EmailNotificationConfig {
+  return {
+    alert: {
+      ...email.alert,
+      enabled: email.alert?.enabled ?? false,
+      recipients: email.alert?.recipients ?? [],
+      min_severity: email.alert?.min_severity ?? '',
+      rate_limit_per_hour: email.alert?.rate_limit_per_hour ?? 0,
+      batching_window_seconds: email.alert?.batching_window_seconds ?? 0,
+      include_resolved_alerts: email.alert?.include_resolved_alerts ?? false
+    },
+    report: {
+      ...email.report,
+      enabled: email.report?.enabled ?? false,
+      recipients: email.report?.recipients ?? [],
+      daily_summary_enabled: email.report?.daily_summary_enabled ?? false,
+      daily_summary_schedule: email.report?.daily_summary_schedule ?? '',
+      weekly_summary_enabled: email.report?.weekly_summary_enabled ?? false,
+      weekly_summary_schedule: email.report?.weekly_summary_schedule ?? '',
+      error_digest_enabled: email.report?.error_digest_enabled ?? false,
+      error_digest_schedule: email.report?.error_digest_schedule ?? '',
+      error_digest_min_count: email.report?.error_digest_min_count ?? 0,
+      account_health_enabled: email.report?.account_health_enabled ?? false,
+      account_health_schedule: email.report?.account_health_schedule ?? '',
+      account_health_error_rate_threshold: email.report?.account_health_error_rate_threshold ?? 0
+    }
+  }
+}
+
 // 加载所有配置
 async function loadAllSettings() {
   const requestId = ++loadRequestId
@@ -61,12 +110,15 @@ async function loadAllSettings() {
       opsAPI.getMetricThresholds()
     ])
     if (requestId !== loadRequestId || !props.show) return
-    runtimeSettings.value = runtime
-    emailConfig.value = email
+    runtimeSettings.value = normalizeRuntimeSettings(runtime)
+    emailConfig.value = normalizeEmailConfig(email)
     advancedSettings.value = advanced
     // 兼容旧 payload：后端未返回该字段时补默认值，保证表单可绑定
     if (advancedSettings.value && !advancedSettings.value.openai_account_quota_auto_pause) {
       advancedSettings.value.openai_account_quota_auto_pause = { default_threshold_5h: 0, default_threshold_7d: 0 }
+    }
+    if (advancedSettings.value && advancedSettings.value.ignore_invalid_api_key_errors == null) {
+      advancedSettings.value.ignore_invalid_api_key_errors = false
     }
     metricThresholds.value = { ...(thresholds || {}) }
     loadSucceeded.value = true
@@ -111,6 +163,43 @@ const severityOptions: Array<{ value: AlertSeverity | ''; label: string }> = [
 // 验证邮箱
 function isValidEmailAddress(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+function isNonNegativeNumber(value: unknown): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+}
+
+function isValidSchedule(enabled: boolean, schedule: string): boolean {
+  return !enabled || Boolean(schedule?.trim() && schedule.trim().split(/\s+/).length >= 5)
+}
+
+function isValidRFC3339(value: string): boolean {
+  if (!value.trim()) return true
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value.trim()) && !Number.isNaN(Date.parse(value))
+}
+
+function addSilenceEntry() {
+  if (!runtimeSettings.value) return
+  const entries = runtimeSettings.value.silencing.entries ?? (runtimeSettings.value.silencing.entries = [])
+  entries.push({ until_rfc3339: '', reason: '' })
+}
+
+function removeSilenceEntry(index: number) {
+  runtimeSettings.value?.silencing.entries?.splice(index, 1)
+}
+
+function updateSilenceRuleId(index: number, value: string | number | null) {
+  const entry = runtimeSettings.value?.silencing.entries?.[index]
+  if (!entry) return
+  const parsed = Number(value)
+  entry.rule_id = Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
+}
+
+function updateSilenceSeverities(index: number, value: string | number | null) {
+  const entry = runtimeSettings.value?.silencing.entries?.[index]
+  if (!entry) return
+  const severities = String(value ?? '').split(',').map((item) => item.trim().toUpperCase()).filter(Boolean)
+  entry.severities = severities.length ? severities : undefined
 }
 
 // 添加收件人
@@ -173,9 +262,40 @@ const validation = computed(() => {
     if (!Number.isFinite(evalSeconds) || evalSeconds < 1 || evalSeconds > 86400) {
       errors.push(t('admin.ops.runtime.validation.evalIntervalRange'))
     }
+    const lock = runtimeSettings.value.distributed_lock
+    if (lock.enabled && (!lock.key.trim() || !lock.key.startsWith('ops:'))) {
+      errors.push(t('admin.ops.runtime.validation.lockKeyPrefix', { prefix: 'ops:' }))
+    }
+    if (lock.enabled && (!Number.isFinite(lock.ttl_seconds) || lock.ttl_seconds < 1 || lock.ttl_seconds > 86400)) {
+      errors.push(t('admin.ops.runtime.validation.lockTtlRange'))
+    }
+    const silencing = runtimeSettings.value.silencing
+    if (silencing.enabled && !isValidRFC3339(silencing.global_until_rfc3339)) {
+      errors.push(t('admin.ops.runtime.silencing.validation.timeFormat'))
+    }
+    for (const entry of silencing.entries ?? []) {
+      if (!entry.until_rfc3339.trim()) errors.push(t('admin.ops.runtime.silencing.entries.validation.untilRequired'))
+      else if (!isValidRFC3339(entry.until_rfc3339)) errors.push(t('admin.ops.runtime.silencing.entries.validation.untilFormat'))
+      if (entry.rule_id != null && (!Number.isInteger(entry.rule_id) || entry.rule_id <= 0)) errors.push(t('admin.ops.runtime.silencing.entries.validation.ruleIdPositive'))
+      if (entry.severities?.some((severity) => !/^P[0-3]$/.test(String(severity)))) errors.push(t('admin.ops.runtime.silencing.entries.validation.severitiesFormat'))
+    }
   }
 
-  // 邮件配置: 启用但无收件人时不阻断保存, 保存时会自动禁用
+  if (emailConfig.value) {
+    const { alert, report } = emailConfig.value
+    if (!isNonNegativeNumber(alert.rate_limit_per_hour)) errors.push(t('admin.ops.email.validation.rateLimitRange'))
+    if (!isNonNegativeNumber(alert.batching_window_seconds) || alert.batching_window_seconds > 86400) errors.push(t('admin.ops.email.validation.batchWindowRange'))
+    if (!isValidSchedule(report.daily_summary_enabled, report.daily_summary_schedule) ||
+        !isValidSchedule(report.weekly_summary_enabled, report.weekly_summary_schedule) ||
+        !isValidSchedule(report.error_digest_enabled, report.error_digest_schedule) ||
+        !isValidSchedule(report.account_health_enabled, report.account_health_schedule)) {
+      errors.push(t('admin.ops.email.validation.cronFormat'))
+    }
+    if (!isNonNegativeNumber(report.error_digest_min_count)) errors.push(t('admin.ops.email.validation.digestMinCountRange'))
+    if (!Number.isFinite(report.account_health_error_rate_threshold) || report.account_health_error_rate_threshold < 0 || report.account_health_error_rate_threshold > 100) {
+      errors.push(t('admin.ops.email.validation.accountHealthThresholdRange'))
+    }
+  }
 
   // 验证高级设置
   if (advancedSettings.value) {
@@ -309,6 +429,15 @@ async function saveAllSettings() {
           <div v-if="emailConfig.alert.enabled">
             <UiSelect v-model="emailConfig.alert.min_severity" density="compact" :label="t('admin.ops.settings.minSeverity')" :options="severityOptions" />
           </div>
+
+          <div v-if="emailConfig.alert.enabled" class="ops-settings__grid ops-settings__grid--2">
+            <UiTextField v-model.number="emailConfig.alert.rate_limit_per_hour" type="number" density="compact" :min="0" :max="100000" :label="t('admin.ops.email.rateLimitPerHour')" />
+            <UiTextField v-model.number="emailConfig.alert.batching_window_seconds" type="number" density="compact" :min="0" :max="86400" :label="t('admin.ops.email.batchWindowSeconds')" />
+            <div class="ops-settings__switch-row">
+              <label class="ops-settings__switch-label">{{ t('admin.ops.email.includeResolved') }}</label>
+              <UiSwitch v-model="emailConfig.alert.include_resolved_alerts" :label="t('admin.ops.email.includeResolved')" />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -359,9 +488,75 @@ async function saveAllSettings() {
             <div v-if="emailConfig.report.weekly_summary_enabled">
               <UiTextField v-model="emailConfig.report.weekly_summary_schedule" density="compact" monospace placeholder="0 9 * * 1" />
             </div>
+            <div class="ops-settings__switch-row">
+              <label class="ops-settings__switch-label">{{ t('admin.ops.email.errorDigest') }}</label>
+              <UiSwitch v-model="emailConfig.report.error_digest_enabled" :label="t('admin.ops.email.errorDigest')" />
+            </div>
+            <div v-if="emailConfig.report.error_digest_enabled" class="ops-settings__grid ops-settings__grid--2">
+              <UiTextField v-model="emailConfig.report.error_digest_schedule" density="compact" monospace :label="t('admin.ops.email.errorDigest')" :placeholder="t('admin.ops.email.cronPlaceholder')" />
+              <UiTextField v-model.number="emailConfig.report.error_digest_min_count" type="number" density="compact" :min="0" :max="1000000" :label="t('admin.ops.email.errorDigestMinCount')" />
+            </div>
+            <div class="ops-settings__switch-row">
+              <label class="ops-settings__switch-label">{{ t('admin.ops.email.accountHealth') }}</label>
+              <UiSwitch v-model="emailConfig.report.account_health_enabled" :label="t('admin.ops.email.accountHealth')" />
+            </div>
+            <div v-if="emailConfig.report.account_health_enabled" class="ops-settings__grid ops-settings__grid--2">
+              <UiTextField v-model="emailConfig.report.account_health_schedule" density="compact" monospace :label="t('admin.ops.email.accountHealth')" :placeholder="t('admin.ops.email.cronPlaceholder')" />
+              <UiTextField v-model.number="emailConfig.report.account_health_error_rate_threshold" type="number" density="compact" :min="0" :max="100" :step="0.1" :label="t('admin.ops.email.accountHealthThreshold')" />
+            </div>
           </div>
         </div>
       </div>
+
+      <UiAccordion :items="runtimeSections">
+        <template #runtime>
+          <div class="ops-settings__advanced-body">
+            <div class="ops-settings__group">
+              <div class="ops-settings__switch-row">
+                <div>
+                  <label class="ops-settings__switch-label">{{ t('admin.ops.runtime.silencing.enabled') }}</label>
+                  <p class="ops-settings__hint">{{ t('admin.ops.runtime.silencing.untilHint') }}</p>
+                </div>
+                <UiSwitch v-model="runtimeSettings.silencing.enabled" :label="t('admin.ops.runtime.silencing.enabled')" />
+              </div>
+              <div v-if="runtimeSettings.silencing.enabled" class="ops-settings__grid ops-settings__grid--2">
+                <UiTextField v-model="runtimeSettings.silencing.global_until_rfc3339" density="compact" monospace :label="t('admin.ops.runtime.silencing.globalUntil')" placeholder="2026-08-16T12:00:00Z" />
+                <UiTextField v-model="runtimeSettings.silencing.global_reason" density="compact" :label="t('admin.ops.runtime.silencing.reason')" :placeholder="t('admin.ops.runtime.silencing.reasonPlaceholder')" />
+              </div>
+            </div>
+
+            <div class="ops-settings__group">
+              <div class="ops-settings__section-heading">
+                <div><h5 class="ops-settings__group-title">{{ t('admin.ops.runtime.silencing.entries.title') }}</h5><p class="ops-settings__hint">{{ t('admin.ops.runtime.silencing.entries.hint') }}</p></div>
+                <UiButton density="dense" @click="addSilenceEntry">{{ t('admin.ops.runtime.silencing.entries.add') }}</UiButton>
+              </div>
+              <UiEmptyState v-if="!runtimeSettings.silencing.entries?.length" :title="t('admin.ops.runtime.silencing.entries.empty')" icon="inbox" />
+              <div v-else class="ops-settings__entries">
+                <div v-for="(entry, index) in runtimeSettings.silencing.entries" :key="index" class="ops-settings__entry">
+                  <header><strong>{{ t('admin.ops.runtime.silencing.entries.entryTitle', { n: index + 1 }) }}</strong><UiIconButton icon="trash" density="mini" variant="danger" :label="t('common.delete')" @click="removeSilenceEntry(index)" /></header>
+                  <div class="ops-settings__grid ops-settings__grid--2">
+                    <UiTextField :model-value="entry.rule_id ?? ''" type="number" density="compact" :min="1" :label="t('admin.ops.runtime.silencing.entries.ruleId')" @update:model-value="updateSilenceRuleId(index, $event)" />
+                    <UiTextField :model-value="entry.severities?.join(',') ?? ''" density="compact" monospace :label="t('admin.ops.runtime.silencing.entries.severities')" :placeholder="t('admin.ops.runtime.silencing.entries.severitiesPlaceholder')" @update:model-value="updateSilenceSeverities(index, $event)" />
+                    <UiTextField v-model="entry.until_rfc3339" density="compact" monospace :label="t('admin.ops.runtime.silencing.entries.until')" placeholder="2026-08-16T12:00:00Z" />
+                    <UiTextField v-model="entry.reason" density="compact" :label="t('admin.ops.runtime.silencing.entries.reason')" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ops-settings__group">
+              <div class="ops-settings__switch-row">
+                <label class="ops-settings__switch-label">{{ t('admin.ops.runtime.lockEnabled') }}</label>
+                <UiSwitch v-model="runtimeSettings.distributed_lock.enabled" :label="t('admin.ops.runtime.lockEnabled')" />
+              </div>
+              <div v-if="runtimeSettings.distributed_lock.enabled" class="ops-settings__grid ops-settings__grid--2">
+                <UiTextField v-model="runtimeSettings.distributed_lock.key" density="compact" monospace :label="t('admin.ops.runtime.lockKey')" :description="t('admin.ops.runtime.validation.lockKeyHint', { prefix: 'ops:' })" />
+                <UiTextField v-model.number="runtimeSettings.distributed_lock.ttl_seconds" type="number" density="compact" :min="1" :max="86400" :label="t('admin.ops.runtime.lockTTLSeconds')" />
+              </div>
+            </div>
+          </div>
+        </template>
+      </UiAccordion>
 
       <!-- 指标阈值配置 -->
       <div class="ops-settings__section">
@@ -468,6 +663,14 @@ async function saveAllSettings() {
 
             <div class="ops-settings__switch-row">
               <div>
+                <label class="ops-settings__switch-label">{{ t('admin.ops.settings.ignoreInvalidApiKeyErrors') }}</label>
+                <p class="ops-settings__hint">{{ t('admin.ops.settings.ignoreInvalidApiKeyErrorsHint') }}</p>
+              </div>
+              <UiSwitch v-model="advancedSettings.ignore_invalid_api_key_errors" :label="t('admin.ops.settings.ignoreInvalidApiKeyErrors')" />
+            </div>
+
+            <div class="ops-settings__switch-row">
+              <div>
                 <label class="ops-settings__switch-label">{{ t('admin.ops.settings.ignoreInsufficientBalanceErrors') }}</label>
                 <p class="ops-settings__hint">
                   {{ t('admin.ops.settings.ignoreInsufficientBalanceErrorsHint') }}
@@ -545,6 +748,6 @@ async function saveAllSettings() {
 </template>
 
 <style scoped>
-.ops-settings { display: grid; gap: 0; }.ops-settings__state { display: grid; min-height: 280px; place-items: center; }.ops-settings__errors { margin: 0; padding-left: 18px; }.ops-settings__section { padding: 18px 0; border-bottom: 1px solid var(--ui-border-soft); }.ops-settings__section-title,.ops-settings__group-title { margin: 0 0 12px; color: var(--ui-text); font-size: 14px; line-height: 22px; }.ops-settings__section-description { margin: -7px 0 14px; color: var(--ui-text-muted); font-size: 12px; line-height: 18px; }.ops-settings__stack,.ops-settings__group,.ops-settings__advanced-body { display: grid; gap: 12px; }.ops-settings__switch-row { display: flex; min-height: 36px; align-items: center; justify-content: space-between; gap: 16px; }.ops-settings__switch-label { color: var(--ui-text); font-size: 12px; font-weight: 500; line-height: 19px; }.ops-settings__input-action { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 6px; }.ops-settings__recipients { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }.ops-settings__recipient { display: inline-flex; min-height: 28px; align-items: center; gap: 3px; padding-left: 8px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); color: var(--ui-text-muted); background: var(--ui-surface-muted); font-size: 11px; }.ops-settings__hint { margin: 3px 0 0; color: var(--ui-text-muted); font-size: 11px; line-height: 17px; }.ops-settings__grid { display: grid; gap: 12px; }.ops-settings__grid--2 { grid-template-columns: repeat(2,minmax(0,1fr)); }.ops-settings__grid--3 { grid-template-columns: repeat(3,minmax(0,1fr)); }.ops-settings__advanced { border-bottom: 1px solid var(--ui-border-soft); }.ops-settings__advanced-summary { padding: 15px 0; color: var(--ui-text); font-size: 14px; font-weight: 600; cursor: pointer; }.ops-settings__advanced-body { padding: 0 0 18px; }.ops-settings__group { padding-top: 14px; border-top: 1px solid var(--ui-border-soft); }.ops-settings__group-title { margin-bottom: 0; font-size: 12px; }.ops-settings__footer { display: flex; width: 100%; justify-content: flex-end; gap: 6px; }
+.ops-settings { display: grid; gap: 0; }.ops-settings__state { display: grid; min-height: 280px; place-items: center; }.ops-settings__errors { margin: 0; padding-left: 18px; }.ops-settings__section { padding: 18px 0; border-bottom: 1px solid var(--ui-border-soft); }.ops-settings__section-title,.ops-settings__group-title { margin: 0 0 12px; color: var(--ui-text); font-size: 14px; line-height: 22px; }.ops-settings__section-description { margin: -7px 0 14px; color: var(--ui-text-muted); font-size: 12px; line-height: 18px; }.ops-settings__stack,.ops-settings__group,.ops-settings__advanced-body { display: grid; gap: 12px; }.ops-settings__switch-row { display: flex; min-height: 36px; align-items: center; justify-content: space-between; gap: 16px; }.ops-settings__switch-label { color: var(--ui-text); font-size: 12px; font-weight: 500; line-height: 19px; }.ops-settings__input-action { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 6px; }.ops-settings__recipients { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }.ops-settings__recipient { display: inline-flex; min-height: 28px; align-items: center; gap: 3px; padding-left: 8px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); color: var(--ui-text-muted); background: var(--ui-surface-muted); font-size: 11px; }.ops-settings__hint { margin: 3px 0 0; color: var(--ui-text-muted); font-size: 11px; line-height: 17px; }.ops-settings__grid { display: grid; gap: 12px; }.ops-settings__grid--2 { grid-template-columns: repeat(2,minmax(0,1fr)); }.ops-settings__grid--3 { grid-template-columns: repeat(3,minmax(0,1fr)); }.ops-settings__advanced { border-bottom: 1px solid var(--ui-border-soft); }.ops-settings__advanced-summary { padding: 15px 0; color: var(--ui-text); font-size: 14px; font-weight: 600; cursor: pointer; }.ops-settings__advanced-body { padding: 0 0 18px; }.ops-settings__group { padding-top: 14px; border-top: 1px solid var(--ui-border-soft); }.ops-settings__group-title { margin-bottom: 0; font-size: 12px; }.ops-settings__section-heading,.ops-settings__entry>header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }.ops-settings__entries { display:grid; gap:8px; }.ops-settings__entry { display:grid; gap:10px; padding:12px; border:1px solid var(--ui-border-soft); border-radius:var(--ui-radius); background:var(--ui-surface-muted); }.ops-settings__footer { display: flex; width: 100%; justify-content: flex-end; gap: 6px; }
 @media(max-width:700px){.ops-settings__grid--2,.ops-settings__grid--3{grid-template-columns:1fr}.ops-settings__switch-row{align-items:flex-start}.ops-settings__input-action{grid-template-columns:1fr}.ops-settings__footer{display:grid;grid-template-columns:1fr 1fr}}
 </style>

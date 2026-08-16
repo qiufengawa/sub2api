@@ -17,7 +17,7 @@
       >
         <template #cell-created_at="{ row }">
           <span
-            class="text-sm text-gray-600 dark:text-gray-400"
+            class="ops-error-log__muted"
             :title="row.request_id || row.client_request_id"
           >{{ formatDateTime(row.created_at) }}</span>
         </template>
@@ -27,29 +27,29 @@
         </template>
 
         <template #cell-endpoint="{ row }">
-          <div class="max-w-[320px] space-y-1 text-xs">
-            <div class="break-all text-gray-700 dark:text-gray-300">
-              <span class="font-medium text-gray-500 dark:text-gray-400">{{ t('usage.inbound') }}:</span>
-              <span class="ml-1">{{ row.inbound_endpoint?.trim() || '-' }}</span>
+          <div class="ops-error-log__endpoint">
+            <div class="ops-error-log__endpoint-line">
+              <span>{{ t('usage.inbound') }}:</span>
+              <b>{{ row.inbound_endpoint?.trim() || '-' }}</b>
             </div>
-            <div v-if="row.upstream_endpoint" class="break-all text-gray-700 dark:text-gray-300">
-              <span class="font-medium text-gray-500 dark:text-gray-400">{{ t('usage.upstream') }}:</span>
-              <span class="ml-1">{{ row.upstream_endpoint?.trim() || '-' }}</span>
+            <div v-if="row.upstream_endpoint" class="ops-error-log__endpoint-line">
+              <span>{{ t('usage.upstream') }}:</span>
+              <b>{{ row.upstream_endpoint?.trim() || '-' }}</b>
             </div>
           </div>
         </template>
 
         <template #cell-platform="{ row }">
-          <span class="text-sm text-gray-900 dark:text-white">{{ row.platform || '-' }}</span>
+          <span class="ops-error-log__value">{{ row.platform || '-' }}</span>
         </template>
 
         <template #cell-model="{ row }">
-          <div v-if="hasModelMapping(row)" class="space-y-0.5 text-xs">
-            <div class="break-all font-medium text-gray-900 dark:text-white">{{ row.requested_model }}</div>
-            <div class="break-all text-gray-500 dark:text-gray-400"><span class="mr-0.5">↳</span>{{ row.upstream_model }}</div>
+          <div v-if="hasModelMapping(row)" class="ops-error-log__model">
+            <strong>{{ row.requested_model }}</strong>
+            <span>↳ {{ row.upstream_model }}</span>
           </div>
-          <span v-else-if="displayModel(row)" class="text-sm font-medium text-gray-900 dark:text-white">{{ displayModel(row) }}</span>
-          <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
+          <span v-else-if="displayModel(row)" class="ops-error-log__value">{{ displayModel(row) }}</span>
+          <span v-else class="ops-error-log__empty-value">-</span>
         </template>
 
         <template #cell-group="{ row }">
@@ -59,11 +59,11 @@
             :label="row.group_name || '#' + row.group_id"
             :title="t('admin.ops.errorLog.id') + ' ' + row.group_id"
           />
-          <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
+          <span v-else class="ops-error-log__empty-value">-</span>
         </template>
 
         <template #cell-user="{ row }">
-          <div v-if="row.user_id" class="text-sm">
+          <div v-if="row.user_id" class="ops-error-log__identity">
             <button
               v-if="userClickable && row.user_email"
               class="ops-error-log__user-button"
@@ -72,15 +72,15 @@
             >
               {{ row.user_email }}
             </button>
-            <span v-else class="font-medium text-gray-900 dark:text-white">{{ row.user_email || '-' }}</span>
-            <span class="ml-1 text-gray-500 dark:text-gray-400">#{{ row.user_id }}</span>
+            <span v-else class="ops-error-log__value">{{ row.user_email || '-' }}</span>
+            <small>#{{ row.user_id }}</small>
           </div>
-          <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
+          <span v-else class="ops-error-log__empty-value">-</span>
         </template>
 
         <template #cell-api_key="{ row }">
-          <div v-if="row.api_key_id || row.api_key_name" class="text-sm">
-            <span class="text-gray-900 dark:text-white">{{ row.api_key_name || '#' + row.api_key_id }}</span>
+          <div v-if="row.api_key_id || row.api_key_name" class="ops-error-log__identity">
+            <span class="ops-error-log__value">{{ row.api_key_name || '#' + row.api_key_id }}</span>
             <UiBadge
               v-if="row.api_key_deleted"
               class="ops-error-log__inline-badge"
@@ -88,26 +88,26 @@
               :label="t('admin.ops.errorLog.keyDeletedBadge')"
             />
           </div>
-          <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
+          <span v-else class="ops-error-log__empty-value">-</span>
         </template>
 
         <template #cell-account="{ row }">
           <span
             v-if="row.account_id"
-            class="text-sm text-gray-900 dark:text-white"
+            class="ops-error-log__value"
             :title="t('admin.ops.errorLog.accountId') + ' ' + row.account_id"
           >{{ row.account_name || '#' + row.account_id }}</span>
-          <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
+          <span v-else class="ops-error-log__empty-value">-</span>
         </template>
 
         <template #cell-category="{ row }">
-          <span class="text-sm text-gray-900 dark:text-white">
+          <span class="ops-error-log__value">
             {{ t('usage.errors.categories.' + mapErrorCategory(row.phase, row.type)) }}
           </span>
         </template>
 
         <template #cell-status="{ row }">
-          <div class="flex items-center gap-1.5">
+          <div class="ops-error-log__badges">
             <UiBadge :tone="getStatusTone(row.status_code)" :label="String(row.status_code)" />
             <UiBadge
               v-if="row.severity"
@@ -125,28 +125,28 @@
         <template #cell-message="{ row }">
           <span
             v-if="row.message"
-            class="block max-w-[280px] truncate text-sm text-gray-600 dark:text-gray-400"
+            class="ops-error-log__truncate ops-error-log__truncate--message"
             :title="row.message"
           >{{ formatSmartMessage(row.message) || '-' }}</span>
-          <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
+          <span v-else class="ops-error-log__empty-value">-</span>
         </template>
 
         <template #cell-user_agent="{ row }">
           <span
             v-if="row.user_agent"
-            class="block max-w-[320px] truncate text-sm text-gray-600 dark:text-gray-400"
+            class="ops-error-log__truncate ops-error-log__truncate--agent"
             :title="row.user_agent"
           >{{ row.user_agent }}</span>
-          <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
+          <span v-else class="ops-error-log__empty-value">-</span>
         </template>
 
         <template #cell-client_ip="{ row }">
           <div @click.stop>
             <div v-if="row.client_ip">
-              <span class="text-sm font-mono text-gray-600 dark:text-gray-400">{{ row.client_ip }}</span>
+              <span class="ops-error-log__ip">{{ row.client_ip }}</span>
               <IpGeoCell :ip="row.client_ip" />
             </div>
-            <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
+            <span v-else class="ops-error-log__empty-value">-</span>
           </div>
         </template>
 
@@ -257,7 +257,6 @@ function formatRequestType(type: number | null | undefined): string {
   }
 }
 
-// 徽章配色对齐用量明细(UsageTable)的 bg-X-100/text-X-800 体系
 type BadgeTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info'
 
 function getTypeBadge(log: OpsErrorLog): { label: string; tone: BadgeTone } {
@@ -408,4 +407,21 @@ function formatSmartMessage(msg: string): string {
 .ops-error-log__inline-badge {
   margin-left: 4px;
 }
+
+.ops-error-log__value,
+.ops-error-log__muted,
+.ops-error-log__empty-value,
+.ops-error-log__truncate,
+.ops-error-log__ip { color: var(--ui-text); font-size: 12px; line-height: 18px; }
+.ops-error-log__muted,.ops-error-log__truncate,.ops-error-log__ip { color: var(--ui-text-muted); }
+.ops-error-log__empty-value { color: var(--ui-text-soft); }
+.ops-error-log__endpoint { display:grid; max-width:320px; gap:4px; font-size:11px; line-height:17px; }
+.ops-error-log__endpoint-line { display:flex; gap:4px; overflow-wrap:anywhere; }
+.ops-error-log__endpoint-line span { flex:none; color:var(--ui-text-soft); font-weight:500; }
+.ops-error-log__endpoint-line b { color:var(--ui-text-muted); font-weight:400; }
+.ops-error-log__model { display:grid; gap:2px; font-size:11px; line-height:17px; overflow-wrap:anywhere; }
+.ops-error-log__model strong { color:var(--ui-text); font-weight:500; }.ops-error-log__model span { color:var(--ui-text-muted); }
+.ops-error-log__identity,.ops-error-log__badges { display:flex; align-items:center; gap:6px; }.ops-error-log__identity small { color:var(--ui-text-muted); }
+.ops-error-log__truncate { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.ops-error-log__truncate--message { max-width:280px; }.ops-error-log__truncate--agent { max-width:320px; }
+.ops-error-log__ip { font-family:var(--ui-font-mono); }
 </style>

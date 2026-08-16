@@ -36,6 +36,13 @@ export default {
       lastError: '最近错误',
       result: '结果',
       noData: '暂无数据',
+      healthScoreAria: '系统健康：{value}。{description}',
+      metricStatus: {
+        threshold: '阈值',
+        normal: '正常',
+        near: '接近阈值',
+        breached: '超过阈值'
+      },
       loadingText: '加载中...',
       ready: '就绪',
       autoRefreshRemaining: '剩余 {seconds}s',
@@ -727,6 +734,8 @@ export default {
           '启用后，客户端主动断开连接（context canceled）的错误将不会写入错误日志。',
         ignoreNoAvailableAccounts: '忽略无可用账号错误',
         ignoreNoAvailableAccountsHint: '启用后，"No available accounts" 错误将不会写入错误日志（不推荐，这通常是配置问题）。',
+        ignoreInvalidApiKeyErrors: '忽略无效 API Key 错误',
+        ignoreInvalidApiKeyErrorsHint: '启用后，无效 API Key 错误将不会写入错误日志。',
         ignoreInsufficientBalanceErrors: '忽略余额不足错误',
         ignoreInsufficientBalanceErrorsHint: '启用后，账号余额不足（Insufficient balance）的错误将不会写入错误日志。',
         autoRefresh: '自动刷新',

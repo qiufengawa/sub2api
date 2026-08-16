@@ -102,4 +102,109 @@ describe('OpsSettingsDialog', () => {
     expect(mocks.updateAdvanced).not.toHaveBeenCalled()
     expect(mocks.updateThresholds).not.toHaveBeenCalled()
   })
+
+  it('renders and preserves the complete runtime and email contracts', async () => {
+    const completeRuntime = {
+      evaluation_interval_seconds: 60,
+      distributed_lock: { enabled: true, key: 'ops:alert:evaluator', ttl_seconds: 90 },
+      silencing: {
+        enabled: true,
+        global_until_rfc3339: '2026-08-16T12:00:00Z',
+        global_reason: 'maintenance',
+        entries: [{ rule_id: 7, severities: ['P0', 'P1'], until_rfc3339: '2026-08-16T11:00:00Z', reason: 'deploy' }],
+      },
+      thresholds: {},
+    }
+    const completeEmail = {
+      alert: { enabled: true, recipients: ['ops@example.com'], min_severity: 'warning', rate_limit_per_hour: 25, batching_window_seconds: 120, include_resolved_alerts: true },
+      report: {
+        enabled: true,
+        recipients: ['reports@example.com'],
+        daily_summary_enabled: true,
+        daily_summary_schedule: '0 9 * * *',
+        weekly_summary_enabled: true,
+        weekly_summary_schedule: '0 9 * * 1',
+        error_digest_enabled: true,
+        error_digest_schedule: '0 * * * *',
+        error_digest_min_count: 5,
+        account_health_enabled: true,
+        account_health_schedule: '0 8 * * *',
+        account_health_error_rate_threshold: 4.5,
+      },
+    }
+    mocks.getRuntime.mockResolvedValue(structuredClone(completeRuntime))
+    mocks.getEmail.mockResolvedValue(structuredClone(completeEmail))
+    mocks.getThresholds.mockResolvedValue({})
+
+    const wrapper = mount(OpsSettingsDialog, { props: { show: false } })
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+
+    const runtimeToggle = Array.from(document.body.querySelectorAll('button')).find(
+      (button) => button.textContent?.includes('admin.ops.runtime.advancedSettingsSummary')
+    ) as HTMLButtonElement
+    runtimeToggle.click()
+    await flushPromises()
+
+    expect(document.body.textContent).toContain('admin.ops.email.rateLimitPerHour')
+    expect(document.body.textContent).toContain('admin.ops.email.errorDigestMinCount')
+    expect(document.body.textContent).toContain('admin.ops.runtime.silencing.entries.entryTitle')
+    expect(document.body.textContent).toContain('admin.ops.runtime.lockKey')
+
+    saveButton().click()
+    await flushPromises()
+
+    expect(mocks.updateRuntime).toHaveBeenCalledWith(completeRuntime)
+    expect(mocks.updateEmail).toHaveBeenCalledWith(completeEmail)
+  })
+
+  it('normalizes legacy advanced settings and sends edited numeric values', async () => {
+    mocks.getThresholds.mockResolvedValue({})
+    const wrapper = mount(OpsSettingsDialog, { props: { show: false } })
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+
+    const evaluationInput = document.body.querySelector('input[type="number"]') as HTMLInputElement
+    evaluationInput.value = '120'
+    evaluationInput.dispatchEvent(new Event('input', { bubbles: true }))
+    await flushPromises()
+
+    saveButton().click()
+    await flushPromises()
+
+    expect(mocks.updateRuntime).toHaveBeenCalledWith(expect.objectContaining({
+      evaluation_interval_seconds: 120,
+    }))
+    expect(mocks.updateAdvanced).toHaveBeenCalledWith(expect.objectContaining({
+      ignore_invalid_api_key_errors: false,
+    }))
+  })
+
+  it('rejects an invalid RFC3339 silence window before sending updates', async () => {
+    mocks.getRuntime.mockResolvedValue({
+      evaluation_interval_seconds: 60,
+      distributed_lock: { enabled: false, key: 'ops:alert:evaluator', ttl_seconds: 90 },
+      silencing: {
+        enabled: true,
+        global_until_rfc3339: 'tomorrow noon',
+        global_reason: 'maintenance',
+        entries: [],
+      },
+      thresholds: {},
+    })
+    mocks.getThresholds.mockResolvedValue({})
+
+    const wrapper = mount(OpsSettingsDialog, { props: { show: false } })
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+
+    expect(document.body.textContent).toContain('admin.ops.runtime.silencing.validation.timeFormat')
+    expect(saveButton().disabled).toBe(true)
+    saveButton().click()
+
+    expect(mocks.updateRuntime).not.toHaveBeenCalled()
+    expect(mocks.updateEmail).not.toHaveBeenCalled()
+    expect(mocks.updateAdvanced).not.toHaveBeenCalled()
+    expect(mocks.updateThresholds).not.toHaveBeenCalled()
+  })
 })

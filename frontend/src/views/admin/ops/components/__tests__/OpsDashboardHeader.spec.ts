@@ -104,10 +104,10 @@ const overview = {
   ttft: { p50_ms: 80, p95_ms: 220, p99_ms: 460, avg_ms: 110 },
 }
 
-function mountHeader(fullscreen = false) {
+function mountHeader(fullscreen = false, overviewValue = overview) {
   return mount(OpsDashboardHeader, {
     props: {
-      overview,
+      overview: overviewValue,
       platform: '',
       groupId: null,
       timeRange: '1h',
@@ -152,8 +152,8 @@ describe('OpsDashboardHeader information hierarchy', () => {
     expect(wrapper.get('[data-testid="ops-resource-database-progress"]').attributes('aria-valuenow')).toBe('25')
     expect(wrapper.get('[data-testid="ops-resource-redis-progress"]').attributes('aria-valuenow')).toBe('25')
 
-    expect(wrapper.get('[data-testid="ops-resource-cpu-progress"] > div').attributes('style')).toContain('width: 44%')
-    expect(wrapper.get('[data-testid="ops-resource-memory-progress"] > div').attributes('style')).toContain('width: 75%')
+    expect(wrapper.get('[data-testid="ops-resource-cpu-progress"] > span').attributes('style')).toContain('width: 44%')
+    expect(wrapper.get('[data-testid="ops-resource-memory-progress"] > span').attributes('style')).toContain('width: 75%')
   })
 
   it('keeps the traffic detail action connected to the existing event', async () => {
@@ -161,6 +161,45 @@ describe('OpsDashboardHeader information hierarchy', () => {
     await wrapper.get('[data-testid="ops-traffic-details"]').trigger('click')
 
     expect(wrapper.emitted('openRequestDetails')).toHaveLength(1)
+  })
+
+  it('keeps metric-specific request detail presets intact', async () => {
+    const wrapper = mountHeader()
+
+    await wrapper.get('[data-testid="ops-sla-details"]').trigger('click')
+    await wrapper.get('[data-testid="ops-duration-details"]').trigger('click')
+    await wrapper.get('[data-testid="ops-ttft-details"]').trigger('click')
+
+    expect(wrapper.emitted('openRequestDetails')).toEqual([
+      [{ title: 'admin.ops.requestDetails.title', kind: 'error' }],
+      [{ title: 'admin.ops.latencyDuration', sort: 'duration_desc' }],
+      [{ title: 'admin.ops.ttftLabel', sort: 'duration_desc' }],
+    ])
+  })
+
+  it('renders missing telemetry as neutral no-data instead of a real zero', async () => {
+    const wrapper = mountHeader(false, {
+      ...overview,
+      sla: 0,
+      request_count_sla: 0,
+      error_rate: null,
+      upstream_error_rate: null,
+      ttft: null,
+    })
+    await flushPromises()
+
+    for (const testId of [
+      'ops-sla-metric',
+      'ops-request-error-metric',
+      'ops-upstream-error-metric',
+      'ops-ttft-metric',
+    ]) {
+      const metric = wrapper.get(`[data-testid="${testId}"]`)
+      expect(metric.text()).toContain('-')
+      expect(metric.text()).toContain('admin.ops.noData')
+      expect(metric.find('.ui-status--danger').exists()).toBe(false)
+      expect(metric.find('.ui-status--success').exists()).toBe(false)
+    }
   })
 
   it('uses a keyboard-navigable realtime window control', async () => {
@@ -203,6 +242,13 @@ describe('OpsDashboardHeader information hierarchy', () => {
     const wrapper = mountHeader()
     await flushPromises()
 
+    expect(wrapper.get('[data-testid="ops-toolbar-alert-rules"]').attributes('aria-label')).toBe(
+      'admin.ops.alertRules.manage',
+    )
+    expect(wrapper.get('[data-testid="ops-toolbar-settings"]').attributes('aria-label')).toBe(
+      'common.settings',
+    )
+
     await wrapper.get('[data-testid="ops-toolbar-refresh"]').trigger('click')
     await wrapper.get('[data-testid="ops-toolbar-alert-rules"]').trigger('click')
     await wrapper.get('[data-testid="ops-toolbar-settings"]').trigger('click')
@@ -217,5 +263,15 @@ describe('OpsDashboardHeader information hierarchy', () => {
   it('shows a local title only in fullscreen mode', () => {
     const wrapper = mountHeader(true)
     expect(wrapper.get('h1').text()).toContain('admin.ops.title')
+  })
+
+  it('keeps the health diagnosis keyboard reachable and exposes fullscreen exit', async () => {
+    const normal = mountHeader()
+    const healthTrigger = normal.get('[data-overview-section="health"]')
+    expect(healthTrigger.element.tagName).toBe('BUTTON')
+
+    const fullscreen = mountHeader(true)
+    await fullscreen.get('[data-testid="ops-toolbar-exit-fullscreen"]').trigger('click')
+    expect(fullscreen.emitted('exitFullscreen')).toHaveLength(1)
   })
 })
