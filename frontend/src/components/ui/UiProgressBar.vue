@@ -1,8 +1,9 @@
-<template><div class="ui-progress"><div v-if="label||showValue" class="ui-progress__meta"><span>{{ label }}</span><b v-if="showValue" class="ui-numeric">{{ normalized }}%</b></div><div :data-testid="testId" class="ui-progress__track" role="progressbar" :aria-valuenow="normalized" aria-valuemin="0" aria-valuemax="100" :aria-label="label"><span :class="`is-${tone}`" :style="{width:`${normalized}%`}"/></div></div></template>
+<template><div class="ui-progress"><div v-if="label||showValue" class="ui-progress__meta"><span>{{ label }}</span><b v-if="showValue" class="ui-numeric">{{ normalized }}%</b></div><div :data-testid="testId" class="ui-progress__track" role="progressbar" :aria-valuenow="normalized" aria-valuemin="0" aria-valuemax="100" :aria-label="ariaLabel||label"><span :class="`is-${tone}`" :style="{width:`${normalized}%`}"/></div></div></template>
 <script setup lang="ts">
 import {computed} from 'vue';
 const props=withDefaults(defineProps<{value:number;
 label?:string;
+ariaLabel?:string;
 showValue?:boolean;
 testId?:string;
 tone?:'neutral'|'success'|'warning'|'danger'|'info'}>(),{showValue:true,tone:'neutral'});
@@ -21,4 +22,4 @@ background:var(--ui-surface-strong)}.ui-progress__track span{display:block;
 height:100%;
 border-radius:inherit;
 background:var(--ui-text);
-transition:width var(--ui-motion-base)}.ui-progress__track .is-success{background:var(--ui-success)}.ui-progress__track .is-warning{background:var(--ui-warning)}.ui-progress__track .is-danger{background:var(--ui-danger)}.ui-progress__track .is-info{background:var(--ui-info)}</style>
+transition:width var(--ui-motion-base)}.ui-progress__track .is-success{background:var(--ui-success)}.ui-progress__track .is-warning{background:var(--ui-warning)}.ui-progress__track .is-danger{background:var(--ui-danger)}.ui-progress__track .is-info{background:var(--ui-info)}@media(prefers-reduced-motion:reduce){.ui-progress__track span{transition:none}}</style>

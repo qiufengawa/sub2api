@@ -90,8 +90,9 @@ describe('Qiu UI primitive contracts', () => {
   })
 
   it('normalizes progress to a bounded percentage', () => {
-    const wrapper = mount(UiProgressBar, { props: { value: 142, label: 'CPU' } })
+    const wrapper = mount(UiProgressBar, { props: { value: 142, label: 'CPU', ariaLabel: 'CPU usage' } })
     expect(wrapper.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('100')
+    expect(wrapper.get('[role="progressbar"]').attributes('aria-label')).toBe('CPU usage')
     expect(wrapper.get('.ui-progress__meta').text()).toContain('100%')
   })
 })

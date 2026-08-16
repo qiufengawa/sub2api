@@ -437,6 +437,7 @@ export default {
       },
       filters: {
         search: 'Search user/key/summary',
+        clear: 'Clear filters',
         from: 'From',
         to: 'To',
         allGroups: 'All Groups',

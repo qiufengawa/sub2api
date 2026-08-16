@@ -437,6 +437,7 @@ export default {
       },
       filters: {
         search: '按用户/Key/摘要搜索',
+        clear: '清除筛选',
         from: '开始时间',
         to: '结束时间',
         allGroups: '全部分组',

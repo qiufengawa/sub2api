@@ -222,6 +222,113 @@ describe('admin RiskControlView', () => {
     }))
   })
 
+  it('renders stable loading skeleton geometry', () => {
+    getConfig.mockReturnValue(new Promise(() => {}))
+
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          Icon: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: true,
+        },
+      },
+    })
+
+    const loading = wrapper.get('.risk-loading')
+    const skeletons = wrapper.findAll('.ui-skeleton')
+    expect(loading.attributes('role')).toBe('status')
+    expect(loading.attributes('aria-busy')).toBe('true')
+    expect(loading.attributes('aria-label')).toBe('common.loading')
+    expect(skeletons).toHaveLength(7)
+    expect(skeletons.map((item) => item.attributes('style'))).toEqual([
+      'width: 100%; height: 72px;',
+      'width: 100%; height: 88px;',
+      'width: 100%; height: 88px;',
+      'width: 100%; height: 88px;',
+      'width: 100%; height: 88px;',
+      'width: 100%; height: 280px;',
+      'width: 100%; height: 360px;',
+    ])
+    expect(loading.get('.risk-loading__metrics').findAll('.ui-skeleton')).toHaveLength(4)
+  })
+
+  it('clears every log filter and reloads page one', async () => {
+    listLogs.mockImplementation(async (params: { page: number; page_size: number }) => ({
+      items: [],
+      total: 40,
+      page: params.page,
+      page_size: params.page_size,
+      pages: 2,
+    }))
+
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          UiDialog: BaseDialogStub,
+          Icon: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: true,
+        },
+      },
+    })
+
+    await flushPromises()
+    wrapper.getComponent({ name: 'UiPagination' }).vm.$emit('update:page', 2)
+    await flushPromises()
+
+    const selects = wrapper.findAllComponents({ name: 'UiSelect' })
+    selects[0].vm.$emit('update:modelValue', 'hit')
+    selects[1].vm.$emit('update:modelValue', 7)
+    selects[2].vm.$emit('update:modelValue', '/v1/messages')
+    wrapper.getComponent({ name: 'UiSearchInput' }).vm.$emit('update:modelValue', 'needle')
+    const dateFields = wrapper.findAllComponents({ name: 'UiTextField' }).filter((item) => item.props('type') === 'datetime-local')
+    dateFields[0].vm.$emit('update:modelValue', '2026-08-16T00:00')
+    dateFields[1].vm.$emit('update:modelValue', '2026-08-16T23:59')
+    await wrapper.vm.$nextTick()
+
+    listLogs.mockClear()
+    await findButtonByText(wrapper, 'admin.riskControl.filters.clear').trigger('click')
+    await flushPromises()
+
+    expect(listLogs).toHaveBeenLastCalledWith({
+      page: 1,
+      page_size: 20,
+      result: undefined,
+      group_id: undefined,
+      endpoint: undefined,
+      search: undefined,
+      from: undefined,
+      to: undefined,
+    })
+    expect(wrapper.findAll('button').some((item) => item.text().includes('admin.riskControl.filters.clear'))).toBe(false)
+  })
+
+  it('keeps audit records in a keyboard-scrollable mobile table region', async () => {
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          UiDialog: BaseDialogStub,
+          Icon: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const scroller = wrapper.get('.ui-table-scroller')
+    expect(scroller.attributes('role')).toBe('region')
+    expect(scroller.attributes('tabindex')).toBe('0')
+    expect(scroller.attributes('aria-label')).toBe('admin.riskControl.records')
+    expect(scroller.get(':scope > div').attributes('style')).toContain('min-width: 1180px')
+    expect(scroller.find('.ui-data-table').exists()).toBe(true)
+  })
+
   it('uses one settings surface with divider-based sections', async () => {
     const wrapper = mount(RiskControlView, {
       global: {
@@ -247,7 +354,7 @@ describe('admin RiskControlView', () => {
 
     await findButtonByText(wrapper, 'admin.riskControl.tabs.scope').trigger('click')
     const modelFilterSection = wrapper.get('[data-test="risk-model-filter-section"]')
-    expect(modelFilterSection.classes()).toContain('border-t')
+    expect(modelFilterSection.classes()).toContain('risk-settings__section')
     expect(modelFilterSection.classes()).not.toContain('rounded-lg')
 
     await findButtonByText(wrapper, 'admin.riskControl.tabs.response').trigger('click')
@@ -498,22 +605,17 @@ describe('admin RiskControlView', () => {
     const syncCard = wrapper.get('[data-test="pre-block-sync-card"]')
     const apiKeyLoadCard = wrapper.get('[data-test="pre-block-api-key-load-card"]')
 
-    expect(runtimeCards.classes()).toEqual(expect.arrayContaining([
-      'grid',
-      'grid-cols-1',
-      'xl:grid-cols-[minmax(0,400px)_minmax(0,1fr)]',
-    ]))
+    expect(runtimeCards.classes()).toContain('risk-runtime-grid')
     expect(syncCard.element.parentElement).toBe(runtimeCards.element)
     expect(apiKeyLoadCard.element.parentElement).toBe(runtimeCards.element)
-    expect(syncCard.classes()).toContain('card')
-    expect(apiKeyLoadCard.classes()).toContain('card')
+    expect(syncCard.element.tagName).toBe('SECTION')
+    expect(apiKeyLoadCard.element.tagName).toBe('SECTION')
+    expect(syncCard.classes()).toContain('risk-runtime-panel')
+    expect(apiKeyLoadCard.classes()).toContain('risk-runtime-panel')
     expect(syncCard.get('h2').text()).toBe('admin.riskControl.preBlockSyncStatus')
     expect(syncCard.text()).toContain('admin.riskControl.preBlockSyncHint')
     expect(apiKeyLoadCard.get('h2').text()).toBe('admin.riskControl.preBlockAPIKeyLoad')
     expect(apiKeyLoadCard.text()).toContain('admin.riskControl.preBlockAPIKeyLoadHint')
-    expect(wrapper.get('[data-test="pre-block-api-key-load-list"]').classes()).toEqual(expect.arrayContaining([
-      'xl:max-h-[360px]',
-      'xl:overflow-y-auto',
-    ]))
+    expect(wrapper.get('[data-test="pre-block-api-key-load-list"]').classes()).toContain('risk-key-loads')
   })
 })
