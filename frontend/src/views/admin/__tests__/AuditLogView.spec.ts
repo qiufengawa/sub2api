@@ -65,7 +65,8 @@ const mountView = () => mount(AuditLogView, {
     stubs: {
       AppLayout: { template: '<main><slot /></main>' },
       UiServerTableWorkspace: {
-        template: '<section><slot name="filters"/><slot/><slot name="pagination"/></section>'
+        props: ['loading'],
+        template: '<section data-testid="audit-workspace" :data-loading="String(loading)"><slot name="filters"/><slot/><slot name="pagination"/></section>'
       },
       UiDataTable: {
         props: ['data'],
@@ -114,6 +115,19 @@ describe('AuditLogView contracts', () => {
       success: undefined
     })
     expect((wrapper.vm as any).authMethodOptions).toContainEqual({ value: 'passkey', label: 'Passkey' })
+  })
+
+  it('reserves the table workspace in its loading state before the first response', async () => {
+    const pending = deferred<{ items: AuditLog[]; total: number; page: number; page_size: number; pages: number }>()
+    list.mockReturnValueOnce(pending.promise)
+
+    const wrapper = mountView()
+
+    expect(wrapper.get('[data-testid="audit-workspace"]').attributes('data-loading')).toBe('true')
+    pending.resolve({ items: [makeLog(1)], total: 1, page: 1, page_size: 20, pages: 1 })
+    await flushPromises()
+    expect(wrapper.get('[data-testid="audit-workspace"]').attributes('data-loading')).toBe('false')
+    wrapper.unmount()
   })
 
   it('rejects an invalid custom time range before changing the applied query', async () => {
