@@ -1,103 +1,68 @@
 <template>
-  <div class="relative" ref="dropdownRef">
-    <button
-      @click="toggleDropdown"
-      :disabled="switching"
-      class="flex min-h-8 items-center gap-1.5 rounded-[3px] px-2 py-1 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
-      :title="currentLocale?.name"
-    >
-      <Icon name="globe" size="sm" class="text-gray-400" />
-      <span class="hidden sm:inline">{{ currentLocale?.code.toUpperCase() }}</span>
-      <Icon
-        name="chevronDown"
-        size="xs"
-        class="text-gray-400 transition-transform duration-200"
-        :class="{ 'rotate-180': isOpen }"
+  <UiDropdownMenu
+    :items="menuItems"
+    placement="bottom-end"
+    @select="selectLocale"
+  >
+    <template #trigger="{ open }">
+      <UiIconButton
+        v-if="compact"
+        icon="globe"
+        variant="ghost"
+        density="compact"
+        :disabled="switching"
+        :label="triggerLabel"
+        aria-haspopup="menu"
+        :aria-expanded="open"
       />
-    </button>
-
-    <transition name="dropdown">
-      <div
-        v-if="isOpen"
-        class="absolute right-0 z-50 mt-1 w-32 overflow-hidden rounded-[4px] border border-gray-200 bg-white shadow-md dark:border-dark-700 dark:bg-dark-800"
+      <UiButton
+        v-else
+        variant="quiet"
+        density="compact"
+        :disabled="switching"
+        :aria-label="triggerLabel"
+        aria-haspopup="menu"
+        :aria-expanded="open"
       >
-        <button
-          v-for="locale in availableLocales"
-          :key="locale.code"
-          :disabled="switching"
-          @click="selectLocale(locale.code)"
-          class="flex min-h-8 w-full items-center gap-2 px-3 py-1.5 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-dark-700"
-          :class="{
-            'bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400':
-              locale.code === currentLocaleCode
-          }"
-        >
-          <Icon name="globe" size="xs" class="text-gray-400" />
-          <span>{{ locale.name }}</span>
-          <Icon v-if="locale.code === currentLocaleCode" name="check" size="sm" class="ml-auto text-primary-500" />
-        </button>
-      </div>
-    </transition>
-  </div>
+        <template #icon><Icon name="globe" size="sm" /></template>
+        {{ currentLocale?.code.toUpperCase() }}
+      </UiButton>
+    </template>
+  </UiDropdownMenu>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { availableLocales, setLocale } from '@/i18n'
 import Icon from '@/components/icons/Icon.vue'
-import { setLocale, availableLocales } from '@/i18n'
+import {
+  UiButton,
+  UiDropdownMenu,
+  UiIconButton,
+  type UiMenuItem,
+} from '@/components/ui'
+
+withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
 
 const { locale } = useI18n()
-
-const isOpen = ref(false)
-const dropdownRef = ref<HTMLElement | null>(null)
 const switching = ref(false)
+const currentLocale = computed(() => availableLocales.find(item => item.code === locale.value))
+const triggerLabel = computed(() => currentLocale.value?.name || locale.value)
+const menuItems = computed<UiMenuItem[]>(() => availableLocales.map(item => ({
+  key: item.code,
+  label: item.name,
+  icon: item.code === locale.value ? 'check' : 'globe',
+  disabled: switching.value,
+})))
 
-const currentLocaleCode = computed(() => locale.value)
-const currentLocale = computed(() => availableLocales.find((l) => l.code === locale.value))
-
-function toggleDropdown() {
-  isOpen.value = !isOpen.value
-}
-
-async function selectLocale(code: string) {
-  if (switching.value || code === currentLocaleCode.value) {
-    isOpen.value = false
-    return
-  }
+async function selectLocale(item: UiMenuItem) {
+  if (switching.value || item.key === locale.value) return
   switching.value = true
   try {
-    await setLocale(code)
-    isOpen.value = false
+    await setLocale(item.key)
   } finally {
     switching.value = false
   }
 }
-
-function handleClickOutside(event: MouseEvent) {
-  if (dropdownRef.value && !dropdownRef.value.contains(event.target as Node)) {
-    isOpen.value = false
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
 </script>
-
-<style scoped>
-.dropdown-enter-active,
-.dropdown-leave-active {
-  transition: all 0.15s ease;
-}
-
-.dropdown-enter-from,
-.dropdown-leave-to {
-  opacity: 0;
-  transform: scale(0.95) translateY(-4px);
-}
-</style>

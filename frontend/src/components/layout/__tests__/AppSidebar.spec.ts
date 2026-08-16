@@ -8,8 +8,6 @@ const componentPath = resolve(dirname(fileURLToPath(import.meta.url)), '../AppSi
 const componentSource = readFileSync(componentPath, 'utf8')
 const headerPath = resolve(dirname(fileURLToPath(import.meta.url)), '../AppHeader.vue')
 const headerSource = readFileSync(headerPath, 'utf8')
-const stylePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../style.css')
-const styleSource = readFileSync(stylePath, 'utf8')
 
 describe('AppSidebar model plaza navigation', () => {
   it('places the embedded model plaza entry between available channels and channel status', () => {
@@ -65,18 +63,19 @@ describe('AppSidebar playground navigation', () => {
   })
 
   it('keeps playground in the shared personal menu and restores it in admin simple mode', () => {
-    expect(componentSource).toContain("{ path: '/playground', label: t('nav.playground'), icon: PlaygroundIcon, featureFlag: flagPlayground }")
+    expect(componentSource).toContain("{ path: '/playground', label: t('nav.playground'), icon: 'beaker', featureFlag: flagPlayground }")
     expect(componentSource).toContain("filtered.push(...applyFeatureFlags([{ path: '/playground'")
   })
 })
 
-describe('AppSidebar custom SVG styles', () => {
-  it('does not override uploaded SVG fill or stroke colors', () => {
-    expect(componentSource).toContain('.sidebar-svg-icon {')
-    expect(componentSource).toContain('color: currentColor;')
-    expect(componentSource).toContain('display: block;')
-    expect(componentSource).not.toContain('stroke: currentColor;')
-    expect(componentSource).not.toContain('fill: none;')
+describe('AppSidebar icon contract', () => {
+  it('renders every navigation icon through the shared Lucide registry', () => {
+    expect(componentSource).toContain("import Icon from '@/components/icons/Icon.vue'")
+    expect(componentSource).toContain('<Icon :name="item.icon" size="sm" />')
+    expect(componentSource).toContain("icon: 'link'")
+    expect(componentSource).not.toContain('v-html')
+    expect(componentSource).not.toContain('sanitizeSvg')
+    expect(componentSource).not.toContain("h('svg'")
   })
 })
 
@@ -105,19 +104,25 @@ describe('AppSidebar scroll position persistence', () => {
 
 describe('AppSidebar header styles', () => {
   it('does not clip the version badge dropdown', () => {
-    const sidebarHeaderBlockMatch = styleSource.match(/\.sidebar-header\s*\{[\s\S]*?\n {2}\}/)
-    const sidebarBrandBlockMatch = componentSource.match(/\.sidebar-brand\s*\{[\s\S]*?\n\}/)
+    const sidebarHeaderBlockMatch = componentSource.match(/\.sidebar-header\{[^}]*\}/)
+    const sidebarBrandBlockMatch = componentSource.match(/\.sidebar-brand\{[^}]*\}/)
 
     expect(sidebarHeaderBlockMatch).not.toBeNull()
     expect(sidebarBrandBlockMatch).not.toBeNull()
-    expect(sidebarHeaderBlockMatch?.[0]).not.toContain('@apply overflow-hidden;')
-    expect(sidebarBrandBlockMatch?.[0]).not.toContain('overflow: hidden;')
+    expect(sidebarHeaderBlockMatch?.[0]).not.toContain('overflow:hidden')
+    expect(sidebarBrandBlockMatch?.[0]).not.toContain('overflow:hidden')
   })
 
-  it('gives the site name its own two-line brand area', () => {
+  it('centers the horizontal logo and keeps a text fallback', () => {
     expect(componentSource).toContain(':title="siteName"')
-    expect(componentSource).toContain('-webkit-line-clamp: 2;')
-    expect(componentSource).toContain('max-width: 100%;')
+    expect(componentSource).toContain('v-if="siteLogo"')
+    expect(componentSource).toContain('<span v-else>{{ siteName }}</span>')
+    expect(componentSource).toContain('object-position:center')
+  })
+
+  it('removes the hidden brand link from the collapsed keyboard order', () => {
+    expect(componentSource).toContain('v-show="!sidebarCollapsed"')
+    expect(componentSource).toContain(':tabindex="sidebarCollapsed ? -1 : undefined"')
   })
 
   it('moves the version control to the bottom tools and opens it upward', () => {

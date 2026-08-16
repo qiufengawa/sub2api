@@ -1,4 +1,4 @@
-<template><UiPopover :placement="placement"><template #trigger><slot name="trigger"/></template><template #default="{close}"><div class="ui-menu" role="menu"><button v-for="item in items" :key="item.key" type="button" role="menuitem" :disabled="item.disabled" :class="{'is-danger':item.danger}" @click="select(item,close)"><Icon v-if="item.icon" :name="item.icon" size="sm"/><span>{{ item.label }}</span></button><slot/></div></template></UiPopover></template>
+<template><UiPopover :placement="placement"><template #trigger="{open}"><slot name="trigger" :open="open"/></template><template #default="{close}"><div class="ui-menu" role="menu"><button v-for="item in items" :key="item.key" type="button" role="menuitem" :disabled="item.disabled" :class="{'is-danger':item.danger}" @click="select(item,close)"><Icon v-if="item.icon" :name="item.icon" size="sm"/><span>{{ item.label }}</span></button><slot/></div></template></UiPopover></template>
 <script setup lang="ts">
 import Icon from '@/components/icons/Icon.vue';
 import UiPopover from './UiPopover.vue';

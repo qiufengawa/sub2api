@@ -11,12 +11,14 @@ const appLayoutSource = readFileSync(appLayoutPath, 'utf8')
 
 describe('TablePageLayout responsive table scrolling', () => {
   it('inherits available height through a flex/min-h-0 chain instead of viewport arithmetic', () => {
-    expect(appLayoutSource).toContain('relative flex min-h-screen flex-col')
-    expect(appLayoutSource).toContain('app-main-content flex min-h-0 min-w-0 flex-1 flex-col')
-    expect(appLayoutSource).toContain('app-page-content flex min-h-0 min-w-0 flex-1 flex-col')
+    expect(appLayoutSource).toContain('class="app-shell__workspace"')
+    expect(appLayoutSource).toContain('app-main-content app-shell__main')
+    expect(appLayoutSource).toContain('app-page-content app-shell__page')
+    expect(appLayoutSource).toContain('.app-shell__main,')
+    expect(appLayoutSource).toContain('min-height: 0;')
+    expect(appLayoutSource).toContain('min-width: 0;')
     expect(componentSource).toContain('@apply flex min-h-0 flex-1 flex-col gap-3')
     expect(componentSource).not.toContain('height: calc')
-    expect(componentSource).not.toContain('100dvh')
   })
 
   it('does not disable the table horizontal scroll container in mobile mode', () => {

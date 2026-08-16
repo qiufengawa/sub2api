@@ -1,19 +1,12 @@
 <template>
-  <div class="app-shell min-h-screen bg-gray-50 dark:bg-dark-950">
-    <!-- Sidebar -->
+  <div class="app-shell" :class="{ 'app-shell--collapsed': sidebarCollapsed }">
     <AppSidebar />
 
-    <!-- Main Content Area -->
-    <div
-      class="relative flex min-h-screen flex-col transition-all duration-300"
-      :class="[sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-64']"
-    >
-      <!-- Header -->
+    <div class="app-shell__workspace">
       <AppHeader />
 
-      <!-- Main Content -->
-      <main class="app-main-content flex min-h-0 min-w-0 flex-1 flex-col p-3 md:p-4 lg:p-6">
-        <div class="app-page-content flex min-h-0 min-w-0 flex-1 flex-col">
+      <main class="app-main-content app-shell__main">
+        <div class="app-page-content app-shell__page">
           <slot />
         </div>
       </main>
@@ -52,19 +45,64 @@ defineExpose({ replayTour })
 
 <style scoped>
 .app-shell {
-  --app-header-height: 4rem;
-  --app-content-block-padding: 1.5rem;
+  --app-sidebar-width: 240px;
+  --app-sidebar-collapsed-width: 64px;
+  --app-header-height: 54px;
+  --app-content-inline-padding: 24px;
+  --app-content-block-padding: 20px;
+  min-height: 100dvh;
+  color: var(--ui-text);
+  background: var(--ui-bg);
 }
 
-@media (min-width: 768px) {
+.app-shell__workspace {
+  display: flex;
+  min-width: 0;
+  min-height: 100dvh;
+  flex-direction: column;
+  margin-left: var(--app-sidebar-width);
+  transition: margin-left var(--ui-motion-base) var(--ui-ease-standard);
+}
+
+.app-shell--collapsed .app-shell__workspace {
+  margin-left: var(--app-sidebar-collapsed-width);
+}
+
+.app-shell__main,
+.app-shell__page {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.app-shell__main {
+  padding: var(--app-content-block-padding) var(--app-content-inline-padding) 32px;
+}
+
+@media (max-width: 1023px) {
   .app-shell {
-    --app-content-block-padding: 2rem;
+    --app-content-inline-padding: 20px;
+    --app-content-block-padding: 18px;
+  }
+
+  .app-shell__workspace,
+  .app-shell--collapsed .app-shell__workspace {
+    margin-left: 0;
   }
 }
 
-@media (min-width: 1024px) {
+@media (max-width: 639px) {
   .app-shell {
-    --app-content-block-padding: 3rem;
+    --app-content-inline-padding: 16px;
+    --app-content-block-padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell__workspace {
+    transition: none;
   }
 }
 </style>
