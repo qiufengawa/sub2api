@@ -50,16 +50,24 @@ export type AuditLogListResponse = PaginatedResponse<AuditLog>
 /**
  * List audit logs (paginated, filterable).
  */
-export async function list(params: AuditLogQuery): Promise<AuditLogListResponse> {
-  const { data } = await apiClient.get('/admin/audit-logs', { params })
+export async function list(
+  params: AuditLogQuery,
+  options?: { signal?: AbortSignal }
+): Promise<AuditLogListResponse> {
+  const { data } = await apiClient.get('/admin/audit-logs', {
+    params,
+    signal: options?.signal
+  })
   return data
 }
 
 /**
  * Get a single audit log entry (includes the redacted request body).
  */
-export async function get(id: number): Promise<AuditLog> {
-  const { data } = await apiClient.get(`/admin/audit-logs/${id}`)
+export async function get(id: number, options?: { signal?: AbortSignal }): Promise<AuditLog> {
+  const { data } = await apiClient.get(`/admin/audit-logs/${id}`, {
+    signal: options?.signal
+  })
   return data
 }
 

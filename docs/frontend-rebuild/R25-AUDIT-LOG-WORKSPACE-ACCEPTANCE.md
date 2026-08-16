@@ -3,6 +3,7 @@
 ## Scope
 
 - Route: `/admin/audit-logs`
+- API transport: `frontend/src/api/admin/audit.ts`
 - View: `frontend/src/views/admin/AuditLogView.vue`
 - Contract tests: `frontend/src/views/admin/__tests__/AuditLogView.spec.ts`
 
@@ -13,6 +14,8 @@
 - Keeps the comparison table on narrow screens instead of converting audit records into tall cards.
 - Keeps detail data flat through `UiDescriptionList` and `UiCodeBlock`; no nested detail cards remain.
 - Starts in a dimensionally stable loading state so the first paint reserves the final table workspace.
+- Keeps current rows visible under the workspace refresh overlay and leaves an inline retryable error when a refresh fails.
+- Cancels superseded list and detail requests, ignores late responses by request generation, and aborts active requests when the drawer closes or the page unmounts.
 
 ## Preserved Contracts
 
@@ -27,9 +30,10 @@ Run on 2026-08-16:
 
 ```text
 pnpm exec vitest run src/views/admin/__tests__/AuditLogView.spec.ts
-Result: 1 file, 9 tests passed
+Result: 1 file, 14 tests passed
 
 pnpm exec eslint \
+  src/api/admin/audit.ts \
   src/views/admin/AuditLogView.vue \
   src/views/admin/__tests__/AuditLogView.spec.ts
 Result: passed
@@ -38,16 +42,24 @@ pnpm exec vue-tsc --noEmit
 Result: passed
 
 pnpm run test:run
-Result: 321 files, 2112 tests passed
+Result: 323 files, 2137 tests passed
 
-pnpm run build
+pnpm run lint:check
 Result: passed
 
-git diff --check
+pnpm run build
+Result: 3117 modules transformed; built in 26.18s
+
+git diff --check -- \
+  frontend/src/api/admin/audit.ts \
+  frontend/src/views/admin/AuditLogView.vue \
+  frontend/src/views/admin/__tests__/AuditLogView.spec.ts
 Result: passed
 ```
 
-The suite covers the initial loading reservation, stable query shape, invalid and valid custom time ranges, persistent list/detail errors, stale detail response protection, single-request page-size changes, and the TOTP clear chain.
+The suite covers the initial loading reservation, stable query shape, refresh data retention, persistent list/detail errors, list and detail cancellation, late responses after selection changes or drawer closure, invalid and valid custom time ranges, single-request page-size changes, unmount cleanup, and the TOTP clear chain.
+
+The build retains the existing large-chunk, mixed static/dynamic import, Browserslist data-age, and `lottie-web` `eval` warnings; this batch introduced no new build error.
 
 ## Browser Acceptance
 

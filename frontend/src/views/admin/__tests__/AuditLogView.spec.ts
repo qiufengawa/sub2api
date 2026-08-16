@@ -69,8 +69,8 @@ const mountView = () => mount(AuditLogView, {
         template: '<section data-testid="audit-workspace" :data-loading="String(loading)"><slot name="filters"/><slot/><slot name="pagination"/></section>'
       },
       UiDataTable: {
-        props: ['data'],
-        template: '<div><slot v-if="!data.length" name="empty"/></div>'
+        props: ['data', 'loading'],
+        template: '<div data-testid="audit-table" :data-loading="String(loading)" :data-first-id="data[0]?.id || \'\'"><slot v-if="!data.length" name="empty"/></div>'
       },
       UiDrawer: {
         props: ['show'],
@@ -103,17 +103,20 @@ describe('AuditLogView contracts', () => {
 
     expect(wrapper.get('main.app-page').classes()).toContain('app-page--compact')
     expect(wrapper.get('h1').text()).toBe('admin.audit.title')
-    expect(list).toHaveBeenCalledWith({
-      page: 1,
-      page_size: 20,
-      q: undefined,
-      actor_email: undefined,
-      action: undefined,
-      client_ip: undefined,
-      method: undefined,
-      auth_method: undefined,
-      success: undefined
-    })
+    expect(list).toHaveBeenCalledWith(
+      {
+        page: 1,
+        page_size: 20,
+        q: undefined,
+        actor_email: undefined,
+        action: undefined,
+        client_ip: undefined,
+        method: undefined,
+        auth_method: undefined,
+        success: undefined
+      },
+      { signal: expect.any(AbortSignal) }
+    )
     expect((wrapper.vm as any).authMethodOptions).toContainEqual({ value: 'passkey', label: 'Passkey' })
   })
 
@@ -123,10 +126,60 @@ describe('AuditLogView contracts', () => {
 
     const wrapper = mountView()
 
-    expect(wrapper.get('[data-testid="audit-workspace"]').attributes('data-loading')).toBe('true')
+    expect(wrapper.get('[data-testid="audit-workspace"]').attributes('data-loading')).toBe('false')
+    expect(wrapper.get('[data-testid="audit-table"]').attributes('data-loading')).toBe('true')
     pending.resolve({ items: [makeLog(1)], total: 1, page: 1, page_size: 20, pages: 1 })
     await flushPromises()
     expect(wrapper.get('[data-testid="audit-workspace"]').attributes('data-loading')).toBe('false')
+    wrapper.unmount()
+  })
+
+  it('keeps current rows visible under the local refresh overlay', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const pending = deferred<{ items: AuditLog[]; total: number; page: number; page_size: number; pages: number }>()
+    list.mockReturnValueOnce(pending.promise)
+
+    const refresh = (wrapper.vm as any).fetchLogs()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="audit-workspace"]').attributes('data-loading')).toBe('true')
+    expect(wrapper.get('[data-testid="audit-table"]').attributes('data-loading')).toBe('false')
+    expect(wrapper.get('[data-testid="audit-table"]').attributes('data-first-id')).toBe('1')
+
+    pending.resolve({ items: [makeLog(2)], total: 1, page: 1, page_size: 20, pages: 1 })
+    await refresh
+    wrapper.unmount()
+  })
+
+  it('keeps current rows and an inline error after a failed refresh', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    list.mockRejectedValueOnce(new Error('refresh failed'))
+
+    await (wrapper.vm as any).fetchLogs()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="audit-table"]').attributes('data-first-id')).toBe('1')
+    expect(wrapper.text()).toContain('admin.audit.loadFailed')
+    expect(showError).toHaveBeenLastCalledWith('refresh failed')
+    wrapper.unmount()
+  })
+
+  it('aborts a stale list request and ignores its late response', async () => {
+    const stale = deferred<{ items: AuditLog[]; total: number; page: number; page_size: number; pages: number }>()
+    list.mockReturnValueOnce(stale.promise)
+    const wrapper = mountView()
+    const staleSignal = list.mock.calls[0]?.[1]?.signal as AbortSignal
+    list.mockResolvedValueOnce({ items: [makeLog(2)], total: 1, page: 1, page_size: 20, pages: 1 })
+
+    await (wrapper.vm as any).fetchLogs()
+    expect(staleSignal.aborted).toBe(true)
+    expect((wrapper.vm as any).logs[0].id).toBe(2)
+
+    stale.resolve({ items: [makeLog(1)], total: 1, page: 1, page_size: 20, pages: 1 })
+    await flushPromises()
+    expect((wrapper.vm as any).logs[0].id).toBe(2)
     wrapper.unmount()
   })
 
@@ -170,10 +223,13 @@ describe('AuditLogView contracts', () => {
     vm.timeRange = 'custom'
     await vm.search()
 
-    expect(list).toHaveBeenLastCalledWith(expect.objectContaining({
-      start_time: new Date('2026-08-15T08:00').toISOString(),
-      end_time: new Date('2026-08-15T09:30').toISOString()
-    }))
+    expect(list).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        start_time: new Date('2026-08-15T08:00').toISOString(),
+        end_time: new Date('2026-08-15T09:30').toISOString()
+      }),
+      { signal: expect.any(AbortSignal) }
+    )
   })
 
   it('does not let a slower detail response replace the latest selection', async () => {
@@ -195,6 +251,30 @@ describe('AuditLogView contracts', () => {
     expect(vm.detailLoading).toBe(false)
   })
 
+  it('aborts a detail request and ignores its late response after the drawer closes', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const pending = deferred<AuditLog>()
+    get.mockReturnValueOnce(pending.promise)
+    const vm = wrapper.vm as any
+
+    const request = vm.openDetail(1)
+    const signal = get.mock.calls[0]?.[1]?.signal as AbortSignal
+    vm.closeDetail()
+
+    expect(signal.aborted).toBe(true)
+    pending.resolve(makeLog(1))
+    await request
+    await flushPromises()
+
+    expect(vm.detailVisible).toBe(false)
+    expect(vm.detailLoading).toBe(false)
+    expect(vm.detailError).toBe(false)
+    expect(vm.detail).toBeNull()
+    expect(showError).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
   it('keeps a failed detail drawer open and retries the same log', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -210,8 +290,25 @@ describe('AuditLogView contracts', () => {
     get.mockResolvedValueOnce(makeLog(7))
     await wrapper.get('[data-testid="audit-detail-error"] [data-testid="retry"]').trigger('click')
     await flushPromises()
-    expect(get).toHaveBeenLastCalledWith(7)
+    expect(get).toHaveBeenLastCalledWith(7, { signal: expect.any(AbortSignal) })
     expect(vm.detail.id).toBe(7)
+  })
+
+  it('aborts active list and detail requests when the page unmounts', async () => {
+    const pendingList = deferred<{ items: AuditLog[]; total: number; page: number; page_size: number; pages: number }>()
+    list.mockReturnValueOnce(pendingList.promise)
+    get.mockReturnValueOnce(new Promise<AuditLog>(() => undefined))
+    const wrapper = mountView()
+    const listSignal = list.mock.calls[0]?.[1]?.signal as AbortSignal
+
+    void (wrapper.vm as any).openDetail(1)
+    const detailSignal = get.mock.calls[0]?.[1]?.signal as AbortSignal
+    expect(listSignal.aborted).toBe(false)
+    expect(detailSignal.aborted).toBe(false)
+
+    wrapper.unmount()
+    expect(listSignal.aborted).toBe(true)
+    expect(detailSignal.aborted).toBe(true)
   })
 
   it('requests exactly once when the page size changes', async () => {
@@ -222,7 +319,10 @@ describe('AuditLogView contracts', () => {
     await (wrapper.vm as any).onPageSizeChange(50)
 
     expect(list).toHaveBeenCalledTimes(1)
-    expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 50 }))
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({ page: 1, page_size: 50 }),
+      { signal: expect.any(AbortSignal) }
+    )
   })
 
   it('keeps the TOTP gate and clear payload intact', async () => {

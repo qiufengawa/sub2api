@@ -10,7 +10,7 @@
         </template>
       </AppPageHeader>
 
-      <UiServerTableWorkspace :loading="loading">
+      <UiServerTableWorkspace :loading="refreshing">
         <template #toolbar>
           <UiTableToolbar>
             <UiSearchInput
@@ -82,14 +82,21 @@
           </AppGrid>
         </template>
 
-      <!-- Table -->
-      <UiDataTable
-        :columns="columns"
-        :data="logs"
-        :loading="loading"
-        row-key="id"
-        :aria-label="t('admin.audit.title')"
-      >
+      <AppStack :gap="12">
+        <UiAlert
+          v-if="loadError && logs.length"
+          tone="danger"
+          :message="t('admin.audit.loadFailed')"
+        />
+
+        <!-- Table -->
+        <UiDataTable
+          :columns="columns"
+          :data="logs"
+          :loading="initialLoading"
+          row-key="id"
+          :aria-label="t('admin.audit.title')"
+        >
           <template #cell-created_at="{ value }">
             <time class="ui-numeric">{{ formatTime(value) }}</time>
           </template>
@@ -137,7 +144,8 @@
             />
             <UiEmptyState v-else :title="emptyStateTitle" />
           </template>
-      </UiDataTable>
+        </UiDataTable>
+      </AppStack>
 
       <!-- Pagination -->
       <template #pagination>
@@ -338,6 +346,14 @@ const logs = ref<AuditLog[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
+const initialLoading = computed(() => loading.value && logs.value.length === 0)
+const refreshing = computed(() => loading.value && logs.value.length > 0)
+
+function isAbortError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const requestError = error as { name?: string; code?: string }
+  return requestError.name === 'AbortError' || requestError.code === 'ERR_CANCELED'
+}
 
 const filters = reactive({
   q: '',
@@ -529,23 +545,30 @@ function buildQuery() {
 }
 
 let listRequestId = 0
+let listRequestController: AbortController | null = null
 
 async function fetchLogs() {
+  listRequestController?.abort()
+  const controller = new AbortController()
   const requestId = ++listRequestId
+  listRequestController = controller
   loading.value = true
   loadError.value = false
   try {
-    const res = await adminAPI.audit.list(buildQuery())
-    if (requestId !== listRequestId) return
+    const res = await adminAPI.audit.list(buildQuery(), { signal: controller.signal })
+    if (controller.signal.aborted || requestId !== listRequestId) return
     logs.value = res.items
     total.value = res.total
     loadError.value = false
   } catch (err: any) {
-    if (requestId !== listRequestId) return
+    if (controller.signal.aborted || requestId !== listRequestId || isAbortError(err)) return
     loadError.value = true
     appStore.showError(err?.message || t('admin.audit.loadFailed'))
   } finally {
-    if (requestId === listRequestId) loading.value = false
+    if (listRequestController === controller) {
+      loading.value = false
+      listRequestController = null
+    }
   }
 }
 
@@ -600,29 +623,38 @@ const detailFacts = computed(() => {
   ]
 })
 let detailRequestId = 0
+let detailRequestController: AbortController | null = null
 
 async function openDetail(id: number) {
+  detailRequestController?.abort()
+  const controller = new AbortController()
   const requestId = ++detailRequestId
+  detailRequestController = controller
   detailId.value = id
   detailVisible.value = true
   detailLoading.value = true
   detailError.value = false
   detail.value = null
   try {
-    const response = await adminAPI.audit.get(id)
-    if (requestId !== detailRequestId || !detailVisible.value) return
+    const response = await adminAPI.audit.get(id, { signal: controller.signal })
+    if (controller.signal.aborted || requestId !== detailRequestId || !detailVisible.value) return
     detail.value = response
   } catch (err: any) {
-    if (requestId !== detailRequestId) return
+    if (controller.signal.aborted || requestId !== detailRequestId || isAbortError(err)) return
     detailError.value = true
     appStore.showError(err?.message || t('admin.audit.loadFailed'))
   } finally {
-    if (requestId === detailRequestId) detailLoading.value = false
+    if (detailRequestController === controller) {
+      detailLoading.value = false
+      detailRequestController = null
+    }
   }
 }
 
 function closeDetail() {
   detailRequestId++
+  detailRequestController?.abort()
+  detailRequestController = null
   detailVisible.value = false
   detailLoading.value = false
   detailError.value = false
@@ -717,5 +749,9 @@ onMounted(fetchLogs)
 onUnmounted(() => {
   listRequestId++
   detailRequestId++
+  listRequestController?.abort()
+  detailRequestController?.abort()
+  listRequestController = null
+  detailRequestController = null
 })
 </script>
