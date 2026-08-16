@@ -1,106 +1,64 @@
 <template>
   <AppLayout>
-    <div class="custom-page-layout">
-      <div class="custom-page-surface">
-        <header v-if="menuItem && !loading" class="custom-page-header">
-          <div class="min-w-0">
-            <h1 class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ menuItem.label }}</h1>
-            <p class="mt-0.5 text-[11px] text-gray-500 dark:text-dark-400">
-              {{ isMarkdownMode ? t('customPage.markdownMode') : t('customPage.embeddedMode') }}
-            </p>
-          </div>
-          <a
-            v-if="!isMarkdownMode && isValidUrl"
-            :href="embeddedUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="btn btn-secondary btn-sm shrink-0"
-          >
-            <Icon name="externalLink" size="sm" />
+    <AppPage width="full" density="compact" class="custom-page">
+      <AppPageHeader
+        v-if="menuItem && !loading"
+        :title="menuItem.label"
+        :description="isMarkdownMode ? t('customPage.markdownMode') : t('customPage.embeddedMode')"
+      >
+        <template v-if="!isMarkdownMode && isValidUrl" #actions>
+          <UiLink :href="embeddedUrl" external>
             {{ t('customPage.openInNewTab') }}
-          </a>
-        </header>
+          </UiLink>
+        </template>
+      </AppPageHeader>
 
-        <div
-          v-if="loading"
-          class="flex h-full items-center justify-center py-12"
-          role="status"
-          :aria-label="t('common.loading')"
-        >
-          <div
-            class="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
-          ></div>
+      <div class="custom-page-workspace">
+        <div v-if="loading" class="custom-page-loading" role="status" :aria-label="t('common.loading')">
+          <UiSkeleton variant="text" width="42%" />
+          <UiSkeleton variant="rect" width="100%" height="320px" />
         </div>
 
-        <div
+        <UiEmptyState
           v-else-if="!menuItem"
-          class="flex h-full items-center justify-center p-10 text-center"
-        >
-          <div class="max-w-md">
-            <div
-              class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-dark-700"
-            >
-              <Icon name="link" size="lg" class="text-gray-400" />
-            </div>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-              {{ t('customPage.notFoundTitle') }}
-            </h3>
-            <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
-              {{ t('customPage.notFoundDesc') }}
-            </p>
-          </div>
-        </div>
+          icon="link"
+          :title="t('customPage.notFoundTitle')"
+          :description="t('customPage.notFoundDesc')"
+        />
 
-        <div v-else-if="loadError" class="flex min-h-0 flex-1 items-center justify-center p-8 text-center">
-          <div class="max-w-sm">
-            <div class="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-[4px] bg-red-50 dark:bg-red-950/20">
-              <Icon name="exclamationCircle" size="lg" class="text-red-500" />
-            </div>
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('common.loadFailed') }}</h3>
-            <button type="button" class="btn btn-primary btn-sm mt-4" @click="retryLoad">
-              {{ t('common.retry') }}
-            </button>
-          </div>
-        </div>
+        <UiErrorState
+          v-else-if="loadError"
+          :title="t('common.loadFailed')"
+          :retry-text="t('common.retry')"
+          @retry="retryLoad"
+        />
 
-        <!-- Markdown mode with TOC -->
-        <div v-else-if="isMarkdownMode" class="relative flex min-h-0 flex-1 overflow-hidden">
-          <button
-            v-if="tocVisible && isCompactToc"
-            type="button"
-            class="toc-backdrop"
-            :aria-label="t('common.close')"
-            @click="tocVisible = false"
-          ></button>
-
-          <!-- TOC Sidebar -->
+        <div v-else-if="isMarkdownMode" class="custom-markdown-workspace">
           <aside
+            v-if="!isCompactToc && tocVisible && tocItems.length > 0"
             id="custom-page-toc"
-            v-show="tocVisible"
-            class="toc-sidebar"
+            class="custom-toc"
             :aria-label="t('customPage.tableOfContents')"
           >
-            <div class="toc-header">
-              <span class="toc-title">{{ t('customPage.tableOfContents') }}</span>
-              <button
-                type="button"
-                class="toc-close-btn"
-                :aria-label="t('common.collapse')"
-                :title="t('common.collapse')"
+            <div class="custom-toc__header">
+              <strong>{{ t('customPage.tableOfContents') }}</strong>
+              <UiIconButton
+                icon="chevronLeft"
+                variant="ghost"
+                density="dense"
+                :label="t('common.collapse')"
                 @click="tocVisible = false"
-              >
-                <Icon name="chevronLeft" size="sm" />
-              </button>
+              />
             </div>
-            <nav class="toc-nav">
+            <nav class="custom-toc__nav">
               <a
                 v-for="item in tocItems"
                 :key="item.id"
                 :href="'#' + item.id"
-                class="toc-item"
+                class="custom-toc__item"
                 :class="[
-                  `toc-level-${item.level}`,
-                  { 'toc-active': activeHeadingId === item.id }
+                  `custom-toc__item--level-${item.level}`,
+                  { 'custom-toc__item--active': activeHeadingId === item.id }
                 ]"
                 @click.prevent="scrollToHeading(item.id)"
               >
@@ -109,56 +67,67 @@
             </nav>
           </aside>
 
-          <!-- TOC Toggle Button (when collapsed) -->
-          <button
-            v-show="!tocVisible && tocItems.length > 0"
-            type="button"
-            class="toc-toggle-btn"
+          <UiDrawer
+            :show="isCompactToc && tocVisible"
+            side="left"
+            :title="t('customPage.tableOfContents')"
+            @close="tocVisible = false"
+          >
+            <nav class="custom-toc__nav custom-toc__nav--drawer">
+              <a
+                v-for="item in tocItems"
+                :key="`drawer-${item.id}`"
+                :href="'#' + item.id"
+                class="custom-toc__item"
+                :class="[
+                  `custom-toc__item--level-${item.level}`,
+                  { 'custom-toc__item--active': activeHeadingId === item.id }
+                ]"
+                @click.prevent="scrollToHeading(item.id)"
+              >
+                {{ item.text }}
+              </a>
+            </nav>
+          </UiDrawer>
+
+          <UiButton
+            v-if="!tocVisible && tocItems.length > 0"
+            class="custom-toc-toggle"
+            density="dense"
+            variant="secondary"
             aria-controls="custom-page-toc"
             :aria-expanded="tocVisible"
             @click="tocVisible = true"
           >
-            <Icon name="menu" size="sm" />
-            <span class="ml-1 text-xs">{{ t('customPage.tableOfContents') }}</span>
-          </button>
+            <template #icon><Icon name="menu" size="sm" /></template>
+            {{ t('customPage.tableOfContents') }}
+          </UiButton>
 
-          <!-- Content -->
-          <div
+          <article
             ref="markdownContainer"
-            class="markdown-page-content h-full flex-1 overflow-auto p-4 md:p-6"
+            class="markdown-page-content"
             v-html="renderedHtml"
             @scroll="onContentScroll"
-          ></div>
+          />
         </div>
 
-        <!-- URL not configured -->
-        <div v-else-if="!isValidUrl" class="flex h-full items-center justify-center p-10 text-center">
-          <div class="max-w-md">
-            <div
-              class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-dark-700"
-            >
-              <Icon name="link" size="lg" class="text-gray-400" />
-            </div>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-              {{ t('customPage.notConfiguredTitle') }}
-            </h3>
-            <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
-              {{ t('customPage.notConfiguredDesc') }}
-            </p>
-          </div>
-        </div>
+        <UiEmptyState
+          v-else-if="!isValidUrl"
+          icon="link"
+          :title="t('customPage.notConfiguredTitle')"
+          :description="t('customPage.notConfiguredDesc')"
+        />
 
-        <!-- Iframe embed mode -->
         <div v-else class="custom-embed-shell">
           <iframe
             :src="embeddedUrl"
             :title="menuItem.label || t('customPage.title')"
             class="custom-embed-frame"
             allowfullscreen
-          ></iframe>
+          />
         </div>
       </div>
-    </div>
+    </AppPage>
   </AppLayout>
 </template>
 
@@ -171,6 +140,17 @@ import { useAuthStore } from '@/stores/auth'
 import { useAdminSettingsStore } from '@/stores/adminSettings'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  AppPage,
+  AppPageHeader,
+  UiButton,
+  UiDrawer,
+  UiEmptyState,
+  UiErrorState,
+  UiIconButton,
+  UiLink,
+  UiSkeleton
+} from '@/components/ui'
 import { buildApiUrl } from '@/api/client'
 import { buildEmbeddedUrl, detectTheme } from '@/utils/embedded-url'
 import { marked } from 'marked'
@@ -198,6 +178,8 @@ const isCompactToc = ref(typeof window !== 'undefined' ? window.innerWidth <= 64
 const tocVisible = ref(!isCompactToc.value)
 const activeHeadingId = ref('')
 let themeObserver: MutationObserver | null = null
+let markdownRequestController: AbortController | null = null
+let markdownRequestSeq = 0
 
 const menuItemId = computed(() => route.params.id as string)
 
@@ -279,6 +261,10 @@ function escapeHtmlAttribute(value: string): string {
 }
 
 async function fetchAndRenderMarkdown(slug: string) {
+  const requestId = ++markdownRequestSeq
+  markdownRequestController?.abort()
+  const controller = new AbortController()
+  markdownRequestController = controller
   loading.value = true
   loadError.value = false
   tocItems.value = []
@@ -286,13 +272,16 @@ async function fetchAndRenderMarkdown(slug: string) {
   try {
     const resp = await fetch(buildApiUrl(`/pages/${encodeURIComponent(slug)}`), {
       headers: authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {},
+      signal: controller.signal,
     })
+    if (requestId !== markdownRequestSeq) return
     if (!resp.ok) {
       renderedHtml.value = ''
       loadError.value = true
       return
     }
     let raw = await resp.text()
+    if (requestId !== markdownRequestSeq) return
 
     raw = raw.replace(
       /!\[([^\]]*)\]\(([^)]+)\)/g,
@@ -329,14 +318,18 @@ async function fetchAndRenderMarkdown(slug: string) {
 
     renderedHtml.value = withIds
     tocItems.value = toc
-  } catch {
+  } catch (error) {
+    if (controller.signal.aborted || requestId !== markdownRequestSeq) return
     renderedHtml.value = ''
     loadError.value = true
   } finally {
-    loading.value = false
-    await nextTick()
-    await nextTick()
-    injectCopyButtons()
+    if (requestId === markdownRequestSeq) {
+      markdownRequestController = null
+      loading.value = false
+      await nextTick()
+      await nextTick()
+      injectCopyButtons()
+    }
   }
 }
 
@@ -417,9 +410,13 @@ watch(markdownSlug, (slug) => {
     }
     fetchAndRenderMarkdown(slug)
   } else {
+    markdownRequestSeq += 1
+    markdownRequestController?.abort()
+    markdownRequestController = null
     renderedHtml.value = ''
     tocItems.value = []
     loadError.value = false
+    loading.value = false
   }
 }, { immediate: true })
 
@@ -457,11 +454,20 @@ onMounted(async () => {
   try {
     await appStore.fetchPublicSettings()
   } finally {
-    loading.value = false
+    if (!markdownSlug.value) {
+      loading.value = false
+    }
   }
 })
 
 onUnmounted(() => {
+  markdownRequestSeq += 1
+  markdownRequestController?.abort()
+  markdownRequestController = null
+  if (scrollRafId) {
+    cancelAnimationFrame(scrollRafId)
+    scrollRafId = 0
+  }
   window.removeEventListener('resize', syncTocLayout)
   window.removeEventListener('keydown', onPageKeydown)
   if (themeObserver) {
@@ -472,89 +478,118 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.custom-page-layout {
-  @apply flex flex-col;
-  height: calc(
-    100dvh - var(--app-header-height, 4rem) - var(--app-content-block-padding, 1.5rem)
-  );
+.custom-page {
+  display: flex;
+  height: calc(100dvh - var(--app-header-height, 4rem));
   min-height: 20rem;
+  flex-direction: column;
 }
 
-.custom-page-surface {
-  @apply flex min-h-0 flex-1 flex-col overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900;
-}
-
-.custom-page-header {
-  @apply flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-dark-700;
-}
-
-.toc-sidebar {
-  @apply flex flex-col h-full border-r border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-800;
-  width: min(240px, 30%);
-  min-width: 160px;
-  max-width: 280px;
+.custom-page-workspace {
+  display: flex;
+  min-height: 0;
+  flex: 1;
   overflow: hidden;
 }
 
-@media (max-width: 640px) {
-  .toc-sidebar {
-    position: absolute;
-    left: 0;
-    top: 0;
-    z-index: 20;
-    width: min(19rem, calc(100vw - 1.5rem));
-    max-width: none;
-    height: 100%;
-    box-shadow: 4px 0 16px rgba(15, 23, 42, 0.12);
-  }
+.custom-page-loading {
+  display: grid;
+  width: 100%;
+  align-content: start;
+  gap: 16px;
+  padding: 24px 0;
 }
 
-.toc-backdrop {
-  @apply absolute inset-0 z-10 cursor-default bg-gray-950/35;
+.custom-markdown-workspace {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
-.toc-header {
-  @apply flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-dark-600;
+.custom-toc {
+  display: flex;
+  width: clamp(180px, 24%, 260px);
+  min-width: 180px;
+  min-height: 0;
+  flex-direction: column;
+  border-right: 1px solid var(--ui-border-soft);
+  background: var(--ui-surface-muted);
 }
 
-.toc-title {
-  @apply text-sm font-semibold text-gray-700 dark:text-dark-200;
+.custom-toc__header {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px 6px 14px;
+  border-bottom: 1px solid var(--ui-border-soft);
 }
 
-.toc-close-btn {
-  @apply rounded-[3px] p-1 text-gray-400 hover:text-gray-600 dark:hover:text-dark-200 hover:bg-gray-200 dark:hover:bg-dark-600 transition-colors;
+.custom-toc__header strong {
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.toc-nav {
-  @apply flex-1 overflow-y-auto py-2 px-2;
+.custom-toc__nav {
+  min-height: 0;
+  padding: 8px;
+  overflow-y: auto;
 }
 
-.toc-item {
-  @apply block truncate rounded-[3px] px-2 py-1.5 text-sm transition-colors;
-  @apply text-gray-600 dark:text-dark-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-dark-600;
+.custom-toc__nav--drawer {
+  padding: 0;
 }
 
-.toc-item.toc-active {
-  @apply text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 font-medium;
+.custom-toc__item {
+  display: block;
+  min-height: 30px;
+  padding: 6px 8px;
+  overflow: hidden;
+  border-radius: var(--ui-radius);
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  line-height: 18px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--ui-motion-fast), background var(--ui-motion-fast);
 }
 
-.toc-level-1 { padding-left: 8px; }
-.toc-level-2 { padding-left: 20px; }
-.toc-level-3 { padding-left: 32px; }
-.toc-level-4 { padding-left: 44px; }
+.custom-toc__item:hover {
+  color: var(--ui-text);
+  background: var(--ui-surface-strong);
+}
 
-.toc-toggle-btn {
-  @apply absolute left-2 top-2 z-10 flex items-center rounded-[3px] px-2 py-1.5 text-sm;
-  @apply bg-white dark:bg-dark-700 border border-gray-200 dark:border-dark-500;
-  @apply text-gray-600 dark:text-dark-300 hover:bg-gray-100 dark:hover:bg-dark-600;
-  @apply shadow-sm transition-colors cursor-pointer;
+.custom-toc__item--active {
+  color: var(--ui-text-strong);
+  background: var(--ui-surface-strong);
+  font-weight: 600;
+}
+
+.custom-toc__item--level-1 { padding-left: 8px; }
+.custom-toc__item--level-2 { padding-left: 20px; }
+.custom-toc__item--level-3 { padding-left: 32px; }
+.custom-toc__item--level-4 { padding-left: 44px; }
+
+.custom-toc-toggle {
+  position: absolute;
+  z-index: 5;
+  top: 10px;
+  left: 10px;
 }
 
 .custom-embed-shell {
-  @apply relative min-h-0 flex-1;
-  @apply w-full overflow-hidden rounded-[4px];
-  @apply bg-gray-50 dark:bg-dark-950;
-  @apply p-0;
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  background: var(--ui-surface-muted);
 }
 
 .custom-embed-frame {
@@ -563,57 +598,95 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   border: 0;
-  border-radius: 0;
-  box-shadow: none;
   background: transparent;
+}
+
+@media (max-width: 640px) {
+  .custom-page {
+    height: calc(100dvh - var(--app-header-height, 3.5rem));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .custom-toc__item {
+    transition: none;
+  }
 }
 </style>
 
 <style>
 .markdown-page-content {
-  line-height: 1.7;
-  color: inherit;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  padding: 24px;
+  overflow: auto;
+  color: var(--ui-text);
+  font-size: 14px;
+  line-height: 1.75;
 }
-.markdown-page-content h1 { @apply text-3xl font-bold mt-8 mb-4 pb-2 border-b border-gray-200 dark:border-dark-600; }
-.markdown-page-content h2 { @apply text-2xl font-bold mt-6 mb-3; }
-.markdown-page-content h3 { @apply text-xl font-semibold mt-5 mb-2; }
-.markdown-page-content h4 { @apply text-lg font-semibold mt-4 mb-2; }
-.markdown-page-content p { @apply mb-4; }
-.markdown-page-content ul { @apply list-disc pl-6 mb-4; }
-.markdown-page-content ol { @apply list-decimal pl-6 mb-4; }
-.markdown-page-content li { @apply mb-1; }
-.markdown-page-content a { @apply text-primary-500 hover:text-primary-600 underline; }
-.markdown-page-content blockquote { @apply border-l-4 border-gray-300 dark:border-dark-500 pl-4 italic text-gray-600 dark:text-dark-300 my-4; }
-.markdown-page-content img { @apply my-4 h-auto max-w-full rounded-[4px]; }
-.markdown-table-scroll { @apply my-4 max-w-full overflow-x-auto rounded-[4px] focus:outline-none focus:ring-2 focus:ring-primary-500/25; }
-.markdown-page-content table { @apply w-full min-w-max border-collapse; }
-.markdown-page-content th { @apply border border-gray-300 dark:border-dark-500 px-3 py-2 bg-gray-50 dark:bg-dark-700 font-semibold text-left; }
-.markdown-page-content td { @apply border border-gray-300 dark:border-dark-500 px-3 py-2; }
-.markdown-page-content code { @apply bg-gray-100 dark:bg-dark-700 px-1.5 py-0.5 rounded text-sm font-mono; }
-.markdown-page-content pre { @apply relative my-4 overflow-x-auto rounded-[4px] bg-gray-900 p-4 text-gray-100 dark:bg-dark-900; }
-.markdown-page-content pre code { @apply bg-transparent p-0 text-inherit; }
-.markdown-page-content hr { @apply my-6 border-gray-200 dark:border-dark-600; }
+
+.markdown-page-content h1,
+.markdown-page-content h2,
+.markdown-page-content h3,
+.markdown-page-content h4 {
+  color: var(--ui-text-strong);
+  font-weight: 650;
+}
+
+.markdown-page-content h1 { margin: 24px 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--ui-border-soft); font-size: 26px; line-height: 36px; }
+.markdown-page-content h2 { margin: 24px 0 12px; font-size: 21px; line-height: 30px; }
+.markdown-page-content h3 { margin: 20px 0 10px; font-size: 17px; line-height: 26px; }
+.markdown-page-content h4 { margin: 18px 0 8px; font-size: 15px; line-height: 24px; }
+.markdown-page-content p { margin: 0 0 14px; }
+.markdown-page-content ul,
+.markdown-page-content ol { margin: 0 0 14px; padding-left: 24px; }
+.markdown-page-content li { margin-bottom: 4px; }
+.markdown-page-content a { color: var(--ui-text); text-decoration: underline; text-decoration-color: var(--ui-border); text-underline-offset: 3px; }
+.markdown-page-content a:hover { text-decoration-color: currentColor; }
+.markdown-page-content blockquote { margin: 16px 0; padding-left: 14px; border-left: 2px solid var(--ui-border); color: var(--ui-text-muted); }
+.markdown-page-content img { max-width: 100%; height: auto; margin: 16px 0; border-radius: var(--ui-radius); user-select: none; -webkit-user-drag: none; }
+.markdown-table-scroll { max-width: 100%; margin: 16px 0; overflow-x: auto; }
+.markdown-table-scroll:focus-visible { outline: 2px solid color-mix(in srgb, var(--ui-focus) 24%, transparent); outline-offset: 2px; }
+.markdown-page-content table { width: 100%; min-width: 640px; border-collapse: collapse; }
+.markdown-page-content th,
+.markdown-page-content td { padding: 8px 10px; border: 1px solid var(--ui-border); text-align: left; }
+.markdown-page-content th { color: var(--ui-text-muted); background: var(--ui-surface-muted); font-size: 12px; font-weight: 600; }
+.markdown-page-content code { padding: 2px 4px; border-radius: 3px; background: var(--ui-surface-strong); font-family: var(--ui-font-mono); font-size: .92em; }
+.markdown-page-content pre { position: relative; margin: 16px 0; padding: 16px; overflow-x: auto; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: var(--ui-surface-muted); }
+.markdown-page-content pre code { padding: 0; color: inherit; background: transparent; }
+.markdown-page-content hr { margin: 24px 0; border: 0; border-top: 1px solid var(--ui-border-soft); }
 
 .copy-btn {
   position: absolute;
   top: 8px;
   right: 8px;
-  padding: 4px 10px;
-  font-size: 12px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.15);
-  color: #e2e8f0;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  height: var(--ui-control-dense);
+  padding: 0 9px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  color: var(--ui-text-muted);
+  background: var(--ui-surface);
+  font-family: var(--ui-font-sans);
+  font-size: 11px;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.2s, background 0.2s;
-  font-family: inherit;
+  transition: opacity var(--ui-motion-fast), background var(--ui-motion-fast);
 }
-.copy-btn:hover { background: rgba(255, 255, 255, 0.25); }
+.copy-btn:hover { color: var(--ui-text); background: var(--ui-surface-strong); }
 pre:hover .copy-btn { opacity: 1; }
-.copy-btn:focus-visible { opacity: 1; outline: 2px solid rgb(255 255 255 / 0.8); outline-offset: 2px; }
+.copy-btn:focus-visible { opacity: 1; outline: 2px solid color-mix(in srgb, var(--ui-focus) 24%, transparent); outline-offset: 2px; }
+
+@media (max-width: 640px) {
+  .markdown-page-content { padding: 18px 14px; }
+  .markdown-page-content h1 { font-size: 22px; line-height: 31px; }
+}
 
 @media (hover: none) {
   .copy-btn { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy-btn { transition: none; }
 }
 </style>

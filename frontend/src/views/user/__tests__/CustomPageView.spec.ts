@@ -1,7 +1,13 @@
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
 import CustomPageView from '../CustomPageView.vue'
+
+const componentPath = resolve(dirname(fileURLToPath(import.meta.url)), '../CustomPageView.vue')
+const componentSource = readFileSync(componentPath, 'utf8')
 
 const { routeState, appState, authState } = vi.hoisted(() => ({
   routeState: { params: { id: 'docs' } },
@@ -86,7 +92,7 @@ describe('CustomPageView', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('Failed to load document')
 
-    const retry = wrapper.get('button.btn-primary')
+    const retry = wrapper.get('.ui-error-state button')
     expect(retry.text()).toBe('Retry')
     await retry.trigger('click')
     await flushPromises()
@@ -96,5 +102,30 @@ describe('CustomPageView', () => {
     expect(wrapper.text()).toContain('Markdown document')
     vi.unstubAllGlobals()
     wrapper.unmount()
+  })
+
+  it('aborts an in-flight Markdown request when the page unmounts', async () => {
+    appState.cachedPublicSettings.custom_menu_items = [
+      { ...menuBase, url: 'md:developer-guide', page_slug: 'developer-guide' },
+    ]
+    const fetchMock = vi.fn(() => new Promise<Response>(() => undefined))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = mountView()
+    await flushPromises()
+    const requestInit = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined
+
+    expect(requestInit?.signal?.aborted).toBe(false)
+    wrapper.unmount()
+    expect(requestInit?.signal?.aborted).toBe(true)
+    vi.unstubAllGlobals()
+  })
+
+  it('uses shared UI contracts without legacy control or palette classes', () => {
+    expect(componentSource).not.toMatch(/class="[^"]*\b(?:btn|input|card)\b/)
+    expect(componentSource).not.toContain('dark:')
+    expect(componentSource).not.toContain('@apply')
+    expect(componentSource).not.toContain(':deep(')
+    expect(componentSource).not.toContain('!important')
   })
 })
