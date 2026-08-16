@@ -229,6 +229,61 @@ describe('AdminAffiliateRecordsTable', () => {
     expect(vm.selectedOverview.user_id).toBe(7)
   })
 
+  it('keeps list failures visible and retries the current query', async () => {
+    listInviteRecords.mockRejectedValueOnce(new Error('list failed'))
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="affiliate-records-error"]').text()).toContain('admin.affiliates.errors.loadFailed')
+    expect(showError).toHaveBeenCalledOnce()
+
+    listInviteRecords.mockResolvedValueOnce({ items: [invite], total: 1 })
+    await wrapper.get('[data-testid="affiliate-records-error"] [data-testid="retry"]').trigger('click')
+    await flushPromises()
+
+    expect(listInviteRecords).toHaveBeenCalledTimes(2)
+    expect((wrapper.vm as any).loadError).toBe(false)
+    expect((wrapper.vm as any).records).toEqual([invite])
+  })
+
+  it('ignores an overview response that arrives after the dialog closes', async () => {
+    const pending = deferred<{
+      user_id: number
+      email: string
+      username: string
+      aff_code: string
+      rebate_rate_percent: number
+      invited_count: number
+      rebated_invitee_count: number
+      available_quota: number
+      history_quota: number
+    }>()
+    getUserOverview.mockReturnValueOnce(pending.promise)
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+
+    const request = vm.openUserOverview(7)
+    vm.closeOverview()
+    pending.resolve({
+      user_id: 7,
+      email: 'seven@example.com',
+      username: 'seven',
+      aff_code: 'SEVEN',
+      rebate_rate_percent: 10,
+      invited_count: 1,
+      rebated_invitee_count: 1,
+      available_quota: 2,
+      history_quota: 3,
+    })
+    await request
+    await flushPromises()
+
+    expect(vm.overviewDialog).toBe(false)
+    expect(vm.selectedOverview).toBeNull()
+    expect(wrapper.find('aside').exists()).toBe(false)
+  })
+
   it('resets pagination once for page-size and sorting changes', async () => {
     const wrapper = mountView('transfers')
     await flushPromises()
