@@ -25,14 +25,14 @@
         </template>
       </AppPageHeader>
 
-      <UiServerTableWorkspace :loading="plansLoading">
+      <UiServerTableWorkspace :loading="refreshingPlans">
         <UiAlert
           v-if="plansLoadError && plans.length"
           tone="danger"
           :message="t('payment.admin.plansLoadFailed')"
         />
         <UiMobileTableScroller :label="t('payment.admin.plansPageTitle')" min-width="1120px">
-        <UiDataTable :columns="planColumns" :data="plans" :loading="plansLoading" mobile-table :aria-label="t('payment.admin.plansPageTitle')">
+        <UiDataTable :columns="planColumns" :data="plans" :loading="initialPlansLoading" mobile-table :aria-label="t('payment.admin.plansPageTitle')">
         <template #cell-name="{ value }">
           <UiDataCell :value="String(value)" />
         </template>
@@ -110,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminPaymentAPI } from '@/api/admin/payment'
@@ -191,6 +191,17 @@ const deletingPlan = ref(false)
 const updatingPlanIds = ref<number[]>([])
 const editingPlan = ref<SubscriptionPlan | null>(null)
 const deletingPlanId = ref<number | null>(null)
+const initialPlansLoading = computed(() => plansLoading.value && plans.value.length === 0)
+const refreshingPlans = computed(() => plansLoading.value && plans.value.length > 0)
+
+let plansRequestController: AbortController | null = null
+let plansRequestSequence = 0
+
+function isAbortError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const requestError = error as { name?: string; code?: string }
+  return requestError.name === 'AbortError' || requestError.code === 'ERR_CANCELED'
+}
 
 const planColumns = computed((): Column[] => [
   { key: 'name', label: t('payment.admin.planName') },
@@ -213,10 +224,15 @@ function formatResetInterval(seconds?: number): string {
 }
 
 async function loadPlans() {
+  plansRequestController?.abort()
+  const controller = new AbortController()
+  const sequence = ++plansRequestSequence
+  plansRequestController = controller
   plansLoading.value = true
   plansLoadError.value = false
   try {
-    const res = await adminPaymentAPI.getPlans()
+    const res = await adminPaymentAPI.getPlans({ signal: controller.signal })
+    if (controller.signal.aborted || sequence !== plansRequestSequence) return
     // Backend returns features as newline-separated string; parse to array
     plans.value = (res.data || []).map((p: Omit<SubscriptionPlan, 'features'> & { features: string | string[] }) => ({
       ...p,
@@ -226,10 +242,16 @@ async function loadPlans() {
     }))
   }
   catch (err: unknown) {
+    if (controller.signal.aborted || sequence !== plansRequestSequence || isAbortError(err)) return
     plansLoadError.value = true
     appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
   }
-  finally { plansLoading.value = false }
+  finally {
+    if (plansRequestController === controller) {
+      plansLoading.value = false
+      plansRequestController = null
+    }
+  }
 }
 
 function openPlanEdit(plan: SubscriptionPlan | null) {
@@ -325,5 +347,11 @@ onMounted(() => {
   loadGroups()
   loadPaymentConfig()
   loadPlans()
+})
+
+onBeforeUnmount(() => {
+  plansRequestSequence += 1
+  plansRequestController?.abort()
+  plansRequestController = null
 })
 </script>

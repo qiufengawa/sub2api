@@ -11,7 +11,7 @@ import {
 	isQiuapiFiveTierTemplate,
   personalizeCatalogTemplate,
 } from '../catalogTemplate'
-import type { PaymentCatalogImportRequest } from '@/types/payment'
+import type { PaymentCatalogImportRequest, SubscriptionPlan } from '@/types/payment'
 
 const { deletePlan, getPlans, getConfig, getGroups, showError, showSuccess, updatePlan } = vi.hoisted(() => ({
   deletePlan: vi.fn(),
@@ -55,9 +55,13 @@ vi.mock('vue-i18n', async (importOriginal) => {
 })
 
 const DataTableStub = {
-  props: ['data'],
+  props: ['data', 'loading'],
   template: `
-    <div>
+    <div
+      data-testid="plans-table-stub"
+      :data-loading="String(loading)"
+      :data-first-row="data[0]?.name || ''"
+    >
       <div v-for="row in data" :key="row.id">
         <slot name="cell-five_hour_quota_usd" :value="row.five_hour_quota_usd" :row="row" />
         <slot name="cell-cycle_quota_usd" :value="row.cycle_quota_usd" :row="row" />
@@ -65,6 +69,7 @@ const DataTableStub = {
         <slot name="cell-price" :value="row.price" :row="row" />
         <slot name="cell-validity_days" :value="row.validity_days" :row="row" />
       </div>
+      <slot v-if="!data.length" name="empty" />
     </div>
   `,
 }
@@ -85,7 +90,7 @@ function mountPlansView() {
       plugins: [createPinia()],
       stubs: {
         AppLayout: { template: '<div><slot /></div>' },
-        DataTable: DataTableStub,
+        UiDataTable: DataTableStub,
         UiConfirmDialog: true,
         GroupBadge: true,
         Icon: true,
@@ -168,10 +173,73 @@ describe('AdminPaymentPlansView', () => {
     const wrapper = mountPlansView()
 
     expect((wrapper.vm as any).plansLoading).toBe(true)
+    expect(wrapper.get('[data-testid="plans-table-stub"]').attributes('data-loading')).toBe('true')
     request.resolve({ data: [] })
     await flushPromises()
     expect((wrapper.vm as any).plansLoading).toBe(false)
     wrapper.unmount()
+  })
+
+  it('keeps current plan rows visible under the local refresh overlay', async () => {
+    const wrapper = mountPlansView()
+    await flushPromises()
+    const request = deferred<{ data: [] }>()
+    getPlans.mockReturnValueOnce(request.promise)
+
+    const refresh = (wrapper.vm as any).loadPlans()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="plans-table-stub"]').attributes('data-first-row')).toBe('CNY plan')
+    expect(wrapper.get('[data-testid="plans-table-stub"]').attributes('data-loading')).toBe('false')
+    expect(wrapper.get('[aria-busy="true"]').exists()).toBe(true)
+
+    request.resolve({ data: [] })
+    await refresh
+    wrapper.unmount()
+  })
+
+  it('ignores an older plan response after a newer load completes', async () => {
+    const staleRequest = deferred<{ data: SubscriptionPlan[] }>()
+    getPlans.mockReturnValueOnce(staleRequest.promise)
+    const wrapper = mountPlansView()
+    const staleSignal = getPlans.mock.calls[0]?.[0]?.signal as AbortSignal
+    getPlans.mockResolvedValueOnce({
+      data: [{
+        id: 9,
+        name: 'Newest plan',
+        included_groups: [],
+        price: 20,
+        currency: 'USD',
+        five_hour_quota_usd: 0,
+        cycle_quota_usd: 0,
+        total_quota_usd: 0,
+        reset_interval_seconds: 0,
+        validity_days: 30,
+        validity_unit: 'day',
+        sort_order: 0,
+        for_sale: true,
+        features: [],
+      }],
+    })
+
+    await (wrapper.vm as any).loadPlans()
+    expect(staleSignal.aborted).toBe(true)
+    expect((wrapper.vm as any).plans[0].name).toBe('Newest plan')
+
+    staleRequest.resolve({ data: [] })
+    await flushPromises()
+    expect((wrapper.vm as any).plans[0].name).toBe('Newest plan')
+    wrapper.unmount()
+  })
+
+  it('aborts the active plan request when the page unmounts', () => {
+    getPlans.mockReturnValueOnce(new Promise(() => undefined))
+    const wrapper = mountPlansView()
+    const signal = getPlans.mock.calls[0]?.[0]?.signal as AbortSignal
+
+    expect(signal.aborted).toBe(false)
+    wrapper.unmount()
+    expect(signal.aborted).toBe(true)
   })
 
   it('keeps a persistent retryable error state when plan loading fails', async () => {

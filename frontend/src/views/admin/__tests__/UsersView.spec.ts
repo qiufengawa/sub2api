@@ -368,8 +368,8 @@ describe('admin UsersView', () => {
 
     expect(listUsers.mock.calls.length).toBeGreaterThan(callsBeforeSuccess)
     expect(wrapper.get('[data-test="row-order"]').text()).toBe('refreshed-page-two@example.com')
-    expect(wrapper.find('[data-test="bulk-edit-limits"]').exists()).toBe(false)
     expect(wrapper.get('[data-test="selected-keys"]').text()).toBe('')
+    expect(wrapper.findComponent({ name: 'UiBulkActionBar' }).props('selectedCount')).toBe(0)
   })
 
   it('shows applied filters and removes one condition without clearing the others', async () => {

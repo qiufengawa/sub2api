@@ -153,8 +153,10 @@ export const adminPaymentAPI = {
   // ==================== Subscription Plans ====================
 
   /** Get all subscription plans */
-  getPlans() {
-    return apiClient.get<SubscriptionPlan[]>('/admin/payment/plans')
+  getPlans(options?: { signal?: AbortSignal }) {
+    return apiClient.get<SubscriptionPlan[]>('/admin/payment/plans', {
+      signal: options?.signal,
+    })
   },
 
   /** Create a subscription plan */
