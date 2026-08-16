@@ -21,7 +21,22 @@
         <UiSkeleton v-for="index in 8" :key="index" height="96px" />
       </AppGrid>
 
+      <UiErrorState
+        v-else-if="!stats && snapshotError"
+        data-testid="dashboard-error"
+        :title="t('admin.dashboard.failedToLoad')"
+        :retry-text="t('common.retry')"
+        @retry="loadDashboardStats"
+      />
+
       <template v-else-if="stats">
+        <UiAlert v-if="snapshotError" tone="danger" :message="t('admin.dashboard.failedToLoad')">
+          <template #default>
+            {{ t('admin.dashboard.failedToLoad') }}
+            <UiButton variant="quiet" density="dense" @click="loadDashboardStats">{{ t('common.retry') }}</UiButton>
+          </template>
+        </UiAlert>
+
         <!-- Dashboard Stats -->
         <AppGrid min="210px" :gap="8">
           <UiStatMetric
@@ -183,8 +198,10 @@ import {
   AppStack,
   AppToolbar,
   UiButton,
+  UiAlert,
   UiChartFrame,
   UiDateRangePicker,
+  UiErrorState,
   UiFormField,
   UiSelect,
   UiSkeleton,
@@ -223,6 +240,7 @@ const chartsLoading = ref(false)
 const userTrendLoading = ref(false)
 const rankingLoading = ref(false)
 const rankingError = ref(false)
+const snapshotError = ref(false)
 
 // Chart data
 const trendData = ref<TrendDataPoint[]>([])
@@ -491,6 +509,7 @@ const onDateRangeChange = (range: {
 // Load data
 const loadDashboardSnapshot = async (includeStats: boolean) => {
   const currentSeq = ++chartLoadSeq
+  snapshotError.value = false
   if (includeStats && !stats.value) {
     loading.value = true
   }
@@ -510,10 +529,14 @@ const loadDashboardSnapshot = async (includeStats: boolean) => {
     if (includeStats && response.stats) {
       stats.value = response.stats
     }
+    if (includeStats && !stats.value) {
+      throw new Error('Dashboard snapshot did not include statistics')
+    }
     trendData.value = response.trend || []
     modelStats.value = response.models || []
   } catch (error) {
     if (currentSeq !== chartLoadSeq) return
+    snapshotError.value = true
     appStore.showError(t('admin.dashboard.failedToLoad'))
     console.error('Error loading dashboard snapshot:', error)
   } finally {
