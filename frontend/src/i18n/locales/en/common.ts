@@ -49,6 +49,7 @@ export default {
     userMenu: 'User menu',
     pageNotFound: 'Page not found',
     goHome: 'Go to Home',
+    backToTop: 'Back to top',
     enabled: 'Enabled',
     disabled: 'Disabled',
 	    total: 'Total',
@@ -138,6 +139,10 @@ export default {
     empty: 'No content',
     loginAgreement: 'Login Agreement',
     adminCompliance: 'Deployment and Operation Compliance Commitment',
+    tableOfContents: 'Contents',
+    documentNavigation: 'Legal document navigation',
+    previousDocument: 'Previous document',
+    nextDocument: 'Next document',
     loginAgreementPrompt: {
       checkboxPrefix: 'I have read and agree to ',
       documentSeparator: ', ',

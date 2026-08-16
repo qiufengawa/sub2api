@@ -1,103 +1,130 @@
 <template>
-  <div class="min-h-screen bg-gray-50 text-gray-900 dark:bg-dark-950 dark:text-white">
-    <header class="border-b border-gray-200 bg-white/95 dark:border-dark-800 dark:bg-dark-900/95">
-      <div class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-        <RouterLink to="/home" class="flex min-w-0 items-center gap-3">
-          <template v-if="settings">
-            <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-[4px] bg-white ring-1 ring-gray-200 dark:bg-dark-800 dark:ring-dark-700">
-              <img :src="siteLogo || '/logo.svg'" :alt="siteName" class="h-full w-full object-contain" />
-            </span>
-            <span class="truncate text-base font-semibold text-gray-950 dark:text-white">
-              {{ siteName }}
-            </span>
-          </template>
-          <template v-else>
-            <span class="h-10 w-10 flex-shrink-0 animate-pulse rounded-xl bg-gray-200 dark:bg-dark-700" aria-hidden="true"></span>
-            <span class="h-5 w-28 animate-pulse rounded bg-gray-200 dark:bg-dark-700" aria-hidden="true"></span>
-          </template>
-        </RouterLink>
-        <RouterLink
-          to="/login"
-          class="inline-flex flex-shrink-0 items-center justify-center rounded-[4px] bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700"
-        >
-          {{ t('home.login') }}
-        </RouterLink>
+  <div class="legal-shell">
+    <header class="legal-site-header">
+      <div class="legal-site-header__inner">
+        <UiLink to="/home" variant="brand" class="legal-brand" :aria-label="siteName">
+          <UiSkeleton v-if="loading" width="124px" height="32px" />
+          <img v-else-if="siteLogo" :src="siteLogo" :alt="siteName" />
+          <strong v-else>{{ siteName }}</strong>
+        </UiLink>
+        <AppInline :wrap="false">
+          <UiLink to="/home">{{ t('common.goHome') }}</UiLink>
+          <UiLink to="/login">{{ t('home.login') }}</UiLink>
+        </AppInline>
       </div>
     </header>
 
-    <main class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:py-10">
-      <div v-if="loading" class="flex min-h-[320px] items-center justify-center" role="status" aria-live="polite">
-        <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-primary-600" aria-hidden="true"></div>
-        <span class="sr-only">{{ t('common.loading') }}</span>
+    <AppPage width="normal" class="legal-page">
+      <AppPageHeader :title="pageTitle" :description="pageDescription">
+        <template v-if="currentDocument" #status>
+          <UiBadge :label="documentTypeLabel" />
+        </template>
+        <template #actions>
+          <UiLink to="/home">
+            <Icon name="arrowLeft" size="sm" />
+            {{ t('common.goHome') }}
+          </UiLink>
+        </template>
+      </AppPageHeader>
+
+      <div v-if="loading" class="legal-loading" role="status" aria-live="polite">
+        <UiSkeleton height="18px" width="62%" />
+        <UiSkeleton v-for="index in 8" :key="index" height="14px" :width="index % 3 === 0 ? '72%' : '100%'" />
+        <span class="ui-sr-only">{{ t('common.loading') }}</span>
       </div>
 
-      <section
+      <UiErrorState
         v-else-if="loadError"
-        class="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
-        role="alert"
-      >
-        <h1 class="text-lg font-semibold">{{ t('legal.loadFailed') }}</h1>
-        <p class="mt-2 text-sm">{{ t('legal.retryLater') }}</p>
-      </section>
+        :title="t('legal.loadFailed')"
+        :description="t('legal.retryLater')"
+        :retry-text="t('common.retry')"
+        @retry="loadDocuments"
+      />
 
-      <section
+      <UiEmptyState
         v-else-if="!currentDocument"
-        class="rounded-lg border border-gray-200 bg-white p-6 dark:border-dark-700 dark:bg-dark-900"
+        icon="document"
+        :title="t('legal.notFound')"
+        :description="t('legal.notFoundDescription')"
       >
-        <div class="flex items-start gap-3">
-          <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-600 dark:bg-dark-800 dark:text-dark-300">
-            <Icon name="document" size="sm" />
-          </span>
-          <div>
-            <h1 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('legal.notFound') }}</h1>
-            <p class="mt-2 text-sm leading-6 text-gray-600 dark:text-dark-300">
-              {{ t('legal.notFoundDescription') }}
-            </p>
-          </div>
-        </div>
-      </section>
+        <template #action>
+          <UiLink to="/home">{{ t('common.goHome') }}</UiLink>
+        </template>
+      </UiEmptyState>
 
-      <article v-else :aria-labelledby="currentDocument ? 'legal-document-title' : undefined">
-        <div class="mb-8 border-b border-gray-200 pb-6 dark:border-dark-700">
-          <div class="flex items-start gap-4">
-            <span class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">
-              <Icon :name="documentIcon" size="md" />
-            </span>
-            <div class="min-w-0">
-              <p class="text-sm font-medium text-primary-700 dark:text-primary-300">{{ documentTypeLabel }}</p>
-              <h1 id="legal-document-title" class="mt-2 break-words text-2xl font-bold tracking-normal text-gray-950 dark:text-white sm:text-3xl">
-                {{ currentDocument.title }}
-              </h1>
-              <p v-if="updatedAt" class="mt-3 text-sm text-gray-500 dark:text-dark-400">
-                {{ t('legal.updatedAt', { date: updatedAt }) }}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div
-          v-if="hasContent"
-          class="legal-document-content"
-          v-html="renderedHtml"
-        ></div>
-        <div
-          v-else
-          class="rounded-lg border border-dashed border-gray-300 bg-white px-6 py-14 text-center text-sm text-gray-500 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-400"
+      <template v-else>
+        <AppSplitPane
+          v-if="documentPresentation.headings.length"
+          class="legal-workspace"
+          master-width="220px"
         >
-          {{ t('legal.empty') }}
-        </div>
-      </article>
-    </main>
+          <template #master>
+            <nav class="legal-toc" :aria-label="t('legal.tableOfContents')">
+              <strong>{{ t('legal.tableOfContents') }}</strong>
+              <UiLink
+                v-for="heading in documentPresentation.headings"
+                :key="heading.id"
+                :href="`#${heading.id}`"
+                variant="muted"
+                :class="{ 'legal-toc__nested': heading.level === 3 }"
+              >
+                {{ heading.label }}
+              </UiLink>
+            </nav>
+          </template>
+
+          <article id="legal-document" :aria-label="currentDocument.title">
+            <LegalDocumentContent
+              v-if="hasContent"
+              :html="documentPresentation.html"
+            />
+            <UiEmptyState v-else icon="document" :title="t('legal.empty')" />
+          </article>
+        </AppSplitPane>
+        <article v-else id="legal-document" class="legal-document--single" :aria-label="currentDocument.title">
+          <LegalDocumentContent v-if="hasContent" :html="documentPresentation.html" />
+          <UiEmptyState v-else icon="document" :title="t('legal.empty')" />
+        </article>
+
+        <AppSection v-if="previousDocument || nextDocument" divided>
+          <UiPageNav
+            :previous="previousDocument"
+            :next="nextDocument"
+            :label="t('legal.documentNavigation')"
+            :previous-fallback="t('legal.previousDocument')"
+            :next-fallback="t('legal.nextDocument')"
+            @navigate="navigateDocument"
+          />
+        </AppSection>
+      </template>
+    </AppPage>
+
+    <UiBackToTop :label="t('common.backToTop')" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
+import LegalDocumentContent from '@/components/legal/LegalDocumentContent.vue'
+import {
+  AppInline,
+  AppPage,
+  AppPageHeader,
+  AppSection,
+  AppSplitPane,
+  UiBackToTop,
+  UiBadge,
+  UiEmptyState,
+  UiErrorState,
+  UiLink,
+  UiPageNav,
+  UiSkeleton,
+} from '@/components/ui'
 import { getLocale } from '@/i18n'
 import { sanitizeUrl } from '@/utils/url'
 import { useAppStore } from '@/stores/app'
@@ -105,9 +132,14 @@ import type { LoginAgreementDocument } from '@/types'
 import zhAdminCompliance from '../../../../docs/legal/admin-compliance.zh.md?raw'
 import enAdminCompliance from '../../../../docs/legal/admin-compliance.en.md?raw'
 
-type LegalDocumentIcon = 'document' | 'shield' | 'globe' | 'cog'
+interface DocumentHeading {
+  id: string
+  label: string
+  level: 2 | 3
+}
 
 const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 const appStore = useAppStore()
 const settings = computed(() => appStore.cachedPublicSettings)
@@ -139,127 +171,185 @@ const currentDocument = computed<LoginAgreementDocument | null>(() => {
     return {
       id: 'admin-compliance',
       title: t('adminCompliance.title'),
-      content_md: getLocale() === 'zh' ? zhAdminCompliance : enAdminCompliance
+      content_md: getLocale() === 'zh' ? zhAdminCompliance : enAdminCompliance,
     }
   }
   const id = documentId.value
-  if (!id) {
-    return null
-  }
-  return documents.value.find((doc) => doc.id === id) ?? null
+  if (!id) return null
+  return documents.value.find(document => document.id === id) ?? null
 })
 
 const hasContent = computed(() => Boolean(currentDocument.value?.content_md?.trim()))
+const pageTitle = computed(() => {
+  if (loading.value) return t('common.loading')
+  if (loadError.value) return t('legal.loadFailed')
+  return currentDocument.value?.title || t('legal.notFound')
+})
+const pageDescription = computed(() => {
+  if (loadError.value) return t('legal.retryLater')
+  if (!currentDocument.value) return t('legal.notFoundDescription')
+  return updatedAt.value ? t('legal.updatedAt', { date: updatedAt.value }) : undefined
+})
 
-const renderedHtml = computed(() => {
+const documentPresentation = computed<{ html: string; headings: DocumentHeading[] }>(() => {
   const content = currentDocument.value?.content_md?.trim() || ''
-  if (!content) {
-    return ''
-  }
-  const html = marked.parse(content) as string
-  return DOMPurify.sanitize(html)
+  if (!content) return { html: '', headings: [] }
+
+  const sanitized = DOMPurify.sanitize(marked.parse(content) as string)
+  const container = document.createElement('div')
+  container.innerHTML = sanitized
+  const headings = Array.from(container.querySelectorAll<HTMLHeadingElement>('h2, h3')).map((heading, index) => {
+    const id = `legal-section-${index + 1}`
+    heading.id = id
+    return {
+      id,
+      label: heading.textContent?.trim() || id,
+      level: Number(heading.tagName.slice(1)) as 2 | 3,
+    }
+  })
+  container.querySelectorAll<HTMLAnchorElement>('a[href]').forEach(anchor => {
+    const href = anchor.getAttribute('href') || ''
+    if (/^https?:\/\//i.test(href)) {
+      anchor.target = '_blank'
+      anchor.rel = 'noopener noreferrer'
+    }
+  })
+  return { html: container.innerHTML, headings }
 })
 
-const documentIcon = computed<LegalDocumentIcon>(() => {
-  const title = currentDocument.value?.title || ''
-  if (title.includes('政策') || title.includes('隐私')) {
-    return 'shield'
-  }
-  if (title.includes('国家') || title.includes('地区')) {
-    return 'globe'
-  }
-  if (title.includes('特定')) {
-    return 'cog'
-  }
-  return 'document'
+const currentDocumentIndex = computed(() =>
+  documents.value.findIndex(document => document.id === documentId.value)
+)
+const previousDocument = computed(() => {
+  const previous = documents.value[currentDocumentIndex.value - 1]
+  return previous ? { key: previous.id, label: previous.title } : undefined
+})
+const nextDocument = computed(() => {
+  const next = documents.value[currentDocumentIndex.value + 1]
+  return next ? { key: next.id, label: next.title } : undefined
 })
 
-onMounted(async () => {
+function navigateDocument(id: string): void {
+  void router.push({ name: 'LegalDocument', params: { documentId: id } })
+}
+
+async function loadDocuments(): Promise<void> {
+  loading.value = true
   loadError.value = false
   const loadedSettings = await appStore.fetchPublicSettings()
   if (!loadedSettings && !isAdminComplianceDocument.value) {
     loadError.value = true
   }
   loading.value = false
-})
+}
+
+onMounted(loadDocuments)
 </script>
 
 <style scoped>
-.legal-document-content {
-  line-height: 1.75;
-  overflow-wrap: anywhere;
-  color: inherit;
+.legal-shell {
+  min-height: 100dvh;
+  background: var(--ui-bg);
 }
 
-.legal-document-content :deep(h1) {
-  @apply mb-4 mt-8 border-b border-gray-200 pb-3 text-3xl font-bold dark:border-dark-700;
+.legal-site-header {
+  border-bottom: 1px solid var(--ui-border-soft);
+  background: color-mix(in srgb, var(--ui-bg) 94%, transparent);
 }
 
-.legal-document-content :deep(h2) {
-  @apply mb-3 mt-7 text-2xl font-bold;
+.legal-site-header__inner {
+  display: flex;
+  width: min(100%, 1080px);
+  min-height: 56px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 0 auto;
+  padding: 8px 20px;
 }
 
-.legal-document-content :deep(h3) {
-  @apply mb-2 mt-6 text-xl font-semibold;
+.legal-brand {
+  min-width: 0;
 }
 
-.legal-document-content :deep(h4) {
-  @apply mb-2 mt-5 text-lg font-semibold;
+.legal-brand img {
+  width: auto;
+  max-width: 180px;
+  height: 32px;
+  object-fit: contain;
+  object-position: left center;
 }
 
-.legal-document-content :deep(p) {
-  @apply mb-4 text-gray-700 dark:text-dark-200;
+.legal-brand strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.legal-document-content :deep(a) {
-  @apply text-primary-600 underline underline-offset-4 hover:text-primary-700 dark:text-primary-300 dark:hover:text-primary-200;
+.legal-page {
+  width: min(100%, 1080px);
+  margin: 0 auto;
+  padding-block: 28px 64px;
 }
 
-.legal-document-content :deep(ul) {
-  @apply mb-4 list-disc pl-6;
+.legal-loading {
+  display: grid;
+  gap: 14px;
+  min-height: 420px;
+  padding-top: 32px;
 }
 
-.legal-document-content :deep(ol) {
-  @apply mb-4 list-decimal pl-6;
+.legal-workspace {
+  padding-top: 28px;
 }
 
-.legal-document-content :deep(li) {
-  @apply mb-1 text-gray-700 dark:text-dark-200;
+.legal-toc {
+  position: sticky;
+  top: 20px;
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  padding-right: 20px;
+  border-right: 1px solid var(--ui-border-soft);
 }
 
-.legal-document-content :deep(blockquote) {
-  @apply my-5 border-l-4 border-gray-300 pl-4 text-gray-600 dark:border-dark-600 dark:text-dark-300;
+.legal-toc strong {
+  margin-bottom: 4px;
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.legal-document-content :deep(code) {
-  @apply rounded bg-gray-100 px-1.5 py-0.5 font-mono text-sm dark:bg-dark-800;
+.legal-toc__nested {
+  padding-left: 12px;
 }
 
-.legal-document-content :deep(pre) {
-  @apply my-5 overflow-x-auto rounded-lg bg-gray-950 p-4 text-gray-100;
+#legal-document,
+.legal-document--single {
+  min-width: 0;
 }
 
-.legal-document-content :deep(pre code) {
-  @apply bg-transparent p-0 text-inherit;
+.legal-document--single {
+  padding-top: 28px;
 }
 
-.legal-document-content :deep(table) {
-  @apply my-5 block w-full overflow-x-auto border-collapse;
+@media (max-width: 720px) {
+  .legal-site-header__inner {
+    padding-inline: 16px;
+  }
+
+  .legal-page {
+    padding-block: 20px 48px;
+  }
+
 }
 
-.legal-document-content :deep(th) {
-  @apply border border-gray-300 bg-gray-50 px-3 py-2 text-left font-semibold dark:border-dark-600 dark:bg-dark-800;
-}
-
-.legal-document-content :deep(td) {
-  @apply border border-gray-300 px-3 py-2 dark:border-dark-600;
-}
-
-.legal-document-content :deep(img) {
-  @apply my-5 h-auto max-w-full rounded-lg;
-}
-
-.legal-document-content :deep(hr) {
-  @apply my-7 border-gray-200 dark:border-dark-700;
+@media (max-width: 900px) {
+  .legal-toc {
+    position: static;
+    padding: 0 0 20px;
+    border-right: 0;
+    border-bottom: 1px solid var(--ui-border-soft);
+  }
 }
 </style>

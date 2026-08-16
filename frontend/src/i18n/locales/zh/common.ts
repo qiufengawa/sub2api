@@ -49,6 +49,7 @@ export default {
     userMenu: '用户菜单',
     pageNotFound: '页面不存在',
     goHome: '返回首页',
+    backToTop: '返回顶部',
     enabled: '已启用',
     disabled: '已禁用',
 	    total: '总计',
@@ -138,6 +139,10 @@ export default {
     empty: '暂无正文内容',
     loginAgreement: '登录条款',
     adminCompliance: '部署与运营合规承诺',
+    tableOfContents: '目录',
+    documentNavigation: '条款文档导航',
+    previousDocument: '上一份文档',
+    nextDocument: '下一份文档',
     loginAgreementPrompt: {
       checkboxPrefix: '我已阅读并同意',
       documentSeparator: '、',

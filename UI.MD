@@ -184,7 +184,7 @@ The implemented library contains **114 common components**. Existing components 
 1. `UiButton` - primary, secondary, quiet, destructive, and loading states.
 2. `UiIconButton` - compact symbolic actions with tooltip and accessible label.
 3. `UiButtonGroup` - related command grouping without pill decoration.
-4. `UiLink` - inline, standalone, external, and muted link variants.
+4. `UiLink` - inline, standalone, external, muted, and brand-navigation variants. `brand` removes the underline only for a logo or site-name link; ordinary navigation remains underlined.
 5. `UiTextField` - text, email, URL, and identifier entry.
 6. `UiPasswordField` - reveal action and non-layout-shifting rules tooltip.
 7. `UiTextArea` - compact multiline input with optional counter.
@@ -803,7 +803,7 @@ This is the quick decision index. “Shape” describes the default visual form;
 | `UiButton` | `28/32/36px` slim rectangle, `6px` radius, icon and label | Page and dialog commands |
 | `UiIconButton` | Square slim control with centered `16px` icon | Familiar symbolic tools such as refresh, close, copy |
 | `UiButtonGroup` | Adjacent buttons sharing their inner borders | Two to four commands acting on the same value |
-| `UiLink` | Underlined text with optional external icon | Internal or external navigation |
+| `UiLink` | Underlined text with optional external icon; unadorned `brand` variant for logo/site-name navigation | Internal or external navigation |
 | `UiTextField` | Label above a single-line neutral input | Short strings, email, URL, IDs |
 | `UiPasswordField` | Text field with lock, reveal, and rules tooltip | Password and secret entry |
 | `UiTextArea` | Resizable neutral multiline surface with optional counter | Notes, prompts, headers, JSON text |

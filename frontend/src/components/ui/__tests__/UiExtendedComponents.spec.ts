@@ -1,13 +1,23 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import UiBulkActionBar from '../UiBulkActionBar.vue'
+import UiBackToTop from '../UiBackToTop.vue'
 import UiChangeSet from '../UiChangeSet.vue'
 import UiInlineEdit from '../UiInlineEdit.vue'
 import UiKeyValueEditor from '../UiKeyValueEditor.vue'
+import UiLink from '../UiLink.vue'
 import UiMultiCombobox from '../UiMultiCombobox.vue'
+import UiPageNav from '../UiPageNav.vue'
 import UiStructuredEditor from '../UiStructuredEditor.vue'
 import UiTabs from '../UiTabs.vue'
 import UiTransferList from '../UiTransferList.vue'
+
+afterEach(() => {
+  Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+})
 
 describe('Qiu UI extended workflow components', () => {
   it('selects multiple controlled options', async () => {
@@ -75,5 +85,58 @@ describe('Qiu UI extended workflow components', () => {
     expect(buttons[1].attributes('tabindex')).toBe('-1')
     await buttons[0].trigger('keydown', { key: 'ArrowRight' })
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual(['b'])
+  })
+
+  it('supports localized page navigation fallbacks', () => {
+    const wrapper = mount(UiPageNav, {
+      props: {
+        label: 'Document navigation',
+        previousFallback: 'Previous document',
+        nextFallback: 'Next document',
+      },
+    })
+
+    expect(wrapper.get('nav').attributes('aria-label')).toBe('Document navigation')
+    expect(wrapper.findAll('button').map(button => button.text())).toEqual([
+      'Previous document',
+      'Next document',
+    ])
+  })
+
+  it('keeps long page-navigation labels inside equal-width items', () => {
+    const longLabel = 'DocumentTitleWithoutBreaks'.repeat(4)
+    const wrapper = mount(UiPageNav, {
+      props: {
+        previous: { key: 'previous', label: longLabel },
+        next: { key: 'next', label: longLabel },
+      },
+    })
+
+    const buttons = wrapper.findAll('button')
+    expect(buttons).toHaveLength(2)
+    expect(buttons.every(button => button.classes().includes('ui-page-nav__item'))).toBe(true)
+    expect(buttons.map(button => button.text())).toEqual([longLabel, longLabel])
+  })
+
+  it('keeps muted and brand navigation variants inside the shared link contract', () => {
+    const muted = mount(UiLink, { props: { href: '#section', variant: 'muted' }, slots: { default: 'Section' } })
+    const brand = mount(UiLink, { props: { href: '/home', variant: 'brand' }, slots: { default: 'Qiu API' } })
+
+    expect(muted.get('a').classes()).toContain('ui-link--muted')
+    expect(brand.get('a').classes()).toContain('ui-link--brand')
+  })
+
+  it('localizes back-to-top and removes smooth scrolling for reduced motion', async () => {
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 500 })
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    const wrapper = mount(UiBackToTop, { props: { label: 'Back to top', threshold: 100 } })
+    await wrapper.vm.$nextTick()
+
+    const button = wrapper.get('button[aria-label="Back to top"]')
+    await button.trigger('click')
+    expect(scrollTo).toHaveBeenCalledOnce()
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'auto' })
+    wrapper.unmount()
   })
 })
