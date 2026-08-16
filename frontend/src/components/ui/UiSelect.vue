@@ -17,7 +17,7 @@
       :creatable-prefix="creatablePrefix"
       :clearable="clearable"
       :density="density"
-      :aria-label="label"
+      :aria-label="ariaLabel || label"
       :aria-describedby="description || error ? `${resolvedId}-message` : undefined"
       @update:model-value="emit('update:modelValue', $event)"
       @change="onChange"
@@ -42,6 +42,7 @@ const props = withDefaults(defineProps<{
   options: SelectOptionLike[]
   id?: string
   label?: string
+  ariaLabel?: string
   description?: string
   error?: string
   required?: boolean

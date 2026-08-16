@@ -1,21 +1,21 @@
 <template>
-  <dl class="grid grid-cols-2 gap-x-4 gap-y-1 border-y border-gray-100 py-2 md:border-y-0 md:py-0 dark:border-dark-700/60">
-    <div class="min-w-0">
-      <dt class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+  <dl class="monitor-metric-pair">
+    <div>
+      <dt>
         <Icon :name="primaryIcon" size="xs" />
         <span>{{ primaryLabel }}</span>
       </dt>
-      <dd class="mt-1 font-mono text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-        {{ primaryValue }}<span class="ml-0.5 text-[10px] font-normal text-gray-400">{{ primaryUnit }}</span>
+      <dd class="ui-numeric">
+        {{ primaryValue }}<span>{{ primaryUnit }}</span>
       </dd>
     </div>
-    <div class="min-w-0">
-      <dt class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+    <div>
+      <dt>
         <Icon :name="secondaryIcon" size="xs" />
         <span>{{ secondaryLabel }}</span>
       </dt>
-      <dd class="mt-1 font-mono text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-        {{ secondaryValue }}<span class="ml-0.5 text-[10px] font-normal text-gray-400">{{ secondaryUnit }}</span>
+      <dd class="ui-numeric">
+        {{ secondaryValue }}<span>{{ secondaryUnit }}</span>
       </dd>
     </div>
   </dl>
@@ -35,3 +35,11 @@ defineProps<{
   secondaryIcon: 'bolt' | 'globe' | 'clock' | 'link'
 }>()
 </script>
+
+<style scoped>
+.monitor-metric-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0; }
+.monitor-metric-pair > div { min-width: 0; }
+.monitor-metric-pair dt { display: flex; align-items: center; gap: 5px; color: var(--ui-text-soft); font-size: 10px; font-weight: 600; }
+.monitor-metric-pair dd { margin: 4px 0 0; color: var(--ui-text); font-size: 13px; font-weight: 600; }
+.monitor-metric-pair dd span { margin-left: 2px; color: var(--ui-text-soft); font-size: 10px; font-weight: 400; }
+</style>

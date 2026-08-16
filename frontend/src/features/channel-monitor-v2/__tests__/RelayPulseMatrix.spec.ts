@@ -140,6 +140,44 @@ describe('RelayPulseMatrix', () => {
     await cells[0].trigger('click')
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
   })
+
+  it('omits throughput columns and tooltip values when user scale privacy is enabled', () => {
+    const wrapper = mount(RelayPulseMatrix, {
+      props: {
+        rows: [{
+          platform: 'openai',
+          group_id: 7,
+          group_name: '默认组',
+          model: 'gpt-5',
+          metrics: metrics(10),
+          health,
+          buckets: [
+            { bucket_start: '2026-08-01T00:00:00Z', metrics: metrics(10), health },
+          ],
+        }],
+        coverage: {
+          requested_start: '2026-08-01T00:00:00Z',
+          requested_end: '2026-08-01T00:01:00Z',
+          coverage_start: '2026-08-01T00:00:00Z',
+          data_through: '2026-08-01T00:01:00Z',
+          computed_at: '2026-08-01T00:01:00Z',
+          aggregation_lag_seconds: 0,
+          coverage_complete: true,
+          bucket_seconds: 60,
+        },
+        healthMode: 'overall',
+        showThroughput: false,
+      },
+    })
+
+    const header = wrapper.get('.matrix-header').text()
+    const tooltip = wrapper.get('.pulse-cell').text()
+    expect(header).not.toContain('每秒 Token')
+    expect(tooltip).not.toContain('每秒 Token')
+    expect(tooltip).not.toContain('RPM')
+    expect(header).toContain('成功率')
+    expect(header).toContain('缓存率')
+  })
 })
 
 describe('RelayPulseMatrix axis range', () => {

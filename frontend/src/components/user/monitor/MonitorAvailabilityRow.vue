@@ -1,24 +1,18 @@
 <template>
-  <div class="flex min-w-0 items-center justify-between gap-3 border-y border-gray-100 py-2 md:border-y-0 md:py-0 dark:border-dark-700/60">
-    <div class="min-w-0">
-      <div class="truncate text-[10px] font-semibold uppercase tracking-wider text-gray-400" :title="windowLabel">
+  <div class="monitor-availability-row">
+    <div class="monitor-availability-row__copy">
+      <div class="monitor-availability-row__label" :title="windowLabel">
         {{ windowLabel }}
       </div>
-      <div v-if="samplesLabel" class="mt-1 truncate text-[10px] text-gray-400" :title="samplesLabel">
+      <div v-if="samplesLabel" class="monitor-availability-row__meta" :title="samplesLabel">
         {{ samplesLabel }}
       </div>
     </div>
-    <div class="flex shrink-0 items-baseline gap-0.5">
-      <span
-        class="text-lg font-bold tabular-nums leading-none"
-        :style="colorStyle"
-      >
+    <div class="monitor-availability-row__value ui-numeric" :class="valueTone">
+      <span>
         {{ displayValue }}
       </span>
-      <span
-        class="text-xs font-semibold leading-none"
-        :style="colorStyle"
-      >%</span>
+      <small>%</small>
     </div>
   </div>
 </template>
@@ -26,7 +20,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { hslForPct } from '@/composables/useChannelMonitorFormat'
 
 const props = defineProps<{
   windowLabel: string
@@ -41,8 +34,24 @@ const displayValue = computed(() => {
   return props.value.toFixed(2)
 })
 
-const colorStyle = computed(() => {
-  const colour = hslForPct(props.value)
-  return colour ? { color: colour } : { color: 'rgb(156 163 175)' }
+const valueTone = computed(() => {
+  if (props.value == null || Number.isNaN(props.value)) return 'is-neutral'
+  if (props.value >= 99) return 'is-success'
+  if (props.value >= 95) return 'is-warning'
+  return 'is-danger'
 })
 </script>
+
+<style scoped>
+.monitor-availability-row { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; }
+.monitor-availability-row__copy { min-width: 0; }
+.monitor-availability-row__label,.monitor-availability-row__meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.monitor-availability-row__label { color: var(--ui-text-soft); font-size: 10px; font-weight: 600; }
+.monitor-availability-row__meta { margin-top: 4px; color: var(--ui-text-soft); font-size: 10px; }
+.monitor-availability-row__value { display: flex; flex: none; align-items: baseline; gap: 2px; color: var(--ui-text-soft); }
+.monitor-availability-row__value span { font-size: 18px; font-weight: 650; line-height: 1; }
+.monitor-availability-row__value small { font-size: 11px; font-weight: 600; }
+.monitor-availability-row__value.is-success { color: var(--ui-success); }
+.monitor-availability-row__value.is-warning { color: var(--ui-warning); }
+.monitor-availability-row__value.is-danger { color: var(--ui-danger); }
+</style>

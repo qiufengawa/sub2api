@@ -1,30 +1,34 @@
 <template>
   <AppLayout>
-    <MonitorHero
-      :overall-status="overallStatus"
-      :interval-seconds="DEFAULT_INTERVAL_SECONDS"
-      :window="currentWindow"
-      :loading="loading"
-      :auto-refresh="autoRefresh"
-      @update:window="handleWindowChange"
-      @refresh="manualReload"
-    />
+    <AppPage width="full" density="compact" class="monitor-v1-page">
+      <MonitorHero
+        :overall-status="overallStatus"
+        :interval-seconds="DEFAULT_INTERVAL_SECONDS"
+        :window="currentWindow"
+        :loading="loading"
+        :auto-refresh="autoRefresh"
+        @update:window="handleWindowChange"
+        @refresh="manualReload"
+      />
 
-    <MonitorCardGrid
-      :items="items"
-      :window="currentWindow"
-      :countdown-seconds="countdown"
-      :loading="loading"
-      :detail-cache="detailCache"
-      @card-click="openDetail"
-    />
+      <AppSection>
+        <MonitorCardGrid
+          :items="items"
+          :window="currentWindow"
+          :countdown-seconds="countdown"
+          :loading="loading"
+          :detail-cache="detailCache"
+          @card-click="openDetail"
+        />
+      </AppSection>
 
-    <MonitorDetailDialog
-      :show="showDetail"
-      :monitor-id="detailTarget?.id ?? null"
-      :title="detailTitle"
-      @close="closeDetail"
-    />
+      <MonitorDetailDialog
+        :show="showDetail"
+        :monitor-id="detailTarget?.id ?? null"
+        :title="detailTitle"
+        @close="closeDetail"
+      />
+    </AppPage>
   </AppLayout>
 </template>
 
@@ -40,6 +44,7 @@ import {
   type UserMonitorDetail,
 } from '@/api/channelMonitor'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import { AppPage, AppSection } from '@/components/ui'
 import MonitorHero, {
   type MonitorWindow,
   type OverallStatus,
@@ -170,3 +175,10 @@ onBeforeUnmount(() => {
   if (abortController) abortController.abort()
 })
 </script>
+
+<style scoped>
+.monitor-v1-page {
+  display: grid;
+  gap: 16px;
+}
+</style>

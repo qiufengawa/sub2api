@@ -55,8 +55,9 @@ describe('MonitorCardGrid list layout', () => {
     const wrapper = mountGrid({})
 
     const list = wrapper.get('[data-testid="monitor-row"]').element.parentElement
-    expect(list?.className).toContain('overflow-hidden')
+    expect(list?.className).toContain('monitor-list__rows')
     expect(list?.className).not.toContain('xl:grid-cols-3')
+    expect(wrapper.get('.monitor-list').classes()).toContain('monitor-list')
 
     await wrapper.get('[data-testid="monitor-row"]').trigger('click')
     expect(wrapper.emitted('cardClick')?.[0]).toEqual([item])
@@ -65,8 +66,8 @@ describe('MonitorCardGrid list layout', () => {
   it('uses compact list-row skeletons', () => {
     const wrapper = mountGrid({ items: [], loading: true })
 
-    expect(wrapper.findAll('.animate-pulse')).toHaveLength(6)
+    expect(wrapper.findAll('.monitor-list__skeleton-row')).toHaveLength(6)
+    expect(wrapper.findAll('.ui-skeleton')).toHaveLength(24)
     expect(wrapper.html()).not.toContain('min-h-[220px]')
   })
 })
-

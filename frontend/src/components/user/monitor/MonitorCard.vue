@@ -1,44 +1,26 @@
 <template>
   <button
     type="button"
-    class="monitor-list-row group grid w-full gap-3 border-b border-gray-100 bg-white p-3 text-left transition-colors hover:bg-primary-50/30 focus:outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/30 dark:border-dark-700 dark:bg-dark-800 dark:hover:bg-primary-900/10"
+    class="monitor-list-row ui-focus-ring ui-motion"
     @click="emit('click')"
   >
-    <div class="monitor-identity flex min-w-0 items-center gap-3">
-      <span
-        class="grid h-8 w-8 flex-shrink-0 place-items-center rounded-[4px] ring-1 ring-black/5 dark:ring-white/10"
-        :class="[providerGradient(item.provider), providerTintClass]"
-      >
+    <div class="monitor-identity">
+      <span class="monitor-provider-icon">
         <ProviderIcon :provider="item.provider" :size="20" />
       </span>
-      <div class="min-w-0 flex-1">
-        <div class="truncate text-sm font-semibold text-gray-900 dark:text-gray-100" :title="item.name">
+      <div class="monitor-identity__copy">
+        <div class="monitor-name" :title="item.name">
           {{ item.name }}
         </div>
-        <div class="mt-1 flex min-w-0 items-center gap-1.5">
-          <span
-            class="inline-flex flex-shrink-0 items-center rounded-[3px] px-1.5 py-0.5 text-[10px] font-medium"
-            :class="providerBadgeClass(item.provider)"
-          >
-            {{ providerLabel(item.provider) }}
-          </span>
-          <span class="truncate font-mono text-xs text-gray-500 dark:text-gray-400" :title="item.primary_model">
+        <div class="monitor-meta">
+          <UiBadge>{{ providerLabel(item.provider) }}</UiBadge>
+          <span class="monitor-model ui-numeric" :title="item.primary_model">
             {{ item.primary_model }}
           </span>
-          <span
-            v-if="item.group_name"
-            class="inline-flex flex-shrink-0 items-center rounded-[3px] bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-dark-700 dark:text-gray-300"
-          >
-            {{ item.group_name }}
-          </span>
+          <UiBadge v-if="item.group_name">{{ item.group_name }}</UiBadge>
         </div>
       </div>
-      <span
-        class="flex-shrink-0 rounded-[3px] px-2 py-1 text-[11px] font-semibold"
-        :class="statusBadgeClass(item.primary_status)"
-      >
-        {{ statusLabel(item.primary_status) }}
-      </span>
+      <UiStatusBadge :status="statusTone(item.primary_status)" :label="statusLabel(item.primary_status)" />
     </div>
 
     <MonitorMetricPair
@@ -72,21 +54,12 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { UserMonitorView } from '@/api/channelMonitor'
-import {
-  useChannelMonitorFormat,
-  providerGradient,
-} from '@/composables/useChannelMonitorFormat'
+import { useChannelMonitorFormat } from '@/composables/useChannelMonitorFormat'
+import { UiBadge, UiStatusBadge } from '@/components/ui'
 import ProviderIcon from './ProviderIcon.vue'
 import MonitorMetricPair from './MonitorMetricPair.vue'
 import MonitorAvailabilityRow from './MonitorAvailabilityRow.vue'
 import MonitorTimeline from './MonitorTimeline.vue'
-
-const PROVIDER_TINT: Record<string, string> = {
-  openai: 'text-emerald-600 dark:text-emerald-300',
-  anthropic: 'text-orange-600 dark:text-orange-300',
-  gemini: 'text-sky-600 dark:text-sky-300',
-  grok: 'text-zinc-700 dark:text-zinc-200',
-}
 
 const props = defineProps<{
   item: UserMonitorView
@@ -102,15 +75,16 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const {
   statusLabel,
-  statusBadgeClass,
   providerLabel,
-  providerBadgeClass,
   formatLatency,
 } = useChannelMonitorFormat()
 
-const providerTintClass = computed(() =>
-  PROVIDER_TINT[props.item.provider] ?? 'text-gray-500 dark:text-gray-300'
-)
+function statusTone(status: string): string {
+  if (status === 'operational') return 'online'
+  if (status === 'degraded') return 'warning'
+  if (status === 'failed') return 'failed'
+  return 'error'
+}
 
 const availabilityLabel = computed(() => {
   const win = t(`channelStatus.windowTab.${props.window}`)
@@ -126,12 +100,50 @@ const extraModelsCountLabel = computed(() => {
 
 <style scoped>
 .monitor-list-row {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 12px;
+  padding: 12px;
+  border: 0;
+  border-bottom: 1px solid var(--ui-border-soft);
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  text-align: left;
+  cursor: pointer;
   grid-template-areas:
     'identity'
     'metrics'
     'availability'
     'timeline';
 }
+
+.monitor-list-row:last-child { border-bottom: 0; }
+.monitor-list-row:hover { background: var(--ui-surface-muted); }
+
+.monitor-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.monitor-provider-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--ui-border-soft);
+  border-radius: var(--ui-radius);
+  color: var(--ui-text-muted);
+  background: var(--ui-surface-muted);
+}
+
+.monitor-identity__copy { min-width: 0; flex: 1; }
+.monitor-name { overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.monitor-meta { display: flex; min-width: 0; align-items: center; gap: 6px; margin-top: 4px; }
+.monitor-model { overflow: hidden; color: var(--ui-text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 
 .monitor-identity { grid-area: identity; }
 .monitor-metrics { grid-area: metrics; }

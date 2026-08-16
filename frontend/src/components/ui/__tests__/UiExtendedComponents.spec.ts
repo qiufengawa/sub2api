@@ -14,12 +14,14 @@ describe('Qiu UI extended workflow components', () => {
     const wrapper = mount(UiMultiCombobox, {
       props: {
         modelValue: ['gpt'],
+        ariaLabel: 'Models',
         options: [
           { label: 'GPT', value: 'gpt' },
           { label: 'Claude', value: 'claude' }
         ]
       }
     })
+    expect(wrapper.get('.ui-multi__trigger').attributes('aria-label')).toBe('Models')
     await wrapper.get('.ui-multi__trigger').trigger('click')
     await wrapper.findAll('.ui-multi__options > button')[1].trigger('click')
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([['gpt', 'claude']])

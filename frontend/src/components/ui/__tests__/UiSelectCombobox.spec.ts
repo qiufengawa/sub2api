@@ -24,6 +24,7 @@ describe('UiSelect', () => {
         id: 'group',
         modelValue: null,
         label: 'Group',
+        ariaLabel: 'Group picker',
         error: 'Choose a group',
         options: [{ value: 'primary', label: 'Primary' }],
         'aria-labelledby': 'external-label',
@@ -37,6 +38,7 @@ describe('UiSelect', () => {
     expect(trigger.attributes('aria-invalid')).toBe('true')
     expect(trigger.attributes('aria-labelledby')).toBe('external-label')
     expect(trigger.attributes('data-testid')).toBe('group-select')
+    expect(trigger.attributes('aria-label')).toBe('Group picker')
   })
 
   it('selects with the keyboard and skips group headers and disabled options', async () => {

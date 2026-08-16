@@ -13,75 +13,91 @@ function read(rel: string) {
 }
 
 describe('channel-monitor-v2 design system structure', () => {
-  it('user ChannelStatus V2 shell uses page-header, card, btn, tabs utilities', () => {
-    // Route wrapper may switch V1/V2; design chrome lives on the V2 implementation.
+  it('user ChannelStatus V1 shell and detail flow use the shared page contracts', () => {
+    const view = read('views/user/ChannelStatusV1View.vue')
+    const hero = read('components/user/monitor/MonitorHero.vue')
+    const grid = read('components/user/monitor/MonitorCardGrid.vue')
+    const detail = read('components/user/MonitorDetailDialog.vue')
+
+    expect(view).toContain('<AppPage')
+    expect(view).toContain('<AppSection')
+    expect(hero).toContain('<AppPageHeader')
+    expect(hero).toContain('<UiSegmentedControl')
+    expect(hero).toContain('<UiStatusBadge')
+    expect(hero).toContain('<UiIconButton')
+    expect(grid).toContain('<UiSkeleton')
+    expect(grid).toContain('<UiEmptyState')
+    expect(detail).toContain('<UiDialog')
+    expect(detail).toContain('<UiMobileTableScroller')
+    expect(detail).toContain('<UiDataTable')
+    expect(detail).toContain('requestSequence')
+
+    for (const source of [view, hero, grid, detail]) {
+      expect(source).not.toMatch(/class="[^"]*\b(?:btn|card)\b/)
+      expect(source).not.toContain('dark:')
+      expect(source).not.toContain('!important')
+    }
+    expect(detail).not.toContain('components/common/BaseDialog')
+  })
+
+  it('user ChannelStatus V2 shell uses the shared page, filter, metric, and table contracts', () => {
     const src = read('views/user/ChannelStatusV2View.vue')
-    expect(src).toContain('page-header')
-    expect(src).toContain('page-title')
-    expect(src).toContain('class="card')
-    expect(src).toContain('btn btn-secondary')
-    expect(src).toContain('class="tab')
-    expect(src).toContain('tab-active')
-    expect(src).toContain('badge badge-warning')
-    // Compact single-row toolbar
-    expect(src).toContain('monitor-toolbar')
+    expect(src).toContain('<AppPageHeader')
+    expect(src).toContain('<AppToolbar')
+    expect(src).toContain('<UiFilterBar')
+    expect(src).toContain('<UiMultiCombobox')
+    expect(src).toContain('<UiSegmentedControl')
+    expect(src).toContain('<UiStatMetric')
+    expect(src).toContain('<UiTabs')
+    expect(src).toContain('<UiMobileTableScroller')
+    expect(src).toContain('<UiProgressBar')
     expect(src).toContain('clearFilters')
     expect(src).toContain('healthModeOptions')
     expect(src).toContain("'cache'")
-    // Ops elevation: rounded-3xl + ring surfaces
-    expect(src).toContain('rounded-3xl')
-    expect(src).toContain('ring-1 ring-gray-900/5')
-    // Overview-first KPI strip before primary viz
     expect(src.indexOf('summaryAria')).toBeLessThan(src.indexOf('MonitorTrendChart'))
-    // No page-level fixed min-width that forces viewport horizontal scroll
     expect(src).not.toMatch(/min-width:\s*980px/)
     expect(src).not.toMatch(/min-w-\[980px\]/)
-    // Dense tables scroll internally
-    expect(src).toMatch(/max-h-\[min\(52vh/)
-    expect(src).toContain('overflow-auto')
-    // Trend view toggle (pulse matrix / line chart) + default platform/group dimension
+    expect(src).toContain('max-height: min(56vh, 560px)')
     expect(src).toContain("trendView")
     expect(src).toContain("'platform_group'")
     expect(src).toContain('MonitorTrendChart')
+    expect(src).not.toContain('components/common/Select')
+    expect(src).not.toContain('FilterMultiSelect')
+    expect(src).not.toContain('MetricCell')
+    expect(src).not.toMatch(/class="[^"]*\b(?:btn|card)\b/)
+    expect(src).not.toContain('dark:')
+    expect(src).not.toContain('!important')
   })
 
-  it('RelayPulseMatrix uses card chrome, matrix scroll, and hover tooltips (no click modal)', () => {
+  it('RelayPulseMatrix uses the shared chart frame, matrix scroll, and hover tooltips', () => {
     const src = read('features/channel-monitor-v2/RelayPulseMatrix.vue')
-    expect(src).toContain('class="card')
-    expect(src).toContain('card-header')
-    expect(src).toContain('card-body')
+    expect(src).toContain('<UiChartFrame')
+    expect(src).toContain('<UiBadge')
+    expect(src).toContain('<UiButton')
     expect(src).toContain('matrix-scroll')
-    expect(src).toMatch(/max-h-\[min\(42vh/)
-    expect(src).toContain('overflow-auto')
+    expect(src).toContain('max-height: min(42vh, 420px)')
+    expect(src).toContain('overflow: auto')
     expect(src).toContain('pulse-tooltip')
-    expect(src).toContain('rounded-3xl')
-    expect(src).toContain('ring-1 ring-gray-900/5')
+    expect(src).not.toMatch(/class="[^"]*\bcard\b/)
+    expect(src).not.toContain('rounded-3xl')
+    expect(src).not.toContain('dark:')
+    expect(src).not.toContain('!important')
     expect(src).not.toContain('modal-overlay')
     expect(src).not.toContain('modal-content')
   })
 
-  it('MetricCell uses stat-card utility', () => {
-    const src = read('features/channel-monitor-v2/MetricCell.vue')
-    expect(src).toContain('stat-card')
-    expect(src).toContain('stat-label')
-    expect(src).toContain('stat-value')
-    expect(src).toContain('rounded-3xl')
-  })
-
-  it('MonitorTrendChart uses Ops chart shell tokens', () => {
+  it('MonitorTrendChart uses the shared chart contracts without legacy card chrome', () => {
     const src = read('features/channel-monitor-v2/MonitorTrendChart.vue')
-    expect(src).toContain('class="card')
-    expect(src).toContain('rounded-3xl')
-    expect(src).toContain('ring-1 ring-gray-900/5')
-    expect(src).toContain('EmptyState')
-    expect(src).toContain('min-h-[360px]')
-  })
-
-  it('FilterMultiSelect uses rounded-xl input chrome and dropdown utility', () => {
-    const src = read('features/channel-monitor-v2/FilterMultiSelect.vue')
-    expect(src).toContain('rounded-xl')
-    expect(src).toContain('dropdown')
-    expect(src).toContain('dropdown-item')
+    expect(src).toContain('<UiChartFrame')
+    expect(src).toContain('<UiChartLegend')
+    expect(src).toContain('<UiBadge')
+    expect(src).toContain('<UiButton')
+    expect(src).toContain('density="dense"')
+    expect(src).not.toMatch(/class="[^"]*\bcard\b/)
+    expect(src).not.toContain('components/common/EmptyState')
+    expect(src).not.toContain('rounded-3xl')
+    expect(src).not.toContain('dark:')
+    expect(src).not.toContain('!important')
   })
 
   it('MonitorSettingsPanel uses the shared settings primitives', () => {

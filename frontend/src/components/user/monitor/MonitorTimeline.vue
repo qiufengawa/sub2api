@@ -1,32 +1,28 @@
 <template>
-  <div class="min-w-0 border-t border-gray-100 pt-2 lg:border-t-0 lg:pt-0 dark:border-dark-700/60">
-    <div
-      class="mb-1.5 flex justify-between gap-2 text-[9px] font-semibold uppercase tracking-wider text-gray-400"
-    >
+  <div class="monitor-timeline-root">
+    <div class="monitor-timeline-head">
       <span>{{ t('monitorCommon.history60pts', { n: length }) }}</span>
       <span class="tabular-nums">{{ t('monitorCommon.nextUpdateIn', { n: countdownSeconds }) }}</span>
     </div>
 
     <div
       v-if="maintenance"
-      class="flex h-3 w-full items-center justify-center rounded-[3px] border border-dashed border-gray-300 text-[9px] uppercase tracking-wider text-gray-400 dark:border-dark-600"
+      class="monitor-timeline-maintenance"
     >
       {{ t('monitorCommon.maintenancePaused') }}
     </div>
-    <div v-else class="flex h-3 w-full items-end gap-px">
+    <div v-else class="monitor-timeline-bars">
       <div
         v-for="(bar, idx) in displayBars"
         :key="idx"
-        class="min-w-px flex-1 rounded-[1px]"
+        class="monitor-timeline-bar"
         :class="bar.colorClass"
         :style="{ height: bar.heightPct + '%' }"
         :title="bar.title"
       ></div>
     </div>
 
-    <div
-      class="mt-1 flex justify-between text-[8px] uppercase tracking-wider text-gray-400"
-    >
+    <div class="monitor-timeline-axis">
       <span>{{ t('monitorCommon.past') }}</span>
       <span>{{ t('monitorCommon.now') }}</span>
     </div>
@@ -70,11 +66,11 @@ const STATUS_HEIGHT: Record<string, number> = {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  operational: 'bg-emerald-500',
-  degraded: 'bg-amber-500',
-  failed: 'bg-red-500',
-  error: 'bg-red-500',
-  empty: 'bg-gray-300 dark:bg-dark-600',
+  operational: 'is-operational',
+  degraded: 'is-degraded',
+  failed: 'is-failed',
+  error: 'is-failed',
+  empty: 'is-empty',
 }
 
 const displayBars = computed<Bar[]>(() => {
@@ -113,3 +109,17 @@ const displayBars = computed<Bar[]>(() => {
   return bars
 })
 </script>
+
+<style scoped>
+.monitor-timeline-root { min-width: 0; }
+.monitor-timeline-head,.monitor-timeline-axis { display: flex; justify-content: space-between; gap: 8px; color: var(--ui-text-soft); font-size: 9px; font-weight: 600; }
+.monitor-timeline-head { margin-bottom: 6px; }
+.monitor-timeline-axis { margin-top: 4px; font-size: 8px; }
+.monitor-timeline-maintenance { display: flex; height: 12px; width: 100%; align-items: center; justify-content: center; border: 1px dashed var(--ui-border); border-radius: 3px; color: var(--ui-text-soft); font-size: 9px; }
+.monitor-timeline-bars { display: flex; width: 100%; height: 12px; align-items: flex-end; gap: 1px; }
+.monitor-timeline-bar { min-width: 1px; flex: 1; border-radius: 1px; background: var(--ui-text-soft); }
+.monitor-timeline-bar.is-operational { background: var(--ui-success); }
+.monitor-timeline-bar.is-degraded { background: var(--ui-warning); }
+.monitor-timeline-bar.is-failed { background: var(--ui-danger); }
+.monitor-timeline-bar.is-empty { background: var(--ui-border); }
+</style>

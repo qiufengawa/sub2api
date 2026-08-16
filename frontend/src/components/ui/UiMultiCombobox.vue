@@ -1,7 +1,7 @@
 <template>
   <UiFormField :label="label" :description="description" :error="error">
     <div ref="root" class="ui-multi">
-      <button type="button" class="ui-multi__trigger ui-focus-ring" :disabled="disabled" :aria-expanded="open" aria-haspopup="listbox" @click="open = !open">
+      <button type="button" class="ui-multi__trigger ui-focus-ring" :disabled="disabled" :aria-label="ariaLabel || label || placeholder" :aria-expanded="open" aria-haspopup="listbox" @click="open = !open">
         <span v-if="selected.length" class="ui-multi__summary">
           <UiBadge v-for="item in selected.slice(0, 2)" :key="String(item.value)" :label="item.label" />
           <UiBadge v-if="selected.length > 2" :label="`+${selected.length - 2}`" />
@@ -31,7 +31,7 @@ import UiButton from './UiButton.vue'
 import UiFormField from './UiFormField.vue'
 import UiSearchInput from './UiSearchInput.vue'
 import type { UiChoiceOption } from './types'
-const props = withDefaults(defineProps<{ modelValue:(string|number)[]; options:UiChoiceOption[]; label?:string; description?:string; error?:string; placeholder?:string; searchPlaceholder?:string; emptyText?:string; disabled?:boolean }>(), { placeholder:'请选择', searchPlaceholder:'搜索选项', emptyText:'没有匹配项' })
+const props = withDefaults(defineProps<{ modelValue:(string|number)[]; options:UiChoiceOption[]; label?:string; ariaLabel?:string; description?:string; error?:string; placeholder?:string; searchPlaceholder?:string; emptyText?:string; disabled?:boolean }>(), { placeholder:'请选择', searchPlaceholder:'搜索选项', emptyText:'没有匹配项' })
 const emit = defineEmits<{ 'update:modelValue':[(string|number)[]]; change:[(string|number)[]] }>()
 const root = ref<HTMLElement>(); const open = ref(false); const query = ref('')
 const selected = computed(() => props.options.filter(item => props.modelValue.includes(item.value)))

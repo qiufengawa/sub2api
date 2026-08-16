@@ -1,39 +1,21 @@
 <template>
-  <div>
-    <div
-      v-if="loading && items.length === 0"
-      class="overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800"
-    >
-      <div
-        v-for="i in 6"
-        :key="i"
-        class="grid animate-pulse gap-3 border-b border-gray-100 p-3 last:border-b-0 md:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)] dark:border-dark-700"
-      >
-        <div class="flex items-start gap-3">
-          <div class="h-8 w-8 rounded-[4px] bg-gray-200 dark:bg-dark-700"></div>
-          <div class="flex-1 space-y-2">
-            <div class="h-4 w-2/3 rounded bg-gray-200 dark:bg-dark-700"></div>
-            <div class="h-3 w-1/2 rounded bg-gray-200 dark:bg-dark-700"></div>
-          </div>
-          <div class="h-6 w-16 rounded-[3px] bg-gray-200 dark:bg-dark-700"></div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div class="h-10 rounded-[3px] bg-gray-100 dark:bg-dark-900/40"></div>
-          <div class="h-10 rounded-[3px] bg-gray-100 dark:bg-dark-900/40"></div>
-        </div>
+  <div class="monitor-list">
+    <div v-if="loading && items.length === 0" class="monitor-list__skeleton" aria-hidden="true">
+      <div v-for="i in 6" :key="i" class="monitor-list__skeleton-row">
+        <UiSkeleton variant="circle" width="28px" height="28px" />
+        <UiSkeleton variant="text" width="36%" />
+        <UiSkeleton variant="text" width="18%" />
+        <UiSkeleton variant="text" width="24%" />
       </div>
     </div>
 
-    <EmptyState
+    <UiEmptyState
       v-else-if="items.length === 0"
       :title="t('channelStatus.empty.title')"
       :description="t('channelStatus.empty.description')"
     />
 
-    <div
-      v-else
-      class="overflow-hidden rounded-[4px] border border-gray-200 bg-white [&>*:last-child]:border-b-0 dark:border-dark-700 dark:bg-dark-800"
-    >
+    <div v-else class="monitor-list__rows" role="list">
       <MonitorCard
         v-for="item in items"
         :key="item.id"
@@ -50,7 +32,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { UserMonitorView, UserMonitorDetail } from '@/api/channelMonitor'
-import EmptyState from '@/components/common/EmptyState.vue'
+import { UiEmptyState, UiSkeleton } from '@/components/ui'
 import MonitorCard from './MonitorCard.vue'
 
 const props = defineProps<{
@@ -78,3 +60,41 @@ function resolveAvailability(item: UserMonitorView): number | null {
   return props.window === '15d' ? primary.availability_15d ?? null : primary.availability_30d ?? null
 }
 </script>
+
+<style scoped>
+.monitor-list {
+  min-width: 0;
+  border: 1px solid var(--ui-border-soft);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-surface);
+}
+
+.monitor-list__rows,
+.monitor-list__skeleton {
+  min-width: 0;
+}
+
+.monitor-list__skeleton-row {
+  display: grid;
+  min-height: 76px;
+  grid-template-columns: 28px minmax(160px, 1fr) minmax(90px, .35fr) minmax(160px, .75fr);
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid var(--ui-border-soft);
+}
+
+.monitor-list__skeleton-row:last-child {
+  border-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .monitor-list__skeleton-row {
+    grid-template-columns: 28px minmax(120px, 1fr) 72px;
+  }
+
+  .monitor-list__skeleton-row > :last-child {
+    display: none;
+  }
+}
+</style>
