@@ -1,0 +1,54 @@
+.auth-form,
+.auth-state-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-submit {
+  margin-top: 6px;
+}
+
+.auth-alternatives {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin: 2px 0 3px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  height: 1px;
+  flex: 1;
+  background: var(--ui-border-soft);
+  content: "";
+}
+
+.auth-divider span {
+  color: var(--ui-text-soft);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity var(--ui-motion-fast), transform var(--ui-motion-fast);
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: none;
+  }
+}

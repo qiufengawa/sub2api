@@ -1,42 +1,19 @@
 <template>
-  <div class="space-y-4">
-    <button type="button" :disabled="disabled" class="btn btn-secondary w-full" @click="startLogin">
-      <svg
-        class="icon mr-2"
-        viewBox="0 0 24 24"
-        xmlns="http://www.w3.org/2000/svg"
-        width="20"
-        height="20"
-        aria-hidden="true"
-        style="flex-shrink: 0"
-      >
-        <circle cx="12" cy="12" r="12" fill="#1677FF" />
-        <text
-          x="12"
-          y="17"
-          font-family="sans-serif"
-          font-size="13"
-          font-weight="bold"
-          fill="white"
-          text-anchor="middle"
-        >D</text>
-      </svg>
+  <div class="auth-oauth-section">
+    <UiButton type="button" :disabled="disabled" variant="secondary" density="compact" block @click="startLogin">
+      <template #icon><Icon name="chatBubble" size="sm" /></template>
       {{ t('auth.dingtalk.signIn') }}
-    </button>
+    </UiButton>
 
-    <div v-if="showDivider" class="flex items-center gap-3">
-      <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
-      <span class="text-xs text-gray-500 dark:text-dark-400">
-        {{ t('auth.oauthOrContinue') }}
-      </span>
-      <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
-    </div>
+    <UiDivider v-if="showDivider">{{ t('auth.oauthOrContinue') }}</UiDivider>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import Icon from '@/components/icons/Icon.vue'
+import { UiButton, UiDivider } from '@/components/ui'
 import type { OAuthLoginStart } from '@/api/auth'
 import { resolveAffiliateReferralCode, storeOAuthAffiliateCode } from '@/utils/oauthAffiliate'
 
@@ -60,3 +37,7 @@ function startLogin(): void {
   emit('start', { provider: 'dingtalk', params: { redirect: redirectTo } })
 }
 </script>
+
+<style scoped>
+.auth-oauth-section { display: grid; gap: 12px; }
+</style>

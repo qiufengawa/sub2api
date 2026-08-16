@@ -1,148 +1,83 @@
 <template>
-  <div
-    class="min-h-screen bg-gray-50 px-4 py-8 dark:bg-dark-950 sm:px-6 sm:py-10"
-  >
-    <div class="mx-auto w-full max-w-3xl">
-      <!-- Logo & Title -->
-      <div class="mb-7 flex items-start gap-4">
-        <div
-          class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[4px] border border-primary-200 bg-primary-50 dark:border-primary-800 dark:bg-primary-950/30"
-        >
-          <Icon name="cog" size="lg" class="text-primary-600 dark:text-primary-400" />
+  <main class="setup-page">
+    <section class="setup-shell">
+      <header class="setup-header">
+        <Icon name="cog" size="md" />
+        <div>
+          <h1>{{ t('setup.title') }}</h1>
+          <p>{{ t('setup.description') }}</p>
         </div>
-        <div class="min-w-0">
-          <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ t('setup.title') }}</h1>
-          <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-dark-400">{{ t('setup.description') }}</p>
-        </div>
-      </div>
+      </header>
 
       <!-- Progress Steps -->
-      <div class="mb-5" :aria-label="t('setup.title')">
-        <ol class="flex items-center" role="list">
-          <li
-            v-for="(step, index) in steps"
-            :key="step.id"
-            class="flex min-w-0 items-center"
-            :class="index < steps.length - 1 ? 'flex-1' : 'flex-none'"
-            :aria-current="currentStep === index ? 'step' : undefined"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors',
-                currentStep > index
-                  ? 'bg-primary-500 text-white'
-                  : currentStep === index
-                    ? 'bg-primary-600 text-white ring-2 ring-primary-100 dark:ring-primary-900'
-                    : 'bg-gray-200 text-gray-500 dark:bg-dark-700 dark:text-dark-400'
-              ]"
-            >
-              <Icon
-                v-if="currentStep > index"
-                name="check"
-                size="md"
-                :stroke-width="2"
-              />
-              <span v-else>{{ index + 1 }}</span>
-            </div>
-            <span
-              class="ml-2 hidden truncate text-sm font-medium sm:inline"
-              :class="
-                currentStep >= index
-                  ? 'text-gray-900 dark:text-white'
-                  : 'text-gray-400 dark:text-dark-500'
-              "
-            >
-              {{ step.title }}
-            </span>
-            <span
-              v-if="index < steps.length - 1"
-              aria-hidden="true"
-              class="mx-2 h-px min-w-4 flex-1 sm:mx-3"
-              :class="currentStep > index ? 'bg-primary-500' : 'bg-gray-200 dark:bg-dark-700'"
-            ></span>
-          </li>
-        </ol>
-        <p class="mt-3 text-sm font-medium text-gray-700 dark:text-gray-200 sm:hidden">
-          {{ steps[currentStep]?.title }}
-        </p>
-      </div>
+      <UiSteps :steps="steps" :current="currentStep" :aria-label="t('setup.title')" />
 
       <!-- Step Content -->
-      <div class="rounded-[4px] border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900 sm:p-6">
+      <section class="setup-workspace">
         <!-- Step 1: Database -->
-        <div v-if="currentStep === 0" class="space-y-6">
-          <div class="border-b border-gray-100 pb-4 dark:border-dark-800">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+        <div v-if="currentStep === 0" class="setup-step">
+          <header class="setup-step__header">
+            <h2>
               {{ t('setup.database.title') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">
+            <p>
               {{ t('setup.database.description') }}
             </p>
-          </div>
+          </header>
 
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label for="setup-database-host" class="input-label">{{ t('setup.database.host') }}</label>
-              <input
+          <div class="setup-form-grid">
+              <UiTextField
                 id="setup-database-host"
                 v-model="formData.database.host"
                 type="text"
-                class="input"
+                :label="t('setup.database.host')"
+                density="compact"
                 placeholder="localhost"
               />
-            </div>
-            <div>
-              <label for="setup-database-port" class="input-label">{{ t('setup.database.port') }}</label>
-              <input
+              <UiTextField
                 id="setup-database-port"
-                v-model.number="formData.database.port"
+                :model-value="formData.database.port"
                 type="number"
-                class="input"
+                :label="t('setup.database.port')"
+                density="compact"
                 placeholder="5432"
+                @update:model-value="updateDatabasePort"
               />
-            </div>
           </div>
 
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label for="setup-database-user" class="input-label">{{ t('setup.database.username') }}</label>
-              <input
+          <div class="setup-form-grid">
+              <UiTextField
                 id="setup-database-user"
                 v-model="formData.database.user"
                 type="text"
-                class="input"
+                :label="t('setup.database.username')"
+                density="compact"
                 placeholder="postgres"
               />
-            </div>
-            <div>
-              <label for="setup-database-password" class="input-label">{{ t('setup.database.password') }}</label>
-              <input
+              <UiTextField
                 id="setup-database-password"
                 v-model="formData.database.password"
                 type="password"
-                class="input"
+                :label="t('setup.database.password')"
+                density="compact"
                 :placeholder="t('setup.database.passwordPlaceholder')"
               />
-            </div>
           </div>
 
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label for="setup-database-name" class="input-label">{{ t('setup.database.databaseName') }}</label>
-              <input
+          <div class="setup-form-grid">
+              <UiTextField
                 id="setup-database-name"
                 v-model="formData.database.dbname"
                 type="text"
-                class="input"
+                :label="t('setup.database.databaseName')"
+                density="compact"
                 placeholder="sub2api"
               />
-            </div>
-            <div>
-              <label for="setup-database-ssl" class="input-label">{{ t('setup.database.sslMode') }}</label>
-              <Select
+              <UiSelect
                 id="setup-database-ssl"
                 v-model="formData.database.sslmode"
-                :aria-label="t('setup.database.sslMode')"
+                :label="t('setup.database.sslMode')"
+                density="compact"
                 :options="[
                   { value: 'disable', label: t('setup.database.ssl.disable') },
                   { value: 'require', label: t('setup.database.ssl.require') },
@@ -150,36 +85,18 @@
                   { value: 'verify-full', label: t('setup.database.ssl.verifyFull') }
                 ]"
               />
-            </div>
           </div>
 
-          <button
+          <UiButton
             type="button"
-            @click="testDatabaseConnection"
             :disabled="testingDb"
-            class="btn btn-secondary w-full"
+            :loading="testingDb"
+            variant="secondary"
+            density="compact"
+            block
+            @click="testDatabaseConnection"
           >
-            <svg
-              v-if="testingDb"
-              class="-ml-1 mr-2 h-4 w-4 animate-spin"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              ></circle>
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
-            <Icon v-else-if="dbConnected" name="check" size="md" class="mr-2 text-green-500" :stroke-width="2" />
+            <template v-if="dbConnected && !testingDb" #icon><Icon name="check" size="sm" class="setup-status--success" /></template>
             {{
               testingDb
                 ? t('setup.status.testing')
@@ -187,124 +104,93 @@
                   ? t('setup.status.success')
                   : t('setup.status.testConnection')
             }}
-          </button>
+          </UiButton>
         </div>
 
         <!-- Step 2: Redis -->
-        <div v-if="currentStep === 1" class="space-y-6">
-          <div class="border-b border-gray-100 pb-4 dark:border-dark-800">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+        <div v-if="currentStep === 1" class="setup-step">
+          <header class="setup-step__header">
+            <h2>
               {{ t('setup.redis.title') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">
+            <p>
               {{ t('setup.redis.description') }}
             </p>
-          </div>
+          </header>
 
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label for="setup-redis-host" class="input-label">{{ t('setup.redis.host') }}</label>
-              <input
+          <div class="setup-form-grid">
+              <UiTextField
                 id="setup-redis-host"
                 v-model="formData.redis.host"
                 type="text"
-                class="input"
+                :label="t('setup.redis.host')"
+                density="compact"
                 placeholder="localhost"
               />
-            </div>
-            <div>
-              <label for="setup-redis-port" class="input-label">{{ t('setup.redis.port') }}</label>
-              <input
+              <UiTextField
                 id="setup-redis-port"
-                v-model.number="formData.redis.port"
+                :model-value="formData.redis.port"
                 type="number"
-                class="input"
+                :label="t('setup.redis.port')"
+                density="compact"
                 placeholder="6379"
+                @update:model-value="updateRedisPort"
               />
-            </div>
           </div>
 
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label for="setup-redis-user" class="input-label">{{ t('setup.redis.username') }}</label>
-              <input
+          <div class="setup-form-grid">
+              <UiTextField
                 id="setup-redis-user"
                 v-model="formData.redis.username"
                 type="text"
-                class="input"
+                :label="t('setup.redis.username')"
+                density="compact"
                 :placeholder="t('setup.redis.usernamePlaceholder')"
               />
-            </div>
-            <div>
-              <label for="setup-redis-password" class="input-label">{{ t('setup.redis.password') }}</label>
-              <input
+              <UiTextField
                 id="setup-redis-password"
                 v-model="formData.redis.password"
                 type="password"
-                class="input"
+                :label="t('setup.redis.password')"
+                density="compact"
                 :placeholder="t('setup.redis.passwordPlaceholder')"
               />
-            </div>
-            <div>
-              <label for="setup-redis-database" class="input-label">{{ t('setup.redis.database') }}</label>
-              <input
+              <UiTextField
                 id="setup-redis-database"
-                v-model.number="formData.redis.db"
+                :model-value="formData.redis.db"
                 type="number"
-                class="input"
+                :label="t('setup.redis.database')"
+                density="compact"
                 placeholder="0"
+                @update:model-value="updateRedisDatabase"
               />
-            </div>
           </div>
 
-          <div class="flex items-center justify-between gap-4 border-y border-gray-100 py-3 dark:border-dark-800">
+          <div class="setup-setting-row">
             <div>
-              <p class="text-sm font-medium text-gray-900 dark:text-white">
+              <strong>
                 {{ t("setup.redis.enableTls") }}
-              </p>
-              <p class="text-xs text-gray-500 dark:text-dark-400">
+              </strong>
+              <p>
                 {{ t("setup.redis.enableTlsHint") }}
               </p>
             </div>
-            <Toggle
+            <UiSwitch
               v-model="formData.redis.enable_tls"
-              :aria-label="t('setup.redis.enableTls')"
+              :label="t('setup.redis.enableTls')"
             />
           </div>
 
-          <button
+          <UiButton
             type="button"
-            @click="testRedisConnection"
             :disabled="testingRedis"
-            class="btn btn-secondary w-full"
+            :loading="testingRedis"
+            variant="secondary"
+            density="compact"
+            block
+            @click="testRedisConnection"
           >
-            <svg
-              v-if="testingRedis"
-              class="-ml-1 mr-2 h-4 w-4 animate-spin"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              ></circle>
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
-            <Icon
-              v-else-if="redisConnected"
-              name="check"
-              size="md"
-              class="mr-2 text-green-500"
-              :stroke-width="2"
-            />
+            <template v-if="redisConnected && !testingRedis" #icon><Icon name="check" size="sm" class="setup-status--success" /></template>
             {{
               testingRedis
                 ? t('setup.status.testing')
@@ -312,218 +198,116 @@
                   ? t('setup.status.success')
                   : t('setup.status.testConnection')
             }}
-          </button>
+          </UiButton>
         </div>
 
         <!-- Step 3: Admin -->
-        <div v-if="currentStep === 2" class="space-y-6">
-          <div class="border-b border-gray-100 pb-4 dark:border-dark-800">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+        <div v-if="currentStep === 2" class="setup-step">
+          <header class="setup-step__header">
+            <h2>
               {{ t('setup.admin.title') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">
+            <p>
               {{ t('setup.admin.description') }}
             </p>
-          </div>
+          </header>
 
-          <div>
-            <label for="setup-admin-email" class="input-label">{{ t('setup.admin.email') }}</label>
-            <input
+          <div class="setup-form-stack">
+            <UiTextField
               id="setup-admin-email"
               v-model="formData.admin.email"
               type="email"
               autocomplete="email"
-              class="input"
+              :label="t('setup.admin.email')"
+              density="compact"
               placeholder="admin@example.com"
             />
-          </div>
 
-          <div>
-            <label for="setup-admin-password" class="input-label">{{ t('setup.admin.password') }}</label>
-            <input
+            <UiTextField
               id="setup-admin-password"
               v-model="formData.admin.password"
               type="password"
               autocomplete="new-password"
-              class="input"
+              :label="t('setup.admin.password')"
+              density="compact"
               :placeholder="t('setup.admin.passwordPlaceholder')"
             />
-          </div>
 
-          <div>
-            <label for="setup-admin-confirm-password" class="input-label">{{ t('setup.admin.confirmPassword') }}</label>
-            <input
+            <UiTextField
               id="setup-admin-confirm-password"
               v-model="confirmPassword"
               type="password"
               autocomplete="new-password"
-              :aria-invalid="Boolean(confirmPassword && formData.admin.password !== confirmPassword)"
-              aria-describedby="setup-admin-password-error"
-              class="input"
+              :label="t('setup.admin.confirmPassword')"
+              density="compact"
+              :error="confirmPassword && formData.admin.password !== confirmPassword ? t('setup.admin.passwordMismatch') : undefined"
               :placeholder="t('setup.admin.confirmPasswordPlaceholder')"
             />
-            <p
-              id="setup-admin-password-error"
-              v-if="confirmPassword && formData.admin.password !== confirmPassword"
-              class="input-error-text"
-            >
-              {{ t('setup.admin.passwordMismatch') }}
-            </p>
           </div>
         </div>
 
         <!-- Step 4: Complete -->
-        <div v-if="currentStep === 3" class="space-y-6">
-          <div class="border-b border-gray-100 pb-4 dark:border-dark-800">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
-              {{ t('setup.ready.title') }}
-            </h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">
-              {{ t('setup.ready.description') }}
-            </p>
-          </div>
-
-          <dl class="divide-y divide-gray-100 border-y border-gray-100 dark:divide-dark-800 dark:border-dark-800">
-            <div class="grid gap-1 py-3 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-4">
-              <dt class="text-sm font-medium text-gray-500 dark:text-dark-400">
-                {{ t('setup.ready.database') }}
-              </dt>
-              <dd class="break-all text-sm text-gray-900 dark:text-white">
-                {{ formData.database.user }}@{{ formData.database.host }}:{{
-                  formData.database.port
-                }}/{{ formData.database.dbname }}
-              </dd>
-            </div>
-
-            <div class="grid gap-1 py-3 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-4">
-              <dt class="text-sm font-medium text-gray-500 dark:text-dark-400">
-                {{ t('setup.ready.redis') }}
-              </dt>
-              <dd class="break-all text-sm text-gray-900 dark:text-white">
-                {{ formData.redis.host }}:{{ formData.redis.port }}
-              </dd>
-            </div>
-
-            <div class="grid gap-1 py-3 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-4">
-              <dt class="text-sm font-medium text-gray-500 dark:text-dark-400">
-                {{ t('setup.ready.adminEmail') }}
-              </dt>
-              <dd class="break-all text-sm text-gray-900 dark:text-white">{{ formData.admin.email }}</dd>
-            </div>
-          </dl>
+        <div v-if="currentStep === 3" class="setup-step">
+          <UiReviewSummary
+            :title="t('setup.ready.title')"
+            :description="t('setup.ready.description')"
+            :items="reviewItems"
+            :valid="canProceed"
+          />
         </div>
 
         <!-- Error Message -->
-        <div
-          v-if="errorMessage"
-          class="mt-6 rounded-[4px] border border-red-200 bg-red-50 p-4 dark:border-red-800/50 dark:bg-red-900/20"
-          role="alert"
-        >
-          <div class="flex items-start gap-3">
-            <Icon name="exclamationCircle" size="md" class="flex-shrink-0 text-red-500" />
-            <p class="text-sm text-red-700 dark:text-red-400">{{ errorMessage }}</p>
-          </div>
-        </div>
+        <UiAlert v-if="errorMessage" class="setup-feedback" tone="danger" :message="errorMessage" />
 
         <!-- Success Message -->
-        <div
+        <UiAlert
           v-if="installSuccess"
-          class="mt-6 rounded-[4px] border border-green-200 bg-green-50 p-4 dark:border-green-800/50 dark:bg-green-900/20"
-          role="status"
-        >
-          <div class="flex items-start gap-3">
-            <svg
-              v-if="!serviceReady"
-              class="h-5 w-5 flex-shrink-0 animate-spin text-green-500"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              ></circle>
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
-            <Icon v-else name="checkCircle" size="md" class="flex-shrink-0 text-green-500" />
-            <div>
-              <p class="text-sm font-medium text-green-700 dark:text-green-400">
-                {{ t('setup.status.completed') }}
-              </p>
-              <p class="mt-1 text-sm text-green-600 dark:text-green-500">
-                {{
-                  serviceReady
-                    ? t('setup.status.redirecting')
-                    : t('setup.status.restarting')
-                }}
-              </p>
-            </div>
-          </div>
-        </div>
+          class="setup-feedback"
+          tone="success"
+          :title="t('setup.status.completed')"
+          :message="serviceReady ? t('setup.status.redirecting') : t('setup.status.restarting')"
+        />
 
         <!-- Navigation Buttons -->
-        <div class="mt-6 flex flex-wrap justify-end gap-3 border-t border-gray-100 pt-5 dark:border-dark-800">
-          <button
+        <footer class="setup-actions">
+          <UiButton
             v-if="currentStep > 0 && !installSuccess"
             type="button"
+            variant="secondary"
+            density="compact"
+            class="setup-actions__back"
             @click="currentStep--"
-            class="btn btn-secondary mr-auto"
           >
-            <Icon name="chevronLeft" size="sm" class="mr-2" :stroke-width="2" />
+            <template #icon><Icon name="chevronLeft" size="sm" /></template>
             {{ t('common.back') }}
-          </button>
+          </UiButton>
 
-          <button
+          <UiButton
             v-if="currentStep < 3"
             type="button"
-            @click="nextStep"
             :disabled="!canProceed"
-            class="btn btn-primary"
+            variant="primary"
+            density="compact"
+            @click="nextStep"
           >
             {{ t('common.next') }}
-            <Icon name="chevronRight" size="sm" class="ml-2" :stroke-width="2" />
-          </button>
+          </UiButton>
 
-          <button
+          <UiButton
             v-else-if="!installSuccess"
             type="button"
-            @click="performInstall"
             :disabled="installing"
-            class="btn btn-primary"
+            :loading="installing"
+            variant="primary"
+            density="compact"
+            @click="performInstall"
           >
-            <svg
-              v-if="installing"
-              class="-ml-1 mr-2 h-4 w-4 animate-spin"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              ></circle>
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
             {{ installing ? t('setup.status.installing') : t('setup.status.completeInstallation') }}
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
+          </UiButton>
+        </footer>
+      </section>
+    </section>
+  </main>
 </template>
 
 <script setup lang="ts">
@@ -531,17 +315,24 @@ import { ref, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { testDatabase, testRedis, install, type InstallRequest } from '@/api/setup'
 import { buildGatewayUrl } from '@/api/client'
-import Select from '@/components/common/Select.vue'
-import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  UiAlert,
+  UiButton,
+  UiReviewSummary,
+  UiSelect,
+  UiSteps,
+  UiSwitch,
+  UiTextField
+} from '@/components/ui'
 
 const { t } = useI18n()
 
 const steps = computed(() => [
-  { id: 'database', title: t('setup.database.title') },
-  { id: 'redis', title: t('setup.redis.title') },
-  { id: 'admin', title: t('setup.admin.title') },
-  { id: 'complete', title: t('setup.ready.title') }
+  { key: 'database', label: t('setup.database.title') },
+  { key: 'redis', label: t('setup.redis.title') },
+  { key: 'admin', label: t('setup.admin.title') },
+  { key: 'complete', label: t('setup.ready.title') }
 ])
 
 const currentStep = ref(0)
@@ -595,6 +386,40 @@ const formData = reactive<InstallRequest>({
   }
 })
 
+const reviewItems = computed(() => [
+  {
+    label: t('setup.ready.database'),
+    value: `${formData.database.user}@${formData.database.host}:${formData.database.port}/${formData.database.dbname}`
+  },
+  {
+    label: t('setup.ready.redis'),
+    value: `${formData.redis.host}:${formData.redis.port}`
+  },
+  {
+    label: t('setup.ready.adminEmail'),
+    value: formData.admin.email
+  }
+])
+
+function parseNumericInput(value: string, current: number, min: number, max: number): number {
+  if (!value.trim()) return current
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) return current
+  return parsed
+}
+
+function updateDatabasePort(value: string): void {
+  formData.database.port = parseNumericInput(value, formData.database.port, 1, 65535)
+}
+
+function updateRedisPort(value: string): void {
+  formData.redis.port = parseNumericInput(value, formData.redis.port, 1, 65535)
+}
+
+function updateRedisDatabase(value: string): void {
+  formData.redis.db = parseNumericInput(value, formData.redis.db, 0, 15)
+}
+
 const canProceed = computed(() => {
   switch (currentStep.value) {
     case 0:
@@ -603,7 +428,7 @@ const canProceed = computed(() => {
       return redisConnected.value
     case 2:
       return (
-        formData.admin.email &&
+        Boolean(formData.admin.email) &&
         formData.admin.password.length >= 8 &&
         formData.admin.password === confirmPassword.value
       )
@@ -712,3 +537,63 @@ async function waitForServiceRestart() {
   errorMessage.value = t('setup.status.timeout')
 }
 </script>
+
+<style scoped>
+.setup-page {
+  min-height: 100svh;
+  padding: 48px 24px;
+  color: var(--ui-text);
+  background: var(--ui-bg);
+}
+
+.setup-shell {
+  display: grid;
+  width: min(760px, 100%);
+  margin: 0 auto;
+  gap: 24px;
+}
+
+.setup-header {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.setup-header h1,
+.setup-header p,
+.setup-step__header h2,
+.setup-step__header p {
+  margin: 0;
+}
+
+.setup-header h1 { font-size: 24px; font-weight: 600; line-height: 32px; }
+.setup-header p { margin-top: 3px; color: var(--ui-text-muted); font-size: 13px; line-height: 20px; }
+
+.setup-workspace {
+  padding: 24px;
+  border: 1px solid var(--ui-border-warm);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-surface);
+}
+
+.setup-step { display: grid; gap: 20px; }
+.setup-step__header { padding-bottom: 14px; border-bottom: 1px solid var(--ui-border-soft); }
+.setup-step__header h2 { font-size: 18px; font-weight: 600; line-height: 26px; }
+.setup-step__header p { margin-top: 3px; color: var(--ui-text-muted); font-size: 12px; line-height: 18px; }
+.setup-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.setup-form-stack { display: grid; gap: 14px; }
+.setup-setting-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-block: 1px solid var(--ui-border-soft); }
+.setup-setting-row strong { display: block; font-size: 13px; line-height: 20px; }
+.setup-setting-row p { margin: 2px 0 0; color: var(--ui-text-muted); font-size: 12px; line-height: 18px; }
+.setup-status--success { color: var(--ui-success); }
+.setup-feedback { margin-top: 20px; }
+.setup-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--ui-border-soft); }
+.setup-actions__back { margin-right: auto; }
+
+@media (max-width: 640px) {
+  .setup-page { padding: 24px 16px; }
+  .setup-workspace { padding: 18px 16px; }
+  .setup-form-grid { grid-template-columns: 1fr; }
+}
+</style>

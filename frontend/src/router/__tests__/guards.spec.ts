@@ -453,7 +453,7 @@ describe('路由守卫逻辑', () => {
       expect(redirect).toBeNull()
     })
 
-    it('unauthenticated: callback routes are allowed', () => {
+    it('unauthenticated: every declared callback route is allowed', () => {
       const authState: MockAuthState = {
         isAuthenticated: false,
         isAdmin: false,
@@ -461,20 +461,20 @@ describe('路由守卫逻辑', () => {
         backendModeEnabled: true,
         hasPendingAuthSession: false,
       }
-      const redirect = simulateGuard('/auth/wechat/callback', { requiresAuth: false }, authState)
-      expect(redirect).toBeNull()
-    })
+      const callbackPaths = [
+        '/auth/callback',
+        '/auth/oauth/callback',
+        '/auth/linuxdo/callback',
+        '/auth/dingtalk/callback',
+        '/auth/dingtalk/email-completion',
+        '/auth/oidc/callback',
+        '/auth/wechat/callback',
+        '/auth/wechat/payment/callback',
+      ]
 
-    it('unauthenticated: WeChat payment callback route is allowed', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: false,
-        isAdmin: false,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: false,
+      for (const path of callbackPaths) {
+        expect(simulateGuard(path, { requiresAuth: false }, authState)).toBeNull()
       }
-      const redirect = simulateGuard('/auth/wechat/payment/callback', { requiresAuth: false }, authState)
-      expect(redirect).toBeNull()
     })
 
     it('unauthenticated: /payment/result is allowed', () => {
@@ -526,6 +526,18 @@ describe('路由守卫逻辑', () => {
       }
       const redirect = simulateGuard('/email-verify', { requiresAuth: false }, authState)
       expect(redirect).toBe('/login')
+    })
+
+    it('unauthenticated: /email-verify is allowed with a pending auth session', () => {
+      const authState: MockAuthState = {
+        isAuthenticated: false,
+        isAdmin: false,
+        isSimpleMode: false,
+        backendModeEnabled: true,
+        hasPendingAuthSession: true,
+      }
+      const redirect = simulateGuard('/email-verify', { requiresAuth: false }, authState)
+      expect(redirect).toBeNull()
     })
   })
 })

@@ -92,7 +92,7 @@ describe('EmailOAuthButtons', () => {
       },
     })
 
-    expect(wrapper.find('.grid').classes()).not.toContain('sm:grid-cols-2')
+    expect(wrapper.find('.auth-oauth-section__grid').classes()).not.toContain('auth-oauth-section__grid--split')
     expect(wrapper.get('button').text()).toContain('使用 GitHub 登录')
   })
 
@@ -110,7 +110,7 @@ describe('EmailOAuthButtons', () => {
       },
     })
 
-    expect(wrapper.find('.grid').classes()).toContain('sm:grid-cols-2')
+    expect(wrapper.find('.auth-oauth-section__grid').classes()).toContain('auth-oauth-section__grid--split')
     const buttons = wrapper.findAll('button')
     expect(buttons).toHaveLength(2)
     expect(buttons[0].text()).toContain('GitHub')

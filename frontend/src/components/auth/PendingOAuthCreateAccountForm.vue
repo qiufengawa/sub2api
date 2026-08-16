@@ -1,22 +1,29 @@
 <template>
-  <form class="space-y-3" @submit.prevent="handleSubmit">
-    <input
+  <form class="pending-oauth-form" @submit.prevent="handleSubmit">
+    <AuthTextField
+      :id="`${testIdPrefix}-create-account-email`"
       v-model="email"
-      :data-testid="`${testIdPrefix}-create-account-email`"
+      :test-id="`${testIdPrefix}-create-account-email`"
+      :label="t('auth.emailLabel')"
+      icon="mail"
       type="email"
-      class="input w-full"
       :placeholder="t('auth.emailPlaceholder')"
       :disabled="isSubmitting || isSendingCode"
     />
-    <input
+    <AuthTextField
+      :id="`${testIdPrefix}-create-account-password`"
       v-model="password"
-      :data-testid="`${testIdPrefix}-create-account-password`"
+      :test-id="`${testIdPrefix}-create-account-password`"
+      :label="t('auth.passwordLabel')"
+      icon="lock"
       type="password"
-      class="input w-full"
+      revealable
+      autocomplete="new-password"
+      :help-text="t('auth.passwordHint')"
       :placeholder="t('auth.passwordPlaceholder')"
       :disabled="isSubmitting"
     />
-    <div v-if="captchaEnabled" class="space-y-2">
+    <div v-if="captchaEnabled" class="pending-oauth-form__captcha">
       <TurnstileWidget
         ref="turnstileRef"
         :site-key="turnstileSiteKey"
@@ -34,22 +41,29 @@
         @error="onTurnstileError"
       />
     </div>
-    <div v-if="emailVerifyEnabled" class="flex gap-3">
-      <input
+    <div v-if="emailVerifyEnabled" class="pending-oauth-form__verification">
+      <AuthTextField
+        :id="`${testIdPrefix}-create-account-verify-code`"
         v-model="verifyCode"
-        :data-testid="`${testIdPrefix}-create-account-verify-code`"
+        :test-id="`${testIdPrefix}-create-account-verify-code`"
+        :label="t('auth.verificationCode')"
+        icon="key"
         type="text"
         inputmode="numeric"
-        maxlength="6"
-        class="input min-w-0 flex-1"
+        :maxlength="6"
+        autocomplete="one-time-code"
+        monospace
+        text-align="center"
         placeholder="123456"
         :disabled="isSubmitting"
       />
-      <button
+      <UiButton
         :data-testid="`${testIdPrefix}-create-account-send-code`"
         type="button"
-        class="btn btn-secondary shrink-0"
+        variant="secondary"
+        density="compact"
         :disabled="isSubmitting || isSendingCode || countdown > 0 || !email.trim() || (turnstileEnabled && !turnstileToken)"
+        :loading="isSendingCode"
         @click="handleSendCode"
       >
         {{
@@ -59,47 +73,56 @@
               ? t('auth.resendCountdown', { countdown })
               : t('auth.sendCode')
         }}
-      </button>
+      </UiButton>
     </div>
-    <p v-if="emailVerifyEnabled && sendCodeSuccess" class="text-sm text-green-600 dark:text-green-400">
+    <p v-if="emailVerifyEnabled && sendCodeSuccess" class="pending-oauth-form__status pending-oauth-form__status--success">
       {{ t('auth.codeSentSuccess') }}
     </p>
-    <p v-else-if="emailVerifyEnabled" class="text-xs text-gray-500 dark:text-dark-400">
+    <p v-else-if="emailVerifyEnabled" class="pending-oauth-form__status">
       {{ t('auth.verificationCodeHint') }}
     </p>
-    <input
+    <AuthTextField
       v-if="invitationCodeEnabled"
+      :id="`${testIdPrefix}-create-account-invitation-code`"
       v-model="invitationCode"
-      :data-testid="`${testIdPrefix}-create-account-invitation-code`"
+      :test-id="`${testIdPrefix}-create-account-invitation-code`"
+      :label="t('auth.invitationCodeLabel')"
+      icon="gift"
       type="text"
-      class="input w-full"
       :placeholder="t('auth.invitationCodePlaceholder')"
       :disabled="isSubmitting"
     />
-    <button
+    <UiButton
       :data-testid="`${testIdPrefix}-create-account-submit`"
       type="button"
-      class="btn btn-primary w-full"
+      variant="primary"
+      density="compact"
+      block
       :disabled="isSubmitting || !email.trim() || password.length < 6 || (invitationCodeEnabled && !invitationCode.trim()) || (turnstileEnabled && !turnstileToken)"
+      :loading="isSubmitting"
       @click="handleSubmit"
     >
       {{ isSubmitting ? t('common.processing') : t('auth.createAccount') }}
-    </button>
-    <button
+    </UiButton>
+    <UiButton
       type="button"
-      class="btn btn-secondary w-full"
+      variant="secondary"
+      density="compact"
+      block
       :disabled="isSubmitting"
       @click="emitSwitchToBind"
     >
       {{ t('auth.alreadyHaveAccount') }}
-    </button>
+    </UiButton>
   </form>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AuthTextField from '@/components/auth/AuthTextField.vue'
 import TurnstileWidget from '@/components/CaptchaChallenge.vue'
+import { UiButton } from '@/components/ui'
 import { getPublicSettings, sendPendingOAuthVerifyCode } from '@/api/auth'
 import { useAppStore } from '@/stores'
 
@@ -378,14 +401,12 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: all 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
+.pending-oauth-form { display: grid; gap: 12px; }
+.pending-oauth-form__captcha { display: grid; gap: 8px; }
+.pending-oauth-form__verification { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.pending-oauth-form__status { margin: -4px 0 0; color: var(--ui-text-soft); font-size: 11px; line-height: 18px; }
+.pending-oauth-form__status--success { color: var(--ui-success); }
+@media (max-width: 420px) {
+  .pending-oauth-form__verification { grid-template-columns: 1fr; }
 }
 </style>

@@ -1,51 +1,23 @@
 <template>
-  <div class="min-h-screen bg-gray-50 px-4 py-10 dark:bg-dark-900">
-    <div class="mx-auto max-w-2xl">
-      <div class="card p-6">
-        <h1 class="text-lg font-semibold text-gray-900 dark:text-white">
-          {{ callbackTitleText }}
-        </h1>
-        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400" aria-live="polite">
-          {{ errorMessage || callbackProcessingText }}
-        </p>
-
-        <div
-          v-if="!errorMessage"
-          class="mt-6 flex items-center justify-center py-10"
-          role="status"
-          :aria-label="callbackProcessingText"
-        >
-          <div
-            class="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"
-            aria-hidden="true"
-          ></div>
-        </div>
-
-        <div
-          v-else
-          class="mt-6 border-t border-gray-200 pt-4 dark:border-dark-700"
-          role="alert"
-        >
-          <p class="text-sm text-gray-700 dark:text-gray-300">
-            {{ errorMessage }}
-          </p>
-          <button
-            class="btn btn-primary mt-4"
-            type="button"
-            @click="goBackToPayment"
-          >
-            {{ backToPaymentText }}
-          </button>
-        </div>
+  <AuthFormPanel :title="callbackTitleText" :subtitle="errorMessage || callbackProcessingText">
+      <div v-if="!errorMessage" class="wechat-payment-callback__processing" role="status" :aria-label="callbackProcessingText">
+        <UiSpinner size="lg" />
       </div>
-    </div>
-  </div>
+      <div v-else class="wechat-payment-callback__error" role="alert">
+        <UiAlert tone="danger" :message="errorMessage" />
+        <UiButton variant="primary" density="compact" block @click="goBackToPayment">
+          {{ backToPaymentText }}
+        </UiButton>
+      </div>
+  </AuthFormPanel>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import AuthFormPanel from '@/components/auth/AuthFormPanel.vue'
+import { UiAlert, UiButton, UiSpinner } from '@/components/ui'
 import { useAppStore } from '@/stores'
 
 const { t } = useI18n()
@@ -152,3 +124,8 @@ onMounted(async () => {
   })
 })
 </script>
+
+<style scoped>
+.wechat-payment-callback__processing { display: grid; min-height: 140px; place-items: center; }
+.wechat-payment-callback__error { display: grid; gap: 14px; }
+</style>

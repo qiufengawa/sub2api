@@ -4,18 +4,24 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import LoginView from '@/views/auth/LoginView.vue'
 
 const loginMock = vi.fn()
+const login2FAMock = vi.fn()
 const loginWithPasskeyMock = vi.fn()
 const getPublicSettingsMock = vi.fn()
 const startOAuthLoginMock = vi.fn()
 const verifyActionMock = vi.fn()
 const captchaResetMock = vi.fn()
+const isTotp2FARequiredMock = vi.fn()
+const routerPushMock = vi.fn()
+const totpSetErrorMock = vi.fn()
+const totpSetVerifyingMock = vi.fn()
 const locationState = { href: 'http://localhost/login' }
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({
     currentRoute: { value: { query: {} } },
-    push: vi.fn()
-  })
+    push: (...args: unknown[]) => routerPushMock(...args)
+  }),
+  RouterLink: { template: '<a><slot /></a>' }
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -31,6 +37,7 @@ vi.mock('vue-i18n', async () => {
 vi.mock('@/stores', () => ({
   useAuthStore: () => ({
     login: (...args: unknown[]) => loginMock(...args),
+    login2FA: (...args: unknown[]) => login2FAMock(...args),
     loginWithPasskey: (...args: unknown[]) => loginWithPasskeyMock(...args)
   }),
   useAppStore: () => ({
@@ -46,7 +53,7 @@ vi.mock('@/api/auth', async () => {
     ...actual,
     getPublicSettings: (...args: unknown[]) => getPublicSettingsMock(...args),
     startOAuthLogin: (...args: unknown[]) => startOAuthLoginMock(...args),
-    isTotp2FARequired: () => false,
+    isTotp2FARequired: (...args: unknown[]) => isTotp2FARequiredMock(...args),
     isWeChatWebOAuthEnabled: () => false
   }
 })
@@ -75,6 +82,32 @@ const OAuthButtonStub = defineComponent({
   }
 })
 
+const TotpLoginModalStub = defineComponent({
+  props: {
+    tempToken: { type: String, required: true },
+    userEmailMasked: { type: String, default: '' }
+  },
+  emits: ['verify', 'cancel'],
+  setup(_, { emit, expose }) {
+    expose({
+      setError: totpSetErrorMock,
+      setVerifying: totpSetVerifyingMock
+    })
+    return () => h('div', { 'data-testid': 'totp-modal' }, [
+      h('button', {
+        type: 'button',
+        'data-testid': 'totp-verify',
+        onClick: () => emit('verify', '123456')
+      }),
+      h('button', {
+        type: 'button',
+        'data-testid': 'totp-cancel',
+        onClick: () => emit('cancel')
+      })
+    ])
+  }
+})
+
 function mountLogin() {
   return mount(LoginView, {
     global: {
@@ -84,7 +117,7 @@ function mountLogin() {
         TurnstileWidget: CaptchaChallengeStub,
         Icon: true,
         LoginAgreementPrompt: true,
-        TotpLoginModal: true,
+        TotpLoginModal: TotpLoginModalStub,
         EmailOAuthButtons: OAuthButtonStub,
         LinuxDoOAuthSection: true,
         DingTalkOAuthSection: true,
@@ -98,11 +131,16 @@ function mountLogin() {
 describe('Tencent captcha action gate', () => {
   beforeEach(() => {
     loginMock.mockReset()
+    login2FAMock.mockReset()
     loginWithPasskeyMock.mockReset()
     getPublicSettingsMock.mockReset()
     startOAuthLoginMock.mockReset()
     verifyActionMock.mockReset()
     captchaResetMock.mockReset()
+    isTotp2FARequiredMock.mockReset()
+    routerPushMock.mockReset()
+    totpSetErrorMock.mockReset()
+    totpSetVerifyingMock.mockReset()
     getPublicSettingsMock.mockResolvedValue({
       turnstile_enabled: false,
       turnstile_site_key: '',
@@ -115,6 +153,8 @@ describe('Tencent captcha action gate', () => {
       google_oauth_enabled: false
     })
     loginMock.mockResolvedValue({})
+    login2FAMock.mockResolvedValue({})
+    isTotp2FARequiredMock.mockReturnValue(false)
     loginWithPasskeyMock.mockResolvedValue({})
     startOAuthLoginMock.mockResolvedValue({ authorize_url: 'https://github.example/authorize' })
     verifyActionMock.mockResolvedValue({ token: 'ticket-1', randstr: '@rand-1' })
@@ -205,7 +245,7 @@ describe('Tencent captcha action gate', () => {
     const wrapper = mountLogin()
     await flushPromises()
 
-    await wrapper.get('button.btn-secondary.w-full').trigger('click')
+    await wrapper.get('.auth-alternatives .ui-button--secondary').trigger('click')
     await flushPromises()
 
     expect(verifyActionMock).toHaveBeenCalledOnce()
@@ -221,9 +261,58 @@ describe('Tencent captcha action gate', () => {
     const wrapper = mountLogin()
     await flushPromises()
 
-    await wrapper.get('button.btn-secondary.w-full').trigger('click')
+    await wrapper.get('.auth-alternatives .ui-button--secondary').trigger('click')
     await flushPromises()
 
     expect(loginWithPasskeyMock).not.toHaveBeenCalled()
+  })
+
+  it('completes the TOTP login challenge with the temporary token', async () => {
+    loginMock.mockResolvedValue({
+      temp_token: 'temp-token-1',
+      user_email_masked: 'u***@example.com'
+    })
+    isTotp2FARequiredMock.mockReturnValue(true)
+
+    const wrapper = mountLogin()
+    await flushPromises()
+    await wrapper.get('#email').setValue('user@example.com')
+    await wrapper.get('#password').setValue('secret-123')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="totp-modal"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="totp-verify"]').trigger('click')
+    await flushPromises()
+
+    expect(totpSetVerifyingMock).toHaveBeenCalledWith(true)
+    expect(login2FAMock).toHaveBeenCalledWith('temp-token-1', '123456')
+    expect(routerPushMock).toHaveBeenCalledWith('/dashboard')
+    expect(wrapper.find('[data-testid="totp-modal"]').exists()).toBe(false)
+  })
+
+  it('keeps the TOTP challenge open on verification failure and clears it on cancel', async () => {
+    loginMock.mockResolvedValue({
+      temp_token: 'temp-token-2',
+      user_email_masked: 'u***@example.com'
+    })
+    login2FAMock.mockRejectedValue(new Error('Invalid code'))
+    isTotp2FARequiredMock.mockReturnValue(true)
+
+    const wrapper = mountLogin()
+    await flushPromises()
+    await wrapper.get('#email').setValue('user@example.com')
+    await wrapper.get('#password').setValue('secret-123')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    await wrapper.get('[data-testid="totp-verify"]').trigger('click')
+    await flushPromises()
+
+    expect(totpSetErrorMock).toHaveBeenCalledWith('Invalid code')
+    expect(totpSetVerifyingMock).toHaveBeenLastCalledWith(false)
+    expect(wrapper.get('[data-testid="totp-modal"]').exists()).toBe(true)
+
+    await wrapper.get('[data-testid="totp-cancel"]').trigger('click')
+    expect(wrapper.find('[data-testid="totp-modal"]').exists()).toBe(false)
   })
 })

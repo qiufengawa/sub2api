@@ -27,7 +27,8 @@ const publicSettings = {
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn() }),
-  useRoute: () => ({ query: {} })
+  useRoute: () => ({ query: {} }),
+  RouterLink: { template: '<a><slot /></a>' }
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -181,7 +182,7 @@ describe('RegisterView invitation layout', () => {
     expect(registerMock).not.toHaveBeenCalled()
     // 校验失败通过 validationToastMessage watcher 弹 toast
     expect(showErrorMock).toHaveBeenCalledWith('auth.emailSuffixNotAllowedWithAllowed')
-    expect(wrapper.get('#email').classes()).toContain('input-error')
+    expect(wrapper.get('#email').classes()).toContain('ui-text-input--invalid')
   })
 
   it('still submits whitelisted email domains when the domain quota switch is disabled', async () => {

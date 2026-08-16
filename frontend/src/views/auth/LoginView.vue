@@ -1,85 +1,43 @@
 <template>
-  <AuthLayout>
-    <div>
-      <!-- Title -->
-      <div>
-        <h2 class="text-[28px] font-semibold leading-9 tracking-tight text-[#181818] dark:text-white">
-          {{ t('auth.welcomeBack') }}
-        </h2>
-        <p class="mt-2 text-sm leading-6 text-[#777777] dark:text-dark-400">
-          {{ t('auth.signInToAccount') }}
-        </p>
-      </div>
+  <AuthFormPanel :title="t('auth.welcomeBack')" :subtitle="t('auth.signInToAccount')">
       <!-- Login Form -->
-      <form @submit.prevent="handleLogin" class="mt-8 space-y-5">
+      <form @submit.prevent="handleLogin" class="auth-form">
         <!-- Email Input -->
-        <div>
-          <label for="email" class="input-label">
-            {{ t('auth.emailLabel') }}
-          </label>
-          <div class="relative">
-            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="mail" size="md" class="text-[#a6a6a6] dark:text-dark-500" />
-            </div>
-            <input
-              id="email"
-              v-model="formData.email"
-              type="email"
-              required
-              autofocus
-              autocomplete="email"
-              :disabled="authActionDisabled"
-              class="input h-10 pl-11"
-              :class="{ 'input-error': errors.email }"
-              :placeholder="t('auth.emailPlaceholder')"
-            />
-          </div>
-        </div>
+        <AuthTextField
+          id="email"
+          v-model="formData.email"
+          :label="t('auth.emailLabel')"
+          icon="mail"
+          type="email"
+          required
+          autofocus
+          autocomplete="email"
+          :disabled="authActionDisabled"
+          :error="Boolean(errors.email)"
+          :placeholder="t('auth.emailPlaceholder')"
+        />
 
         <!-- Password Input -->
-        <div>
-          <label for="password" class="input-label">
-            {{ t('auth.passwordLabel') }}
-          </label>
-          <div class="relative">
-            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="lock" size="md" class="text-[#a6a6a6] dark:text-dark-500" />
-            </div>
-            <input
-              id="password"
-              v-model="formData.password"
-              :type="showPassword ? 'text' : 'password'"
-              required
-              autocomplete="current-password"
-              :disabled="authActionDisabled"
-              class="input h-10 pl-11 pr-11"
-              :class="{ 'input-error': errors.password }"
-              :placeholder="t('auth.passwordPlaceholder')"
-            />
-            <button
-              type="button"
-              @click="showPassword = !showPassword"
-              :disabled="authActionDisabled"
-              :aria-label="t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')"
-              :title="t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')"
-              :aria-pressed="showPassword"
-              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-[#a6a6a6] transition-colors hover:text-primary-600 dark:hover:text-primary-400"
-            >
-              <Icon v-if="showPassword" name="eyeOff" size="md" />
-              <Icon v-else name="eye" size="md" />
-            </button>
-          </div>
-          <div class="mt-1 flex items-center justify-between">
-            <span></span>
-            <router-link
-              v-if="passwordResetEnabled && !backendModeEnabled"
-              to="/forgot-password"
-              class="text-sm font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
-            >
+        <AuthTextField
+          id="password"
+          v-model="formData.password"
+          :label="t('auth.passwordLabel')"
+          icon="lock"
+          type="password"
+          required
+          autocomplete="current-password"
+          revealable
+          :disabled="authActionDisabled"
+          :error="Boolean(errors.password)"
+          :placeholder="t('auth.passwordPlaceholder')"
+          :show-meta="passwordResetEnabled && !backendModeEnabled"
+        >
+          <template #meta>
+            <UiLink v-if="passwordResetEnabled && !backendModeEnabled" to="/forgot-password">
               {{ t('auth.forgotPassword') }}
-            </router-link>
-          </div>
-        </div>
+            </UiLink>
+          </template>
+        </AuthTextField>
 
         <!-- Turnstile Widget -->
         <div v-if="captchaEnabled">
@@ -101,34 +59,18 @@
         </div>
 
         <!-- Submit Button -->
-        <button
+        <UiButton
           type="submit"
           :disabled="authActionDisabled || (turnstileEnabled && !turnstileToken)"
-          class="btn btn-primary mt-3 h-10 w-full"
+          :loading="isLoading"
+          variant="primary"
+          density="compact"
+          block
+          class="auth-submit"
         >
-          <svg
-            v-if="isLoading"
-            class="-ml-1 mr-2 h-4 w-4 animate-spin text-white"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            ></circle>
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
-          <Icon v-else name="login" size="md" class="mr-2" />
+          <template v-if="!isLoading" #icon><Icon name="arrowRight" size="sm" /></template>
           {{ isLoading ? t('auth.signingIn') : t('auth.signIn') }}
-        </button>
+        </UiButton>
 
         <LoginAgreementPrompt
           v-if="loginAgreementEnabled"
@@ -142,25 +84,21 @@
           @open="showAgreementModal = true"
         />
 
-        <div v-if="showPasskeyLogin || showOAuthLogin" class="space-y-3 pt-1">
-          <div class="flex items-center gap-3">
-            <div class="h-px flex-1 bg-[#eeeeee] dark:bg-dark-700"></div>
-            <span class="text-xs text-[#8b8b8b] dark:text-dark-400">
-              {{ t('auth.oauthOrContinue') }}
-            </span>
-            <div class="h-px flex-1 bg-[#eeeeee] dark:bg-dark-700"></div>
-          </div>
+        <div v-if="showPasskeyLogin || showOAuthLogin" class="auth-alternatives">
+          <div class="auth-divider"><span>{{ t('auth.oauthOrContinue') }}</span></div>
 
-          <button
+          <UiButton
             v-if="showPasskeyLogin"
             type="button"
-            class="btn btn-secondary w-full"
             :disabled="authActionDisabled"
+            :loading="passkeyLoading"
+            density="compact"
+            block
             @click="handlePasskeyLogin"
           >
-            <Icon name="key" size="md" class="mr-2" />
+            <template v-if="!passkeyLoading" #icon><Icon name="key" size="sm" /></template>
             {{ passkeyLoading ? t('auth.passkeySigningIn') : t('auth.passkeySignIn') }}
-          </button>
+          </UiButton>
 
           <EmailOAuthButtons
             :disabled="authActionDisabled"
@@ -197,21 +135,10 @@
           />
         </div>
       </form>
-    </div>
-
-    <!-- Footer -->
     <template v-if="!backendModeEnabled" #footer>
-      <p class="text-[#777777] dark:text-dark-400">
-        {{ t('auth.dontHaveAccount') }}
-        <router-link
-          to="/register"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
-        >
-          {{ t('auth.signUp') }}
-        </router-link>
-      </p>
+      <AuthFooterPrompt :text="t('auth.dontHaveAccount')" :link-text="t('auth.signUp')" to="/register" />
     </template>
-  </AuthLayout>
+  </AuthFormPanel>
 
   <!-- 2FA Modal -->
   <TotpLoginModal
@@ -228,7 +155,9 @@
 import { computed, ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { AuthLayout } from '@/components/layout'
+import AuthFormPanel from '@/components/auth/AuthFormPanel.vue'
+import AuthFooterPrompt from '@/components/auth/AuthFooterPrompt.vue'
+import AuthTextField from '@/components/auth/AuthTextField.vue'
 import LinuxDoOAuthSection from '@/components/auth/LinuxDoOAuthSection.vue'
 import DingTalkOAuthSection from '@/components/auth/DingTalkOAuthSection.vue'
 import OidcOAuthSection from '@/components/auth/OidcOAuthSection.vue'
@@ -237,6 +166,7 @@ import EmailOAuthButtons from '@/components/auth/EmailOAuthButtons.vue'
 import LoginAgreementPrompt from '@/components/auth/LoginAgreementPrompt.vue'
 import TotpLoginModal from '@/components/auth/TotpLoginModal.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { UiButton, UiLink } from '@/components/ui'
 import TurnstileWidget from '@/components/CaptchaChallenge.vue'
 import { useAuthStore, useAppStore } from '@/stores'
 import {
@@ -269,7 +199,6 @@ const appStore = useAppStore()
 const isLoading = ref<boolean>(false)
 const passkeyLoading = ref<boolean>(false)
 const errorMessage = ref<string>('')
-const showPassword = ref<boolean>(false)
 const publicSettingsLoaded = ref<boolean>(false)
 
 // Public settings
@@ -733,16 +662,3 @@ function handle2FACancel(): void {
   totpUserEmailMasked.value = ''
 }
 </script>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: all 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
-</style>

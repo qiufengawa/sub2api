@@ -1,18 +1,8 @@
 <template>
-  <AuthLayout>
-    <div class="space-y-6">
-      <div class="text-center" role="status" aria-live="polite" :aria-busy="isProcessing">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-          {{ t('auth.oidc.callbackTitle', { providerName }) }}
-        </h2>
-        <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
-          {{
-            isProcessing
-              ? t('auth.oidc.callbackProcessing', { providerName })
-              : t('auth.oidc.callbackHint')
-          }}
-        </p>
-      </div>
+  <AuthFormPanel
+      :title="t('auth.oidc.callbackTitle', { providerName })"
+      :subtitle="isProcessing ? t('auth.oidc.callbackProcessing', { providerName }) : t('auth.oidc.callbackHint')"
+    >
 
       <transition name="fade">
         <div
@@ -24,76 +14,37 @@
             needsBindLogin ||
             needsTotpChallenge
           "
-          class="space-y-4"
+          class="oauth-callback-flow"
         >
-          <div
+          <OAuthProfileAdoptionPanel
             v-if="adoptionRequired && (suggestedDisplayName || suggestedAvatarUrl)"
-            class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-dark-600 dark:bg-dark-800/60"
-          >
-            <div class="space-y-3">
-              <div class="space-y-1">
-                <p class="text-sm font-medium text-gray-900 dark:text-white">
-                  {{ t('auth.oauthFlow.profileDetailsTitle', { providerName }) }}
-                </p>
-                <p class="text-xs text-gray-500 dark:text-dark-400">
-                  {{ t('auth.oauthFlow.profileDetailsDescription', { providerName }) }}
-                </p>
-              </div>
-
-              <label
-                v-if="suggestedDisplayName"
-                class="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 text-sm dark:border-dark-600 dark:bg-dark-900/50"
-              >
-                <input v-model="adoptDisplayName" type="checkbox" class="mt-1 h-4 w-4" />
-                <span class="space-y-1">
-                  <span class="block font-medium text-gray-900 dark:text-white">
-                    {{ t('auth.oauthFlow.useDisplayName') }}
-                  </span>
-                  <span class="block text-gray-500 dark:text-dark-400">
-                    {{ suggestedDisplayName }}
-                  </span>
-                </span>
-              </label>
-
-              <label
-                v-if="suggestedAvatarUrl"
-                class="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 text-sm dark:border-dark-600 dark:bg-dark-900/50"
-              >
-                <input v-model="adoptAvatar" type="checkbox" class="mt-1 h-4 w-4" />
-                <img
-                  :src="suggestedAvatarUrl"
-                  :alt="t('auth.oauthFlow.avatarAlt', { providerName })"
-                  class="h-10 w-10 rounded-full border border-gray-200 object-cover dark:border-dark-600"
-                />
-                <span class="space-y-1">
-                  <span class="block font-medium text-gray-900 dark:text-white">
-                    {{ t('auth.oauthFlow.useAvatar') }}
-                  </span>
-                  <span class="block break-all text-gray-500 dark:text-dark-400">
-                    {{ suggestedAvatarUrl }}
-                  </span>
-                </span>
-              </label>
-            </div>
-          </div>
+            v-model:adopt-display-name="adoptDisplayName"
+            v-model:adopt-avatar="adoptAvatar"
+            :provider-name="providerName"
+            :display-name="suggestedDisplayName"
+            :avatar-url="suggestedAvatarUrl"
+          />
 
           <template v-if="needsInvitation">
-            <p class="text-sm text-gray-700 dark:text-gray-300">
+            <p class="oauth-callback-copy">
               {{ t('auth.oidc.invitationRequired', { providerName }) }}
             </p>
             <div>
-              <input
+              <AuthTextField
+                id="oidc-invitation-code"
                 v-model="invitationCode"
-                :aria-label="t('auth.invitationCodeLabel')"
+                icon="gift"
                 type="text"
-                class="input w-full"
+                :label="t('auth.invitationCodeLabel')"
                 :placeholder="t('auth.invitationCodePlaceholder')"
                 :disabled="isSubmitting"
-                @keyup.enter="handleSubmitInvitation"
+                @enter="handleSubmitInvitation"
               />
             </div>
-            <button
-              class="btn btn-primary w-full"
+            <UiButton
+              variant="primary"
+              density="compact"
+              block
               :disabled="isSubmitting || !invitationCode.trim()"
               @click="handleSubmitInvitation"
             >
@@ -102,26 +53,26 @@
                   ? t('auth.oidc.completing')
                   : t('auth.oidc.completeRegistration')
               }}
-            </button>
+            </UiButton>
           </template>
 
           <template v-else-if="needsAdoptionConfirmation">
-            <p class="text-sm text-gray-700 dark:text-gray-300">
+            <p class="oauth-callback-copy">
               {{ t('auth.oauthFlow.reviewProfileBeforeContinue', { providerName }) }}
             </p>
-            <button class="btn btn-primary w-full" :disabled="isSubmitting" @click="handleContinueLogin">
+            <UiButton variant="primary" density="compact" block :disabled="isSubmitting" @click="handleContinueLogin">
               {{ isSubmitting ? t('common.processing') : t('auth.continue') }}
-            </button>
+            </UiButton>
           </template>
 
           <template v-else-if="needsChooser">
-            <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-dark-600 dark:bg-dark-800/60">
-              <div class="space-y-4">
-                <div class="space-y-1">
-                  <p class="text-sm font-medium text-gray-900 dark:text-white">
+            <div class="oauth-callback-panel">
+              <div class="oauth-callback-flow">
+                <div class="oauth-callback-heading">
+                  <p class="oauth-callback-title">
                     {{ t('auth.oauthFlow.chooseHowToContinue') }}
                   </p>
-                  <p class="text-xs text-gray-500 dark:text-dark-400">
+                  <p class="oauth-callback-description">
                     {{
                       pendingAccountEmail
                         ? t('auth.oauthFlow.suggestedEmail', { email: pendingAccountEmail })
@@ -130,28 +81,32 @@
                   </p>
                 </div>
 
-                <div class="grid gap-3 sm:grid-cols-2">
-                  <button
-                    class="btn btn-secondary w-full"
+                <div class="oauth-callback-actions">
+                  <UiButton
+                    variant="secondary"
+                    density="compact"
+                    block
                     :disabled="isSubmitting"
                     @click="switchToBindLoginMode()"
                   >
                     {{ t('auth.oauthFlow.bindExistingAccount') }}
-                  </button>
-                  <button
-                    class="btn btn-primary w-full"
+                  </UiButton>
+                  <UiButton
+                    variant="primary"
+                    density="compact"
+                    block
                     :disabled="isSubmitting"
                     @click="switchToCreateAccountMode"
                   >
                     {{ t('auth.oauthFlow.createNewAccount') }}
-                  </button>
+                  </UiButton>
                 </div>
               </div>
             </div>
           </template>
 
           <template v-else-if="needsCreateAccount">
-            <p class="text-sm text-gray-700 dark:text-gray-300">
+            <p class="oauth-callback-copy">
               {{ t('auth.oauthFlow.createAccountHint') }}
             </p>
             <PendingOAuthCreateAccountForm
@@ -165,51 +120,59 @@
           </template>
 
           <template v-else-if="needsBindLogin">
-            <p class="text-sm text-gray-700 dark:text-gray-300">
+            <p class="oauth-callback-copy">
               {{ t('auth.oauthFlow.bindLoginHint', { providerName }) }}
             </p>
-            <div class="space-y-3">
-              <input
+            <div class="oauth-callback-stack">
+              <AuthTextField
+                id="oidc-bind-login-email"
                 v-model="bindLoginEmail"
-                :aria-label="t('auth.emailLabel')"
-                data-testid="oidc-bind-login-email"
+                test-id="oidc-bind-login-email"
+                icon="mail"
                 type="email"
-                class="input w-full"
+                :label="t('auth.emailLabel')"
                 :placeholder="t('auth.emailPlaceholder')"
                 :disabled="isSubmitting"
-                @keyup.enter="handleBindLogin"
+                @enter="handleBindLogin"
               />
-              <input
+              <AuthTextField
+                id="oidc-bind-login-password"
                 v-model="bindLoginPassword"
-                :aria-label="t('auth.passwordLabel')"
-                data-testid="oidc-bind-login-password"
+                test-id="oidc-bind-login-password"
+                icon="lock"
                 type="password"
-                class="input w-full"
+                revealable
+                autocomplete="current-password"
+                :label="t('auth.passwordLabel')"
                 :placeholder="t('auth.passwordPlaceholder')"
                 :disabled="isSubmitting"
-                @keyup.enter="handleBindLogin"
+                @enter="handleBindLogin"
               />
-              <button
+              <UiButton
                 data-testid="oidc-bind-login-submit"
-                class="btn btn-primary w-full"
+                variant="primary"
+                density="compact"
+                block
                 :disabled="isSubmitting || !bindLoginEmail.trim() || !bindLoginPassword"
                 @click="handleBindLogin"
               >
                 {{ isSubmitting ? t('common.processing') : t('auth.oauthFlow.logInAndBind') }}
-              </button>
-              <button
+              </UiButton>
+              <UiButton
                 v-if="canReturnToCreateAccount"
-                class="btn btn-secondary w-full"
+                variant="secondary"
+                density="compact"
+                block
                 :disabled="isSubmitting"
                 @click="switchToCreateAccountMode"
               >
                 {{ t('auth.oauthFlow.useDifferentEmail') }}
-              </button>
+              </UiButton>
             </div>
           </template>
 
           <template v-else-if="needsTotpChallenge">
-            <p class="text-sm text-gray-700 dark:text-gray-300">
+            <p class="oauth-callback-copy">
               {{
                 t('auth.oauthFlow.totpHint', {
                   providerName,
@@ -217,43 +180,51 @@
                 })
               }}
             </p>
-            <div class="space-y-3">
-              <input
+            <div class="oauth-callback-stack">
+              <AuthTextField
+                id="oidc-bind-login-totp"
                 v-model="totpCode"
-                :aria-label="t('auth.verificationCode')"
-                data-testid="oidc-bind-login-totp"
+                test-id="oidc-bind-login-totp"
+                icon="key"
                 type="text"
                 inputmode="numeric"
-                maxlength="6"
-                class="input w-full"
+                :maxlength="6"
+                :label="t('auth.verificationCode')"
+                monospace
+                text-align="center"
                 placeholder="123456"
                 :disabled="isSubmitting"
-                @keyup.enter="handleSubmitTotpChallenge"
+                @enter="handleSubmitTotpChallenge"
               />
-              <button
+              <UiButton
                 data-testid="oidc-bind-login-totp-submit"
-                class="btn btn-primary w-full"
+                variant="primary"
+                density="compact"
+                block
                 :disabled="isSubmitting || totpCode.trim().length !== 6"
                 @click="handleSubmitTotpChallenge"
               >
                 {{ isSubmitting ? t('common.processing') : t('auth.oauthFlow.verifyAndContinue') }}
-              </button>
+              </UiButton>
             </div>
           </template>
         </div>
       </transition>
-    </div>
-  </AuthLayout>
+  </AuthFormPanel>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { AuthLayout } from '@/components/layout'
+import AuthFormPanel from '@/components/auth/AuthFormPanel.vue'
+import AuthTextField from '@/components/auth/AuthTextField.vue'
+import '@/components/auth/oauth-callback.css'
+import OAuthProfileAdoptionPanel from '@/components/auth/OAuthProfileAdoptionPanel.vue'
 import PendingOAuthCreateAccountForm, {
   type PendingOAuthCreateAccountPayload
 } from '@/components/auth/PendingOAuthCreateAccountForm.vue'
+import { UiButton } from '@/components/ui'
 import { apiClient } from '@/api/client'
 import { useAuthStore, useAppStore } from '@/stores'
 import {
@@ -852,16 +823,3 @@ onMounted(async () => {
   }
 })
 </script>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: all 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
-</style>

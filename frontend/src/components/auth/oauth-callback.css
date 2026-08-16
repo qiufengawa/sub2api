@@ -1,0 +1,9 @@
+.oauth-callback-flow { display: grid; gap: 16px; }
+.oauth-callback-stack { display: grid; gap: 12px; }
+.oauth-callback-heading { display: grid; gap: 2px; }
+.oauth-callback-copy { margin: 0; color: var(--ui-text-muted); font-size: 13px; line-height: 22px; }
+.oauth-callback-title { margin: 0; color: var(--ui-text); font-size: 13px; font-weight: 600; line-height: 20px; }
+.oauth-callback-description { margin: 0; color: var(--ui-text-muted); font-size: 12px; line-height: 18px; }
+.oauth-callback-panel { display: grid; gap: 14px; padding: 14px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: var(--ui-surface-muted); }
+.oauth-callback-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 640px) { .oauth-callback-actions { grid-template-columns: 1fr; } }

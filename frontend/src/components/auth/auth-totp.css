@@ -1,0 +1,88 @@
+.auth-totp {
+  display: grid;
+  gap: 20px;
+}
+
+.auth-totp__intro {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 8px;
+  color: var(--ui-text-muted);
+}
+
+.auth-totp__intro p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.auth-totp__intro strong {
+  grid-column: 2;
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auth-totp__code {
+  position: relative;
+  display: grid;
+  gap: 12px;
+}
+
+.auth-totp__autofill {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.auth-totp__cells {
+  display: grid;
+  grid-template-columns: repeat(6, 34px);
+  justify-content: center;
+  gap: 8px;
+}
+
+.auth-totp__cell {
+  width: 34px;
+  height: var(--ui-control-default);
+  padding: 0;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  font: 600 15px/1 var(--ui-font-mono);
+  text-align: center;
+}
+
+.auth-totp__cell:focus {
+  border-color: var(--ui-focus);
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-focus) 16%, transparent);
+}
+
+.auth-totp__cell:disabled {
+  background: var(--ui-surface-muted);
+  opacity: .7;
+}
+
+.auth-totp__progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 360px) {
+  .auth-totp__cells {
+    grid-template-columns: repeat(6, 30px);
+    gap: 6px;
+  }
+
+  .auth-totp__cell {
+    width: 30px;
+  }
+}

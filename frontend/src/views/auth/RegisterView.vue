@@ -1,208 +1,119 @@
 <template>
-  <AuthLayout>
-    <div class="space-y-6">
-      <!-- Title -->
-      <div class="text-center">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-          {{ t('auth.createAccount') }}
-        </h2>
-        <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
-          {{ t('auth.signUpToStart', { siteName }) }}
-        </p>
-      </div>
+  <AuthFormPanel
+      :title="t('auth.createAccount')"
+      :subtitle="t('auth.signUpToStart', { siteName })"
+    >
 
       <!-- Registration Disabled Message -->
-      <div
+      <UiAlert
         v-if="!registrationEnabled && settingsLoaded"
-        class="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/50 dark:bg-amber-900/20"
-      >
-        <div class="flex items-start gap-3">
-          <div class="flex-shrink-0">
-            <Icon name="exclamationCircle" size="md" class="text-amber-500" />
-          </div>
-          <p class="text-sm text-amber-700 dark:text-amber-400">
-            {{ t('auth.registrationDisabled') }}
-          </p>
-        </div>
-      </div>
+        tone="warning"
+        :message="t('auth.registrationDisabled')"
+      />
 
       <!-- Registration Form -->
-      <form v-else @submit.prevent="handleRegister" class="space-y-5">
+      <form v-else @submit.prevent="handleRegister" class="auth-form">
         <!-- Email Input -->
-        <div>
-          <label for="email" class="input-label">
-            {{ t('auth.emailLabel') }}
-          </label>
-          <div class="relative">
-            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="mail" size="md" class="text-gray-400 dark:text-dark-500" />
-            </div>
-            <input
-              id="email"
-              v-model="formData.email"
-              type="email"
-              required
-              autofocus
-              autocomplete="email"
-              :disabled="registrationActionDisabled"
-              class="input pl-11"
-              :class="{ 'input-error': errors.email }"
-              :placeholder="t('auth.emailPlaceholder')"
-            />
-          </div>
-        </div>
+        <AuthTextField
+          id="email"
+          v-model="formData.email"
+          :label="t('auth.emailLabel')"
+          icon="mail"
+          type="email"
+          required
+          autofocus
+          autocomplete="email"
+          :disabled="registrationActionDisabled"
+          :error="Boolean(errors.email)"
+          :placeholder="t('auth.emailPlaceholder')"
+        />
 
         <!-- Password Input -->
-        <div>
-          <label for="password" class="input-label">
-            {{ t('auth.passwordLabel') }}
-          </label>
-          <div class="relative">
-            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="lock" size="md" class="text-gray-400 dark:text-dark-500" />
-            </div>
-            <input
-              id="password"
-              v-model="formData.password"
-              :type="showPassword ? 'text' : 'password'"
-              required
-              autocomplete="new-password"
-              :disabled="registrationActionDisabled"
-              class="input pl-11 pr-11"
-              :class="{ 'input-error': errors.password }"
-              :placeholder="t('auth.createPasswordPlaceholder')"
-            />
-            <button
-              type="button"
-              :disabled="registrationActionDisabled"
-              @click="showPassword = !showPassword"
-              :aria-label="t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')"
-              :title="t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')"
-              :aria-pressed="showPassword"
-              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-dark-300"
-            >
-              <Icon v-if="showPassword" name="eyeOff" size="md" />
-              <Icon v-else name="eye" size="md" />
-            </button>
-          </div>
-          <p class="input-hint">
-            {{ t('auth.passwordHint') }}
-          </p>
-        </div>
+        <AuthTextField
+          id="password"
+          v-model="formData.password"
+          :label="t('auth.passwordLabel')"
+          icon="lock"
+          type="password"
+          required
+          autocomplete="new-password"
+          revealable
+          :disabled="registrationActionDisabled"
+          :error="Boolean(errors.password)"
+          :placeholder="t('auth.createPasswordPlaceholder')"
+          :help-text="t('auth.passwordHint')"
+        />
 
         <!-- Invitation Code Input (Required when enabled) -->
         <div v-if="invitationCodeEnabled">
-          <label for="invitation_code" class="input-label">
-            {{ t('auth.invitationCodeLabel') }}
-          </label>
-          <div class="relative">
-            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="key" size="md" :class="invitationValidation.valid ? 'text-green-500' : 'text-gray-400 dark:text-dark-500'" />
-            </div>
-            <input
-              id="invitation_code"
-              v-model="formData.invitation_code"
-              type="text"
-              :disabled="registrationActionDisabled"
-              class="input pl-11 pr-10"
-              :class="{
-                'border-green-500 focus:border-green-500 focus:ring-green-500': invitationValidation.valid,
-                'border-red-500 focus:border-red-500 focus:ring-red-500': invitationValidation.invalid || errors.invitation_code
-              }"
-              :placeholder="t('auth.invitationCodePlaceholder')"
-              @input="handleInvitationCodeInput"
-            />
-            <!-- Validation indicator -->
-            <div v-if="invitationValidating" class="absolute inset-y-0 right-0 flex items-center pr-3.5">
-              <svg class="h-4 w-4 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            </div>
-            <div v-else-if="invitationValidation.valid" class="absolute inset-y-0 right-0 flex items-center pr-3.5">
-              <Icon name="checkCircle" size="md" class="text-green-500" />
-            </div>
-            <div v-else-if="invitationValidation.invalid || errors.invitation_code" class="absolute inset-y-0 right-0 flex items-center pr-3.5">
-              <Icon name="exclamationCircle" size="md" class="text-red-500" />
-            </div>
-          </div>
+          <AuthTextField
+            id="invitation_code"
+            v-model="formData.invitation_code"
+            :label="t('auth.invitationCodeLabel')"
+            icon="key"
+            :disabled="registrationActionDisabled"
+            :state="invitationValidation.valid ? 'valid' : invitationValidation.invalid || errors.invitation_code ? 'invalid' : 'neutral'"
+            :placeholder="t('auth.invitationCodePlaceholder')"
+            @input="handleInvitationCodeInput"
+          >
+            <template #suffix>
+              <UiSpinner v-if="invitationValidating" size="sm" :label="t('common.loading')" />
+              <Icon v-else-if="invitationValidation.valid" name="checkCircle" size="sm" class="auth-status-icon is-success" />
+              <Icon v-else-if="invitationValidation.invalid || errors.invitation_code" name="exclamationCircle" size="sm" class="auth-status-icon is-danger" />
+            </template>
+          </AuthTextField>
           <!-- Invitation code validation result -->
           <transition name="fade">
-            <div v-if="invitationValidation.valid" class="mt-2 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 dark:bg-green-900/20">
-              <Icon name="checkCircle" size="sm" class="text-green-600 dark:text-green-400" />
-              <span class="text-sm text-green-700 dark:text-green-400">
-                {{ t('auth.invitationCodeValid') }}
-              </span>
-            </div>
+            <UiAlert v-if="invitationValidation.valid" tone="success" :message="t('auth.invitationCodeValid')" />
           </transition>
         </div>
 
         <!-- Affiliate Invitation Code Input (Optional) -->
-        <div v-else-if="affiliateEnabled" data-testid="affiliate-invitation-field">
-          <label for="affiliate_code" class="input-label">
+        <AuthTextField
+          v-else-if="affiliateEnabled"
+          id="affiliate_code"
+          v-model="formData.aff_code"
+          :label="t('auth.invitationCodeLabel')"
+          icon="key"
+          :disabled="registrationActionDisabled"
+          :placeholder="t('auth.invitationCodePlaceholder')"
+          data-testid="affiliate-invitation-field"
+        >
+          <template #label>
             {{ t('auth.invitationCodeLabel') }}
-            <span class="ml-1 text-xs font-normal text-gray-400 dark:text-dark-500">({{ t('common.optional') }})</span>
-          </label>
-          <div class="relative">
-            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="key" size="md" class="text-gray-400 dark:text-dark-500" />
-            </div>
-            <input
-              id="affiliate_code"
-              v-model="formData.aff_code"
-              type="text"
-              :disabled="registrationActionDisabled"
-              class="input pl-11"
-              :placeholder="t('auth.invitationCodePlaceholder')"
-            />
-          </div>
-        </div>
+            <span class="auth-optional">({{ t('common.optional') }})</span>
+          </template>
+        </AuthTextField>
 
         <!-- Promo Code Input (Optional) -->
         <div v-if="promoCodeEnabled">
-          <label for="promo_code" class="input-label">
-            {{ t('auth.promoCodeLabel') }}
-            <span class="ml-1 text-xs font-normal text-gray-400 dark:text-dark-500">({{ t('common.optional') }})</span>
-          </label>
-          <div class="relative">
-            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="gift" size="md" :class="promoValidation.valid ? 'text-green-500' : 'text-gray-400 dark:text-dark-500'" />
-            </div>
-            <input
-              id="promo_code"
-              v-model="formData.promo_code"
-              type="text"
-              :disabled="registrationActionDisabled"
-              class="input pl-11 pr-10"
-              :class="{
-                'border-green-500 focus:border-green-500 focus:ring-green-500': promoValidation.valid,
-                'border-red-500 focus:border-red-500 focus:ring-red-500': promoValidation.invalid
-              }"
-              :placeholder="t('auth.promoCodePlaceholder')"
-              @input="handlePromoCodeInput"
-            />
-            <!-- Validation indicator -->
-            <div v-if="promoValidating" class="absolute inset-y-0 right-0 flex items-center pr-3.5">
-              <svg class="h-4 w-4 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            </div>
-            <div v-else-if="promoValidation.valid" class="absolute inset-y-0 right-0 flex items-center pr-3.5">
-              <Icon name="checkCircle" size="md" class="text-green-500" />
-            </div>
-            <div v-else-if="promoValidation.invalid" class="absolute inset-y-0 right-0 flex items-center pr-3.5">
-              <Icon name="exclamationCircle" size="md" class="text-red-500" />
-            </div>
-          </div>
+          <AuthTextField
+            id="promo_code"
+            v-model="formData.promo_code"
+            :label="t('auth.promoCodeLabel')"
+            icon="gift"
+            :disabled="registrationActionDisabled"
+            :state="promoValidation.valid ? 'valid' : promoValidation.invalid ? 'invalid' : 'neutral'"
+            :placeholder="t('auth.promoCodePlaceholder')"
+            @input="handlePromoCodeInput"
+          >
+            <template #label>
+              {{ t('auth.promoCodeLabel') }}
+              <span class="auth-optional">({{ t('common.optional') }})</span>
+            </template>
+            <template #suffix>
+              <UiSpinner v-if="promoValidating" size="sm" :label="t('common.loading')" />
+              <Icon v-else-if="promoValidation.valid" name="checkCircle" size="sm" class="auth-status-icon is-success" />
+              <Icon v-else-if="promoValidation.invalid" name="exclamationCircle" size="sm" class="auth-status-icon is-danger" />
+            </template>
+          </AuthTextField>
           <!-- Promo code validation result -->
           <transition name="fade">
-            <div v-if="promoValidation.valid" class="mt-2 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 dark:bg-green-900/20">
-              <Icon name="gift" size="sm" class="text-green-600 dark:text-green-400" />
-              <span class="text-sm text-green-700 dark:text-green-400">
-                {{ t('auth.promoCodeValid', { amount: promoValidation.bonusAmount?.toFixed(2) }) }}
-              </span>
-            </div>
+            <UiAlert
+              v-if="promoValidation.valid"
+              tone="success"
+              :message="t('auth.promoCodeValid', { amount: promoValidation.bonusAmount?.toFixed(2) })"
+            />
           </transition>
         </div>
 
@@ -238,32 +149,16 @@
         />
 
         <!-- Submit Button -->
-        <button
+        <UiButton
           type="submit"
           :disabled="registrationActionDisabled || (turnstileEnabled && !turnstileToken)"
-          class="btn btn-primary w-full"
+          :loading="isLoading"
+          variant="primary"
+          density="compact"
+          block
+          class="auth-submit"
         >
-          <svg
-            v-if="isLoading"
-            class="-ml-1 mr-2 h-4 w-4 animate-spin text-white"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            ></circle>
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
-          <Icon v-else name="userPlus" size="md" class="mr-2" />
+          <template v-if="!isLoading" #icon><Icon name="arrowRight" size="sm" /></template>
           {{
             isLoading
               ? t('auth.processing')
@@ -271,18 +166,12 @@
                 ? t('auth.continue')
                 : t('auth.createAccount')
           }}
-        </button>
+        </UiButton>
 
       </form>
 
-      <div v-if="showOAuthLogin" class="space-y-3 pt-1">
-        <div class="flex items-center gap-3">
-          <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
-          <span class="text-xs text-gray-500 dark:text-dark-400">
-            {{ t('auth.oauthOrContinue') }}
-          </span>
-          <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
-        </div>
+      <div v-if="showOAuthLogin" class="auth-alternatives">
+        <div class="auth-divider"><span>{{ t('auth.oauthOrContinue') }}</span></div>
 
         <EmailOAuthButtons
           :disabled="registrationActionDisabled"
@@ -316,34 +205,26 @@
           @start="handleOAuthStart"
         />
       </div>
-    </div>
-
-    <!-- Footer -->
     <template #footer>
-      <p class="text-gray-500 dark:text-dark-400">
-        {{ t('auth.alreadyHaveAccount') }}
-        <router-link
-          to="/login"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
-        >
-          {{ t('auth.signIn') }}
-        </router-link>
-      </p>
+      <AuthFooterPrompt :text="t('auth.alreadyHaveAccount')" :link-text="t('auth.signIn')" to="/login" />
     </template>
-  </AuthLayout>
+  </AuthFormPanel>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { AuthLayout } from '@/components/layout'
+import AuthFormPanel from '@/components/auth/AuthFormPanel.vue'
+import AuthFooterPrompt from '@/components/auth/AuthFooterPrompt.vue'
+import AuthTextField from '@/components/auth/AuthTextField.vue'
 import LinuxDoOAuthSection from '@/components/auth/LinuxDoOAuthSection.vue'
 import OidcOAuthSection from '@/components/auth/OidcOAuthSection.vue'
 import WechatOAuthSection from '@/components/auth/WechatOAuthSection.vue'
 import EmailOAuthButtons from '@/components/auth/EmailOAuthButtons.vue'
 import LoginAgreementPrompt from '@/components/auth/LoginAgreementPrompt.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { UiAlert, UiButton, UiSpinner } from '@/components/ui'
 import TurnstileWidget from '@/components/CaptchaChallenge.vue'
 import { useAuthStore, useAppStore } from '@/stores'
 import {
@@ -384,7 +265,6 @@ const appStore = useAppStore()
 const isLoading = ref<boolean>(false)
 const settingsLoaded = ref<boolean>(false)
 const errorMessage = ref<string>('')
-const showPassword = ref<boolean>(false)
 
 // Public settings
 const registrationEnabled = ref<boolean>(true)
@@ -1066,14 +946,13 @@ function buildRegistrationErrorMessage(error: unknown, fallback: string): string
 </script>
 
 <style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: all 0.3s ease;
+.auth-status-icon.is-success{color:var(--ui-success)}.auth-status-icon.is-danger{color:var(--ui-danger)}
+
+.auth-optional {
+  margin-left: 4px;
+  color: var(--ui-text-soft);
+  font-size: 10px;
+  font-weight: 400;
 }
 
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
 </style>

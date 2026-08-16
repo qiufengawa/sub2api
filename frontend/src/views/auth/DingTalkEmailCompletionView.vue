@@ -1,15 +1,8 @@
 <template>
-  <AuthLayout>
-    <div class="space-y-6">
-      <div class="text-center">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-          {{ t('auth.dingtalk.createAccountTitle') }}
-        </h2>
-        <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
-          {{ t('auth.oauthFlow.createAccountHint') }}
-        </p>
-      </div>
-
+  <AuthFormPanel
+      :title="t('auth.dingtalk.createAccountTitle')"
+      :subtitle="t('auth.oauthFlow.createAccountHint')"
+    >
       <PendingOAuthCreateAccountForm
         test-id-prefix="dingtalk"
         :initial-email="initialEmail"
@@ -18,15 +11,14 @@
         @submit="handleCreateAccount"
         @switch-to-bind="handleSwitchToBind"
       />
-    </div>
-  </AuthLayout>
+  </AuthFormPanel>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { AuthLayout } from '@/components/layout'
+import AuthFormPanel from '@/components/auth/AuthFormPanel.vue'
 import PendingOAuthCreateAccountForm, {
   type PendingOAuthCreateAccountPayload
 } from '@/components/auth/PendingOAuthCreateAccountForm.vue'

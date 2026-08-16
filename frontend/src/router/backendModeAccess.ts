@@ -10,6 +10,7 @@ const ALLOWED_PATH_PREFIXES = ['/legal/']
 
 const CALLBACK_PATHS = [
   '/auth/callback',
+  '/auth/oauth/callback',
   '/auth/linuxdo/callback',
   '/auth/dingtalk/callback',
   '/auth/dingtalk/email-completion',

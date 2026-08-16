@@ -1,159 +1,67 @@
 <template>
-  <div class="min-h-screen bg-gray-50 px-4 py-10 dark:bg-dark-900">
-    <div class="mx-auto max-w-2xl">
-      <div v-if="isProcessing" class="card p-6 text-center" role="status" aria-live="polite">
-        <div class="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" aria-hidden="true"></div>
-        <h1 class="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
-          {{ t('auth.oauth.callbackTitle') }}
-        </h1>
-        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          {{ t('auth.oauth.callbackHint') }}
-        </p>
+  <AuthFormPanel
+      v-if="isProcessing"
+      :title="t('auth.oauth.callbackTitle')"
+      :subtitle="t('auth.oauth.callbackHint')"
+    >
+      <div class="oauth-callback__processing" role="status" aria-live="polite">
+        <UiSpinner size="lg" />
       </div>
+    </AuthFormPanel>
 
-      <div v-else-if="needsRegistrationCompletion" class="card p-6">
-        <h1 class="text-lg font-semibold text-gray-900 dark:text-white">
-          {{ t('auth.oidc.callbackTitle', { providerName }) }}
-        </h1>
-        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          {{ registrationHint }}
-        </p>
+    <AuthFormPanel
+      v-else-if="needsRegistrationCompletion"
+      :title="t('auth.oidc.callbackTitle', { providerName })"
+      :subtitle="registrationHint"
+    >
+      <form class="oauth-callback__form" @submit.prevent="handleSubmitRegistration">
+        <AuthTextField id="oauth-registration-email" :model-value="registrationEmail" icon="mail" type="email" :label="t('auth.emailLabel')" readonly disabled />
+        <AuthTextField id="oauth-registration-password" v-model="password" icon="lock" type="password" revealable :label="t('auth.passwordLabel')" :help-text="t('auth.passwordHint')" :placeholder="t('auth.createPasswordPlaceholder')" :disabled="isSubmitting" autocomplete="new-password" />
+        <AuthTextField id="oauth-registration-password-confirm" v-model="confirmPassword" icon="lock" type="password" revealable :label="t('auth.confirmPassword')" :placeholder="t('auth.confirmPasswordPlaceholder')" :disabled="isSubmitting" autocomplete="new-password" />
+        <AuthTextField v-if="invitationRequired" id="oauth-registration-invitation" v-model="invitationCode" icon="gift" type="text" :label="t('auth.invitationCodeLabel')" :placeholder="t('auth.invitationCodePlaceholder')" :disabled="isSubmitting" />
+        <UiAlert v-if="registrationError" tone="danger" :message="registrationError" />
+        <UiButton data-testid="oauth-registration-submit" type="button" variant="primary" density="compact" block :loading="isSubmitting" :disabled="isSubmitting || !canSubmitRegistration" @click="handleSubmitRegistration">
+          {{ isSubmitting ? t('common.processing') : t('auth.oidc.completeRegistration') }}
+        </UiButton>
+      </form>
+    </AuthFormPanel>
 
-        <div class="mt-6 space-y-4">
-          <div>
-            <label for="oauth-registration-email" class="input-label">{{ t('auth.emailLabel') }}</label>
-            <input
-              id="oauth-registration-email"
-              class="input w-full"
-              type="email"
-              :value="registrationEmail"
-              readonly
-              disabled
-            />
-          </div>
-          <div>
-            <label for="oauth-registration-password" class="input-label">{{ t('auth.passwordLabel') }}</label>
-            <input
-              id="oauth-registration-password"
-              v-model="password"
-              type="password"
-              class="input w-full"
-              :placeholder="t('auth.createPasswordPlaceholder')"
-              :disabled="isSubmitting"
-              autocomplete="new-password"
-              @keyup.enter="handleSubmitRegistration"
-            />
-          </div>
-          <div>
-            <label for="oauth-registration-password-confirm" class="input-label">{{ t('auth.confirmPassword') }}</label>
-            <input
-              id="oauth-registration-password-confirm"
-              v-model="confirmPassword"
-              type="password"
-              class="input w-full"
-              :placeholder="t('auth.confirmPasswordPlaceholder')"
-              :disabled="isSubmitting"
-              autocomplete="new-password"
-              @keyup.enter="handleSubmitRegistration"
-            />
-          </div>
-          <div v-if="invitationRequired">
-            <label for="oauth-registration-invitation" class="input-label">{{ t('auth.invitationCodeLabel') }}</label>
-            <input
-              id="oauth-registration-invitation"
-              v-model="invitationCode"
-              type="text"
-              class="input w-full"
-              :placeholder="t('auth.invitationCodePlaceholder')"
-              :disabled="isSubmitting"
-              @keyup.enter="handleSubmitRegistration"
-            />
-          </div>
-          <p v-if="registrationError" class="text-sm text-red-600 dark:text-red-400" role="alert">
-            {{ registrationError }}
-          </p>
-          <button
-            class="btn btn-primary w-full"
-            type="button"
-            :aria-busy="isSubmitting"
-            :disabled="isSubmitting || !canSubmitRegistration"
-            @click="handleSubmitRegistration"
-          >
-            {{ isSubmitting ? t('common.processing') : t('auth.oidc.completeRegistration') }}
-          </button>
+    <AuthFormPanel
+      v-else-if="invalidCallback"
+      :title="t('auth.oauth.invalidCallbackTitle')"
+      :subtitle="t('auth.oauth.invalidCallbackHint')"
+    >
+      <UiAlert tone="warning" :message="t('auth.oauth.invalidCallbackHint')" />
+      <UiButton class="oauth-callback__return" variant="primary" density="compact" block @click="router.replace('/login')">
+        {{ t('auth.backToLogin') }}
+      </UiButton>
+    </AuthFormPanel>
+
+    <AuthFormPanel v-else :title="t('auth.oauth.callbackTitle')" :subtitle="t('auth.oauth.callbackHint')">
+      <div class="oauth-callback__values">
+        <div class="oauth-callback__value">
+          <AuthTextField id="oauth-callback-code" :model-value="code" icon="key" :label="t('auth.oauth.code')" readonly monospace />
+          <UiButton density="compact" :disabled="!code" @click="copy(code)">{{ t('common.copy') }}</UiButton>
+        </div>
+        <div class="oauth-callback__value">
+          <AuthTextField id="oauth-callback-state" :model-value="state" icon="key" :label="t('auth.oauth.state')" readonly monospace />
+          <UiButton density="compact" :disabled="!state" @click="copy(state)">{{ t('common.copy') }}</UiButton>
+        </div>
+        <div class="oauth-callback__value">
+          <AuthTextField id="oauth-callback-url" :model-value="fullUrl" icon="link" :label="t('auth.oauth.fullUrl')" readonly monospace />
+          <UiButton density="compact" :disabled="!fullUrl" @click="copy(fullUrl)">{{ t('common.copy') }}</UiButton>
         </div>
       </div>
-
-      <div v-else-if="invalidCallback" class="card p-6 text-center" role="alert">
-        <h1 class="text-lg font-semibold text-gray-900 dark:text-white">
-          {{ t('auth.oauth.invalidCallbackTitle') }}
-        </h1>
-        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          {{ t('auth.oauth.invalidCallbackHint') }}
-        </p>
-        <button class="btn btn-primary mt-6" type="button" @click="router.replace('/login')">
-          {{ t('auth.backToLogin') }}
-        </button>
-      </div>
-
-      <div v-else class="card p-6">
-        <h1 class="text-lg font-semibold text-gray-900 dark:text-white">
-          {{ t('auth.oauth.callbackTitle') }}
-        </h1>
-        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          {{ t('auth.oauth.callbackHint') }}
-        </p>
-
-        <div class="mt-6 space-y-4">
-          <div>
-            <label for="oauth-callback-code" class="input-label">{{ t('auth.oauth.code') }}</label>
-            <div class="flex flex-col gap-2 sm:flex-row">
-              <input id="oauth-callback-code" class="input min-w-0 flex-1 font-mono text-sm" :value="code" readonly />
-              <button class="btn btn-secondary shrink-0" type="button" :disabled="!code" @click="copy(code)">
-                {{ t('common.copy') }}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label for="oauth-callback-state" class="input-label">{{ t('auth.oauth.state') }}</label>
-            <div class="flex flex-col gap-2 sm:flex-row">
-              <input id="oauth-callback-state" class="input min-w-0 flex-1 font-mono text-sm" :value="state" readonly />
-              <button
-                class="btn btn-secondary shrink-0"
-                type="button"
-                :disabled="!state"
-                @click="copy(state)"
-              >
-                {{ t('common.copy') }}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label for="oauth-callback-url" class="input-label">{{ t('auth.oauth.fullUrl') }}</label>
-            <div class="flex flex-col gap-2 sm:flex-row">
-              <input id="oauth-callback-url" class="input min-w-0 flex-1 font-mono text-xs" :value="fullUrl" readonly />
-              <button
-                class="btn btn-secondary shrink-0"
-                type="button"
-                :disabled="!fullUrl"
-                @click="copy(fullUrl)"
-              >
-                {{ t('common.copy') }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+  </AuthFormPanel>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import AuthFormPanel from '@/components/auth/AuthFormPanel.vue'
+import AuthTextField from '@/components/auth/AuthTextField.vue'
+import { UiAlert, UiButton, UiSpinner } from '@/components/ui'
 import { useClipboard } from '@/composables/useClipboard'
 import { useAppStore, useAuthStore } from '@/stores'
 import { apiClient } from '@/api/client'
@@ -416,3 +324,11 @@ const copy = (value: string) => {
   copyToClipboard(value)
 }
 </script>
+
+<style scoped>
+.oauth-callback__processing { display: grid; min-height: 120px; place-items: center; }
+.oauth-callback__form,.oauth-callback__values { display: grid; gap: 14px; }
+.oauth-callback__return { margin-top: 14px; }
+.oauth-callback__value { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
+@media (max-width: 520px) { .oauth-callback__value { grid-template-columns: 1fr; } }
+</style>

@@ -39,6 +39,10 @@ vi.mock('vue-i18n', () => ({
   }),
 }))
 
+vi.mock('@/components/layout', () => ({
+  AuthLayout: { template: '<div><slot /></div>' },
+}))
+
 vi.mock('@/stores', () => ({
   useAppStore: () => ({
     showError: (...args: any[]) => showErrorMock(...args),
