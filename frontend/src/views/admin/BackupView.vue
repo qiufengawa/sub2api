@@ -237,38 +237,31 @@
                 <td class="py-3 pr-4 text-xs">{{ formatDate(record.started_at) }}</td>
                 <td class="py-3 text-xs">
                   <div class="flex items-center gap-1 whitespace-nowrap">
-                    <button
+                    <UiIconButton
                       v-if="record.status === 'completed'"
-                      type="button"
-                      class="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-dark-700 dark:hover:text-white"
-                      :title="t('admin.backup.actions.download')"
-                      :aria-label="t('admin.backup.actions.download')"
+                      icon="download"
+                      variant="ghost"
+                      density="dense"
+                      :label="t('admin.backup.actions.download')"
                       @click="downloadBackup(record.id)"
-                    >
-                      <Icon name="download" size="sm" />
-                      <span class="sr-only">{{ t('admin.backup.actions.download') }}</span>
-                    </button>
-                    <button
+                    />
+                    <UiIconButton
                       v-if="record.status === 'completed'"
-                      type="button"
-                      class="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-primary-600 hover:bg-primary-50 disabled:opacity-50 dark:text-primary-400 dark:hover:bg-primary-900/20"
+                      icon="refresh"
+                      variant="ghost"
+                      density="dense"
                       :disabled="restoringId === record.id"
-                      :title="t('admin.backup.actions.restore')"
-                      :aria-label="t('admin.backup.actions.restore')"
+                      :label="t('admin.backup.actions.restore')"
                       @click="restoreBackup(record.id)"
-                    >
-                      <Icon name="refresh" size="sm" :class="restoringId === record.id ? 'animate-spin' : ''" />
-                    </button>
-                    <button
-							v-if="record.status !== 'running'"
-                      type="button"
-                      class="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                      :title="t('common.delete')"
-                      :aria-label="t('common.delete')"
+                    />
+                    <UiIconButton
+                      v-if="record.status !== 'running'"
+                      icon="trash"
+                      variant="danger"
+                      density="dense"
+                      :label="t('common.delete')"
                       @click="removeBackup(record.id)"
-                    >
-                      <Icon name="trash" size="sm" />
-                    </button>
+                    />
                   </div>
                 </td>
               </tr>
@@ -284,7 +277,7 @@
     </div>
 
     <!-- Cloudflare R2 Setup Guide Modal -->
-    <BaseDialog
+    <UiDialog
       :show="showR2Guide"
       :title="t('admin.backup.r2Guide.title')"
       width="wide"
@@ -357,12 +350,12 @@
 
       <template #footer>
         <div class="flex justify-end">
-          <button type="button" class="btn btn-primary" @click="showR2Guide = false">{{ t('common.close') }}</button>
+          <UiButton density="compact" @click="showR2Guide = false">{{ t('common.close') }}</UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="Boolean(deleteBackupId)"
       :title="t('common.delete')"
       :message="t('admin.backup.actions.deleteConfirm')"
@@ -374,7 +367,7 @@
       @cancel="deleteBackupId = ''"
     />
 
-    <BaseDialog
+    <UiDialog
       :show="downloadPartsModalOpen"
       :title="t('admin.backup.actions.downloadParts')"
       width="normal"
@@ -389,15 +382,15 @@
             {{ t('admin.backup.actions.partLabel', { index: part.index }) }}
             <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">{{ formatSize(part.size_bytes) }}</span>
           </span>
-          <a :href="part.url" class="btn btn-secondary btn-sm" rel="noopener">
+          <UiLink :href="part.url">
             {{ t('admin.backup.actions.download') }}
-          </a>
+          </UiLink>
         </div>
       </div>
       <template #footer>
-        <button type="button" class="btn btn-primary" @click="closeDownloadParts">{{ t('common.close') }}</button>
+        <UiButton density="compact" @click="closeDownloadParts">{{ t('common.close') }}</UiButton>
       </template>
-    </BaseDialog>
+    </UiDialog>
     <TotpStepUpDialog :controller="backupStepUp" />
 </template>
 
@@ -415,9 +408,7 @@ import type {
 } from '@/api/admin/backup'
 import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/composables/useStepUp'
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import Icon from '@/components/icons/Icon.vue'
+import { UiButton, UiConfirmDialog, UiDialog, UiIconButton, UiLink } from '@/components/ui'
 
 const { t } = useI18n()
 const appStore = useAppStore()

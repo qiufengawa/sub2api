@@ -112,11 +112,8 @@ describe('admin BackupView 分卷备份', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('3')
-    const downloadButton = wrapper.findAll('button').find(button =>
-      button.text().includes('admin.backup.actions.download'),
-    )
-    expect(downloadButton).toBeDefined()
-    await downloadButton!.trigger('click')
+    const downloadButton = wrapper.get('button[aria-label="admin.backup.actions.download"]')
+    await downloadButton.trigger('click')
     await flushPromises()
 
     expect(document.body.textContent).toContain('admin.backup.actions.partLabel:1')
@@ -130,10 +127,8 @@ describe('admin BackupView 分卷备份', () => {
 
     const wrapper = mountBackupView()
     await flushPromises()
-    const downloadButton = wrapper.findAll('button').find(button =>
-      button.text().includes('admin.backup.actions.download'),
-    )
-    await downloadButton!.trigger('click')
+    const downloadButton = wrapper.get('button[aria-label="admin.backup.actions.download"]')
+    await downloadButton.trigger('click')
     await flushPromises()
 
     expect(getDownloadURL).toHaveBeenCalledWith('legacy')
