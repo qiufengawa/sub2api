@@ -30,12 +30,27 @@ const config: PlaygroundConfig = {
 }
 
 afterEach(() => {
-  document.body.classList.remove('modal-open')
+  document.body.style.overflow = ''
   document.body.innerHTML = ''
+  vi.unstubAllGlobals()
 })
 
+function mockViewport(matches: boolean): void {
+  vi.stubGlobal('matchMedia', vi.fn().mockImplementation((query: string) => ({
+    matches,
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })))
+}
+
 describe('PlaygroundParametersPanel', () => {
-  it('locks body scroll, traps focus, closes with Escape, and restores focus', async () => {
+  it('uses the shared desktop drawer lifecycle', async () => {
+    mockViewport(false)
     const opener = document.createElement('button')
     document.body.appendChild(opener)
     opener.focus()
@@ -45,18 +60,36 @@ describe('PlaygroundParametersPanel', () => {
     })
     await wrapper.vm.$nextTick()
 
-    expect(document.body.classList.contains('modal-open')).toBe(true)
-    expect(document.activeElement?.getAttribute('aria-label')).toBe('common.close')
+    expect(document.body.style.overflow).toBe('hidden')
+    expect(document.body.querySelector('.ui-drawer')).not.toBeNull()
+    expect(document.body.querySelector('.ui-sheet')).toBeNull()
+    expect(document.body.querySelector('[aria-label="common.close"]')).not.toBeNull()
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     expect(wrapper.emitted('close')).toHaveLength(1)
     await wrapper.setProps({ show: false })
-    expect(document.body.classList.contains('modal-open')).toBe(false)
+    expect(document.body.style.overflow).toBe('')
     expect(document.activeElement).toBe(opener)
     wrapper.unmount()
   })
 
+  it('uses the shared sheet on narrow viewports', async () => {
+    mockViewport(true)
+    const wrapper = mount(PlaygroundParametersPanel, {
+      attachTo: document.body,
+      props: { show: true, imageMode: true, modelValue: config },
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(document.body.querySelector('.ui-sheet')).not.toBeNull()
+    expect(document.body.querySelector('.ui-drawer')).toBeNull()
+    expect(document.body.querySelector('[aria-label="common.close"]')).not.toBeNull()
+    expect(document.body.textContent).toContain('playground.image.parametersTitle')
+    wrapper.unmount()
+  })
+
   it('uses real disabled fields when a parameter is not enabled', async () => {
+    mockViewport(false)
     const wrapper = mount(PlaygroundParametersPanel, {
       attachTo: document.body,
       props: { show: true, modelValue: config },

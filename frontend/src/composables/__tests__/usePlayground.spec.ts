@@ -258,6 +258,30 @@ describe('usePlayground', () => {
     expect(assistant.tokensPerSecond).toBe(50)
   })
 
+  it('calculates streaming speed when the provider reports output_tokens', async () => {
+    const performanceNow = vi.fn()
+      .mockReturnValueOnce(100)
+      .mockReturnValueOnce(1100)
+    vi.stubGlobal('performance', { now: performanceNow })
+    const state = mountComposable()
+    await state.loadKeys()
+    apiMocks.streamChat.mockImplementation(async (_keyId, _payload, handlers) => {
+      handlers.onUpdate({
+        content: 'answer',
+        receivedAtMonotonicMs: 300,
+        usage: { input_tokens: 10, output_tokens: 40, total_tokens: 50 },
+      })
+      handlers.onComplete()
+    })
+
+    await state.submit('hello')
+
+    const assistant = state.messages.value[1]
+    expect(assistant.firstTokenMs).toBe(200)
+    expect(assistant.durationMs).toBe(1000)
+    expect(assistant.tokensPerSecond).toBe(50)
+  })
+
   it('does not fabricate first-token latency or generation speed for non-stream responses', async () => {
     const performanceNow = vi.fn()
       .mockReturnValueOnce(50)

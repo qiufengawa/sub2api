@@ -1,11 +1,12 @@
-<template><Teleport to="body"><Transition name="ui-sheet"><div v-if="show" class="ui-sheet__overlay" :style="{zIndex}" role="dialog" aria-modal="true" :aria-label="title" @click.self="emit('close')"><section ref="panelRef" class="ui-sheet" tabindex="-1"><div class="ui-sheet__handle"/><header><h2>{{ title }}</h2><UiIconButton label="关闭" variant="ghost" density="dense" @click="emit('close')"><Icon name="x" size="sm"/></UiIconButton></header><div class="ui-sheet__body"><slot/></div><footer v-if="$slots.footer"><slot name="footer"/></footer></section></div></Transition></Teleport></template>
+<template><Teleport to="body"><Transition name="ui-sheet"><div v-if="show" class="ui-sheet__overlay" :style="{zIndex}" role="dialog" aria-modal="true" :aria-label="title" @click.self="emit('close')"><section ref="panelRef" class="ui-sheet" tabindex="-1"><div class="ui-sheet__handle"/><header><h2>{{ title }}</h2><UiIconButton :label="closeLabel" variant="ghost" density="dense" @click="emit('close')"><Icon name="x" size="sm"/></UiIconButton></header><div class="ui-sheet__body"><slot/></div><footer v-if="$slots.footer"><slot name="footer"/></footer></section></div></Transition></Teleport></template>
 <script setup lang="ts">
 import Icon from '@/components/icons/Icon.vue';
 import { toRef } from 'vue';
 import UiIconButton from './UiIconButton.vue';
 import { useOverlayLifecycle } from './useOverlayLifecycle';
-const props=defineProps<{show:boolean;
-title:string}>();
+const props=withDefaults(defineProps<{show:boolean;
+title:string;
+closeLabel?:string}>(),{closeLabel:'关闭'});
 const emit=defineEmits<{close:[]}>()
 const { panelRef, zIndex } = useOverlayLifecycle(toRef(props, 'show'), () => emit('close'))
 </script>

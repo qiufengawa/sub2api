@@ -1,9 +1,9 @@
 <template>
-  <article class="group px-3 py-3 sm:px-5 sm:py-4">
+  <article class="playground-message group px-3 py-3 sm:px-5 sm:py-4">
     <div class="mx-auto flex w-full max-w-5xl" :class="message.role === 'user' ? 'justify-end' : 'items-start gap-2.5 sm:gap-3'">
       <div
         v-if="message.role === 'assistant'"
-        class="mt-1 flex h-8 w-8 flex-none items-center justify-center rounded-[4px] border border-primary-100 bg-primary-50 text-primary-600 dark:border-primary-900/60 dark:bg-primary-950/30 dark:text-primary-300"
+        class="assistant-avatar mt-1 flex h-8 w-8 flex-none items-center justify-center"
       >
         <Icon name="sparkles" size="sm" aria-hidden="true" />
       </div>
@@ -19,10 +19,10 @@
             : 'w-auto max-w-[min(92%,54rem)] items-start'"
       >
         <div class="mb-1.5 flex min-h-4 items-center gap-2 px-0.5" :class="message.role === 'user' ? 'justify-end' : 'justify-between'">
-          <span class="text-[11px] font-semibold text-gray-500 dark:text-dark-400">
+          <span class="message-role text-[11px] font-semibold">
             {{ message.role === 'user' ? t('playground.roles.user') : t('playground.roles.assistant') }}
           </span>
-          <span v-if="message.kind === 'image'" class="inline-flex items-center gap-1 text-[10px] font-medium text-primary-600 dark:text-primary-300">
+          <span v-if="message.kind === 'image'" class="message-kind inline-flex items-center gap-1 text-[10px] font-medium">
             <Icon name="sparkles" size="xs" />
             {{ t('playground.image.mode') }}
           </span>
@@ -31,9 +31,9 @@
         <div
           class="message-bubble min-w-0 max-w-full rounded-[4px]"
           :class="message.role === 'user'
-            ? 'user-bubble inline-block rounded-tr-[1px] bg-primary-600 px-3.5 py-2.5 text-white shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:bg-primary-700'
+            ? 'user-bubble inline-block rounded-tr-[1px] px-3.5 py-2.5'
             : [
-              'assistant-bubble rounded-tl-[1px] border border-gray-200 bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.035)] sm:px-4 dark:border-dark-700 dark:bg-dark-800',
+              'assistant-bubble rounded-tl-[1px] px-3.5 py-3 sm:px-4',
               wideAssistantMessage ? 'block w-full' : 'inline-block w-auto',
             ]"
         >
@@ -50,11 +50,11 @@
           </div>
 
           <template v-else>
-            <details v-if="message.reasoning" class="border-l-2 border-slate-300 pl-3 dark:border-slate-600">
-              <summary class="cursor-pointer select-none text-xs font-medium text-slate-600 dark:text-slate-300">
+            <details v-if="message.reasoning" class="message-reasoning pl-3">
+              <summary class="cursor-pointer select-none text-xs font-medium">
                 {{ t('playground.message.reasoning') }}
               </summary>
-              <div class="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-gray-600 dark:text-dark-300">{{ message.reasoning }}</div>
+              <div class="message-reasoning__content mt-2 whitespace-pre-wrap break-words text-sm leading-6">{{ message.reasoning }}</div>
             </details>
 
             <div
@@ -63,7 +63,7 @@
               class="playground-markdown prose prose-sm max-w-none break-words"
               :class="[
                 message.reasoning ? 'mt-2.5' : '',
-                message.role === 'user' ? 'prose-invert text-white' : 'text-gray-800 dark:prose-invert dark:text-dark-100',
+                message.role === 'user' ? 'playground-markdown--user' : 'playground-markdown--assistant',
               ]"
               @click="handleMarkdownClick"
               v-html="renderedContent"
@@ -77,12 +77,12 @@
               <figure
                 v-for="(image, imageIndex) in message.images"
                 :key="image.id"
-                class="relative min-w-0 overflow-hidden rounded-[4px] border border-gray-200 bg-gray-50 dark:border-dark-600 dark:bg-dark-900"
+                class="playground-image relative min-w-0 overflow-hidden rounded-[4px]"
                 :style="{ aspectRatio: imageAspectRatio }"
               >
                 <button
                   type="button"
-                  class="block h-full w-full cursor-zoom-in overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500"
+                  class="playground-image__trigger block h-full w-full cursor-zoom-in overflow-hidden"
                   :aria-label="t('playground.image.previewLabel', { index: imageIndex + 1 })"
                   @click="previewImage = image"
                 >
@@ -93,7 +93,7 @@
                     loading="lazy"
                   />
                 </button>
-                <div class="absolute bottom-2 right-2 flex items-center gap-1 rounded-[3px] bg-gray-950/75 p-1 text-white shadow-sm">
+                <div class="image-toolbar absolute bottom-2 right-2 flex items-center gap-1 p-1">
                   <UiIconButton class="image-action" :label="t('playground.image.preview')" icon="eye" variant="ghost" density="mini" @click="previewImage = image" />
                   <UiIconButton v-if="image.sourceUrl" class="image-action" :label="t('playground.image.copyUrl')" :icon="copiedValue === image.sourceUrl ? 'check' : 'copy'" variant="ghost" density="mini" @click="copyImageUrl(image.sourceUrl)" />
                   <UiIconButton class="image-action" :label="t('playground.image.download')" icon="download" variant="ghost" density="mini" @click="downloadImage(image, imageIndex)" />
@@ -110,36 +110,33 @@
               <div
                 v-for="index in imagePlaceholderCount"
                 :key="index"
-                class="image-skeleton relative overflow-hidden rounded-[4px] border border-gray-200 bg-gray-100 dark:border-dark-600 dark:bg-dark-700"
+                class="image-skeleton relative overflow-hidden rounded-[4px]"
                 :style="{ aspectRatio: imageAspectRatio }"
               >
-                <div class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-gray-400 dark:text-dark-400">
+                <div class="image-skeleton__content absolute inset-0 flex flex-col items-center justify-center gap-2">
                   <Icon name="sparkles" size="lg" class="animate-pulse" />
                   <span class="text-xs">{{ t('playground.image.generating') }}</span>
                 </div>
               </div>
             </div>
 
-            <div v-else-if="message.status === 'streaming'" class="flex items-center gap-2 py-1 text-sm text-gray-500 dark:text-dark-400">
-              <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-primary-500"></span>
+            <div v-else-if="message.status === 'streaming'" class="message-streaming flex items-center gap-2 py-1 text-sm">
+              <span class="message-streaming__dot h-1.5 w-1.5 animate-pulse rounded-full"></span>
               {{ t('playground.message.generating') }}
             </div>
 
-            <div v-if="message.error" class="flex items-start gap-2 border-l-2 border-red-400 bg-red-50/70 px-3 py-2 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-300">
-              <Icon name="exclamationCircle" size="sm" class="mt-0.5 flex-none" />
-              <span class="min-w-0 break-words">{{ message.error }}</span>
-            </div>
+            <UiAlert v-if="message.error" tone="danger" :message="message.error" />
           </template>
         </div>
 
         <div v-if="message.role === 'assistant'" class="mt-2 w-full min-w-0 px-0.5">
-            <div v-if="message.kind === 'image'" class="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-400 dark:text-dark-500">
+            <div v-if="message.kind === 'image'" class="message-image-meta mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
               <span v-if="message.imageSize">{{ message.imageSize.replace('x', ' × ') }}</span>
               <span v-if="message.imageQuality">{{ t(`playground.image.quality${capitalize(message.imageQuality)}`) }}</span>
               <span v-if="message.imageFormat">{{ message.imageFormat.toUpperCase() }}</span>
               <span v-if="message.images?.length">{{ t('playground.image.resultCount', { count: message.images.length }) }}</span>
             </div>
-            <div class="grid min-w-0 grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] text-gray-500 sm:flex sm:flex-wrap sm:items-center dark:text-dark-400">
+            <div class="message-metrics grid min-w-0 grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] sm:flex sm:flex-wrap sm:items-center">
               <span v-if="message.model" class="metric-item w-full max-w-full sm:w-auto">
                 <span class="metric-label">{{ t('playground.message.model') }}</span>
                 <code class="min-w-0 flex-1 max-w-[min(24rem,70vw)] truncate sm:flex-none" :title="message.model">{{ message.model }}</code>
@@ -151,19 +148,19 @@
             </div>
 
             <div class="mt-1.5 flex flex-wrap items-start justify-between gap-2">
-              <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-400 dark:text-dark-500">
+              <div class="message-token-meta flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
                 <span v-if="inputTokens !== undefined">{{ t('playground.message.inputTokens') }} {{ formatTokens(inputTokens) }}</span>
                 <span v-if="outputTokens !== undefined">{{ t('playground.message.outputTokens') }} {{ formatTokens(outputTokens) }}</span>
                 <span v-if="message.usage?.total_tokens !== undefined">{{ t('playground.message.totalTokens') }} {{ formatTokens(message.usage.total_tokens) }}</span>
-                <span v-if="message.status === 'stopped'" class="text-orange-600 dark:text-orange-400">{{ t('playground.message.stopped') }}</span>
+                <span v-if="message.status === 'stopped'" class="message-stopped">{{ t('playground.message.stopped') }}</span>
               </div>
 
-              <details v-if="hasTechnicalDetails" class="w-full min-w-0 max-w-full text-[11px] text-gray-500 sm:w-auto dark:text-dark-400">
-                <summary class="flex cursor-pointer list-none items-center gap-1 select-none hover:text-primary-600 dark:hover:text-primary-300">
+              <details v-if="hasTechnicalDetails" class="message-details w-full min-w-0 max-w-full text-[11px] sm:w-auto">
+                <summary class="flex cursor-pointer list-none items-center gap-1 select-none">
                   <Icon name="chevronDown" size="sm" class="details-chevron" />
                   {{ t('playground.message.details') }}
                 </summary>
-                <dl class="mt-2 grid min-w-0 gap-1 border-l border-gray-200 pl-2.5 dark:border-dark-600">
+                <dl class="message-details__list mt-2 grid min-w-0 gap-1 pl-2.5">
                   <div v-if="message.model" class="flex min-w-0 items-center gap-2">
                     <dt class="flex-none">{{ t('playground.message.model') }}</dt>
                     <dd class="flex min-w-0 items-center gap-1">
@@ -242,7 +239,7 @@ import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import Icon from '@/components/icons/Icon.vue'
-import { UiButton, UiDialog, UiIconButton, UiTextArea } from '@/components/ui'
+import { UiAlert, UiButton, UiDialog, UiIconButton, UiTextArea } from '@/components/ui'
 import { useAppStore } from '@/stores/app'
 import type { PlaygroundImageAsset, PlaygroundMessage } from '@/types/playground'
 
@@ -442,6 +439,117 @@ function formatTimestamp(value: number | undefined): string {
 </script>
 
 <style scoped>
+.playground-message {
+  color: var(--ui-text);
+}
+
+.assistant-avatar {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-dense);
+  color: var(--ui-text);
+  background: var(--ui-surface-muted);
+}
+
+.message-role,
+.message-metrics,
+.message-details {
+  color: var(--ui-text-muted);
+}
+
+.message-kind {
+  color: var(--ui-info);
+}
+
+.message-bubble {
+  border: 1px solid transparent;
+}
+
+.user-bubble {
+  color: var(--ui-inverse);
+  background: var(--ui-text-strong);
+}
+
+.assistant-bubble {
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+  background: var(--ui-surface);
+}
+
+.message-reasoning {
+  border-left: 2px solid var(--ui-border);
+  color: var(--ui-text-muted);
+}
+
+.message-reasoning__content {
+  color: var(--ui-text-muted);
+}
+
+.playground-markdown--user {
+  color: var(--ui-inverse);
+}
+
+.playground-markdown--assistant {
+  color: var(--ui-text);
+}
+
+.playground-image,
+.image-skeleton {
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface-muted);
+}
+
+.playground-image__trigger {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.playground-image__trigger:focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: -2px;
+}
+
+.image-toolbar {
+  border-radius: var(--ui-radius-dense);
+  color: #fff;
+  background: rgb(0 0 0 / 72%);
+}
+
+.image-toolbar :deep(.ui-icon-button) {
+  color: inherit;
+}
+
+.image-skeleton__content,
+.message-streaming,
+.message-image-meta,
+.message-token-meta {
+  color: var(--ui-text-soft);
+}
+
+.message-streaming__dot {
+  background: var(--ui-text-muted);
+}
+
+.message-stopped {
+  color: var(--ui-warning);
+}
+
+.message-details summary {
+  transition: color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.message-details summary:hover {
+  color: var(--ui-text);
+}
+
+.message-details__list {
+  border-left: 1px solid var(--ui-border);
+}
+
+.message-bubble :deep(.ui-alert) {
+  margin-top: 10px;
+}
+
 .message-edit-actions,
 .image-preview__actions {
   display: flex;
@@ -532,7 +640,7 @@ details[open] .details-chevron {
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius);
   color: #f5f3f0;
-  background: #1f2329;
+  background: #171615;
   font-family: var(--ui-font-mono);
 }
 
@@ -552,7 +660,7 @@ details[open] .details-chevron {
   padding: 4px 8px;
   border: 1px solid rgb(255 255 255 / 16%);
   border-radius: var(--ui-radius-mini);
-  color: #e5e2de;
+  color: #f5f3f0;
   background: rgb(255 255 255 / 8%);
   font: 500 10px/16px var(--ui-font-sans);
   cursor: pointer;
@@ -577,6 +685,13 @@ details[open] .details-chevron {
   .details-chevron,
   .message-actions {
     transition: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .assistant-avatar {
+    width: 28px;
+    height: 28px;
   }
 }
 </style>

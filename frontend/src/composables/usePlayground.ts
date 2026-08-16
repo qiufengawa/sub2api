@@ -508,7 +508,7 @@ export function usePlayground(userId: number) {
     message.durationMs = Math.max(0, completedAtMonotonic - requestStartedAtMonotonic)
     delete message.tokensPerSecond
 
-    const outputTokens = message.usage?.completion_tokens
+    const outputTokens = message.usage?.completion_tokens ?? message.usage?.output_tokens
     const generationMs = message.firstTokenMs === undefined
       ? 0
       : message.durationMs - message.firstTokenMs

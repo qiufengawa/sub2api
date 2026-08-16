@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import UiAlert from '../UiAlert.vue'
 import UiButton from '../UiButton.vue'
 import UiCodeBlock from '../UiCodeBlock.vue'
 import UiDataCell from '../UiDataCell.vue'
@@ -13,6 +14,14 @@ import UiTextArea from '../UiTextArea.vue'
 const iconStub = { template: '<i />' }
 
 describe('Qiu UI primitive contracts', () => {
+  it('keeps long alert messages inside the available content column', () => {
+    const wrapper = mount(UiAlert, {
+      props: { tone: 'danger', message: 'https://gateway.example/' + 'request-id'.repeat(24) },
+    })
+
+    expect(wrapper.get('.ui-alert__content').text()).toContain('request-id')
+  })
+
   it('applies semantic variants and compact density to buttons', () => {
     const wrapper = mount(UiButton, { props: { variant: 'primary', density: 'compact' }, slots: { default: '保存' } })
     expect(wrapper.get('button').classes()).toContain('ui-button--primary')
@@ -33,6 +42,25 @@ describe('Qiu UI primitive contracts', () => {
 
     expect(dataCell.get('button').classes()).toContain('ui-icon-button--ghost')
     expect(codeBlock.get('button').classes()).toContain('ui-icon-button--ghost')
+  })
+
+  it('localizes code copy actions and forwards clipboard failures', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+    })
+    const codeBlock = mount(UiCodeBlock, {
+      props: {
+        code: '{"plan":"standard"}',
+        label: 'JSON',
+        copyLabel: 'Copy JSON',
+        copySuccessText: 'Copied JSON',
+      },
+    })
+
+    expect(codeBlock.get('button').attributes('aria-label')).toBe('Copy JSON')
+    await codeBlock.get('button').trigger('click')
+    expect(codeBlock.emitted('copyError')).toHaveLength(1)
   })
 
   it('keeps priority unbounded while enforcing the minimum', async () => {

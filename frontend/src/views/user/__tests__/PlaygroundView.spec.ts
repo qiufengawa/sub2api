@@ -1,4 +1,4 @@
-import { computed, defineComponent, ref } from 'vue'
+import { computed, defineComponent, nextTick, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -140,7 +140,6 @@ function mountView() {
       stubs: {
         AppLayout: { template: '<main><slot /></main>' },
         Icon: true,
-        LoadingSpinner: { template: '<div data-test="loading"></div>' },
         Select: { template: '<div data-test="select"></div>' },
         Toggle: { template: '<button type="button" data-test="toggle"></button>' },
         PlaygroundComposer: ComposerStub,
@@ -155,10 +154,10 @@ function mountView() {
           emits: ['close'],
           template: '<div v-if="show" data-test="preview">{{ content }}</div>',
         },
-        ConfirmDialog: {
-          props: ['show'],
+        UiConfirmDialog: {
+          props: ['show', 'cancelText'],
           emits: ['confirm', 'cancel'],
-          template: '<div v-if="show" data-test="confirm"><button data-test="confirm-clear" @click="$emit(\'confirm\')">confirm</button></div>',
+          template: '<div v-if="show" data-test="confirm" :data-cancel-text="cancelText"><button data-test="confirm-clear" @click="$emit(\'confirm\')">confirm</button></div>',
         },
         RouterLink: {
           props: ['to'],
@@ -232,6 +231,7 @@ describe('PlaygroundView', () => {
     expect(wrapper.get('[data-test="parameters"]').exists()).toBe(true)
 
     await wrapper.get('[data-test="composer-new"]').trigger('click')
+    expect(wrapper.get('[data-test="confirm"]').attributes('data-cancel-text')).toBe('common.cancel')
     await wrapper.get('[data-test="confirm-clear"]').trigger('click')
     expect(state.clearMessages).toHaveBeenCalledOnce()
     expect(wrapper.find('[data-test="confirm"]').exists()).toBe(false)
@@ -300,5 +300,36 @@ describe('PlaygroundView', () => {
     })
     await flushPromises()
     expect(scrollToMock).toHaveBeenCalled()
+  })
+
+  it('does not pull the user back down when they scroll up during a message update', async () => {
+    const state = createState()
+    state.keys.value = [activeKey()]
+    state.messages.value = [{
+      id: 'assistant-1',
+      role: 'assistant',
+      content: 'partial',
+      status: 'streaming',
+      createdAt: 1,
+    }]
+    playgroundHarness.usePlayground.mockReturnValue(state)
+
+    const wrapper = mountView()
+    await flushPromises()
+    scrollToMock.mockClear()
+    const scroll = wrapper.get('.playground-scroll')
+    Object.defineProperties(scroll.element, {
+      scrollHeight: { configurable: true, value: 1200 },
+      clientHeight: { configurable: true, value: 400 },
+      scrollTop: { configurable: true, value: 0 },
+    })
+
+    state.messages.value[0].content = 'partial response with another chunk'
+    await nextTick()
+    scroll.element.dispatchEvent(new Event('scroll'))
+    await flushPromises()
+
+    expect(scrollToMock).not.toHaveBeenCalled()
+    expect(wrapper.find('.playground-scroll-button').exists()).toBe(true)
   })
 })
