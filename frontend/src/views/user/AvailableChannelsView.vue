@@ -1,45 +1,44 @@
 <template>
   <AppLayout>
-    <TablePageLayout>
-      <template #filters>
-        <div class="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-          <div class="flex flex-1 flex-wrap items-center gap-2">
-            <div class="relative w-full sm:w-72 lg:w-80">
-              <Icon
-                name="search"
-                size="md"
-                class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
-              />
-              <input
-                v-model="searchQuery"
-                type="text"
-                :placeholder="t('availableChannels.searchPlaceholder')"
-                class="input pl-10"
-              />
-            </div>
-          </div>
+    <AppPage width="full" density="compact">
+      <AppPageHeader
+        :title="t('availableChannels.title')"
+        :description="t('availableChannels.description')"
+      />
 
-          <div class="flex flex-shrink-0 items-center justify-end gap-2">
-            <span
-              data-testid="available-channel-count"
-              class="inline-flex h-8 items-center rounded border border-primary-100 bg-primary-50 px-2.5 text-xs font-medium text-primary-700 dark:border-primary-900 dark:bg-primary-950/30 dark:text-primary-300"
-            >
+      <AppSection>
+        <UiTableToolbar>
+          <UiSearchInput
+            v-model="searchQuery"
+            class="available-channels-search"
+            density="compact"
+            :placeholder="t('availableChannels.searchPlaceholder')"
+            :aria-label="t('availableChannels.searchPlaceholder')"
+            :disabled="loading && channels.length === 0"
+          />
+          <template #actions>
+            <UiBadge data-testid="available-channel-count">
               {{ t('availableChannels.resultCount', { count: filteredChannels.length }) }}
-            </span>
-            <button
-              @click="loadChannels"
+            </UiBadge>
+            <UiIconButton
+              icon="refresh"
+              density="compact"
+              :label="t('common.refresh')"
               :disabled="loading"
-              class="btn btn-secondary"
-              :title="t('common.refresh', 'Refresh')"
-            >
-              <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
-            </button>
-          </div>
-        </div>
-      </template>
+              @click="loadChannels"
+            />
+          </template>
+        </UiTableToolbar>
 
-      <template #table>
+        <UiErrorState
+          v-if="loadError && channels.length === 0 && !loading"
+          :title="t('common.error')"
+          :description="loadError"
+          :retry-text="t('common.retry')"
+          @retry="loadChannels"
+        />
         <AvailableChannelsTable
+          v-else
           :columns="columnLabels"
           :rows="filteredChannels"
           :loading="loading"
@@ -49,18 +48,26 @@
           :no-models-label="t('availableChannels.noModels')"
           :empty-label="t('availableChannels.empty')"
         />
-      </template>
-    </TablePageLayout>
+      </AppSection>
+    </AppPage>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AppLayout from '@/components/layout/AppLayout.vue'
-import TablePageLayout from '@/components/layout/TablePageLayout.vue'
-import Icon from '@/components/icons/Icon.vue'
 import AvailableChannelsTable from '@/components/channels/AvailableChannelsTable.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
+import {
+  AppPage,
+  AppPageHeader,
+  AppSection,
+  UiBadge,
+  UiErrorState,
+  UiIconButton,
+  UiSearchInput,
+  UiTableToolbar
+} from '@/components/ui'
 import userChannelsAPI, { type UserAvailableChannel } from '@/api/channels'
 import userGroupsAPI from '@/api/groups'
 import { useAppStore } from '@/stores/app'
@@ -72,6 +79,7 @@ const appStore = useAppStore()
 const channels = ref<UserAvailableChannel[]>([])
 const userGroupRates = ref<Record<number, number>>({})
 const loading = ref(false)
+const loadError = ref('')
 const searchQuery = ref('')
 
 const columnLabels = computed(() => ({
@@ -80,51 +88,47 @@ const columnLabels = computed(() => ({
   description: t('availableChannels.columns.description'),
   platform: t('availableChannels.columns.platform'),
   groups: t('availableChannels.columns.groups'),
-  supportedModels: t('availableChannels.columns.supportedModels'),
+  supportedModels: t('availableChannels.columns.supportedModels')
 }))
 
-/**
- * 搜索过滤：
- * - 命中渠道名/描述 → 整个渠道（所有 platforms）都保留
- * - 否则按 platform/group/model 维度在 sections 里过滤，保留有匹配的 section
- * - 所有 sections 都不匹配时，渠道本身被过滤掉
- */
 const filteredChannels = computed(() => {
-  const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return channels.value
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return channels.value
+
   return channels.value
-    .map((ch) => {
-      const nameHit = ch.name.toLowerCase().includes(q)
-      const descHit = (ch.description || '').toLowerCase().includes(q)
-      if (nameHit || descHit) return ch
-      const matchingSections = ch.platforms.filter(
-        (p) =>
-          p.platform.toLowerCase().includes(q) ||
-          p.groups.some((g) => g.name.toLowerCase().includes(q)) ||
-          p.supported_models.some((m) => m.name.toLowerCase().includes(q)),
+    .map((channel) => {
+      const nameMatches = channel.name.toLowerCase().includes(query)
+      const descriptionMatches = (channel.description || '').toLowerCase().includes(query)
+      if (nameMatches || descriptionMatches) return channel
+
+      const matchingPlatforms = channel.platforms.filter(
+        (platform) =>
+          platform.platform.toLowerCase().includes(query) ||
+          platform.groups.some((group) => group.name.toLowerCase().includes(query)) ||
+          platform.supported_models.some((model) => model.name.toLowerCase().includes(query))
       )
-      if (matchingSections.length === 0) return null
-      return { ...ch, platforms: matchingSections }
+      if (matchingPlatforms.length === 0) return null
+      return { ...channel, platforms: matchingPlatforms }
     })
-    .filter((ch): ch is UserAvailableChannel => ch !== null)
+    .filter((channel): channel is UserAvailableChannel => channel !== null)
 })
 
-async function loadChannels() {
+async function loadChannels(): Promise<void> {
   loading.value = true
+  loadError.value = ''
   try {
-    // 渠道列表和用户专属倍率并发拉取。专属倍率失败不阻塞渠道展示——
-    // 失败时只是无法渲染专属倍率角标，降级为仅显示默认倍率。
     const [list, rates] = await Promise.all([
       userChannelsAPI.getAvailable(),
-      userGroupsAPI.getUserGroupRates().catch((err: unknown) => {
-        console.error('Failed to load user group rates:', err)
+      userGroupsAPI.getUserGroupRates().catch((error: unknown) => {
+        console.error('Failed to load user group rates:', error)
         return {} as Record<number, number>
-      }),
+      })
     ])
     channels.value = list
     userGroupRates.value = rates
-  } catch (err: unknown) {
-    appStore.showError(extractApiErrorMessage(err, t('common.error')))
+  } catch (error: unknown) {
+    loadError.value = extractApiErrorMessage(error, t('common.error'))
+    appStore.showError(loadError.value)
   } finally {
     loading.value = false
   }
@@ -132,3 +136,9 @@ async function loadChannels() {
 
 onMounted(loadChannels)
 </script>
+
+<style scoped>
+.available-channels-search {
+  width: min(100%, 360px);
+}
+</style>
