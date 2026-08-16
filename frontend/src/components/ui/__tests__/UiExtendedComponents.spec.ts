@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import UiBulkActionBar from '../UiBulkActionBar.vue'
 import UiBackToTop from '../UiBackToTop.vue'
 import UiChangeSet from '../UiChangeSet.vue'
@@ -124,6 +125,48 @@ describe('Qiu UI extended workflow components', () => {
 
     expect(muted.get('a').classes()).toContain('ui-link--muted')
     expect(brand.get('a').classes()).toContain('ui-link--brand')
+  })
+
+  it('renders internal destinations as focusable router links with hrefs', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: { template: '<div />' } },
+        { path: '/home', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/')
+    await router.isReady()
+    const wrapper = mount(UiLink, {
+      props: { to: '/home' },
+      slots: { default: 'Home' },
+      global: { plugins: [router] },
+    })
+
+    const link = wrapper.get('a')
+    expect(link.attributes('href')).toBe('/home')
+    expect(link.element.tabIndex).toBe(0)
+  })
+
+  it('preserves safe new-tab semantics for router destinations', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: { template: '<div />' } },
+        { path: '/home', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/')
+    await router.isReady()
+    const wrapper = mount(UiLink, {
+      props: { to: '/home', external: true },
+      slots: { default: 'Home' },
+      global: { plugins: [router] },
+    })
+
+    const link = wrapper.get('a')
+    expect(link.attributes('target')).toBe('_blank')
+    expect(link.attributes('rel')).toBe('noopener noreferrer')
   })
 
   it('localizes back-to-top and removes smooth scrolling for reduced motion', async () => {
