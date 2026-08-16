@@ -370,6 +370,7 @@ export default {
       codeEnabledSuccess: '兑换码已启用',
       codeDeletedSuccess: '兑换码删除成功',
       failedToLoad: '加载兑换码列表失败',
+      failedToLoadPlans: '加载订阅套餐失败',
       failedToGenerate: '生成兑换码失败',
       failedToUpdate: '更新兑换码失败',
       failedToDelete: '删除兑换码失败'

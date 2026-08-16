@@ -311,6 +311,7 @@ export default {
       codesDeleted: 'Successfully deleted {count} unused code(s)',
       noUnusedCodes: 'No unused codes to delete',
       failedToLoad: 'Failed to load redeem codes',
+      failedToLoadPlans: 'Failed to load subscription plans',
       failedToGenerate: 'Failed to generate codes',
       failedToExport: 'Failed to export codes',
       failedToDelete: 'Failed to delete code',

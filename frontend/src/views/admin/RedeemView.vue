@@ -3,6 +3,11 @@
     <AppPage density="compact">
       <AppPageHeader :title="t('admin.redeem.title')" :description="t('admin.redeem.description')" />
       <UiServerTableWorkspace :loading="loading">
+      <UiAlert
+        v-if="loadError && codes.length"
+        tone="danger"
+        :message="t('admin.redeem.failedToLoad')"
+      />
       <template #filters>
         <UiFilterBar :active-count="activeFilterCount" @clear="clearFilters">
           <UiSearchInput
@@ -27,14 +32,13 @@
           <template #actions>
             <AppInline>
             <UiIconButton
+              icon="refresh"
               @click="loadCodes"
               :disabled="loading"
               :label="t('common.refresh')"
               density="compact"
-            >
-              <Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" />
-            </UiIconButton>
-            <UiButton density="compact" @click="handleExportCodes">
+            />
+            <UiButton density="compact" :loading="exporting" :disabled="exporting" @click="handleExportCodes">
               <template #icon><Icon name="download" size="sm" /></template>
               {{ t('admin.redeem.exportCsv') }}
             </UiButton>
@@ -146,6 +150,19 @@
               <UiIconButton v-if="row.status === 'unused'" icon="trash" variant="danger" density="compact" :label="t('common.delete')" @click="handleDelete(row)" />
             </UiButtonGroup>
           </template>
+          <template #empty>
+            <UiErrorState
+              v-if="loadError"
+              :title="t('admin.redeem.failedToLoad')"
+              :retry-text="t('common.retry')"
+              @retry="loadCodes"
+            />
+            <UiEmptyState
+              v-else
+              :title="t('admin.redeem.noCodes')"
+              :description="t('admin.redeem.noCodesDescription')"
+            />
+          </template>
           </UiDataTable>
         </UiMobileTableScroller>
 
@@ -193,6 +210,7 @@
       :message="t('admin.redeem.deleteCodeConfirm')"
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
+      :pending="deleting"
       danger
       @confirm="confirmDelete"
       @cancel="showDeleteDialog = false"
@@ -205,6 +223,7 @@
       :message="t('admin.redeem.deleteAllUnusedConfirm')"
       :confirm-text="t('admin.redeem.deleteAll')"
       :cancel-text="t('common.cancel')"
+      :pending="deletingUnused"
       danger
       @confirm="confirmDeleteUnused"
       @cancel="showDeleteUnusedDialog = false"
@@ -428,6 +447,8 @@ import {
   UiDataCell,
   UiDataTable,
   UiDialog,
+  UiEmptyState,
+  UiErrorState,
   UiFilterBar,
   UiIconButton,
   UiMobileTableScroller,
@@ -473,6 +494,8 @@ const generatedCodesText = computed(() => {
 })
 
 const copiedAll = ref(false)
+let copyAllResetTimer: ReturnType<typeof setTimeout> | null = null
+let copyCodeResetTimer: ReturnType<typeof setTimeout> | null = null
 
 const closeResultDialog = () => {
   showResultDialog.value = false
@@ -484,8 +507,10 @@ const copyGeneratedCodes = async () => {
   const success = await clipboardCopy(generatedCodesText.value, t('admin.redeem.copied'))
   if (success) {
     copiedAll.value = true
-    setTimeout(() => {
+    if (copyAllResetTimer) clearTimeout(copyAllResetTimer)
+    copyAllResetTimer = setTimeout(() => {
       copiedAll.value = false
+      copyAllResetTimer = null
     }, 2000)
   }
 }
@@ -565,9 +590,13 @@ const batchExpiryModeOptions = computed(() => [
 ])
 
 const codes = ref<RedeemCode[]>([])
-const loading = ref(false)
+const loading = ref(true)
+const loadError = ref(false)
 const generating = ref(false)
 const batchUpdating = ref(false)
+const deleting = ref(false)
+const deletingUnused = ref(false)
+const exporting = ref(false)
 const searchQuery = ref('')
 const filters = reactive({
   type: '',
@@ -683,6 +712,7 @@ const loadCodes = async () => {
   const currentController = new AbortController()
   abortController = currentController
   loading.value = true
+  loadError.value = false
   try {
     const response = await adminAPI.redeem.list(
       pagination.page,
@@ -711,8 +741,8 @@ const loadCodes = async () => {
     ) {
       return
     }
+    loadError.value = true
     appStore.showError(t('admin.redeem.failedToLoad'))
-    console.error('Error loading redeem codes:', error)
   } finally {
     if (abortController === currentController && !currentController.signal.aborted) {
       loading.value = false
@@ -862,6 +892,7 @@ const buildBatchUpdateFields = (): BatchUpdateRedeemCodeFields | null => {
 }
 
 const handleGenerateCodes = async () => {
+  if (generating.value) return
   if (generateForm.type === 'subscription' && !generateForm.plan_id) {
     appStore.showError(t('admin.redeem.planRequired'))
     return
@@ -894,7 +925,6 @@ const handleGenerateCodes = async () => {
     loadCodes()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToGenerate'))
-    console.error('Error generating codes:', error)
   } finally {
     generating.value = false
   }
@@ -904,13 +934,17 @@ const copyToClipboard = async (text: string) => {
   const success = await clipboardCopy(text, t('admin.redeem.copied'))
   if (success) {
     copiedCode.value = text
-    setTimeout(() => {
+    if (copyCodeResetTimer) clearTimeout(copyCodeResetTimer)
+    copyCodeResetTimer = setTimeout(() => {
       copiedCode.value = null
+      copyCodeResetTimer = null
     }, 2000)
   }
 }
 
 const handleExportCodes = async () => {
+  if (exporting.value) return
+  exporting.value = true
   try {
     const blob = await adminAPI.redeem.exportCodes(buildRedeemQueryFilters())
 
@@ -927,7 +961,8 @@ const handleExportCodes = async () => {
     appStore.showSuccess(t('admin.redeem.codesExported'))
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToExport'))
-    console.error('Error exporting codes:', error)
+  } finally {
+    exporting.value = false
   }
 }
 
@@ -937,21 +972,25 @@ const handleDelete = (code: RedeemCode) => {
 }
 
 const confirmDelete = async () => {
-  if (!deletingCode.value) return
+  if (!deletingCode.value || deleting.value) return
 
+  deleting.value = true
   try {
     await adminAPI.redeem.delete(deletingCode.value.id)
     appStore.showSuccess(t('admin.redeem.codeDeleted'))
     showDeleteDialog.value = false
     deletingCode.value = null
-    loadCodes()
+    await loadCodes()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToDelete'))
-    console.error('Error deleting code:', error)
+  } finally {
+    deleting.value = false
   }
 }
 
 const confirmDeleteUnused = async () => {
+  if (deletingUnused.value) return
+  deletingUnused.value = true
   try {
     const unusedCodeIds: number[] = []
     let currentPage = 1
@@ -976,14 +1015,16 @@ const confirmDeleteUnused = async () => {
     }
     appStore.showSuccess(t('admin.redeem.codesDeleted', { count: deleted }))
     showDeleteUnusedDialog.value = false
-    loadCodes()
+    await loadCodes()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToDeleteUnused'))
-    console.error('Error deleting unused codes:', error)
+  } finally {
+    deletingUnused.value = false
   }
 }
 
 const handleBatchUpdate = async () => {
+  if (batchUpdating.value) return
   const ids = Array.from(selectedCodeIds.value)
   if (ids.length === 0) {
     appStore.showInfo(t('admin.redeem.selectCodesFirst'))
@@ -1014,7 +1055,6 @@ const handleBatchUpdate = async () => {
     loadCodes()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToBatchUpdate'))
-    console.error('Error batch updating codes:', error)
   } finally {
     batchUpdating.value = false
   }
@@ -1024,8 +1064,8 @@ const loadSubscriptionPlans = async () => {
   try {
     const response = await adminAPI.payment.getPlans()
     subscriptionPlans.value = response.data
-  } catch (error) {
-    console.error('Error loading subscription plans:', error)
+  } catch {
+    appStore.showError(t('admin.redeem.failedToLoadPlans'))
   }
 }
 
@@ -1037,5 +1077,7 @@ onMounted(() => {
 onUnmounted(() => {
   clearTimeout(searchTimeout)
   abortController?.abort()
+  if (copyAllResetTimer) clearTimeout(copyAllResetTimer)
+  if (copyCodeResetTimer) clearTimeout(copyCodeResetTimer)
 })
 </script>
