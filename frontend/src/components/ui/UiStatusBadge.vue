@@ -3,7 +3,7 @@
 import {computed} from 'vue';
 const props=defineProps<{status:string;
 label:string}>();
-const tone=computed<'neutral'|'success'|'warning'|'danger'|'info'>(()=>{if(['active','success','healthy','ready','online'].includes(props.status))return'success';
+const tone=computed<'neutral'|'success'|'warning'|'danger'|'info'>(()=>{if(['active','success','completed','healthy','ready','online'].includes(props.status))return'success';
 if(['warning','pending','stale'].includes(props.status))return'warning';
 if(['error','danger','failed','offline'].includes(props.status))return'danger';
 if(['info','running','reconnecting'].includes(props.status))return'info';

@@ -1,9 +1,10 @@
-<template><dl class="ui-description-list" :class="`ui-description-list--${columns}`"><div v-for="item in items" :key="item.label"><dt>{{ item.label }}</dt><dd :class="{'ui-numeric':item.numeric}"><slot :name="item.key||item.label" :item="item">{{ item.value }}</slot></dd></div></dl></template>
+<template><dl class="ui-description-list" :class="`ui-description-list--${columns}`"><div v-for="item in items" :key="item.label"><dt>{{ item.label }}</dt><dd :class="{'ui-numeric':item.numeric,'ui-mono':item.mono}"><slot :name="item.key||item.label" :item="item">{{ item.value }}</slot></dd></div></dl></template>
 <script setup lang="ts">
 withDefaults(defineProps<{items:Array<{key?:string;
 label:string;
 value:string|number;
-numeric?:boolean}>;
+numeric?:boolean;
+mono?:boolean}>;
 columns?:1|2|3}>(),{columns:2})
 </script>
 <style scoped>.ui-description-list{display:grid;
@@ -18,4 +19,4 @@ font-size:11px}.ui-description-list dd{min-width:0;
 margin:0;
 color:var(--ui-text);
 font-size:12px;
-overflow-wrap:anywhere}@media(max-width:640px){.ui-description-list{grid-template-columns:1fr}}</style>
+overflow-wrap:anywhere}.ui-description-list dd.ui-mono{font-family:var(--ui-font-mono)}@media(max-width:640px){.ui-description-list{grid-template-columns:1fr}}</style>

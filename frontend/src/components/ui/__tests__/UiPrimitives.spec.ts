@@ -4,10 +4,12 @@ import UiAlert from '../UiAlert.vue'
 import UiButton from '../UiButton.vue'
 import UiCodeBlock from '../UiCodeBlock.vue'
 import UiDataCell from '../UiDataCell.vue'
+import UiDescriptionList from '../UiDescriptionList.vue'
 import UiIconButton from '../UiIconButton.vue'
 import UiNumberStepper from '../UiNumberStepper.vue'
 import UiProgressBar from '../UiProgressBar.vue'
 import UiSegmentedControl from '../UiSegmentedControl.vue'
+import UiStatusBadge from '../UiStatusBadge.vue'
 import UiTextField from '../UiTextField.vue'
 import UiTextArea from '../UiTextArea.vue'
 
@@ -34,6 +36,20 @@ describe('Qiu UI primitive contracts', () => {
     expect(confirm.get('button').classes()).toContain('ui-icon-button--success')
     expect(cancel.get('button').classes()).toContain('ui-icon-button--danger')
     expect(confirm.find('svg.lucide').exists()).toBe(true)
+  })
+
+  it('uses the shared monospace contract for structured description values', () => {
+    const wrapper = mount(UiDescriptionList, {
+      props: { items: [{ label: 'Endpoint', value: 'https://HOST/v1', mono: true }] },
+    })
+
+    expect(wrapper.get('dd').classes()).toContain('ui-mono')
+  })
+
+  it('maps completed operational states to success', () => {
+    const wrapper = mount(UiStatusBadge, { props: { status: 'completed', label: 'Completed' } })
+
+    expect(wrapper.get('.ui-status').classes()).toContain('ui-status--success')
   })
 
   it('keeps copy actions unframed when they are embedded in content', () => {
