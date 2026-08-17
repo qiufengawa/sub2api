@@ -854,6 +854,9 @@ export default {
   profile: {
     title: '个人设置',
     description: '管理您的账户信息和设置',
+    loadFailed: '个人资料加载失败',
+    loadFailedDescription: '当前无法获取个人资料，请在本页重试。',
+    settingsLoadFailed: '部分个人设置加载失败，已保留当前可用信息。',
     accountBalance: '账户余额',
     concurrencyLimit: '并发限制',
     rpmLimit: 'RPM 限制',

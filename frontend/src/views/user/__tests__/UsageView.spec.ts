@@ -70,11 +70,13 @@ const messages: Record<string, string> = {
   'usage.exporting': 'Exporting',
   'usage.exportCsv': 'Export CSV',
   'usage.failedToLoad': 'Failed to load',
+  'usage.errors.failedToLoad': 'Failed to load error requests',
   'usage.noDataToExport': 'No data',
   'usage.preparingExport': 'Preparing export',
   'usage.exportSuccess': 'Export success',
   'usage.exportFailed': 'Export failed',
   'common.refresh': 'Refresh',
+  'common.retry': 'Retry',
   'common.reset': 'Reset',
 }
 
@@ -171,7 +173,7 @@ function mountUsageView() {
         AppLayout: simpleStub,
         Pagination: true,
         Select: true,
-        DateRangePicker: dateRangePickerStub,
+        UiDateRangePicker: dateRangePickerStub,
         Icon: true,
         UsageStatsCards: chartStub,
         UsageTable: usageTableStub,
@@ -304,7 +306,7 @@ describe('user UsageView', () => {
     const wrapper = mountUsageView()
     await flushPromises()
 
-    expect(wrapper.find('.tab-active').text()).toBe('usage.tabs.errors')
+    expect(wrapper.get('.usage-tabs button.is-active').text()).toBe('usage.tabs.errors')
     expect(listMyErrorRequests).toHaveBeenCalled()
   })
 
@@ -336,15 +338,94 @@ describe('user UsageView', () => {
     )
   })
 
+  it('persists a page-size change and sends only one list request', async () => {
+    const wrapper = mountUsageView()
+    await flushPromises()
+    query.mockClear()
+
+    await wrapper.get('.ui-pagination__size select').setValue('50')
+    await flushPromises()
+
+    expect(query).toHaveBeenCalledTimes(1)
+    expect(query).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, page_size: 50 }),
+      expect.anything(),
+    )
+    expect(localStorage.getItem('table-page-size')).toBe('50')
+  })
+
   it('gives the token trend full width ahead of the category rankings', async () => {
     const wrapper = mountUsageView()
     await flushPromises()
 
     const chartGrid = wrapper.get('[data-testid="usage-chart-grid"]')
-    expect(chartGrid.classes()).toEqual(expect.arrayContaining(['md:grid-cols-2', 'xl:grid-cols-3']))
+    expect(chartGrid.classes()).toContain('usage-analytics-grid')
     const trend = wrapper.get('[data-testid="usage-token-trend"]')
-    expect(trend.classes()).toEqual(expect.arrayContaining(['md:col-span-2', 'xl:col-span-3']))
-    expect(chartGrid.element.firstElementChild).toBe(trend.element)
+    expect(trend.element.parentElement).toBe(chartGrid.element.firstElementChild)
+    expect(trend.element.parentElement?.classList.contains('usage-analytics-grid__trend')).toBe(true)
+  })
+
+  it('shows and retries stats failures instead of presenting zero usage as valid data', async () => {
+    getStats.mockRejectedValueOnce(new Error('stats unavailable'))
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="usage-stats-error"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="usage-endpoint-error"]').exists()).toBe(true)
+
+    getStats.mockResolvedValueOnce({
+      total_requests: 2,
+      total_input_tokens: 20,
+      total_output_tokens: 10,
+      total_cache_tokens: 0,
+      total_tokens: 30,
+      total_cost: 0.2,
+      total_actual_cost: 0.15,
+      average_duration_ms: 18,
+      endpoints: [],
+      upstream_endpoints: [],
+      endpoint_paths: [],
+    })
+    await wrapper.get('[data-testid="usage-stats-error"] button').trigger('click')
+    await flushPromises()
+
+    expect(getStats).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('[data-testid="usage-stats-error"]').exists()).toBe(false)
+  })
+
+  it('keeps model and chart failures in separate retry domains', async () => {
+    getDashboardModels.mockRejectedValueOnce(new Error('models unavailable'))
+    getDashboardSnapshotV2.mockRejectedValueOnce(new Error('charts unavailable'))
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="usage-model-error"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="usage-trend-error"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="usage-group-error"]').exists()).toBe(true)
+
+    getDashboardModels.mockResolvedValueOnce({ models: [], start_date: '', end_date: '' })
+    await wrapper.get('[data-testid="usage-model-error"] button').trigger('click')
+    await flushPromises()
+
+    expect(getDashboardModels).toHaveBeenCalledTimes(2)
+    expect(getDashboardSnapshotV2).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-testid="usage-model-error"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="usage-trend-error"]').exists()).toBe(true)
+  })
+
+  it('shows a retryable error when the usage list cannot load', async () => {
+    query.mockRejectedValueOnce(new Error('logs unavailable'))
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="usage-logs-error"]').exists()).toBe(true)
+
+    query.mockResolvedValueOnce({ items: [usageLog], total: 1, pages: 1 })
+    await wrapper.get('[data-testid="usage-logs-error"] button').trigger('click')
+    await flushPromises()
+
+    expect(query).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('[data-testid="usage-logs-error"]').exists()).toBe(false)
   })
 
   it('preserves latency in saved hidden-column preferences', async () => {

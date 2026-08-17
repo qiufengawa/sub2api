@@ -2,7 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AffiliateView from '../AffiliateView.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import { UiConfirmDialog } from '@/components/ui'
 
 const { copyToClipboard, getAffiliateDetail, transferAffiliateQuota } = vi.hoisted(() => ({
   copyToClipboard: vi.fn(),
@@ -64,7 +64,7 @@ describe('AffiliateView', () => {
     })
   })
 
-  it('keeps long values truncated in one workspace while copying the complete values', async () => {
+  it('keeps long values in a bounded workspace while copying the complete values', async () => {
     const wrapper = mount(AffiliateView, {
       global: {
         stubs: {
@@ -79,11 +79,8 @@ describe('AffiliateView', () => {
     const values = wrapper.findAll('code')
     expect(values).toHaveLength(2)
     for (const value of values) {
-      expect(value.classes()).toEqual(expect.arrayContaining([
-        'min-w-0',
-        'truncate',
-      ]))
       expect(value.attributes('title')).toBe(value.text())
+      expect(value.classes()).toContain('affiliate-value')
     }
 
     expect(wrapper.findAll('[data-testid="affiliate-workspace"]')).toHaveLength(1)
@@ -93,9 +90,7 @@ describe('AffiliateView', () => {
     )
     expect(copyButtons).toHaveLength(2)
     for (const button of copyButtons) {
-      expect(button.classes()).toEqual(expect.arrayContaining([
-        'shrink-0',
-      ]))
+      expect(button.classes()).toContain('ui-button--compact')
     }
 
     await copyButtons[0].trigger('click')
@@ -108,6 +103,63 @@ describe('AffiliateView', () => {
       `${window.location.origin}/register?aff=${encodeURIComponent(affiliateCode)}`,
       'affiliate.linkCopied',
     )
+  })
+
+  it('uses stable skeleton geometry while the first request is pending', async () => {
+    let resolveDetail!: (value: {
+      user_id: number
+      aff_code: string
+      inviter_id: null
+      aff_count: number
+      aff_quota: number
+      aff_frozen_quota: number
+      aff_history_quota: number
+      effective_rebate_rate_percent: number
+      invitees: never[]
+    }) => void
+    getAffiliateDetail.mockReturnValueOnce(new Promise((resolve) => {
+      resolveDetail = resolve
+    }))
+
+    const wrapper = mount(AffiliateView, {
+      global: { stubs: { AppLayout: { template: '<main><slot /></main>' }, Icon: true } },
+    })
+
+    expect(wrapper.find('[data-testid="affiliate-skeleton"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="affiliate-skeleton"] .ui-skeleton')).toHaveLength(5)
+
+    resolveDetail({
+      user_id: 1,
+      aff_code: affiliateCode,
+      inviter_id: null,
+      aff_count: 0,
+      aff_quota: 0,
+      aff_frozen_quota: 0,
+      aff_history_quota: 0,
+      effective_rebate_rate_percent: 10,
+      invitees: [],
+    })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="affiliate-skeleton"]').exists()).toBe(false)
+  })
+
+  it('distinguishes load failure from an empty invitee list and supports retry', async () => {
+    getAffiliateDetail.mockRejectedValueOnce(new Error('affiliate unavailable'))
+
+    const wrapper = mount(AffiliateView, {
+      global: { stubs: { AppLayout: { template: '<main><slot /></main>' }, Icon: true } },
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="affiliate-load-error"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('affiliate.invitees.empty')
+
+    await wrapper.get('[data-testid="affiliate-load-error"] button').trigger('click')
+    await flushPromises()
+
+    expect(getAffiliateDetail).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('[data-testid="affiliate-load-error"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('affiliate.invitees.empty')
   })
 
   it('requires a second confirmation before transferring rebate quota', async () => {
@@ -129,10 +181,6 @@ describe('AffiliateView', () => {
         stubs: {
           AppLayout: { template: '<main><slot /></main>' },
           Icon: true,
-          BaseDialog: {
-            props: ['show'],
-            template: '<div v-if="show"><slot /><slot name="footer" /></div>',
-          },
         },
       },
     })
@@ -144,7 +192,7 @@ describe('AffiliateView', () => {
     expect(transferButton).toBeDefined()
     await transferButton!.trigger('click')
 
-    const dialog = wrapper.findComponent(ConfirmDialog)
+    const dialog = wrapper.findComponent(UiConfirmDialog)
     expect(dialog.props('show')).toBe(true)
     expect(dialog.props('danger')).toBe(true)
     expect(dialog.props('message')).toContain('$25.00')
@@ -191,7 +239,7 @@ describe('AffiliateView', () => {
       button.text().includes('affiliate.transfer.button'),
     )
     await transferButton!.trigger('click')
-    const dialog = wrapper.findComponent(ConfirmDialog)
+    const dialog = wrapper.findComponent(UiConfirmDialog)
     dialog.vm.$emit('confirm')
     dialog.vm.$emit('confirm')
     await flushPromises()

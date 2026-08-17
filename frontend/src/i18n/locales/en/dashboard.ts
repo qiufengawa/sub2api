@@ -849,6 +849,9 @@ export default {
   profile: {
     title: 'Profile Settings',
     description: 'Manage your account information and settings',
+    loadFailed: 'Profile could not be loaded',
+    loadFailedDescription: 'Your current profile is unavailable. Retry without leaving this page.',
+    settingsLoadFailed: 'Some profile settings could not be loaded. Existing information is still shown.',
     accountBalance: 'Account Balance',
     concurrencyLimit: 'Concurrency Limit',
     rpmLimit: 'RPM Limit',

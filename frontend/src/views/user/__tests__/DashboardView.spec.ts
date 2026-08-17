@@ -95,23 +95,28 @@ const gettingStartedStub = {
   template: '<div data-test="getting-started" :data-has-key="String(hasApiKey)"></div>',
 }
 
-async function mountDashboard() {
-  const wrapper = mount(DashboardView, {
+const dashboardStubs = {
+  AppLayout: { template: '<div><slot /></div>' },
+  Icon: true,
+  RouterLink: { template: '<a><slot /></a>' },
+  UserDashboardStats: componentStub('stats'),
+  UserDashboardGettingStarted: gettingStartedStub,
+  UserDashboardCharts: componentStub('charts'),
+  UserDashboardQuickActions: componentStub('allowance'),
+  UserDashboardModelBreakdown: componentStub('breakdown'),
+  UserDashboardRecentUsage: componentStub('activity'),
+}
+
+function createDashboard() {
+  return mount(DashboardView, {
     global: {
-      stubs: {
-        AppLayout: { template: '<div><slot /></div>' },
-        LoadingSpinner: true,
-        Icon: true,
-        RouterLink: { template: '<a><slot /></a>' },
-        UserDashboardStats: componentStub('stats'),
-        UserDashboardGettingStarted: gettingStartedStub,
-        UserDashboardCharts: componentStub('charts'),
-        UserDashboardQuickActions: componentStub('allowance'),
-        UserDashboardModelBreakdown: componentStub('breakdown'),
-        UserDashboardRecentUsage: componentStub('activity'),
-      },
+      stubs: dashboardStubs,
     },
   })
+}
+
+async function mountDashboard() {
+  const wrapper = createDashboard()
   await flushPromises()
   return wrapper
 }
@@ -142,6 +147,48 @@ describe('user DashboardView stages', () => {
     expect(mocks.queryUsage).not.toHaveBeenCalled()
   })
 
+  it('reserves dashboard geometry while the core request is pending', async () => {
+    let resolveStats!: (value: ReturnType<typeof stats>) => void
+    mocks.getDashboardStats.mockReturnValueOnce(new Promise((resolve) => {
+      resolveStats = resolve
+    }))
+
+    const wrapper = createDashboard()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="dashboard-skeleton"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="dashboard-skeleton"] .ui-skeleton')).toHaveLength(6)
+
+    resolveStats(stats())
+    await flushPromises()
+    expect(wrapper.find('[data-testid="dashboard-skeleton"]').exists()).toBe(false)
+  })
+
+  it('shows a retryable core error and recovers in place', async () => {
+    mocks.getDashboardStats.mockRejectedValueOnce(new Error('dashboard unavailable'))
+    const wrapper = await mountDashboard()
+
+    expect(wrapper.find('[data-testid="dashboard-load-error"]').exists()).toBe(true)
+
+    mocks.getDashboardStats.mockResolvedValueOnce(stats())
+    await wrapper.get('[data-testid="dashboard-load-error"] button').trigger('click')
+    await flushPromises()
+
+    expect(mocks.getDashboardStats).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('[data-testid="dashboard-load-error"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="stats"]').exists()).toBe(true)
+  })
+
+  it('keeps the active dashboard visible when an analytics request fails', async () => {
+    mocks.getDashboardStats.mockResolvedValue(stats({ total_api_keys: 1, active_api_keys: 1, total_requests: 3 }))
+    mocks.getDashboardModels.mockRejectedValueOnce(new Error('models unavailable'))
+    const wrapper = await mountDashboard()
+
+    expect(wrapper.find('[data-testid="dashboard-load-warning"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="stats"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="charts"]').exists()).toBe(true)
+  })
+
   it('shows the first-request guide when a key exists without usage', async () => {
     mocks.getDashboardStats.mockResolvedValue(stats({ total_api_keys: 1, active_api_keys: 1 }))
     const wrapper = await mountDashboard()
@@ -165,10 +212,10 @@ describe('user DashboardView stages', () => {
     expect(wrapper.find('[data-test="breakdown"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="activity"]').exists()).toBe(true)
     const contentGrid = wrapper.get('[data-testid="dashboard-content-grid"]')
-    expect(contentGrid.classes()).toContain('xl:grid-cols-2')
+    expect(contentGrid.classes()).toContain('dashboard-grid')
     expect(contentGrid.element.children).toHaveLength(4)
-    expect((contentGrid.element.children[0] as HTMLElement).classList.contains('xl:col-span-2')).toBe(true)
-    expect((contentGrid.element.children[3] as HTMLElement).classList.contains('xl:col-span-2')).toBe(true)
+    expect((contentGrid.element.children[0] as HTMLElement).classList.contains('dashboard-grid__wide')).toBe(true)
+    expect((contentGrid.element.children[3] as HTMLElement).classList.contains('dashboard-grid__wide')).toBe(true)
     expect(Array.from(contentGrid.element.children).map((node) => (node as HTMLElement).dataset.test)).toEqual([
       'charts',
       'allowance',

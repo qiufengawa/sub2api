@@ -185,19 +185,8 @@ const AppLayoutStub = {
   template: '<div><slot /></div>',
 }
 
-const TablePageLayoutStub = {
-  template: `
-    <div>
-      <slot name="filters" />
-      <slot name="actions" />
-      <slot name="table" />
-      <slot name="pagination" />
-    </div>
-  `,
-}
-
 const DataTableStub = {
-  name: 'DataTable',
+  name: 'UiDataTable',
   props: ['columns', 'data'],
   emits: ['sort'],
   template: `
@@ -234,28 +223,24 @@ const DataTableStub = {
 }
 
 const SelectStub = {
-  name: 'Select',
+  name: 'UiSelect',
   props: ['modelValue', 'options'],
   emits: ['update:modelValue'],
   template: '<select :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"></select>',
 }
 
 const SearchInputStub = {
-  name: 'SearchInput',
+  name: 'UiSearchInput',
   props: ['modelValue'],
   emits: ['update:modelValue', 'search'],
   template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
 }
 
-const PaginationStub = {
-  name: 'Pagination',
-  props: ['page', 'total', 'pageSize'],
-  emits: ['update:page', 'update:pageSize'],
-  template: `
-    <div>
-      <button data-test="page-size-50" @click="$emit('update:pageSize', 50)">50</button>
-    </div>
-  `,
+const ColumnPickerStub = {
+  name: 'UiColumnPicker',
+  props: ['modelValue', 'columns', 'label'],
+  emits: ['update:modelValue'],
+  template: '<div data-test="column-picker" />',
 }
 
 const IconStub = {
@@ -263,12 +248,12 @@ const IconStub = {
   template: '<span data-test="icon">{{ name }}</span>',
 }
 
-const BaseDialogStub = {
-  name: 'BaseDialog',
+const UiDialogStub = {
+  name: 'UiDialog',
   props: ['show', 'title'],
   emits: ['close'],
   template: `
-    <section v-if="show" data-test="base-dialog">
+    <section v-if="show" data-test="ui-dialog">
       <h2>{{ title }}</h2>
       <slot />
       <slot name="footer" />
@@ -276,16 +261,16 @@ const BaseDialogStub = {
   `,
 }
 
-const ConfirmDialogStub = {
-  name: 'ConfirmDialog',
+const UiConfirmDialogStub = {
+  name: 'UiConfirmDialog',
   props: ['show', 'title', 'message', 'confirmText', 'cancelText', 'pending'],
   emits: ['confirm', 'cancel'],
   template: `
-    <section v-if="show" data-test="confirm-dialog">
+    <section v-if="show" data-test="ui-confirm-dialog">
       <h2>{{ title }}</h2>
       <p>{{ message }}</p>
-      <button data-test="confirm-dialog-confirm" :disabled="pending" @click="$emit('confirm')">{{ confirmText }}</button>
-      <button data-test="confirm-dialog-cancel" :disabled="pending" @click="$emit('cancel')">{{ cancelText }}</button>
+      <button data-test="ui-confirm-dialog-confirm" :disabled="pending" @click="$emit('confirm')">{{ confirmText }}</button>
+      <button data-test="ui-confirm-dialog-cancel" :disabled="pending" @click="$emit('cancel')">{{ cancelText }}</button>
     </section>
   `,
 }
@@ -295,14 +280,13 @@ const mountView = async () => {
     global: {
       stubs: {
         AppLayout: AppLayoutStub,
-        TablePageLayout: TablePageLayoutStub,
-        DataTable: DataTableStub,
-        Pagination: PaginationStub,
-        BaseDialog: BaseDialogStub,
-        ConfirmDialog: ConfirmDialogStub,
+        UiDataTable: DataTableStub,
+        UiDialog: UiDialogStub,
+        UiConfirmDialog: UiConfirmDialogStub,
+        UiColumnPicker: ColumnPickerStub,
         EmptyState: true,
-        Select: SelectStub,
-        SearchInput: SearchInputStub,
+        UiSelect: SelectStub,
+        UiSearchInput: SearchInputStub,
         Icon: IconStub,
         UseKeyModal: true,
         EndpointPopover: true,
@@ -323,12 +307,12 @@ const visibleColumnKeys = (wrapper: VueWrapper) =>
 const visibleColumnMeta = (wrapper: VueWrapper): Array<{ key: string; sortable: boolean }> =>
   JSON.parse(wrapper.get('[data-test="columns-meta"]').text())
 
-const getButtonByText = (wrapper: VueWrapper, text: string) => {
-  const button = wrapper.findAll('button').find((item) => item.text().includes(text))
-  if (!button) {
-    throw new Error(`Button not found: ${text}`)
-  }
-  return button
+const setFormGroup = async (wrapper: VueWrapper, groupId: number) => {
+  const groupSelect = wrapper.findAllComponents({ name: 'UiSelect' }).find(
+    (select) => select.attributes('data-tour') === 'key-form-group'
+  )
+  expect(groupSelect).toBeDefined()
+  await groupSelect!.vm.$emit('update:modelValue', groupId)
 }
 
 describe('user KeysView column settings', () => {
@@ -390,8 +374,8 @@ describe('user KeysView column settings', () => {
   it('shows a hidden column when toggled and persists the preference', async () => {
     const wrapper = await mountView()
 
-    await wrapper.get('button[title="Column Settings"]').trigger('click')
-    await getButtonByText(wrapper, 'Rate Limit').trigger('click')
+    const picker = wrapper.getComponent({ name: 'UiColumnPicker' })
+    await picker.vm.$emit('update:modelValue', [...picker.props('modelValue'), 'rate_limit'])
     await nextTick()
 
     expect(visibleColumnKeys(wrapper)).toContain('rate_limit')
@@ -404,8 +388,8 @@ describe('user KeysView column settings', () => {
   it('shows the API key ID column when toggled', async () => {
     const wrapper = await mountView()
 
-    await wrapper.get('button[title="Column Settings"]').trigger('click')
-    await getButtonByText(wrapper, 'ID').trigger('click')
+    const picker = wrapper.getComponent({ name: 'UiColumnPicker' })
+    await picker.vm.$emit('update:modelValue', [...picker.props('modelValue'), 'id'])
     await nextTick()
 
     expect(visibleColumnKeys(wrapper)).toContain('id')
@@ -423,8 +407,8 @@ describe('user KeysView column settings', () => {
     })
     const wrapper = await mountView()
 
-    await wrapper.get('button[title="Column Settings"]').trigger('click')
-    await getButtonByText(wrapper, 'Last Used IP').trigger('click')
+    const picker = wrapper.getComponent({ name: 'UiColumnPicker' })
+    await picker.vm.$emit('update:modelValue', [...picker.props('modelValue'), 'last_used_ip'])
     await nextTick()
 
     expect(visibleColumnKeys(wrapper)).toContain('last_used_ip')
@@ -454,20 +438,20 @@ describe('user KeysView column settings', () => {
     expect(localStorage.getItem('api-key-column-settings-version')).toBe('3')
   })
 
-  it('does not include always-visible columns in the toggleable menu', async () => {
+  it('marks always-visible columns as required in the column picker', async () => {
     const wrapper = await mountView()
 
-    await wrapper.get('button[title="Column Settings"]').trigger('click')
-    await nextTick()
+    const picker = wrapper.getComponent({ name: 'UiColumnPicker' })
+    const pickerColumns = picker.props('columns') as Array<{
+      key: string
+      label: string
+      required?: boolean
+    }>
 
-    const columnMenuText = wrapper.text()
-    expect(columnMenuText).toContain('API Key')
-    expect(columnMenuText).toContain('ID')
-    expect(columnMenuText).toContain('Current Concurrency')
-    expect(columnMenuText).toContain('Rate Limit')
-    expect(columnMenuText).toContain('Last Used IP')
-    expect(columnMenuText).not.toContain('Name')
-    expect(columnMenuText).not.toContain('Actions')
+    expect(pickerColumns.find((column) => column.key === 'name')?.required).toBe(true)
+    expect(pickerColumns.find((column) => column.key === 'actions')?.required).toBe(true)
+    expect(pickerColumns.find((column) => column.key === 'id')?.required).toBe(false)
+    expect(pickerColumns.find((column) => column.key === 'rate_limit')?.required).toBe(false)
   })
 
   it('renders the current concurrency value', async () => {
@@ -489,14 +473,18 @@ describe('user KeysView column settings', () => {
     getAvailableGroups.mockResolvedValue([{ id: 42, name: 'OpenAI' }])
     const wrapper = await mountView()
 
-    await wrapper.get('[data-test="page-size-50"]').trigger('click')
+    listKeys.mockClear()
+    await wrapper.get('.ui-pagination__size select').setValue('50')
     await flushPromises()
 
-    await wrapper.findComponent({ name: 'SearchInput' }).vm.$emit('update:modelValue', 'target')
-    await wrapper.findComponent({ name: 'SearchInput' }).vm.$emit('search')
+    expect(listKeys).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem('table-page-size')).toBe('50')
+
+    await wrapper.findComponent({ name: 'UiSearchInput' }).vm.$emit('update:modelValue', 'target')
+    await wrapper.findComponent({ name: 'UiSearchInput' }).vm.$emit('search')
     await flushPromises()
 
-    const selects = wrapper.findAllComponents({ name: 'Select' })
+    const selects = wrapper.findAllComponents({ name: 'UiSelect' })
     await selects[0].vm.$emit('update:modelValue', 42)
     await flushPromises()
     await selects[1].vm.$emit('update:modelValue', 'active')
@@ -553,7 +541,7 @@ describe('user KeysView column settings', () => {
       'Subscription group preselected'
     )
     expect(
-      wrapper.findAllComponents({ name: 'Select' }).some((select) => select.props('modelValue') === group.id)
+      wrapper.findAllComponents({ name: 'UiSelect' }).some((select) => select.props('modelValue') === group.id)
     ).toBe(true)
     expect(routerReplace).toHaveBeenCalledWith({ query: { keep: 'filter' } })
 
@@ -624,13 +612,13 @@ describe('user KeysView column settings', () => {
     expect(wrapper.get('[data-testid="subscription-bind-banner"]').exists()).toBe(true)
     const bindButton = wrapper.get('[data-testid="bind-key-action"]')
     await bindButton.trigger('click')
-    expect(wrapper.get('[data-test="confirm-dialog"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="ui-confirm-dialog"]').exists()).toBe(true)
 
-    await wrapper.get('[data-test="confirm-dialog-cancel"]').trigger('click')
+    await wrapper.get('[data-test="ui-confirm-dialog-cancel"]').trigger('click')
     expect(updateKey).not.toHaveBeenCalled()
 
     await bindButton.trigger('click')
-    await wrapper.get('[data-test="confirm-dialog-confirm"]').trigger('click')
+    await wrapper.get('[data-test="ui-confirm-dialog-confirm"]').trigger('click')
     await flushPromises()
 
     expect(updateKey).toHaveBeenCalledWith(1, { group_id: group.id })
@@ -660,5 +648,95 @@ describe('user KeysView column settings', () => {
 
     expect(bindButton.attributes()).toHaveProperty('disabled')
     expect(bindButton.text()).toContain('Bound')
+  })
+
+  it('keeps the group requirement in the new dialog form', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-tour="keys-create-btn"]').trigger('click')
+    await wrapper.get('#key-form').trigger('submit')
+
+    expect(showError).toHaveBeenCalledWith('keys.groupRequired')
+    expect(createKey).not.toHaveBeenCalled()
+  })
+
+  it('validates custom keys before sending the create payload', async () => {
+    const group = createCoveredGroup()
+    getAvailableGroups.mockResolvedValue([group])
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-tour="keys-create-btn"]').trigger('click')
+    await setFormGroup(wrapper, group.id)
+    await wrapper.get('[role="switch"][aria-label="keys.customKeyLabel"]').trigger('click')
+    const customKeyInput = wrapper.get('input.ui-text-input--mono')
+    await customKeyInput.setValue('too-short')
+    await wrapper.get('#key-form').trigger('submit')
+
+    expect(showError).toHaveBeenCalledWith('keys.customKeyTooShort')
+    expect(createKey).not.toHaveBeenCalled()
+  })
+
+  it('converts quota, rate limits, and IP lists without changing the create contract', async () => {
+    const group = createCoveredGroup()
+    getAvailableGroups.mockResolvedValue([group])
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-tour="keys-create-btn"]').trigger('click')
+    await wrapper.get('input[data-tour="key-form-name"]').setValue('contract-key')
+    await setFormGroup(wrapper, group.id)
+
+    await wrapper.get('[role="switch"][aria-label="keys.ipRestriction"]').trigger('click')
+    const textareas = wrapper.findAll('textarea')
+    await textareas[0].setValue(' 203.0.113.10\n\n198.51.100.7 ')
+    await textareas[1].setValue('192.0.2.4')
+
+    const quotaField = wrapper.findAllComponents({ name: 'UiTextField' }).find(
+      (field) => field.props('description') === 'keys.quotaAmountHint'
+    )
+    expect(quotaField).toBeDefined()
+    await quotaField!.vm.$emit('update:modelValue', '12.5')
+
+    await wrapper.get('[role="switch"][aria-label="keys.rateLimitSection"]').trigger('click')
+    const rateField = wrapper.findAllComponents({ name: 'UiTextField' }).find(
+      (field) => field.props('label') === 'keys.rateLimit5h'
+    )
+    expect(rateField).toBeDefined()
+    await rateField!.vm.$emit('update:modelValue', '3.25')
+
+    await wrapper.get('#key-form').trigger('submit')
+    await flushPromises()
+
+    expect(createKey).toHaveBeenCalledWith(
+      'contract-key',
+      group.id,
+      undefined,
+      ['203.0.113.10', '198.51.100.7'],
+      ['192.0.2.4'],
+      12.5,
+      undefined,
+      { rate_limit_5h: 3.25, rate_limit_1d: 0, rate_limit_7d: 0 }
+    )
+  })
+
+  it('converts a custom expiration date to a positive create duration', async () => {
+    const group = createCoveredGroup()
+    getAvailableGroups.mockResolvedValue([group])
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-tour="keys-create-btn"]').trigger('click')
+    await wrapper.get('input[data-tour="key-form-name"]').setValue('expiring-key')
+    await setFormGroup(wrapper, group.id)
+    await wrapper.get('[role="switch"][aria-label="keys.expiration"]').trigger('click')
+
+    const target = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+    const pad = (value: number) => String(value).padStart(2, '0')
+    const localDate = `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(target.getHours())}:${pad(target.getMinutes())}`
+    await wrapper.get('input[type="datetime-local"]').setValue(localDate)
+    await wrapper.get('#key-form').trigger('submit')
+    await flushPromises()
+
+    const expiresInDays = createKey.mock.calls[0]?.[6]
+    expect(expiresInDays).toBeGreaterThanOrEqual(2)
+    expect(expiresInDays).toBeLessThanOrEqual(4)
   })
 })

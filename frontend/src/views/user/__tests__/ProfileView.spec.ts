@@ -111,4 +111,74 @@ describe('ProfileView', () => {
     await wrapper.get('[data-testid="profile-password-toggle"]').trigger('click')
     expect(wrapper.get('[data-testid="profile-password-form"]').exists()).toBe(true)
   })
+
+  it('reserves the profile layout with skeletons during a slow first load', async () => {
+    authState.user = null
+    let resolveProfile!: () => void
+    refreshUserMock.mockReturnValueOnce(new Promise<void>((resolve) => {
+      resolveProfile = resolve
+    }))
+
+    const wrapper = mount(ProfileView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Icon: true,
+        },
+      },
+    })
+
+    expect(wrapper.find('[data-testid="profile-skeleton"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="profile-skeleton"] .ui-skeleton')).toHaveLength(3)
+
+    resolveProfile()
+    await flushPromises()
+    expect(wrapper.find('[data-testid="profile-skeleton"]').exists()).toBe(false)
+  })
+
+  it('shows a retryable profile error when no user can be loaded', async () => {
+    authState.user = null
+    refreshUserMock.mockRejectedValueOnce(new Error('profile unavailable'))
+
+    const wrapper = mount(ProfileView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Icon: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="profile-load-error"]').exists()).toBe(true)
+    refreshUserMock.mockResolvedValueOnce(undefined)
+    await wrapper.get('[data-testid="profile-load-error"] button').trigger('click')
+    await flushPromises()
+    expect(refreshUserMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the profile visible and offers retry when public settings fail', async () => {
+    fetchPublicSettingsMock.mockResolvedValueOnce(null)
+
+    const wrapper = mount(ProfileView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          ProfileInfoCard: { template: '<div data-testid="profile-info-card" />' },
+          ProfileAvatarCard: true,
+          ProfileEditForm: true,
+          ProfileIdentityBindingsSection: true,
+          ProfilePasswordForm: true,
+          ProfileTotpCard: true,
+          ProfilePasskeyCard: true,
+          ProfileBillingPreferenceSection: true,
+          Icon: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="profile-info-card"]').exists()).toBe(true)
+    expect(wrapper.find('.profile-retry-banner').exists()).toBe(true)
+  })
 })

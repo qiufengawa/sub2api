@@ -1,159 +1,136 @@
 <template>
   <AppLayout>
-    <div class="space-y-3">
-      <div v-if="loading" class="flex justify-center py-12">
-        <div
-          class="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
-        ></div>
+    <AppPage density="compact">
+      <AppPageHeader
+        :title="t('affiliate.title')"
+        :description="t('affiliate.description')"
+      />
+
+      <div v-if="loading" class="affiliate-skeleton" data-testid="affiliate-skeleton">
+        <section class="affiliate-metrics">
+          <UiSkeleton v-for="index in 4" :key="index" height="96px" />
+        </section>
+        <UiSkeleton height="360px" />
       </div>
 
       <template v-else-if="detail">
-        <section class="card grid overflow-hidden sm:grid-cols-2 lg:grid-cols-4">
-          <div class="border-b border-gray-100 p-4 sm:border-r lg:border-b-0 dark:border-dark-700">
-            <p class="flex items-center gap-1.5 text-sm text-gray-500 dark:text-dark-400">
-              <Icon name="dollar" size="sm" class="text-primary-500" />
-              {{ t('affiliate.stats.rebateRate') }}
-            </p>
-            <p class="mt-2 text-2xl font-semibold text-primary-600 dark:text-primary-400">
-              {{ formattedRebateRate }}<span class="ml-0.5 text-base font-medium">%</span>
-            </p>
-            <p class="mt-1 text-xs text-gray-400 dark:text-dark-500">
-              {{ t('affiliate.stats.rebateRateHint') }}
-            </p>
-          </div>
-          <div class="border-b border-gray-100 p-4 lg:border-b-0 lg:border-r dark:border-dark-700">
-            <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.stats.invitedUsers') }}</p>
-            <p class="mt-2 text-2xl font-semibold text-blue-600 dark:text-blue-400">
-              {{ formatCount(detail.aff_count) }}
-            </p>
-          </div>
-          <div class="border-b border-gray-100 p-4 sm:border-b-0 sm:border-r dark:border-dark-700">
-            <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.stats.availableQuota') }}</p>
-            <p class="mt-2 text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
-              {{ formatCurrency(detail.aff_quota) }}
-            </p>
-          </div>
-          <div class="p-4">
-            <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.stats.totalQuota') }}</p>
-            <p class="mt-2 text-2xl font-semibold text-violet-600 dark:text-violet-400">
-              {{ formatCurrency(detail.aff_history_quota) }}
-            </p>
-            <p v-if="detail.aff_frozen_quota > 0" class="mt-1 text-xs text-amber-600 dark:text-amber-400">
-              {{ t('affiliate.stats.frozenQuota') }}: {{ formatCurrency(detail.aff_frozen_quota) }}
-            </p>
-          </div>
+        <UiLoadingOverlay :show="refreshing" :label="t('common.loading')">
+        <div v-if="loadError" class="affiliate-retry-banner">
+          <UiBanner tone="danger" :message="loadError" />
+          <UiButton density="dense" @click="loadAffiliateDetail()">{{ t('common.retry') }}</UiButton>
+        </div>
+        <section class="affiliate-metrics">
+          <UiStatMetric
+            :label="t('affiliate.stats.rebateRate')"
+            :value="formattedRebateRate"
+            unit="%"
+            :context="t('affiliate.stats.rebateRateHint')"
+          />
+          <UiStatMetric :label="t('affiliate.stats.invitedUsers')" :value="formatCount(detail.aff_count)" />
+          <UiStatMetric :label="t('affiliate.stats.availableQuota')" :value="formatCurrency(detail.aff_quota)" />
+          <UiStatMetric
+            :label="t('affiliate.stats.totalQuota')"
+            :value="formatCurrency(detail.aff_history_quota)"
+            :context="detail.aff_frozen_quota > 0 ? t('affiliate.stats.frozenQuota') + ': ' + formatCurrency(detail.aff_frozen_quota) : undefined"
+          />
         </section>
 
-        <section
-          data-testid="affiliate-workspace"
-          class="card overflow-hidden"
-        >
-          <header class="border-b border-gray-100 px-4 py-3 dark:border-dark-700">
-            <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('affiliate.title') }}</h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.description') }}</p>
-          </header>
-
-          <div class="divide-y divide-gray-100 px-4 dark:divide-dark-700">
-            <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-3 sm:grid-cols-[7rem_minmax(0,1fr)_auto]">
-              <p class="col-span-2 text-sm font-medium text-gray-700 sm:col-span-1 dark:text-gray-300">{{ t('affiliate.yourCode') }}</p>
-              <code
-                class="min-w-0 truncate text-sm font-semibold text-gray-900 dark:text-white"
-                :title="detail.aff_code"
-              >{{ detail.aff_code }}</code>
-              <button class="btn btn-secondary btn-sm shrink-0" @click="copyCode">
-                <Icon name="copy" size="sm" />
-                <span>{{ t('affiliate.copyCode') }}</span>
-              </button>
+        <section data-testid="affiliate-workspace" class="affiliate-workspace">
+          <AppSection :title="t('affiliate.yourCode')" divided>
+            <div class="affiliate-value-row">
+              <code class="affiliate-value" :title="detail.aff_code">{{ detail.aff_code }}</code>
+              <UiButton density="compact" variant="secondary" @click="copyCode">
+                <template #icon><Icon name="copy" size="sm" /></template>
+                {{ t('affiliate.copyCode') }}
+              </UiButton>
             </div>
-
-            <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-3 sm:grid-cols-[7rem_minmax(0,1fr)_auto]">
-              <p class="col-span-2 text-sm font-medium text-gray-700 sm:col-span-1 dark:text-gray-300">{{ t('affiliate.inviteLink') }}</p>
-              <code
-                class="min-w-0 truncate text-sm text-gray-700 dark:text-gray-300"
-                :title="inviteLink"
-              >{{ inviteLink }}</code>
-              <button class="btn btn-secondary btn-sm shrink-0" @click="copyInviteLink">
-                <Icon name="copy" size="sm" />
-                <span>{{ t('affiliate.copyLink') }}</span>
-              </button>
+            <div class="affiliate-value-row">
+              <code class="affiliate-value" :title="inviteLink">{{ inviteLink }}</code>
+              <UiButton density="compact" variant="secondary" @click="copyInviteLink">
+                <template #icon><Icon name="copy" size="sm" /></template>
+                {{ t('affiliate.copyLink') }}
+              </UiButton>
             </div>
-          </div>
+          </AppSection>
 
-          <section class="border-t border-gray-100 px-4 py-3 dark:border-dark-700">
-            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('affiliate.tips.title') }}</p>
-            <ol class="mt-2 space-y-1 text-sm text-gray-600 dark:text-dark-300">
-              <li>1. {{ t('affiliate.tips.line1') }}</li>
-              <li>2. {{ t('affiliate.tips.line2', { rate: `${formattedRebateRate}%` }) }}</li>
-              <li>3. {{ t('affiliate.tips.line3') }}</li>
-              <li v-if="detail.aff_frozen_quota > 0">4. {{ t('affiliate.tips.line4') }}</li>
+          <AppSection :title="t('affiliate.tips.title')" divided>
+            <ol class="affiliate-tips">
+              <li>{{ t('affiliate.tips.line1') }}</li>
+              <li>{{ t('affiliate.tips.line2', { rate: formattedRebateRate + '%' }) }}</li>
+              <li>{{ t('affiliate.tips.line3') }}</li>
+              <li v-if="detail.aff_frozen_quota > 0">{{ t('affiliate.tips.line4') }}</li>
             </ol>
-          </section>
+          </AppSection>
 
-          <section class="border-t border-gray-100 px-4 py-3 dark:border-dark-700">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div class="min-w-0">
-                <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('affiliate.transfer.title') }}</h3>
-                  <p class="text-xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{{ formatCurrency(detail.aff_quota) }}</p>
-                </div>
-                <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.transfer.description') }}</p>
-                <p v-if="detail.aff_quota <= 0" class="mt-1 text-sm text-amber-600 dark:text-amber-400">
-                  {{ t('affiliate.transfer.empty') }}
-                </p>
-              </div>
-              <button
-                class="btn btn-primary shrink-0 sm:self-center"
-                :disabled="transferring || detail.aff_quota <= 0"
-                @click="requestTransferQuota"
+          <AppSection divided>
+          <div class="affiliate-transfer">
+            <div>
+              <h2>{{ t('affiliate.transfer.title') }}</h2>
+              <p>{{ t('affiliate.transfer.description') }}</p>
+              <UiBadge v-if="detail.aff_quota <= 0" :label="t('affiliate.transfer.empty')" tone="warning" />
+            </div>
+            <UiButton
+              variant="primary"
+              density="compact"
+              :disabled="transferring || detail.aff_quota <= 0"
+              :loading="transferring"
+              @click="requestTransferQuota"
+            >
+              <template v-if="!transferring" #icon><Icon name="dollar" size="sm" /></template>
+              {{ transferring ? t('affiliate.transfer.transferring') : t('affiliate.transfer.button') }}
+            </UiButton>
+          </div>
+          </AppSection>
+
+          <AppSection :title="t('affiliate.invitees.title')">
+            <UiEmptyState
+              v-if="detail.invitees.length === 0"
+              :title="t('affiliate.invitees.empty')"
+              icon="users"
+            />
+            <UiMobileTableScroller v-else min-width="560px" :label="t('affiliate.invitees.title')">
+              <UiDataTable
+                :columns="inviteeColumns"
+                :data="detail.invitees"
+                mobile-table
+                :aria-label="t('affiliate.invitees.title')"
               >
-                <Icon v-if="transferring" name="refresh" size="sm" class="animate-spin" />
-                <Icon v-else name="dollar" size="sm" />
-                <span>{{ transferring ? t('affiliate.transfer.transferring') : t('affiliate.transfer.button') }}</span>
-              </button>
-            </div>
-          </section>
-
-          <section class="border-t border-gray-100 px-4 py-3 dark:border-dark-700">
-            <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('affiliate.invitees.title') }}</h3>
-            <div v-if="detail.invitees.length === 0" class="mt-3 rounded-[4px] border border-dashed border-gray-300 p-5 text-center text-sm text-gray-500 dark:border-dark-700 dark:text-dark-400">
-              {{ t('affiliate.invitees.empty') }}
-            </div>
-            <div v-else class="mt-3 overflow-x-auto">
-              <table class="w-full min-w-[560px] text-left text-sm">
-              <thead>
-                <tr class="border-b border-gray-200 text-gray-500 dark:border-dark-700 dark:text-dark-400">
-                  <th class="px-3 py-2 font-medium">{{ t('affiliate.invitees.columns.email') }}</th>
-                  <th class="px-3 py-2 font-medium">{{ t('affiliate.invitees.columns.username') }}</th>
-                  <th class="px-3 py-2 font-medium text-right">{{ t('affiliate.invitees.columns.rebate') }}</th>
-                  <th class="px-3 py-2 font-medium">{{ t('affiliate.invitees.columns.joinedAt') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="item in detail.invitees"
-                  :key="item.user_id"
-                  class="border-b border-gray-100 last:border-b-0 dark:border-dark-800"
-                >
-                  <td class="px-3 py-2 text-gray-900 dark:text-white">{{ item.email || '-' }}</td>
-                  <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ item.username || '-' }}</td>
-                  <td class="px-3 py-2 text-right font-medium text-emerald-600 dark:text-emerald-400">{{ formatCurrency(item.total_rebate) }}</td>
-                  <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ formatDateTime(item.created_at) || '-' }}</td>
-                </tr>
-              </tbody>
-              </table>
-            </div>
-          </section>
+                <template #cell-email="{ row }">
+                  <span>{{ row.email || '-' }}</span>
+                </template>
+                <template #cell-username="{ row }">
+                  <span>{{ row.username || '-' }}</span>
+                </template>
+                <template #cell-total_rebate="{ row }">
+                  <span class="affiliate-number">{{ formatCurrency(row.total_rebate) }}</span>
+                </template>
+                <template #cell-created_at="{ row }">
+                  <span>{{ formatDateTime(row.created_at) || '-' }}</span>
+                </template>
+              </UiDataTable>
+            </UiMobileTableScroller>
+          </AppSection>
         </section>
+        </UiLoadingOverlay>
       </template>
-    </div>
 
-    <ConfirmDialog
+      <UiErrorState
+        v-else
+        data-testid="affiliate-load-error"
+        :title="t('affiliate.loadFailed')"
+        :description="t('common.retryLater')"
+        :retry-text="t('common.retry')"
+        @retry="loadAffiliateDetail()"
+      />
+    </AppPage>
+
+    <UiConfirmDialog
       :show="showTransferConfirm"
       :title="t('affiliate.transfer.confirmTitle')"
       :message="t('affiliate.transfer.confirmMessage', { amount: transferConfirmAmount })"
       :confirm-text="t('affiliate.transfer.confirmButton')"
       :cancel-text="t('common.cancel')"
-      :danger="true"
+      danger
       :pending="transferring"
       @confirm="transferQuota"
       @cancel="showTransferConfirm = false"
@@ -165,8 +142,24 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  AppPage,
+  AppPageHeader,
+  AppSection,
+  UiBadge,
+  UiBanner,
+  UiButton,
+  UiConfirmDialog,
+  UiDataTable,
+  UiEmptyState,
+  UiErrorState,
+  UiLoadingOverlay,
+  UiMobileTableScroller,
+  UiSkeleton,
+  UiStatMetric,
+  type Column,
+} from '@/components/ui'
 import userAPI from '@/api/user'
 import type { UserAffiliateDetail } from '@/types'
 import { useAppStore } from '@/stores/app'
@@ -181,9 +174,18 @@ const authStore = useAuthStore()
 const { copyToClipboard } = useClipboard()
 
 const loading = ref(true)
+const refreshing = ref(false)
+const loadError = ref<string | null>(null)
 const transferring = ref(false)
 const showTransferConfirm = ref(false)
 const detail = ref<UserAffiliateDetail | null>(null)
+
+const inviteeColumns = computed<Column[]>(() => [
+  { key: 'email', label: t('affiliate.invitees.columns.email') },
+  { key: 'username', label: t('affiliate.invitees.columns.username') },
+  { key: 'total_rebate', label: t('affiliate.invitees.columns.rebate') },
+  { key: 'created_at', label: t('affiliate.invitees.columns.joinedAt') },
+])
 
 const transferConfirmAmount = computed(() => formatCurrency(detail.value?.aff_quota ?? 0))
 
@@ -208,15 +210,20 @@ function formatCount(value: number): string {
 async function loadAffiliateDetail(silent = false): Promise<void> {
   if (!silent) {
     loading.value = true
+  } else {
+    refreshing.value = true
   }
+  loadError.value = null
   try {
     detail.value = await userAPI.getAffiliateDetail()
   } catch (error) {
-    appStore.showError(extractApiErrorMessage(error, t('affiliate.loadFailed')))
+    loadError.value = extractApiErrorMessage(error, t('affiliate.loadFailed'))
+    appStore.showError(loadError.value)
   } finally {
     if (!silent) {
       loading.value = false
     }
+    refreshing.value = false
   }
 }
 
@@ -257,3 +264,21 @@ onMounted(() => {
   void loadAffiliateDetail()
 })
 </script>
+
+<style scoped>
+.affiliate-skeleton { display: grid; gap: 16px; }
+.affiliate-retry-banner { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding-top: 16px; }
+.affiliate-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding-top: 16px; }
+.affiliate-workspace { display: grid; min-width: 0; gap: 0; margin-top: 8px; }
+.affiliate-value-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-width: 0; padding-top: 4px; }
+.affiliate-value { min-width: 0; overflow: hidden; color: var(--ui-text); font-family: var(--ui-font-mono); font-size: 12px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.affiliate-tips { display: grid; gap: 6px; margin: 0; padding-left: 18px; color: var(--ui-text-muted); font-size: 13px; line-height: 20px; }
+.affiliate-transfer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.affiliate-transfer > div { display: grid; min-width: 0; gap: 4px; }
+.affiliate-transfer h2, .affiliate-transfer p { margin: 0; }
+.affiliate-transfer h2 { color: var(--ui-text); font-size: 14px; font-weight: 600; line-height: 22px; }
+.affiliate-transfer p { color: var(--ui-text-muted); font-size: 12px; line-height: 18px; }
+.affiliate-number { font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) { .affiliate-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .affiliate-metrics { grid-template-columns: 1fr; } .affiliate-retry-banner { grid-template-columns: minmax(0, 1fr); } .affiliate-transfer { align-items: stretch; flex-direction: column; } .affiliate-transfer .ui-button { align-self: flex-start; } .affiliate-value-row { grid-template-columns: minmax(0, 1fr); } }
+</style>

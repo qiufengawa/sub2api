@@ -1,45 +1,46 @@
 <template>
   <AppLayout>
-    <div class="space-y-4">
-      <div v-if="loading" class="flex min-h-[420px] items-center justify-center">
-        <LoadingSpinner size="lg" />
+    <AppPage density="compact">
+      <div v-if="loading && !stats" class="dashboard-skeleton" data-testid="dashboard-skeleton">
+        <UiSkeleton height="76px" />
+        <div class="dashboard-skeleton__metrics">
+          <UiSkeleton v-for="index in 4" :key="index" height="112px" />
+        </div>
+        <UiSkeleton height="280px" />
       </div>
 
-      <template v-else-if="stats">
-        <section class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div class="min-w-0">
-            <div class="flex flex-wrap items-center gap-2">
-              <h1 class="text-xl font-semibold tracking-tight text-gray-950 dark:text-white lg:hidden">{{ t('dashboard.overview.title') }}</h1>
-              <span class="inline-flex min-h-5 items-center rounded-[3px] border px-1.5 text-[11px] font-medium" :class="headerStatusClass">
-                {{ headerStatusLabel }}
-              </span>
-            </div>
-            <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ headerDescription }}</p>
-          </div>
-          <div class="flex shrink-0 flex-wrap items-center gap-2">
-            <router-link to="/keys" class="btn btn-primary btn-sm">
-              <Icon name="plus" size="xs" :stroke-width="2" />
+      <UiLoadingOverlay v-else-if="stats" :show="refreshing" :label="t('common.loading')">
+        <div class="dashboard-content">
+        <AppPageHeader :title="t('dashboard.overview.title')" :description="headerDescription">
+          <template #status>
+            <UiBadge :tone="headerStatusTone" :label="headerStatusLabel" />
+          </template>
+          <template #actions>
+            <UiButton to="/keys" variant="primary" density="compact">
+              <template #icon><Icon name="plus" size="sm" /></template>
               {{ t('dashboard.createApiKey') }}
-            </router-link>
-            <router-link v-if="!authStore.isSimpleMode" :to="fundingPath" class="btn btn-secondary btn-sm">
-              <Icon name="gift" size="xs" />
+            </UiButton>
+            <UiButton v-if="!authStore.isSimpleMode" :to="fundingPath" variant="secondary" density="compact">
+              <template #icon><Icon name="gift" size="sm" /></template>
               {{ fundingLabel }}
-            </router-link>
-          </div>
-        </section>
+            </UiButton>
+          </template>
+        </AppPageHeader>
 
-        <section v-if="alerts.length" class="space-y-2" aria-live="polite">
-          <div
-            v-for="alert in alerts"
-            :key="alert.id"
-            class="flex flex-col gap-2 rounded-[3px] border px-3 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between"
-            :class="alert.tone === 'danger' ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-900/20 dark:text-red-200' : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-900/20 dark:text-amber-200'"
-          >
-            <div class="flex items-start gap-2">
-              <Icon :name="alert.tone === 'danger' ? 'exclamationCircle' : 'exclamationTriangle'" size="sm" class="mt-0.5 shrink-0" />
-              <span>{{ alert.message }}</span>
-            </div>
-            <router-link :to="alert.to" class="shrink-0 text-xs font-semibold underline-offset-2 hover:underline">{{ alert.action }}</router-link>
+        <div
+          v-if="coreError || chartsError || recentError || optionalError"
+          class="dashboard-retry-banner"
+          data-testid="dashboard-load-warning"
+        >
+          <UiBanner tone="danger" :message="t('dashboard.overview.loadFailedDescription')" />
+          <UiButton density="dense" @click="refreshAll">{{ t('dashboard.overview.retry') }}</UiButton>
+        </div>
+
+        <section v-if="alerts.length" class="dashboard-alerts" aria-live="polite">
+          <div v-for="alert in alerts" :key="alert.id" class="dashboard-alert" :class="'dashboard-alert--' + alert.tone">
+            <Icon :name="alert.tone === 'danger' ? 'exclamationCircle' : 'exclamationTriangle'" size="sm" aria-hidden="true" />
+            <span>{{ alert.message }}</span>
+            <UiButton :to="alert.to" variant="quiet" density="mini">{{ alert.action }}</UiButton>
           </div>
         </section>
 
@@ -67,7 +68,7 @@
           :doc-url="appStore.docUrl"
         />
 
-        <div v-if="dashboardStage === 'ready'" class="grid grid-cols-1 items-stretch gap-4">
+        <div v-if="dashboardStage === 'ready'" class="dashboard-grid dashboard-grid--ready">
           <UserDashboardCharts
             v-model:range-days="rangeDays"
             :loading="false"
@@ -79,12 +80,9 @@
         </div>
 
         <template v-else-if="dashboardStage === 'active'">
-          <div
-            data-testid="dashboard-content-grid"
-            class="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2"
-          >
+          <div data-testid="dashboard-content-grid" class="dashboard-grid">
             <UserDashboardCharts
-              class="xl:col-span-2"
+              class="dashboard-grid__wide"
               v-model:range-days="rangeDays"
               :loading="loadingCharts"
               :trend="trendData"
@@ -99,7 +97,7 @@
             />
             <UserDashboardModelBreakdown :models="modelStats" :loading="loadingCharts" />
             <UserDashboardRecentUsage
-              class="xl:col-span-2"
+              class="dashboard-grid__wide"
               :data="recentUsage"
               :errors="errorViewEnabled ? recentErrors : []"
               :show-errors="errorViewEnabled"
@@ -107,15 +105,18 @@
             />
           </div>
         </template>
-      </template>
+        </div>
+      </UiLoadingOverlay>
 
-      <section v-else class="card flex min-h-[360px] flex-col items-center justify-center p-6 text-center">
-        <Icon name="exclamationCircle" size="lg" class="text-red-500" />
-        <h2 class="mt-3 text-base font-semibold text-gray-900 dark:text-white">{{ t('dashboard.overview.loadFailedTitle') }}</h2>
-        <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('dashboard.overview.loadFailedDescription') }}</p>
-        <button type="button" class="btn btn-secondary btn-sm mt-4" @click="refreshAll">{{ t('dashboard.overview.retry') }}</button>
-      </section>
-    </div>
+      <UiErrorState
+        v-else
+        data-testid="dashboard-load-error"
+        :title="t('dashboard.overview.loadFailedTitle')"
+        :description="t('dashboard.overview.loadFailedDescription')"
+        :retry-text="t('dashboard.overview.retry')"
+        @retry="refreshAll"
+      />
+    </AppPage>
   </AppLayout>
 </template>
 
@@ -128,8 +129,17 @@ import { usageAPI, type UserDashboardStats as UserStatsType } from '@/api/usage'
 import subscriptionsAPI, { type SubscriptionSummary } from '@/api/subscriptions'
 import { getMyPlatformQuotas } from '@/api/user'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  AppPage,
+  AppPageHeader,
+  UiBadge,
+  UiBanner,
+  UiButton,
+  UiErrorState,
+  UiLoadingOverlay,
+  UiSkeleton,
+} from '@/components/ui'
 import UserDashboardStats from '@/components/user/dashboard/UserDashboardStats.vue'
 import UserDashboardCharts from '@/components/user/dashboard/UserDashboardCharts.vue'
 import UserDashboardRecentUsage from '@/components/user/dashboard/UserDashboardRecentUsage.vue'
@@ -145,6 +155,7 @@ const appStore = useAppStore()
 const user = computed(() => authStore.user)
 const stats = ref<UserStatsType | null>(null)
 const loading = ref(false)
+const refreshing = ref(false)
 const loadingUsage = ref(false)
 const loadingCharts = ref(false)
 const trendData = ref<TrendDataPoint[]>([])
@@ -157,6 +168,11 @@ const subscriptionSummary = ref<SubscriptionSummary | null>(null)
 const rangeDays = ref<7 | 30>(7)
 const yesterdayCost = ref(0)
 const optionalDataLoaded = ref(false)
+const coreError = ref(false)
+const chartsError = ref(false)
+const recentError = ref(false)
+const optionalError = ref(false)
+let chartRequestSequence = 0
 
 const errorViewEnabled = computed(() => appStore.cachedPublicSettings?.allow_user_view_error_requests ?? false)
 const dashboardStage = computed<'new' | 'ready' | 'active'>(() => {
@@ -205,11 +221,7 @@ const headerStatus = computed<'healthy' | 'warning' | 'danger'>(() => {
   return 'healthy'
 })
 const headerStatusLabel = computed(() => t(`dashboard.overview.status.${headerStatus.value}`))
-const headerStatusClass = computed(() => ({
-  healthy: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/25 dark:text-emerald-300',
-  warning: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-900/25 dark:text-amber-300',
-  danger: 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/25 dark:text-red-300',
-}[headerStatus.value]))
+const headerStatusTone = computed<'success' | 'warning' | 'danger'>(() => headerStatus.value === 'healthy' ? 'success' : headerStatus.value)
 const headerDescription = computed(() => {
   if (user.value?.status === 'disabled') return t('dashboard.overview.headerAccountDisabled')
   if (dashboardStage.value === 'new') return t('dashboard.overview.headerNoKey')
@@ -251,47 +263,53 @@ function dateRange(days: number, offsetDays = 0) {
   return { start: formatDateLocalInput(start), end: formatDateLocalInput(end) }
 }
 
-async function loadCore() {
+async function loadCore(): Promise<boolean> {
+  coreError.value = false
   try {
     await Promise.all([authStore.refreshUser(), appStore.fetchPublicSettings()])
     stats.value = await usageAPI.getDashboardStats()
+    return true
   } catch (error) {
     console.error('[UserDashboard] failed to load core data:', error)
-    stats.value = null
+    coreError.value = true
+    return false
   }
 }
 
 async function loadCharts() {
+  const sequence = ++chartRequestSequence
   const { start, end } = dateRange(rangeDays.value)
   const previous = dateRange(rangeDays.value, rangeDays.value)
   loadingCharts.value = true
+  chartsError.value = false
   try {
     const [trend, models, previousTrend] = await Promise.all([
       usageAPI.getDashboardTrend({ start_date: start, end_date: end, granularity: 'day' }),
       usageAPI.getDashboardModels({ start_date: start, end_date: end }),
       usageAPI.getDashboardTrend({ start_date: previous.start, end_date: previous.end, granularity: 'day' }),
     ])
+    if (sequence !== chartRequestSequence) return
     trendData.value = trend.trend ?? []
     modelStats.value = models.models ?? []
     previousTrendData.value = previousTrend.trend ?? []
   } catch (error) {
+    if (sequence !== chartRequestSequence) return
     console.error('[UserDashboard] failed to load charts:', error)
-    trendData.value = []
-    modelStats.value = []
-    previousTrendData.value = []
+    chartsError.value = true
   } finally {
-    loadingCharts.value = false
+    if (sequence === chartRequestSequence) loadingCharts.value = false
   }
 }
 
 async function loadRecent() {
   loadingUsage.value = true
+  recentError.value = false
   try {
     const response = await usageAPI.query({ page: 1, page_size: 8, sort_by: 'created_at', sort_order: 'desc' })
     recentUsage.value = response.items
   } catch (error) {
     console.error('[UserDashboard] failed to load recent usage:', error)
-    recentUsage.value = []
+    recentError.value = true
   } finally {
     loadingUsage.value = false
   }
@@ -299,31 +317,33 @@ async function loadRecent() {
 
 async function loadOptionalData() {
   optionalDataLoaded.value = false
+  optionalError.value = false
   const yesterday = new Date()
   yesterday.setDate(yesterday.getDate() - 1)
   const yesterdayDate = formatDateLocalInput(yesterday)
   const tasks: Promise<void>[] = [
-    getMyPlatformQuotas().then((data) => { platformQuotas.value = data.platform_quotas ?? [] }).catch(() => { platformQuotas.value = [] }),
-    subscriptionsAPI.getSubscriptionSummary().then((data) => { subscriptionSummary.value = data }).catch(() => { subscriptionSummary.value = null }),
-    usageAPI.getDashboardTrend({ start_date: yesterdayDate, end_date: yesterdayDate, granularity: 'day' }).then((data) => { yesterdayCost.value = data.trend?.[0]?.actual_cost ?? 0 }).catch(() => { yesterdayCost.value = 0 }),
+    getMyPlatformQuotas().then((data) => { platformQuotas.value = data.platform_quotas ?? [] }),
+    subscriptionsAPI.getSubscriptionSummary().then((data) => { subscriptionSummary.value = data }),
+    usageAPI.getDashboardTrend({ start_date: yesterdayDate, end_date: yesterdayDate, granularity: 'day' }).then((data) => { yesterdayCost.value = data.trend?.[0]?.actual_cost ?? 0 }),
   ]
   if (errorViewEnabled.value) {
     const range = dateRange(2)
     tasks.push(usageAPI.listMyErrorRequests({ page: 1, page_size: 8, start_date: range.start, end_date: range.end, sort_by: 'created_at', sort_order: 'desc' })
-      .then((data) => { recentErrors.value = data.items })
-      .catch(() => { recentErrors.value = [] }))
+      .then((data) => { recentErrors.value = data.items }))
   } else {
     recentErrors.value = []
   }
-  await Promise.all(tasks)
-  optionalDataLoaded.value = true
+  const results = await Promise.allSettled(tasks)
+  optionalError.value = results.some((result) => result.status === 'rejected')
+  optionalDataLoaded.value = results[1]?.status === 'fulfilled'
 }
 
 async function refreshAll() {
-  loading.value = true
+  if (stats.value) refreshing.value = true
+  else loading.value = true
   try {
-    await loadCore()
-    if (!stats.value) return
+    const coreLoaded = await loadCore()
+    if (!coreLoaded || !stats.value) return
     if (dashboardStage.value === 'active') {
       await Promise.all([loadCharts(), loadRecent(), loadOptionalData()])
     } else {
@@ -335,6 +355,7 @@ async function refreshAll() {
     }
   } finally {
     loading.value = false
+    refreshing.value = false
   }
 }
 
@@ -343,3 +364,23 @@ watch(rangeDays, () => {
 })
 onMounted(() => { void refreshAll() })
 </script>
+
+<style scoped>
+.dashboard-content,
+.dashboard-skeleton {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+.dashboard-skeleton__metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.dashboard-retry-banner { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.dashboard-alerts { display: grid; gap: 8px; padding-top: 12px; }
+.dashboard-alert { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 9px; min-width: 0; padding: 9px 12px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); font-size: 13px; line-height: 20px; }
+.dashboard-alert--warning { border-color: color-mix(in srgb, var(--ui-warning) 25%, var(--ui-border)); color: var(--ui-warning); background: var(--ui-warning-soft); }
+.dashboard-alert--danger { border-color: color-mix(in srgb, var(--ui-danger) 25%, var(--ui-border)); color: var(--ui-danger); background: var(--ui-danger-soft); }
+.dashboard-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding-top: 16px; }
+.dashboard-grid--ready { grid-template-columns: minmax(0, 1fr); }
+.dashboard-grid__wide { grid-column: 1 / -1; }
+@media (max-width: 900px) { .dashboard-skeleton__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dashboard-grid { grid-template-columns: minmax(0, 1fr); } .dashboard-grid__wide { grid-column: auto; } }
+@media (max-width: 560px) { .dashboard-skeleton__metrics, .dashboard-retry-banner { grid-template-columns: minmax(0, 1fr); } .dashboard-alert { grid-template-columns: 16px minmax(0, 1fr); } .dashboard-alert .ui-button { grid-column: 2; justify-self: start; } }
+</style>
