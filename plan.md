@@ -19,6 +19,20 @@
 - 该证据不关闭后端未启动造成的真实 console 500、受保护页面完整矩阵、screen-reader、provider sandbox、ownership、CI/Security、版本基线和 Release/GHCR/update 门禁。
 - 继续保持唯一目标 active；禁止修改 VERSION、tag、Release、GHCR 或发布元数据，直到上述前置门禁全部关闭。
 
+### 2026-08-20 发布闭环复验
+
+- 官方 upstream 最新稳定版已更新为 `v0.1.179`；当前 HEAD 在该 tag 之后，
+  因此 `v0.1.179-qiu.2` 符合整数 Qiu revision 规则。
+- `ui/main`、`v0.1.179-qiu.2` 和 `backend/cmd/server/VERSION` 已统一到
+  `b557c7600` / `0.1.179-qiu.2`；Release workflow `32401866123`、tag CI
+  `32401866253` 和 Security Scan `32401866174` 全部成功。
+- GitHub Release、五个平台归档、`checksums.txt`、GHCR version/latest 同一
+  digest，以及旧版和当前版本的强制更新检查证据已记录在
+  `docs/frontend-rebuild/RELEASE-VERIFICATION-20260820.md`。
+- 发布闭环已关闭，但 R0-R9 的受保护页面完整浏览器矩阵、screen-reader、
+  provider sandbox、破坏性操作和最终 Code Review 仍未完成；唯一长任务继续
+  active，不得宣称总目标完成。
+
 ### 0.1 全量闭环状态机
 
 ```text
@@ -439,7 +453,7 @@ Review 必须按严重度记录：
 
 ## 17. 当前未完成清单
 
-截至 2026-08-20，静态迁移和部分真实 Chromium 基础矩阵已关闭；以下仍是发布前未闭环项：
+截至 2026-08-20，静态迁移、部分真实 Chromium 基础矩阵和发布闭环已关闭；以下仍是 R0-R9 未闭环项：
 
 - R1/R9：静态迁移、114 个公共 contract、276 个 production consumer files、1883 个 runtime references、旧兼容层和 AST 审计已完成；仅正式 `exceptions.md` 项的真实三视口/主题/reduced-motion/keyboard 与 screen-reader 复核。
 - R2：受保护 AppLayout/Auth shell 的完整 overlay、权限菜单、键盘焦点恢复、screen-reader 和 console 矩阵；基础页面三视口证据已部分复验。
@@ -448,7 +462,7 @@ Review 必须按严重度记录：
 - R5：Playground SSE/image/provider sandbox；Batch Image 并发/取消/破坏性操作；Available Channels/Monitor 完整失败矩阵；Custom Page iframe/provider sandbox/destructive；screen-reader；retry payload 的后端契约仍阻塞（item API 只有可能截断的 `prompt_preview`，缺少完整 prompt、reference images、output count、aspect ratio）。
 - R6/R7：未覆盖管理员路由（audit logs、redeem codes、payment plans、channel monitor state/history 等）的三视口/主题/keyboard/console；真实 mutation、slow/error 状态和 screen-reader。`ProxiesView` 单条/批量删除的 pending/single-flight 与失败重试上下文已关闭；已验证路由的基础证据不再重复列为 pending。
 - R8：public settings 后端成功/空/慢/失败 console-clean；剩余公共/例外路由及 admin exception routes；screen-reader/provider/OAuth。
-- 全局发布门禁：ownership clean tree、backend unit、绿色 CI/Security、upstream `0.1.178` 基线裁决、VERSION/tag/Release 六平台/checksum、GHCR/latest、旧版 updater 发现/比较/下载及新版本线上检查。
+- 全局剩余门禁：最终 ownership/Code Review 口径、受保护页面完整浏览器矩阵、screen-reader、provider sandbox、破坏性操作和未覆盖路由的 slow/error/console 证据。Release、六平台 checksum、GHCR/latest、旧版 updater 发现/比较和新版本线上检查已由 `RELEASE-VERIFICATION-20260820.md` 关闭。
 
 ## 18. 执行日志
 
@@ -1874,3 +1888,21 @@ Review 必须按严重度记录：
 - 隔离候选全量测试 `357 files / 2425 tests`、静态审计 13 tests、typecheck、lint、3103-module production build、ownership scope 和 diff-check 全部通过。
 - 本批修复后的 Prompt Audit/Proxies 定向套件共 20 tests 通过；既有测试 stderr 均为显式失败模拟或环境 warning。
 - 真实浏览器、读屏、provider sandbox、绿色远端 CI/Security、Release/GHCR/updater 证据仍未闭环。
+
+### 2026-08-20：v0.1.179-qiu.2 发布与线上更新闭环
+
+- Release workflow `32401866123` 成功；`build-frontend`、`update-version`、
+  GoReleaser 和 `sync-version-file` 均通过。同步任务确认 VERSION 已匹配，
+  未产生额外 bot commit。
+- GitHub Release `v0.1.179-qiu.2` 为非 draft/non-prerelease，
+  `releases/latest` 已返回该版本；Linux/macOS/Windows 五个平台归档和
+  `checksums.txt` 均存在，下载文件 SHA-256 全部通过。
+- GHCR `0.1.179-qiu.2` 与 `latest` 共同指向
+  `sha256:3c0b54a1c497254107d75a95e7f729b544cfb37be93c4d939dd0b918e7866fbc`，
+  amd64/arm64 子 manifest 一致。
+- 实际 `GitHubReleaseClient` 强制请求验证：旧版 `0.1.179-qiu.1` 发现
+  `0.1.179-qiu.2` 且 `has_update=true`；当前版返回 `has_update=false`。
+  完整命令、输出和资产哈希见 `docs/frontend-rebuild/RELEASE-VERIFICATION-20260820.md`。
+- 该批关闭版本/Release/GHCR/checksum/updater 门禁，但不关闭 R0-R9 剩余的
+  受保护浏览器、screen-reader、provider sandbox、破坏性操作和最终 Code Review；
+  唯一长任务继续 active。
