@@ -15,7 +15,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1163,7 +1162,7 @@ func upstreamBillingRateSortExpression(extra string) string {
 		" THEN " + peakMultiplierValue + " ELSE 1 END ELSE NULL END"
 	legacySnapshot := "jsonb_typeof(" + resolvedJSON + ") IS NULL AND jsonb_typeof(" + peakEnabledJSON + ") IS NULL"
 
-	return "CASE WHEN " + status + " IN ('ok', 'failed') AND (jsonb_typeof(" + resolvedJSON + ") = 'number' OR jsonb_typeof(" + effectiveJSON + ") = 'number') THEN CASE WHEN jsonb_typeof(" +
+	return "CASE WHEN " + status + " IN ('ok', 'failed', 'unsupported') AND (jsonb_typeof(" + resolvedJSON + ") = 'number' OR jsonb_typeof(" + effectiveJSON + ") = 'number') THEN CASE WHEN jsonb_typeof(" +
 		resolvedJSON + ") = 'number' AND jsonb_typeof(" + peakEnabledJSON + ") = 'boolean' THEN CASE WHEN " + billingScope + " = 'token' THEN " + dynamicRate + " ELSE NULL END WHEN " + legacySnapshot +
 		" AND jsonb_typeof(" + effectiveJSON + ") = 'number' THEN (" + effective + ")::numeric END END"
 }
@@ -3084,6 +3083,7 @@ func (r *accountRepository) queryAccountsByGroup(ctx context.Context, groupID in
 		Order(
 			dbaccountgroup.ByPriority(),
 			dbaccountgroup.ByAccountField(dbaccount.FieldPriority, entsql.OrderDesc()),
+			dbaccountgroup.ByAccountField(dbaccount.FieldID),
 		).
 		WithAccount().
 		All(ctx)
@@ -3091,31 +3091,17 @@ func (r *accountRepository) queryAccountsByGroup(ctx context.Context, groupID in
 		return nil, err
 	}
 
-	orderedIDs := make([]int64, 0, len(groups))
-	accountMap := make(map[int64]*dbent.Account, len(groups))
+	accounts := make([]*dbent.Account, 0, len(groups))
+	seen := make(map[int64]struct{}, len(groups))
 	for _, ag := range groups {
 		if ag.Edges.Account == nil {
 			continue
 		}
-		if _, exists := accountMap[ag.AccountID]; exists {
+		if _, exists := seen[ag.AccountID]; exists {
 			continue
 		}
-		accountMap[ag.AccountID] = ag.Edges.Account
-		orderedIDs = append(orderedIDs, ag.AccountID)
-	}
-	sort.SliceStable(orderedIDs, func(i, j int) bool {
-		left, right := accountMap[orderedIDs[i]], accountMap[orderedIDs[j]]
-		if left.Priority != right.Priority {
-			return left.Priority > right.Priority
-		}
-		return left.ID < right.ID
-	})
-
-	accounts := make([]*dbent.Account, 0, len(orderedIDs))
-	for _, id := range orderedIDs {
-		if acc, ok := accountMap[id]; ok {
-			accounts = append(accounts, acc)
-		}
+		seen[ag.AccountID] = struct{}{}
+		accounts = append(accounts, ag.Edges.Account)
 	}
 
 	return r.accountsToService(ctx, accounts)

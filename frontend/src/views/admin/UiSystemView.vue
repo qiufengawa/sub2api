@@ -1,7 +1,7 @@
 <template>
   <AppPage width="wide">
     <AppPageHeader title="Qiu UI 组件系统" description="用于统一检查常用组件的形态、密度、状态、动效与响应式行为。此页面不进入正式菜单。">
-      <template #status><UiBadge label="96 components" /></template>
+      <template #status><UiBadge :label="`${componentCount} components`" /></template>
       <template #actions><UiSwitch v-model="dark" label="切换深色模式"/><UiButton density="compact" @click="toggleTheme">{{ dark ? '浅色' : '深色' }}</UiButton></template>
     </AppPageHeader>
 
@@ -74,7 +74,8 @@ const modeChoices = [{value:'auto',label:'自动'},{value:'manual',label:'手动
 const viewChoices = [{value:'list',label:'列表'},{value:'chart',label:'图表'}]
 const selectedFiles = ref<File[]>([])
 const activeTab = ref('all')
-const tabs = [{value:'all',label:'全部',count:96},{value:'form',label:'表单',count:30},{value:'data',label:'数据',count:20}]
+const componentCount = 114
+const tabs = [{value:'all',label:'全部',count:componentCount},{value:'form',label:'表单',count:30},{value:'data',label:'数据',count:20}]
 const breadcrumbs = [{label:'后台',to:'/admin/dashboard'},{label:'组件系统'}]
 const menuItems = [{key:'edit',label:'编辑',icon:'edit' as const},{key:'delete',label:'删除',icon:'trash' as const,danger:true}]
 const accordion = [{key:'usage',title:'什么时候使用表格？',content:'当用户需要扫描、排序或比较多条同构数据时使用表格。'},{key:'card',title:'什么时候使用卡片？',content:'仅用于独立重复项目或真正需要边界的工具。'}]
