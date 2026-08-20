@@ -15,6 +15,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -71,39 +72,6 @@ var schedulerNeutralExtraKeys = map[string]struct{}{
 
 const postgresParameterBatchSize = 50000
 
-const codexFingerprintSeedCanonicalPattern = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-const codexFingerprintNilSeed = "00000000-0000-0000-0000-000000000000"
-
-func codexFingerprintSeedValidSQL(extraExpr string) string {
-	value := "(" + extraExpr + " ->> 'codex_fingerprint_seed')"
-	return "(" + value + " ~ '" + codexFingerprintSeedCanonicalPattern + "' AND " + value + " <> '" + codexFingerprintNilSeed + "')"
-}
-
-func ensureCodexFingerprintSeedSQL(extraExpr string) string {
-	return "CASE WHEN platform = 'openai' AND type = 'oauth' THEN " +
-		"jsonb_set(" + extraExpr + ", '{codex_fingerprint_seed}', " +
-		"CASE WHEN " + codexFingerprintSeedValidSQL("extra") +
-		" THEN to_jsonb(extra ->> 'codex_fingerprint_seed') ELSE to_jsonb(gen_random_uuid()::text) END, true) " +
-		"ELSE " + extraExpr + " END"
-}
-
-func stripCodexFingerprintSeedFromExtraUpdate(extra map[string]any) map[string]any {
-	if extra == nil {
-		return nil
-	}
-	if _, exists := extra["codex_fingerprint_seed"]; !exists {
-		return extra
-	}
-	stripped := make(map[string]any, len(extra)-1)
-	for key, value := range extra {
-		if key == "codex_fingerprint_seed" {
-			continue
-		}
-		stripped[key] = value
-	}
-	return stripped
-}
-
 // NewAccountRepository 创建账户仓储实例。
 // 这是对外暴露的构造函数，返回接口类型以便于依赖注入。
 func NewAccountRepository(client *dbent.Client, sqlDB *sql.DB, schedulerCache service.SchedulerCache) service.AccountRepository {
@@ -122,6 +90,30 @@ func newAccountRepositoryWithSQL(client *dbent.Client, sqlq sqlExecutor, schedul
 	return &accountRepository{client: client, sql: sqlq, schedulerCache: schedulerCache}
 }
 
+func (r *accountRepository) GetAccountPrioritySemanticState(ctx context.Context) (string, string, int64, int64, error) {
+	var semantics, migrationKey string
+	var pivot, epoch int64
+	rows, err := r.sql.QueryContext(ctx, `
+		SELECT priority_semantics, migration_key, pivot, semantic_epoch
+		FROM account_priority_semantic_state
+		WHERE id = 1
+	`)
+	if err != nil {
+		return "", "", 0, 0, err
+	}
+	defer func() { _ = rows.Close() }()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return "", "", 0, 0, err
+		}
+		return "", "", 0, 0, sql.ErrNoRows
+	}
+	if err := rows.Scan(&semantics, &migrationKey, &pivot, &epoch); err != nil {
+		return "", "", 0, 0, err
+	}
+	return semantics, migrationKey, pivot, epoch, nil
+}
+
 func (r *accountRepository) Create(ctx context.Context, account *service.Account) error {
 	if err := createAccountRecord(ctx, r.client, account); err != nil {
 		return err
@@ -135,6 +127,9 @@ func (r *accountRepository) Create(ctx context.Context, account *service.Account
 func createAccountRecord(ctx context.Context, client *dbent.Client, account *service.Account) error {
 	if account == nil {
 		return service.ErrAccountNilInput
+	}
+	if err := service.ValidateAccountPriority(account.Priority); err != nil {
+		return err
 	}
 
 	builder := client.Account.Create().
@@ -515,6 +510,9 @@ func (r *accountRepository) updateLockedAccount(
 	explicitRateSyncEnabled *bool,
 	explicitRateMultiplier *float64,
 ) (*dbent.Account, error) {
+	if err := service.ValidateAccountPriority(account.Priority); err != nil {
+		return nil, err
+	}
 	extra, err := lockAndMergeAccountProbeExtra(ctx, client, account, explicitProbeEnabled, explicitRateSyncEnabled)
 	if err != nil {
 		return nil, err
@@ -1081,59 +1079,59 @@ func (r *accountRepository) ListOpsAccountsForStats(ctx context.Context, platfor
 func accountListOrder(params pagination.PaginationParams) []func(*entsql.Selector) {
 	sortBy := strings.ToLower(strings.TrimSpace(params.SortBy))
 	sortOrder := params.NormalizedSortOrder(pagination.SortOrderAsc)
+	if sortBy == "" {
+		return []func(*entsql.Selector){dbent.Desc(dbaccount.FieldPriority), dbent.Asc(dbaccount.FieldID)}
+	}
 	if sortBy == "upstream_billing_rate" {
 		direction := "ASC"
-		tieOrder := entsql.Asc
 		if sortOrder == pagination.SortOrderDesc {
 			direction = "DESC"
-			tieOrder = entsql.Desc
 		}
 		return []func(*entsql.Selector){func(s *entsql.Selector) {
 			extra := s.C(dbaccount.FieldExtra)
 			expression := upstreamBillingRateSortExpression(extra)
 			s.OrderExpr(entsql.Expr(expression + " " + direction + " NULLS LAST"))
-			s.OrderBy(tieOrder(s.C(dbaccount.FieldID)))
+			s.OrderBy(entsql.Asc(s.C(dbaccount.FieldID)))
 		}}
 	}
 
 	field := dbaccount.FieldName
-	defaultOrder := true
 	switch sortBy {
-	case "", "name":
+	case "name":
 		field = dbaccount.FieldName
 	case "id":
 		field = dbaccount.FieldID
-		defaultOrder = false
 	case "status":
 		field = dbaccount.FieldStatus
-		defaultOrder = false
 	case "schedulable":
 		field = dbaccount.FieldSchedulable
-		defaultOrder = false
 	case "priority":
 		field = dbaccount.FieldPriority
-		defaultOrder = false
 	case "rate_multiplier":
 		field = dbaccount.FieldRateMultiplier
-		defaultOrder = false
 	case "last_used_at":
 		field = dbaccount.FieldLastUsedAt
-		defaultOrder = false
 	case "expires_at":
 		field = dbaccount.FieldExpiresAt
-		defaultOrder = false
 	case "created_at":
 		field = dbaccount.FieldCreatedAt
-		defaultOrder = false
+	default:
+		field = dbaccount.FieldName
+		sortBy = "name"
 	}
 
+	fieldOrder := dbent.Asc(field)
 	if sortOrder == pagination.SortOrderDesc {
-		return []func(*entsql.Selector){dbent.Desc(field), dbent.Desc(dbaccount.FieldID)}
+		fieldOrder = dbent.Desc(field)
 	}
-	if defaultOrder {
-		return []func(*entsql.Selector){dbent.Asc(dbaccount.FieldName), dbent.Asc(dbaccount.FieldID)}
+
+	if sortBy == "priority" {
+		return []func(*entsql.Selector){fieldOrder, dbent.Asc(dbaccount.FieldID)}
 	}
-	return []func(*entsql.Selector){dbent.Asc(field), dbent.Asc(dbaccount.FieldID)}
+	if field == dbaccount.FieldID {
+		return []func(*entsql.Selector){fieldOrder}
+	}
+	return []func(*entsql.Selector){fieldOrder, dbent.Asc(dbaccount.FieldID)}
 }
 
 func upstreamBillingRateSortExpression(extra string) string {
@@ -1183,7 +1181,7 @@ func (r *accountRepository) ListByGroup(ctx context.Context, groupID int64) ([]s
 func (r *accountRepository) ListActive(ctx context.Context) ([]service.Account, error) {
 	accounts, err := r.client.Account.Query().
 		Where(dbaccount.StatusEQ(service.StatusActive)).
-		Order(dbent.Asc(dbaccount.FieldPriority)).
+		Order(dbent.Desc(dbaccount.FieldPriority), dbent.Asc(dbaccount.FieldID)).
 		All(ctx)
 	if err != nil {
 		return nil, err
@@ -1293,7 +1291,7 @@ func (r *accountRepository) ListByPlatform(ctx context.Context, platform string)
 			dbaccount.PlatformEQ(platform),
 			dbaccount.StatusEQ(service.StatusActive),
 		).
-		Order(dbent.Asc(dbaccount.FieldPriority)).
+		Order(dbent.Desc(dbaccount.FieldPriority), dbent.Asc(dbaccount.FieldID)).
 		All(ctx)
 	if err != nil {
 		return nil, err
@@ -1909,7 +1907,7 @@ func (r *accountRepository) schedulableAccountsQuery(now time.Time) *dbent.Accou
 			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
 			dbaccount.Or(dbaccount.RateLimitResetAtIsNil(), dbaccount.RateLimitResetAtLTE(now)),
 		).
-		Order(dbent.Asc(dbaccount.FieldPriority))
+		Order(dbent.Desc(dbaccount.FieldPriority), dbent.Asc(dbaccount.FieldID))
 }
 
 func (r *accountRepository) ListSchedulableByGroupID(ctx context.Context, groupID int64) ([]service.Account, error) {
@@ -1966,7 +1964,7 @@ func (r *accountRepository) ListSchedulableCapacityByGroupIDs(ctx context.Contex
 			AND (a.expires_at IS NULL OR a.expires_at > $3 OR a.auto_pause_on_expired = FALSE)
 			AND (a.overload_until IS NULL OR a.overload_until <= $3)
 			AND (a.rate_limit_reset_at IS NULL OR a.rate_limit_reset_at <= $3)
-		ORDER BY ag.group_id ASC, ag.priority ASC, a.priority ASC, a.id ASC
+		ORDER BY ag.group_id ASC, ag.priority ASC, a.priority DESC, a.id ASC
 	`, pq.Array(groupIDs), service.StatusActive, time.Now())
 	if err != nil {
 		return nil, err
@@ -2015,7 +2013,7 @@ func (r *accountRepository) ListSchedulableByPlatform(ctx context.Context, platf
 			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
 			dbaccount.Or(dbaccount.RateLimitResetAtIsNil(), dbaccount.RateLimitResetAtLTE(now)),
 		).
-		Order(dbent.Asc(dbaccount.FieldPriority)).
+		Order(dbent.Desc(dbaccount.FieldPriority), dbent.Asc(dbaccount.FieldID)).
 		All(ctx)
 	if err != nil {
 		return nil, err
@@ -2049,7 +2047,7 @@ func (r *accountRepository) ListSchedulableByPlatforms(ctx context.Context, plat
 			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
 			dbaccount.Or(dbaccount.RateLimitResetAtIsNil(), dbaccount.RateLimitResetAtLTE(now)),
 		).
-		Order(dbent.Asc(dbaccount.FieldPriority)).
+		Order(dbent.Desc(dbaccount.FieldPriority), dbent.Asc(dbaccount.FieldID)).
 		All(ctx)
 	if err != nil {
 		return nil, err
@@ -2070,7 +2068,7 @@ func (r *accountRepository) ListSchedulableUngroupedByPlatform(ctx context.Conte
 			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
 			dbaccount.Or(dbaccount.RateLimitResetAtIsNil(), dbaccount.RateLimitResetAtLTE(now)),
 		).
-		Order(dbent.Asc(dbaccount.FieldPriority)).
+		Order(dbent.Desc(dbaccount.FieldPriority), dbent.Asc(dbaccount.FieldID)).
 		All(ctx)
 	if err != nil {
 		return nil, err
@@ -2094,7 +2092,7 @@ func (r *accountRepository) ListSchedulableUngroupedByPlatforms(ctx context.Cont
 			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
 			dbaccount.Or(dbaccount.RateLimitResetAtIsNil(), dbaccount.RateLimitResetAtLTE(now)),
 		).
-		Order(dbent.Asc(dbaccount.FieldPriority)).
+		Order(dbent.Desc(dbaccount.FieldPriority), dbent.Asc(dbaccount.FieldID)).
 		All(ctx)
 	if err != nil {
 		return nil, err
@@ -2146,7 +2144,7 @@ func (r *accountRepository) ListModelAvailabilityCandidates(
 	}
 	accounts, err := r.client.Account.Query().
 		Where(preds...).
-		Order(dbent.Asc(dbaccount.FieldPriority)).
+		Order(dbent.Desc(dbaccount.FieldPriority), dbent.Asc(dbaccount.FieldID)).
 		All(ctx)
 	if err != nil {
 		return nil, err
@@ -2553,7 +2551,6 @@ func (r *accountRepository) AutoPauseExpiredAccounts(ctx context.Context, now ti
 }
 
 func (r *accountRepository) UpdateExtra(ctx context.Context, id int64, updates map[string]any) error {
-	updates = stripCodexFingerprintSeedFromExtraUpdate(updates)
 	if len(updates) == 0 {
 		return nil
 	}
@@ -2585,9 +2582,6 @@ func (r *accountRepository) UpdateExtra(ctx context.Context, id int64, updates m
 	extraExpression := "COALESCE(extra, '{}'::jsonb) || $1::jsonb"
 	if clearProbeSnapshot {
 		extraExpression = "(" + extraExpression + ") - 'upstream_billing_probe'"
-	}
-	if service.ShouldEnsureCodexFingerprintSeedForExtraUpdates(updates) {
-		extraExpression = ensureCodexFingerprintSeedSQL(extraExpression)
 	}
 	result, err := client.ExecContext(
 		ctx,
@@ -2830,7 +2824,11 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 	if len(ids) == 0 {
 		return 0, nil
 	}
-	updates.Extra = stripCodexFingerprintSeedFromExtraUpdate(updates.Extra)
+	if updates.Priority != nil {
+		if err := service.ValidateAccountPriority(*updates.Priority); err != nil {
+			return 0, err
+		}
+	}
 
 	setClauses := make([]string, 0, 8)
 	args := make([]any, 0, 8)
@@ -2918,7 +2916,7 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 				" AND "+ollamaCloudBaseURLMatchesSQL(credentialPlaceholder+"::jsonb ->> 'base_url'")+")")
 	}
 
-	if len(updates.Extra) > 0 || len(ollamaGroupIdentityChanges) > 0 || ollamaProxyIdentityChanged != "" || updates.EnsureCodexFingerprintSeed {
+	if len(updates.Extra) > 0 || len(ollamaGroupIdentityChanges) > 0 || ollamaProxyIdentityChanged != "" {
 		extraExpression := "COALESCE(extra, '{}'::jsonb)"
 		if len(updates.Extra) > 0 {
 			payload, err := json.Marshal(updates.Extra)
@@ -2956,9 +2954,6 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 				" ELSE " + extraExpression + " END"
 		} else if snapshotIdentityChanged != "" {
 			extraExpression = "CASE WHEN " + snapshotIdentityChanged + " THEN (" + extraExpression + ") - 'ollama_cloud_usage_snapshot' ELSE " + extraExpression + " END"
-		}
-		if updates.EnsureCodexFingerprintSeed {
-			extraExpression = ensureCodexFingerprintSeedSQL(extraExpression)
 		}
 		setClauses = append(setClauses, "extra = "+extraExpression)
 	}
@@ -3038,6 +3033,9 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		if updates.Schedulable != nil && !*updates.Schedulable {
 			shouldSync = true
 		}
+		if updates.Priority != nil {
+			shouldSync = true
+		}
 		if shouldSync {
 			r.syncSchedulerAccountSnapshots(baseCtx, ids)
 		}
@@ -3085,7 +3083,7 @@ func (r *accountRepository) queryAccountsByGroup(ctx context.Context, groupID in
 	groups, err := q.
 		Order(
 			dbaccountgroup.ByPriority(),
-			dbaccountgroup.ByAccountField(dbaccount.FieldPriority),
+			dbaccountgroup.ByAccountField(dbaccount.FieldPriority, entsql.OrderDesc()),
 		).
 		WithAccount().
 		All(ctx)
@@ -3105,6 +3103,13 @@ func (r *accountRepository) queryAccountsByGroup(ctx context.Context, groupID in
 		accountMap[ag.AccountID] = ag.Edges.Account
 		orderedIDs = append(orderedIDs, ag.AccountID)
 	}
+	sort.SliceStable(orderedIDs, func(i, j int) bool {
+		left, right := accountMap[orderedIDs[i]], accountMap[orderedIDs[j]]
+		if left.Priority != right.Priority {
+			return left.Priority > right.Priority
+		}
+		return left.ID < right.ID
+	})
 
 	accounts := make([]*dbent.Account, 0, len(orderedIDs))
 	for _, id := range orderedIDs {
