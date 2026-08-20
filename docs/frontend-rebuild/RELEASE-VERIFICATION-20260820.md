@@ -6,13 +6,16 @@ Verification date: 2026-08-20 UTC. All commands below were run against
 ## Version and Workflows
 
 - Release commit: `b557c76001b2de9d4a1bdee4da729dcb1c745786`.
-- `origin/ui/main` and tag `v0.1.179-qiu.2` point to that commit.
+- Release tag `v0.1.179-qiu.2` points to that commit. `origin/ui/main` now
+  contains the post-release evidence commit `67942a6ab150d0d4a58aeecd07334d701e115963`.
 - `backend/cmd/server/VERSION` is `0.1.179-qiu.2`.
 - The official upstream latest release is `v0.1.179`; the candidate is a Qiu
-  revision on that baseline (`git rev-list --left-right --count HEAD...v0.1.179`
-  returned `276 0`).
+  revision on that baseline (`git rev-list --left-right --count
+  b557c7600...v0.1.179` returned `276 0`).
 - CI run `32400923278`, tag CI run `32401866253`, and Security Scan run
   `32401866174` all completed successfully.
+- The post-release evidence commit also passed branch CI `32404413381` and
+  Security Scan `32404413281`.
 - Release run `32401866123` completed successfully:
   <https://github.com/qiufengawa/sub2api/actions/runs/32401866123>
   `build-frontend`, `update-version`, `release`, and `sync-version-file` all

@@ -23,9 +23,10 @@
 
 - 官方 upstream 最新稳定版已更新为 `v0.1.179`；当前 HEAD 在该 tag 之后，
   因此 `v0.1.179-qiu.2` 符合整数 Qiu revision 规则。
-- `ui/main`、`v0.1.179-qiu.2` 和 `backend/cmd/server/VERSION` 已统一到
-  `b557c7600` / `0.1.179-qiu.2`；Release workflow `32401866123`、tag CI
-  `32401866253` 和 Security Scan `32401866174` 全部成功。
+- Release tag `v0.1.179-qiu.2` 和 `backend/cmd/server/VERSION` 已统一到
+  `b557c7600` / `0.1.179-qiu.2`；随后推送的证据提交为
+  `67942a6ab`。Release workflow `32401866123`、tag CI `32401866253` 和
+  Security Scan `32401866174` 全部成功。
 - GitHub Release、五个平台归档、`checksums.txt`、GHCR version/latest 同一
   digest，以及旧版和当前版本的强制更新检查证据已记录在
   `docs/frontend-rebuild/RELEASE-VERIFICATION-20260820.md`。
