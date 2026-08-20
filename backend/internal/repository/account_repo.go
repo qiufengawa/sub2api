@@ -1095,7 +1095,7 @@ func accountListOrder(params pagination.PaginationParams) []func(*entsql.Selecto
 		}}
 	}
 
-	field := dbaccount.FieldName
+	var field string
 	switch sortBy {
 	case "name":
 		field = dbaccount.FieldName

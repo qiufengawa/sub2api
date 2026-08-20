@@ -82,6 +82,7 @@ func grokPreviousResponseSessionSeed(body []byte) string {
 	return "grok-prev-resp:" + id
 }
 
+//nolint:unused // retained for legacy Grok sticky-session compatibility.
 func grokStickyAffinitySeed(sessionID string, body []byte) string {
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" {
@@ -640,6 +641,8 @@ func (s *OpenAIGatewayService) withOpenAIQuotaAutoPauseContext(ctx context.Conte
 // prioritizeOpenAICompactAccounts re-orders a slice so that accounts with known
 // compact support are tried first, followed by unknown, then explicitly unsupported.
 // The relative order within each tier is preserved.
+//
+//nolint:unused // retained for legacy scheduler compatibility.
 func prioritizeOpenAICompactAccounts(accounts []*Account) []*Account {
 	if len(accounts) == 0 {
 		return nil

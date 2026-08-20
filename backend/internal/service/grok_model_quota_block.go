@@ -88,6 +88,8 @@ func storeGrokModelQuotaBlock(accountID int64, model string, until, now time.Tim
 }
 
 // isGrokModelQuotaBlocked reports whether this account cannot serve model now.
+//
+//nolint:unused // retained for the optional Grok quota overlay.
 func isGrokModelQuotaBlocked(accountID int64, model string, now time.Time) bool {
 	model = strings.TrimSpace(model)
 	if accountID <= 0 || model == "" {
@@ -107,6 +109,7 @@ func isGrokModelQuotaBlocked(accountID int64, model string, now time.Time) bool 
 	return true
 }
 
+//nolint:unused // retained for the optional Grok quota overlay.
 func filterGrokModelQuotaBlockedAccounts(accounts []Account, model string, now time.Time) []Account {
 	if len(accounts) == 0 || strings.TrimSpace(model) == "" {
 		return accounts

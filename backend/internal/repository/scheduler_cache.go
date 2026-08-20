@@ -535,6 +535,8 @@ func (c *schedulerCache) writeSnapshotVersionAndReturnAccountIDsAtSemanticEpoch(
 
 // Kept for focused cache tests and legacy internal callers; production
 // snapshot publication always passes the epoch captured in its write token.
+//
+//nolint:unused // retained for focused cache tests and legacy callers.
 func (c *schedulerCache) writeSnapshotVersionAndReturnAccountIDs(ctx context.Context, bucket service.SchedulerBucket, version string, accounts []service.Account) ([]int64, error) {
 	epoch, err := c.CapturePrioritySemanticWriteEpoch(ctx)
 	if err != nil {
@@ -1001,6 +1003,7 @@ func schedulerGroupLifecycleLockKey(groupID int64) string {
 	return schedulerGroupLifecycleLockPrefix + strconv.FormatInt(groupID, 10)
 }
 
+//nolint:unused // retained for legacy snapshot-key compatibility.
 func schedulerSnapshotKey(bucket service.SchedulerBucket, version string) string {
 	return fmt.Sprintf("%s%d:%s:%s:v%s", schedulerSnapshotPrefix, bucket.GroupID, bucket.Platform, bucket.Mode, version)
 }
@@ -1069,6 +1072,7 @@ func decodeCachedAccount(val any) (*service.Account, error) {
 	return &account, nil
 }
 
+//nolint:unused // retained for focused cache tests and legacy callers.
 func (c *schedulerCache) writeAccountIDs(ctx context.Context, accounts []service.Account) ([]int64, error) {
 	epoch, err := c.CapturePrioritySemanticWriteEpoch(ctx)
 	if err != nil {

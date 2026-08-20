@@ -1447,6 +1447,7 @@ func (s *defaultOpenAIAccountScheduler) consumeOpenAISelectionDBRecheck(budget *
 	return budget.recordRecheck()
 }
 
+//nolint:unused // retained for legacy scheduler fallback compatibility.
 func (s *defaultOpenAIAccountScheduler) tryFallbackToWeightedSticky(
 	ctx context.Context,
 	req OpenAIAccountScheduleRequest,
@@ -2565,6 +2566,7 @@ func accountSupportsOpenAICapabilities(account *Account, requiredCapability Open
 		account.SupportsOpenAIImageCapability(requiredImageCapability)
 }
 
+//nolint:unused // retained for legacy scheduler fallback compatibility.
 func cloneExcludedAccountIDs(excludedIDs map[int64]struct{}) map[int64]struct{} {
 	if len(excludedIDs) == 0 {
 		return nil

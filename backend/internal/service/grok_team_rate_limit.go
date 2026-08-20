@@ -89,6 +89,8 @@ func markGrokTeamModelRateLimit(account *Account, model string, until time.Time)
 
 // isGrokTeamModelRateLimited reports whether the account's team is currently
 // blocked for the requested model.
+//
+//nolint:unused // retained for the optional Grok team rate-limit overlay.
 func isGrokTeamModelRateLimited(account *Account, model string, now time.Time) bool {
 	if account == nil || !account.IsGrokOAuth() {
 		return false
@@ -114,6 +116,8 @@ func isGrokTeamModelRateLimited(account *Account, model string, now time.Time) b
 
 // filterGrokTeamModelRateLimitedAccounts drops candidates whose team is under a
 // model-scoped rate-limit cool. Accounts without team_id pass through.
+//
+//nolint:unused // retained for the optional Grok team rate-limit overlay.
 func filterGrokTeamModelRateLimitedAccounts(accounts []Account, model string, now time.Time) []Account {
 	if len(accounts) == 0 || strings.TrimSpace(model) == "" {
 		return accounts

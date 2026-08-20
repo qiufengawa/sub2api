@@ -52,6 +52,7 @@ func accountPriorityFactor(priority, minPriority, maxPriority int) float64 {
 	return float64(priority-minPriority) / float64(maxPriority-minPriority)
 }
 
+//nolint:unused // retained for compatibility with older scheduler callers.
 func filterAccountsByMaxPriority(accounts []*Account) []*Account {
 	if len(accounts) == 0 {
 		return nil

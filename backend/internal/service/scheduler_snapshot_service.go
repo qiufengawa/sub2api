@@ -1198,6 +1198,7 @@ func (s *SchedulerSnapshotService) triggerFullRebuildWithPolicy(reason string, s
 	})
 }
 
+//nolint:unused // retained for explicit administrative rebuild hooks.
 func (s *SchedulerSnapshotService) rebuildFullSnapshot(ctx context.Context, reason string) error {
 	return s.rebuildFullSnapshotWithPolicy(ctx, reason, false)
 }

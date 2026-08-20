@@ -1918,6 +1918,8 @@ func shuffleWithinPriority(accounts []*Account) {
 }
 
 // selectAccountForModelWithPlatform 选择单平台账户（完全隔离）
+//
+//nolint:unused // retained for legacy scheduler callers.
 func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, platform string) (*Account, error) {
 	return s.selectAccountForModelWithPlatformWithFailoverState(ctx, groupID, sessionHash, requestedModel, newOpenAIAccountFailoverStateFromLegacy(excludedIDs), platform)
 }
@@ -2158,6 +2160,8 @@ func (s *GatewayService) selectAccountForModelWithPlatformWithFailoverState(ctx 
 
 // selectAccountWithMixedScheduling 选择账户（支持混合调度）
 // 查询原生平台账户 + 启用 mixed_scheduling 的 antigravity 账户
+//
+//nolint:unused // retained for legacy scheduler callers.
 func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, nativePlatform string) (*Account, error) {
 	return s.selectAccountWithMixedSchedulingWithFailoverState(ctx, groupID, sessionHash, requestedModel, newOpenAIAccountFailoverStateFromLegacy(excludedIDs), nativePlatform)
 }
