@@ -1,4 +1,4 @@
-<template><UiFormField :for-id="resolvedId" :label="label" :description="description" :error="error" :required="required"><template v-if="$slots.label" #label><slot name="label" /></template><template v-if="help" #help><UiFieldHelp :content="help" /></template><div class="ui-text-shell"><span v-if="$slots.prefix" class="ui-text-shell__prefix"><slot name="prefix" /></span><input v-bind="inputAttrs" :id="resolvedId" ref="input" :data-testid="testId" :data-test="dataTest" :data-tour="dataTour" :value="modelValue ?? ''" :type="type" :placeholder="placeholder" :disabled="disabled" :readonly="readonly" :required="required" :autofocus="autofocus" :autocomplete="autocomplete" :inputmode="inputmode" :maxlength="maxlength" :min="min" :max="max" :step="step" :pattern="pattern" :aria-describedby="description||error?`${resolvedId}-message`:undefined" :aria-invalid="(error||invalid)?true:undefined" class="ui-text-input ui-focus-ring" :class="[`ui-text-input--${density}`,{'ui-text-input--prefix':$slots.prefix,'ui-text-input--suffix':$slots.suffix,'ui-text-input--invalid':Boolean(error||invalid),'ui-text-input--mono':monospace,'ui-text-input--center':textAlign==='center','ui-text-input--right':textAlign==='right'}]" @input="onInput" @change="onChange" @blur="emit('blur',$event)" @focus="emit('focus',$event)" @keydown.enter="onEnter" @compositionstart="emit('compositionstart')" @compositionend="emit('compositionend')"/><span v-if="$slots.suffix" class="ui-text-shell__suffix"><slot name="suffix" /></span></div></UiFormField></template>
+<template><UiFormField :for-id="resolvedId" :label="label" :description="description" :error="error" :required="required"><template v-if="$slots.label" #label><slot name="label" /></template><template v-if="help" #help><UiFieldHelp :content="help" /></template><div class="ui-text-shell"><span v-if="$slots.prefix" class="ui-text-shell__prefix"><slot name="prefix" /></span><input v-bind="inputAttrs" :id="resolvedId" ref="input" :data-testid="testId" :data-test="dataTest" :data-tour="dataTour" :value="modelValue ?? ''" :type="type" :placeholder="placeholder" :disabled="disabled" :readonly="readonly" :required="required" :autofocus="autofocus" :autocomplete="autocomplete" :inputmode="inputmode" :maxlength="maxlength" :min="min" :max="max" :step="step" :pattern="pattern" :aria-describedby="description||error?`${resolvedId}-message`:undefined" :aria-invalid="(error||invalid)?true:undefined" class="ui-text-input ui-focus-ring" :class="[`ui-text-input--${density}`,{'ui-text-input--prefix':$slots.prefix,'ui-text-input--suffix':$slots.suffix,'ui-text-input--invalid':Boolean(error||invalid),'ui-text-input--mono':monospace,'ui-text-input--center':textAlign==='center','ui-text-input--right':textAlign==='right'}]" @input="onInput" @change="onChange" @blur="emit('blur',$event)" @focus="emit('focus',$event)" @keydown="onKeydown" @paste="onPaste" @compositionstart="emit('compositionstart')" @compositionend="emit('compositionend')"/><span v-if="$slots.suffix" class="ui-text-shell__suffix"><slot name="suffix" /></span></div></UiFormField></template>
 <script setup lang="ts">
 
 import {ref} from 'vue';
@@ -40,6 +40,8 @@ input:[Event];
 change:[string];
 blur:[FocusEvent];
 focus:[FocusEvent];
+keydown:[KeyboardEvent];
+paste:[ClipboardEvent];
 enter:[KeyboardEvent];
 compositionstart:[];
 compositionend:[]}>();
@@ -52,6 +54,8 @@ function normalizeValue(value:string):string|number{
 }
 function onInput(e:Event){emit('update:modelValue',normalizeValue((e.target as HTMLInputElement).value) as string);emit('input',e)}defineExpose({focus:()=>input.value?.focus(),select:()=>input.value?.select()})
 function onChange(e:Event){emit('change',normalizeValue((e.target as HTMLInputElement).value) as string)}
+function onKeydown(e:KeyboardEvent){emit('keydown',e);if(e.key?.toLowerCase()==='enter')onEnter(e)}
+function onPaste(e:ClipboardEvent){emit('paste',e)}
 function onEnter(e:KeyboardEvent){if(props.preventEnterDefault)e.preventDefault();emit('enter',e)}
 
 </script>

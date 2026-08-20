@@ -1,7 +1,7 @@
 <template>
   <div class="bg-gray-50/50 dark:bg-dark-700/30">
     <div v-if="loading" class="flex items-center justify-center py-3">
-      <LoadingSpinner />
+      <UiSpinner />
     </div>
     <div v-else-if="items.length === 0" class="py-2 text-center text-xs text-gray-400">
       {{ t('admin.dashboard.noDataAvailable') }}
@@ -40,7 +40,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { UiSpinner } from '@/components/ui'
 import type { UserBreakdownItem } from '@/types'
 
 const { t } = useI18n()

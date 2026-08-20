@@ -1,20 +1,23 @@
 <template>
   <div class="flex flex-wrap gap-2">
-    <button
+    <UiButton
       v-for="preset in GROK_BASE_URL_PRESETS"
       :key="preset.url"
       type="button"
       data-testid="grok-base-url-preset"
+      variant="quiet"
+      density="compact"
       class="rounded-lg bg-gray-100 px-3 py-1 text-xs text-gray-700 transition-colors hover:bg-primary-50 hover:text-primary-700 dark:bg-dark-600 dark:text-gray-300 dark:hover:bg-primary-900/30 dark:hover:text-primary-400"
       @click="emit('select', preset.url)"
     >
       {{ presetLabel(preset) }} ({{ displayUrl(preset.url) }})
-    </button>
+    </UiButton>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { UiButton } from '@/components/ui'
 import { GROK_BASE_URL_PRESETS, type GrokBaseUrlPreset } from './credentialsBuilder'
 
 // Grok 快捷端点：点击把预设地址填入调用方的输入框。

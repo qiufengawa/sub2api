@@ -9,7 +9,7 @@
       <small v-if="hasValue">{{ unit }}</small>
       <slot name="trend" />
     </div>
-    <UiProgressBar :value="percent" :tone="progressTone" :show-value="false" />
+    <UiProgressBar :value="percent" :tone="progressTone" :show-value="false" :aria-label="label" />
     <footer>
       <span>{{ thresholdLabel }} {{ threshold }}{{ unit }}</span>
       <span v-if="context">{{ context }}</span>

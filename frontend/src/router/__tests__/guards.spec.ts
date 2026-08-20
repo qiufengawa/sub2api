@@ -477,7 +477,7 @@ describe('路由守卫逻辑', () => {
       }
     })
 
-    it('unauthenticated: /payment/result is allowed', () => {
+    it('unauthenticated: payment recovery routes are allowed', () => {
       const authState: MockAuthState = {
         isAuthenticated: false,
         isAdmin: false,
@@ -485,8 +485,10 @@ describe('路由守卫逻辑', () => {
         backendModeEnabled: true,
         hasPendingAuthSession: false,
       }
-      const redirect = simulateGuard('/payment/result', { requiresAuth: false }, authState)
-      expect(redirect).toBeNull()
+
+      for (const path of ['/payment/result', '/payment/stripe', '/payment/stripe-popup', '/payment/airwallex']) {
+        expect(simulateGuard(path, { requiresAuth: false }, authState)).toBeNull()
+      }
     })
 
     it('unauthenticated: legal documents are allowed without widening the prefix', () => {

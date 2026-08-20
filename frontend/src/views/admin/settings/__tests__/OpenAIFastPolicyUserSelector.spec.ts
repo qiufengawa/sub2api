@@ -87,10 +87,14 @@ describe('OpenAIFastPolicyUserSelector', () => {
     await flushPromises()
 
     expect(mockSearchUsers).toHaveBeenCalledWith('a')
+    const listbox = wrapper.get('[role="listbox"]')
+    expect(listbox.attributes('aria-label')).toBe('Search users')
     const result = wrapper.findAll('button').find((button) =>
       button.text().includes('alice@example.com'),
     )
     expect(result).toBeDefined()
+    expect(result!.attributes('role')).toBe('option')
+    expect(result!.attributes('aria-selected')).toBe('false')
     await result!.trigger('click')
 
     expect(wrapper.emitted('update:modelValue')).toEqual([[[9]]])

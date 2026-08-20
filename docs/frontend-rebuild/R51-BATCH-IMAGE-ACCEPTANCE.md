@@ -50,3 +50,36 @@ The local preview database did not contain an eligible Gemini API key or batch j
 - Restored the local administrator password hash after browser verification.
 - Reset the temporary browser viewport override and returned the preview to light mode.
 - Left the existing backend and Vite preview processes running.
+
+## 2026-08-19 API-key loading boundary addendum
+
+- `loadApiKeys` now uses a single-flight promise, so opening the create dialog while the initial page load is pending does not issue a duplicate `/keys` request.
+- The request passes an `AbortSignal`; unmount invalidates the request sequence and aborts the controller. Abort-shaped failures (`AbortError`, `CanceledError`, and `ERR_CANCELED`) do not produce a user-facing error, and late responses cannot mutate page state.
+- `BatchImageGuideView.spec.ts` now covers pending-load deduplication and unmount cancellation. The focused suite is 7 tests passing.
+- This is a local async-boundary regression proof only; populated rows, eligible-key data, and the authenticated browser matrix remain subject to the existing R51 evidence and final protected-page gate.
+
+## 2026-08-19 multi-key pagination continuity addendum
+
+- The list now keeps a per-key cached prefix (`rows`, raw offset, exhausted state) within one cache generation, expands every key to the global page boundary plus one row, then performs a stable global merge before slicing the requested page.
+- Filters, page size, explicit refresh and list mutations invalidate the generation. Returning to an already loaded page reuses the cached prefixes, and child rows whose parent falls outside the current raw page remain visible as child rows instead of disappearing.
+- `BatchImageGuideView.spec.ts` now has 8 tests, including the concrete two-key/25-rows-each counterexample across three pages and a no-extra-request assertion when navigating back to a cached page. Typecheck, targeted ESLint and diff check passed.
+- The upstream contract still exposes only per-key OFFSET plus `has_more`, without a snapshot token. The frontend now guarantees continuity for a static dataset within one cache generation; strong consistency while records are inserted/deleted concurrently requires a future backend pagination contract and is not claimed here.
+
+## 2026-08-19 list failure-state addendum
+
+- API-key discovery failure and job-list failure now have separate persistent messages and a shared retry action. Neither failure is rendered as the genuine empty-job state.
+- If rows already exist, refresh failures preserve those rows and show an inline danger alert; successful retries clear only the corresponding error domain.
+- `BatchImageGuideView.spec.ts` now has 10 tests, including API-key failure/retry and job-list failure/retry. Typecheck and targeted ESLint passed. Eligible-key populated browser data and destructive-action browser verification remain pending.
+
+## 2026-08-20 retry input contract addendum
+
+- The item API exposes only `prompt_preview`; the backend DTO, persistence schema and repository have no complete prompt field. Normal new submissions are validated against the same `max_prompt_chars` limit before this preview is stored, but historical records and configuration changes do not provide a replay guarantee.
+- Failed-item retry also cannot recover reference images, output count or aspect ratio from the item API. The frontend therefore cannot claim that its current retry payload is equivalent to the original request without a backend retry endpoint or protected complete-input DTO.
+- This task does not change backend business contracts. The limitation remains an explicit follow-up boundary; existing failure discovery, aggregation/download gating and unmount race fixes remain covered by the local suites.
+
+## 2026-08-20 localization and cancel-race addendum
+
+- Detail item table headers now use localized `customId` and `prompt` keys instead of hard-coded English labels, keeping the table language and screen-reader column names aligned in both English and Chinese.
+- Cancellation captures the selected batch id and detail request sequence. A late response or error is ignored after switching jobs or closing the detail dialog, so it cannot replace the current job or emit a stale toast.
+- `BatchImageGuideView.spec.ts` now covers localized detail headers and the pending-cancel-then-switch race; the focused suite is 15 tests passing.
+- This remains component-level evidence. Populated authenticated browser cancellation, provider sandbox, complete retry input and destructive-action browser verification remain pending.

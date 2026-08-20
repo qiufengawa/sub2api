@@ -1,10 +1,11 @@
-import { onMounted, onUnmounted, nextTick } from 'vue'
+import { createVNode, onMounted, onUnmounted, nextTick, render } from 'vue'
 import { driver, type Driver, type DriveStep } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import { useAuthStore as useUserStore } from '@/stores/auth'
 import { useOnboardingStore } from '@/stores/onboarding'
 import { useI18n } from 'vue-i18n'
 import { getAdminSteps, getUserSteps } from '@/components/Guide/steps'
+import Icon from '@/components/icons/Icon.vue'
 
 export interface OnboardingOptions {
   storageKey?: string
@@ -163,8 +164,8 @@ export function useOnboardingTour(options: OnboardingOptions) {
       onPopoverRender: (popover, { config, state }) => {
         // Class name constants for easier maintenance
         const CLASS_REORGANIZED = 'reorganized'
-        const CLASS_FOOTER_LEFT = 'footer-left'
-        const CLASS_FOOTER_RIGHT = 'footer-right'
+        const CLASS_FOOTER_LEFT = 'tour-footer-left'
+        const CLASS_FOOTER_RIGHT = 'tour-footer-right'
         const CLASS_DONE_BTN = 'driver-popover-done-btn'
         const CLASS_PROGRESS_TEXT = 'driver-popover-progress-text'
         const CLASS_NEXT_BTN = 'driver-popover-next-btn'
@@ -186,10 +187,11 @@ export function useOnboardingTour(options: OnboardingOptions) {
             const hintClass = 'driver-popover-description-hint'
             if (!popover.description.querySelector(`.${hintClass}`)) {
               const hint = document.createElement('div')
-              hint.className = `${hintClass} mt-2 text-xs text-gray-500 flex items-center gap-1`
+              hint.className = `${hintClass} tour-interactive-hint`
 
               const iconSpan = document.createElement('span')
-              iconSpan.className = 'i-mdi-keyboard-return mr-1'
+              iconSpan.className = 'tour-hint-icon'
+              render(createVNode(Icon, { name: 'cornerDownLeft', size: 'xs' }), iconSpan)
 
               const textNode = document.createTextNode(
                 t('onboarding.interactiveHint', 'Press Enter or Click to continue'),
@@ -218,10 +220,10 @@ export function useOnboardingTour(options: OnboardingOptions) {
             if (progressEl) leftContainer.appendChild(progressEl)
 
             const shortcutsEl = document.createElement('div')
-            shortcutsEl.className = 'footer-shortcuts'
+            shortcutsEl.className = 'tour-footer-shortcuts'
 
             const shortcut1 = document.createElement('span')
-            shortcut1.className = 'shortcut-item'
+            shortcut1.className = 'tour-shortcut-item'
             const kbd1 = document.createElement('kbd')
             kbd1.textContent = '←'
             const kbd2 = document.createElement('kbd')
@@ -233,7 +235,7 @@ export function useOnboardingTour(options: OnboardingOptions) {
             )
 
             const shortcut2 = document.createElement('span')
-            shortcut2.className = 'shortcut-item'
+            shortcut2.className = 'tour-shortcut-item'
             const kbd3 = document.createElement('kbd')
             kbd3.textContent = 'ESC'
             shortcut2.appendChild(kbd3)

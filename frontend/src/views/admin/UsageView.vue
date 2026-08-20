@@ -24,7 +24,13 @@
             @change="loadChartData"
           />
         </AppToolbar>
-        <div class="admin-usage-chart-grid" data-testid="admin-usage-chart-grid">
+        <UiErrorState
+          v-if="analyticsError"
+          :title="t('errors.networkError')"
+          :retry-text="t('common.retry')"
+          @retry="retryAnalytics"
+        />
+        <div v-else class="admin-usage-chart-grid" data-testid="admin-usage-chart-grid">
           <TokenUsageTrend
             class="admin-usage-chart-grid__trend"
             data-testid="admin-usage-token-trend"
@@ -90,7 +96,13 @@
           </template>
         </UsageFilters>
 
-        <div v-show="activeTab === 'usage'" class="admin-usage-tab-panel">
+        <div id="admin-usage-panel-usage" role="tabpanel" aria-labelledby="admin-usage-tab-usage" tabindex="0" v-show="activeTab === 'usage'" class="admin-usage-tab-panel">
+          <UiErrorState
+            v-if="logsError"
+            :title="t('usage.failedToLoad')"
+            :retry-text="t('common.retry')"
+            @retry="loadLogs"
+          />
           <UsageTable
             flat
             mobile-table
@@ -106,7 +118,7 @@
           />
           <UiPagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" />
         </div>
-        <div v-show="activeTab === 'errors'" class="admin-usage-tab-panel">
+        <div id="admin-usage-panel-errors" role="tabpanel" aria-labelledby="admin-usage-tab-errors" tabindex="0" v-show="activeTab === 'errors'" class="admin-usage-tab-panel">
           <OpsErrorLogTable
             flat
             :rows="errRows" :total="errTotal" :loading="errLoading"
@@ -121,8 +133,9 @@
             @ipGeoBatchFailed="handleIpGeoBatchFailed" />
         </div>
         <!-- 懒挂载：首次切到该 tab 才请求排行数据，之后随筛选自动刷新 -->
-        <div v-if="rankingMounted" v-show="activeTab === 'ranking'" class="admin-usage-tab-panel">
+        <div id="admin-usage-panel-ranking" role="tabpanel" aria-labelledby="admin-usage-tab-ranking" tabindex="0" v-show="activeTab === 'ranking'" class="admin-usage-tab-panel">
           <UserTokenRanking
+            v-if="rankingMounted"
             ref="rankingRef"
             :start-date="startDate"
             :end-date="endDate"
@@ -162,7 +175,7 @@ import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { formatReasoningEffort } from '@/utils/format'
 import { resolveUsageRequestType, requestTypeToLegacyStream } from '@/utils/usageRequestType'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import { AppPage, AppPageHeader, AppSection, AppToolbar, UiColumnPicker, UiDateRangePicker, UiFormField, UiPagination, UiSelect, UiTabs } from '@/components/ui'
+import { AppPage, AppPageHeader, AppSection, AppToolbar, UiColumnPicker, UiDateRangePicker, UiErrorState, UiFormField, UiPagination, UiSelect, UiTabs } from '@/components/ui'
 import UsageStatsCards from '@/components/admin/usage/UsageStatsCards.vue'; import UsageFilters from '@/components/admin/usage/UsageFilters.vue'
 import UsageTable from '@/components/admin/usage/UsageTable.vue'; import UsageExportProgress from '@/components/admin/usage/UsageExportProgress.vue'
 import UserTokenRanking from '@/components/admin/usage/UserTokenRanking.vue'
@@ -182,8 +195,8 @@ type DistributionMetric = 'tokens' | 'actual_cost'
 type EndpointSource = 'inbound' | 'upstream' | 'path'
 type ModelDistributionSource = 'requested' | 'upstream' | 'mapping'
 const route = useRoute()
-const usageStats = ref<AdminUsageStatsResponse | null>(null); const usageLogs = ref<AdminUsageLog[]>([]); const loading = ref(false); const exporting = ref(false)
-const trendData = ref<TrendDataPoint[]>([]); const requestedModelStats = ref<ModelStat[]>([]); const upstreamModelStats = ref<ModelStat[]>([]); const mappingModelStats = ref<ModelStat[]>([]); const groupStats = ref<GroupStat[]>([]); const chartsLoading = ref(false); const modelStatsLoading = ref(false); const granularity = ref<'day' | 'hour'>('hour')
+const usageStats = ref<AdminUsageStatsResponse | null>(null); const usageLogs = ref<AdminUsageLog[]>([]); const loading = ref(false); const logsError = ref(false); const exporting = ref(false)
+const trendData = ref<TrendDataPoint[]>([]); const requestedModelStats = ref<ModelStat[]>([]); const upstreamModelStats = ref<ModelStat[]>([]); const mappingModelStats = ref<ModelStat[]>([]); const groupStats = ref<GroupStat[]>([]); const chartsLoading = ref(false); const chartsError = ref(false); const modelStatsLoading = ref(false); const modelStatsError = ref(false); const statsError = ref(false); const granularity = ref<'day' | 'hour'>('hour')
 const modelDistributionMetric = ref<DistributionMetric>('tokens')
 const modelDistributionSource = ref<ModelDistributionSource>('requested')
 const loadedModelSources = reactive<Record<ModelDistributionSource, boolean>>({
@@ -198,6 +211,7 @@ const inboundEndpointStats = ref<EndpointStat[]>([])
 const upstreamEndpointStats = ref<EndpointStat[]>([])
 const endpointPathStats = ref<EndpointStat[]>([])
 const endpointStatsLoading = ref(false)
+const analyticsError = computed(() => statsError.value || modelStatsError.value || chartsError.value)
 let abortController: AbortController | null = null; let exportAbortController: AbortController | null = null
 let chartReqSeq = 0
 let statsReqSeq = 0
@@ -359,17 +373,24 @@ const buildUsageListParams = (
 
 const loadLogs = async () => {
   abortController?.abort(); const c = new AbortController(); abortController = c; loading.value = true
+  logsError.value = false
   try {
     const res = await adminAPI.usage.list(
       buildUsageListParams(pagination.page, pagination.page_size, false),
       { signal: c.signal }
     )
     if(!c.signal.aborted) { usageLogs.value = res.items; pagination.total = res.total }
-  } catch (error: any) { if(error?.name !== 'AbortError') console.error('Failed to load usage logs:', error) } finally { if(abortController === c) loading.value = false }
+  } catch (error: any) {
+    if(error?.name !== 'AbortError') {
+      logsError.value = true
+      console.error('Failed to load usage logs:', error)
+    }
+  } finally { if(abortController === c) loading.value = false }
 }
 const loadStats = async (force = false) => {
   const seq = ++statsReqSeq
   endpointStatsLoading.value = true
+  statsError.value = false
   try {
     const requestType = filters.value.request_type
     const legacyStream = requestType ? requestTypeToLegacyStream(requestType) : filters.value.stream
@@ -386,9 +407,7 @@ const loadStats = async (force = false) => {
   } catch (error) {
     if (seq !== statsReqSeq) return
     console.error('Failed to load usage stats:', error)
-    inboundEndpointStats.value = []
-    upstreamEndpointStats.value = []
-    endpointPathStats.value = []
+    statsError.value = true
   } finally {
     if (seq === statsReqSeq) endpointStatsLoading.value = false
   }
@@ -408,6 +427,7 @@ const loadModelStats = async (source: ModelDistributionSource, force = false) =>
 
   const seq = ++modelStatsReqSeq
   modelStatsLoading.value = true
+  modelStatsError.value = false
   try {
     const requestType = filters.value.request_type
     const legacyStream = requestType ? requestTypeToLegacyStream(requestType) : filters.value.stream
@@ -441,13 +461,7 @@ const loadModelStats = async (source: ModelDistributionSource, force = false) =>
   } catch (error) {
     if (seq !== modelStatsReqSeq) return
     console.error('Failed to load model stats:', error)
-    if (source === 'requested') {
-      requestedModelStats.value = []
-    } else if (source === 'upstream') {
-      upstreamModelStats.value = []
-    } else {
-      mappingModelStats.value = []
-    }
+    modelStatsError.value = true
     loadedModelSources[source] = false
   } finally {
     if (seq === modelStatsReqSeq) modelStatsLoading.value = false
@@ -457,6 +471,7 @@ const loadModelStats = async (source: ModelDistributionSource, force = false) =>
 const loadChartData = async () => {
   const seq = ++chartReqSeq
   chartsLoading.value = true
+  chartsError.value = false
   try {
     const requestType = filters.value.request_type
     const legacyStream = requestType ? requestTypeToLegacyStream(requestType) : filters.value.stream
@@ -482,7 +497,12 @@ const loadChartData = async () => {
     if (seq !== chartReqSeq) return
     trendData.value = snapshot.trend || []
     groupStats.value = snapshot.groups || []
-  } catch (error) { console.error('Failed to load chart data:', error) } finally { if (seq === chartReqSeq) chartsLoading.value = false }
+  } catch (error) { if (seq === chartReqSeq) chartsError.value = true; console.error('Failed to load chart data:', error) } finally { if (seq === chartReqSeq) chartsLoading.value = false }
+}
+const retryAnalytics = () => {
+  loadStats(true)
+  loadModelStats(modelDistributionSource.value, true)
+  loadChartData()
 }
 const applyFilters = () => {
   pagination.page = 1
@@ -598,7 +618,13 @@ const exportToExcel = async () => {
       saveAs(new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `usage_${filters.value.start_date}_to_${filters.value.end_date}.xlsx`)
       appStore.showSuccess(t('usage.exportSuccess'))
     }
-  } catch (error) { console.error('Failed to export:', error); appStore.showError('Export Failed') }
+  } catch (error: any) {
+    const canceled = c.signal.aborted || error?.name === 'AbortError' || error?.code === 'ERR_CANCELED'
+    if (!canceled) {
+      console.error('Failed to export:', error)
+      appStore.showError('Export Failed')
+    }
+  }
   finally { if(exportAbortController === c) { exportAbortController = null; exporting.value = false; exportProgress.show = false } }
 }
 
@@ -738,9 +764,9 @@ const loadSavedColumns = () => {
 type DetailTab = 'usage' | 'errors' | 'ranking'
 const activeTab = ref<DetailTab>('usage')
 const detailTabs = computed(() => [
-  { value: 'usage' as const, label: t('usage.tabs.usage'), icon: 'document' as const },
-  { value: 'errors' as const, label: t('usage.tabs.errors'), icon: 'exclamationTriangle' as const },
-  { value: 'ranking' as const, label: t('usage.tabs.ranking'), icon: 'chart' as const },
+  { value: 'usage' as const, label: t('usage.tabs.usage'), icon: 'document' as const, id: 'admin-usage-tab-usage', controls: 'admin-usage-panel-usage' },
+  { value: 'errors' as const, label: t('usage.tabs.errors'), icon: 'exclamationTriangle' as const, id: 'admin-usage-tab-errors', controls: 'admin-usage-panel-errors' },
+  { value: 'ranking' as const, label: t('usage.tabs.ranking'), icon: 'chart' as const, id: 'admin-usage-tab-ranking', controls: 'admin-usage-panel-ranking' },
 ])
 const usageFiltersRef = ref<InstanceType<typeof UsageFilters> | null>(null)
 const rankingMounted = ref(false)

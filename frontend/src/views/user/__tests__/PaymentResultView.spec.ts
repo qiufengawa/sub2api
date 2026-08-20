@@ -53,7 +53,11 @@ vi.mock('@/api/payment', () => ({
 }))
 
 import PaymentResultView from '../PaymentResultView.vue'
-import { PAYMENT_RECOVERY_STORAGE_KEY } from '@/components/payment/paymentFlow'
+import {
+  PAYMENT_RECOVERY_STORAGE_KEY,
+  readPaymentRecoverySnapshotFromStorage,
+  writePaymentRecoverySnapshot,
+} from '@/components/payment/paymentFlow'
 import { formatPaymentAmount } from '@/components/payment/currency'
 
 const orderFactory = (status: string) => ({
@@ -106,6 +110,7 @@ describe('PaymentResultView', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    vi.restoreAllMocks()
   })
 
   it('renders a pending state instead of a failure state when the restored order is still pending', async () => {
@@ -248,6 +253,135 @@ describe('PaymentResultView', () => {
     expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toBeNull()
   })
 
+  it('keeps retrying trusted order lookups instead of showing a final failure', async () => {
+    vi.useFakeTimers()
+    routeState.query = {
+      resume_token: 'resume-transient',
+      order_id: '42',
+      out_trade_no: 'sub2_20260420abcd1234',
+      trade_status: 'TRADE_SUCCESS',
+    }
+    writePaymentRecoverySnapshot(
+      window.localStorage,
+      recoverySnapshotFactory('resume-transient'),
+    )
+    resolveOrderPublicByResumeToken
+      .mockRejectedValueOnce(new Error('resume unavailable'))
+      .mockRejectedValueOnce(new Error('resume still unavailable'))
+      .mockResolvedValueOnce({ data: orderFactory('PAID') })
+    pollOrderStatus
+      .mockRejectedValueOnce(new Error('poll unavailable'))
+      .mockRejectedValueOnce(new Error('poll still unavailable'))
+    verifyOrder
+      .mockRejectedValueOnce(new Error('verify unavailable'))
+      .mockRejectedValueOnce(new Error('verify still unavailable'))
+    verifyOrderPublic
+      .mockRejectedValueOnce(new Error('public verify unavailable'))
+      .mockRejectedValueOnce(new Error('public verify still unavailable'))
+
+    const wrapper = mount(PaymentResultView, {
+      global: { stubs: { OrderStatusBadge: true } },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('payment.result.processing')
+    expect(wrapper.text()).not.toContain('payment.result.failed')
+    expect(document.title).toBe('payment.result.processing - Test Site')
+    expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).not.toBeNull()
+
+    await vi.advanceTimersByTimeAsync(2000)
+    await flushPromises()
+
+    expect(resolveOrderPublicByResumeToken).toHaveBeenCalledTimes(2)
+    expect(pollOrderStatus).toHaveBeenCalledTimes(2)
+    expect(verifyOrder).toHaveBeenCalledTimes(2)
+    expect(verifyOrderPublic).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).toContain('payment.result.processing')
+    expect(wrapper.text()).not.toContain('payment.result.failed')
+
+    await vi.advanceTimersByTimeAsync(2000)
+    await flushPromises()
+
+    expect(resolveOrderPublicByResumeToken).toHaveBeenCalledTimes(3)
+    expect(wrapper.text()).toContain('payment.result.success')
+    expect(wrapper.text()).not.toContain('payment.result.failed')
+    expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toBeNull()
+  })
+
+  it('offers an explicit lookup retry after automatic attempts are exhausted', async () => {
+    vi.useFakeTimers()
+    routeState.query = { resume_token: 'resume-exhausted' }
+    writePaymentRecoverySnapshot(window.localStorage, {
+      ...recoverySnapshotFactory('resume-exhausted'),
+      orderId: 0,
+      outTradeNo: '',
+    })
+    resolveOrderPublicByResumeToken.mockRejectedValue(new Error('provider unavailable'))
+
+    const wrapper = mount(PaymentResultView, {
+      global: { stubs: { OrderStatusBadge: true } },
+    })
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(30_000)
+    await flushPromises()
+
+    expect(resolveOrderPublicByResumeToken).toHaveBeenCalledTimes(16)
+    expect(wrapper.text()).toContain('payment.result.failed')
+    expect(wrapper.get('[data-test="payment-result-primary"]').text()).toContain('common.retry')
+    expect(readPaymentRecoverySnapshotFromStorage(window.localStorage, {
+      resumeToken: 'resume-exhausted',
+    })).not.toBeNull()
+
+    resolveOrderPublicByResumeToken.mockResolvedValueOnce({ data: orderFactory('PAID') })
+    await wrapper.get('[data-test="payment-result-primary"]').trigger('click')
+    await flushPromises()
+
+    expect(resolveOrderPublicByResumeToken).toHaveBeenCalledTimes(17)
+    expect(wrapper.text()).toContain('payment.result.success')
+    expect(readPaymentRecoverySnapshotFromStorage(window.localStorage, {
+      resumeToken: 'resume-exhausted',
+    })).toBeNull()
+  })
+
+  it('does not let an unmounted older result clear a newer order recovery snapshot', async () => {
+    routeState.query = {
+      resume_token: 'resume-old',
+      order_id: '42',
+    }
+    writePaymentRecoverySnapshot(
+      window.localStorage,
+      recoverySnapshotFactory('resume-old'),
+    )
+
+    let finishOldLookup!: (value: { data: ReturnType<typeof orderFactory> }) => void
+    resolveOrderPublicByResumeToken.mockReturnValueOnce(new Promise((resolve) => {
+      finishOldLookup = resolve
+    }))
+
+    const wrapper = mount(PaymentResultView, {
+      global: {
+        stubs: {
+          OrderStatusBadge: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    writePaymentRecoverySnapshot(window.localStorage, {
+      ...recoverySnapshotFactory('resume-new'),
+      orderId: 99,
+      outTradeNo: 'sub2_new_99',
+    })
+    wrapper.unmount()
+    finishOldLookup({ data: orderFactory('PAID') })
+    await flushPromises()
+
+    expect(readPaymentRecoverySnapshotFromStorage(window.localStorage, {
+      resumeToken: 'resume-new',
+      orderId: 99,
+    })?.outTradeNo).toBe('sub2_new_99')
+  })
+
   it('treats an unknown provider status as processing and preserves recovery data', async () => {
     vi.useFakeTimers()
     routeState.query = {
@@ -277,6 +411,50 @@ describe('PaymentResultView', () => {
     await vi.advanceTimersByTimeAsync(2000)
     await flushPromises()
     expect(resolveOrderPublicByResumeToken).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([
+    ['REFUNDED', 'payment.status.refunded'],
+    ['PARTIALLY_REFUNDED', 'payment.status.partially_refunded'],
+    ['REFUND_FAILED', 'payment.status.refund_failed'],
+  ])('treats %s as a terminal refund status', async (status, expectedTitle) => {
+    vi.useFakeTimers()
+    routeState.query = { resume_token: `resume-${status.toLowerCase()}` }
+    window.localStorage.setItem(
+      PAYMENT_RECOVERY_STORAGE_KEY,
+      JSON.stringify(recoverySnapshotFactory(`resume-${status.toLowerCase()}`)),
+    )
+    resolveOrderPublicByResumeToken.mockResolvedValue({ data: orderFactory(status) })
+
+    const wrapper = mount(PaymentResultView, {
+      global: { stubs: { OrderStatusBadge: true } },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain(expectedTitle)
+    expect(wrapper.text()).not.toContain('payment.result.processing')
+    expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toBeNull()
+
+    await vi.advanceTimersByTimeAsync(2000)
+    await flushPromises()
+    expect(resolveOrderPublicByResumeToken).toHaveBeenCalledTimes(1)
+  })
+
+  it('continues order lookup when browser recovery storage is unavailable', async () => {
+    routeState.query = { order_id: '42' }
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError')
+    })
+    pollOrderStatus.mockResolvedValueOnce(orderFactory('COMPLETED'))
+
+    const wrapper = mount(PaymentResultView, {
+      global: { stubs: { OrderStatusBadge: true } },
+    })
+    await flushPromises()
+
+    expect(pollOrderStatus).toHaveBeenCalledWith(42)
+    expect(wrapper.find('.payment-result__loading').exists()).toBe(false)
+    expect(wrapper.text()).toContain('payment.result.success')
   })
 
   it('falls back to order_id polling when resume-token recovery fails', async () => {

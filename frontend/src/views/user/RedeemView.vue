@@ -294,18 +294,38 @@ const formatHistoryValue = (item: RedeemHistoryItem) => {
   }
 }
 
+let historyLoadPromise: Promise<void> | null = null
+let historyRefreshPending = false
+
 const fetchHistory = async () => {
-  if (loadingHistory.value) return
-  loadingHistory.value = true
-  historyLoadError.value = false
-  try {
-    history.value = await redeemAPI.getHistory()
-  } catch {
-    historyLoadError.value = true
-  } finally {
-    loadingHistory.value = false
-    historyLoaded.value = true
+  if (historyLoadPromise) {
+    historyRefreshPending = true
+    await historyLoadPromise
+    if (historyLoadPromise) await historyLoadPromise
+    return
   }
+
+  do {
+    historyRefreshPending = false
+    loadingHistory.value = true
+    historyLoadError.value = false
+    historyLoadPromise = (async () => {
+      try {
+        history.value = await redeemAPI.getHistory()
+      } catch {
+        historyLoadError.value = true
+      } finally {
+        loadingHistory.value = false
+        historyLoaded.value = true
+      }
+    })()
+
+    try {
+      await historyLoadPromise
+    } finally {
+      historyLoadPromise = null
+    }
+  } while (historyRefreshPending)
 }
 
 const handleRedeem = async () => {

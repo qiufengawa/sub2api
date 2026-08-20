@@ -15,6 +15,8 @@ export const useAnnouncementStore = defineStore('announcements', () => {
 
   // Session-scoped dedup set — not reactive, used as plain lookup only
   let shownPopupIds = new Set<number>()
+  let popupTransitionTimer: ReturnType<typeof setTimeout> | null = null
+  let fetchGeneration = 0
 
   // Getters
   const unreadCount = computed(() =>
@@ -30,18 +32,21 @@ export const useAnnouncementStore = defineStore('announcements', () => {
 
     // Set immediately to prevent concurrent duplicate requests
     lastFetchTime.value = now
+    const generation = ++fetchGeneration
 
     try {
       loading.value = true
       const all = await announcementsAPI.list(false)
+      if (generation !== fetchGeneration) return
       announcements.value = all.slice(0, 20)
       enqueueNewPopups()
     } catch (err: any) {
+      if (generation !== fetchGeneration) return
       // Revert throttle timestamp on failure so retry is allowed
       lastFetchTime.value = 0
       console.error('Failed to fetch announcements:', err)
     } finally {
-      loading.value = false
+      if (generation === fetchGeneration) loading.value = false
     }
   }
 
@@ -71,17 +76,31 @@ export const useAnnouncementStore = defineStore('announcements', () => {
     shownPopupIds.add(currentPopup.value.id)
   }
 
+  function scheduleNextPopup() {
+    if (popupTransitionTimer) clearTimeout(popupTransitionTimer)
+    if (popupQueue.value.length === 0) return
+    popupTransitionTimer = setTimeout(() => {
+      popupTransitionTimer = null
+      if (!currentPopup.value) showNextPopup()
+    }, 300)
+  }
+
   async function dismissPopup() {
     if (!currentPopup.value) return
-    const id = currentPopup.value.id
+    const dismissedAnnouncement = currentPopup.value
+    const id = dismissedAnnouncement.id
     currentPopup.value = null
 
-    // Mark as read (fire-and-forget, UI already updated)
-    markAsRead(id)
-
-    // Show next popup after a short delay
-    if (popupQueue.value.length > 0) {
-      setTimeout(() => showNextPopup(), 300)
+    try {
+      await markAsRead(id)
+      scheduleNextPopup()
+    } catch (err: unknown) {
+      shownPopupIds.delete(id)
+      if (!popupQueue.value.some((announcement) => announcement.id === id)) {
+        popupQueue.value.unshift(dismissedAnnouncement)
+      }
+      if (!currentPopup.value) showNextPopup()
+      console.error('Failed to dismiss announcement popup:', err)
     }
   }
 
@@ -94,6 +113,7 @@ export const useAnnouncementStore = defineStore('announcements', () => {
       }
     } catch (err: any) {
       console.error('Failed to mark announcement as read:', err)
+      throw err
     }
   }
 
@@ -118,6 +138,11 @@ export const useAnnouncementStore = defineStore('announcements', () => {
   }
 
   function reset() {
+    fetchGeneration += 1
+    if (popupTransitionTimer) {
+      clearTimeout(popupTransitionTimer)
+      popupTransitionTimer = null
+    }
     announcements.value = []
     lastFetchTime.value = 0
     shownPopupIds = new Set()

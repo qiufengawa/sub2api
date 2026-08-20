@@ -8,7 +8,7 @@
     <UiLoadingOverlay v-if="loading" :show="true" :label="t('common.loading')">
       <div class="token-usage-trend__state" />
     </UiLoadingOverlay>
-    <div v-else-if="trendData.length > 0 && chartData" class="token-usage-trend__chart">
+    <div v-else-if="trendData.length > 0 && chartData" class="token-usage-trend__chart" role="img" :aria-label="t('admin.dashboard.tokenUsageTrend')">
       <Line :data="chartData" :options="lineOptions" />
     </div>
     <UiEmptyState v-else :title="t('admin.dashboard.noDataAvailable')" />
@@ -27,12 +27,15 @@ import {
   Title,
   Tooltip,
   Legend,
-  Filler
+  Filler,
+  type ChartOptions,
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import { UiChartFrame, UiEmptyState, UiLoadingOverlay } from '@/components/ui'
 import type { TrendDataPoint } from '@/types'
 import { calculateCacheTokenReuseRate } from '@/utils/usageMetrics'
+import { useReducedMotion } from '@/composables/useReducedMotion'
+import { useDarkMode } from '@/composables/useDarkMode'
 
 ChartJS.register(
   CategoryScale,
@@ -46,6 +49,8 @@ ChartJS.register(
 )
 
 const { t } = useI18n()
+const reducedMotion = useReducedMotion()
+const isDarkMode = useDarkMode()
 
 const props = withDefaults(defineProps<{
   trendData: TrendDataPoint[]
@@ -56,10 +61,6 @@ const props = withDefaults(defineProps<{
   loading: false,
   compact: false,
   colorScheme: 'default',
-})
-
-const isDarkMode = computed(() => {
-  return document.documentElement.classList.contains('dark')
 })
 
 const chartColors = computed(() => ({
@@ -135,9 +136,10 @@ const chartData = computed(() => {
   }
 })
 
-const lineOptions = computed(() => ({
+const lineOptions = computed<ChartOptions<'line'>>(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  ...(reducedMotion.value ? { animation: false } : {}),
   interaction: {
     intersect: false,
     mode: 'index' as const

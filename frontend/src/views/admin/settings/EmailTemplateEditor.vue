@@ -1,232 +1,158 @@
 <template>
-  <div class="card">
-    <div
-      class="flex flex-col gap-3 border-b border-gray-100 px-6 py-4 dark:border-dark-700 lg:flex-row lg:items-start lg:justify-between"
-    >
-      <div>
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-          {{ t("admin.settings.emailTemplates.title") }}
-        </h2>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          {{ t("admin.settings.emailTemplates.description") }}
-        </p>
+  <section class="email-editor" aria-labelledby="email-template-title">
+    <header class="email-editor__header">
+      <div class="email-editor__heading">
+        <h2 id="email-template-title">{{ t("admin.settings.emailTemplates.title") }}</h2>
+        <p>{{ t("admin.settings.emailTemplates.description") }}</p>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <button
-          type="button"
-          class="btn btn-secondary btn-sm"
-          :disabled="loadingTemplate || previewing || !canPreview"
+      <div class="email-editor__actions">
+        <UiButton
+          density="compact"
+          :loading="previewing"
+          :disabled="loadingTemplate || !canPreview"
           @click="refreshPreview"
         >
-          {{ previewing ? t("admin.settings.emailTemplates.previewing") : t("admin.settings.emailTemplates.preview") }}
-        </button>
-        <button
-          type="button"
-          class="btn btn-secondary btn-sm"
-          :disabled="loadingTemplate || restoring || !selectedEvent || !selectedLocale"
-          @click="restoreOfficial"
+          {{ t("admin.settings.emailTemplates.preview") }}
+        </UiButton>
+        <UiButton
+          density="compact"
+          :loading="restoring"
+          :disabled="loadingTemplate || !selectedEvent || !selectedLocale"
+          @click="requestRestoreOfficial"
         >
-          {{ restoring ? t("admin.settings.emailTemplates.restoring") : t("admin.settings.emailTemplates.restoreOfficial") }}
-        </button>
-        <button
-          type="button"
-          class="btn btn-primary btn-sm"
-          :disabled="loadingTemplate || saving || !canSave"
+          {{ t("admin.settings.emailTemplates.restoreOfficial") }}
+        </UiButton>
+        <UiButton
+          variant="primary"
+          density="compact"
+          :loading="saving"
+          :disabled="loadingTemplate || !canSave"
           @click="saveTemplate"
         >
-          {{ saving ? t("admin.settings.emailTemplates.saving") : t("admin.settings.emailTemplates.save") }}
-        </button>
+          {{ t("admin.settings.emailTemplates.save") }}
+        </UiButton>
+      </div>
+    </header>
+
+    <div v-if="loadingList" class="email-editor__loading" aria-live="polite">
+      <UiSpinner size="sm" :label="t('common.loading')" />
+      <span>{{ t("common.loading") }}</span>
+    </div>
+
+    <div v-else class="email-editor__body">
+      <div class="email-editor__selectors">
+        <UiSelect
+          id="email-template-event"
+          v-model="selectedEvent"
+          :label="t('admin.settings.emailTemplates.event')"
+          :options="eventSelectOptions"
+          density="compact"
+          :disabled="loadingTemplate || eventOptions.length === 0"
+        />
+        <UiSelect
+          id="email-template-locale"
+          v-model="selectedLocale"
+          :label="t('admin.settings.emailTemplates.locale')"
+          :options="localeSelectOptions"
+          density="compact"
+          :disabled="loadingTemplate || localeOptions.length === 0"
+        />
+      </div>
+
+      <div v-if="selectedEventMeta" class="email-editor__meta">
+        <div class="email-editor__meta-title">
+          <strong>{{ selectedEventMeta.label }}</strong>
+          <UiBadge>{{ selectedEventMeta.categoryLabel }}</UiBadge>
+          <UiBadge :tone="selectedEventMeta.optional ? 'warning' : 'success'">
+            {{ selectedEventMeta.optional ? localText("可退订通知", "Optional") : localText("事务邮件", "Transactional") }}
+          </UiBadge>
+        </div>
+        <p>{{ selectedEventMeta.timing }}</p>
+        <small v-if="selectedEventDescription">{{ selectedEventDescription }}</small>
+      </div>
+
+      <UiAlert
+        v-if="!eventOptions.length || !localeOptions.length"
+        tone="warning"
+        :message="t('admin.settings.emailTemplates.empty')"
+      />
+
+      <div v-else class="email-editor__workspace">
+        <div class="email-editor__form">
+          <UiTextField
+            id="email-template-subject"
+            v-model="subject"
+            :label="t('admin.settings.emailTemplates.subject')"
+            :disabled="loadingTemplate"
+            :placeholder="t('admin.settings.emailTemplates.subjectPlaceholder')"
+          />
+
+          <UiTextArea
+            id="email-template-html"
+            v-model="html"
+            :label="t('admin.settings.emailTemplates.html')"
+            :disabled="loadingTemplate"
+            :placeholder="t('admin.settings.emailTemplates.htmlPlaceholder')"
+            :rows="20"
+            monospace
+          />
+
+          <section class="email-editor__placeholders" aria-labelledby="email-template-placeholders">
+            <div>
+              <h3 id="email-template-placeholders">{{ t("admin.settings.emailTemplates.placeholders") }}</h3>
+              <p>{{ t("admin.settings.emailTemplates.placeholdersHelp") }}</p>
+            </div>
+            <div class="email-editor__placeholder-list">
+              <UiButton
+                v-for="placeholder in placeholderList"
+                :key="placeholder"
+                type="button"
+                variant="quiet"
+                density="dense"
+                class="email-editor__placeholder ui-focus-ring"
+                @click="copyPlaceholder(placeholder)"
+              >
+                {{ placeholder }}
+              </UiButton>
+            </div>
+          </section>
+        </div>
+
+        <aside class="email-editor__preview" aria-labelledby="email-template-preview">
+          <header class="email-editor__preview-header">
+            <div>
+              <h3 id="email-template-preview">{{ t("admin.settings.emailTemplates.livePreview") }}</h3>
+              <p>{{ previewSubject || t("admin.settings.emailTemplates.noPreview") }}</p>
+            </div>
+            <UiBadge v-if="isCustomTemplate" tone="info">
+              {{ t("admin.settings.emailTemplates.customized") }}
+            </UiBadge>
+          </header>
+          <div class="email-editor__preview-stage">
+            <iframe
+              sandbox=""
+              :srcdoc="previewHtml"
+              :title="t('admin.settings.emailTemplates.livePreview')"
+            />
+          </div>
+          <p class="email-editor__security-hint">
+            {{ t("admin.settings.emailTemplates.previewSecurityHint") }}
+          </p>
+        </aside>
       </div>
     </div>
 
-    <div class="space-y-6 p-6">
-      <div
-        v-if="loadingList"
-        class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400"
-      >
-        <span
-          class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"
-        ></span>
-        {{ t("common.loading") }}
-      </div>
-
-      <template v-else>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label class="input-label" for="email-template-event">
-              {{ t("admin.settings.emailTemplates.event") }}
-            </label>
-            <select
-              id="email-template-event"
-              v-model="selectedEvent"
-              class="input"
-              :disabled="loadingTemplate || eventOptions.length === 0"
-            >
-              <option
-                v-for="option in eventOptions"
-                :key="option.value"
-                :value="option.value"
-              >
-                {{ formatEventOptionLabel(option) }}
-              </option>
-            </select>
-          </div>
-          <div>
-            <label class="input-label" for="email-template-locale">
-              {{ t("admin.settings.emailTemplates.locale") }}
-            </label>
-            <select
-              id="email-template-locale"
-              v-model="selectedLocale"
-              class="input"
-              :disabled="loadingTemplate || localeOptions.length === 0"
-            >
-              <option
-                v-for="localeOption in localeOptions"
-                :key="localeOption"
-                :value="localeOption"
-              >
-                {{ formatLocale(localeOption) }}
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <div
-          v-if="selectedEventMeta"
-          class="rounded-lg border border-primary-100 bg-primary-50/70 p-4 dark:border-primary-900/50 dark:bg-primary-950/20"
-        >
-          <div class="flex flex-wrap items-center gap-2">
-            <div class="text-sm font-semibold text-gray-900 dark:text-white">
-              {{ selectedEventMeta.label }}
-            </div>
-            <span
-              class="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-gray-600 shadow-sm ring-1 ring-gray-200 dark:bg-dark-800 dark:text-gray-300 dark:ring-dark-600"
-            >
-              {{ selectedEventMeta.categoryLabel }}
-            </span>
-            <span
-              class="rounded-full px-2.5 py-1 text-xs font-medium"
-              :class="
-                selectedEventMeta.optional
-                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
-                  : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
-              "
-            >
-              {{ selectedEventMeta.optional ? localText("可退订通知", "Optional") : localText("事务邮件", "Transactional") }}
-            </span>
-          </div>
-          <p class="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">
-            {{ selectedEventMeta.timing }}
-          </p>
-          <p
-            v-if="selectedEventDescription"
-            class="mt-1 text-xs text-gray-500 dark:text-gray-400"
-          >
-            {{ selectedEventDescription }}
-          </p>
-        </div>
-
-        <div
-          v-if="!eventOptions.length || !localeOptions.length"
-          class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300"
-        >
-          {{ t("admin.settings.emailTemplates.empty") }}
-        </div>
-
-        <div v-else class="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <div class="space-y-4">
-            <div>
-              <label class="input-label" for="email-template-subject">
-                {{ t("admin.settings.emailTemplates.subject") }}
-              </label>
-              <input
-                id="email-template-subject"
-                v-model="subject"
-                type="text"
-                class="input"
-                :disabled="loadingTemplate"
-                :placeholder="t('admin.settings.emailTemplates.subjectPlaceholder')"
-              />
-            </div>
-
-            <div>
-              <label class="input-label" for="email-template-html">
-                {{ t("admin.settings.emailTemplates.html") }}
-              </label>
-              <textarea
-                id="email-template-html"
-                v-model="html"
-                rows="18"
-                class="input min-h-[28rem] resize-y font-mono text-sm leading-6"
-                :disabled="loadingTemplate"
-                :placeholder="t('admin.settings.emailTemplates.htmlPlaceholder')"
-              ></textarea>
-            </div>
-
-            <div
-              class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-dark-700 dark:bg-dark-800/60"
-            >
-              <div class="text-sm font-medium text-gray-900 dark:text-white">
-                {{ t("admin.settings.emailTemplates.placeholders") }}
-              </div>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {{ t("admin.settings.emailTemplates.placeholdersHelp") }}
-              </p>
-              <div class="mt-3 flex flex-wrap gap-2">
-                <button
-                  v-for="placeholder in placeholderList"
-                  :key="placeholder"
-                  type="button"
-                  class="rounded-full border border-gray-200 bg-white px-3 py-1 font-mono text-xs text-gray-700 transition-colors hover:border-primary-300 hover:text-primary-600 dark:border-dark-600 dark:bg-dark-700 dark:text-gray-200 dark:hover:border-primary-500 dark:hover:text-primary-300"
-                  @click="copyPlaceholder(placeholder)"
-                >
-                  {{ placeholder }}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div class="space-y-4">
-            <div
-              class="rounded-lg border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800"
-            >
-              <div
-                class="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-dark-700"
-              >
-                <div>
-                  <div class="text-sm font-medium text-gray-900 dark:text-white">
-                    {{ t("admin.settings.emailTemplates.livePreview") }}
-                  </div>
-                  <div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ previewSubject || t("admin.settings.emailTemplates.noPreview") }}
-                  </div>
-                </div>
-                <span
-                  v-if="isCustomTemplate"
-                  class="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300"
-                >
-                  {{ t("admin.settings.emailTemplates.customized") }}
-                </span>
-              </div>
-              <div class="bg-gray-100 p-3 dark:bg-dark-900">
-                <iframe
-                  class="h-[36rem] w-full rounded-md border border-gray-200 bg-white dark:border-dark-700"
-                  sandbox=""
-                  :srcdoc="previewHtml"
-                  :title="t('admin.settings.emailTemplates.livePreview')"
-                ></iframe>
-              </div>
-            </div>
-
-            <p class="text-xs text-gray-500 dark:text-gray-400">
-              {{ t("admin.settings.emailTemplates.previewSecurityHint") }}
-            </p>
-          </div>
-        </div>
-      </template>
-    </div>
-  </div>
+    <UiConfirmDialog
+      :show="restoreConfirmOpen"
+      :title="t('admin.settings.emailTemplates.restoreOfficial')"
+      :message="t('admin.settings.emailTemplates.restoreConfirm')"
+      :confirm-text="t('admin.settings.emailTemplates.restoreOfficial')"
+      :pending="restoring"
+      danger
+      @confirm="restoreOfficial"
+      @cancel="restoreConfirmOpen = false"
+    />
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -239,6 +165,16 @@ import type {
 } from "@/api/admin/settings";
 import { useAppStore } from "@/stores";
 import { extractApiErrorMessage } from "@/utils/apiError";
+import {
+  UiAlert,
+  UiBadge,
+  UiButton,
+  UiConfirmDialog,
+  UiSelect,
+  UiSpinner,
+  UiTextArea,
+  UiTextField,
+} from "@/components/ui";
 
 const { t, locale } = useI18n();
 const appStore = useAppStore();
@@ -317,6 +253,7 @@ const loadingTemplate = ref(false);
 const saving = ref(false);
 const previewing = ref(false);
 const restoring = ref(false);
+const restoreConfirmOpen = ref(false);
 const eventOptions = ref<EmailTemplateOption[]>([]);
 const localeOptions = ref<string[]>([]);
 const selectedEvent = ref("");
@@ -328,6 +265,16 @@ const placeholders = ref<string[]>([]);
 const previewSubject = ref("");
 const previewHtml = ref("");
 const initializingSelection = ref(false);
+
+// CID references belong to MIME email parts and cannot be resolved by the
+// standalone browser iframe used for the admin preview. Keep the preview
+// renderable without changing the HTML sent by the backend.
+const previewImagePlaceholder =
+  "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
+
+function normalizePreviewHtml(document: string): string {
+  return document.replace(/cid:[^\"' )]+/g, previewImagePlaceholder);
+}
 
 interface EventDisplayMeta {
   label: string;
@@ -527,6 +474,20 @@ const selectedEventDescription = computed(() => {
   );
 });
 
+const eventSelectOptions = computed(() =>
+  eventOptions.value.map((option) => ({
+    value: option.value,
+    label: formatEventOptionLabel(option),
+  })),
+);
+
+const localeSelectOptions = computed(() =>
+  localeOptions.value.map((value) => ({
+    value,
+    label: formatLocale(value),
+  })),
+);
+
 const placeholderList = computed(() => {
   const combined = placeholders.value.length
     ? placeholders.value
@@ -674,7 +635,7 @@ async function refreshPreview() {
       html: html.value,
     });
     previewSubject.value = preview.subject;
-    previewHtml.value = preview.html;
+    previewHtml.value = normalizePreviewHtml(preview.html);
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, t("common.error")));
   } finally {
@@ -682,10 +643,13 @@ async function refreshPreview() {
   }
 }
 
-async function restoreOfficial() {
+function requestRestoreOfficial() {
   if (!selectedEvent.value || !selectedLocale.value) return;
-  if (!window.confirm(t("admin.settings.emailTemplates.restoreConfirm"))) return;
+  restoreConfirmOpen.value = true;
+}
 
+async function restoreOfficial() {
+  if (!selectedEvent.value || !selectedLocale.value || restoring.value) return;
   restoring.value = true;
   try {
     const template = await adminAPI.settings.restoreOfficialEmailTemplate(
@@ -695,6 +659,7 @@ async function restoreOfficial() {
     applyTemplate(template);
     await refreshPreview();
     appStore.showSuccess(t("admin.settings.emailTemplates.restoreSuccess"));
+    restoreConfirmOpen.value = false;
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, t("common.error")));
   } finally {
@@ -722,3 +687,220 @@ onMounted(() => {
   void loadTemplateList();
 });
 </script>
+
+<style scoped>
+.email-editor {
+  min-width: 0;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+}
+
+.email-editor__header,
+.email-editor__preview-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.email-editor__header {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.email-editor__heading,
+.email-editor__preview-header > div,
+.email-editor__meta,
+.email-editor__placeholders > div:first-child {
+  min-width: 0;
+}
+
+.email-editor h2,
+.email-editor h3,
+.email-editor p {
+  margin: 0;
+}
+
+.email-editor h2 {
+  color: var(--ui-text);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+.email-editor h3,
+.email-editor__meta strong {
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.email-editor__heading p,
+.email-editor__preview-header p,
+.email-editor__placeholders p,
+.email-editor__security-hint,
+.email-editor__meta small {
+  color: var(--ui-text-soft);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.email-editor__actions,
+.email-editor__meta-title,
+.email-editor__placeholder-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.email-editor__loading {
+  display: flex;
+  min-height: 240px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--ui-text-muted);
+  font-size: 13px;
+}
+
+.email-editor__body {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+}
+
+.email-editor__selectors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.email-editor__meta {
+  padding: 12px 0 14px;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.email-editor__meta p {
+  margin-top: 6px;
+  color: var(--ui-text-muted);
+  font-size: 13px;
+  line-height: 21px;
+}
+
+.email-editor__meta small {
+  display: block;
+  margin-top: 3px;
+}
+
+.email-editor__workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.email-editor__form,
+.email-editor__preview {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+}
+
+.email-editor__placeholders {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ui-border);
+}
+
+.email-editor__placeholder {
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-dense);
+  color: var(--ui-text-muted);
+  background: var(--ui-surface);
+  font-family: var(--ui-font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  cursor: pointer;
+  transition: border-color var(--ui-motion-fast), color var(--ui-motion-fast), background var(--ui-motion-fast);
+}
+
+.email-editor__placeholder:hover {
+  border-color: var(--ui-text-soft);
+  color: var(--ui-text);
+  background: var(--ui-surface-muted);
+}
+
+.email-editor__preview {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  overflow: hidden;
+}
+
+.email-editor__preview-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.email-editor__preview-stage {
+  padding: 10px;
+  background: var(--ui-surface-muted);
+}
+
+.email-editor__preview iframe {
+  display: block;
+  width: 100%;
+  height: 576px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-dense);
+  background: var(--ui-surface);
+}
+
+.email-editor__security-hint {
+  padding: 0 14px 12px;
+}
+
+@media (max-width: 1080px) {
+  .email-editor__workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .email-editor__header {
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .email-editor__actions {
+    width: 100%;
+  }
+
+  .email-editor__actions > * {
+    flex: 1 1 auto;
+  }
+
+  .email-editor__body {
+    padding: 16px;
+  }
+
+  .email-editor__selectors {
+    grid-template-columns: 1fr;
+  }
+
+  .email-editor__preview iframe {
+    height: 460px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .email-editor__placeholder {
+    transition: none;
+  }
+}
+</style>

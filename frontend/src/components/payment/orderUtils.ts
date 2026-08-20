@@ -3,26 +3,28 @@
  * Used by AdminOrderDetail, AdminOrderTable, AdminRefundDialog, AdminOrdersView, etc.
  */
 
-const STATUS_BADGE_MAP: Record<string, string> = {
-  PENDING: 'badge-warning',
-  PAID: 'badge-info',
-  RECHARGING: 'badge-info',
-  COMPLETED: 'badge-success',
-  EXPIRED: 'badge-secondary',
-  CANCELLED: 'badge-secondary',
-  FAILED: 'badge-danger',
-  REFUND_REQUESTED: 'badge-warning',
-  REFUNDING: 'badge-warning',
-  REFUND_PENDING: 'badge-warning',
-  PARTIALLY_REFUNDED: 'badge-warning',
-  REFUNDED: 'badge-info',
-  REFUND_FAILED: 'badge-danger',
+export type OrderStatusTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info'
+
+const STATUS_BADGE_MAP: Record<string, OrderStatusTone> = {
+  PENDING: 'warning',
+  PAID: 'info',
+  RECHARGING: 'info',
+  COMPLETED: 'success',
+  EXPIRED: 'neutral',
+  CANCELLED: 'neutral',
+  FAILED: 'danger',
+  REFUND_REQUESTED: 'warning',
+  REFUNDING: 'warning',
+  REFUND_PENDING: 'warning',
+  PARTIALLY_REFUNDED: 'warning',
+  REFUNDED: 'info',
+  REFUND_FAILED: 'danger',
 }
 
 const REFUNDABLE_STATUSES = ['COMPLETED', 'PARTIALLY_REFUNDED', 'REFUND_REQUESTED', 'REFUND_FAILED']
 
-export function statusBadgeClass(status: string): string {
-  return STATUS_BADGE_MAP[status] || 'badge-secondary'
+export function statusBadgeTone(status: string): OrderStatusTone {
+  return STATUS_BADGE_MAP[status] || 'neutral'
 }
 
 export function canRefund(status: string): boolean {

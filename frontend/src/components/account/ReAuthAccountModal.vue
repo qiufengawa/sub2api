@@ -46,7 +46,7 @@
 
       <!-- Add Method Selection (Claude only) -->
       <fieldset v-if="isAnthropic" class="border-0 p-0">
-        <legend class="input-label">{{ t('admin.accounts.oauth.authMethod') }}</legend>
+        <legend class="ui-field-label">{{ t('admin.accounts.oauth.authMethod') }}</legend>
         <UiRadioGroup
           v-model="addMethod"
           class="mt-2"

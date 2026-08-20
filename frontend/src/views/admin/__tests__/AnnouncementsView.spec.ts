@@ -71,7 +71,10 @@ const mountView = () => mount(AnnouncementsView, {
         template: '<div data-test="table"><div v-for="row in data" :key="row.id"><slot v-for="column in columns" :name="`cell-${column.key}`" :row="row" :value="row[column.key]" /></div><slot v-if="!data.length" name="empty"/></div>',
       },
       UiPagination: true,
-      UiDialog: { props: ['show'], template: '<div v-if="show"><slot/><slot name="footer"/></div>' },
+      UiDialog: {
+        props: ['show', 'title', 'width'],
+        template: '<div v-if="show" data-test="announcement-dialog" :data-width="width" :aria-label="title"><slot/><slot name="footer"/></div>',
+      },
       UiConfirmDialog: true,
       UiEmptyState: { template: '<div data-test="empty"><slot name="action"/></div>' },
       UiErrorState: { props: ['title'], emits: ['retry'], template: '<div data-test="error-state">{{ title }}<button data-test="retry" @click="$emit(\'retry\')">retry</button></div>' },
@@ -114,6 +117,32 @@ describe('admin AnnouncementsView', () => {
       sort_order: 'desc',
     }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
     expect(wrapper.get('[data-test="table"]').text()).toContain('Maintenance')
+  })
+
+  it('keeps the announcement table keyboard-scrollable with the 940px mobile contract', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const scroller = wrapper.get('.ui-table-scroller')
+    expect(scroller.attributes('role')).toBe('region')
+    expect(scroller.attributes('tabindex')).toBe('0')
+    expect(scroller.attributes('aria-label')).toBe('admin.announcements.title')
+    expect(scroller.get(':scope > div').attributes('style')).toContain('min-width: 940px')
+  })
+
+  it('opens the editor through the shared wide dialog contract', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const createButton = wrapper.findAll('button').find((button) =>
+      button.text().includes('admin.announcements.createAnnouncement'),
+    )
+    expect(createButton).toBeDefined()
+    await createButton?.trigger('click')
+
+    const dialog = wrapper.get('[data-test="announcement-dialog"]')
+    expect(dialog.attributes('data-width')).toBe('wide')
+    expect(dialog.attributes('aria-label')).toBe('admin.announcements.createAnnouncement')
   })
 
   it('reserves the table workspace while the first request is pending', async () => {
@@ -184,6 +213,34 @@ describe('admin AnnouncementsView', () => {
     expect(vm.showDeleteDialog).toBe(false)
     expect(showSuccess).toHaveBeenCalledWith('common.success')
     expect(list).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+
+  it('locks the editing session while save is pending and ignores stale completion cleanup', async () => {
+    const request = deferred<unknown>()
+    update.mockReturnValueOnce(request.promise)
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    const second = { ...announcement, id: 8, title: 'Second announcement' }
+    vm.openEditDialog(announcement)
+
+    const save = vm.handleSave()
+    expect(vm.saving).toBe(true)
+    vm.closeEdit()
+    vm.openEditDialog(second)
+    expect(vm.showEditDialog).toBe(true)
+    expect(vm.editingAnnouncement.id).toBe(announcement.id)
+
+    vm.editingAnnouncement = second
+    request.resolve({})
+    await save
+    await flushPromises()
+
+    expect(update).toHaveBeenCalledWith(announcement.id, {})
+    expect(vm.showEditDialog).toBe(true)
+    expect(vm.editingAnnouncement.id).toBe(second.id)
+    expect(vm.saving).toBe(false)
     wrapper.unmount()
   })
 

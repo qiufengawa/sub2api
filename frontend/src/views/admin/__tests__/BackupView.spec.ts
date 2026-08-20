@@ -279,6 +279,31 @@ describe('admin BackupView 分卷备份', () => {
     wrapper.unmount()
   })
 
+  it('does not let an older backup list response overwrite a visibility refresh', async () => {
+    const running = { ...baseRecord('new-running'), status: 'running' }
+    let resolveInitial!: (value: { items: ReturnType<typeof baseRecord>[] }) => void
+    listBackups
+      .mockImplementationOnce(() => new Promise(resolve => { resolveInitial = resolve }))
+      .mockResolvedValueOnce({ items: [running] })
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
+
+    const wrapper = mountBackupView()
+    await vi.waitFor(() => expect(listBackups).toHaveBeenCalledTimes(1))
+    const vm = wrapper.vm as any
+    vm.handleVisibilityChange()
+    await vi.waitFor(() => expect(listBackups).toHaveBeenCalledTimes(2))
+    await flushPromises()
+
+    expect(vm.backups.map((record: { id: string }) => record.id)).toEqual(['new-running'])
+    expect(vm.creatingBackup).toBe(true)
+
+    resolveInitial({ items: [] })
+    await flushPromises()
+    expect(vm.backups.map((record: { id: string }) => record.id)).toEqual(['new-running'])
+    expect(vm.backupsLoadError).toBe(false)
+    wrapper.unmount()
+  })
+
   it('keeps backup polling single-flight when an upstream request is slow', async () => {
     vi.useFakeTimers()
     let resolveFirst!: (record: ReturnType<typeof baseRecord>) => void

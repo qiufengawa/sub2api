@@ -7,6 +7,7 @@
         variant="ghost"
         density="mini"
         :aria-expanded="!collapsed"
+        :aria-controls="pricingBodyId"
         @click="collapsed = !collapsed"
       />
       <div class="channel-pricing-entry__summary">
@@ -21,7 +22,7 @@
       <UiIconButton icon="trash" :label="t('common.delete')" variant="danger" density="mini" @click="emit('remove')" />
     </header>
 
-    <Transition name="ui-collapse"><div v-if="!collapsed" class="channel-pricing-entry__body">
+    <Transition name="ui-collapse"><div v-show="!collapsed" :id="pricingBodyId" class="channel-pricing-entry__body">
       <div class="channel-pricing-entry__topline">
         <ModelTagInput :models="entry.models" :platform="platform" :placeholder="t('admin.channels.form.modelsPlaceholder')" @update:models="onModelsUpdate" />
         <UiSelect :model-value="entry.billing_mode" :label="t('admin.channels.form.billingMode')" :options="billingModeOptions" density="compact" @update:model-value="emit('update', { ...entry, billing_mode: $event as BillingMode, intervals: [] })" />
@@ -52,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import IntervalRow from './IntervalRow.vue'
@@ -67,6 +68,7 @@ const { t } = useI18n()
 const props = withDefaults(defineProps<{ entry: PricingFormEntry; platform?: string; hideTokenIntervals?: boolean }>(), { hideTokenIntervals: false })
 const emit = defineEmits<{ update: [entry: PricingFormEntry]; remove: [] }>()
 const collapsed = ref(props.entry.models.length > 0)
+const pricingBodyId = useId()
 const billingModeOptions = computed(() => [
   { value: 'token', label: t('admin.channels.billingMode.token') },
   { value: 'per_request', label: t('admin.channels.billingMode.perRequest') },

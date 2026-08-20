@@ -106,14 +106,17 @@ describe('OpsSystemLogTable host support', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('api-node-1')
+    expect(wrapper.get('[role="progressbar"]').attributes('aria-label')).toContain('admin.ops.systemLogs.queue')
 
     const advancedFiltersButton = wrapper.findAll('button').find((button) =>
       button.text().includes('admin.ops.systemLogs.advancedFilters')
     )
     expect(advancedFiltersButton).toBeDefined()
     expect(advancedFiltersButton!.attributes('aria-expanded')).toBe('false')
+    expect(advancedFiltersButton!.attributes('aria-controls')).toBe('ops-system-log-advanced-filters')
     await advancedFiltersButton!.trigger('click')
     expect(advancedFiltersButton!.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.get('#ops-system-log-advanced-filters')).toBeTruthy()
 
     const hostLabel = wrapper.findAll('label').find((label) => label.text() === 'admin.ops.systemLogs.host')
     expect(hostLabel).toBeDefined()
@@ -156,11 +159,13 @@ describe('OpsSystemLogTable host support', () => {
     )
     expect(runtimeButton).toBeDefined()
     expect(runtimeButton!.attributes('aria-expanded')).toBe('false')
+    expect(runtimeButton!.attributes('aria-controls')).toBe('ops-system-log-runtime-config')
     expect(wrapper.text()).not.toContain('admin.ops.systemLogs.samplingInitial')
 
     await runtimeButton!.trigger('click')
 
     expect(runtimeButton!.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.get('#ops-system-log-runtime-config')).toBeTruthy()
     expect(wrapper.text()).toContain('admin.ops.systemLogs.samplingInitial')
   })
 

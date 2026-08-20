@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="editing ? t('admin.settings.payment.editProvider') : t('admin.settings.payment.createProvider')"
     width="wide"
@@ -8,19 +8,19 @@
     <form id="provider-form" @submit.prevent="handleSave" class="space-y-4">
       <!-- Name + Key -->
       <div class="grid grid-cols-2 gap-4">
+        <UiTextField
+          v-model="form.name"
+          type="text"
+          required
+          density="compact"
+          :label="t('admin.settings.payment.providerName')"
+        />
         <div>
-          <label class="input-label">
-            {{ t('admin.settings.payment.providerName') }}
-            <span class="text-red-500">*</span>
-          </label>
-          <input v-model="form.name" type="text" class="input" required />
-        </div>
-        <div>
-          <label class="input-label">
+          <label class="ui-field-label">
             {{ t('admin.settings.payment.providerKey') }}
             <span class="text-red-500">*</span>
           </label>
-          <Select
+          <UiSelect
             v-model="form.provider_key"
             :options="(!!editing ? allKeyOptions : enabledKeyOptions) as SelectOption[]"
             :disabled="!!editing"
@@ -37,35 +37,29 @@
         <div v-if="supportsPaymentMode" class="flex items-center gap-2">
           <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('admin.settings.payment.paymentMode') }}</span>
           <div class="flex gap-1.5">
-            <button
+            <UiButton
               v-for="mode in paymentModeOptions"
               :key="mode.value"
               type="button"
+              :aria-pressed="form.payment_mode === mode.value"
+              :variant="form.payment_mode === mode.value ? 'primary' : 'secondary'"
+              density="mini"
               @click="form.payment_mode = mode.value"
-              :class="[
-                'rounded-lg border px-2.5 py-1 text-xs font-medium transition-all',
-                form.payment_mode === mode.value
-                  ? 'border-primary-500 bg-primary-500 text-white shadow-sm'
-                  : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300 dark:hover:border-dark-500',
-              ]"
-            >{{ mode.label }}</button>
+            >{{ mode.label }}</UiButton>
           </div>
         </div>
         <div v-if="availableTypes.length > 1" class="flex items-center gap-2">
           <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('admin.settings.payment.supportedTypes') }}</span>
           <div class="flex flex-wrap gap-1.5">
-            <button
+            <UiButton
               v-for="pt in availableTypes"
               :key="pt.value"
               type="button"
+              :aria-pressed="isTypeSelected(pt.value)"
+              :variant="isTypeSelected(pt.value) ? 'primary' : 'secondary'"
+              density="mini"
               @click="toggleType(pt.value)"
-              :class="[
-                'rounded-lg border px-2.5 py-1 text-xs font-medium transition-all',
-                isTypeSelected(pt.value)
-                  ? 'border-primary-500 bg-primary-500 text-white shadow-sm'
-                  : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300 dark:hover:border-dark-500',
-              ]"
-            >{{ pt.label }}</button>
+            >{{ pt.label }}</UiButton>
           </div>
         </div>
       </div>
@@ -80,9 +74,9 @@
               {{ t('admin.settings.payment.easypayCustomMethodsHint') }}
             </p>
           </div>
-          <button type="button" class="btn btn-secondary btn-sm" @click="addEasyPayCustomMethod">
+          <UiButton type="button" density="compact" data-testid="payment-add-custom-method" @click="addEasyPayCustomMethod">
             {{ t('admin.settings.payment.addCustomMethod') }}
-          </button>
+          </UiButton>
         </div>
         <div v-if="easyPayCustomMethods.length" class="space-y-2">
           <div
@@ -90,25 +84,30 @@
             :key="index"
             class="grid grid-cols-[1fr_1fr_1fr_auto] items-end gap-2"
           >
-            <div>
-              <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.settings.payment.customMethodType') }}</label>
-              <input v-model="method.type" type="text" class="input mt-0.5" placeholder="credit_card" />
-            </div>
-            <div>
-              <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.settings.payment.customMethodUpstreamType') }}</label>
-              <input v-model="method.upstreamType" type="text" class="input mt-0.5" placeholder="credit_card" />
-            </div>
-            <div>
-              <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.settings.payment.customMethodDisplayName') }}</label>
-              <input v-model="method.displayName" type="text" class="input mt-0.5" :placeholder="t('admin.settings.payment.customMethodDisplayNamePlaceholder')" />
-            </div>
-            <button
-              type="button"
-              class="rounded-lg border border-red-200 px-2.5 py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-800/60 dark:text-red-300 dark:hover:bg-red-900/20"
-              @click="removeEasyPayCustomMethod(index)"
-            >
+            <UiTextField
+              v-model="method.type"
+              type="text"
+              density="compact"
+              :label="t('admin.settings.payment.customMethodType')"
+              placeholder="credit_card"
+            />
+            <UiTextField
+              v-model="method.upstreamType"
+              type="text"
+              density="compact"
+              :label="t('admin.settings.payment.customMethodUpstreamType')"
+              placeholder="credit_card"
+            />
+            <UiTextField
+              v-model="method.displayName"
+              type="text"
+              density="compact"
+              :label="t('admin.settings.payment.customMethodDisplayName')"
+              :placeholder="t('admin.settings.payment.customMethodDisplayNamePlaceholder')"
+            />
+            <UiButton type="button" variant="danger" density="compact" @click="removeEasyPayCustomMethod(index)">
               {{ t('common.delete') }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
@@ -120,18 +119,16 @@
           <h4 class="text-sm font-semibold text-gray-900 dark:text-white">
             {{ t('admin.settings.payment.providerConfig') }}
           </h4>
-          <HelpTooltip v-if="paymentGuide" trigger="click" width-class="w-80">
-            <template #trigger>
-              <button
-                type="button"
-                class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 text-[11px] font-semibold text-gray-400 transition-colors hover:border-primary-500 hover:text-primary-600 dark:border-dark-500 dark:text-gray-500 dark:hover:border-primary-400 dark:hover:text-primary-400"
-                :aria-label="t('admin.settings.payment.paymentGuideTrigger')"
-                :title="t('admin.settings.payment.paymentGuideTrigger')"
-              >
-                ?
-              </button>
-            </template>
-            <div class="space-y-3">
+          <UiTooltip v-if="paymentGuide" trigger="click" width-class="w-80">
+            <UiIconButton
+              type="button"
+              variant="ghost"
+              density="mini"
+              icon="infoCircle"
+              :label="t('admin.settings.payment.paymentGuideTrigger')"
+              :tooltip="t('admin.settings.payment.paymentGuideTrigger')"
+            />
+            <template #content><div class="space-y-3">
               <p class="font-medium text-white">{{ paymentGuide.summary }}</p>
               <div
                 v-for="item in paymentGuide.items"
@@ -146,24 +143,24 @@
               <p v-if="paymentGuide.note" class="border-t border-white/10 pt-2 text-[11px] text-gray-300">
                 {{ paymentGuide.note }}
               </p>
-            </div>
-          </HelpTooltip>
+            </div></template>
+          </UiTooltip>
         </div>
         <p v-if="paymentGuide" class="mb-3 text-xs text-gray-500 dark:text-gray-400">
           {{ paymentGuide.summary }}
         </p>
         <div class="space-y-3">
           <div v-for="field in resolvedFields" :key="field.key">
-            <label class="input-label">
+            <label class="ui-field-label">
               {{ field.label }}
               <span v-if="field.optional" class="text-xs text-gray-400">({{ t('common.optional') }})</span>
               <span v-else class="text-red-500"> *</span>
             </label>
-            <textarea
+            <UiTextArea
               v-if="field.sensitive && field.key.toLowerCase().includes('key') && field.key !== 'pkey'"
               v-model="config[field.key]"
-              rows="3"
-              class="input font-mono text-xs"
+              :rows="3"
+              monospace
               autocomplete="new-password"
               data-1p-ignore
               data-lpignore="true"
@@ -171,38 +168,40 @@
               spellcheck="false"
               :placeholder="editing ? t('admin.accounts.leaveEmptyToKeep') : ''"
             />
-            <div v-else-if="field.sensitive" class="relative">
-              <input
+            <UiTextField
+              v-else-if="field.sensitive"
                 :type="visibleFields[field.key] ? 'text' : 'password'"
                 v-model="config[field.key]"
-                class="input pr-10"
+                density="compact"
                 autocomplete="new-password"
                 data-1p-ignore
                 data-lpignore="true"
                 data-bwignore="true"
                 spellcheck="false"
                 :placeholder="editing ? t('admin.accounts.leaveEmptyToKeep') : (field.defaultValue || '')"
-              />
-              <button
-                type="button"
-                @click="visibleFields[field.key] = !visibleFields[field.key]"
-                class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <svg v-if="visibleFields[field.key]" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" /></svg>
-                <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-              </button>
-            </div>
-            <Select
+            >
+              <template #suffix>
+                <UiIconButton
+                  type="button"
+                  variant="ghost"
+                  density="mini"
+                  :icon="visibleFields[field.key] ? 'eyeOff' : 'eye'"
+                  :label="visibleFields[field.key] ? t('common.hidePassword') : t('common.showPassword')"
+                  @click="visibleFields[field.key] = !visibleFields[field.key]"
+                />
+              </template>
+            </UiTextField>
+            <UiSelect
               v-else-if="field.options?.length"
               v-model="config[field.key]"
               :options="field.options"
               :searchable="field.options.length > 5"
             />
-            <input
+            <UiTextField
               v-else
               type="text"
               v-model="config[field.key]"
-              class="input"
+              density="compact"
               :placeholder="field.defaultValue || ''"
             />
             <p v-if="field.hintKey" class="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
@@ -214,16 +213,32 @@
         <!-- Callback URLs (each = editable URL + fixed path) -->
         <div v-if="callbackPaths" class="mt-4 space-y-3">
           <div v-if="callbackPaths.notifyUrl">
-            <label class="input-label">{{ t('admin.settings.payment.field_notifyUrl') }} <span class="text-red-500">*</span></label>
+            <label class="ui-field-label">{{ t('admin.settings.payment.field_notifyUrl') }} <span class="text-red-500">*</span></label>
             <div class="flex">
-              <input v-model="notifyBaseUrl" type="text" class="input min-w-0 flex-1 !rounded-r-none !border-r-0" :placeholder="defaultBaseUrl" />
+              <UiTextField
+                v-model="notifyBaseUrl"
+                type="text"
+                density="compact"
+                monospace
+                class="min-w-0 flex-1"
+                :placeholder="defaultBaseUrl"
+                :input-attrs="{ 'aria-label': t('admin.settings.payment.field_notifyUrl') }"
+              />
               <span class="inline-flex items-center whitespace-nowrap rounded-r-lg border border-gray-300 bg-gray-50 px-3 text-xs text-gray-500 dark:border-dark-600 dark:bg-dark-700 dark:text-gray-400">{{ callbackPaths.notifyUrl }}</span>
             </div>
           </div>
           <div v-if="callbackPaths.returnUrl">
-            <label class="input-label">{{ t('admin.settings.payment.field_returnUrl') }} <span class="text-red-500">*</span></label>
+            <label class="ui-field-label">{{ t('admin.settings.payment.field_returnUrl') }} <span class="text-red-500">*</span></label>
             <div class="flex">
-              <input v-model="returnBaseUrl" type="text" class="input min-w-0 flex-1 !rounded-r-none !border-r-0" :placeholder="defaultBaseUrl" />
+              <UiTextField
+                v-model="returnBaseUrl"
+                type="text"
+                density="compact"
+                monospace
+                class="min-w-0 flex-1"
+                :placeholder="defaultBaseUrl"
+                :input-attrs="{ 'aria-label': t('admin.settings.payment.field_returnUrl') }"
+              />
               <span class="inline-flex items-center whitespace-nowrap rounded-r-lg border border-gray-300 bg-gray-50 px-3 text-xs text-gray-500 dark:border-dark-600 dark:bg-dark-700 dark:text-gray-400">{{ callbackPaths.returnUrl }}</span>
             </div>
           </div>
@@ -245,13 +260,19 @@
 
       <!-- Per-type limits (collapsible) -->
       <div v-if="limitableTypes.length" class="border-t border-gray-200 pt-4 dark:border-dark-700">
-        <button type="button" @click="limitsExpanded = !limitsExpanded" class="flex w-full items-center justify-between">
+        <button
+          type="button"
+          :aria-expanded="limitsExpanded"
+          :aria-controls="'provider-limits-panel'"
+          @click="limitsExpanded = !limitsExpanded"
+          class="flex w-full items-center justify-between"
+        >
           <h4 class="text-sm font-semibold text-gray-900 dark:text-white">
             {{ t('admin.settings.payment.limitsTitle') }}
           </h4>
-          <svg :class="['h-4 w-4 text-gray-400 transition-transform', limitsExpanded && 'rotate-180']" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+          <Icon name="chevronDown" size="sm" class="text-gray-400 motion-safe:transition-transform" :class="limitsExpanded && 'rotate-180'" />
         </button>
-        <div v-show="limitsExpanded" class="mt-3 space-y-3">
+        <div id="provider-limits-panel" v-show="limitsExpanded" class="mt-3 space-y-3">
           <div
             v-for="lt in limitableTypes"
             :key="lt.value"
@@ -261,29 +282,41 @@
             <div class="grid grid-cols-3 gap-3">
               <div>
                 <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.settings.payment.limitSingleMin') }}</label>
-                <input
+                <UiTextField
                   type="number"
-                  :value="getLimitVal(lt.value, 'singleMin')"
+                  :model-value="getLimitVal(lt.value, 'singleMin')"
                   @input="setLimitVal(lt.value, 'singleMin', ($event.target as HTMLInputElement).value)"
-                  class="input mt-0.5" min="1" step="0.01" :placeholder="limitPlaceholder(lt.value)"
+                  density="compact"
+                  min="1"
+                  step="0.01"
+                  :placeholder="limitPlaceholder(lt.value)"
+                  :input-attrs="{ 'aria-label': t('admin.settings.payment.limitSingleMin') }"
                 />
               </div>
               <div>
                 <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.settings.payment.limitSingleMax') }}</label>
-                <input
+                <UiTextField
                   type="number"
-                  :value="getLimitVal(lt.value, 'singleMax')"
+                  :model-value="getLimitVal(lt.value, 'singleMax')"
                   @input="setLimitVal(lt.value, 'singleMax', ($event.target as HTMLInputElement).value)"
-                  class="input mt-0.5" min="1" step="0.01" :placeholder="limitPlaceholder(lt.value)"
+                  density="compact"
+                  min="1"
+                  step="0.01"
+                  :placeholder="limitPlaceholder(lt.value)"
+                  :input-attrs="{ 'aria-label': t('admin.settings.payment.limitSingleMax') }"
                 />
               </div>
               <div>
                 <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.settings.payment.limitDaily') }}</label>
-                <input
+                <UiTextField
                   type="number"
-                  :value="getLimitVal(lt.value, 'dailyLimit')"
+                  :model-value="getLimitVal(lt.value, 'dailyLimit')"
                   @input="setLimitVal(lt.value, 'dailyLimit', ($event.target as HTMLInputElement).value)"
-                  class="input mt-0.5" min="1" step="0.01" :placeholder="limitPlaceholder(lt.value)"
+                  density="compact"
+                  min="1"
+                  step="0.01"
+                  :placeholder="limitPlaceholder(lt.value)"
+                  :input-attrs="{ 'aria-label': t('admin.settings.payment.limitDaily') }"
                 />
               </div>
             </div>
@@ -295,22 +328,29 @@
 
     <template #footer>
       <div class="flex justify-end gap-3">
-        <button type="button" @click="emit('close')" class="btn btn-secondary">{{ t('common.cancel') }}</button>
-        <button type="submit" form="provider-form" :disabled="saving" class="btn btn-primary">
+        <UiButton type="button" density="compact" @click="emit('close')">{{ t('common.cancel') }}</UiButton>
+        <UiButton type="submit" form="provider-form" variant="primary" density="compact" :loading="saving" :disabled="saving">
           {{ saving ? t('common.saving') : t('common.save') }}
-        </button>
+        </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
 import { reactive, computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import HelpTooltip from '@/components/common/HelpTooltip.vue'
-import Select from '@/components/common/Select.vue'
-import type { SelectOption } from '@/components/common/Select.vue'
+import {
+  UiButton,
+  UiDialog,
+  UiIconButton,
+  UiSelect,
+  UiTextArea,
+  UiTextField,
+  UiTooltip,
+  type SelectOption,
+} from '@/components/ui'
+import Icon from '@/components/icons/Icon.vue'
 import ToggleSwitch from './ToggleSwitch.vue'
 import type { ProviderInstance } from '@/types/payment'
 import type { EasyPayCustomMethod, TypeOption } from './providerConfig'

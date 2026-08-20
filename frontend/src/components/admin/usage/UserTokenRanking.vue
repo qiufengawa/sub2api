@@ -38,7 +38,7 @@
         <tbody class="divide-y divide-gray-200 bg-white dark:divide-dark-700 dark:bg-dark-900">
           <tr v-if="loading">
             <td :colspan="sortableColumns.length + 2" class="py-12 text-center">
-              <LoadingSpinner />
+              <UiSpinner />
             </td>
           </tr>
           <tr v-else-if="items.length === 0">
@@ -85,8 +85,7 @@ import { useI18n } from 'vue-i18n'
 import { getUserBreakdown, type UserBreakdownParams } from '@/api/admin/dashboard'
 import { formatCompactNumber, formatCostFixed } from '@/utils/format'
 import type { UserBreakdownItem } from '@/types'
-import Select from '@/components/common/Select.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { UiSelect as Select, UiSpinner } from '@/components/ui'
 
 const props = defineProps<{
   startDate: string

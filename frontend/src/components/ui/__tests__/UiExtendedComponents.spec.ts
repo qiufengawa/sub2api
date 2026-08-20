@@ -10,6 +10,10 @@ import UiLink from '../UiLink.vue'
 import UiMultiCombobox from '../UiMultiCombobox.vue'
 import UiPageNav from '../UiPageNav.vue'
 import UiStructuredEditor from '../UiStructuredEditor.vue'
+import UiTagInput from '../UiTagInput.vue'
+import UiDateTimeRangePicker from '../UiDateTimeRangePicker.vue'
+import UiTimeInput from '../UiTimeInput.vue'
+import UiTree from '../UiTree.vue'
 import UiTabs from '../UiTabs.vue'
 import UiTransferList from '../UiTransferList.vue'
 
@@ -23,19 +27,35 @@ afterEach(() => {
 describe('Qiu UI extended workflow components', () => {
   it('selects multiple controlled options', async () => {
     const wrapper = mount(UiMultiCombobox, {
+      attachTo: document.body,
       props: {
         modelValue: ['gpt'],
-        ariaLabel: 'Models',
+        label: 'Models',
         options: [
           { label: 'GPT', value: 'gpt' },
           { label: 'Claude', value: 'claude' }
         ]
       }
     })
-    expect(wrapper.get('.ui-multi__trigger').attributes('aria-label')).toBe('Models')
-    await wrapper.get('.ui-multi__trigger').trigger('click')
-    await wrapper.findAll('.ui-multi__options > button')[1].trigger('click')
+    const trigger = wrapper.get<HTMLButtonElement>('.ui-multi__trigger')
+    expect(trigger.attributes('aria-label')).toBe('Models')
+    expect(wrapper.get('label').attributes('for')).toBe(trigger.attributes('id'))
+    await trigger.trigger('click')
+    const listbox = wrapper.get('[role="listbox"]')
+    expect(trigger.attributes('aria-controls')).toBe(listbox.attributes('id'))
+    expect(document.activeElement).toBe(wrapper.get('.ui-search input').element)
+
+    await wrapper.get('.ui-search input').trigger('keydown', { key: 'ArrowDown' })
+    const options = wrapper.findAll<HTMLButtonElement>('.ui-multi__options > button')
+    expect(document.activeElement).toBe(options[0].element)
+    await options[0].trigger('keydown', { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(options[1].element)
+    await options[1].trigger('click')
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([['gpt', 'claude']])
+    await options[1].trigger('keydown', { key: 'Escape' })
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false)
+    expect(document.activeElement).toBe(trigger.element)
+    wrapper.unmount()
   })
 
   it('edits key-value rows without mutating the input model', async () => {
@@ -47,11 +67,66 @@ describe('Qiu UI extended workflow components', () => {
   })
 
   it('validates and formats structured JSON', async () => {
-    const wrapper = mount(UiStructuredEditor, { props: { modelValue: '{"plan":"standard"}' } })
+    const wrapper = mount(UiStructuredEditor, { props: { modelValue: '{"plan":"standard"}', label: 'Configuration' } })
+    expect(wrapper.get('label').attributes('for')).toBe(wrapper.get('textarea').attributes('id'))
     await wrapper.findAll('button')[0].trigger('click')
     expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toContain('\n  "plan"')
     await wrapper.get('textarea').setValue('{bad')
     expect(wrapper.emitted('invalid')).toHaveLength(1)
+  })
+
+  it('associates tag and date-time range controls with visible labels', async () => {
+    const tags = mount(UiTagInput, { props: { modelValue: [], label: 'Models' } })
+    expect(tags.get('label').attributes('for')).toBe(tags.get('input').attributes('id'))
+
+    const range = mount(UiDateTimeRangePicker, {
+      props: { startDate: '2026-01-01', startTime: '09:00', endDate: '2026-01-02', endTime: '10:00' },
+    })
+    expect(range.get('label[for$="-start-date"]')).toBeTruthy()
+    expect(range.get('label[for$="-start-time"]')).toBeTruthy()
+    expect(range.get('label[for$="-end-date"]')).toBeTruthy()
+    expect(range.get('label[for$="-end-time"]')).toBeTruthy()
+    await range.setProps({ startDate: '2026-02-03' })
+    expect(range.get('input[type="date"]').element.value).toBe('2026-02-03')
+  })
+
+  it('keeps time input usable for invalid minute-step values', async () => {
+    const wrapper = mount(UiTimeInput, { props: { modelValue: '', minuteStep: 0, label: 'Time' } })
+    await wrapper.get('button').trigger('click')
+    expect(wrapper.get('button').attributes('id')).toMatch(/^ui-time-/)
+  })
+
+  it('exposes selection, hierarchy, and keyboard navigation for trees', async () => {
+    const wrapper = mount(UiTree, {
+      attachTo: document.body,
+      props: {
+        modelValue: 'child',
+        items: [
+          { key: 'parent', label: 'Parent', children: [{ key: 'child', label: 'Child' }] },
+          { key: 'sibling', label: 'Sibling' },
+        ],
+      },
+    })
+    expect(wrapper.get('[role="tree"]').exists()).toBe(true)
+    expect(wrapper.get('[role="group"]').exists()).toBe(true)
+    expect(wrapper.find('[role="treeitem"]').attributes('aria-expanded')).toBe('true')
+    expect(wrapper.findAll('[role="treeitem"]')[1].attributes('aria-level')).toBe('2')
+    expect(wrapper.find('button[aria-current="true"]').text()).toContain('Child')
+
+    const items = wrapper.findAll<HTMLElement>('[role="treeitem"]')
+    items[1].element.focus()
+    await items[1].trigger('keydown', { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(items[2].element)
+    await items[2].trigger('keydown', { key: 'Home' })
+    expect(document.activeElement).toBe(items[0].element)
+    await items[0].trigger('keydown', { key: 'ArrowRight' })
+    expect(document.activeElement).toBe(items[1].element)
+    await items[1].trigger('keydown', { key: 'ArrowLeft' })
+    expect(document.activeElement).toBe(items[0].element)
+    await items[0].trigger('keydown', { key: 'End' })
+    await items[2].trigger('keydown', { key: 'Enter' })
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual(['sibling'])
+    wrapper.unmount()
   })
 
   it('moves options between transfer lists', async () => {
@@ -80,11 +155,15 @@ describe('Qiu UI extended workflow components', () => {
   })
 
   it('uses roving tabindex and arrow navigation for tabs', async () => {
-    const wrapper = mount(UiTabs, { props: { modelValue: 'a', label: 'views', tabs: [{ label: 'A', value: 'a' }, { label: 'B', value: 'b' }] } })
+    const wrapper = mount(UiTabs, { props: { modelValue: 'a', label: 'views', tabs: [{ label: 'A', value: 'a', id: 'tab-a', controls: 'panel-a' }, { label: 'B', value: 'b' }] } })
     const buttons = wrapper.findAll('button')
     expect(buttons[0].attributes('tabindex')).toBe('0')
     expect(buttons[1].attributes('tabindex')).toBe('-1')
+    expect(buttons[0].attributes('id')).toBe('tab-a')
+    expect(buttons[0].attributes('aria-controls')).toBe('panel-a')
     await buttons[0].trigger('keydown', { key: 'ArrowRight' })
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual(['b'])
+    await buttons[0].trigger('keydown', { key: 'ArrowDown' })
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual(['b'])
   })
 

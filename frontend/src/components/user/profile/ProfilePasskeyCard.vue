@@ -1,5 +1,5 @@
 <template>
-  <div :class="props.embedded ? 'border-t border-gray-100 dark:border-dark-700' : 'card'">
+  <div :class="props.embedded ? 'border-t border-gray-100 dark:border-dark-700' : 'ui-panel'">
     <div :class="props.embedded ? 'flex items-start justify-between gap-3 px-4 pt-3' : 'flex items-start justify-between border-b border-gray-100 px-6 py-4 dark:border-dark-700'">
       <div>
         <h2 :class="props.embedded ? 'text-sm font-medium text-gray-900 dark:text-white' : 'text-lg font-medium text-gray-900 dark:text-white'">
@@ -9,15 +9,16 @@
           {{ t('profile.passkey.description') }}
         </p>
       </div>
-      <button
+      <UiButton
         v-if="enabled && supported && !showAddForm"
         type="button"
-        :class="props.embedded ? 'btn btn-primary btn-sm' : 'btn btn-primary'"
+        variant="primary"
+        :density="props.embedded ? 'compact' : 'default'"
         :disabled="busy"
         @click="showAddForm = true"
       >
         {{ t('profile.passkey.add') }}
-      </button>
+      </UiButton>
     </div>
 
     <div :class="props.embedded ? 'px-4 pb-3 pt-2' : 'px-6 py-6'">
@@ -34,43 +35,44 @@
           @submit.prevent="addPasskey"
         >
           <div class="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label for="passkey-name" class="input-label">{{ t('profile.passkey.name') }}</label>
-              <input
+            <UiTextField
                 id="passkey-name"
                 v-model="newName"
-                class="input"
-                maxlength="100"
-                :placeholder="t('profile.passkey.namePlaceholder')"
+                :maxlength="100"
                 autofocus
-              />
-            </div>
-            <div>
-              <label for="passkey-add-password" class="input-label">{{
-                t('profile.currentPassword')
-              }}</label>
-              <input
+                :density="props.embedded ? 'compact' : 'default'"
+                :label="t('profile.passkey.name')"
+                :placeholder="t('profile.passkey.namePlaceholder')"
+            />
+            <UiPasswordField
                 id="passkey-add-password"
                 v-model="newPassword"
-                type="password"
                 autocomplete="current-password"
-                class="input"
+                :density="props.embedded ? 'compact' : 'default'"
+                :label="t('profile.currentPassword')"
+                :reveal-label="t('common.showPassword')"
+                :hide-label="t('common.hidePassword')"
                 :placeholder="t('profile.passkey.passwordPlaceholder')"
-              />
-            </div>
+            />
           </div>
           <div class="flex justify-end gap-2">
-            <button type="button" class="btn btn-secondary" :disabled="busy" @click="cancelAdd">
+            <UiButton type="button" density="compact" :disabled="busy" @click="cancelAdd">
               {{ t('common.cancel') }}
-            </button>
-            <button type="submit" class="btn btn-primary" :disabled="busy || newPassword.length === 0">
-              {{ busy ? t('common.processing') : t('profile.passkey.continue') }}
-            </button>
+            </UiButton>
+            <UiButton
+              type="submit"
+              variant="primary"
+              density="compact"
+              :loading="busy"
+              :disabled="newPassword.length === 0"
+            >
+              {{ t('profile.passkey.continue') }}
+            </UiButton>
           </div>
         </form>
 
         <div v-if="enabled && supported && loading" :class="props.embedded ? 'flex justify-center py-3' : 'flex justify-center py-6'">
-          <div :class="props.embedded ? 'h-5 w-5' : 'h-8 w-8'" class="animate-spin rounded-full border-b-2 border-primary-500"></div>
+          <UiSpinner :size="props.embedded ? 'sm' : 'md'" :label="t('common.loading')" />
         </div>
 
         <div
@@ -107,22 +109,23 @@
               </p>
             </div>
             <div class="flex shrink-0 gap-2">
-              <button
+              <UiButton
                 type="button"
-                class="btn btn-secondary btn-sm"
+                density="compact"
                 :disabled="busy"
                 @click="renamePasskey(credential)"
               >
                 {{ t('common.edit') }}
-              </button>
-              <button
+              </UiButton>
+              <UiButton
                 type="button"
-                class="btn btn-ghost btn-sm text-red-600 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/30"
+                variant="danger"
+                density="compact"
                 :disabled="busy"
                 @click="deletePasskey(credential)"
               >
                 {{ t('common.delete') }}
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
@@ -130,49 +133,45 @@
     </div>
 
     <!-- 删除确认：吊销凭据需验证当前密码，防止被窃会话静默移除 Passkey -->
-    <div v-if="deleteTarget" class="fixed inset-0 z-50 overflow-y-auto">
-      <div class="flex min-h-full items-center justify-center p-4">
-        <div class="fixed inset-0 bg-black/50 transition-opacity" @click="closeDeleteDialog"></div>
-        <div
-          class="relative w-full max-w-md transform rounded-xl bg-white p-6 shadow-xl transition-all dark:bg-dark-800"
-        >
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-            {{ t('profile.passkey.deleteTitle') }}
-          </h3>
-          <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            {{ t('profile.passkey.deleteConfirm', { name: deleteTarget.name }) }}
-          </p>
-          <form class="mt-4 space-y-4" @submit.prevent="confirmDelete">
-            <div>
-              <label for="passkey-delete-password" class="input-label">{{
-                t('profile.currentPassword')
-              }}</label>
-              <input
-                id="passkey-delete-password"
-                v-model="deletePassword"
-                type="password"
-                autocomplete="current-password"
-                class="input"
-                :placeholder="t('profile.passkey.passwordPlaceholder')"
-                autofocus
-              />
-            </div>
-            <div class="flex justify-end gap-3">
-              <button type="button" class="btn btn-secondary" :disabled="busy" @click="closeDeleteDialog">
-                {{ t('common.cancel') }}
-              </button>
-              <button
-                type="submit"
-                class="btn btn-danger"
-                :disabled="busy || deletePassword.length === 0"
-              >
-                {{ busy ? t('common.processing') : t('common.delete') }}
-              </button>
-            </div>
-          </form>
+    <UiDialog
+      :show="Boolean(deleteTarget)"
+      :title="t('profile.passkey.deleteTitle')"
+      width="narrow"
+      :show-close-button="false"
+      :close-on-click-outside="true"
+      @close="closeDeleteDialog"
+    >
+      <p class="passkey-delete__description">
+        {{ t('profile.passkey.deleteConfirm', { name: deleteTarget?.name || '' }) }}
+      </p>
+      <form class="passkey-delete__form" @submit.prevent="confirmDelete">
+        <UiPasswordField
+          id="passkey-delete-password"
+          v-model="deletePassword"
+          autocomplete="current-password"
+          :density="props.embedded ? 'compact' : 'default'"
+          :label="t('profile.currentPassword')"
+          :reveal-label="t('common.showPassword')"
+          :hide-label="t('common.hidePassword')"
+          :placeholder="t('profile.passkey.passwordPlaceholder')"
+          autofocus
+        />
+        <div class="passkey-delete__actions">
+          <UiButton type="button" density="compact" :disabled="busy" @click="closeDeleteDialog">
+            {{ t('common.cancel') }}
+          </UiButton>
+          <UiButton
+            type="submit"
+            variant="danger"
+            density="compact"
+            :loading="busy"
+            :disabled="deletePassword.length === 0"
+          >
+            {{ t('common.delete') }}
+          </UiButton>
         </div>
-      </div>
-    </div>
+      </form>
+    </UiDialog>
   </div>
 </template>
 
@@ -182,6 +181,7 @@ import { useI18n } from 'vue-i18n'
 import { passkeyAPI, type PasskeyCredentialSummary } from '@/api'
 import { Icon } from '@/components/icons'
 import { useAppStore } from '@/stores/app'
+import { UiButton, UiDialog, UiPasswordField, UiSpinner, UiTextField } from '@/components/ui'
 
 const props = withDefaults(defineProps<{
   enabled: boolean
@@ -310,3 +310,9 @@ watch(
   { immediate: true }
 )
 </script>
+
+<style scoped>
+.passkey-delete__description{margin:0;color:var(--ui-text-muted);font-size:13px;line-height:20px}
+.passkey-delete__form{display:grid;gap:16px;margin-top:16px}
+.passkey-delete__actions{display:flex;justify-content:flex-end;gap:8px}
+</style>

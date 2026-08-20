@@ -1,128 +1,100 @@
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8 sm:px-6 dark:bg-dark-900">
-    <div class="w-full max-w-2xl">
-      <!-- Loading -->
-      <div
-        v-if="loading"
-        class="overflow-hidden rounded-[4px] border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800"
-        aria-live="polite"
-        aria-busy="true"
-      >
-        <div class="flex flex-col items-center px-6 py-10 sm:py-12">
-          <div class="h-14 w-14 animate-pulse rounded-full bg-gray-100 dark:bg-dark-700"></div>
-          <div class="mt-5 h-6 w-32 animate-pulse rounded-[3px] bg-gray-100 dark:bg-dark-700"></div>
-          <div class="mt-3 h-4 w-56 max-w-full animate-pulse rounded-[3px] bg-gray-100 dark:bg-dark-700"></div>
-        </div>
-        <div class="space-y-4 border-t border-gray-100 px-5 py-6 sm:px-8 dark:border-dark-700">
-          <div v-for="index in 4" :key="index" class="flex items-center justify-between gap-6">
-            <div class="h-3 w-20 animate-pulse rounded-[3px] bg-gray-100 dark:bg-dark-700"></div>
-            <div class="h-3 w-32 animate-pulse rounded-[3px] bg-gray-100 dark:bg-dark-700"></div>
+  <AppPage density="comfortable" width="normal" class="payment-result-page">
+    <template v-if="loading">
+      <AppPageHeader :title="t('payment.result.processing')" />
+      <section class="payment-result__loading" aria-live="polite" aria-busy="true">
+        <UiSkeleton variant="circle" width="56px" height="56px" />
+        <UiSkeleton variant="text" width="180px" height="28px" />
+        <UiSkeleton variant="text" width="280px" height="20px" />
+        <div class="payment-result__loading-rows">
+          <div v-for="index in 4" :key="index">
+            <UiSkeleton variant="text" width="90px" />
+            <UiSkeleton variant="text" width="150px" />
           </div>
         </div>
-      </div>
-      <template v-else>
-        <section
-          class="overflow-hidden rounded-[4px] border border-gray-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-800"
-          aria-live="polite"
+      </section>
+    </template>
+    <template v-else>
+      <AppPageHeader :title="statusTitle" :description="statusDescription">
+        <template #status>
+          <UiStatusBadge
+            :status="resultBadgeStatus"
+            :label="statusTitle"
+          />
+        </template>
+      </AppPageHeader>
+
+      <section class="payment-result__summary" aria-live="polite">
+        <Icon v-if="isSuccess" name="checkCircle" size="lg" class="payment-result__icon payment-result__icon--success" />
+        <Icon v-else-if="isRefunded" name="checkCircle" size="lg" class="payment-result__icon payment-result__icon--info" />
+        <Icon v-else-if="isProcessing" name="refresh" size="lg" class="payment-result__icon payment-result__icon--pending" />
+        <Icon v-else name="exclamationCircle" size="lg" class="payment-result__icon payment-result__icon--failed" />
+        <div v-if="showPrimaryAmount" class="payment-result__amount">
+          <span>{{ primaryAmountLabel }}</span>
+          <strong>{{ primaryAmountValue }}</strong>
+          <small v-if="showPaidAmountBelowPrimary">
+            {{ t('payment.orders.payAmount') }} {{ formatGatewayAmount(paymentOrder.pay_amount) }}
+          </small>
+        </div>
+      </section>
+
+      <AppSection v-if="order || returnInfo" :title="t('payment.result.receiptTitle')" class="payment-result__receipt">
+        <template #actions>
+          <OrderStatusBadge v-if="order" :status="displayOrderStatus(order.status)" />
+        </template>
+        <UiDescriptionList
+          v-if="order"
+          :items="[
+            ...(order.out_trade_no ? [{ key: 'orderNo', label: t('payment.orders.orderNo'), value: order.out_trade_no }] : []),
+            ...(hasOrderId(order) ? [{ label: t('payment.orders.orderId'), value: `#${order.id}`, numeric: true }] : []),
+            ...(hasPaymentType(order) ? [{ key: 'paymentMethod', label: t('payment.orders.paymentMethod'), value: paymentMethodLabel }] : []),
+            ...(hasAmountFields(order) ? [
+              { label: t('payment.orders.baseAmount'), value: formatGatewayAmount(baseAmount), numeric: true },
+              ...(order.fee_rate > 0 ? [{ label: t('payment.orders.fee') + ` (${order.fee_rate}%)`, value: formatGatewayAmount(feeAmount), numeric: true }] : []),
+              { label: t('payment.orders.payAmount'), value: formatGatewayAmount(order.pay_amount), numeric: true },
+            ] : []),
+            ...(showCreditedAmountRow ? [{ label: creditedAmountLabel, value: `$${paymentOrder.amount.toFixed(2)}`, numeric: true }] : []),
+            ...(orderTimestamp ? [{ label: orderTimestampLabel, value: formatOrderDateTime(orderTimestamp) }] : []),
+          ]"
+          :columns="1"
         >
-          <header class="flex flex-col items-center px-5 pb-8 pt-9 text-center sm:px-8 sm:pb-9 sm:pt-10">
-            <span
-              class="result-icon-enter flex h-14 w-14 shrink-0 items-center justify-center rounded-full border"
-              :class="isSuccess ? 'border-green-200 bg-green-50 text-green-600 dark:border-green-800 dark:bg-green-950/40 dark:text-green-300' : isPending ? 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300' : 'border-red-200 bg-red-50 text-red-600 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300'"
-            >
-              <Icon v-if="isSuccess" name="check" size="lg" />
-              <Icon v-else-if="isPending" name="refresh" size="md" class="animate-spin" />
-              <Icon v-else name="exclamationCircle" size="md" />
-            </span>
-            <h1 class="mt-5 text-2xl font-semibold text-gray-950 dark:text-white">{{ statusTitle }}</h1>
-            <p class="mt-2 max-w-md text-sm leading-6 text-gray-500 dark:text-gray-400">{{ statusDescription }}</p>
+          <template #paymentMethod>
+            <span class="payment-result__method"><img :src="paymentMethodIcon" alt="" />{{ paymentMethodLabel }}</span>
+          </template>
+          <template #orderNo="{ item }"><code>{{ item.value }}</code></template>
+        </UiDescriptionList>
+        <UiDescriptionList
+          v-else
+          :items="[
+            ...(returnInfo?.outTradeNo ? [{ label: t('payment.orders.orderNo'), value: returnInfo.outTradeNo }] : []),
+            ...(returnInfo?.money ? [{ label: t('payment.orders.payAmount'), value: formatGatewayAmount(Number(returnInfo.money) || 0), numeric: true }] : []),
+            ...(returnInfo?.type ? [{ label: t('payment.orders.paymentMethod'), value: t(paymentMethodI18nKey(returnInfo.type), normalizedOrderPaymentType(returnInfo.type)) }] : []),
+          ]"
+          :columns="1"
+        />
+      </AppSection>
 
-            <div v-if="showPrimaryAmount" class="mt-6">
-              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ primaryAmountLabel }}</p>
-              <p class="mt-1 text-3xl font-semibold tabular-nums text-gray-950 dark:text-white">{{ primaryAmountValue }}</p>
-              <p v-if="showPaidAmountBelowPrimary" class="mt-1.5 text-xs tabular-nums text-gray-500 dark:text-gray-400">
-                {{ t('payment.orders.payAmount') }} {{ formatGatewayAmount(paymentOrder.pay_amount) }}
-              </p>
-            </div>
-          </header>
-
-          <div v-if="order" class="border-t border-gray-100 px-5 py-6 sm:px-8 dark:border-dark-700">
-            <div class="mb-3 flex items-center justify-between gap-4">
-              <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('payment.result.receiptTitle') }}</h2>
-              <OrderStatusBadge :status="displayOrderStatus(order.status)" />
-            </div>
-
-            <dl class="divide-y divide-gray-100 dark:divide-dark-700">
-              <div v-if="order.out_trade_no" class="flex min-w-0 items-start justify-between gap-6 py-3">
-                <dt class="shrink-0 text-sm text-gray-500 dark:text-gray-400">{{ t('payment.orders.orderNo') }}</dt>
-                <dd class="min-w-0 break-all text-right font-mono text-xs leading-5 text-gray-900 dark:text-gray-100">{{ order.out_trade_no }}</dd>
-              </div>
-              <div v-if="hasOrderId(order)" class="flex items-center justify-between gap-6 py-3">
-                <dt class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.orders.orderId') }}</dt>
-                <dd class="font-medium tabular-nums text-gray-900 dark:text-white">#{{ order.id }}</dd>
-              </div>
-              <div v-if="hasPaymentType(order)" class="flex items-center justify-between gap-6 py-3">
-                <dt class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.orders.paymentMethod') }}</dt>
-                <dd class="flex min-w-0 items-center justify-end gap-2 font-medium text-gray-900 dark:text-white">
-                  <img :src="paymentMethodIcon" alt="" class="h-5 w-5 shrink-0 object-contain" />
-                  <span class="truncate" :title="paymentMethodLabel">{{ paymentMethodLabel }}</span>
-                </dd>
-              </div>
-              <div v-if="hasAmountFields(order)" class="flex items-center justify-between gap-6 py-3">
-                <dt class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.orders.baseAmount') }}</dt>
-                <dd class="font-medium tabular-nums text-gray-900 dark:text-white">{{ formatGatewayAmount(baseAmount) }}</dd>
-              </div>
-              <div v-if="hasAmountFields(order) && order.fee_rate > 0" class="flex items-center justify-between gap-6 py-3">
-                <dt class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.orders.fee') }} <span class="text-xs">({{ order.fee_rate }}%)</span></dt>
-                <dd class="font-medium tabular-nums text-gray-900 dark:text-white">{{ formatGatewayAmount(feeAmount) }}</dd>
-              </div>
-              <div v-if="hasAmountFields(order)" class="flex items-center justify-between gap-6 py-3">
-                <dt class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.orders.payAmount') }}</dt>
-                <dd class="font-semibold tabular-nums text-gray-950 dark:text-white">{{ formatGatewayAmount(order.pay_amount) }}</dd>
-              </div>
-              <div v-if="showCreditedAmountRow" class="flex items-center justify-between gap-6 py-3">
-                <dt class="text-sm text-gray-500 dark:text-gray-400">{{ creditedAmountLabel }}</dt>
-                <dd class="font-semibold tabular-nums text-green-600 dark:text-green-400">${{ paymentOrder.amount.toFixed(2) }}</dd>
-              </div>
-              <div v-if="orderTimestamp" class="flex items-center justify-between gap-6 py-3">
-                <dt class="text-sm text-gray-500 dark:text-gray-400">{{ orderTimestampLabel }}</dt>
-                <dd class="text-right text-sm tabular-nums text-gray-900 dark:text-gray-100">{{ formatOrderDateTime(orderTimestamp) }}</dd>
-              </div>
-            </dl>
-          </div>
-
-          <!-- EasyPay return info (when no order loaded) -->
-          <div v-else-if="returnInfo" class="border-t border-gray-100 px-5 py-6 sm:px-8 dark:border-dark-700">
-            <h2 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">{{ t('payment.result.receiptTitle') }}</h2>
-            <dl class="divide-y divide-gray-100 dark:divide-dark-700">
-              <div v-if="returnInfo.outTradeNo" class="flex min-w-0 items-start justify-between gap-6 py-3">
-                <dt class="shrink-0 text-sm text-gray-500 dark:text-gray-400">{{ t('payment.orders.orderNo') }}</dt>
-                <dd class="min-w-0 break-all text-right font-mono text-xs leading-5 text-gray-900 dark:text-gray-100">{{ returnInfo.outTradeNo }}</dd>
-              </div>
-              <div v-if="returnInfo.money" class="flex items-center justify-between gap-6 py-3">
-                <dt class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.orders.payAmount') }}</dt>
-                <dd class="font-semibold tabular-nums text-gray-950 dark:text-white">{{ formatGatewayAmount(Number(returnInfo.money) || 0) }}</dd>
-              </div>
-              <div v-if="returnInfo.type" class="flex items-center justify-between gap-6 py-3">
-                <dt class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.orders.paymentMethod') }}</dt>
-                <dd class="font-medium text-gray-900 dark:text-white">{{ t(paymentMethodI18nKey(returnInfo.type), normalizedOrderPaymentType(returnInfo.type)) }}</dd>
-              </div>
-            </dl>
-          </div>
-
-          <footer class="flex flex-col gap-2 border-t border-gray-100 px-5 py-5 sm:flex-row sm:justify-end sm:px-8 dark:border-dark-700">
-            <button type="button" data-test="payment-result-secondary" class="btn btn-secondary order-2 w-full sm:order-1 sm:w-auto" @click="router.push(secondaryActionPath)">
-              {{ secondaryActionLabel }}
-            </button>
-            <button type="button" data-test="payment-result-primary" class="btn btn-primary order-1 w-full sm:order-2 sm:w-auto" @click="router.push(primaryActionPath)">
-              {{ primaryActionLabel }}
-              <Icon name="arrowRight" size="sm" class="ml-1.5" />
-            </button>
-          </footer>
-        </section>
-      </template>
-    </div>
-  </div>
+      <div class="payment-result__actions">
+        <UiButton
+          data-test="payment-result-secondary"
+          variant="secondary"
+          density="compact"
+          @click="router.push(secondaryActionPath)"
+        >
+          {{ secondaryActionLabel }}
+        </UiButton>
+        <UiButton
+          data-test="payment-result-primary"
+          variant="primary"
+          density="compact"
+          @click="handlePrimaryAction"
+        >
+          <template #icon><Icon :name="lookupRetryExhausted ? 'refresh' : 'arrowRight'" size="sm" /></template>
+          {{ primaryActionLabel }}
+        </UiButton>
+      </div>
+    </template>
+  </AppPage>
 </template>
 
 <script setup lang="ts">
@@ -133,18 +105,19 @@ import OrderStatusBadge from '@/components/payment/OrderStatusBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useAppStore } from '@/stores/app'
 import {
-  PAYMENT_RECOVERY_STORAGE_KEY,
-  clearPaymentRecoverySnapshot,
-  readPaymentRecoverySnapshot,
+  clearPaymentRecoverySnapshotForIdentity,
+  readPaymentRecoverySnapshotFromStorage,
+  type PaymentRecoveryIdentity,
 } from '@/components/payment/paymentFlow'
 import { usePaymentStore } from '@/stores/payment'
 import { paymentAPI } from '@/api/payment'
-import type { PublicOrderVerifyResult } from '@/api/payment'
+import type { PublicOrderResult, PublicOrderVerifyResult } from '@/api/payment'
 import type { OrderStatus, PaymentOrder } from '@/types/payment'
 import { formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 import { formatOrderDateTime } from '@/components/payment/orderUtils'
 import { isBuiltInAlipayMethod, isBuiltInWxpayMethod } from '@/components/payment/providerConfig'
 import { normalizePaymentMethodForDisplay, paymentMethodI18nKey } from './paymentUx'
+import { AppPage, AppPageHeader, AppSection, UiButton, UiDescriptionList, UiSkeleton, UiStatusBadge } from '@/components/ui'
 import alipayIcon from '@/assets/icons/alipay.svg'
 import wxpayIcon from '@/assets/icons/wxpay.svg'
 import stripeIcon from '@/assets/icons/stripe.svg'
@@ -158,10 +131,12 @@ const router = useRouter()
 const appStore = useAppStore()
 const paymentStore = usePaymentStore()
 
-type ResolvedOrder = PaymentOrder | PublicOrderVerifyResult
+type ResolvedOrder = PaymentOrder | PublicOrderResult | PublicOrderVerifyResult
 
 const order = ref<ResolvedOrder | null>(null)
 const loading = ref(true)
+const lookupRetryPending = ref(false)
+const lookupRetryExhausted = ref(false)
 const currency = ref('CNY')
 
 interface ReturnInfo {
@@ -175,6 +150,7 @@ const returnInfo = ref<ReturnInfo | null>(null)
 const SUCCESS_STATUSES = new Set(['COMPLETED', 'PAID', 'RECHARGING'])
 const PENDING_STATUSES = new Set(['PENDING', 'CREATED', 'WAITING', 'PROCESSING'])
 const TERMINAL_FAILURE_STATUSES = new Set(['EXPIRED', 'CANCELLED', 'FAILED'])
+const REFUND_TERMINAL_STATUSES = new Set(['PARTIALLY_REFUNDED', 'REFUNDED', 'REFUND_FAILED'])
 const KNOWN_ORDER_STATUSES = new Set<OrderStatus>([
   'PENDING',
   'PAID',
@@ -194,6 +170,8 @@ const STATUS_REFRESH_INTERVAL_MS = 2000
 const STATUS_REFRESH_MAX_ATTEMPTS = 15
 
 let statusRefreshTimer: ReturnType<typeof setTimeout> | null = null
+let retryLookup: (() => Promise<void>) | null = null
+let lifecycleEpoch = 0
 const refreshAttempts = ref(0)
 
 /** 充值金额 = pay_amount / (1 + fee_rate/100)，fee_rate=0 时等于 pay_amount */
@@ -229,7 +207,19 @@ const isPending = computed(() => {
   return !!order.value && isPendingStatus(order.value.status)
 })
 
+const isProcessing = computed(() => isPending.value || lookupRetryPending.value)
+
 const isCompleted = computed(() => normalizeOrderStatus(order.value?.status) === 'COMPLETED')
+const normalizedStatus = computed(() => normalizeOrderStatus(order.value?.status))
+const isRefunded = computed(() => ['PARTIALLY_REFUNDED', 'REFUNDED'].includes(normalizedStatus.value))
+const isRefundFailed = computed(() => normalizedStatus.value === 'REFUND_FAILED')
+
+const resultBadgeStatus = computed(() => {
+  if (isSuccess.value) return 'success'
+  if (isProcessing.value) return 'pending'
+  if (isRefunded.value) return 'info'
+  return 'failed'
+})
 
 const paymentOrder = computed<PaymentOrder>(() => order.value as PaymentOrder)
 
@@ -238,12 +228,15 @@ const isSubscriptionOrder = computed(() => {
 })
 
 const statusTitleKey = computed(() => {
+  if (normalizedStatus.value === 'REFUNDED') return 'payment.status.refunded'
+  if (normalizedStatus.value === 'PARTIALLY_REFUNDED') return 'payment.status.partially_refunded'
+  if (isRefundFailed.value) return 'payment.status.refund_failed'
   if (isSuccess.value) {
     return isSubscriptionOrder.value && isCompleted.value
       ? 'payment.result.subscriptionSuccess'
       : 'payment.result.success'
   }
-  if (isPending.value) {
+  if (isProcessing.value) {
     return 'payment.result.processing'
   }
   return 'payment.result.failed'
@@ -252,6 +245,9 @@ const statusTitleKey = computed(() => {
 const statusTitle = computed(() => t(statusTitleKey.value))
 
 const statusDescription = computed(() => {
+  if (normalizedStatus.value === 'REFUNDED') return t('payment.result.refundedHint')
+  if (normalizedStatus.value === 'PARTIALLY_REFUNDED') return t('payment.result.partiallyRefundedHint')
+  if (isRefundFailed.value) return t('payment.result.refundFailedHint')
   if (isCompleted.value) {
     return isSubscriptionOrder.value
       ? t('payment.result.subscriptionCompletedHint')
@@ -260,7 +256,7 @@ const statusDescription = computed(() => {
   if (isSuccess.value) {
     return t('payment.result.paidProcessingHint')
   }
-  if (isPending.value) {
+  if (isProcessing.value) {
     return t('payment.result.processingHint')
   }
   return t('payment.result.failedHint')
@@ -338,13 +334,14 @@ const orderTimestampLabel = computed(() => {
 })
 
 const primaryActionPath = computed(() => {
-  if (!isSuccess.value) return isPending.value ? '/orders' : '/purchase'
+  if (!isSuccess.value) return isProcessing.value ? '/orders' : '/purchase'
   if (!isCompleted.value) return '/orders'
   return isSubscriptionOrder.value ? '/subscriptions' : '/dashboard'
 })
 
 const primaryActionLabel = computed(() => {
-  if (!isSuccess.value) return isPending.value
+  if (lookupRetryExhausted.value) return t('common.retry')
+  if (!isSuccess.value) return isProcessing.value
     ? t('payment.result.viewOrders')
     : t('payment.result.retryPayment')
   if (!isCompleted.value) return t('payment.result.viewOrders')
@@ -354,16 +351,24 @@ const primaryActionLabel = computed(() => {
 })
 
 const secondaryActionPath = computed(() => {
-  if (isPending.value || (isSuccess.value && !isCompleted.value)) return '/dashboard'
+  if (isProcessing.value || (isSuccess.value && !isCompleted.value)) return '/dashboard'
   return '/orders'
 })
 
 const secondaryActionLabel = computed(() => {
-  if (isPending.value || (isSuccess.value && !isCompleted.value)) {
+  if (isProcessing.value || (isSuccess.value && !isCompleted.value)) {
     return t('payment.result.backToDashboard')
   }
   return t('payment.result.viewOrders')
 })
+
+function handlePrimaryAction(): void {
+  if (lookupRetryExhausted.value && retryLookup) {
+    void retryLookup()
+    return
+  }
+  void router.push(primaryActionPath.value)
+}
 
 function normalizedOrderPaymentType(paymentType: string): string {
   return normalizePaymentMethodForDisplay(paymentType || '') || paymentType || ''
@@ -380,15 +385,15 @@ function setResolvedOrder(nextOrder: ResolvedOrder | null): void {
   }
 }
 
-function hasOrderId(nextOrder: ResolvedOrder | null): nextOrder is PaymentOrder {
+function hasOrderId(nextOrder: ResolvedOrder | null): nextOrder is PaymentOrder | PublicOrderResult {
   return !!nextOrder && 'id' in nextOrder && typeof nextOrder.id === 'number'
 }
 
-function hasAmountFields(nextOrder: ResolvedOrder | null): nextOrder is PaymentOrder {
+function hasAmountFields(nextOrder: ResolvedOrder | null): nextOrder is PaymentOrder | PublicOrderResult {
   return !!nextOrder && 'pay_amount' in nextOrder && typeof nextOrder.pay_amount === 'number' && 'amount' in nextOrder && typeof nextOrder.amount === 'number'
 }
 
-function hasPaymentType(nextOrder: ResolvedOrder | null): nextOrder is PaymentOrder {
+function hasPaymentType(nextOrder: ResolvedOrder | null): nextOrder is PaymentOrder | PublicOrderResult {
   return !!nextOrder && 'payment_type' in nextOrder && typeof nextOrder.payment_type === 'string' && nextOrder.payment_type.trim() !== ''
 }
 
@@ -409,7 +414,9 @@ function isPendingStatus(status: string | null | undefined): boolean {
   const normalized = normalizeOrderStatus(status)
   if (!normalized) return false
   return PENDING_STATUSES.has(normalized)
-    || (!SUCCESS_STATUSES.has(normalized) && !TERMINAL_FAILURE_STATUSES.has(normalized))
+    || (!SUCCESS_STATUSES.has(normalized)
+      && !TERMINAL_FAILURE_STATUSES.has(normalized)
+      && !REFUND_TERMINAL_STATUSES.has(normalized))
 }
 
 function readRouteQueryString(key: string): string {
@@ -429,22 +436,15 @@ function restoreRecoverySnapshot(context: {
     return null
   }
 
-  const rawSnapshot = window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)
-  if (!rawSnapshot) {
+  if (!context.resumeToken && !context.routeOrderId && !context.routeOutTradeNo) {
     return null
   }
 
-  if (context.resumeToken) {
-    return readPaymentRecoverySnapshot(rawSnapshot, {
-      resumeToken: context.resumeToken,
-    })
-  }
-
-  if (!context.routeOrderId && !context.routeOutTradeNo) {
-    return null
-  }
-
-  const restored = readPaymentRecoverySnapshot(rawSnapshot)
+  const restored = readPaymentRecoverySnapshotFromStorage(window.localStorage, {
+    resumeToken: context.resumeToken,
+    orderId: context.routeOrderId,
+    outTradeNo: context.routeOutTradeNo,
+  })
   if (!restored) {
     return null
   }
@@ -490,44 +490,83 @@ function clearStatusRefreshTimer(): void {
   }
 }
 
-function clearRecoverySnapshot(): void {
+function clearRecoverySnapshot(identity: PaymentRecoveryIdentity): void {
   if (typeof window === 'undefined') return
-  clearPaymentRecoverySnapshot(window.localStorage, PAYMENT_RECOVERY_STORAGE_KEY)
+  clearPaymentRecoverySnapshotForIdentity(window.localStorage, identity)
 }
 
-function clearRecoverySnapshotForTerminalStatus(status: string | null | undefined): void {
+function clearRecoverySnapshotForTerminalStatus(
+  status: string | null | undefined,
+  identity: PaymentRecoveryIdentity,
+): void {
   const normalized = normalizeOrderStatus(status)
-  if (SUCCESS_STATUSES.has(normalized) || TERMINAL_FAILURE_STATUSES.has(normalized)) {
-    clearRecoverySnapshot()
+  if (
+    SUCCESS_STATUSES.has(normalized)
+    || TERMINAL_FAILURE_STATUSES.has(normalized)
+    || REFUND_TERMINAL_STATUSES.has(normalized)
+  ) {
+    clearRecoverySnapshot(identity)
   }
 }
 
-function scheduleStatusRefresh(refreshOrder: (() => Promise<ResolvedOrder | null>) | null): void {
+function scheduleStatusRefresh(
+  refreshOrder: (() => Promise<ResolvedOrder | null>) | null,
+  identity: PaymentRecoveryIdentity,
+  epoch: number,
+): void {
   clearStatusRefreshTimer()
-  if (!refreshOrder || !isPending.value || refreshAttempts.value >= STATUS_REFRESH_MAX_ATTEMPTS) {
+  if (
+    epoch !== lifecycleEpoch
+    || !refreshOrder
+    || !isProcessing.value
+  ) {
+    return
+  }
+  if (refreshAttempts.value >= STATUS_REFRESH_MAX_ATTEMPTS) {
+    if (lookupRetryPending.value) {
+      lookupRetryPending.value = false
+      lookupRetryExhausted.value = true
+    }
     return
   }
 
   statusRefreshTimer = setTimeout(async () => {
     refreshAttempts.value += 1
     const refreshedOrder = await refreshOrder()
+    if (epoch !== lifecycleEpoch) return
     if (refreshedOrder) {
       setResolvedOrder(refreshedOrder)
-      clearRecoverySnapshotForTerminalStatus(refreshedOrder.status)
+      lookupRetryPending.value = false
+      lookupRetryExhausted.value = false
+      clearRecoverySnapshotForTerminalStatus(refreshedOrder.status, identity)
     }
 
-    if (isPendingStatus(order.value?.status)) {
-      scheduleStatusRefresh(refreshOrder)
+    if (isProcessing.value) {
+      scheduleStatusRefresh(refreshOrder, identity, epoch)
     }
   }, STATUS_REFRESH_INTERVAL_MS)
 }
 
-onMounted(async () => {
+const initializeFromRoute = async () => {
+  clearStatusRefreshTimer()
+  retryLookup = null
+  order.value = null
+  returnInfo.value = null
+  lookupRetryPending.value = false
+  lookupRetryExhausted.value = false
+  refreshAttempts.value = 0
+  loading.value = true
+  const epoch = ++lifecycleEpoch
   const resumeToken = readRouteQueryString('resume_token')
   const routeOrderId = Number(readRouteQueryString('order_id')) || 0
   let outTradeNo = readRouteQueryString('out_trade_no')
   let orderId = 0
   let resumeTokenLookupFailed = false
+  const recoveryIdentity: PaymentRecoveryIdentity = {
+    resumeToken,
+    orderId: routeOrderId,
+    outTradeNo,
+  }
 
   const restored = restoreRecoverySnapshot({
     resumeToken,
@@ -536,20 +575,24 @@ onMounted(async () => {
   })
   if (restored?.orderId) {
     orderId = restored.orderId
+    recoveryIdentity.orderId = restored.orderId
   }
   if (restored?.currency) {
     currency.value = normalizePaymentCurrency(restored.currency)
   }
   if (!outTradeNo && restored?.outTradeNo) {
     outTradeNo = restored.outTradeNo
+    recoveryIdentity.outTradeNo = restored.outTradeNo
   }
 
   if (resumeToken) {
     const resolvedOrder = await resolveOrderFromResumeToken(resumeToken)
+    if (epoch !== lifecycleEpoch) return
     if (resolvedOrder) {
       setResolvedOrder(resolvedOrder)
       if (!orderId) {
         orderId = hasOrderId(resolvedOrder) ? resolvedOrder.id : 0
+        recoveryIdentity.orderId = orderId
       }
     } else if (routeOrderId > 0) {
       resumeTokenLookupFailed = true
@@ -566,18 +609,23 @@ onMounted(async () => {
 
   if (!order.value && orderId && (!resumeToken || routeOrderId > 0)) {
     try {
-      setResolvedOrder(await paymentStore.pollOrderStatus(orderId))
+      const polledOrder = await paymentStore.pollOrderStatus(orderId)
+      if (epoch !== lifecycleEpoch) return
+      setResolvedOrder(polledOrder)
     } catch (_err: unknown) {
+      if (epoch !== lifecycleEpoch) return
       // Order lookup failed, will try legacy fallback below when possible.
     }
   }
 
   if (!order.value && shouldUsePublicOutTradeNo && (!resumeToken || resumeTokenLookupFailed)) {
     const legacyOrder = await resolveOrderFromOutTradeNo(outTradeNo)
+    if (epoch !== lifecycleEpoch) return
     if (legacyOrder) {
       setResolvedOrder(legacyOrder)
       if (!orderId) {
         orderId = hasOrderId(legacyOrder) ? legacyOrder.id : 0
+        recoveryIdentity.orderId = orderId
       }
     }
   }
@@ -614,40 +662,64 @@ onMounted(async () => {
     return null
   }
 
-  if (isPendingStatus(order.value?.status)) {
-    scheduleStatusRefresh(refreshOrder)
-  } else if (order.value) {
-    clearRecoverySnapshotForTerminalStatus(order.value.status)
-  } else if (returnInfo.value) {
-    clearRecoverySnapshot()
+  const hasTrustedLookupContext = resumeToken !== '' || routeOrderId > 0 || shouldUsePublicOutTradeNo
+  retryLookup = async () => {
+    if (epoch !== lifecycleEpoch || lookupRetryPending.value) return
+    lookupRetryPending.value = true
+    lookupRetryExhausted.value = false
+    refreshAttempts.value = 0
+    const refreshedOrder = await refreshOrder()
+    if (epoch !== lifecycleEpoch) return
+    if (refreshedOrder) {
+      setResolvedOrder(refreshedOrder)
+      lookupRetryPending.value = false
+      clearRecoverySnapshotForTerminalStatus(refreshedOrder.status, recoveryIdentity)
+    }
+    if (isProcessing.value) {
+      scheduleStatusRefresh(refreshOrder, recoveryIdentity, epoch)
+    }
   }
-  loading.value = false
-})
+  if (!order.value && hasTrustedLookupContext) {
+    lookupRetryPending.value = true
+  }
+
+  const cleanupStatus = (order.value as ResolvedOrder | null)?.status
+  if (isProcessing.value) {
+    scheduleStatusRefresh(refreshOrder, recoveryIdentity, epoch)
+  } else if (cleanupStatus) {
+    clearRecoverySnapshotForTerminalStatus(cleanupStatus, recoveryIdentity)
+  } else if (returnInfo.value && !lookupRetryPending.value) {
+    clearRecoverySnapshot(recoveryIdentity)
+  }
+  if (epoch === lifecycleEpoch) loading.value = false
+}
+
+onMounted(initializeFromRoute)
+watch(() => route.fullPath, () => { void initializeFromRoute() })
 
 onBeforeUnmount(() => {
+  lifecycleEpoch += 1
+  retryLookup = null
   clearStatusRefreshTimer()
 })
 </script>
 
 <style scoped>
-@keyframes result-icon-enter {
-  from {
-    opacity: 0;
-    transform: scale(0.82);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.result-icon-enter {
-  animation: result-icon-enter 320ms ease-out both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .result-icon-enter {
-    animation: none;
-  }
-}
+.payment-result-page { max-width: 760px; margin-inline: auto; }
+.payment-result__loading { display:flex; min-height:320px; flex-direction:column; align-items:center; justify-content:center; gap:12px; }
+.payment-result__loading-rows { width:min(100%, 520px); margin-top:24px; border-top:1px solid var(--ui-border-soft); padding-top:16px; }
+.payment-result__loading-rows > div { display:flex; justify-content:space-between; gap:16px; padding:10px 0; }
+.payment-result__summary { display:flex; flex-direction:column; align-items:center; gap:16px; padding:28px 0 20px; text-align:center; }
+.payment-result__icon { width:48px; height:48px; }
+.payment-result__icon--success { color:var(--ui-success); }
+.payment-result__icon--info { color:var(--ui-info); }
+.payment-result__icon--pending { color:var(--ui-warning); }
+.payment-result__icon--failed { color:var(--ui-danger); }
+.payment-result__amount { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.payment-result__amount span,.payment-result__amount small { color:var(--ui-text-muted); font-size:12px; }
+.payment-result__amount strong { color:var(--ui-text); font-size:30px; font-variant-numeric:tabular-nums; }
+.payment-result__method { display:inline-flex; align-items:center; gap:7px; }
+.payment-result__method img { width:18px; height:18px; object-fit:contain; }
+.payment-result__actions { display:flex; justify-content:flex-end; gap:8px; padding:20px 0 8px; }
+@media (max-width:640px) { .payment-result__actions { flex-direction:column-reverse; } .payment-result__actions :deep(.ui-button) { width:100%; } }
 </style>

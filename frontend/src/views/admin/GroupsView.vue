@@ -779,6 +779,7 @@
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
       :danger="true"
+      :pending="deletePending"
       @confirm="confirmDelete"
       @cancel="showDeleteDialog = false"
     />
@@ -1699,6 +1700,7 @@ const submitting = ref(false);
 const sortSubmitting = ref(false);
 const editingGroup = ref<AdminGroup | null>(null);
 const deletingGroup = ref<AdminGroup | null>(null);
+const deletePending = ref(false);
 const duplicatingGroupIds = reactive(new Set<number>());
 const showRateMultipliersModal = ref(false);
 const rateMultipliersGroup = ref<AdminGroup | null>(null);
@@ -1731,6 +1733,8 @@ const compositeRouteSaving = ref(false);
 const compositeRouteEditingId = ref<number | null>(null);
 const compositeRoutePendingDelete = ref<CompositeModelRoute | null>(null);
 const compositeRouteDeleting = ref(false);
+let compositeRoutesRequestId = 0;
+let compositeRouteDeleteRequestId = 0;
 const compositePreviewModel = ref("");
 const compositePreviewEndpoint = ref<CompositeRouteEndpoint>("any");
 const compositePreviewLoading = ref(false);
@@ -3111,17 +3115,23 @@ const toCompositeRouteInput = (): CompositeModelRouteInput => ({
 });
 
 const loadCompositeRoutes = async () => {
-  if (!compositeRoutesGroup.value) return;
+  const groupId = compositeRoutesGroup.value?.id;
+  if (groupId == null) return;
+  const requestId = ++compositeRoutesRequestId;
   compositeRoutesLoading.value = true;
   try {
-    const routes = await adminAPI.groups.listCompositeRoutes(
-      compositeRoutesGroup.value.id,
-    );
+    const routes = await adminAPI.groups.listCompositeRoutes(groupId);
+    if (
+      requestId !== compositeRoutesRequestId ||
+      !showCompositeRoutesModal.value ||
+      compositeRoutesGroup.value?.id !== groupId
+    ) return;
     compositeRoutes.value = routes.sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
       return a.id - b.id;
     });
   } catch (error: any) {
+    if (requestId !== compositeRoutesRequestId || compositeRoutesGroup.value?.id !== groupId) return;
     appStore.showError(
       error.response?.data?.detail ||
         error.response?.data?.message ||
@@ -3129,11 +3139,12 @@ const loadCompositeRoutes = async () => {
     );
     console.error("Error loading composite routes:", error);
   } finally {
-    compositeRoutesLoading.value = false;
+    if (requestId === compositeRoutesRequestId) compositeRoutesLoading.value = false;
   }
 };
 
 const handleCompositeRoutes = async (group: AdminGroup) => {
+  compositeRoutesRequestId += 1;
   compositeRoutesGroup.value = group;
   compositePreviewModel.value = "";
   compositePreviewEndpoint.value = "any";
@@ -3144,6 +3155,10 @@ const handleCompositeRoutes = async (group: AdminGroup) => {
 };
 
 const closeCompositeRoutesModal = () => {
+  compositeRoutesRequestId += 1;
+  compositeRouteDeleteRequestId += 1;
+  compositeRoutesLoading.value = false;
+  compositeRouteDeleting.value = false;
   showCompositeRoutesModal.value = false;
   compositeRoutesGroup.value = null;
   compositeRoutes.value = [];
@@ -3202,23 +3217,24 @@ const saveCompositeRoute = async () => {
 };
 
 const deleteCompositeRoute = (route: CompositeModelRoute) => {
+  if (compositeRouteDeleting.value) return;
   compositeRoutePendingDelete.value = route;
 };
 
 const confirmDeleteCompositeRoute = async () => {
   const route = compositeRoutePendingDelete.value;
-  if (!compositeRoutesGroup.value || !route) return;
+  const groupId = compositeRoutesGroup.value?.id;
+  if (groupId == null || !route || compositeRouteDeleting.value) return;
+  const requestId = ++compositeRouteDeleteRequestId;
   compositeRouteDeleting.value = true;
   try {
-    await adminAPI.groups.deleteCompositeRoute(
-      compositeRoutesGroup.value.id,
-      route.id,
-    );
+    await adminAPI.groups.deleteCompositeRoute(groupId, route.id);
+    if (requestId !== compositeRouteDeleteRequestId) return;
     if (compositeRouteEditingId.value === route.id) {
       resetCompositeRouteForm();
     }
     appStore.showSuccess(t("admin.groups.compositeRoutes.routeDeleted"));
-    compositeRoutePendingDelete.value = null;
+    if (compositeRoutesGroup.value?.id === groupId) compositeRoutePendingDelete.value = null;
     await loadCompositeRoutes();
   } catch (error: any) {
     appStore.showError(
@@ -3228,7 +3244,7 @@ const confirmDeleteCompositeRoute = async () => {
     );
     console.error("Error deleting composite route:", error);
   } finally {
-    compositeRouteDeleting.value = false;
+    if (requestId === compositeRouteDeleteRequestId) compositeRouteDeleting.value = false;
   }
 };
 
@@ -3258,15 +3274,18 @@ const previewCompositeRoute = async () => {
 };
 
 const handleDelete = (group: AdminGroup) => {
+  if (deletePending.value) return;
   deletingGroup.value = group;
   showDeleteDialog.value = true;
 };
 
 const confirmDelete = async () => {
-  if (!deletingGroup.value) return;
+  const target = deletingGroup.value;
+  if (!target || deletePending.value) return;
+  deletePending.value = true;
 
   try {
-    await adminAPI.groups.delete(deletingGroup.value.id);
+    await adminAPI.groups.delete(target.id);
     appStore.showSuccess(t("admin.groups.groupDeleted"));
     showDeleteDialog.value = false;
     deletingGroup.value = null;
@@ -3276,6 +3295,8 @@ const confirmDelete = async () => {
       error.response?.data?.detail || t("admin.groups.failedToDelete"),
     );
     console.error("Error deleting group:", error);
+  } finally {
+    deletePending.value = false;
   }
 };
 

@@ -13,7 +13,10 @@ const {
   updateSettings,
   getWebSearchEmulationConfig,
   updateWebSearchEmulationConfig,
+  resetWebSearchUsage,
   getAdminApiKey,
+  regenerateAdminApiKey,
+  deleteAdminApiKey,
   getOverloadCooldownSettings,
   getRateLimit429CooldownSettings,
   updateRateLimit429CooldownSettings,
@@ -34,6 +37,11 @@ const {
   deleteProvider,
   fetchPublicSettings,
   adminSettingsFetch,
+  listAffiliateUsers,
+  lookupAffiliateUsers,
+  updateAffiliateUserSettings,
+  batchSetAffiliateRate,
+  clearAffiliateUserSettings,
   showError,
   showSuccess,
 } = vi.hoisted(() => ({
@@ -41,7 +49,10 @@ const {
   updateSettings: vi.fn(),
   getWebSearchEmulationConfig: vi.fn(),
   updateWebSearchEmulationConfig: vi.fn(),
+  resetWebSearchUsage: vi.fn(),
   getAdminApiKey: vi.fn(),
+  regenerateAdminApiKey: vi.fn(),
+  deleteAdminApiKey: vi.fn(),
   getOverloadCooldownSettings: vi.fn(),
   getRateLimit429CooldownSettings: vi.fn(),
   updateRateLimit429CooldownSettings: vi.fn(),
@@ -75,6 +86,11 @@ const {
   deleteProvider: vi.fn(),
   fetchPublicSettings: vi.fn(),
   adminSettingsFetch: vi.fn(),
+  listAffiliateUsers: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+  lookupAffiliateUsers: vi.fn().mockResolvedValue([]),
+  updateAffiliateUserSettings: vi.fn(),
+  batchSetAffiliateRate: vi.fn(),
+  clearAffiliateUserSettings: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn(),
 }));
@@ -88,7 +104,10 @@ vi.mock("@/api", () => ({
       updateSettings,
       getWebSearchEmulationConfig,
       updateWebSearchEmulationConfig,
+      resetWebSearchUsage,
       getAdminApiKey,
+      regenerateAdminApiKey,
+      deleteAdminApiKey,
       getOverloadCooldownSettings,
       getRateLimit429CooldownSettings,
       updateRateLimit429CooldownSettings,
@@ -132,6 +151,17 @@ vi.mock("@/stores/adminSettings", () => ({
     fetch: adminSettingsFetch,
   }),
 }));
+
+vi.mock("@/api/admin/affiliates", () => {
+  const affiliatesAPI = {
+    listUsers: listAffiliateUsers,
+    lookupUsers: lookupAffiliateUsers,
+    updateUserSettings: updateAffiliateUserSettings,
+    batchSetRate: batchSetAffiliateRate,
+    clearUserSettings: clearAffiliateUserSettings,
+  };
+  return { affiliatesAPI, default: affiliatesAPI };
+});
 
 vi.mock("@/composables/useClipboard", () => ({
   useClipboard: () => ({
@@ -303,6 +333,45 @@ const BaseDialogStub = defineComponent({
                 onClick: () => emit("close"),
               },
               "close",
+            ),
+          ])
+        : null;
+  },
+});
+
+const ConfirmDialogStub = defineComponent({
+  props: {
+    show: { type: Boolean, default: false },
+    title: { type: String, default: "" },
+    message: { type: String, default: "" },
+    pending: { type: Boolean, default: false },
+  },
+  emits: ["confirm", "cancel"],
+  setup(props, { emit }) {
+    return () =>
+      props.show
+        ? h("section", { "data-testid": "confirm-dialog-stub" }, [
+            h("h3", props.title),
+            h("p", props.message),
+            h(
+              "button",
+              {
+                type: "button",
+                disabled: props.pending,
+                "data-testid": "confirm-dialog-confirm",
+                onClick: () => emit("confirm"),
+              },
+              "confirm",
+            ),
+            h(
+              "button",
+              {
+                type: "button",
+                disabled: props.pending,
+                "data-testid": "confirm-dialog-cancel",
+                onClick: () => emit("cancel"),
+              },
+              "cancel",
             ),
           ])
         : null;
@@ -578,7 +647,9 @@ function mountView() {
         Toggle: ToggleStub,
         Icon: true,
         BaseDialog: BaseDialogStub,
-        ConfirmDialog: true,
+        UiDialog: BaseDialogStub,
+        ConfirmDialog: ConfirmDialogStub,
+        UiConfirmDialog: ConfirmDialogStub,
         PaymentProviderList: true,
         PaymentProviderDialog: true,
         GroupBadge: true,
@@ -631,6 +702,16 @@ async function openUsersTab(wrapper: ReturnType<typeof mountView>) {
   await flushPromises();
 }
 
+async function openFeaturesTab(wrapper: ReturnType<typeof mountView>) {
+  const featuresTabButton = wrapper
+    .findAll("button")
+    .find((node) => node.text().includes("admin.settings.tabs.features"));
+
+  expect(featuresTabButton).toBeDefined();
+  await featuresTabButton?.trigger("click");
+  await flushPromises();
+}
+
 describe("admin SettingsView email domain quota copy", () => {
   it("documents the email domain quota and empty-whitelist behavior in both locales", () => {
     expect(zhCommon.auth.emailDomainRegistrationLimit).toContain("主流邮箱");
@@ -659,7 +740,10 @@ describe("admin SettingsView payment visible method controls", () => {
     updateSettings.mockReset();
     getWebSearchEmulationConfig.mockReset();
     updateWebSearchEmulationConfig.mockReset();
+    resetWebSearchUsage.mockReset();
     getAdminApiKey.mockReset();
+    regenerateAdminApiKey.mockReset();
+    deleteAdminApiKey.mockReset();
     getOverloadCooldownSettings.mockReset();
     getRateLimit429CooldownSettings.mockReset();
     updateRateLimit429CooldownSettings.mockReset();
@@ -678,6 +762,11 @@ describe("admin SettingsView payment visible method controls", () => {
     deleteProvider.mockReset();
     fetchPublicSettings.mockReset();
     adminSettingsFetch.mockReset();
+    listAffiliateUsers.mockReset();
+    lookupAffiliateUsers.mockReset();
+    updateAffiliateUserSettings.mockReset();
+    batchSetAffiliateRate.mockReset();
+    clearAffiliateUserSettings.mockReset();
     showError.mockReset();
     showSuccess.mockReset();
     localeRef.value = "zh-CN";
@@ -695,6 +784,9 @@ describe("admin SettingsView payment visible method controls", () => {
       enabled: false,
       providers: [],
     });
+    resetWebSearchUsage.mockResolvedValue(undefined);
+    regenerateAdminApiKey.mockResolvedValue({ key: "generated-admin-key" });
+    deleteAdminApiKey.mockResolvedValue(undefined);
     getAdminApiKey.mockResolvedValue({
       exists: false,
       masked_key: "",
@@ -745,6 +837,11 @@ describe("admin SettingsView payment visible method controls", () => {
     });
     fetchPublicSettings.mockResolvedValue(undefined);
     adminSettingsFetch.mockResolvedValue(undefined);
+    listAffiliateUsers.mockResolvedValue({ items: [], total: 0 });
+    lookupAffiliateUsers.mockResolvedValue([]);
+    updateAffiliateUserSettings.mockResolvedValue(undefined);
+    batchSetAffiliateRate.mockResolvedValue(undefined);
+    clearAffiliateUserSettings.mockResolvedValue(undefined);
   });
 
   it("submits the compact home page toggle", async () => {
@@ -1135,6 +1232,62 @@ describe("admin SettingsView payment visible method controls", () => {
     );
   });
 
+  it("opens affiliate add/edit content in the shared dialog and closes through its contract", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      affiliate_enabled: true,
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await openFeaturesTab(wrapper);
+
+    const addButton = wrapper.findAll("button").find((node) =>
+      node.text().includes("admin.settings.features.affiliate.customUsers.addButton"),
+    );
+    expect(addButton).toBeDefined();
+    await addButton?.trigger("click");
+
+    const dialog = wrapper.get('[data-testid="base-dialog-stub"]');
+    expect(dialog.text()).toContain("admin.settings.features.affiliate.modal.addTitle");
+    await dialog.get('[data-testid="base-dialog-close-stub"]').trigger("click");
+    expect(wrapper.find('[data-testid="base-dialog-stub"]').exists()).toBe(false);
+  });
+
+  it("opens the affiliate batch-rate editor in the shared dialog for selected users", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      affiliate_enabled: true,
+    });
+    listAffiliateUsers.mockResolvedValueOnce({
+      items: [{
+        user_id: 88,
+        email: "affiliate@example.com",
+        username: "affiliate-user",
+        aff_code: "AFF88",
+        aff_code_custom: true,
+        aff_rebate_rate_percent: 15,
+        aff_count: 3,
+      }],
+      total: 1,
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await openFeaturesTab(wrapper);
+    await wrapper.get('input[aria-label="affiliate@example.com"]').setValue(true);
+
+    const batchButton = wrapper.findAll("button").find((node) =>
+      node.text().includes("admin.settings.features.affiliate.customUsers.batchButton"),
+    );
+    expect(batchButton).toBeDefined();
+    await batchButton?.trigger("click");
+
+    expect(wrapper.get('[data-testid="base-dialog-stub"]').text()).toContain(
+      "admin.settings.features.affiliate.batchModal.title",
+    );
+  });
+
   it("submits Anthropic cache TTL injection gateway setting", async () => {
     getSettings.mockResolvedValueOnce({
       ...baseSettingsResponse,
@@ -1273,7 +1426,8 @@ describe("admin SettingsView payment visible method controls", () => {
           Select: SelectStub,
           Toggle: ToggleStub,
           Icon: true,
-          ConfirmDialog: true,
+          ConfirmDialog: ConfirmDialogStub,
+          UiConfirmDialog: ConfirmDialogStub,
           PaymentProviderList: PaymentProviderListStub,
           PaymentProviderDialog: true,
           GroupBadge: true,
@@ -1471,6 +1625,123 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(paymentHelpImageUpload?.attributes("data-remove-label")).toBe("移除");
   });
 
+  it("confirms web-search usage reset through the shared dialog", async () => {
+    getWebSearchEmulationConfig.mockResolvedValue({
+      enabled: true,
+      providers: [
+        {
+          type: "brave",
+          api_key: "",
+          api_key_configured: true,
+          quota_limit: 100,
+          quota_used: 12,
+          subscribed_at: null,
+          proxy_id: null,
+          expires_at: null,
+        },
+      ],
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const providerTrigger = wrapper.get(
+      '[aria-controls="web-search-provider-panel-0"]',
+    );
+    expect(providerTrigger).toBeDefined();
+    expect(providerTrigger!.attributes("aria-controls")).toBe("web-search-provider-panel-0");
+    expect(providerTrigger!.element.tagName).toBe("BUTTON");
+    expect(providerTrigger!.find("select").exists()).toBe(false);
+    expect(wrapper.find("#web-search-provider-panel-0").exists()).toBe(true);
+    expect(wrapper.find("#web-search-provider-panel-0").attributes("style")).toContain(
+      "display: none",
+    );
+    await providerTrigger!.trigger("click");
+    expect(providerTrigger!.attributes("aria-expanded")).toBe("true");
+    expect(wrapper.find("#web-search-provider-panel-0").exists()).toBe(true);
+    expect(wrapper.find("#web-search-provider-panel-0").attributes("style")).not.toContain(
+      "display: none",
+    );
+
+    const resetButton = wrapper
+      .findAll("button")
+      .find((node) => node.text() === "admin.settings.webSearchEmulation.resetUsage");
+    expect(resetButton).toBeDefined();
+    await resetButton!.trigger("click");
+
+    expect(resetWebSearchUsage).not.toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="confirm-dialog-stub"]').text()).toContain(
+      "admin.settings.webSearchEmulation.resetUsageConfirm",
+    );
+
+    await wrapper.get('[data-testid="confirm-dialog-confirm"]').trigger("click");
+    await flushPromises();
+
+    expect(resetWebSearchUsage).toHaveBeenCalledWith({ provider_type: "brave" });
+    expect(wrapper.find('[data-testid="confirm-dialog-stub"]').exists()).toBe(false);
+  });
+
+  it("confirms admin API key regenerate and delete without browser confirm", async () => {
+    getAdminApiKey.mockResolvedValue({
+      exists: true,
+      masked_key: "sk-admin...1234",
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await openSecurityTab(wrapper);
+
+    await wrapper.get('[data-testid="admin-api-key-regenerate"]').trigger("click");
+    expect(regenerateAdminApiKey).not.toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="confirm-dialog-stub"]').text()).toContain(
+      "admin.settings.adminApiKey.regenerateConfirm",
+    );
+    await wrapper.get('[data-testid="confirm-dialog-confirm"]').trigger("click");
+    await flushPromises();
+    expect(regenerateAdminApiKey).toHaveBeenCalledTimes(1);
+    expect(wrapper.text()).toContain("generated-admin-key");
+
+    await wrapper.get('[data-testid="admin-api-key-delete"]').trigger("click");
+    expect(deleteAdminApiKey).not.toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="confirm-dialog-stub"]').text()).toContain(
+      "admin.settings.adminApiKey.deleteConfirm",
+    );
+    await wrapper.get('[data-testid="confirm-dialog-confirm"]').trigger("click");
+    await flushPromises();
+    expect(deleteAdminApiKey).toHaveBeenCalledTimes(1);
+    expect(wrapper.find('[data-testid="admin-api-key-delete"]').exists()).toBe(false);
+  });
+
+  it("keeps a failed settings confirmation open so the action can be retried", async () => {
+    getWebSearchEmulationConfig.mockResolvedValue({
+      enabled: true,
+      providers: [{ type: "brave", api_key: "", api_key_configured: true, quota_limit: 100, quota_used: 12 }],
+    });
+    resetWebSearchUsage.mockRejectedValueOnce(new Error("temporary failure"));
+
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+    const providerTrigger = wrapper.get(
+      '[aria-controls="web-search-provider-panel-0"]',
+    );
+    await providerTrigger.trigger("click");
+    const resetButton = wrapper
+      .findAll("button")
+      .find((node) => node.text() === "admin.settings.webSearchEmulation.resetUsage")!;
+    await resetButton.trigger("click");
+    await wrapper.get('[data-testid="confirm-dialog-confirm"]').trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="confirm-dialog-stub"]').exists()).toBe(true);
+    resetWebSearchUsage.mockResolvedValueOnce(undefined);
+    await wrapper.get('[data-testid="confirm-dialog-confirm"]').trigger("click");
+    await flushPromises();
+    expect(wrapper.find('[data-testid="confirm-dialog-stub"]').exists()).toBe(false);
+    expect(resetWebSearchUsage).toHaveBeenCalledTimes(2);
+  });
+
   it("normalizes null supported_types from API so provider card stays visible", async () => {
     // Backend returns null for supported_types when the list is empty
     // (Go nil slice → JSON null). Without normalization, ProviderCard's
@@ -1513,7 +1784,8 @@ describe("admin SettingsView payment visible method controls", () => {
           Select: SelectStub,
           Toggle: ToggleStub,
           Icon: true,
-          ConfirmDialog: true,
+          ConfirmDialog: ConfirmDialogStub,
+          UiConfirmDialog: ConfirmDialogStub,
           PaymentProviderList: PaymentProviderListCapture,
           PaymentProviderDialog: true,
           GroupBadge: true,

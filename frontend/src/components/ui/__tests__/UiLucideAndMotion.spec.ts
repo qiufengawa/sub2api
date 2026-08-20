@@ -22,8 +22,8 @@ describe('Lucide icon and motion contracts', () => {
 
     await wrapper.get('.ui-time-trigger').trigger('click')
     await nextTick()
-    expect(wrapper.get('[aria-label="选择时间"]').isVisible()).toBe(true)
-    await wrapper.get('[aria-label="小时"]').findAll('button')[10].trigger('click')
+    expect(wrapper.get('[aria-label="common.timePicker"]').isVisible()).toBe(true)
+    await wrapper.get('[aria-label="common.hours"]').findAll('button')[10].trigger('click')
     expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['10:30'])
   })
 

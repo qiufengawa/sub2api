@@ -1,4 +1,4 @@
-<template><UiPopover :placement="placement"><template #trigger="{open}"><slot name="trigger" :open="open"/></template><template #default="{close}"><div class="ui-menu" role="menu"><button v-for="item in items" :key="item.key" type="button" role="menuitem" :disabled="item.disabled" :class="{'is-danger':item.danger}" @click="select(item,close)"><Icon v-if="item.icon" :name="item.icon" size="sm"/><span>{{ item.label }}</span></button><slot/></div></template></UiPopover></template>
+<template><UiPopover :placement="placement" panel-role="menu" :aria-label="ariaLabel"><template #trigger="{open}"><slot name="trigger" :open="open"/></template><template #default="{close}"><div class="ui-menu"><button v-for="item in items" :key="item.key" type="button" role="menuitem" :disabled="item.disabled" :class="{'is-danger':item.danger}" @click="select(item,close)"><Icon v-if="item.icon" :name="item.icon" size="sm"/><span>{{ item.label }}</span></button><slot/></div></template></UiPopover></template>
 <script setup lang="ts">
 import Icon from '@/components/icons/Icon.vue';
 import UiPopover from './UiPopover.vue';
@@ -8,7 +8,8 @@ label:string;
 icon?:IconName;
 disabled?:boolean;
 danger?:boolean}withDefaults(defineProps<{items:UiMenuItem[];
-placement?:'bottom-start'|'bottom-end'}>(),{placement:'bottom-end'});
+placement?:'bottom-start'|'bottom-end';
+ariaLabel?:string}>(),{placement:'bottom-end'});
 const emit=defineEmits<{select:[UiMenuItem]}>();
 function select(i:UiMenuItem,close:()=>void){if(i.disabled)return;
 emit('select',i);

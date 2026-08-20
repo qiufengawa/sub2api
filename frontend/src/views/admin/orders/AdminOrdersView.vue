@@ -23,7 +23,11 @@
               density="compact"
               @change="loadOrders"
             />
-            <template v-if="advancedFiltersOpen || activeAdvancedFilterCount > 0">
+            <div
+              id="admin-orders-advanced-filters"
+              v-show="advancedFiltersOpen || activeAdvancedFilterCount > 0"
+              style="display: contents"
+            >
               <UiSelect
                 v-model="orderFilters.payment_type"
                 :label="t('payment.orders.paymentMethod')"
@@ -38,13 +42,14 @@
                 density="compact"
                 @change="loadOrders"
               />
-            </template>
+            </div>
             <template #actions>
               <UiButton
                 type="button"
                 variant="secondary"
                 density="compact"
                 :aria-expanded="advancedFiltersOpen"
+                aria-controls="admin-orders-advanced-filters"
                 data-testid="admin-orders-advanced-toggle"
                 @click="advancedFiltersOpen = !advancedFiltersOpen"
               >
@@ -68,13 +73,13 @@
           <template #actions="{ row }">
             <AppInline justify="flex-end" :wrap="false">
               <UiIconButton icon="eye" variant="ghost" density="compact" :label="t('common.view')" @click="showOrderDetail(row)" />
-              <UiIconButton v-if="row.status === 'PENDING'" icon="x" variant="danger" density="compact" :label="t('payment.orders.cancel')" @click="handleCancelOrder(row)" />
-              <UiIconButton v-if="row.status === 'FAILED'" icon="refresh" variant="ghost" density="compact" :label="t('payment.admin.retry')" @click="handleRetryOrder(row)" />
+              <UiIconButton v-if="row.status === 'PENDING'" icon="x" variant="danger" density="compact" :disabled="cancelingOrderIds.has(row.id)" :label="t('payment.orders.cancel')" @click="handleCancelOrder(row)" />
+              <UiIconButton v-if="row.status === 'FAILED'" icon="refresh" variant="ghost" density="compact" :disabled="retryingOrderIds.has(row.id)" :label="t('payment.admin.retry')" @click="handleRetryOrder(row)" />
               <template v-if="row.status === 'REFUND_REQUESTED'">
                 <UiBadge v-if="row.refund_amount" tone="info" :label="`${creditedAmountSymbol}${row.refund_amount.toFixed(2)}`" />
-                <UiIconButton icon="check" variant="success" density="compact" :label="t('payment.admin.approveRefund')" @click="openRefundDialog(row)" />
+                <UiIconButton icon="check" variant="success" density="compact" :disabled="refundSubmitting" :label="t('payment.admin.approveRefund')" @click="openRefundDialog(row)" />
               </template>
-              <UiIconButton v-else-if="row.status === 'REFUND_FAILED'" icon="refresh" variant="danger" density="compact" :label="t('payment.admin.retryRefund')" @click="openRefundDialog(row)" />
+              <UiIconButton v-else-if="row.status === 'REFUND_FAILED'" icon="refresh" variant="danger" density="compact" :disabled="refundSubmitting" :label="t('payment.admin.retryRefund')" @click="openRefundDialog(row)" />
               <UiIconButton
                 v-else-if="row.status === 'REFUND_PENDING'"
                 variant="ghost"
@@ -85,7 +90,7 @@
               >
                 <UiSpinner size="sm" />
               </UiIconButton>
-              <UiIconButton v-else-if="row.status === 'COMPLETED' || row.status === 'PARTIALLY_REFUNDED'" icon="dollar" variant="danger" density="compact" :label="t('payment.admin.refund')" @click="openRefundDialog(row)" />
+              <UiIconButton v-else-if="row.status === 'COMPLETED' || row.status === 'PARTIALLY_REFUNDED'" icon="dollar" variant="danger" density="compact" :disabled="refundSubmitting" :label="t('payment.admin.refund')" @click="openRefundDialog(row)" />
             </AppInline>
           </template>
         </OrderTable>
@@ -188,6 +193,8 @@ const refundSubmitting = ref(false)
 const refundRequireForce = ref(false)
 const refundWarning = ref('')
 const refundQueryingIds = ref(new Set<number>())
+const cancelingOrderIds = ref(new Set<number>())
+const retryingOrderIds = ref(new Set<number>())
 const orderAuditLogs = ref<AuditLog[]>([])
 const creditedAmountSymbol = currencySymbol('USD')
 const activeAdvancedFilterCount = computed(() =>
@@ -195,6 +202,7 @@ const activeAdvancedFilterCount = computed(() =>
 )
 let ordersRequestId = 0
 let detailRequestId = 0
+let refundRequestId = 0
 
 const orderDetailItems = computed(() => {
   const order = selectedOrder.value
@@ -318,16 +326,24 @@ function closeOrderDetail() {
 }
 
 async function handleCancelOrder(order: PaymentOrder) {
-  try { await adminPaymentAPI.cancelOrder(order.id); appStore.showSuccess(t('payment.admin.orderCancelled')); loadOrders() }
+  if (cancelingOrderIds.value.has(order.id)) return
+  cancelingOrderIds.value = new Set(cancelingOrderIds.value).add(order.id)
+  try { await adminPaymentAPI.cancelOrder(order.id); appStore.showSuccess(t('payment.admin.orderCancelled')); await loadOrders() }
   catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
+  finally { const next = new Set(cancelingOrderIds.value); next.delete(order.id); cancelingOrderIds.value = next }
 }
 
 async function handleRetryOrder(order: PaymentOrder) {
-  try { await adminPaymentAPI.retryRecharge(order.id); appStore.showSuccess(t('payment.admin.retrySuccess')); loadOrders() }
+  if (retryingOrderIds.value.has(order.id)) return
+  retryingOrderIds.value = new Set(retryingOrderIds.value).add(order.id)
+  try { await adminPaymentAPI.retryRecharge(order.id); appStore.showSuccess(t('payment.admin.retrySuccess')); await loadOrders() }
   catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
+  finally { const next = new Set(retryingOrderIds.value); next.delete(order.id); retryingOrderIds.value = next }
 }
 
 function openRefundDialog(order: PaymentOrder) {
+  if (refundSubmitting.value) return
+  refundRequestId += 1
   selectedOrder.value = order
   refundRequireForce.value = false
   refundWarning.value = ''
@@ -335,6 +351,7 @@ function openRefundDialog(order: PaymentOrder) {
 }
 
 function closeRefundDialog() {
+  refundRequestId += 1
   showRefundDialog.value = false
   refundRequireForce.value = false
   refundWarning.value = ''
@@ -345,20 +362,23 @@ function isRefundPendingWarning(warning: string | undefined): boolean {
 }
 
 async function handleRefund(data: { amount: number; reason: string; deduct_balance: boolean; force: boolean }) {
-  if (!selectedOrder.value) return
+  if (refundSubmitting.value || !selectedOrder.value) return
+  const order = selectedOrder.value
+  const requestId = ++refundRequestId
   refundSubmitting.value = true
   try {
-    const res = await adminPaymentAPI.refundOrder(selectedOrder.value.id, { amount: data.amount, reason: data.reason, deduct_balance: data.deduct_balance, force: data.force })
+    const res = await adminPaymentAPI.refundOrder(order.id, { amount: data.amount, reason: data.reason, deduct_balance: data.deduct_balance, force: data.force })
+    if (requestId !== refundRequestId || selectedOrder.value?.id !== order.id) return
     if (res.data.success) {
       appStore.showSuccess(t('payment.admin.refundSuccess'))
       closeRefundDialog()
-      loadOrders()
+      await loadOrders()
       return
     }
     if (isRefundPendingWarning(res.data.warning)) {
       appStore.showSuccess(t('payment.admin.refundPending'))
       closeRefundDialog()
-      loadOrders()
+      await loadOrders()
       return
     }
     if (res.data.require_force) {
@@ -375,6 +395,7 @@ async function handleRefund(data: { amount: number; reason: string; deduct_balan
 }
 
 async function handleQueryRefund(order: PaymentOrder) {
+  if (refundQueryingIds.value.has(order.id)) return
   refundQueryingIds.value = new Set(refundQueryingIds.value).add(order.id)
   try {
     const res = await adminPaymentAPI.queryRefund(order.id)
@@ -385,7 +406,7 @@ async function handleQueryRefund(order: PaymentOrder) {
     } else {
       appStore.showError(res.data.warning || t('common.error'))
     }
-    loadOrders()
+    await loadOrders()
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
   } finally {

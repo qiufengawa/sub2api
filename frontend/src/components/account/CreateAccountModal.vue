@@ -61,87 +61,31 @@
         :rows="3"
       />
 
-      <!-- Platform Selection - Segmented Control Style -->
-      <div>
-        <label class="input-label">{{ t('admin.accounts.platform') }}</label>
-        <div class="mt-2 flex flex-wrap rounded-lg bg-gray-100 p-1 dark:bg-dark-700" data-tour="account-form-platform">
-          <button
-            type="button"
-            @click="form.platform = 'anthropic'"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'anthropic'
-                ? 'bg-white text-orange-600 shadow-sm dark:bg-dark-600 dark:text-orange-400'
-                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
-            ]"
-          >
-            <Icon name="sparkles" size="sm" />
-            Anthropic
-          </button>
-          <button
-            type="button"
-            @click="form.platform = 'openai'"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'openai'
-                ? 'bg-white text-green-600 shadow-sm dark:bg-dark-600 dark:text-green-400'
-                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
-            ]"
-          >
-            <Icon name="bolt" size="sm" />
-            OpenAI
-          </button>
-          <button
-            type="button"
-            @click="form.platform = 'gemini'"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'gemini'
-                ? 'bg-white text-blue-600 shadow-sm dark:bg-dark-600 dark:text-blue-400'
-                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
-            ]"
-          >
-            <Icon name="sparkles" size="sm" />
-            Gemini
-          </button>
-          <button
-            type="button"
-            @click="form.platform = 'antigravity'"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'antigravity'
-                ? 'bg-white text-purple-600 shadow-sm dark:bg-dark-600 dark:text-purple-400'
-                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
-            ]"
-          >
-            <Icon name="cloud" size="sm" />
-            Antigravity
-          </button>
-          <button
-            type="button"
-            @click="form.platform = 'grok'"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'grok'
-                ? 'bg-white text-zinc-900 shadow-sm dark:bg-dark-600 dark:text-zinc-100'
-                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
-            ]"
-          >
-            <PlatformIcon platform="grok" size="sm" />
-            Grok
-          </button>
-        </div>
-      </div>
+      <!-- Platform Selection -->
+      <UiSegmentedControl
+        v-model="form.platform"
+        :options="platformOptions"
+        :label="t('admin.accounts.platform')"
+        data-tour="account-form-platform"
+      >
+        <template #option="{ option }">
+          <span class="account-platform-option">
+            <PlatformIcon v-if="option.value === 'grok'" platform="grok" size="sm" />
+            <Icon v-else :name="platformIconName(String(option.value))" size="sm" />
+            <span>{{ option.label }}</span>
+          </span>
+        </template>
+      </UiSegmentedControl>
 
       <!-- Account Type Selection (Anthropic) -->
       <div v-if="form.platform === 'anthropic'">
-        <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
+        <label class="ui-field-label">{{ t('admin.accounts.accountType') }}</label>
         <div class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4" data-tour="account-form-type">
           <button
             type="button"
             @click="accountCategory = 'oauth-based'"
             :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors',
               accountCategory === 'oauth-based'
                 ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
                 : 'border-gray-200 hover:border-orange-300 dark:border-dark-600 dark:hover:border-orange-700'
@@ -171,7 +115,7 @@
             type="button"
             @click="accountCategory = 'apikey'"
             :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors',
               accountCategory === 'apikey'
                 ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
                 : 'border-gray-200 hover:border-purple-300 dark:border-dark-600 dark:hover:border-purple-700'
@@ -201,7 +145,7 @@
             type="button"
             @click="accountCategory = 'bedrock'"
             :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors',
               accountCategory === 'bedrock'
                 ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20'
                 : 'border-gray-200 hover:border-amber-300 dark:border-dark-600 dark:hover:border-amber-700'
@@ -231,7 +175,7 @@
             type="button"
             @click="accountCategory = 'service_account'"
             :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors',
               accountCategory === 'service_account'
                 ? 'border-sky-500 bg-sky-50 dark:bg-sky-900/20'
                 : 'border-gray-200 hover:border-sky-300 dark:border-dark-600 dark:hover:border-sky-700'
@@ -265,13 +209,13 @@
 
       <!-- Account Type Selection (OpenAI) -->
       <div v-if="form.platform === 'openai'">
-        <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
+        <label class="ui-field-label">{{ t('admin.accounts.accountType') }}</label>
         <div class="mt-2 grid grid-cols-2 gap-3" data-tour="account-form-type">
           <button
             type="button"
             @click="accountCategory = 'oauth-based'"
             :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors',
               accountCategory === 'oauth-based'
                 ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
                 : 'border-gray-200 hover:border-green-300 dark:border-dark-600 dark:hover:border-green-700'
@@ -297,7 +241,7 @@
             type="button"
             @click="accountCategory = 'apikey'"
             :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors',
               accountCategory === 'apikey'
                 ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
                 : 'border-gray-200 hover:border-purple-300 dark:border-dark-600 dark:hover:border-purple-700'
@@ -324,13 +268,13 @@
 
       <!-- Account Type Selection (Grok) -->
       <div v-if="form.platform === 'grok'">
-        <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
+        <label class="ui-field-label">{{ t('admin.accounts.accountType') }}</label>
         <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2" data-tour="account-form-type">
           <button
             type="button"
             @click="accountCategory = 'oauth-based'"
             :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors',
               accountCategory === 'oauth-based'
                 ? 'border-zinc-800 bg-zinc-50 dark:bg-zinc-900/30'
                 : 'border-gray-200 hover:border-zinc-400 dark:border-dark-600 dark:hover:border-zinc-600'
@@ -357,7 +301,7 @@
             data-testid="grok-account-type-api-key"
             @click="accountCategory = 'apikey'"
             :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors',
               accountCategory === 'apikey'
                 ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
                 : 'border-gray-200 hover:border-purple-300 dark:border-dark-600 dark:hover:border-purple-700'
@@ -384,7 +328,7 @@
       <!-- Account Type Selection (Gemini) -->
       <div v-if="form.platform === 'gemini'">
         <div class="flex items-center justify-between">
-          <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
+          <label class="ui-field-label">{{ t('admin.accounts.accountType') }}</label>
           <UiButton
             type="button"
             variant="quiet"
@@ -400,7 +344,7 @@
             type="button"
             @click="accountCategory = 'oauth-based'"
             :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors',
               accountCategory === 'oauth-based'
                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                 : 'border-gray-200 hover:border-blue-300 dark:border-dark-600 dark:hover:border-blue-700'
@@ -430,7 +374,7 @@
             type="button"
             @click="accountCategory = 'apikey'"
             :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors',
               accountCategory === 'apikey'
                 ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
                 : 'border-gray-200 hover:border-purple-300 dark:border-dark-600 dark:hover:border-purple-700'
@@ -444,19 +388,7 @@
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
               ]"
             >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="1.5"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1721.75 8.25z"
-                />
-              </svg>
+              <Icon name="key" size="sm" />
             </div>
             <div>
               <span class="block text-sm font-medium text-gray-900 dark:text-white">
@@ -472,7 +404,7 @@
             type="button"
             @click="accountCategory = 'service_account'"
             :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors',
               accountCategory === 'service_account'
                 ? 'border-sky-500 bg-sky-50 dark:bg-sky-900/20'
                 : 'border-gray-200 hover:border-sky-300 dark:border-dark-600 dark:hover:border-sky-700'
@@ -525,14 +457,14 @@
 
         <!-- OAuth Type Selection (only show when oauth-based is selected) -->
         <div v-if="accountCategory === 'oauth-based'" class="mt-4">
-          <label class="input-label">{{ t('admin.accounts.oauth.gemini.oauthTypeLabel') }}</label>
+          <label class="ui-field-label">{{ t('admin.accounts.oauth.gemini.oauthTypeLabel') }}</label>
           <div class="mt-2 grid grid-cols-2 gap-3">
             <!-- Google One OAuth -->
             <button
               type="button"
               @click="handleSelectGeminiOAuthType('google_one')"
               :class="[
-                'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+                'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors',
                 geminiOAuthType === 'google_one'
                   ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
                   : 'border-gray-200 hover:border-purple-300 dark:border-dark-600 dark:hover:border-purple-700'
@@ -575,7 +507,7 @@
               type="button"
               @click="handleSelectGeminiOAuthType('code_assist')"
               :class="[
-                'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+                'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors',
                 geminiOAuthType === 'code_assist'
                   ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                   : 'border-gray-200 hover:border-blue-300 dark:border-dark-600 dark:hover:border-blue-700'
@@ -632,15 +564,11 @@
               @click="showAdvancedOAuth = !showAdvancedOAuth"
               class="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
             >
-              <svg
-                :class="['h-4 w-4 transition-transform', showAdvancedOAuth ? 'rotate-90' : '']"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
+              <Icon
+                name="chevronRight"
+                size="sm"
+                :class="['motion-safe:transition-transform', showAdvancedOAuth ? 'rotate-90' : '']"
+              />
               <span>
                 {{
                   showAdvancedOAuth
@@ -658,7 +586,7 @@
               :disabled="!geminiAIStudioOAuthEnabled"
               @click="handleSelectGeminiOAuthType('ai_studio')"
               :class="[
-                'flex w-full items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+                'flex w-full items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors',
                 !geminiAIStudioOAuthEnabled ? 'cursor-not-allowed opacity-60' : '',
                 geminiOAuthType === 'ai_studio'
                   ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20'
@@ -673,19 +601,7 @@
                     : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
                 ]"
               >
-                <svg
-                  class="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
-                  />
-                </svg>
+                <Icon name="sparkles" size="sm" />
               </div>
               <div class="min-w-0">
                 <span class="block text-sm font-medium text-gray-900 dark:text-white">
@@ -755,13 +671,13 @@
 
       <!-- Account Type Selection (Antigravity - OAuth or Upstream) -->
       <div v-if="form.platform === 'antigravity'">
-        <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
+        <label class="ui-field-label">{{ t('admin.accounts.accountType') }}</label>
         <div class="mt-2 grid grid-cols-2 gap-3">
           <button
             type="button"
             @click="antigravityAccountType = 'oauth'"
             :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors',
               antigravityAccountType === 'oauth'
                 ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
                 : 'border-gray-200 hover:border-purple-300 dark:border-dark-600 dark:hover:border-purple-700'
@@ -787,7 +703,7 @@
             type="button"
             @click="antigravityAccountType = 'upstream'"
             :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors',
               antigravityAccountType === 'upstream'
                 ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
                 : 'border-gray-200 hover:border-purple-300 dark:border-dark-600 dark:hover:border-purple-700'
@@ -812,45 +728,36 @@
       </div>
 
       <div v-if="form.platform === 'antigravity' && antigravityAccountType === 'oauth'">
-        <label class="input-label">{{ t('admin.accounts.antigravityProjectIdLabel') }}</label>
-        <input
+        <UiTextField
           v-model="antigravityProjectId"
-          data-testid="antigravity-project-id-input"
-          type="text"
-          class="input font-mono"
+          :label="t('admin.accounts.antigravityProjectIdLabel')"
+          :description="t('admin.accounts.antigravityProjectIdHint')"
+          test-id="antigravity-project-id-input"
           :placeholder="t('admin.accounts.antigravityProjectIdPlaceholder')"
         />
-        <p class="input-hint">{{ t('admin.accounts.antigravityProjectIdHint') }}</p>
       </div>
 
       <!-- Upstream config (only for Antigravity upstream type) -->
       <div v-if="form.platform === 'antigravity' && antigravityAccountType === 'upstream'" class="space-y-4">
-        <div>
-          <label class="input-label">{{ t('admin.accounts.upstream.baseUrl') }}</label>
-          <input
-            v-model="upstreamBaseUrl"
-            type="text"
-            required
-            class="input"
-            placeholder="https://cloudcode-pa.googleapis.com"
-          />
-          <p class="input-hint">{{ t('admin.accounts.upstream.baseUrlHint') }}</p>
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.upstream.apiKey') }}</label>
-          <input
-            v-model="upstreamApiKey"
-            type="password"
-            required
-            class="input font-mono"
-            placeholder="sk-..."
-          />
-          <p class="input-hint">{{ t('admin.accounts.upstream.apiKeyHint') }}</p>
-        </div>
+        <UiTextField
+          v-model="upstreamBaseUrl"
+          :label="t('admin.accounts.upstream.baseUrl')"
+          :description="t('admin.accounts.upstream.baseUrlHint')"
+          required
+          placeholder="https://cloudcode-pa.googleapis.com"
+        />
+        <UiPasswordField
+          v-model="upstreamApiKey"
+          :label="t('admin.accounts.upstream.apiKey')"
+          :description="t('admin.accounts.upstream.apiKeyHint')"
+          required
+          monospace
+          placeholder="sk-..."
+        />
         <!-- 上游倍率自动探测：antigravity upstream 也是 API-key 账号 -->
         <div class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.upstreamBilling.autoProbe') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.upstreamBilling.autoProbe') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
             </p>
@@ -866,7 +773,7 @@
       <!-- Vertex Service Account -->
       <div v-if="(form.platform === 'gemini' || form.platform === 'anthropic') && accountCategory === 'service_account'" class="space-y-4">
         <div>
-          <label class="input-label">Service Account JSON</label>
+          <label class="ui-field-label">Service Account JSON</label>
           <input
             ref="vertexServiceAccountFileInput"
             type="file"
@@ -896,14 +803,15 @@
                   {{ vertexClientEmail ? t('admin.accounts.vertexSaJsonKeyHidden') : t('admin.accounts.vertexSaJsonDropHint') }}
                 </p>
               </div>
-              <button
+              <UiButton
                 type="button"
-                class="btn btn-secondary shrink-0"
+                density="compact"
+                class="shrink-0"
                 @click="vertexServiceAccountFileInput?.click()"
               >
-                <Icon name="upload" size="sm" />
+                <template #icon><Icon name="upload" size="sm" /></template>
                 {{ t('admin.accounts.vertexSaJsonSelectBtn') }}
-              </button>
+              </UiButton>
             </div>
             <div
               v-if="vertexClientEmail"
@@ -913,20 +821,17 @@
               <div class="truncate">Client Email: <span class="font-mono">{{ vertexClientEmail }}</span></div>
             </div>
           </div>
-          <p class="input-hint">{{ t('admin.accounts.vertexSaJsonUploadHint') }}</p>
+          <p class="ui-field-hint">{{ t('admin.accounts.vertexSaJsonUploadHint') }}</p>
         </div>
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label class="input-label">Project ID</label>
-            <input
+          <UiTextField
               v-model="vertexProjectId"
-              type="text"
-              class="input font-mono"
               readonly
+              label="Project ID"
               :placeholder="t('admin.accounts.vertexProjectIdPlaceholder')"
-            />
-          </div>
+              monospace
+          />
           <div>
             <UiSelect
               v-model="vertexLocation"
@@ -943,7 +848,7 @@
       <!-- Antigravity model restriction (applies to OAuth + Upstream) -->
       <!-- Antigravity 只支持模型映射模式，不支持白名单模式 -->
       <div v-if="form.platform === 'antigravity'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
-        <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
+        <label class="ui-field-label">{{ t('admin.accounts.modelRestriction') }}</label>
 
         <!-- Mapping Mode Only (no toggle for Antigravity) -->
         <div>
@@ -966,50 +871,35 @@
           />
 
           <div class="flex flex-wrap gap-2">
-            <button
+            <UiButton
               v-for="preset in antigravityPresetMappings"
               :key="preset.label"
               type="button"
+              variant="secondary"
+              density="mini"
               @click="addAntigravityPresetMapping(preset.from, preset.to)"
-              :class="['rounded-lg px-3 py-1 text-xs transition-colors', preset.color]"
             >
               + {{ preset.label }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
 
       <!-- Add Method (only for Anthropic OAuth-based type) -->
       <div v-if="form.platform === 'anthropic' && isOAuthFlow">
-        <label class="input-label">{{ t('admin.accounts.addMethod') }}</label>
-        <div class="mt-2 flex gap-4">
-          <label class="flex cursor-pointer items-center">
-            <input
-              v-model="addMethod"
-              type="radio"
-              value="oauth"
-              class="mr-2 text-primary-600 focus:ring-primary-500"
-            />
-            <span class="text-sm text-gray-700 dark:text-gray-300">{{ t('admin.accounts.types.oauth') }}</span>
-          </label>
-          <label class="flex cursor-pointer items-center">
-            <input
-              v-model="addMethod"
-              type="radio"
-              value="setup-token"
-              class="mr-2 text-primary-600 focus:ring-primary-500"
-            />
-            <span class="text-sm text-gray-700 dark:text-gray-300">{{
-              t('admin.accounts.setupTokenLongLived')
-            }}</span>
-          </label>
-        </div>
+        <UiRadioGroup
+          v-model="addMethod"
+          :label="t('admin.accounts.addMethod')"
+          name="create-account-add-method"
+          layout="inline"
+          :options="addMethodOptions"
+        />
       </div>
 
       <!-- API Key input (only for apikey type, excluding Antigravity which has its own fields) -->
       <div v-if="form.type === 'apikey' && form.platform !== 'antigravity'" class="space-y-4">
         <div>
-          <label class="input-label">{{ t('admin.accounts.baseUrl') }}</label>
+          <label class="ui-field-label">{{ t('admin.accounts.baseUrl') }}</label>
           <UiTextField
             v-model="apiKeyBaseUrl"
             :label="t('admin.accounts.baseUrl')"
@@ -1056,7 +946,7 @@
           class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
         >
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.upstreamBilling.autoProbe') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.upstreamBilling.autoProbe') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
             </p>
@@ -1095,7 +985,7 @@
         <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.poolModeHint') }}
               </p>
@@ -1109,14 +999,14 @@
             </p>
           </div>
           <div v-if="poolModeEnabled" class="mt-3">
-            <label class="input-label">{{ t('admin.accounts.poolModeRetryCount') }}</label>
-            <input
+            <UiTextField
               v-model.number="poolModeRetryCount"
               type="number"
-              min="0"
+              density="compact"
+              :min="0"
               :max="MAX_POOL_MODE_RETRY_COUNT"
-              step="1"
-              class="input"
+              :step="1"
+              :label="t('admin.accounts.poolModeRetryCount')"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{
@@ -1128,11 +1018,11 @@
             </p>
           </div>
           <div v-if="poolModeEnabled" class="mt-3">
-            <label class="input-label">{{ t('admin.accounts.poolModeRetryStatusCodes') }}</label>
-            <input
+            <UiTextField
               v-model="poolModeRetryStatusCodesInput"
               type="text"
-              class="input"
+              density="compact"
+              :label="t('admin.accounts.poolModeRetryStatusCodes')"
               :placeholder="DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ')"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -1145,7 +1035,7 @@
         <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.customErrorCodes') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.customErrorCodes') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.customErrorCodesHint') }}
               </p>
@@ -1163,32 +1053,32 @@
 
             <!-- Error Code Buttons -->
             <div class="flex flex-wrap gap-2">
-              <button
+              <UiButton
                 v-for="code in commonErrorCodes"
                 :key="code.value"
                 type="button"
+                :variant="selectedErrorCodes.includes(code.value) ? 'danger' : 'secondary'"
+                density="compact"
+                :aria-pressed="selectedErrorCodes.includes(code.value)"
                 @click="toggleErrorCode(code.value)"
-                :class="[
-                  'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                  selectedErrorCodes.includes(code.value)
-                    ? 'bg-red-100 text-red-700 ring-1 ring-red-500 dark:bg-red-900/30 dark:text-red-400'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
-                ]"
               >
                 {{ code.value }} {{ code.label }}
-              </button>
+              </UiButton>
             </div>
 
             <!-- Manual input -->
             <div class="flex items-center gap-2">
-              <input
+              <UiTextField
                 v-model.number="customErrorCodeInput"
                 type="number"
                 min="100"
                 max="599"
-                class="input flex-1"
+                density="compact"
+                class="flex-1"
+                :label="t('admin.accounts.enterErrorCode')"
                 :placeholder="t('admin.accounts.enterErrorCode')"
-                @keyup.enter="addCustomErrorCode"
+                prevent-enter-default
+                @enter="addCustomErrorCode"
               />
               <UiIconButton
                 type="button"
@@ -1208,13 +1098,14 @@
                 class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-sm font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400"
               >
                 {{ code }}
-                <button
+                <UiIconButton
                   type="button"
+                  icon="x"
+                  variant="danger"
+                  density="mini"
+                  :label="t('common.delete')"
                   @click="removeErrorCode(code)"
-                  class="hover:text-red-900 dark:hover:text-red-300"
-                >
-                  <Icon name="x" size="sm" :stroke-width="2" />
-                </button>
+                />
               </span>
               <span v-if="selectedErrorCodes.length === 0" class="text-xs text-gray-400">
                 {{ t('admin.accounts.noneSelectedUsesDefault') }}
@@ -1230,7 +1121,7 @@
         >
           <div class="mb-3 flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.headerOverride.hint') }}
               </p>
@@ -1258,72 +1149,48 @@
       <!-- Bedrock credentials (only for Anthropic Bedrock type) -->
       <div v-if="form.platform === 'anthropic' && accountCategory === 'bedrock'" class="space-y-4">
         <!-- Auth Mode Radio -->
-        <div>
-          <label class="input-label">{{ t('admin.accounts.bedrockAuthMode') }}</label>
-          <div class="mt-2 flex gap-4">
-            <label class="flex cursor-pointer items-center">
-              <input
-                v-model="bedrockAuthMode"
-                type="radio"
-                value="sigv4"
-                class="mr-2 text-primary-600 focus:ring-primary-500"
-              />
-              <span class="text-sm text-gray-700 dark:text-gray-300">{{ t('admin.accounts.bedrockAuthModeSigv4') }}</span>
-            </label>
-            <label class="flex cursor-pointer items-center">
-              <input
-                v-model="bedrockAuthMode"
-                type="radio"
-                value="apikey"
-                class="mr-2 text-primary-600 focus:ring-primary-500"
-              />
-              <span class="text-sm text-gray-700 dark:text-gray-300">{{ t('admin.accounts.bedrockAuthModeApikey') }}</span>
-            </label>
-          </div>
-        </div>
+        <UiRadioGroup
+          v-model="bedrockAuthMode"
+          :label="t('admin.accounts.bedrockAuthMode')"
+          name="create-bedrock-auth-mode"
+          layout="inline"
+          :options="[
+            { value: 'sigv4', label: t('admin.accounts.bedrockAuthModeSigv4') },
+            { value: 'apikey', label: t('admin.accounts.bedrockAuthModeApikey') },
+          ]"
+        />
 
         <!-- SigV4 fields -->
         <template v-if="bedrockAuthMode === 'sigv4'">
-          <div>
-            <label class="input-label">{{ t('admin.accounts.bedrockAccessKeyId') }}</label>
-            <input
-              v-model="bedrockAccessKeyId"
-              type="text"
-              required
-              class="input font-mono"
-              placeholder="AKIA..."
-            />
-          </div>
-          <div>
-            <label class="input-label">{{ t('admin.accounts.bedrockSecretAccessKey') }}</label>
-            <input
-              v-model="bedrockSecretAccessKey"
-              type="password"
-              required
-              class="input font-mono"
-            />
-          </div>
-          <div>
-            <label class="input-label">{{ t('admin.accounts.bedrockSessionToken') }}</label>
-            <input
-              v-model="bedrockSessionToken"
-              type="password"
-              class="input font-mono"
-            />
-            <p class="input-hint">{{ t('admin.accounts.bedrockSessionTokenHint') }}</p>
-          </div>
+          <UiTextField
+            v-model="bedrockAccessKeyId"
+            :label="t('admin.accounts.bedrockAccessKeyId')"
+            required
+            monospace
+            placeholder="AKIA..."
+          />
+          <UiPasswordField
+            v-model="bedrockSecretAccessKey"
+            :label="t('admin.accounts.bedrockSecretAccessKey')"
+            required
+            monospace
+          />
+          <UiPasswordField
+            v-model="bedrockSessionToken"
+            :label="t('admin.accounts.bedrockSessionToken')"
+            :description="t('admin.accounts.bedrockSessionTokenHint')"
+            monospace
+          />
         </template>
 
         <!-- API Key field -->
-        <div v-if="bedrockAuthMode === 'apikey'">
-          <label class="input-label">{{ t('admin.accounts.bedrockApiKeyInput') }}</label>
-          <input
-            v-model="bedrockApiKeyValue"
-            type="password"
-            required
-            class="input font-mono"
-          />
-        </div>
+        <UiPasswordField
+          v-if="bedrockAuthMode === 'apikey'"
+          v-model="bedrockApiKeyValue"
+          :label="t('admin.accounts.bedrockApiKeyInput')"
+          required
+          monospace
+        />
 
         <!-- Shared: Region -->
         <UiSelect
@@ -1336,15 +1203,11 @@
 
         <!-- Shared: Force Global -->
         <div>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              v-model="bedrockForceGlobal"
-              type="checkbox"
-              class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-500"
-            />
-            <span class="text-sm text-gray-700 dark:text-gray-300">{{ t('admin.accounts.bedrockForceGlobal') }}</span>
-          </label>
-          <p class="input-hint mt-1">{{ t('admin.accounts.bedrockForceGlobalHint') }}</p>
+          <UiSwitch
+            v-model="bedrockForceGlobal"
+            :label="t('admin.accounts.bedrockForceGlobal')"
+          />
+          <p class="ui-field-hint mt-1">{{ t('admin.accounts.bedrockForceGlobalHint') }}</p>
         </div>
 
         <!-- Model Restriction Section for Bedrock -->
@@ -1365,7 +1228,7 @@
         <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.poolModeHint') }}
               </p>
@@ -1379,35 +1242,26 @@
             </p>
           </div>
           <div v-if="poolModeEnabled" class="mt-3">
-            <label class="input-label">{{ t('admin.accounts.poolModeRetryCount') }}</label>
-            <input
+            <UiTextField
               v-model.number="poolModeRetryCount"
               type="number"
+              density="compact"
               min="0"
               :max="MAX_POOL_MODE_RETRY_COUNT"
               step="1"
-              class="input"
+              :label="t('admin.accounts.poolModeRetryCount')"
+              :description="t('admin.accounts.poolModeRetryCountHint', { default: DEFAULT_POOL_MODE_RETRY_COUNT, max: MAX_POOL_MODE_RETRY_COUNT })"
             />
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{
-                t('admin.accounts.poolModeRetryCountHint', {
-                  default: DEFAULT_POOL_MODE_RETRY_COUNT,
-                  max: MAX_POOL_MODE_RETRY_COUNT
-                })
-              }}
-            </p>
           </div>
           <div v-if="poolModeEnabled" class="mt-3">
-            <label class="input-label">{{ t('admin.accounts.poolModeRetryStatusCodes') }}</label>
-            <input
+            <UiTextField
               v-model="poolModeRetryStatusCodesInput"
               type="text"
-              class="input"
+              density="compact"
+              :label="t('admin.accounts.poolModeRetryStatusCodes')"
               :placeholder="DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ')"
             />
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.poolModeRetryStatusCodesHint', { default: DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ') }) }}
-            </p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.poolModeRetryStatusCodesHint', { default: DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ') }) }}</p>
           </div>
         </div>
       </div>
@@ -1418,7 +1272,7 @@
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="mb-3">
-          <h3 class="input-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
+          <h3 class="ui-field-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
           <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
             {{ t('admin.accounts.quotaControl.hint') }}
           </p>
@@ -1470,7 +1324,7 @@
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="mb-3">
-          <h3 class="input-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
+          <h3 class="ui-field-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
           <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
             {{ t('admin.accounts.quotaLimitHint') }}
           </p>
@@ -1523,7 +1377,7 @@
       >
         <div class="mb-3 flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.grokCustomBaseUrl.title') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.grokCustomBaseUrl.title') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.grokCustomBaseUrl.hint') }}
             </p>
@@ -1535,11 +1389,13 @@
           />
         </div>
         <div v-if="grokOAuthCustomBaseUrlEnabled" class="space-y-2">
-          <input
+          <UiTextField
             v-model="grokOAuthBaseUrl"
-            type="text"
-            class="input"
-            data-testid="grok-custom-base-url-input"
+            type="url"
+            density="compact"
+            :label="t('admin.accounts.grokCustomBaseUrl.title')"
+            :description="t('admin.accounts.grokCustomBaseUrl.hint')"
+            test-id="grok-custom-base-url-input"
             :placeholder="t('admin.accounts.grokCustomBaseUrl.placeholder')"
           />
           <GrokBaseUrlPresets @select="grokOAuthBaseUrl = $event" />
@@ -1553,7 +1409,7 @@
       >
         <div class="mb-3 flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.headerOverride.hint') }}
             </p>
@@ -1595,7 +1451,7 @@
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4">
         <div class="mb-3 flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.tempUnschedulable.title') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.tempUnschedulable.title') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.tempUnschedulable.hint') }}
             </p>
@@ -1612,15 +1468,15 @@
             </div>
 
           <div class="flex flex-wrap gap-2">
-            <button
+            <UiButton
               v-for="preset in tempUnschedPresets"
               :key="preset.label"
-              type="button"
+              variant="quiet"
+              density="dense"
               @click="addTempUnschedRule(preset.rule)"
-              class="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-300 dark:hover:bg-dark-500"
             >
               + {{ preset.label }}
-            </button>
+            </UiButton>
           </div>
 
           <div v-if="tempUnschedRules.length > 0" class="space-y-3">
@@ -1634,94 +1490,77 @@
                   {{ t('admin.accounts.tempUnschedulable.ruleIndex', { index: index + 1 }) }}
                 </span>
                 <div class="flex items-center gap-2">
-                  <button
-                    type="button"
+                  <UiIconButton
+                    :label="t('admin.accounts.tempUnschedulable.moveUp')"
+                    icon="chevronUp"
+                    variant="ghost"
+                    density="mini"
                     :disabled="index === 0"
                     @click="moveTempUnschedRule(index, -1)"
-                    class="rounded p-1 text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:text-gray-200"
-                  >
-                    <Icon name="chevronUp" size="sm" :stroke-width="2" />
-                  </button>
-                  <button
-                    type="button"
+                  />
+                  <UiIconButton
+                    :label="t('admin.accounts.tempUnschedulable.moveDown')"
+                    icon="chevronDown"
+                    variant="ghost"
+                    density="mini"
                     :disabled="index === tempUnschedRules.length - 1"
                     @click="moveTempUnschedRule(index, 1)"
-                    class="rounded p-1 text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:text-gray-200"
-                  >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
+                  />
+                  <UiIconButton
+                    :label="t('common.delete')"
+                    icon="x"
+                    variant="danger"
+                    density="mini"
                     @click="removeTempUnschedRule(index)"
-                    class="rounded p-1 text-red-500 transition-colors hover:text-red-600"
-                  >
-                    <Icon name="x" size="sm" :stroke-width="2" />
-                  </button>
+                  />
                 </div>
               </div>
 
               <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.errorCode') }}</label>
-                  <input
+                <UiTextField
                     v-model.number="rule.error_code"
                     type="number"
-                    min="100"
-                    max="599"
-                    class="input"
+                    :label="t('admin.accounts.tempUnschedulable.errorCode')"
+                    :min="100"
+                    :max="599"
+                    density="compact"
                     :placeholder="t('admin.accounts.tempUnschedulable.errorCodePlaceholder')"
-                  />
-                </div>
-                <div>
-                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.durationMinutes') }}</label>
-                  <input
+                />
+                <UiTextField
                     v-model.number="rule.duration_minutes"
                     type="number"
-                    min="1"
-                    class="input"
+                    :label="t('admin.accounts.tempUnschedulable.durationMinutes')"
+                    :min="1"
+                    density="compact"
                     :placeholder="t('admin.accounts.tempUnschedulable.durationPlaceholder')"
-                  />
-                </div>
-                <div class="sm:col-span-2">
-                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.keywords') }}</label>
-                  <input
+                />
+                <UiTextField
+                    class="sm:col-span-2"
                     v-model="rule.keywords"
-                    type="text"
-                    class="input"
+                    :label="t('admin.accounts.tempUnschedulable.keywords')"
+                    :description="t('admin.accounts.tempUnschedulable.keywordsHint')"
+                    density="compact"
                     :placeholder="t('admin.accounts.tempUnschedulable.keywordsPlaceholder')"
-                  />
-                  <p class="input-hint">{{ t('admin.accounts.tempUnschedulable.keywordsHint') }}</p>
-                </div>
-                <div class="sm:col-span-2">
-                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.description') }}</label>
-                  <input
+                />
+                <UiTextField
+                    class="sm:col-span-2"
                     v-model="rule.description"
-                    type="text"
-                    class="input"
+                    :label="t('admin.accounts.tempUnschedulable.description')"
+                    density="compact"
                     :placeholder="t('admin.accounts.tempUnschedulable.descriptionPlaceholder')"
-                  />
-                </div>
+                />
               </div>
             </div>
           </div>
 
-          <button
-            type="button"
+          <UiButton
+            variant="secondary"
+            block
             @click="addTempUnschedRule()"
-            class="w-full rounded-lg border-2 border-dashed border-gray-300 px-4 py-2 text-sm text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-700 dark:border-dark-500 dark:text-gray-400 dark:hover:border-dark-400 dark:hover:text-gray-300"
           >
-            <svg
-              class="mr-1 inline h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
+            <template #icon><Icon name="plus" size="sm" /></template>
             {{ t('admin.accounts.tempUnschedulable.addRule') }}
-          </button>
+          </UiButton>
         </div>
       </div>
 
@@ -1732,7 +1571,7 @@
       >
         <div class="flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{
+            <label class="ui-field-label mb-0">{{
               t('admin.accounts.interceptWarmupRequests')
             }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -1749,7 +1588,7 @@
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="mb-3">
-          <h3 class="input-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
+          <h3 class="ui-field-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
           <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
             {{ t('admin.accounts.quotaControl.hint') }}
           </p>
@@ -1759,7 +1598,7 @@
         <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.windowCost.label') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.quotaControl.windowCost.label') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.quotaControl.windowCost.hint') }}
               </p>
@@ -1771,36 +1610,8 @@
           </div>
 
           <div v-if="windowCostEnabled" class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.windowCost.limit') }}</label>
-              <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
-                <input
-                  v-model.number="windowCostLimit"
-                  type="number"
-                  min="0"
-                  step="1"
-                  class="input pl-7"
-                  :placeholder="t('admin.accounts.quotaControl.windowCost.limitPlaceholder')"
-                />
-              </div>
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.windowCost.limitHint') }}</p>
-            </div>
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.windowCost.stickyReserve') }}</label>
-              <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
-                <input
-                  v-model.number="windowCostStickyReserve"
-                  type="number"
-                  min="0"
-                  step="1"
-                  class="input pl-7"
-                  :placeholder="t('admin.accounts.quotaControl.windowCost.stickyReservePlaceholder')"
-                />
-              </div>
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.windowCost.stickyReserveHint') }}</p>
-            </div>
+            <UiTextField v-model.number="windowCostLimit" type="number" :label="t('admin.accounts.quotaControl.windowCost.limit')" :description="t('admin.accounts.quotaControl.windowCost.limitHint')" :min="0" :step="1" density="compact" :placeholder="t('admin.accounts.quotaControl.windowCost.limitPlaceholder')"><template #prefix>$</template></UiTextField>
+            <UiTextField v-model.number="windowCostStickyReserve" type="number" :label="t('admin.accounts.quotaControl.windowCost.stickyReserve')" :description="t('admin.accounts.quotaControl.windowCost.stickyReserveHint')" :min="0" :step="1" density="compact" :placeholder="t('admin.accounts.quotaControl.windowCost.stickyReservePlaceholder')"><template #prefix>$</template></UiTextField>
           </div>
         </div>
 
@@ -1808,7 +1619,7 @@
         <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.sessionLimit.label') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.quotaControl.sessionLimit.label') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.quotaControl.sessionLimit.hint') }}
               </p>
@@ -1820,33 +1631,8 @@
           </div>
 
           <div v-if="sessionLimitEnabled" class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.sessionLimit.maxSessions') }}</label>
-              <input
-                v-model.number="maxSessions"
-                type="number"
-                min="1"
-                step="1"
-                class="input"
-                :placeholder="t('admin.accounts.quotaControl.sessionLimit.maxSessionsPlaceholder')"
-              />
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.sessionLimit.maxSessionsHint') }}</p>
-            </div>
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.sessionLimit.idleTimeout') }}</label>
-              <div class="relative">
-                <input
-                  v-model.number="sessionIdleTimeout"
-                  type="number"
-                  min="1"
-                  step="1"
-                  class="input pr-12"
-                  :placeholder="t('admin.accounts.quotaControl.sessionLimit.idleTimeoutPlaceholder')"
-                />
-                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">{{ t('common.minutes') }}</span>
-              </div>
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.sessionLimit.idleTimeoutHint') }}</p>
-            </div>
+            <UiTextField v-model.number="maxSessions" type="number" :label="t('admin.accounts.quotaControl.sessionLimit.maxSessions')" :description="t('admin.accounts.quotaControl.sessionLimit.maxSessionsHint')" :min="1" :step="1" density="compact" :placeholder="t('admin.accounts.quotaControl.sessionLimit.maxSessionsPlaceholder')" />
+            <UiTextField v-model.number="sessionIdleTimeout" type="number" :label="t('admin.accounts.quotaControl.sessionLimit.idleTimeout')" :description="t('admin.accounts.quotaControl.sessionLimit.idleTimeoutHint')" :min="1" :step="1" density="compact" :placeholder="t('admin.accounts.quotaControl.sessionLimit.idleTimeoutPlaceholder')"><template #suffix>{{ t('common.minutes') }}</template></UiTextField>
           </div>
         </div>
 
@@ -1854,7 +1640,7 @@
         <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.rpmLimit.label') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.quotaControl.rpmLimit.label') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.quotaControl.rpmLimit.hint') }}
               </p>
@@ -1866,89 +1652,22 @@
           </div>
 
           <div v-if="rpmLimitEnabled" class="space-y-4">
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.rpmLimit.baseRpm') }}</label>
-              <input
-                v-model.number="baseRpm"
-                type="number"
-                min="1"
-                max="1000"
-                step="1"
-                class="input"
-                :placeholder="t('admin.accounts.quotaControl.rpmLimit.baseRpmPlaceholder')"
-              />
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.rpmLimit.baseRpmHint') }}</p>
-            </div>
+            <UiTextField v-model.number="baseRpm" type="number" :label="t('admin.accounts.quotaControl.rpmLimit.baseRpm')" :description="t('admin.accounts.quotaControl.rpmLimit.baseRpmHint')" :min="1" :max="1000" :step="1" density="compact" :placeholder="t('admin.accounts.quotaControl.rpmLimit.baseRpmPlaceholder')" />
 
             <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.rpmLimit.strategy') }}</label>
-              <div class="flex gap-2">
-                <button
-                  type="button"
-                  @click="rpmStrategy = 'tiered'"
-                  :class="[
-                    'flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all',
-                    rpmStrategy === 'tiered'
-                      ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
-                  ]"
-                >
-                  <div class="text-center">
-                    <div>{{ t('admin.accounts.quotaControl.rpmLimit.strategyTiered') }}</div>
-                    <div class="mt-0.5 text-[10px] opacity-70">{{ t('admin.accounts.quotaControl.rpmLimit.strategyTieredHint') }}</div>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  @click="rpmStrategy = 'sticky_exempt'"
-                  :class="[
-                    'flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all',
-                    rpmStrategy === 'sticky_exempt'
-                      ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
-                  ]"
-                >
-                  <div class="text-center">
-                    <div>{{ t('admin.accounts.quotaControl.rpmLimit.strategyStickyExempt') }}</div>
-                    <div class="mt-0.5 text-[10px] opacity-70">{{ t('admin.accounts.quotaControl.rpmLimit.strategyStickyExemptHint') }}</div>
-                  </div>
-                </button>
-              </div>
+              <UiRadioGroup v-model="rpmStrategy" :label="t('admin.accounts.quotaControl.rpmLimit.strategy')" name="create-rpm-strategy" layout="grid" :options="rpmStrategyOptions" />
             </div>
 
             <div v-if="rpmStrategy === 'tiered'">
-              <label class="input-label">{{ t('admin.accounts.quotaControl.rpmLimit.stickyBuffer') }}</label>
-              <input
-                v-model.number="rpmStickyBuffer"
-                type="number"
-                min="1"
-                step="1"
-                class="input"
-                :placeholder="t('admin.accounts.quotaControl.rpmLimit.stickyBufferPlaceholder')"
-              />
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.rpmLimit.stickyBufferHint') }}</p>
+              <UiTextField v-model.number="rpmStickyBuffer" type="number" :label="t('admin.accounts.quotaControl.rpmLimit.stickyBuffer')" :description="t('admin.accounts.quotaControl.rpmLimit.stickyBufferHint')" :min="1" :step="1" density="compact" :placeholder="t('admin.accounts.quotaControl.rpmLimit.stickyBufferPlaceholder')" />
             </div>
 
           </div>
 
           <!-- 用户消息限速模式（独立于 RPM 开关，始终可见） -->
           <div class="mt-4">
-            <label class="input-label">{{ t('admin.accounts.quotaControl.rpmLimit.userMsgQueue') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 mb-2">
-              {{ t('admin.accounts.quotaControl.rpmLimit.userMsgQueueHint') }}
-            </p>
-            <div class="flex space-x-2">
-              <button type="button" v-for="opt in umqModeOptions" :key="opt.value"
-                @click="userMsgQueueMode = opt.value"
-                :class="[
-                  'px-3 py-1.5 text-sm rounded-md border transition-colors',
-                  userMsgQueueMode === opt.value
-                    ? 'bg-primary-600 text-white border-primary-600'
-                    : 'bg-white dark:bg-dark-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-dark-500 hover:bg-gray-50 dark:hover:bg-dark-600'
-                ]">
-                {{ opt.label }}
-              </button>
-            </div>
+            <UiRadioGroup v-model="userMsgQueueMode" :label="t('admin.accounts.quotaControl.rpmLimit.userMsgQueue')" name="create-umq-mode" layout="inline" :options="umqModeOptions" />
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.quotaControl.rpmLimit.userMsgQueueHint') }}</p>
           </div>
         </div>
 
@@ -1956,7 +1675,7 @@
         <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
           <div class="flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.tlsFingerprint.label') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.quotaControl.tlsFingerprint.label') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.quotaControl.tlsFingerprint.hint') }}
               </p>
@@ -1981,7 +1700,7 @@
         <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
           <div class="flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.sessionIdMasking.label') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.quotaControl.sessionIdMasking.label') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.quotaControl.sessionIdMasking.hint') }}
               </p>
@@ -1997,7 +1716,7 @@
         <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
           <div class="flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.cacheTTLOverride.label') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.quotaControl.cacheTTLOverride.label') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.quotaControl.cacheTTLOverride.hint') }}
               </p>
@@ -2022,7 +1741,7 @@
         <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
           <div class="flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.customBaseUrl.label') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.quotaControl.customBaseUrl.label') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.quotaControl.customBaseUrl.hint') }}
               </p>
@@ -2043,7 +1762,7 @@
 
       <div>
         <div class="mb-1 flex items-center gap-2">
-          <label class="input-label mb-0">{{ t('admin.accounts.proxy') }}</label>
+          <label class="ui-field-label mb-0">{{ t('admin.accounts.proxy') }}</label>
           <ProxyAdBanner />
         </div>
         <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
@@ -2100,7 +1819,7 @@
       >
         <div class="flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.oauthPassthrough') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.oauthPassthrough') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.oauthPassthroughDesc') }}
             </p>
@@ -2119,7 +1838,7 @@
       >
         <div class="flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.flattenNamespaces') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.flattenNamespaces') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.flattenNamespacesDesc') }}
             </p>
@@ -2139,7 +1858,7 @@
       >
         <div class="flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.wsMode') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.wsMode') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.wsModeDesc') }}
             </p>
@@ -2160,7 +1879,7 @@
       >
         <div class="flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.anthropic.apiKeyPassthrough') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.anthropic.apiKeyPassthrough') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.anthropic.apiKeyPassthroughDesc') }}
             </p>
@@ -2201,7 +1920,7 @@
       >
         <div class="flex items-center justify-between gap-4">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.longContextBilling') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.longContextBilling') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.longContextBillingDesc') }}
             </p>
@@ -2221,7 +1940,7 @@
       >
         <div class="flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.codexCLIOnly') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.codexCLIOnly') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.codexCLIOnlyDesc') }}
             </p>
@@ -2233,7 +1952,7 @@
           class="mt-4 flex items-center justify-between border-l-2 border-gray-200 pl-4 dark:border-dark-600"
         >
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.codexCLIOnlyAppServer') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.codexCLIOnlyAppServer') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.codexCLIOnlyAppServerDesc') }}
             </p>
@@ -2249,7 +1968,7 @@
       >
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.codexFingerprintMode') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.codexFingerprintMode') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.codexFingerprintModeDesc') }}
             </p>
@@ -2267,7 +1986,7 @@
       >
         <div class="flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.compactMode') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.compactMode') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.compactModeDesc') }}
             </p>
@@ -2277,8 +1996,8 @@
           </div>
         </div>
         <div>
-          <label class="input-label">{{ t('admin.accounts.openai.compactModelMapping') }}</label>
-          <p class="input-hint">{{ t('admin.accounts.openai.compactModelMappingDesc') }}</p>
+          <label class="ui-field-label">{{ t('admin.accounts.openai.compactModelMapping') }}</label>
+          <p class="ui-field-hint">{{ t('admin.accounts.openai.compactModelMappingDesc') }}</p>
           <ModelMappingEditor
             v-model="openAICompactModelMappings"
             :from-placeholder="t('admin.accounts.fromModel')"
@@ -2296,7 +2015,7 @@
       >
         <div class="flex items-center justify-between gap-4">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.responsesMode') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.responsesMode') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.responsesModeDesc') }}
             </p>
@@ -2318,31 +2037,26 @@
           {{ t('admin.accounts.openai.responsesModeTextDisabledHint') }}
         </p>
         <div>
-          <label class="input-label mb-2 block">{{ t('admin.accounts.openai.endpointCapabilities') }}</label>
+          <label class="ui-field-label mb-2 block">{{ t('admin.accounts.openai.endpointCapabilities') }}</label>
           <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <label
+            <UiCheckbox
               v-for="option in openAIEndpointCapabilityOptions"
               :key="option.value"
-              class="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-dark-600"
-            >
-              <input
-                type="checkbox"
-                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-500"
-                :data-testid="`openai-endpoint-capability-${option.value}`"
-                :checked="openAIEndpointCapabilities.includes(option.value)"
-                @change="toggleOpenAIEndpointCapability(option.value, $event)"
-              />
-              <span class="text-gray-700 dark:text-gray-200">{{ option.label }}</span>
-            </label>
+              :model-value="openAIEndpointCapabilities.includes(option.value)"
+              :data-testid="`openai-endpoint-capability-${option.value}`"
+              :label="option.label"
+              full-width
+              @change="(enabled, event) => setOpenAIEndpointCapability(option.value, enabled, event)"
+            />
           </div>
-          <p class="input-hint">{{ t('admin.accounts.openai.endpointCapabilitiesDesc') }}</p>
+          <p class="ui-field-hint">{{ t('admin.accounts.openai.endpointCapabilitiesDesc') }}</p>
         </div>
       </div>
 
       <div>
         <div class="flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{
+            <label class="ui-field-label mb-0">{{
               t('admin.accounts.autoPauseOnExpired')
             }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -2356,16 +2070,7 @@
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <!-- Mixed Scheduling (only for antigravity accounts) -->
         <div v-if="form.platform === 'antigravity'" class="flex items-center gap-2">
-          <label class="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
-              v-model="mixedScheduling"
-              class="h-4 w-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500 dark:border-dark-500"
-            />
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t('admin.accounts.mixedScheduling') }}
-            </span>
-          </label>
+          <UiCheckbox v-model="mixedScheduling" :label="t('admin.accounts.mixedScheduling')" />
           <div class="group relative">
             <span
               class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-gray-200 text-xs text-gray-500 hover:bg-gray-300 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500"
@@ -2384,16 +2089,7 @@
           </div>
         </div>
         <div v-if="form.platform === 'antigravity'" class="mt-3 flex items-center gap-2">
-          <label class="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
-              v-model="allowOverages"
-              class="h-4 w-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500 dark:border-dark-500"
-            />
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t('admin.accounts.allowOverages') }}
-            </span>
-          </label>
+          <UiCheckbox v-model="allowOverages" :label="t('admin.accounts.allowOverages')" />
           <div class="group relative">
             <span
               class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-gray-200 text-xs text-gray-500 hover:bg-gray-300 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500"
@@ -2732,8 +2428,19 @@
     :confirm-text="t('common.confirm')"
     :cancel-text="t('common.cancel')"
     :danger="true"
+    :pending="submitting"
     @confirm="handleMixedChannelConfirm"
     @cancel="handleMixedChannelCancel"
+  />
+  <UiConfirmDialog
+    :show="errorCodeConfirmation !== null"
+    :title="t('common.confirm')"
+    :message="errorCodeConfirmationMessage"
+    :confirm-text="t('common.confirm')"
+    :cancel-text="t('common.cancel')"
+    :danger="true"
+    @confirm="confirmErrorCodeWarning"
+    @cancel="cancelErrorCodeWarning"
   />
 </template>
 
@@ -2778,10 +2485,13 @@ import Icon from '@/components/icons/Icon.vue'
 import {
   AppGrid,
   UiButton,
+  UiCheckbox,
   UiConfirmDialog,
   UiDialog,
   UiIconButton,
   UiPasswordField,
+  UiRadioGroup,
+  UiSegmentedControl,
   UiSelect,
   UiSwitch,
   UiTextArea,
@@ -2935,6 +2645,10 @@ const step = ref(1)
 const submitting = ref(false)
 const accountCategory = ref<'oauth-based' | 'apikey' | 'bedrock' | 'service_account'>('oauth-based') // UI selection for account category
 const addMethod = ref<AddMethod>('oauth') // For oauth-based: 'oauth' or 'setup-token'
+const addMethodOptions = computed(() => [
+  { value: 'oauth', label: t('admin.accounts.types.oauth') },
+  { value: 'setup-token', label: t('admin.accounts.setupTokenLongLived') }
+])
 const apiKeyBaseUrl = ref('https://api.anthropic.com')
 const apiKeyValue = ref('')
 const upstreamBillingAutoProbeEnabled = ref(true)
@@ -2988,6 +2702,12 @@ function parsePoolModeRetryStatusCodes(input: string): number[] {
 const customErrorCodesEnabled = ref(false)
 const selectedErrorCodes = ref<number[]>([])
 const customErrorCodeInput = ref<number | null>(null)
+const errorCodeConfirmation = ref<{ code: 429 | 529; source: 'toggle' | 'custom' } | null>(null)
+const errorCodeConfirmationMessage = computed(() =>
+  errorCodeConfirmation.value?.code === 429
+    ? t('admin.accounts.customErrorCodes429Warning')
+    : t('admin.accounts.customErrorCodes529Warning'),
+)
 const headerOverrideEnabled = ref(false)
 const headerOverrideRows = ref<HeaderOverrideRow[]>([])
 
@@ -3178,8 +2898,13 @@ const normalizeOpenAIEndpointCapabilities = (values: OpenAIEndpointCapability[])
   return selected.length > 0 ? selected : allowed
 }
 
-const toggleOpenAIEndpointCapability = (capability: OpenAIEndpointCapability, event?: Event) => {
-  if (openAIEndpointCapabilities.value.includes(capability)) {
+const setOpenAIEndpointCapability = (
+  capability: OpenAIEndpointCapability,
+  enabled: boolean,
+  event?: Event
+) => {
+  const currentlyEnabled = openAIEndpointCapabilities.value.includes(capability)
+  if (!enabled && currentlyEnabled) {
     if (openAIEndpointCapabilities.value.length <= 1) {
       const input = event?.target as HTMLInputElement | null
       if (input) input.checked = true
@@ -3193,10 +2918,12 @@ const toggleOpenAIEndpointCapability = (capability: OpenAIEndpointCapability, ev
     }
     return
   }
-  openAIEndpointCapabilities.value = normalizeOpenAIEndpointCapabilities([
-    ...openAIEndpointCapabilities.value,
-    capability
-  ])
+  if (enabled && !currentlyEnabled) {
+    openAIEndpointCapabilities.value = normalizeOpenAIEndpointCapabilities([
+      ...openAIEndpointCapabilities.value,
+      capability
+    ])
+  }
 }
 
 const applyOpenAIEndpointCapabilities = (credentials: Record<string, unknown>) => {
@@ -3239,6 +2966,10 @@ const rpmLimitEnabled = ref(false)
 const baseRpm = ref<number | null>(null)
 const rpmStrategy = ref<'tiered' | 'sticky_exempt'>('tiered')
 const rpmStickyBuffer = ref<number | null>(null)
+const rpmStrategyOptions = computed(() => [
+  { value: 'tiered', label: t('admin.accounts.quotaControl.rpmLimit.strategyTiered'), description: t('admin.accounts.quotaControl.rpmLimit.strategyTieredHint') },
+  { value: 'sticky_exempt', label: t('admin.accounts.quotaControl.rpmLimit.strategyStickyExempt'), description: t('admin.accounts.quotaControl.rpmLimit.strategyStickyExemptHint') },
+])
 const userMsgQueueMode = ref('')
 const umqModeOptions = computed(() => [
   { value: '', label: t('admin.accounts.quotaControl.rpmLimit.umqModeOff') },
@@ -3395,6 +3126,18 @@ const form = reactive({
   group_ids: [] as number[],
   expires_at: null as number | null
 })
+
+const platformOptions = [
+  { value: 'anthropic', label: 'Anthropic' },
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'gemini', label: 'Gemini' },
+  { value: 'antigravity', label: 'Antigravity' },
+  { value: 'grok', label: 'Grok' },
+] satisfies Array<{ value: AccountPlatform; label: string }>
+
+function platformIconName(platform: string): 'sparkles' | 'bolt' | 'cloud' {
+  return platform === 'openai' ? 'bolt' : platform === 'antigravity' ? 'cloud' : 'sparkles'
+}
 
 const priorityInput = ref('0')
 
@@ -3666,14 +3409,9 @@ const toggleErrorCode = (code: number) => {
   const index = selectedErrorCodes.value.indexOf(code)
   if (index === -1) {
     // Adding code - check for 429/529 warning
-    if (code === 429) {
-      if (!confirm(t('admin.accounts.customErrorCodes429Warning'))) {
-        return
-      }
-    } else if (code === 529) {
-      if (!confirm(t('admin.accounts.customErrorCodes529Warning'))) {
-        return
-      }
+    if (code === 429 || code === 529) {
+      errorCodeConfirmation.value = { code, source: 'toggle' }
+      return
     }
     selectedErrorCodes.value.push(code)
   } else {
@@ -3693,17 +3431,24 @@ const addCustomErrorCode = () => {
     return
   }
   // Check for 429/529 warning
-  if (code === 429) {
-    if (!confirm(t('admin.accounts.customErrorCodes429Warning'))) {
-      return
-    }
-  } else if (code === 529) {
-    if (!confirm(t('admin.accounts.customErrorCodes529Warning'))) {
-      return
-    }
+  if (code === 429 || code === 529) {
+    errorCodeConfirmation.value = { code, source: 'custom' }
+    return
   }
   selectedErrorCodes.value.push(code)
   customErrorCodeInput.value = null
+}
+
+const confirmErrorCodeWarning = () => {
+  const confirmation = errorCodeConfirmation.value
+  errorCodeConfirmation.value = null
+  if (!confirmation || selectedErrorCodes.value.includes(confirmation.code)) return
+  selectedErrorCodes.value.push(confirmation.code)
+  if (confirmation.source === 'custom') customErrorCodeInput.value = null
+}
+
+const cancelErrorCodeWarning = () => {
+  errorCodeConfirmation.value = null
 }
 
 // Remove error code
@@ -4141,6 +3886,7 @@ const doCreateAccount = async (payload: CreateAccountRequest) => {
 
 // Handle mixed channel warning confirmation
 const handleMixedChannelConfirm = async () => {
+  if (submitting.value) return
   const action = mixedChannelWarningAction.value
   if (!action) {
     clearMixedChannelDialog()
@@ -5714,3 +5460,7 @@ const handleCookieAuth = async (sessionKey: string) => {
   }
 }
 </script>
+
+<style scoped>
+.account-platform-option{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+</style>

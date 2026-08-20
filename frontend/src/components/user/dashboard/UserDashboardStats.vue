@@ -1,7 +1,7 @@
 <template>
   <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
     <section
-      class="card min-h-[126px] border px-4 py-3.5"
+      class="ui-panel min-h-[126px] px-4 py-3.5"
       :class="allowanceCardClass"
       data-testid="dashboard-balance-card"
     >
@@ -33,7 +33,7 @@
       </router-link>
     </section>
 
-    <section class="card min-h-[126px] px-4 py-3.5" data-testid="dashboard-today-card">
+    <section class="ui-panel min-h-[126px] px-4 py-3.5" data-testid="dashboard-today-card">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <p class="text-xs font-medium text-gray-500 dark:text-dark-400">{{ t('dashboard.overview.todayUsage') }}</p>
@@ -58,7 +58,7 @@
     </section>
 
     <section
-      class="card min-h-[126px] px-4 py-3.5 sm:col-span-2 lg:col-span-1"
+      class="ui-panel min-h-[126px] px-4 py-3.5 sm:col-span-2 lg:col-span-1"
       :class="accessCardClass"
       data-testid="dashboard-access-card"
     >
@@ -77,9 +77,9 @@
           <Icon :name="accessHealthy ? 'key' : 'exclamationTriangle'" size="sm" :stroke-width="1.8" />
         </div>
       </div>
-      <router-link v-if="stats.total_api_keys <= 0" to="/keys" class="btn btn-primary btn-sm mt-2">
+      <UiButton v-if="stats.total_api_keys <= 0" to="/keys" variant="primary" density="compact" class="mt-2">
         {{ t('dashboard.createApiKey') }}
-      </router-link>
+      </UiButton>
       <div v-else class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-dark-400">
         <span>{{ lastSuccessText }}</span>
         <span v-if="errorViewEnabled" :class="recentErrorCount > 0 ? 'text-red-600 dark:text-red-400' : ''">
@@ -94,6 +94,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
+import { UiButton } from '@/components/ui'
 import type { UserDashboardStats as UserStatsType } from '@/api/usage'
 import type { SubscriptionSummary } from '@/api/subscriptions'
 import type { UsageLog, UserErrorRequest } from '@/types'

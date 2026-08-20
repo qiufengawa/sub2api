@@ -14,10 +14,12 @@
       >
         <UiFilterBar>
           <div class="usage-filter-field usage-filter-field--range">
-            <label class="usage-filter-label">{{ t('admin.dashboard.timeRange') }}</label>
+            <label class="usage-filter-label" for="usage-time-range">{{ t('admin.dashboard.timeRange') }}</label>
             <UiDateRangePicker
+              id="usage-time-range"
               v-model:start-date="startDate"
               v-model:end-date="endDate"
+              :aria-label="t('admin.dashboard.timeRange')"
               density="compact"
               @change="onDateRangeChange"
             />
@@ -44,45 +46,49 @@
             searchable
             density="compact"
           />
-          <UiSelect
-            v-model="filters.group_id"
-            class="usage-filter-field"
-            :class="{ 'usage-filter-field--mobile-hidden': !advancedFiltersExpanded }"
-            :label="t('admin.usage.group')"
-            :options="groupOptions"
-            searchable
-            density="compact"
-          />
-          <UiSelect
-            v-model="filters.request_type"
-            class="usage-filter-field"
-            :class="{ 'usage-filter-field--mobile-hidden': !advancedFiltersExpanded }"
-            :label="t('usage.type')"
-            :options="requestTypeOptions"
-            density="compact"
-          />
-          <UiSelect
-            v-model="filters.billing_type"
-            class="usage-filter-field"
-            :class="{ 'usage-filter-field--mobile-hidden': !advancedFiltersExpanded }"
-            :label="t('admin.usage.billingType')"
-            :options="billingTypeOptions"
-            density="compact"
-          />
-          <UiSelect
-            v-model="filters.billing_mode"
-            class="usage-filter-field"
-            :class="{ 'usage-filter-field--mobile-hidden': !advancedFiltersExpanded }"
-            :label="t('admin.usage.billingMode')"
-            :options="billingModeOptions"
-            density="compact"
-          />
+          <div id="usage-advanced-filters" class="usage-advanced-filter-fields">
+            <UiSelect
+              v-model="filters.group_id"
+              class="usage-filter-field"
+              :class="{ 'usage-filter-field--mobile-hidden': !advancedFiltersExpanded }"
+              :label="t('admin.usage.group')"
+              :options="groupOptions"
+              searchable
+              density="compact"
+            />
+            <UiSelect
+              v-model="filters.request_type"
+              class="usage-filter-field"
+              :class="{ 'usage-filter-field--mobile-hidden': !advancedFiltersExpanded }"
+              :label="t('usage.type')"
+              :options="requestTypeOptions"
+              density="compact"
+            />
+            <UiSelect
+              v-model="filters.billing_type"
+              class="usage-filter-field"
+              :class="{ 'usage-filter-field--mobile-hidden': !advancedFiltersExpanded }"
+              :label="t('admin.usage.billingType')"
+              :options="billingTypeOptions"
+              density="compact"
+            />
+            <UiSelect
+              v-model="filters.billing_mode"
+              class="usage-filter-field"
+              :class="{ 'usage-filter-field--mobile-hidden': !advancedFiltersExpanded }"
+              :label="t('admin.usage.billingMode')"
+              :options="billingModeOptions"
+              density="compact"
+            />
+          </div>
           <template #actions>
             <UiButton
               variant="quiet"
               density="compact"
               class="usage-advanced-filter-toggle"
               data-testid="usage-advanced-filter-toggle"
+              :aria-expanded="advancedFiltersExpanded"
+              aria-controls="usage-advanced-filters"
               @click="advancedFiltersExpanded = !advancedFiltersExpanded"
             >
               {{ advancedFiltersExpanded ? t('common.collapse') : t('usage.moreFilters') }}
@@ -107,28 +113,39 @@
         </div>
       </AppSection>
 
-      <div class="usage-stats-region">
-        <UiErrorState
-          v-if="statsError && !usageStats"
-          data-testid="usage-stats-error"
-          :title="t('usage.failedToLoad')"
-          :retry-text="t('common.retry')"
-          @retry="loadStats"
-        />
-        <template v-else>
-          <div v-if="statsError" class="usage-retry-banner">
-            <UiBanner tone="danger" :message="t('usage.failedToLoad')" />
-            <UiButton density="dense" @click="loadStats">{{ t('common.retry') }}</UiButton>
+      <div class="usage-stats-region" :aria-busy="statsLoading">
+          <div
+            v-if="statsLoading && !usageStats"
+            class="usage-stats-loading"
+            data-testid="usage-stats-loading"
+            role="status"
+            aria-live="polite"
+            :aria-label="t('common.loading')"
+          >
+            <UiSkeleton v-for="index in 4" :key="index" variant="rect" height="96px" />
           </div>
-          <UsageStatsCards
-            :stats="usageStats"
-            :show-account-cost="false"
-            :strike-standard-cost="true"
-            compact
-            user-variant
-            show-cache-hit-rate
+          <UiErrorState
+            v-else-if="statsError && !usageStats"
+            data-testid="usage-stats-error"
+            :title="t('usage.failedToLoad')"
+            :retry-text="t('common.retry')"
+            @retry="loadStats"
           />
-        </template>
+          <template v-else>
+            <div v-if="statsError" class="usage-retry-banner">
+              <UiBanner tone="danger" :message="t('usage.failedToLoad')" />
+              <UiButton density="dense" @click="loadStats">{{ t('common.retry') }}</UiButton>
+            </div>
+            <UsageStatsCards
+              v-else
+              :stats="usageStats"
+              :show-account-cost="false"
+              :strike-standard-cost="true"
+              compact
+              user-variant
+              show-cache-hit-rate
+            />
+          </template>
       </div>
 
       <section class="usage-analytics-grid" data-testid="usage-chart-grid">
@@ -415,6 +432,7 @@ import {
   UiSelect,
   UiSegmentedControl,
   UiServerTableWorkspace,
+  UiSkeleton,
   type Column,
   type SelectOption,
 } from '@/components/ui'
@@ -464,6 +482,7 @@ const loading = ref(false)
 const chartsLoading = ref(false)
 const modelStatsLoading = ref(false)
 const endpointStatsLoading = ref(false)
+const statsLoading = ref(false)
 const logsError = ref<string | null>(null)
 const statsError = ref<string | null>(null)
 const modelStatsError = ref<string | null>(null)
@@ -694,6 +713,7 @@ const loadLogs = async () => {
 
 const loadStats = async () => {
   const seq = ++statsReqSeq
+  statsLoading.value = true
   endpointStatsLoading.value = true
   statsError.value = null
   try {
@@ -706,7 +726,10 @@ const loadStats = async () => {
     console.error('Failed to load usage stats:', error)
     statsError.value = t('usage.failedToLoad')
   } finally {
-    if (seq === statsReqSeq) endpointStatsLoading.value = false
+    if (seq === statsReqSeq) {
+      statsLoading.value = false
+      endpointStatsLoading.value = false
+    }
   }
 }
 
@@ -1207,6 +1230,12 @@ onUnmounted(() => {
   gap: 8px;
 }
 
+.usage-stats-loading {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .usage-retry-banner {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1223,6 +1252,12 @@ onUnmounted(() => {
 
 .usage-analytics-grid__trend {
   grid-column: 1 / -1;
+}
+
+@media (max-width: 760px) {
+  .usage-stats-loading {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .usage-tabs {
@@ -1247,6 +1282,10 @@ onUnmounted(() => {
 
 .usage-advanced-filter-toggle {
   display: none;
+}
+
+.usage-advanced-filter-fields {
+  display: contents;
 }
 
 @media (max-width: 1023px) {

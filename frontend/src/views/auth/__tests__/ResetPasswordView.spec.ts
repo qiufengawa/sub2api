@@ -95,4 +95,22 @@ describe('ResetPasswordView', () => {
     expect(wrapper.get('.ui-field-help').attributes('aria-label')).toBe('auth.passwordHint')
     expect(wrapper.find('.auth-text-field__hint').exists()).toBe(false)
   })
+
+  it('connects validation messages to their fields for assistive technology', async () => {
+    routeQuery.email = 'user@example.com'
+    routeQuery.token = 'reset-token'
+    const wrapper = mount(ResetPasswordView)
+    await flushPromises()
+
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    for (const id of ['password', 'confirmPassword']) {
+      const input = wrapper.get(`#${id}`)
+      const messageId = `${id}-message`
+      expect(input.attributes('aria-invalid')).toBe('true')
+      expect(input.attributes('aria-describedby')).toBe(messageId)
+      expect(wrapper.get(`#${messageId}`).text()).toContain('auth.')
+    }
+  })
 })

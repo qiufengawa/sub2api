@@ -47,7 +47,7 @@
           density="compact"
           variant="outlined"
           :label="t('playground.actions.scrollBottom')"
-          @click="scrollToBottom('smooth')"
+          @click="scrollToBottom(reducedMotion ? 'auto' : 'smooth')"
         />
       </div>
 
@@ -109,6 +109,7 @@ import PlaygroundMessage from '@/components/playground/PlaygroundMessage.vue'
 import PlaygroundParametersPanel from '@/components/playground/PlaygroundParametersPanel.vue'
 import PlaygroundRequestPreview from '@/components/playground/PlaygroundRequestPreview.vue'
 import { isPlaygroundImageModel, usePlayground } from '@/composables/usePlayground'
+import { useReducedMotion } from '@/composables/useReducedMotion'
 import { useAuthStore } from '@/stores/auth'
 import { UiAlert, UiButton, UiConfirmDialog, UiIconButton, UiSpinner } from '@/components/ui'
 
@@ -147,6 +148,7 @@ const showClearConfirm = ref(false)
 const scrollRef = ref<HTMLElement | null>(null)
 const followOutput = ref(true)
 const showScrollButton = ref(false)
+const reducedMotion = useReducedMotion()
 
 const keyOptions = computed(() => keys.value.map((key) => ({
   value: key.id,

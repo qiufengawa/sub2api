@@ -40,9 +40,9 @@
                     aria-haspopup="dialog"
                   >
                     <template #icon>
-                      <Icon name="refresh" size="sm" :class="{ 'animate-spin': autoRefreshEnabled }" />
+                      <Icon name="refresh" size="sm" :class="{ 'accounts-spin': autoRefreshEnabled }" />
                     </template>
-                    <span class="hidden md:inline">
+                    <span class="accounts-action-label">
                       {{
                         autoRefreshEnabled
                           ? t('admin.accounts.autoRefreshCountdown', { seconds: autoRefreshCountdown })
@@ -86,8 +86,8 @@
                     aria-haspopup="dialog"
                   >
                     <template #icon><Icon name="more" size="sm" /></template>
-                    <span class="hidden md:inline">{{ t('admin.accounts.moreActions') }}</span>
-                    <Icon name="chevronDown" size="xs" class="hidden md:inline" />
+                    <span class="accounts-action-label">{{ t('admin.accounts.moreActions') }}</span>
+                    <Icon name="chevronDown" size="xs" class="accounts-action-label" />
                   </UiButton>
                 </template>
                 <template #default="{ close }">
@@ -140,10 +140,10 @@
           </UiTableToolbar>
           <UiBanner
             v-if="hasPendingListSync"
-            class="mt-2"
+            class="accounts-sync-banner"
             tone="warning"
           >
-            <div class="flex items-center justify-between gap-3">
+            <div class="accounts-sync-banner__content">
               <span>{{ t("admin.accounts.listPendingSyncHint") }}</span>
               <UiButton
                 density="dense"
@@ -160,6 +160,7 @@
           :total-results="pagination.total"
           :selecting-all="selectingAllResults"
           :all-results-selected="allResultsSelected"
+          :pending="bulkActionPending"
           @delete="handleBulkDelete"
           @reset-status="handleBulkResetStatus"
           @refresh-token="handleBulkRefreshToken"
@@ -173,7 +174,7 @@
         />
         <div
           ref="accountTableRef"
-          class="flex min-h-0 flex-1 flex-col overflow-hidden"
+          class="accounts-table-host"
         >
           <UiDataTable
             ref="dataTableRef"
@@ -211,16 +212,16 @@
               />
             </template>
             <template #cell-id="{ value }">
-              <span class="font-mono text-xs text-gray-500 dark:text-gray-400"
+              <span class="accounts-id"
                 >#{{ value }}</span
               >
             </template>
             <template #cell-name="{ row, value }">
-              <div class="flex flex-col">
+              <div class="accounts-cell-stack">
                 <UiTooltip
                   v-if="accountHomepageUrl(row)"
                   :content="accountHomepageUrl(row)"
-                  width-class="w-max max-w-sm break-all"
+                  width-class="accounts-tooltip-wide accounts-tooltip-break"
                 >
                     <a
                       :href="accountHomepageUrl(row)"
@@ -232,12 +233,12 @@
                 </UiTooltip>
                 <span
                   v-else
-                  class="font-medium text-gray-900 dark:text-white"
+                  class="accounts-cell-primary"
                   >{{ value }}</span
                 >
                 <span
                   v-if="accountDisplayEmail(row)"
-                  class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]"
+                  class="accounts-cell-meta accounts-cell-meta--truncate"
                   :title="
                     accountDisplayEmail(row) +
                     (row.parent_chatgpt_account_id
@@ -250,11 +251,11 @@
               </div>
             </template>
             <template #header-service_status="{ column }">
-              <div class="flex items-center">
+              <div class="accounts-header-label">
                 <span>{{ column.label }}</span>
                 <UiTooltip
                   :content="t('admin.accounts.serviceStatus.passiveHint')"
-                  width-class="w-72"
+                  width-class="accounts-tooltip-medium"
                 >
                   <span tabindex="0" :aria-label="t('admin.accounts.serviceStatus.passiveHint')"><Icon name="infoCircle" size="sm" /></span>
                 </UiTooltip>
@@ -268,11 +269,11 @@
               />
             </template>
             <template #header-priority="{ column }">
-              <div class="flex items-center gap-1">
+              <div class="accounts-header-label">
                 <span>{{ column.label }}</span>
                 <UiTooltip
                   :content="t('admin.accounts.priorityColumnHint')"
-                  width-class="w-80"
+                  width-class="accounts-tooltip-wide"
                 >
                   <span tabindex="0" :aria-label="t('admin.accounts.priorityColumnHint')"><Icon name="infoCircle" size="sm" /></span>
                 </UiTooltip>
@@ -308,16 +309,16 @@
               <span
                 v-if="value"
                 :title="value"
-                class="block max-w-xs truncate text-sm text-gray-600 dark:text-gray-300"
+                class="accounts-notes"
                 >{{ value }}</span
               >
-              <span v-else class="text-sm text-gray-400 dark:text-dark-500"
+              <span v-else class="accounts-cell-empty"
                 >-</span
               >
             </template>
             <template #cell-platform_type="{ row }">
-              <div class="flex min-w-0 flex-col gap-1">
-                <div class="flex flex-wrap items-center gap-1">
+              <div class="accounts-platform-cell">
+                <div class="accounts-badge-row">
                   <PlatformTypeBadge
                     :platform="row.platform"
                     :type="row.type"
@@ -333,27 +334,18 @@
                   />
                   <span
                     v-if="getAntigravityTierLabel(row)"
-                    :class="[
-                      'inline-block rounded px-1.5 py-0.5 text-[10px] font-medium',
-                      getAntigravityTierClass(row),
-                    ]"
+                    :class="['accounts-tier', getAntigravityTierClass(row)]"
                   >
                     {{ getAntigravityTierLabel(row) }}
                   </span>
                 </div>
                 <div
                   v-if="getOpenAICompactMeta(row)"
-                  :class="[
-                    'inline-flex items-center gap-1.5 pl-0.5 text-[11px] font-medium leading-4',
-                    getOpenAICompactMeta(row)?.className,
-                  ]"
+                  :class="['accounts-compact', getOpenAICompactMeta(row)?.className]"
                   :title="getOpenAICompactTitle(row)"
                 >
                   <span
-                    :class="[
-                      'h-1.5 w-1.5 rounded-full',
-                      getOpenAICompactMeta(row)?.dotClass,
-                    ]"
+                    :class="['accounts-compact__dot', getOpenAICompactMeta(row)?.dotClass]"
                   />
                   <span>{{ getOpenAICompactMeta(row)?.label }}</span>
                 </div>
@@ -363,7 +355,7 @@
               <AccountCapacityCell :account="row" />
             </template>
             <template #cell-status="{ row }">
-              <div class="flex items-center gap-1.5">
+              <div class="accounts-status-cell">
                 <AccountStatusIndicator
                   :account="row"
                   @show-temp-unsched="handleShowTempUnsched"
@@ -393,11 +385,11 @@
               <AccountGroupsCell :groups="row.groups" :max-display="4" />
             </template>
             <template #header-usage="{ column }">
-              <div class="flex items-center">
+              <div class="accounts-header-label">
                 <span>{{ column.label }}</span>
-                <UiTooltip
-                  :content="t('admin.accounts.usageWindowsHint')"
-                  width-class="w-72"
+                  <UiTooltip
+                    :content="t('admin.accounts.usageWindowsHint')"
+                    width-class="accounts-tooltip-medium"
                 >
                   <span tabindex="0" :aria-label="t('admin.accounts.usageWindowsHint')"><Icon name="infoCircle" size="sm" /></span>
                 </UiTooltip>
@@ -413,38 +405,38 @@
               />
             </template>
             <template #cell-proxy="{ row }">
-              <div class="flex flex-col gap-1">
-                <div v-if="row.proxy" class="flex items-center gap-2">
-                  <span class="text-sm text-gray-700 dark:text-gray-300">{{
+              <div class="accounts-cell-stack">
+                <div v-if="row.proxy" class="accounts-proxy-line">
+                  <span class="accounts-cell-primary">{{
                     row.proxy.name
                   }}</span>
                   <span
                     v-if="row.proxy.country_code"
-                    class="text-xs text-gray-500 dark:text-gray-400"
+                    class="accounts-cell-meta"
                   >
                     ({{ row.proxy.country_code }})
                   </span>
                 </div>
-                <span v-else class="text-sm text-gray-400 dark:text-dark-500"
+                <span v-else class="accounts-cell-empty"
                   >-</span
                 >
                 <div
                   v-if="row.proxy && row.proxy.expires_at"
-                  class="flex items-center gap-2 text-xs"
+                  class="accounts-proxy-line accounts-cell-meta"
                 >
-                  <span class="text-gray-600 dark:text-gray-300">{{
+                  <span>{{
                     formatDateTime(row.proxy.expires_at)
                   }}</span>
-                  <span :class="proxyExpiryBadge(row.proxy)">{{
+                  <UiBadge :tone="proxyExpiryTone(row.proxy)">{{
                     proxyExpiryText(row.proxy)
-                  }}</span>
+                  }}</UiBadge>
                 </div>
                 <div
                   v-if="row.proxy_fallback_origin_id"
-                  class="flex items-center gap-1"
+                  class="accounts-fallback-actions"
                 >
                   <span
-                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                    class="accounts-status-label accounts-status-label--warning"
                     :title="
                       t('admin.accounts.fallbackActiveTip', {
                         origin: row.proxy_fallback_origin_name,
@@ -453,23 +445,25 @@
                   >
                     {{ t("admin.accounts.fallbackActive") }}
                   </span>
-                  <button
-                    class="text-xs px-1.5 py-0.5 rounded border border-gray-300 dark:border-dark-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700"
+                  <UiButton
+                    density="dense"
+                    variant="secondary"
+                    :disabled="accountOperationPendingIds.has(row.id)"
                     @click="onRevertFallback(row)"
                   >
                     {{ t("admin.accounts.revertProxy") }}
-                  </button>
+                  </UiButton>
                 </div>
               </div>
             </template>
             <template #cell-rate_multiplier="{ row }">
               <span
-                class="inline-flex items-center gap-1 text-sm font-mono text-gray-700 dark:text-gray-300"
+                class="accounts-rate"
               >
                 <span>{{ formatMultiplier(row.rate_multiplier ?? 1) }}x</span>
                 <span
                   v-if="row.extra?.upstream_billing_rate_sync_enabled === true"
-                  class="inline-flex cursor-help text-emerald-600 dark:text-emerald-400"
+                  class="accounts-rate-sync"
                   :aria-label="
                     t('admin.accounts.upstreamBilling.syncedRateTooltip')
                   "
@@ -481,12 +475,12 @@
               </span>
             </template>
             <template #header-upstream_billing_rate="{ column }">
-              <div class="flex items-center gap-1">
+              <div class="accounts-header-label">
                 <span>{{ column.label }}</span>
                 <span @click.stop>
                   <UiTooltip
                     :content="t('admin.accounts.upstreamBilling.trustWarning')"
-                    width-class="w-80"
+                    width-class="accounts-tooltip-wide"
                   >
                     <span tabindex="0" :aria-label="t('admin.accounts.upstreamBilling.trustWarning')"><Icon name="infoCircle" size="sm" /></span>
                   </UiTooltip>
@@ -503,11 +497,11 @@
               />
             </template>
             <template #header-scheduler_score="{ column }">
-              <div class="flex items-center">
+              <div class="accounts-header-label">
                 <span>{{ column.label }}</span>
                 <UiTooltip
                   :content="t('admin.accounts.schedulerScore.hint')"
-                  width-class="w-80"
+                  width-class="accounts-tooltip-wide"
                 >
                   <span tabindex="0" :aria-label="t('admin.accounts.schedulerScore.hint')"><Icon name="infoCircle" size="sm" /></span>
                 </UiTooltip>
@@ -516,60 +510,60 @@
             <template #cell-scheduler_score="{ row }">
               <div
                 v-if="getSchedulerScoreRows(row).length"
-                class="flex min-w-[7rem] flex-col gap-0.5 font-mono text-[11px] leading-4"
+                class="accounts-score-list"
               >
                 <div
                   v-for="score in getSchedulerScoreRows(row)"
                   :key="String(score.group_id)"
-                  class="flex items-center gap-1 whitespace-nowrap text-gray-700 dark:text-gray-300"
+                  class="accounts-score-row"
                   :title="`${formatSchedulerScoreGroup(score)} / ${formatSchedulerScore(score.base_score)} / ${formatStickySchedulerScore(score)}`"
                 >
                   <span
-                    class="max-w-[4.75rem] truncate text-gray-500 dark:text-dark-400"
+                    class="accounts-score-group"
                     >{{ formatSchedulerScoreGroup(score) }}</span
                   >
-                  <span class="text-gray-300 dark:text-gray-600">/</span>
+                  <span class="accounts-score-separator">/</span>
                   <span>{{ formatSchedulerScore(score.base_score) }}</span>
-                  <span class="text-gray-300 dark:text-gray-600">/</span>
-                  <span class="text-primary-700 dark:text-primary-300">{{
+                  <span class="accounts-score-separator">/</span>
+                  <span class="accounts-score-sticky">{{
                     formatStickySchedulerScore(score)
                   }}</span>
                 </div>
               </div>
-              <span v-else class="text-sm text-gray-400 dark:text-dark-500"
+              <span v-else class="accounts-cell-empty"
                 >-</span
               >
             </template>
             <template #cell-last_used_at="{ value }">
-              <span class="text-sm text-gray-500 dark:text-dark-400">{{
+              <span class="accounts-cell-meta">{{
                 formatRelativeTime(value)
               }}</span>
             </template>
             <template #cell-created_at="{ value }">
-              <span class="text-sm text-gray-500 dark:text-dark-400">{{
+              <span class="accounts-cell-meta">{{
                 formatDateTime(value)
               }}</span>
             </template>
             <template #cell-expires_at="{ row, value }">
-              <div class="flex flex-col items-start gap-1">
-                <span class="text-sm text-gray-500 dark:text-dark-400">{{
+              <div class="accounts-expiry-cell">
+                <span class="accounts-cell-meta">{{
                   formatExpiresAt(value)
                 }}</span>
                 <div
                   v-if="
                     isExpired(value) || (row.auto_pause_on_expired && value)
                   "
-                  class="flex items-center gap-1"
+                  class="accounts-badge-row"
                 >
                   <span
                     v-if="isExpired(value)"
-                    class="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                    class="accounts-status-label accounts-status-label--warning"
                   >
                     {{ t("admin.accounts.expired") }}
                   </span>
                   <span
                     v-if="row.auto_pause_on_expired && value"
-                    class="inline-flex items-center rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                    class="accounts-status-label accounts-status-label--success"
                   >
                     {{ t("admin.accounts.autoPauseOnExpired") }}
                   </span>
@@ -577,7 +571,7 @@
               </div>
             </template>
             <template #cell-actions="{ row }">
-              <div class="flex items-center gap-1">
+              <div class="accounts-row-actions">
                 <UiIconButton
                   type="button"
                   @click="handleEdit(row)"
@@ -658,6 +652,7 @@
       :show="menu.show"
       :account="menu.acc"
       :position="menu.pos"
+      :pending="menu.acc != null && accountOperationPendingIds.has(menu.acc.id)"
       @close="menu.show = false"
       @test="handleTest"
       @stats="handleViewStats"
@@ -704,8 +699,9 @@
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
       :danger="true"
+      :pending="deletePending"
       @confirm="confirmDelete"
-      @cancel="showDeleteDialog = false"
+      @cancel="showDeleteDialog = false; deletingAcc = null"
     />
     <UiConfirmDialog
       :show="showCreateShadowDialog"
@@ -715,6 +711,7 @@
           name: creatingShadowAcc?.name,
         })
       "
+      :pending="creatingShadowAcc != null && accountOperationPendingIds.has(creatingShadowAcc.id)"
       @confirm="confirmCreateSparkShadow"
       @cancel="showCreateShadowDialog = false"
     />
@@ -724,6 +721,7 @@
       :message="t('admin.accounts.dataExportConfirmMessage')"
       :confirm-text="t('admin.accounts.dataExportConfirm')"
       :cancel-text="t('common.cancel')"
+      :pending="exportingData"
       @confirm="handleExportData"
       @cancel="showExportDataDialog = false"
     >
@@ -732,6 +730,17 @@
         :label="t('admin.accounts.dataExportIncludeProxies')"
       />
     </UiConfirmDialog>
+    <UiConfirmDialog
+      :show="bulkConfirmation !== null"
+      :title="bulkConfirmationTitle"
+      :message="bulkConfirmationMessage"
+      :confirm-text="bulkConfirmationConfirmText"
+      :cancel-text="t('common.cancel')"
+      :danger="bulkConfirmation?.kind === 'delete'"
+      :pending="bulkActionPending"
+      @confirm="confirmBulkAction"
+      @cancel="bulkConfirmation = null"
+    />
     <ErrorPassthroughRulesModal
       :show="showErrorPassthrough"
       @close="showErrorPassthrough = false"
@@ -828,7 +837,9 @@ import {
 } from "@/utils/accountUsageRefresh";
 import { formatDateTime, formatRelativeTime } from "@/utils/format";
 import {
-  proxyExpiryBadgeClass,
+  daysUntil,
+  EXPIRY_DANGER_DAYS,
+  EXPIRY_WARN_DAYS,
   proxyExpiryLabelKey,
 } from "@/utils/proxyExpiry";
 import { extractApiErrorMessage } from "@/utils/apiError";
@@ -913,14 +924,48 @@ const showTLSFingerprintProfiles = ref(false);
 const edAcc = ref<Account | null>(null);
 const tempUnschedAcc = ref<Account | null>(null);
 const deletingAcc = ref<Account | null>(null);
+const deletePending = ref(false);
 const creatingShadowAcc = ref<Account | null>(null);
+const accountOperationPendingIds = reactive(new Set<number>());
 const reAuthAcc = ref<Account | null>(null);
 const testingAcc = ref<Account | null>(null);
 const statsAcc = ref<Account | null>(null);
 const showSchedulePanel = ref(false);
 const scheduleAcc = ref<Account | null>(null);
 const scheduleModelOptions = ref<SelectOption[]>([]);
+const scheduleModelsRequestSeq = ref(0);
 const togglingSchedulable = ref<number | null>(null);
+const bulkActionPending = ref(false);
+const bulkConfirmation = ref<{
+  kind: "delete" | "reset-status" | "refresh-token";
+  ids: number[];
+} | null>(null);
+const bulkConfirmationTitle = computed(() => {
+  switch (bulkConfirmation.value?.kind) {
+    case "delete":
+      return t("admin.accounts.bulkActions.delete");
+    case "reset-status":
+      return t("admin.accounts.bulkActions.resetStatus");
+    case "refresh-token":
+      return t("admin.accounts.bulkActions.refreshToken");
+    default:
+      return "";
+  }
+});
+const bulkConfirmationMessage = computed(() => {
+  if (!bulkConfirmation.value) return "";
+  if (bulkConfirmation.value.kind === "delete") {
+    return t("admin.accounts.bulkActions.confirmDelete", {
+      count: bulkConfirmation.value.ids.length,
+    });
+  }
+  return t("common.confirm");
+});
+const bulkConfirmationConfirmText = computed(() =>
+  bulkConfirmation.value?.kind === "delete"
+    ? t("common.delete")
+    : t("common.confirm"),
+);
 const menu = reactive<{
   show: boolean;
   acc: Account | null;
@@ -1596,6 +1641,7 @@ const isAnyModalOpen = computed(() => {
     showBulkEdit.value ||
     showTempUnsched.value ||
     showDeleteDialog.value ||
+    bulkConfirmation.value !== null ||
     showReAuth.value ||
     showTest.value ||
     showStats.value ||
@@ -1980,20 +2026,20 @@ function getOpenAICompactMeta(
     case "active":
       return {
         label: t("admin.accounts.openai.compactSupported"),
-        className: "text-emerald-600 dark:text-emerald-300",
-        dotClass: "bg-emerald-500 shadow-[0_0_0_2px_rgba(16,185,129,0.14)]",
+        className: "accounts-compact--active",
+        dotClass: "accounts-compact__dot--active",
       };
     case "blocked":
       return {
         label: t("admin.accounts.openai.compactUnsupported"),
-        className: "text-rose-600 dark:text-rose-300",
-        dotClass: "bg-rose-500 shadow-[0_0_0_2px_rgba(244,63,94,0.14)]",
+        className: "accounts-compact--blocked",
+        dotClass: "accounts-compact__dot--blocked",
       };
     case "auto":
       return {
         label: t("admin.accounts.openai.compactAuto"),
-        className: "text-slate-500 dark:text-slate-400",
-        dotClass: "bg-slate-300 dark:bg-slate-500",
+        className: "accounts-compact--auto",
+        dotClass: "accounts-compact__dot--auto",
       };
   }
 }
@@ -2013,11 +2059,11 @@ function getAntigravityTierClass(row: any): string {
   const tier = getAntigravityTierFromRow(row);
   switch (tier) {
     case "free-tier":
-      return "bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300";
+      return "accounts-tier--free";
     case "g1-pro-tier":
-      return "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300";
+      return "accounts-tier--pro";
     case "g1-ultra-tier":
-      return "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300";
+      return "accounts-tier--ultra";
     default:
       return "";
   }
@@ -2032,13 +2078,13 @@ const allColumns = computed(() => {
       key: "service_status",
       label: t("admin.accounts.columns.serviceStatus"),
       sortable: false,
-      class: "w-[200px] min-w-[200px]",
+      class: "accounts-column-service",
     },
     {
       key: "priority",
       label: t("admin.accounts.columns.priority"),
       sortable: true,
-      class: "w-[8rem] min-w-[8rem]",
+      class: "accounts-column-priority",
     },
     { key: "id", label: t("admin.accounts.columns.id"), sortable: true },
     {
@@ -2199,92 +2245,65 @@ const openMenu = (a: Account, e: MouseEvent) => {
   menu.show = true;
 };
 const handleBulkDelete = async () => {
+  if (bulkActionPending.value) return;
   const accountIds = [...selIds.value];
-  if (
-    !confirm(
-      t("admin.accounts.bulkActions.confirmDelete", {
-        count: accountIds.length,
-      }),
-    )
-  )
-    return;
-  try {
-    const result = await adminAPI.accounts.batchDelete(accountIds);
-    if (result.failed > 0) {
-      appStore.showError(
-        t("admin.accounts.bulkActions.partialSuccess", {
-          success: result.success,
-          failed: result.failed,
-        }),
-      );
-      setSelectedIds(
-        result.failed_ids?.length ? result.failed_ids : accountIds,
-      );
-    } else {
-      appStore.showSuccess(
-        t("admin.accounts.bulkActions.deleteSuccess", {
-          count: result.success,
-        }),
-      );
-      clearSelection();
-    }
-    await reload();
-  } catch (error) {
-    console.error("Failed to bulk delete accounts:", error);
-    appStore.showError(String(error));
-  }
+  bulkConfirmation.value = { kind: "delete", ids: accountIds };
 };
 const handleBulkResetStatus = async () => {
-  if (!confirm(t("common.confirm"))) return;
-  try {
-    const result = await adminAPI.accounts.batchClearError(selIds.value);
-    if (result.failed > 0) {
-      appStore.showError(
-        t("admin.accounts.bulkActions.partialSuccess", {
-          success: result.success,
-          failed: result.failed,
-        }),
-      );
-    } else {
-      appStore.showSuccess(
-        t("admin.accounts.bulkActions.resetStatusSuccess", {
-          count: result.success,
-        }),
-      );
-      clearSelection();
-    }
-    reload();
-  } catch (error) {
-    console.error("Failed to bulk reset status:", error);
-    appStore.showError(String(error));
-  }
+  if (bulkActionPending.value) return;
+  bulkConfirmation.value = { kind: "reset-status", ids: [...selIds.value] };
 };
 const handleBulkRefreshToken = async () => {
-  if (!confirm(t("common.confirm"))) return;
+  if (bulkActionPending.value) return;
+  bulkConfirmation.value = { kind: "refresh-token", ids: [...selIds.value] };
+};
+const confirmBulkAction = async () => {
+  if (bulkActionPending.value || !bulkConfirmation.value) return;
+  const action = bulkConfirmation.value;
+  bulkActionPending.value = true;
   try {
-    const result = await adminAPI.accounts.batchRefresh(selIds.value);
-    if (result.failed > 0) {
-      appStore.showError(
-        t("admin.accounts.bulkActions.partialSuccess", {
-          success: result.success,
-          failed: result.failed,
-        }),
-      );
+    if (action.kind === "delete") {
+      const result = await adminAPI.accounts.batchDelete(action.ids);
+      if (result.failed > 0) {
+        appStore.showError(
+          t("admin.accounts.bulkActions.partialSuccess", {
+            success: result.success,
+            failed: result.failed,
+          }),
+        );
+        setSelectedIds(result.failed_ids?.length ? result.failed_ids : action.ids);
+      } else {
+        appStore.showSuccess(t("admin.accounts.bulkActions.deleteSuccess", { count: result.success }));
+        clearSelection();
+      }
+    } else if (action.kind === "reset-status") {
+      const result = await adminAPI.accounts.batchClearError(action.ids);
+      if (result.failed > 0) {
+        appStore.showError(t("admin.accounts.bulkActions.partialSuccess", { success: result.success, failed: result.failed }));
+      } else {
+        appStore.showSuccess(t("admin.accounts.bulkActions.resetStatusSuccess", { count: result.success }));
+        clearSelection();
+      }
     } else {
-      appStore.showSuccess(
-        t("admin.accounts.bulkActions.refreshTokenSuccess", {
-          count: result.success,
-        }),
-      );
-      clearSelection();
+      const result = await adminAPI.accounts.batchRefresh(action.ids);
+      if (result.failed > 0) {
+        appStore.showError(t("admin.accounts.bulkActions.partialSuccess", { success: result.success, failed: result.failed }));
+      } else {
+        appStore.showSuccess(t("admin.accounts.bulkActions.refreshTokenSuccess", { count: result.success }));
+        clearSelection();
+      }
     }
-    reload();
+    bulkConfirmation.value = null;
+    await reload();
   } catch (error) {
-    console.error("Failed to bulk refresh token:", error);
+    console.error("Failed to complete bulk account action:", error);
     appStore.showError(String(error));
+  } finally {
+    bulkActionPending.value = false;
   }
 };
 const handleBulkProbeUpstreamBilling = async () => {
+  if (bulkActionPending.value) return;
   const accountIDs = [...selIds.value];
   if (accountIDs.length === 0) {
     appStore.showError(t("admin.accounts.upstreamBilling.noEligibleAccounts"));
@@ -2294,6 +2313,7 @@ const handleBulkProbeUpstreamBilling = async () => {
     appStore.showError(t("admin.accounts.upstreamBilling.batchLimit"));
     return;
   }
+  bulkActionPending.value = true;
   accountIDs.forEach((id) => probingUpstreamBilling.add(id));
   try {
     const results =
@@ -2331,6 +2351,7 @@ const handleBulkProbeUpstreamBilling = async () => {
     );
   } finally {
     accountIDs.forEach((id) => probingUpstreamBilling.delete(id));
+    bulkActionPending.value = false;
   }
 };
 const updateSchedulableInList = (
@@ -2426,7 +2447,9 @@ const normalizeBulkSchedulableResult = (
   };
 };
 const handleBulkToggleSchedulable = async (schedulable: boolean) => {
+  if (bulkActionPending.value) return;
   const accountIds = [...selIds.value];
+  bulkActionPending.value = true;
   try {
     const result = await adminAPI.accounts.bulkUpdate(accountIds, {
       schedulable,
@@ -2473,6 +2496,8 @@ const handleBulkToggleSchedulable = async (schedulable: boolean) => {
   } catch (error) {
     console.error("Failed to bulk toggle schedulable:", error);
     appStore.showError(t("common.error"));
+  } finally {
+    bulkActionPending.value = false;
   }
 };
 const buildBulkEditFilterSnapshot = () => {
@@ -2832,20 +2857,26 @@ const handleViewStats = (a: Account) => {
   showStats.value = true;
 };
 const handleSchedule = async (a: Account) => {
+  const requestSeq = ++scheduleModelsRequestSeq.value;
   scheduleAcc.value = a;
   scheduleModelOptions.value = [];
   showSchedulePanel.value = true;
   try {
     const models = await adminAPI.accounts.getAvailableModels(a.id);
-    scheduleModelOptions.value = models.map((m: ClaudeModel) => ({
-      value: m.id,
-      label: m.display_name || m.id,
-    }));
+    if (requestSeq === scheduleModelsRequestSeq.value && scheduleAcc.value?.id === a.id) {
+      scheduleModelOptions.value = models.map((m: ClaudeModel) => ({
+        value: m.id,
+        label: m.display_name || m.id,
+      }));
+    }
   } catch {
-    scheduleModelOptions.value = [];
+    if (requestSeq === scheduleModelsRequestSeq.value && scheduleAcc.value?.id === a.id) {
+      scheduleModelOptions.value = [];
+    }
   }
 };
 const closeSchedulePanel = () => {
+  scheduleModelsRequestSeq.value += 1;
   showSchedulePanel.value = false;
   scheduleAcc.value = null;
   scheduleModelOptions.value = [];
@@ -2872,15 +2903,22 @@ const handleDuplicateAccount = async (a: Account) => {
   }
 };
 const handleRefresh = async (a: Account) => {
+  if (accountOperationPendingIds.has(a.id)) return;
+  accountOperationPendingIds.add(a.id);
   try {
     const updated = await adminAPI.accounts.refreshCredentials(a.id);
     patchAccountInList(updated);
     enterAutoRefreshSilentWindow();
   } catch (error) {
     console.error("Failed to refresh credentials:", error);
+    appStore.showError(extractApiErrorMessage(error, t("common.error")));
+  } finally {
+    accountOperationPendingIds.delete(a.id);
   }
 };
 const handleRecoverState = async (a: Account) => {
+  if (accountOperationPendingIds.has(a.id)) return;
+  accountOperationPendingIds.add(a.id);
   try {
     const updated = await adminAPI.accounts.recoverState(a.id);
     patchAccountInList(updated);
@@ -2891,9 +2929,13 @@ const handleRecoverState = async (a: Account) => {
     appStore.showError(
       error?.message || t("admin.accounts.recoverStateFailed"),
     );
+  } finally {
+    accountOperationPendingIds.delete(a.id);
   }
 };
 const handleResetQuota = async (a: Account) => {
+  if (accountOperationPendingIds.has(a.id)) return;
+  accountOperationPendingIds.add(a.id);
   try {
     const updated = await adminAPI.accounts.resetAccountQuota(a.id);
     patchAccountInList(updated);
@@ -2901,6 +2943,9 @@ const handleResetQuota = async (a: Account) => {
     appStore.showSuccess(t("common.success"));
   } catch (error) {
     console.error("Failed to reset quota:", error);
+    appStore.showError(extractApiErrorMessage(error, t("common.error")));
+  } finally {
+    accountOperationPendingIds.delete(a.id);
   }
 };
 
@@ -2931,6 +2976,8 @@ const privacyResultMessageKey = (
 };
 
 const handleSetPrivacy = async (a: Account) => {
+  if (accountOperationPendingIds.has(a.id)) return;
+  accountOperationPendingIds.add(a.id);
   try {
     const updated = await adminAPI.accounts.setPrivacy(a.id);
     patchAccountInList(updated);
@@ -2946,9 +2993,13 @@ const handleSetPrivacy = async (a: Account) => {
     appStore.showError(
       error?.response?.data?.message || t("admin.accounts.privacyFailed"),
     );
+  } finally {
+    accountOperationPendingIds.delete(a.id);
   }
 };
 const onRevertFallback = async (a: Account) => {
+  if (accountOperationPendingIds.has(a.id)) return;
+  accountOperationPendingIds.add(a.id);
   try {
     await adminAPI.accounts.revertProxyFallback(a.id);
     appStore.showSuccess(t("admin.accounts.revertProxySuccess"));
@@ -2958,6 +3009,8 @@ const onRevertFallback = async (a: Account) => {
     appStore.showError(
       error?.response?.data?.message || t("admin.accounts.revertProxyFailed"),
     );
+  } finally {
+    accountOperationPendingIds.delete(a.id);
   }
 };
 const handleCreateSparkShadow = (a: Account) => {
@@ -2966,7 +3019,8 @@ const handleCreateSparkShadow = (a: Account) => {
 };
 const confirmCreateSparkShadow = async () => {
   const a = creatingShadowAcc.value;
-  if (!a) return;
+  if (!a || accountOperationPendingIds.has(a.id)) return;
+  accountOperationPendingIds.add(a.id);
   try {
     await adminAPI.accounts.createSparkShadow(a.id, {
       name: `${a.name} (Spark)`,
@@ -2981,6 +3035,8 @@ const confirmCreateSparkShadow = async () => {
       error?.response?.data?.message ||
         t("admin.accounts.createSparkShadowFailed"),
     );
+  } finally {
+    accountOperationPendingIds.delete(a.id);
   }
 };
 const handleDelete = (a: Account) => {
@@ -2988,17 +3044,23 @@ const handleDelete = (a: Account) => {
   showDeleteDialog.value = true;
 };
 const confirmDelete = async () => {
-  if (!deletingAcc.value) return;
+  if (deletePending.value || !deletingAcc.value) return;
+  const account = deletingAcc.value;
+  deletePending.value = true;
   try {
-    await adminAPI.accounts.delete(deletingAcc.value.id);
+    await adminAPI.accounts.delete(account.id);
     showDeleteDialog.value = false;
     deletingAcc.value = null;
-    reload();
+    await reload();
   } catch (error) {
     console.error("Failed to delete account:", error);
+    appStore.showError(extractApiErrorMessage(error, t("common.error")));
+  } finally {
+    deletePending.value = false;
   }
 };
 const handleToggleSchedulable = async (a: Account) => {
+  if (togglingSchedulable.value !== null) return;
   const nextSchedulable = !a.schedulable;
   togglingSchedulable.value = a.id;
   try {
@@ -3045,8 +3107,13 @@ const isExpired = (value: number | null) => {
   return value * 1000 <= Date.now();
 };
 // 所绑定代理的有效期(逻辑同 /admin/proxies,见 utils/proxyExpiry)
-const proxyExpiryBadge = (p: AccountProxy): string =>
-  proxyExpiryBadgeClass(p.expires_at, p.status);
+const proxyExpiryTone = (p: AccountProxy): "neutral" | "warning" | "danger" => {
+  if (p.status === "expired") return "danger";
+  const days = p.expires_at ? daysUntil(p.expires_at) : Number.POSITIVE_INFINITY;
+  if (days <= EXPIRY_DANGER_DAYS) return "danger";
+  if (days <= EXPIRY_WARN_DAYS) return "warning";
+  return "neutral";
+};
 const proxyExpiryText = (p: AccountProxy): string => {
   const { key, params } = proxyExpiryLabelKey(p.expires_at, p.status);
   return params ? t(key, params) : t(key);
@@ -3149,4 +3216,54 @@ onUnmounted(() => {
   gap: 4px;
   padding: 2px 6px 6px;
 }
+
+.accounts-action-label { display: inline-flex; align-items: center; gap: 4px; }
+.accounts-sync-banner { margin-top: 8px; }
+.accounts-sync-banner__content { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.accounts-table-host { display: flex; min-height: 0; flex: 1; flex-direction: column; overflow: hidden; }
+.accounts-id { color: var(--ui-text-muted); font-family: var(--ui-font-mono); font-size: 11px; }
+.accounts-cell-stack { display: grid; min-width: 0; gap: 4px; }
+.accounts-cell-primary { color: var(--ui-text); font-weight: 600; }
+.accounts-cell-meta { color: var(--ui-text-muted); font-size: 11px; }
+.accounts-cell-meta--truncate { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.accounts-cell-empty { color: var(--ui-text-soft); font-size: 12px; }
+.accounts-header-label { display: inline-flex; align-items: center; gap: 5px; }
+.accounts-platform-cell { display: grid; min-width: 0; gap: 5px; }
+.accounts-badge-row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.accounts-status-cell { display: inline-flex; align-items: center; gap: 6px; }
+.accounts-proxy-line { display: inline-flex; align-items: center; gap: 8px; }
+.accounts-fallback-actions { display: inline-flex; align-items: center; gap: 6px; }
+.accounts-status-label { display: inline-flex; min-height: 20px; align-items: center; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; line-height: 14px; }
+.accounts-status-label--warning { color: var(--ui-warning); background: color-mix(in srgb, var(--ui-warning) 10%, var(--ui-surface)); }
+.accounts-status-label--success { color: var(--ui-success); background: color-mix(in srgb, var(--ui-success) 10%, var(--ui-surface)); }
+.accounts-rate { display: inline-flex; align-items: center; gap: 5px; color: var(--ui-text-muted); font-family: var(--ui-font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.accounts-rate-sync { display: inline-flex; color: var(--ui-success); }
+.accounts-score-list { display: grid; min-width: 7rem; gap: 2px; color: var(--ui-text-muted); font-family: var(--ui-font-mono); font-size: 11px; line-height: 16px; }
+.accounts-score-row { display: inline-flex; align-items: center; gap: 5px; overflow: hidden; white-space: nowrap; }
+.accounts-score-group { max-width: 76px; overflow: hidden; color: var(--ui-text-muted); text-overflow: ellipsis; }
+.accounts-score-separator { color: var(--ui-text-soft); }
+.accounts-score-sticky { color: var(--ui-info); }
+.accounts-expiry-cell { display: grid; justify-items: start; gap: 5px; }
+.accounts-row-actions { display: inline-flex; align-items: center; gap: 5px; }
+.accounts-tier { display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+.accounts-tier--free { color: var(--ui-text-muted); background: var(--ui-surface-muted); }
+.accounts-tier--pro { color: var(--ui-info); background: color-mix(in srgb, var(--ui-info) 10%, var(--ui-surface)); }
+.accounts-tier--ultra { color: var(--ui-warning); background: color-mix(in srgb, var(--ui-warning) 10%, var(--ui-surface)); }
+.accounts-compact { display: inline-flex; align-items: center; gap: 6px; padding-left: 2px; font-size: 11px; font-weight: 600; line-height: 16px; }
+.accounts-compact__dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ui-text-soft); }
+.accounts-compact--active { color: var(--ui-success); }
+.accounts-compact--blocked { color: var(--ui-danger); }
+.accounts-compact--auto { color: var(--ui-text-muted); }
+.accounts-compact__dot--active { background: var(--ui-success); }
+.accounts-compact__dot--blocked { background: var(--ui-danger); }
+.accounts-compact__dot--auto { background: var(--ui-text-soft); }
+.accounts-spin { animation: accounts-spin 900ms linear infinite; }
+.accounts-column-service { width: 200px; min-width: 200px; }
+.accounts-column-priority { width: 128px; min-width: 128px; }
+:global(.accounts-tooltip-wide) { width: min(320px, calc(100vw - 16px)); }
+:global(.accounts-tooltip-medium) { width: min(288px, calc(100vw - 16px)); }
+:global(.accounts-tooltip-break) { overflow-wrap: anywhere; white-space: normal; }
+@keyframes accounts-spin { to { transform: rotate(360deg); } }
+@media (max-width: 767px) { .accounts-action-label { display: none; } .accounts-sync-banner__content { align-items: flex-start; flex-direction: column; } }
+@media (prefers-reduced-motion: reduce) { .accounts-spin { animation: none; } }
 </style>

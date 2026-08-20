@@ -20,6 +20,12 @@
 - Added mobile wrapping to `UiChartFrame`; V2 toolbar modes use separate full-width rows at 390px.
 - Removed the empty 340px chart reservation when a pulse matrix is unavailable.
 
+## 2026-08-19 MonitorCard compound-trigger contract supplement
+
+- Added `MonitorCard.spec.ts` with 3 tests for the documented compound exception: native `button` semantics, visible monitor/provider/model accessible name, and detail click emission.
+- `MonitorCardGrid` continues to cover list forwarding with its child stub; this new spec mounts the real card and keeps the rich grid layout unchanged.
+- Local component evidence does not replace the pending authenticated 1440/900/390, dark, reduced-motion, keyboard and console browser matrix.
+
 ## Automated Verification
 
 - Focused Vitest: 44 tests passed across 9 files.
@@ -50,3 +56,9 @@ The already-running local backend binary did not expose `channel_monitor_mode` i
 - Removed the temporary local `channel_monitor_mode` database row.
 - Restored the normal `ChannelStatusView` mode selector.
 - Left the backend process running and restarted only the Vite preview at port 4174.
+
+## 2026-08-19 Cancellation and Unmount Addendum
+
+- V2 reload paths now treat `AbortError`, `CanceledError`, and `ERR_CANCELED` uniformly without surfacing a failure toast.
+- Unmount increments both main and tab request sequences before aborting and clears/nulls the controller and auto-refresh timer, preventing non-cooperative late promises from committing state.
+- Channel Monitor structure/mode targeted tests pass; real V2 live-data browser evidence remains pending because the recorded backend did not expose the V2 endpoints.

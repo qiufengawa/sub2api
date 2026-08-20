@@ -61,7 +61,8 @@ git diff --check
 
 覆盖的关键场景：默认 30 天请求、日期范围切换、错误通知、多货币完整展示。
 
-## 浏览器验收
+## 2026-08-19 隔离后端真实浏览器复验
 
-- 当前 Edge 扩展对 `localhost`、`127.0.0.1` 和局域网开发地址的访问被客户端拦截，本批次未生成浏览器截图。
-- 待可访问本地开发服务后补验 1440px、900px、390px 三个视口以及 dark mode、reduced motion 和键盘焦点。
+- 实际路由为 `/admin/orders/dashboard`（不是旧记录中的 `/admin/orders/payment-dashboard`）；错误路径已确认返回 404，并作为路由契约核对结果保留。
+- 使用一次性 PostgreSQL/Redis 隔离栈和真实 `admin@admin.com` 会话，`/admin/orders/dashboard` 在 1440/900/390、dark、`prefers-reduced-motion: reduce` 下均加载到目标路由，`scrollWidth === clientWidth`，Tab 可到达侧栏/日期/刷新控件，console/pageerror 清洁。
+- 截图索引：`/tmp/sub2api-clean-admin-admin-orders-dashboard-1440.png`、`/tmp/sub2api-clean-admin-admin-orders-dashboard-900.png`、`/tmp/sub2api-clean-admin-admin-orders-dashboard-390.png`。

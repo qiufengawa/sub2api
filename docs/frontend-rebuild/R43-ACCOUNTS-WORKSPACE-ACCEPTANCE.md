@@ -33,3 +33,39 @@
 - Account view specs now stub `UiDataTable` directly; the compatibility clone was removed because it discarded runtime prop metadata and accidentally enabled mobile card rendering.
 - `AccountServiceStatusCell` retains the `HelpTooltip` compatibility adapter because the adapter already delegates to `UiTooltip` and preserves its established trigger/content slot contract.
 - Create/edit provider-specific credential and quota sections still contain legacy visual markup. They remain in the active R43 follow-up scope; this record does not count those sections as complete.
+
+## 2026-08-18 Follow-up
+
+- The account proxy-fallback revert action in `AccountsView.vue` now uses the
+  shared compact `UiButton`; its existing row payload and `onRevertFallback`
+  handler are unchanged.
+- This follow-up does not close R43: provider-specific account fields,
+  browser evidence, and the remaining R1/R7 control audit are still pending.
+
+## 2026-08-18 Provider Field Follow-up
+
+- `EditAccountModal.vue` upstream URL/API key, Vertex project ID, Bedrock
+  credentials, API key and region now use `UiTextField`/`UiPasswordField`.
+- Existing account type branches, secret-empty semantics, readonly project
+  behavior, placeholders, descriptions and edit payload bindings are unchanged.
+- This follow-up does not close R43; Bedrock mode checkbox, scheduling and
+  controlled capability controls, provider selectors, and browser evidence
+  remain pending.
+
+## 2026-08-18 Create Field Follow-up
+
+- `CreateAccountModal.vue` Antigravity project ID and Vertex project ID now use
+  `UiTextField` while the native Vertex file input remains native for drag/drop
+  and `FileReader` semantics.
+- Create custom error-code input and Bedrock pool retry fields now use
+  `UiTextField`, preserving numeric bounds, Enter handling, defaults and
+  selected-code behavior.
+- This follow-up does not close R43; provider card selectors, radio/checkbox
+  groups, file-upload exception, and browser evidence remain pending.
+
+## 2026-08-19 Mutation single-flight follow-up
+
+- Account deletion and all bulk delete/reset/refresh/probe/schedulable mutations now use function-level pending guards; the bulk action bar disables selection and mutation controls together and exposes `aria-busy`.
+- Single-row schedulable changes reject a second invocation until the current request and refresh complete. Confirmation dialogs expose pending state instead of relying only on click timing.
+- Scheduled Tests create/edit/delete and enabled-toggle handlers now reuse their loading state as entry guards; enabled updates are isolated per plan ID and deletion uses confirm pending.
+- Accounts/AccountBulkActionsBar focused coverage is 3 files / 17 tests; Scheduled Tests is 5 tests. Typecheck and targeted ESLint passed. Protected administrator browser verification remains pending.

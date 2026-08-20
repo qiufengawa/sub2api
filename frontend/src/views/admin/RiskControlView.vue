@@ -423,7 +423,7 @@
                     />
                     <div class="risk-audit-test__upload">
                       <UiFileUpload
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp"
                         multiple
                         :label="t('admin.riskControl.auditTestImages')"
                         :description="t('admin.riskControl.auditTestImagesHint')"
@@ -916,6 +916,7 @@ type RiskThresholdRow = {
 
 const maxModerationTestImages = 1
 const maxModerationTestImageSize = 8 * 1024 * 1024
+const moderationAllowedImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const maxVisibleApiKeyRows: number = 3
 const blockedKeywordMax = 10000
 const riskThresholdDefaults: Record<string, number> = {
@@ -1836,7 +1837,7 @@ function removeModerationTestImage(index: number) {
 }
 
 async function handleModerationImagePaste(event: ClipboardEvent) {
-  const files = Array.from(event.clipboardData?.files ?? []).filter((file) => file.type.startsWith('image/'))
+  const files = Array.from(event.clipboardData?.files ?? []).filter((file) => moderationAllowedImageTypes.has(file.type))
   if (files.length === 0) return
   event.preventDefault()
   await addModerationTestFiles(files)
@@ -1844,7 +1845,7 @@ async function handleModerationImagePaste(event: ClipboardEvent) {
 
 async function addModerationTestFiles(files: FileList | File[] | null) {
   if (!files) return
-  const items = Array.from(files).filter((file) => file.type.startsWith('image/'))
+  const items = Array.from(files)
   for (const file of items) {
     if (moderationTestImages.value.length >= maxModerationTestImages) {
       appStore.showError(t('admin.riskControl.auditTestImageLimit', { count: maxModerationTestImages }))
@@ -1852,6 +1853,10 @@ async function addModerationTestFiles(files: FileList | File[] | null) {
     }
     if (file.size > maxModerationTestImageSize) {
       appStore.showError(t('admin.riskControl.auditTestImageTooLarge'))
+      continue
+    }
+    if (!moderationAllowedImageTypes.has(file.type)) {
+      appStore.showError(t('admin.riskControl.auditTestImageTypeUnsupported'))
       continue
     }
     try {

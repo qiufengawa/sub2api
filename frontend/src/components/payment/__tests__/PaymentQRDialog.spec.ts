@@ -84,7 +84,7 @@ describe('PaymentQRDialog currency display', () => {
       },
       global: {
         stubs: {
-          BaseDialog: {
+          UiDialog: {
             props: ['show'],
             template: '<div v-if="show"><slot /><slot name="footer" /></div>',
           },
@@ -117,7 +117,7 @@ describe('PaymentQRDialog currency display', () => {
       },
       global: {
         stubs: {
-          BaseDialog: {
+          UiDialog: {
             props: ['show'],
             template: '<div v-if="show"><slot /><slot name="footer" /></div>',
           },

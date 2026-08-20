@@ -30,6 +30,7 @@
           autocomplete="new-password"
           :disabled="isLoading"
           :error="Boolean(errors.password)"
+          :error-message="errors.password"
           :placeholder="t('auth.newPasswordPlaceholder')"
           :help-text="t('auth.passwordHint')"
         />
@@ -44,6 +45,7 @@
           autocomplete="new-password"
           :disabled="isLoading"
           :error="Boolean(errors.confirmPassword)"
+          :error-message="errors.confirmPassword"
           :placeholder="t('auth.confirmPasswordPlaceholder')"
         />
 

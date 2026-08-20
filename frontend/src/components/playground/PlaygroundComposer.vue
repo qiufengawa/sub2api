@@ -1,5 +1,5 @@
 <template>
-  <section class="playground-composer">
+  <section class="playground-composer" :aria-label="t('playground.title')">
     <div class="playground-composer__inner">
       <div class="playground-composer__surface">
         <div class="playground-composer__controls">
@@ -104,7 +104,12 @@
               :disabled="generating"
               @click="emit('openParameters')"
             />
-            <span v-if="enabledParameterCount" class="playground-composer__count" aria-label="parameter count">
+            <span
+              v-if="enabledParameterCount"
+              class="playground-composer__count"
+              :aria-label="t('playground.composer.enabledParameterCount', { count: enabledParameterCount })"
+              aria-live="polite"
+            >
               {{ enabledParameterCount }}
             </span>
             <UiIconButton

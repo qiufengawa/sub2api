@@ -159,6 +159,51 @@ describe('BatchImageGuideView', () => {
     wrapper.unmount()
   })
 
+  it('keeps per-key prefixes so global pages do not drop rows from another key', async () => {
+    localStorage.setItem('table-page-size', '20')
+    mocks.keyList.mockResolvedValue({ items: [makeKey(1), makeKey(2)] })
+    const jobsByKey = {
+      'key-1': Array.from({ length: 25 }, (_, index) => makeJob(`a-${index}`, 200 - index)),
+      'key-2': Array.from({ length: 25 }, (_, index) => makeJob(`b-${index}`, 100 - index)),
+    }
+    mocks.listJobs.mockImplementation((apiKey: keyof typeof jobsByKey, options: { cursor?: string; limit?: number }) => {
+      const offset = Number(options.cursor || 0)
+      const limit = Number(options.limit || 20)
+      const data = jobsByKey[apiKey].slice(offset, offset + limit)
+      return Promise.resolve({
+        object: 'list',
+        data,
+        has_more: offset + data.length < jobsByKey[apiKey].length,
+      })
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('a-0')
+    expect(wrapper.text()).not.toContain('b-0')
+
+    await findButton(wrapper, 'pagination.next').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('a-24')
+    expect(wrapper.text()).toContain('b-0')
+    expect(wrapper.text()).toContain('b-14')
+    expect(wrapper.text()).not.toContain('b-15')
+
+    await findButton(wrapper, 'pagination.next').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('b-15')
+    expect(wrapper.text()).toContain('b-24')
+
+    const callsAfterPageThree = mocks.listJobs.mock.calls.length
+    await findButton(wrapper, 'pagination.previous').trigger('click')
+    await flushPromises()
+    expect(mocks.listJobs).toHaveBeenCalledTimes(callsAfterPageThree)
+    expect(wrapper.text()).toContain('b-0')
+    wrapper.unmount()
+  })
+
   it('keeps the newest list result when an earlier request resolves last', async () => {
     const stale = deferred<{ object: string; data: BatchImageJob[]; has_more: boolean }>()
     mocks.listJobs
@@ -176,6 +221,99 @@ describe('BatchImageGuideView', () => {
     expect(wrapper.text()).toContain('fresh-job')
     expect(wrapper.text()).not.toContain('stale-job')
     wrapper.unmount()
+  })
+
+  it('deduplicates create-modal API key loading while the initial request is pending', async () => {
+    const pending = deferred<{ items: ReturnType<typeof makeKey>[] }>()
+    mocks.keyList.mockReturnValueOnce(pending.promise)
+
+    const wrapper = mountView()
+    await flushPromises()
+    await findButton(wrapper, 'batchImage.actions.createJob').trigger('click')
+
+    expect(mocks.keyList).toHaveBeenCalledOnce()
+    pending.resolve({ items: [makeKey(1)] })
+    await flushPromises()
+    wrapper.unmount()
+  })
+
+  it('shows and retries a persistent API-key load failure instead of an empty job list', async () => {
+    mocks.keyList.mockRejectedValueOnce(new Error('keys offline'))
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="batch-image-list-error"]').text()).toContain('batchImage.messages.loadKeysFailed')
+    expect(wrapper.find('.ui-empty-state').exists()).toBe(false)
+
+    await findButton(wrapper, 'common.retry').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="batch-image-list-error"]').exists()).toBe(false)
+    expect(mocks.keyList).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+
+  it('shows and retries a persistent job-list failure after keys load', async () => {
+    mocks.listJobs.mockRejectedValueOnce(new Error('jobs offline'))
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="batch-image-list-error"]').text()).toContain('batchImage.messages.loadJobsFailed')
+
+    await findButton(wrapper, 'common.retry').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="batch-image-list-error"]').exists()).toBe(false)
+    expect(mocks.listJobs).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+
+  it('aborts the API key request when the view unmounts', async () => {
+    const pending = deferred<{ items: ReturnType<typeof makeKey>[] }>()
+    mocks.keyList.mockReturnValueOnce(pending.promise)
+
+    const wrapper = mountView()
+    await flushPromises()
+    const signal = mocks.keyList.mock.calls[0][3]?.signal as AbortSignal
+    expect(signal).toBeInstanceOf(AbortSignal)
+    expect(signal.aborted).toBe(false)
+
+    wrapper.unmount()
+    expect(signal.aborted).toBe(true)
+    pending.reject(Object.assign(new Error('cancelled'), { name: 'AbortError' }))
+    await flushPromises()
+    expect(mocks.showError).not.toHaveBeenCalled()
+  })
+
+  it('ignores a pending job-list failure after the view unmounts', async () => {
+    const pending = deferred<{ object: string; data: BatchImageJob[]; has_more: boolean }>()
+    mocks.listJobs.mockReturnValueOnce(pending.promise)
+    const wrapper = mountView()
+    await flushPromises()
+
+    wrapper.unmount()
+    pending.reject(new Error('late jobs failure'))
+    await flushPromises()
+
+    expect(mocks.showError).not.toHaveBeenCalledWith(expect.stringContaining('late jobs failure'))
+  })
+
+  it('does not start a new jobs request when refresh key loading finishes after unmount', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const jobsCalls = mocks.listJobs.mock.calls.length
+    const pendingKeys = deferred<{ items: ReturnType<typeof makeKey>[] }>()
+    mocks.keyList.mockReturnValueOnce(pendingKeys.promise)
+
+    const refresh = (wrapper.vm as unknown as { refreshPage: () => Promise<void> }).refreshPage()
+    await flushPromises()
+    wrapper.unmount()
+    pendingKeys.reject(Object.assign(new Error('cancelled'), { name: 'AbortError' }))
+    await refresh
+    await flushPromises()
+
+    expect(mocks.listJobs).toHaveBeenCalledTimes(jobsCalls)
+    expect(mocks.showError).not.toHaveBeenCalled()
   })
 
   it('submits a fixed 1K payload with a unique idempotency key', async () => {
@@ -244,6 +382,105 @@ describe('BatchImageGuideView', () => {
     await flushPromises()
     expect(wrapper.get('.batch-detail__header').text()).toContain('job-b')
     expect(wrapper.get('.batch-detail__header').text()).not.toContain('job-a')
+    wrapper.unmount()
+  })
+
+  it('localizes detail table headers for custom IDs and prompts', async () => {
+    const job = makeJob('localized-detail', 430)
+    mocks.listJobs.mockResolvedValue({ object: 'list', data: [job], has_more: false })
+    mocks.getJob.mockResolvedValue(job)
+    mocks.listItems.mockResolvedValue({
+      object: 'list',
+      data: [{
+        batch_id: job.id,
+        custom_id: 'img-001',
+        status: 'completed',
+        prompt_preview: 'A product photo',
+        mime_type: 'image/png',
+        file_extension: 'png',
+        image_count: 1,
+        error: null,
+      }],
+      has_more: false,
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('.batch-job-name__button').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('.batch-detail-table th').map(header => header.text())).toEqual([
+      'batchImage.detail.customId',
+      'batchImage.detail.prompt',
+      'common.status',
+      'batchImage.detail.preview',
+      'batchImage.detail.result',
+    ])
+    wrapper.unmount()
+  })
+
+  it('enables detail download when a failed root is completed by retry children', async () => {
+    const rootJob = makeJob('root-job', 430, {
+      status: 'failed',
+      item_count: 2,
+      success_count: 1,
+      fail_count: 1,
+      actual_cost: null,
+    })
+    const retryJob = makeJob('retry-job', 440, {
+      parent_batch_id: 'root-job',
+      item_count: 1,
+      success_count: 1,
+      fail_count: 0,
+    })
+    mocks.listJobs.mockResolvedValue({ object: 'list', data: [rootJob, retryJob], has_more: false })
+    mocks.getJob.mockResolvedValue(rootJob)
+    mocks.downloadZip.mockResolvedValue(new Blob(['zip'], { type: 'application/zip' }))
+
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.find('.batch-job-name__button').trigger('click')
+    await flushPromises()
+
+    const detailDownload = wrapper
+      .findAll('.batch-dialog-actions button')
+      .find(button => button.text().includes('batchImage.actions.downloadZip'))
+    expect(detailDownload).toBeDefined()
+    expect(detailDownload!.attributes('disabled')).toBeUndefined()
+    await detailDownload!.trigger('click')
+    await flushPromises()
+    expect(mocks.downloadZip).toHaveBeenCalledWith('key-1', 'root-job')
+    wrapper.unmount()
+  })
+
+  it('does not let a late cancel response replace a newly selected job', async () => {
+    const jobA = makeJob('cancel-a', 450, { status: 'running' })
+    const jobB = makeJob('cancel-b', 460, { status: 'running' })
+    const pendingCancel = deferred<BatchImageJob>()
+    mocks.listJobs.mockResolvedValue({ object: 'list', data: [jobB, jobA], has_more: false })
+    mocks.getJob.mockImplementation((_apiKey: string, batchId: string) =>
+      Promise.resolve(batchId === jobA.id ? jobA : jobB),
+    )
+    mocks.cancelJob.mockReturnValue(pendingCancel.promise)
+
+    const wrapper = mountView()
+    await flushPromises()
+    const jobButtons = wrapper.findAll('.batch-job-name__button')
+    await jobButtons.find(button => button.text().includes(jobA.id))!.trigger('click')
+    await flushPromises()
+
+    await findButton(wrapper, 'batchImage.actions.cancelJob').trigger('click')
+    await wrapper.vm.$nextTick()
+    await findButton(wrapper, 'common.confirm').trigger('click')
+    await wrapper.findAll('.batch-job-name__button').find(button => button.text().includes(jobB.id))!.trigger('click')
+    await flushPromises()
+
+    pendingCancel.resolve({ ...jobA, status: 'cancelled' })
+    await flushPromises()
+
+    expect(wrapper.get('.batch-detail__header').text()).toContain(jobB.id)
+    expect(wrapper.get('.batch-detail__header').text()).not.toContain(jobA.id)
+    expect(mocks.showSuccess).not.toHaveBeenCalledWith('batchImage.messages.cancelled')
     wrapper.unmount()
   })
 

@@ -1,10 +1,10 @@
-<template><UiFormField :label="label" :description="description" :error="error" :required="required"><label class="ui-upload" :class="{'ui-upload--drag':dragging,'ui-upload--disabled':disabled}" @dragenter.prevent="dragging=true" @dragover.prevent @dragleave.prevent="dragging=false" @drop.prevent="drop"><Icon name="upload" size="md"/><span><b>{{ buttonText }}</b><small>{{ acceptText }}</small></span><input type="file" :accept="accept" :multiple="multiple" :disabled="disabled" @change="select"/></label><div v-if="progress!==undefined" class="ui-upload__progress"><span :style="{width:`${Math.max(0,Math.min(100,progress))}%`}"/></div></UiFormField></template>
+<template><UiFormField :label="label" :description="description" :error="error" :required="required"><label class="ui-upload" :class="{'ui-upload--drag':dragging,'ui-upload--disabled':disabled}" @dragenter.prevent="dragging=true" @dragover.prevent @dragleave.prevent="dragging=false" @drop.prevent="drop"><Icon name="upload" size="md"/><span><b>{{ buttonText }}</b><small>{{ acceptText }}</small></span><input type="file" :accept="accept" :multiple="multiple" :disabled="disabled" @change="select"/></label><div v-if="progress!==undefined" class="ui-upload__progress" role="progressbar" :aria-label="progressLabel" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="normalizedProgress"><span :style="{width:`${normalizedProgress}%`}"/></div></UiFormField></template>
 <script setup lang="ts">
 
-import {ref} from 'vue';
+import {computed,ref} from 'vue';
 import Icon from '@/components/icons/Icon.vue';
 import UiFormField from './UiFormField.vue';
-withDefaults(defineProps<{label?:string;
+const props=withDefaults(defineProps<{label?:string;
 description?:string;
 error?:string;
 required?:boolean;
@@ -13,9 +13,11 @@ acceptText?:string;
 buttonText?:string;
 multiple?:boolean;
 disabled?:boolean;
-progress?:number}>(),{accept:'',acceptText:'点击选择或拖放文件',buttonText:'选择文件'});
+progress?:number;
+progressLabel?:string}>(),{accept:'',acceptText:'点击选择或拖放文件',buttonText:'选择文件',progressLabel:'上传进度'});
 const emit=defineEmits<{select:[File[]]}>();
 const dragging=ref(false);
+const normalizedProgress=computed(()=>Math.max(0,Math.min(100,props.progress??0)));
 function emitFiles(list:FileList|null){if(list)emit('select',Array.from(list))}function select(e:Event){const input=e.target as HTMLInputElement;emitFiles(input.files);input.value=''}function drop(e:DragEvent){dragging.value=false;
 emitFiles(e.dataTransfer?.files??null)}
 
@@ -42,5 +44,4 @@ overflow:hidden;
 border-radius:999px;
 background:var(--ui-surface-strong)}.ui-upload__progress span{display:block;
 height:100%;
-background:var(--ui-text);
-transition:width var(--ui-motion-base)}</style>
+background:var(--ui-text)}</style>

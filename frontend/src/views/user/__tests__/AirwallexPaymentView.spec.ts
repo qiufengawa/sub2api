@@ -66,6 +66,13 @@ function mountView() {
       stubs: {
         AppLayout: { template: '<div><slot /></div>' },
         Icon: true,
+        AppPage: { template: '<main><slot /></main>' },
+        AppPageHeader: { template: '<header><slot /></header>' },
+        AppSection: { template: '<section><slot /></section>' },
+        UiAlert: {
+          props: ['message'],
+          template: '<div role="alert">{{ message }}</div>',
+        },
       },
     },
   })
@@ -130,5 +137,31 @@ describe('AirwallexPaymentView', () => {
 
     expect(airwallexInit).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('payment.airwallexMissingParams')
+  })
+
+  it('does not launch checkout when SDK initialization finishes after unmount', async () => {
+    routeState.query = {
+      order_id: '101',
+      out_trade_no: 'sub2_awx_101',
+      resume_token: 'resume-awx',
+    }
+    window.localStorage.setItem(
+      PAYMENT_RECOVERY_STORAGE_KEY,
+      JSON.stringify(airwallexSnapshot()),
+    )
+    let resolveInit!: (value: { payments: { redirectToCheckout: typeof redirectToCheckout } }) => void
+    airwallexInit.mockReturnValueOnce(new Promise((resolve) => {
+      resolveInit = resolve
+    }))
+
+    const wrapper = mountView()
+    await flushPromises()
+    expect(airwallexInit).toHaveBeenCalledTimes(1)
+
+    wrapper.unmount()
+    resolveInit({ payments: { redirectToCheckout } })
+    await flushPromises()
+
+    expect(redirectToCheckout).not.toHaveBeenCalled()
   })
 })

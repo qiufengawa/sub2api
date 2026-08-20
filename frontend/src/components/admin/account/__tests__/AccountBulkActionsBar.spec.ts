@@ -47,4 +47,20 @@ describe('AccountBulkActionsBar', () => {
     await button!.trigger('click')
     expect(wrapper.emitted('probe-upstream-billing')).toHaveLength(1)
   })
+
+  it('disables bulk mutations and selection changes while an action is pending', () => {
+    const wrapper = mount(AccountBulkActionsBar, {
+      props: {
+        selectedIds: [1],
+        totalResults: 45,
+        selectingAll: false,
+        allResultsSelected: false,
+        pending: true
+      }
+    })
+
+    expect(wrapper.attributes('aria-busy')).toBe('true')
+    expect(wrapper.findAll('button')).not.toHaveLength(0)
+    expect(wrapper.findAll('button').every(button => button.attributes('disabled') !== undefined)).toBe(true)
+  })
 })

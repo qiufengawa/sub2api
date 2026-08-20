@@ -356,6 +356,40 @@ describe('WechatCallbackView', () => {
     expect(replaceMock).toHaveBeenCalledWith('/legacy-invite')
   })
 
+  it('keeps the processing status visible while the initial exchange is pending', async () => {
+    let rejectExchange!: (reason?: unknown) => void
+    fetchPublicSettingsMock.mockResolvedValue(undefined)
+    exchangePendingOAuthCompletionMock.mockImplementation(
+      () => new Promise((_resolve, reject) => {
+        rejectExchange = reject
+      })
+    )
+
+    const wrapper = mount(WechatCallbackView, {
+      global: {
+        stubs: {
+          AuthLayout: { template: '<div><slot /></div>' },
+          Icon: true,
+          RouterLink: { template: '<a><slot /></a>' },
+          transition: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.get('.oauth-callback__processing[aria-live="polite"]')).toBeTruthy()
+    expect(wrapper.get('.oauth-callback__processing [role="status"]').attributes('aria-label'))
+      .toBe('Completing login with auth.wechatProviderName')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.find('.oauth-callback-flow').exists()).toBe(false)
+
+    rejectExchange(new Error('Provider unavailable'))
+    await flushPromises()
+
+    expect(wrapper.find('.oauth-callback__processing').exists()).toBe(false)
+    expect(wrapper.get('[role="alert"]').text()).toContain('Provider unavailable')
+  })
+
   it('does not send adoption decisions during the initial exchange', async () => {
     exchangePendingOAuthCompletionMock.mockResolvedValue({
       access_token: 'access-token',

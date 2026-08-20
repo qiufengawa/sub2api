@@ -4,28 +4,16 @@
       <h3 class="truncate text-sm font-semibold text-gray-900 dark:text-white">
         {{ title }}
       </h3>
-      <div class="inline-flex shrink-0 rounded-[3px] border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-900">
-        <button
-          type="button"
-          class="rounded-[3px] px-2 py-1 text-[11px] font-medium transition-colors"
-          :class="metric === 'tokens' ? activeMetricClass : inactiveMetricClass"
-          @click="emit('update:metric', 'tokens')"
-        >
-          {{ t('admin.dashboard.metricTokens') }}
-        </button>
-        <button
-          type="button"
-          class="rounded-[3px] px-2 py-1 text-[11px] font-medium transition-colors"
-          :class="metric === 'actual_cost' ? activeMetricClass : inactiveMetricClass"
-          @click="emit('update:metric', 'actual_cost')"
-        >
-          {{ t('admin.dashboard.metricActualCost') }}
-        </button>
-      </div>
+      <UiSegmentedControl
+        :model-value="metric"
+        :options="metricOptions"
+        :label="title"
+        @update:model-value="updateMetric"
+      />
     </header>
 
     <div v-if="loading" class="flex h-40 items-center justify-center">
-      <LoadingSpinner />
+      <UiSpinner />
     </div>
     <div v-else-if="items.length" class="space-y-2.5">
       <div v-for="(item, index) in items" :key="item.key" class="space-y-1">
@@ -58,8 +46,9 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { UiSegmentedControl, UiSpinner } from '@/components/ui'
 
 export interface UsageRankingItem {
   key: string
@@ -84,6 +73,11 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const activeMetricClass = 'bg-white text-primary-700 shadow-sm dark:bg-dark-700 dark:text-primary-300'
-const inactiveMetricClass = 'text-gray-500 hover:text-gray-700 dark:text-dark-400 dark:hover:text-gray-200'
+const metricOptions = computed(() => [
+  { value: 'tokens', label: t('admin.dashboard.metricTokens') },
+  { value: 'actual_cost', label: t('admin.dashboard.metricActualCost') },
+])
+const updateMetric = (value: string | number) => {
+  emit('update:metric', value === 'actual_cost' ? 'actual_cost' : 'tokens')
+}
 </script>

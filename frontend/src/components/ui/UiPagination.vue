@@ -4,13 +4,13 @@
       <span v-if="summaryLabel">{{ summaryLabel }} </span>{{ from }}-{{ to }} / {{ total }}
     </span>
     <label v-if="showPageSizeSelector" class="ui-pagination__size">
-      <span>{{ pageSizeLabel }}</span>
-      <select :value="pageSize" :aria-label="pageSizeLabel" @change="changePageSize">
+      <span>{{ resolvedPageSizeLabel }}</span>
+      <select :value="pageSize" :aria-label="resolvedPageSizeLabel" @change="changePageSize">
         <option v-for="size in normalizedOptions" :key="size" :value="size">{{ size }}</option>
       </select>
     </label>
-    <nav aria-label="分页">
-      <button type="button" :disabled="page <= 1" :aria-label="previousLabel" @click="go(page - 1)"><Icon name="chevronLeft" size="sm" /></button>
+    <nav :aria-label="resolvedPaginationLabel">
+      <button type="button" :disabled="page <= 1" :aria-label="resolvedPreviousLabel" @click="go(page - 1)"><Icon name="chevronLeft" size="sm" /></button>
       <button
         v-for="(item, index) in visiblePages"
         :key="`${item}-${index}`"
@@ -20,10 +20,10 @@
         :class="{ 'is-current': item === page }"
         @click="typeof item === 'number' && go(item)"
       >{{ item }}</button>
-      <button type="button" :disabled="page >= totalPages" :aria-label="nextLabel" @click="go(page + 1)"><Icon name="chevronRight" size="sm" /></button>
+      <button type="button" :disabled="page >= totalPages" :aria-label="resolvedNextLabel" @click="go(page + 1)"><Icon name="chevronRight" size="sm" /></button>
     </nav>
     <form v-if="showJump" class="ui-pagination__jump" @submit.prevent="submitJump">
-      <span>{{ jumpLabel }}</span><input v-model="jump" type="number" min="1" :max="totalPages" :aria-label="jumpLabel"><button type="submit">{{ jumpActionLabel }}</button>
+      <span>{{ resolvedJumpLabel }}</span><input v-model="jump" type="number" min="1" :max="totalPages" :aria-label="resolvedJumpLabel"><button type="submit">{{ resolvedJumpActionLabel }}</button>
     </form>
   </div>
 </template>
@@ -31,6 +31,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import Icon from '@/components/icons/Icon.vue'
+import { useUiT } from './useUiI18n'
 
 const props = withDefaults(defineProps<{
   total: number
@@ -51,15 +52,17 @@ const props = withDefaults(defineProps<{
   showPageSizeSelector: true,
   showJump: false,
   resetPageOnPageSizeChange: true,
-  summaryLabel: '',
-  pageSizeLabel: '每页',
-  previousLabel: '上一页',
-  nextLabel: '下一页',
-  jumpLabel: '跳至',
-  jumpActionLabel: '确定'
+  summaryLabel: ''
 })
 const emit = defineEmits<{ 'update:page': [number]; 'update:pageSize': [number] }>()
 const jump = ref('')
+const localized = useUiT()
+const resolvedPaginationLabel = computed(() => localized('common.pagination'))
+const resolvedPageSizeLabel = computed(() => props.pageSizeLabel || localized('common.pageSize'))
+const resolvedPreviousLabel = computed(() => props.previousLabel || localized('common.previousPage'))
+const resolvedNextLabel = computed(() => props.nextLabel || localized('common.nextPage'))
+const resolvedJumpLabel = computed(() => props.jumpLabel || localized('common.jumpToPage'))
+const resolvedJumpActionLabel = computed(() => props.jumpActionLabel || localized('common.apply'))
 const totalPages = computed(() => Math.max(1, Math.ceil(props.total / props.pageSize)))
 const from = computed(() => props.total ? (props.page - 1) * props.pageSize + 1 : 0)
 const to = computed(() => Math.min(props.total, props.page * props.pageSize))

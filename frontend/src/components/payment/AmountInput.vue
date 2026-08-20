@@ -1,53 +1,40 @@
 <template>
-  <div class="space-y-3">
-    <!-- Quick Amount Buttons -->
-    <div>
-      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-        {{ t('payment.quickAmounts') }}
-      </label>
-      <div class="grid grid-cols-3 gap-2">
-        <button
+  <div class="amount-input">
+    <fieldset class="amount-input__presets">
+      <legend>{{ t('payment.quickAmounts') }}</legend>
+      <div class="amount-input__grid">
+        <UiButton
           v-for="amt in filteredAmounts"
           :key="amt"
-          type="button"
-          :class="[
-            'min-w-0 rounded-[3px] border px-2 py-2 text-center text-sm font-medium tabular-nums transition-colors sm:px-3',
-            modelValue === amt
-              ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-400 dark:bg-primary-900/40 dark:text-primary-300'
-              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200 dark:hover:border-dark-500',
-          ]"
+          :variant="modelValue === amt ? 'primary' : 'secondary'"
+          density="compact"
+          class="amount-input__preset"
+          :aria-pressed="modelValue === amt"
           @click="selectAmount(amt)"
         >
           {{ amt }}
-        </button>
+        </UiButton>
       </div>
-    </div>
+    </fieldset>
 
-    <!-- Custom Amount Input -->
-    <div>
-      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-        {{ t('payment.customAmount') }}
-      </label>
-      <div class="relative">
-        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-dark-500">
-          $
-        </span>
-        <input
-          type="text"
-          inputmode="decimal"
-          :value="customText"
-          :placeholder="placeholderText"
-          class="input w-full py-2 pl-8 pr-4"
-          @input="handleInput"
-        />
-      </div>
-    </div>
+    <UiTextField
+      :model-value="customText"
+      :label="t('payment.customAmount')"
+      :placeholder="placeholderText"
+      inputmode="decimal"
+      density="compact"
+      monospace
+      @update:model-value="handleTextInput"
+    >
+      <template #prefix>$</template>
+    </UiTextField>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { UiButton, UiTextField } from '@/components/ui'
 
 const props = withDefaults(defineProps<{
   amounts?: number[]
@@ -87,8 +74,8 @@ function selectAmount(amt: number) {
   emit('update:modelValue', amt)
 }
 
-function handleInput(e: Event) {
-  const val = (e.target as HTMLInputElement).value
+function handleTextInput(value: string | number | null) {
+  const val = String(value ?? '')
   if (!AMOUNT_PATTERN.test(val)) return
   customText.value = val
   if (val === '') {
@@ -109,3 +96,11 @@ watch(() => props.modelValue, (v) => {
   }
 }, { immediate: true })
 </script>
+
+<style scoped>
+.amount-input { display:flex; min-width:0; flex-direction:column; gap:16px; }
+.amount-input__presets { min-width:0; margin:0; padding:0; border:0; }
+.amount-input__presets legend { margin:0 0 8px; color:var(--ui-text); font-size:12px; font-weight:500; }
+.amount-input__grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.amount-input__preset { width:100%; font-variant-numeric:tabular-nums; }
+</style>

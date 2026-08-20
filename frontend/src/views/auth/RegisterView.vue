@@ -25,6 +25,7 @@
           autocomplete="email"
           :disabled="registrationActionDisabled"
           :error="Boolean(errors.email)"
+          :error-message="errors.email"
           :placeholder="t('auth.emailPlaceholder')"
         />
 
@@ -40,6 +41,7 @@
           revealable
           :disabled="registrationActionDisabled"
           :error="Boolean(errors.password)"
+          :error-message="errors.password"
           :placeholder="t('auth.createPasswordPlaceholder')"
           :help-text="t('auth.passwordHint')"
         />

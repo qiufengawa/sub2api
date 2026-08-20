@@ -16,11 +16,6 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
-const BaseDialogStub = {
-  props: ['show'],
-  template: '<div v-if="show"><slot /><slot name="footer" /></div>',
-}
-
 const UiDialogStub = {
   props: ['show'],
   template: '<div v-if="show"><slot /><slot name="footer" /></div>',
@@ -65,7 +60,7 @@ describe('admin order currency display', () => {
       },
       global: {
         stubs: {
-          BaseDialog: BaseDialogStub,
+          UiDialog: UiDialogStub,
         },
       },
     })
@@ -147,6 +142,30 @@ describe('admin order currency display', () => {
     await wrapper.find('input[type="number"]').setValue('0')
     await wrapper.find('form').trigger('submit')
     expect(wrapper.emitted('confirm')).toBeUndefined()
+  })
+
+  it('resets the refund form when the open dialog receives a different order', async () => {
+    const wrapper = mount(AdminRefundDialog, {
+      props: {
+        show: true,
+        order: orderFactory({
+          id: 1,
+          status: 'REFUND_REQUESTED',
+          refund_amount: 24.5,
+          refund_request_reason: 'First order reason',
+        }),
+      },
+      global: { stubs: { UiDialog: UiDialogStub } },
+    })
+
+    await wrapper.find('input[type="number"]').setValue('12.25')
+    await wrapper.find('textarea').setValue('Edited first order')
+    await wrapper.setProps({
+      order: orderFactory({ id: 2, amount: 70, pay_amount: 70, status: 'COMPLETED', refund_amount: 0 }),
+    })
+
+    expect(wrapper.find('input[type="number"]').element).toHaveProperty('value', '70')
+    expect(wrapper.find('textarea').element).toHaveProperty('value', '')
   })
 
   it('requires force confirmation when the backend requests it', async () => {

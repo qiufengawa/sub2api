@@ -18,6 +18,8 @@ const subscriptionStore = useSubscriptionStore()
 const announcementStore = useAnnouncementStore()
 const adminComplianceStore = useAdminComplianceStore()
 const adminSettingsStore = useAdminSettingsStore()
+let delayedAnnouncementTimer: ReturnType<typeof setTimeout> | null = null
+let authAnnouncementGeneration = 0
 
 function updateDocumentTitle() {
   const customMenuItems = [
@@ -67,6 +69,12 @@ function onAdminComplianceRequired(event: Event) {
 watch(
   () => authStore.isAuthenticated,
   (isAuthenticated, oldValue) => {
+    authAnnouncementGeneration += 1
+    const generation = authAnnouncementGeneration
+    if (delayedAnnouncementTimer) {
+      clearTimeout(delayedAnnouncementTimer)
+      delayedAnnouncementTimer = null
+    }
     if (isAuthenticated) {
       if (authStore.isAdmin) {
         adminComplianceStore.fetchStatus().catch((error) => {
@@ -83,7 +91,12 @@ watch(
       // Announcements: new login vs page refresh restore
       if (oldValue === false) {
         // New login: delay 3s then force fetch
-        setTimeout(() => announcementStore.fetchAnnouncements(true), 3000)
+        delayedAnnouncementTimer = setTimeout(() => {
+          delayedAnnouncementTimer = null
+          if (generation === authAnnouncementGeneration && authStore.isAuthenticated) {
+            announcementStore.fetchAnnouncements(true)
+          }
+        }, 3000)
       } else {
         // Page refresh restore (oldValue was undefined)
         announcementStore.fetchAnnouncements()
@@ -110,6 +123,9 @@ router.afterEach(() => {
 })
 
 onBeforeUnmount(() => {
+  authAnnouncementGeneration += 1
+  if (delayedAnnouncementTimer) clearTimeout(delayedAnnouncementTimer)
+  delayedAnnouncementTimer = null
   document.removeEventListener('visibilitychange', onVisibilityChange)
   window.removeEventListener('admin-compliance-required', onAdminComplianceRequired)
 })

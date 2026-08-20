@@ -47,10 +47,12 @@
         </div>
 
         <div v-else-if="announcements.length > 0" class="announcement-center__list">
-          <button
+          <UiButton
             v-for="item in announcements"
             :key="item.id"
             type="button"
+            variant="quiet"
+            density="default"
             class="announcement-center__item ui-focus-ring"
             @click="openDetail(item)"
           >
@@ -78,7 +80,7 @@
               class="announcement-center__chevron"
               aria-hidden="true"
             />
-          </button>
+          </UiButton>
         </div>
 
         <UiEmptyState v-else :title="t('announcements.empty')" :description="t('announcements.emptyDescription')" />

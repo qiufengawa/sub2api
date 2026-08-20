@@ -147,6 +147,28 @@ describe('UsageProgressBar', () => {
     expect(wrapper.get('.h-2 > div').classes()).toContain('bg-red-500')
   })
 
+  it('exposes the utilization as a named progressbar without animating width', async () => {
+    const wrapper = mount(UsageProgressBar, {
+      props: {
+        label: '5h',
+        utilization: 120,
+        color: 'indigo'
+      }
+    })
+
+    const progress = wrapper.get('[role="progressbar"]')
+    expect(progress.attributes('aria-label')).toBe('5h')
+    expect(progress.attributes('aria-valuemin')).toBe('0')
+    expect(progress.attributes('aria-valuemax')).toBe('100')
+    expect(progress.attributes('aria-valuenow')).toBe('100')
+    expect(progress.attributes('aria-valuetext')).toBe('120%')
+    expect(wrapper.get('.h-2 > div').classes()).not.toContain('transition-[width]')
+
+    await wrapper.setProps({ utilization: 42 })
+    expect(progress.attributes('aria-valuenow')).toBe('42')
+    expect(progress.attributes('aria-valuetext')).toBe('42%')
+  })
+
   it('以可读标签展示窗口请求、Token 和两类计费信息', () => {
     const wrapper = mount(UsageProgressBar, {
       props: {

@@ -465,7 +465,7 @@ onMounted(async () => {
         <div class="ops-system-log__metric ops-system-log__metric--queue">
           <span>{{ t('admin.ops.systemLogs.queue') }}</span>
           <strong>{{ health.queue_depth }}/{{ health.queue_capacity }}</strong>
-          <UiProgressBar class="ops-system-log__queue-progress" :value="queueUsagePercent" :show-value="false" />
+          <UiProgressBar class="ops-system-log__queue-progress" :value="queueUsagePercent" :show-value="false" :aria-label="`${t('admin.ops.systemLogs.queue')} ${queueUsagePercent}%`" />
         </div>
         <div class="ops-system-log__metric"><span>{{ t('admin.ops.systemLogs.written') }}</span><strong>{{ health.written_count }}</strong></div>
         <div class="ops-system-log__metric"><span>{{ t('admin.ops.systemLogs.dropped') }}</span><strong :class="{ 'ops-system-log__metric-value--warning': health.dropped_count > 0 }">{{ health.dropped_count }}</strong></div>
@@ -493,12 +493,12 @@ onMounted(async () => {
       </UiFilterBar>
 
       <div class="ops-system-log__actions">
-        <UiButton density="dense" :aria-expanded="showAdvancedFilters" @click="showAdvancedFilters = !showAdvancedFilters">
+        <UiButton density="dense" :aria-expanded="showAdvancedFilters" aria-controls="ops-system-log-advanced-filters" @click="showAdvancedFilters = !showAdvancedFilters">
           <template #icon><Icon name="filter" size="sm" /></template>
           {{ t('admin.ops.systemLogs.advancedFilters') }}
           <UiBadge v-if="advancedFilterCount" :label="String(advancedFilterCount)" />
         </UiButton>
-        <UiButton density="dense" :aria-expanded="showRuntimeConfig" @click="showRuntimeConfig = !showRuntimeConfig">
+        <UiButton density="dense" :aria-expanded="showRuntimeConfig" aria-controls="ops-system-log-runtime-config" @click="showRuntimeConfig = !showRuntimeConfig">
           <template #icon><Icon name="cog" size="sm" /></template>
           {{ t('admin.ops.systemLogs.runtimeConfigShort') }}
         </UiButton>
@@ -510,7 +510,7 @@ onMounted(async () => {
         </UiButton>
       </div>
 
-      <section v-if="showAdvancedFilters" class="ops-system-log__expandable">
+      <section v-if="showAdvancedFilters" id="ops-system-log-advanced-filters" class="ops-system-log__expandable">
         <h4>{{ t('admin.ops.systemLogs.advancedFilters') }}</h4>
         <AppGrid min="180px" :gap="10">
           <UiTextField v-model="filters.start_time" type="datetime-local" density="compact" :label="t('admin.ops.systemLogs.startTime')" />
@@ -526,7 +526,7 @@ onMounted(async () => {
         </AppGrid>
       </section>
 
-      <section v-if="showRuntimeConfig" class="ops-system-log__expandable">
+      <section v-if="showRuntimeConfig" id="ops-system-log-runtime-config" class="ops-system-log__expandable">
         <header class="ops-system-log__subheading">
           <div><h4>{{ t('admin.ops.systemLogs.runtimeConfig') }}</h4><p>{{ t('admin.ops.systemLogs.runtimeConfigDescription') }}</p></div>
           <UiSpinner v-if="runtimeLoading" size="sm" :label="t('common.loading')" />

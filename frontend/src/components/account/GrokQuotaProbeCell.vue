@@ -1,29 +1,18 @@
 <template>
   <div v-if="visible" class="space-y-1">
     <div class="flex flex-wrap items-center gap-1.5">
-      <button
+      <UiButton
         type="button"
+        variant="quiet"
+        density="mini"
         class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-cyan-700 transition-colors hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-cyan-300 dark:hover:bg-cyan-900/30"
         :disabled="loading"
         :title="t('admin.accounts.usageWindow.grokProbeTooltip')"
         @click="handleProbe"
       >
-        <svg
-          class="h-2.5 w-2.5"
-          :class="{ 'animate-spin': loading }"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-          />
-        </svg>
+        <Icon name="refresh" size="xs" :class="{ 'animate-spin': loading }" />
         {{ t('admin.accounts.usageWindow.grokProbe') }}
-      </button>
+      </UiButton>
     </div>
 
     <!-- Compact mode: parent already shows 7d/30d/prepaid or 24h — only surface errors. -->
@@ -45,6 +34,8 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { GrokQuotaProbeResult } from '@/api/admin/grok'
 import type { Account } from '@/types'
+import Icon from '@/components/icons/Icon.vue'
+import { UiButton } from '@/components/ui'
 
 const props = withDefaults(
   defineProps<{

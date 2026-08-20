@@ -72,3 +72,10 @@ Required before final completion:
 - Browser-console error/warning check.
 
 No database, administrator credential, browser storage, or route guard was modified to bypass authentication.
+
+## 2026-08-19 Shared-worktree gate refresh
+
+The historical 2026-08-16 figures above remain the batch-local record. The historical shared-worktree
+frontend gate was 353 test files / 2296 tests passed, with typecheck, lint, production build, and
+`git diff --check` passing. This refresh does not change the pending browser acceptance status and
+must be rerun after ownership isolation before release.

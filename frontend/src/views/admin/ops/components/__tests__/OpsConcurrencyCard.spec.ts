@@ -72,6 +72,8 @@ describe('OpsConcurrencyCard', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('FRESH')
+    expect(wrapper.findAll('[role="progressbar"]').length).toBeGreaterThan(0)
+    expect(wrapper.findAll('[role="progressbar"]').every((bar) => Boolean(bar.attributes('aria-label')))).toBe(true)
 
     oldConcurrency.resolve(concurrency('stale', 9))
     oldAvailability.resolve(availability('stale'))

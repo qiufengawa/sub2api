@@ -384,6 +384,7 @@ export default {
       inactive: "停用",
       disabled: "已禁用",
       error: "错误",
+      errorDetails: "错误详情",
       cooldown: "冷却中",
       paused: "暂停",
       limited: "限流",
@@ -408,6 +409,8 @@ export default {
       hint: "当错误码与关键词同时匹配时，账号会在指定时间内被临时禁用。",
       notice: "规则按顺序匹配，需同时满足错误码与关键词。",
       addRule: "添加规则",
+      moveUp: "上移规则",
+      moveDown: "下移规则",
       ruleOrder: "规则序号",
       multipleErrorTrigger:
         "{minutes} 分钟内累计 {count} 次匹配错误，达到触发阈值（{threshold}）。",

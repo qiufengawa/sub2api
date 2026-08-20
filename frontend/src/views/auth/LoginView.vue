@@ -14,6 +14,7 @@
           autocomplete="email"
           :disabled="authActionDisabled"
           :error="Boolean(errors.email)"
+          :error-message="errors.email"
           :placeholder="t('auth.emailPlaceholder')"
         />
 
@@ -29,6 +30,7 @@
           revealable
           :disabled="authActionDisabled"
           :error="Boolean(errors.password)"
+          :error-message="errors.password"
           :placeholder="t('auth.passwordPlaceholder')"
           :show-meta="passwordResetEnabled && !backendModeEnabled"
         >

@@ -1,5 +1,5 @@
 <template>
-  <section class="card overflow-hidden" data-testid="dashboard-getting-started">
+  <section class="ui-panel overflow-hidden" data-testid="dashboard-getting-started">
     <div class="border-b border-gray-100 px-4 py-3 dark:border-dark-700">
       <h2 class="text-sm font-semibold text-gray-950 dark:text-white">
         {{ hasApiKey ? t('dashboard.overview.firstRequestTitle') : t('dashboard.overview.gettingStartedTitle') }}
@@ -22,9 +22,9 @@
             </span>
             <div class="min-w-0 flex-1">
               <p class="text-sm font-medium text-gray-900 dark:text-white">{{ step.label }}</p>
-              <router-link v-if="step.to" :to="step.to" class="mt-0.5 inline-flex text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">
+              <UiLink v-if="step.to" :to="step.to" variant="muted" class="mt-0.5">
                 {{ step.action }}
-              </router-link>
+              </UiLink>
               <span v-else class="mt-0.5 block text-xs text-gray-500 dark:text-dark-400">{{ step.action }}</span>
             </div>
           </li>
@@ -35,9 +35,9 @@
         <div>
           <div class="mb-1.5 flex items-center justify-between gap-3">
             <p class="text-xs font-medium text-gray-700 dark:text-gray-300">{{ t('dashboard.overview.apiEndpoint') }}</p>
-            <button type="button" class="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400" @click="copyEndpoint">
+            <UiButton type="button" variant="quiet" density="mini" @click="copyEndpoint">
               {{ copied ? t('dashboard.overview.copied') : t('dashboard.overview.copy') }}
-            </button>
+            </UiButton>
           </div>
           <code class="block overflow-x-auto rounded-[3px] border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700 dark:border-dark-600 dark:bg-dark-900 dark:text-dark-200">
             {{ normalizedBaseUrl }}
@@ -47,22 +47,21 @@
         <div>
           <div class="mb-1.5 flex items-center justify-between gap-3">
             <p class="text-xs font-medium text-gray-700 dark:text-gray-300">{{ t('dashboard.overview.requestExample') }}</p>
-            <button type="button" class="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400" @click="copyRequest">
+            <UiButton type="button" variant="quiet" density="mini" @click="copyRequest">
               {{ t('dashboard.overview.copyRequest') }}
-            </button>
+            </UiButton>
           </div>
           <pre class="max-h-36 overflow-auto whitespace-pre-wrap break-all rounded-[3px] border border-gray-200 bg-gray-950 px-3 py-2 text-[11px] leading-5 text-gray-100 dark:border-dark-600"><code>{{ requestExample }}</code></pre>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <router-link to="/available-channels" class="btn btn-secondary btn-sm">
-            <Icon name="grid" size="xs" />
+          <UiButton to="/available-channels" density="compact">
+            <template #icon><Icon name="grid" size="xs" /></template>
             {{ t('dashboard.overview.viewAvailableModels') }}
-          </router-link>
-          <a v-if="docUrl" :href="docUrl" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">
-            <Icon name="book" size="xs" />
+          </UiButton>
+          <UiLink v-if="docUrl" :href="docUrl" external variant="standalone">
             {{ t('dashboard.overview.fullDocumentation') }}
-          </a>
+          </UiLink>
         </div>
       </div>
     </div>
@@ -74,6 +73,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import { useClipboard } from '@/composables/useClipboard'
+import { UiButton, UiLink } from '@/components/ui'
 
 const props = defineProps<{
   hasApiKey: boolean

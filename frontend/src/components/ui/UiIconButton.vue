@@ -1,12 +1,12 @@
 <template>
-  <button :type="type" :disabled="disabled" class="ui-icon-button ui-focus-ring ui-motion" :class="[`ui-icon-button--${density}`,`ui-icon-button--${variant}`]" :aria-label="label" :title="tooltip || label">
+  <button ref="button" :type="type" :disabled="disabled" class="ui-icon-button ui-focus-ring ui-motion" :class="[`ui-icon-button--${density}`,`ui-icon-button--${variant}`]" :aria-label="label" :title="tooltip || label">
   <Icon v-if="icon" :name="icon" size="sm" />
   <slot />
   </button>
 </template>
 <script setup lang="ts">
 
-
+import { ref } from 'vue'
 import Icon from '@/components/icons/Icon.vue'
 import type { UiDensity } from './types'
 type IconName = InstanceType<typeof Icon>['$props']['name']
@@ -17,6 +17,9 @@ tooltip?:string;
 density?:UiDensity;
 type?:'button'|'submit'|'reset';
 disabled?:boolean }>(), { density:'compact', variant:'outlined', type:'button', disabled:false })
+
+const button = ref<HTMLButtonElement | null>(null)
+defineExpose({ focus: () => button.value?.focus() })
 
 
 </script>

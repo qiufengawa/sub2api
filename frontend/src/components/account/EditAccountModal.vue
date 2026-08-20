@@ -97,7 +97,7 @@
         <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.poolModeHint') }}
               </p>
@@ -111,14 +111,14 @@
             </p>
           </div>
           <div v-if="poolModeEnabled" class="mt-3">
-            <label class="input-label">{{ t('admin.accounts.poolModeRetryCount') }}</label>
-            <input
+            <UiTextField
               v-model.number="poolModeRetryCount"
               type="number"
-              min="0"
+              density="compact"
+              :min="0"
               :max="MAX_POOL_MODE_RETRY_COUNT"
-              step="1"
-              class="input"
+              :step="1"
+              :label="t('admin.accounts.poolModeRetryCount')"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{
@@ -130,11 +130,11 @@
             </p>
           </div>
           <div v-if="poolModeEnabled" class="mt-3">
-            <label class="input-label">{{ t('admin.accounts.poolModeRetryStatusCodes') }}</label>
-            <input
+            <UiTextField
               v-model="poolModeRetryStatusCodesInput"
               type="text"
-              class="input"
+              density="compact"
+              :label="t('admin.accounts.poolModeRetryStatusCodes')"
               :placeholder="DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ')"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -147,7 +147,7 @@
         <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.customErrorCodes') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.customErrorCodes') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.customErrorCodesHint') }}
               </p>
@@ -165,32 +165,31 @@
 
             <!-- Error Code Buttons -->
             <div class="flex flex-wrap gap-2">
-              <button
+              <UiButton
                 v-for="code in commonErrorCodes"
                 :key="code.value"
                 type="button"
+                :variant="selectedErrorCodes.includes(code.value) ? 'danger' : 'secondary'"
+                density="compact"
+                :aria-pressed="selectedErrorCodes.includes(code.value)"
                 @click="toggleErrorCode(code.value)"
-                :class="[
-                  'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                  selectedErrorCodes.includes(code.value)
-                    ? 'bg-red-100 text-red-700 ring-1 ring-red-500 dark:bg-red-900/30 dark:text-red-400'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
-                ]"
               >
                 {{ code.value }} {{ code.label }}
-              </button>
+              </UiButton>
             </div>
 
             <!-- Manual input -->
             <div class="flex items-center gap-2">
-              <input
+              <UiTextField
                 v-model.number="customErrorCodeInput"
                 type="number"
-                min="100"
-                max="599"
-                class="input flex-1"
+                density="compact"
+                :min="100"
+                :max="599"
+                class="flex-1"
                 :placeholder="t('admin.accounts.enterErrorCode')"
-                @keyup.enter="addCustomErrorCode"
+                :prevent-enter-default="true"
+                @enter="addCustomErrorCode"
               />
               <UiIconButton
                 type="button"
@@ -210,13 +209,14 @@
                 class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-sm font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400"
               >
                 {{ code }}
-                <button
+                <UiIconButton
                   type="button"
+                  icon="x"
+                  variant="danger"
+                  density="mini"
+                  :label="t('common.delete')"
                   @click="removeErrorCode(code)"
-                  class="hover:text-red-900 dark:hover:text-red-300"
-                >
-                  <Icon name="x" size="sm" :stroke-width="2" />
-                </button>
+                />
               </span>
               <span v-if="selectedErrorCodes.length === 0" class="text-xs text-gray-400">
                 {{ t('admin.accounts.noneSelectedUsesDefault') }}
@@ -234,7 +234,7 @@
       >
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
-            <label class="input-label mb-0">{{ t('admin.accounts.grokClientToolCache.title') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.grokClientToolCache.title') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.grokClientToolCache.hint') }}
             </p>
@@ -254,7 +254,7 @@
       >
         <div class="mb-3 flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.grokCustomBaseUrl.title') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.grokCustomBaseUrl.title') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.grokCustomBaseUrl.hint') }}
             </p>
@@ -266,11 +266,13 @@
           />
         </div>
         <div v-if="grokOAuthCustomBaseUrlEnabled" class="space-y-2">
-          <input
+          <UiTextField
             v-model="grokOAuthBaseUrl"
-            type="text"
-            class="input"
-            data-testid="grok-custom-base-url-input"
+            type="url"
+            density="compact"
+            :label="t('admin.accounts.grokCustomBaseUrl.title')"
+            :description="t('admin.accounts.grokCustomBaseUrl.hint')"
+            test-id="grok-custom-base-url-input"
             :placeholder="t('admin.accounts.grokCustomBaseUrl.placeholder')"
           />
           <GrokBaseUrlPresets @select="grokOAuthBaseUrl = $event" />
@@ -281,7 +283,7 @@
       <div v-if="headerOverrideCapable" class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.headerOverride.hint') }}
             </p>
@@ -321,42 +323,35 @@
 
       <!-- Upstream fields (only for upstream type) -->
       <div v-if="account.type === 'upstream'" class="space-y-4">
-        <div>
-          <label class="input-label">{{ t('admin.accounts.upstream.baseUrl') }}</label>
-          <input
+        <UiTextField
             v-model="editBaseUrl"
-            type="text"
-            class="input"
+            :label="t('admin.accounts.upstream.baseUrl')"
+            :description="t('admin.accounts.upstream.baseUrlHint')"
             placeholder="https://cloudcode-pa.googleapis.com"
-          />
-          <p class="input-hint">{{ t('admin.accounts.upstream.baseUrlHint') }}</p>
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.upstream.apiKey') }}</label>
-          <input
+            monospace
+        />
+        <UiPasswordField
             v-model="editApiKey"
-            type="password"
-            class="input font-mono"
+            :label="t('admin.accounts.upstream.apiKey')"
+            :description="t('admin.accounts.leaveEmptyToKeep')"
             placeholder="sk-..."
-          />
-          <p class="input-hint">{{ t('admin.accounts.leaveEmptyToKeep') }}</p>
-        </div>
+            monospace
+            :reveal-label="t('common.showPassword')"
+            :hide-label="t('common.hidePassword')"
+        />
       </div>
 
       <!-- Vertex Service Account -->
       <div v-if="(account.platform === 'gemini' || account.platform === 'anthropic') && account.type === 'service_account'" class="space-y-4">
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label class="input-label">Project ID</label>
-            <input
+          <UiTextField
               v-model="editVertexProjectId"
-              type="text"
-              class="input font-mono"
               readonly
+              label="Project ID"
               :placeholder="t('admin.accounts.vertexProjectIdPlaceholder')"
-            />
-            <p class="input-hint">{{ t('admin.accounts.vertexSaJsonEditHint') }}</p>
-          </div>
+              :description="t('admin.accounts.vertexSaJsonEditHint')"
+              monospace
+          />
           <div>
             <UiSelect
               v-model="editVertexLocation"
@@ -386,72 +381,59 @@
       <div v-if="account.type === 'bedrock'" class="space-y-4">
         <!-- SigV4 fields -->
         <template v-if="!isBedrockAPIKeyMode">
-          <div>
-            <label class="input-label">{{ t('admin.accounts.bedrockAccessKeyId') }}</label>
-            <input
+          <UiTextField
               v-model="editBedrockAccessKeyId"
-              type="text"
-              class="input font-mono"
+              :label="t('admin.accounts.bedrockAccessKeyId')"
               placeholder="AKIA..."
-            />
-          </div>
-          <div>
-            <label class="input-label">{{ t('admin.accounts.bedrockSecretAccessKey') }}</label>
-            <input
+              monospace
+          />
+          <UiPasswordField
               v-model="editBedrockSecretAccessKey"
-              type="password"
-              class="input font-mono"
+              :label="t('admin.accounts.bedrockSecretAccessKey')"
               :placeholder="t('admin.accounts.bedrockSecretKeyLeaveEmpty')"
-            />
-            <p class="input-hint">{{ t('admin.accounts.bedrockSecretKeyLeaveEmpty') }}</p>
-          </div>
-          <div>
-            <label class="input-label">{{ t('admin.accounts.bedrockSessionToken') }}</label>
-            <input
+              :description="t('admin.accounts.bedrockSecretKeyLeaveEmpty')"
+              monospace
+              :reveal-label="t('common.showPassword')"
+              :hide-label="t('common.hidePassword')"
+          />
+          <UiPasswordField
               v-model="editBedrockSessionToken"
-              type="password"
-              class="input font-mono"
               :placeholder="t('admin.accounts.bedrockSecretKeyLeaveEmpty')"
-            />
-            <p class="input-hint">{{ t('admin.accounts.bedrockSessionTokenHint') }}</p>
-          </div>
+              :label="t('admin.accounts.bedrockSessionToken')"
+              :description="t('admin.accounts.bedrockSessionTokenHint')"
+              monospace
+              :reveal-label="t('common.showPassword')"
+              :hide-label="t('common.hidePassword')"
+          />
         </template>
 
         <!-- API Key field -->
-        <div v-if="isBedrockAPIKeyMode">
-          <label class="input-label">{{ t('admin.accounts.bedrockApiKeyInput') }}</label>
-          <input
+        <UiPasswordField
+            v-if="isBedrockAPIKeyMode"
             v-model="editBedrockApiKeyValue"
-            type="password"
-            class="input font-mono"
+            :label="t('admin.accounts.bedrockApiKeyInput')"
             :placeholder="t('admin.accounts.bedrockApiKeyLeaveEmpty')"
-          />
-          <p class="input-hint">{{ t('admin.accounts.bedrockApiKeyLeaveEmpty') }}</p>
-        </div>
+            :description="t('admin.accounts.bedrockApiKeyLeaveEmpty')"
+            monospace
+            :reveal-label="t('common.showPassword')"
+            :hide-label="t('common.hidePassword')"
+        />
 
         <!-- Shared: Region -->
-        <div>
-          <label class="input-label">{{ t('admin.accounts.bedrockRegion') }}</label>
-          <input
+        <UiTextField
             v-model="editBedrockRegion"
-            type="text"
-            class="input"
+            :label="t('admin.accounts.bedrockRegion')"
             placeholder="us-east-1"
-          />
-          <p class="input-hint">{{ t('admin.accounts.bedrockRegionHint') }}</p>
-        </div>
+            :description="t('admin.accounts.bedrockRegionHint')"
+        />
 
         <!-- Shared: Force Global -->
         <div>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              v-model="editBedrockForceGlobal"
-              type="checkbox"
-              class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-500"
-            />
-            <span class="text-sm text-gray-700 dark:text-gray-300">{{ t('admin.accounts.bedrockForceGlobal') }}</span>
-          </label>
-          <p class="input-hint mt-1">{{ t('admin.accounts.bedrockForceGlobalHint') }}</p>
+          <UiSwitch
+            v-model="editBedrockForceGlobal"
+            :label="t('admin.accounts.bedrockForceGlobal')"
+          />
+          <p class="ui-field-hint mt-1">{{ t('admin.accounts.bedrockForceGlobalHint') }}</p>
         </div>
 
         <!-- Model Restriction for Bedrock -->
@@ -472,7 +454,7 @@
         <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.poolModeHint') }}
               </p>
@@ -486,14 +468,14 @@
             </p>
           </div>
           <div v-if="poolModeEnabled" class="mt-3">
-            <label class="input-label">{{ t('admin.accounts.poolModeRetryCount') }}</label>
-            <input
+            <UiTextField
               v-model.number="poolModeRetryCount"
               type="number"
-              min="0"
+              density="compact"
+              :min="0"
               :max="MAX_POOL_MODE_RETRY_COUNT"
-              step="1"
-              class="input"
+              :step="1"
+              :label="t('admin.accounts.poolModeRetryCount')"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{
@@ -505,11 +487,11 @@
             </p>
           </div>
           <div v-if="poolModeEnabled" class="mt-3">
-            <label class="input-label">{{ t('admin.accounts.poolModeRetryStatusCodes') }}</label>
-            <input
+            <UiTextField
               v-model="poolModeRetryStatusCodesInput"
               type="text"
-              class="input"
+              density="compact"
+              :label="t('admin.accounts.poolModeRetryStatusCodes')"
               :placeholder="DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ')"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -523,21 +505,21 @@
         v-if="account.platform === 'antigravity' && account.type === 'oauth'"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
-        <label class="input-label">{{ t('admin.accounts.antigravityProjectIdLabel') }}</label>
-        <input
+        <UiTextField
           v-model="antigravityProjectId"
-          data-testid="antigravity-project-id-input"
+          :label="t('admin.accounts.antigravityProjectIdLabel')"
+          :description="t('admin.accounts.antigravityProjectIdHint')"
+          test-id="antigravity-project-id-input"
           type="text"
-          class="input font-mono"
+          monospace
           :placeholder="t('admin.accounts.antigravityProjectIdPlaceholder')"
         />
-        <p class="input-hint">{{ t('admin.accounts.antigravityProjectIdHint') }}</p>
       </div>
 
       <!-- Antigravity model restriction (applies to all antigravity types) -->
       <!-- Antigravity 只支持模型映射模式，不支持白名单模式 -->
       <div v-if="account.platform === 'antigravity'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
-        <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
+        <label class="ui-field-label">{{ t('admin.accounts.modelRestriction') }}</label>
 
         <!-- Mapping Mode Only (no toggle for Antigravity) -->
         <div>
@@ -546,14 +528,16 @@
           </div>
 
           <div class="mb-3 flex flex-wrap gap-2">
-            <button
+            <UiButton
               type="button"
               @click="syncAntigravityUpstreamModels"
               :disabled="isSyncingAntigravityUpstream || !account?.id"
-              class="rounded-lg border border-emerald-200 px-3 py-1.5 text-sm text-emerald-600 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
+              :loading="isSyncingAntigravityUpstream"
+              variant="secondary"
+              density="compact"
             >
               {{ isSyncingAntigravityUpstream ? t('admin.accounts.syncUpstreamModelsLoading') : t('admin.accounts.syncUpstreamModels') }}
-            </button>
+            </UiButton>
           </div>
 
           <ModelMappingEditor
@@ -569,15 +553,16 @@
           />
 
           <div class="flex flex-wrap gap-2">
-            <button
+            <UiButton
               v-for="preset in antigravityPresetMappings"
               :key="preset.label"
               type="button"
+              variant="secondary"
+              density="mini"
               @click="addAntigravityPresetMapping(preset.from, preset.to)"
-              :class="['rounded-lg px-3 py-1 text-xs transition-colors', preset.color]"
             >
               + {{ preset.label }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
@@ -586,7 +571,7 @@
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4">
         <div class="mb-3 flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.tempUnschedulable.title') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.tempUnschedulable.title') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.tempUnschedulable.hint') }}
             </p>
@@ -603,15 +588,15 @@
           </div>
 
           <div class="flex flex-wrap gap-2">
-            <button
+            <UiButton
               v-for="preset in tempUnschedPresets"
               :key="preset.label"
-              type="button"
+              variant="quiet"
+              density="dense"
               @click="addTempUnschedRule(preset.rule)"
-              class="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-300 dark:hover:bg-dark-500"
             >
               + {{ preset.label }}
-            </button>
+            </UiButton>
           </div>
 
           <div v-if="tempUnschedRules.length > 0" class="space-y-3">
@@ -625,94 +610,77 @@
                   {{ t('admin.accounts.tempUnschedulable.ruleIndex', { index: index + 1 }) }}
                 </span>
                 <div class="flex items-center gap-2">
-                  <button
-                    type="button"
+                  <UiIconButton
+                    :label="t('admin.accounts.tempUnschedulable.moveUp')"
+                    icon="chevronUp"
+                    variant="ghost"
+                    density="mini"
                     :disabled="index === 0"
                     @click="moveTempUnschedRule(index, -1)"
-                    class="rounded p-1 text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:text-gray-200"
-                  >
-                    <Icon name="chevronUp" size="sm" :stroke-width="2" />
-                  </button>
-                  <button
-                    type="button"
+                  />
+                  <UiIconButton
+                    :label="t('admin.accounts.tempUnschedulable.moveDown')"
+                    icon="chevronDown"
+                    variant="ghost"
+                    density="mini"
                     :disabled="index === tempUnschedRules.length - 1"
                     @click="moveTempUnschedRule(index, 1)"
-                    class="rounded p-1 text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:text-gray-200"
-                  >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
+                  />
+                  <UiIconButton
+                    :label="t('common.delete')"
+                    icon="x"
+                    variant="danger"
+                    density="mini"
                     @click="removeTempUnschedRule(index)"
-                    class="rounded p-1 text-red-500 transition-colors hover:text-red-600"
-                  >
-                    <Icon name="x" size="sm" :stroke-width="2" />
-                  </button>
+                  />
                 </div>
               </div>
 
               <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.errorCode') }}</label>
-                  <input
+                <UiTextField
                     v-model.number="rule.error_code"
                     type="number"
-                    min="100"
-                    max="599"
-                    class="input"
+                    :label="t('admin.accounts.tempUnschedulable.errorCode')"
+                    :min="100"
+                    :max="599"
+                    density="compact"
                     :placeholder="t('admin.accounts.tempUnschedulable.errorCodePlaceholder')"
-                  />
-                </div>
-                <div>
-                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.durationMinutes') }}</label>
-                  <input
+                />
+                <UiTextField
                     v-model.number="rule.duration_minutes"
                     type="number"
-                    min="1"
-                    class="input"
+                    :label="t('admin.accounts.tempUnschedulable.durationMinutes')"
+                    :min="1"
+                    density="compact"
                     :placeholder="t('admin.accounts.tempUnschedulable.durationPlaceholder')"
-                  />
-                </div>
-                <div class="sm:col-span-2">
-                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.keywords') }}</label>
-                  <input
+                />
+                <UiTextField
+                    class="sm:col-span-2"
                     v-model="rule.keywords"
-                    type="text"
-                    class="input"
+                    :label="t('admin.accounts.tempUnschedulable.keywords')"
+                    :description="t('admin.accounts.tempUnschedulable.keywordsHint')"
+                    density="compact"
                     :placeholder="t('admin.accounts.tempUnschedulable.keywordsPlaceholder')"
-                  />
-                  <p class="input-hint">{{ t('admin.accounts.tempUnschedulable.keywordsHint') }}</p>
-                </div>
-                <div class="sm:col-span-2">
-                  <label class="input-label">{{ t('admin.accounts.tempUnschedulable.description') }}</label>
-                  <input
+                />
+                <UiTextField
+                    class="sm:col-span-2"
                     v-model="rule.description"
-                    type="text"
-                    class="input"
+                    :label="t('admin.accounts.tempUnschedulable.description')"
+                    density="compact"
                     :placeholder="t('admin.accounts.tempUnschedulable.descriptionPlaceholder')"
-                  />
-                </div>
+                />
               </div>
             </div>
           </div>
 
-          <button
-            type="button"
+          <UiButton
+            variant="secondary"
+            block
             @click="addTempUnschedRule()"
-            class="w-full rounded-lg border-2 border-dashed border-gray-300 px-4 py-2 text-sm text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-700 dark:border-dark-500 dark:text-gray-400 dark:hover:border-dark-400 dark:hover:text-gray-300"
           >
-            <svg
-              class="mr-1 inline h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
+            <template #icon><Icon name="plus" size="sm" /></template>
             {{ t('admin.accounts.tempUnschedulable.addRule') }}
-          </button>
+          </UiButton>
         </div>
       </div>
 
@@ -724,29 +692,28 @@
       >
         <div class="mb-3 flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.accountSchedulingThresholdOverride') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.accountSchedulingThresholdOverride') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.accountSchedulingThresholdOverrideHint') }}
             </p>
           </div>
-          <input
+          <UiSwitch
             v-model="accountSchedulingThresholdOverrideEnabled"
             data-testid="account-scheduling-threshold-override-enabled"
-            type="checkbox"
-            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            :label="t('admin.accounts.accountSchedulingThresholdOverride')"
           />
         </div>
         <div v-if="accountSchedulingThresholdOverrideEnabled">
-          <label class="input-label">{{ t('admin.accounts.accountSchedulingThresholdOverrideValue') }}</label>
-          <input
+          <UiTextField
             v-model.number="accountSchedulingThresholdOverrideValue"
-            data-testid="account-scheduling-threshold-override-value"
+            test-id="account-scheduling-threshold-override-value"
             type="number"
             min="1"
             max="100"
-            class="input"
+            density="compact"
+            :label="t('admin.accounts.accountSchedulingThresholdOverrideValue')"
+            :description="t('admin.accounts.accountSchedulingThresholdOverrideDisabledHint')"
           />
-          <p class="input-hint">{{ t('admin.accounts.accountSchedulingThresholdOverrideDisabledHint') }}</p>
         </div>
       </div>
 
@@ -757,7 +724,7 @@
       >
         <div class="flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{
+            <label class="ui-field-label mb-0">{{
               t('admin.accounts.interceptWarmupRequests')
             }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -773,7 +740,7 @@
 
       <div v-if="!isSparkShadow">
         <div class="mb-1 flex items-center gap-2">
-          <label class="input-label mb-0">{{ t('admin.accounts.proxy') }}</label>
+          <label class="ui-field-label mb-0">{{ t('admin.accounts.proxy') }}</label>
           <ProxyAdBanner />
         </div>
         <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
@@ -858,7 +825,7 @@
       >
         <div class="flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.oauthPassthrough') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.oauthPassthrough') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.oauthPassthroughDesc') }}
             </p>
@@ -877,7 +844,7 @@
       >
         <div class="flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.flattenNamespaces') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.flattenNamespaces') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.flattenNamespacesDesc') }}
             </p>
@@ -902,7 +869,7 @@
             </div>
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2">
-                <label class="input-label mb-0">{{ t('admin.accounts.openai.codexImageTool') }}</label>
+                <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.codexImageTool') }}</label>
                 <span
                   class="rounded-full px-2 py-0.5 text-[11px] font-medium"
                   :class="codexImageToolBadgeClass"
@@ -924,7 +891,7 @@
                 :data-testid="`codex-image-tool-${option.value}`"
                 @click="codexImageToolMode = option.value"
                 :class="[
-                  'group flex min-h-[62px] items-start gap-2 rounded-md border px-3 py-2 text-left transition-all',
+                  'group flex min-h-[62px] items-start gap-2 rounded-md border px-3 py-2 text-left transition-colors',
                   codexImageToolMode === option.value
                     ? option.selectedCardClass
                     : 'border-transparent bg-transparent text-slate-600 hover:border-gray-200 hover:bg-gray-50 dark:text-slate-300 dark:hover:border-dark-500 dark:hover:bg-dark-700'
@@ -957,7 +924,7 @@
       >
         <div class="flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.wsMode') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.wsMode') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.wsModeDesc') }}
             </p>
@@ -978,7 +945,7 @@
       >
         <div class="flex items-center justify-between gap-4">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.responsesMode') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.responsesMode') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.responsesModeDesc') }}
             </p>
@@ -1006,24 +973,19 @@
           {{ t('admin.accounts.openai.responsesModeTextDisabledHint') }}
         </div>
         <div>
-          <label class="input-label mb-2 block">{{ t('admin.accounts.openai.endpointCapabilities') }}</label>
+          <label class="ui-field-label mb-2 block">{{ t('admin.accounts.openai.endpointCapabilities') }}</label>
           <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <label
+            <UiCheckbox
               v-for="option in openAIEndpointCapabilityOptions"
               :key="option.value"
-              class="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-dark-600"
-            >
-              <input
-                type="checkbox"
-                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-500"
-                :data-testid="`openai-endpoint-capability-${option.value}`"
-                :checked="openAIEndpointCapabilities.includes(option.value)"
-                @change="toggleOpenAIEndpointCapability(option.value, $event)"
-              />
-              <span class="text-gray-700 dark:text-gray-200">{{ option.label }}</span>
-            </label>
+              :model-value="openAIEndpointCapabilities.includes(option.value)"
+              :data-testid="`openai-endpoint-capability-${option.value}`"
+              :label="option.label"
+              full-width
+              @change="(enabled, event) => setOpenAIEndpointCapability(option.value, enabled, event)"
+            />
           </div>
-          <p class="input-hint">{{ t('admin.accounts.openai.endpointCapabilitiesDesc') }}</p>
+          <p class="ui-field-hint">{{ t('admin.accounts.openai.endpointCapabilitiesDesc') }}</p>
         </div>
       </div>
 
@@ -1032,7 +994,7 @@
         class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div>
-          <label class="input-label mb-0">{{ t('admin.accounts.upstreamBilling.autoProbe') }}</label>
+          <label class="ui-field-label mb-0">{{ t('admin.accounts.upstreamBilling.autoProbe') }}</label>
           <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
             {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
           </p>
@@ -1058,7 +1020,7 @@
       >
         <div class="flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.anthropic.apiKeyPassthrough') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.anthropic.apiKeyPassthrough') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.anthropic.apiKeyPassthroughDesc') }}
             </p>
@@ -1101,7 +1063,7 @@
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="mb-3">
-          <h3 class="input-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
+          <h3 class="ui-field-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
           <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
             {{ t('admin.accounts.quotaControl.hint') }}
           </p>
@@ -1152,7 +1114,7 @@
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="mb-3">
-          <h3 class="input-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
+          <h3 class="ui-field-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
           <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
             {{ t('admin.accounts.quotaLimitHint') }}
           </p>
@@ -1205,7 +1167,7 @@
       >
         <div class="flex items-center justify-between gap-4">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.longContextBilling') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.longContextBilling') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.longContextBillingDesc') }}
             </p>
@@ -1224,7 +1186,7 @@
       >
         <div class="flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.codexCLIOnly') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.codexCLIOnly') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.codexCLIOnlyDesc') }}
             </p>
@@ -1236,7 +1198,7 @@
           class="mt-4 flex items-center justify-between border-l-2 border-gray-200 pl-4 dark:border-dark-600"
         >
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.codexCLIOnlyAppServer') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.codexCLIOnlyAppServer') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.codexCLIOnlyAppServerDesc') }}
             </p>
@@ -1255,7 +1217,7 @@
       >
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.codexFingerprintMode') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.codexFingerprintMode') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.codexFingerprintModeDesc') }}
             </p>
@@ -1273,7 +1235,7 @@
       >
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.planType') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.planType') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.planTypeDesc') }}
             </p>
@@ -1290,7 +1252,7 @@
       >
         <div class="flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.compactMode') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.compactMode') }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.compactModeDesc') }}
             </p>
@@ -1310,8 +1272,8 @@
           </span>
         </div>
         <div>
-          <label class="input-label">{{ t('admin.accounts.openai.compactModelMapping') }}</label>
-          <p class="input-hint">{{ t('admin.accounts.openai.compactModelMappingDesc') }}</p>
+          <label class="ui-field-label">{{ t('admin.accounts.openai.compactModelMapping') }}</label>
+          <p class="ui-field-hint">{{ t('admin.accounts.openai.compactModelMappingDesc') }}</p>
           <ModelMappingEditor
             v-model="openAICompactModelMappings"
             :from-placeholder="t('admin.accounts.fromModel')"
@@ -1325,7 +1287,7 @@
       <div>
         <div class="flex items-center justify-between">
           <div>
-            <label class="input-label mb-0">{{
+            <label class="ui-field-label mb-0">{{
               t('admin.accounts.autoPauseOnExpired')
             }}</label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -1342,53 +1304,53 @@
       >
         <div class="space-y-2">
           <div class="flex items-center justify-between">
-            <label class="input-label mb-0">{{ t('admin.accounts.autoPause5hDisabled') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.autoPause5hDisabled') }}</label>
             <UiSwitch
               v-model="autoPause5hDisabled"
               :label="t('admin.accounts.autoPause5hDisabled')"
               data-testid="auto-pause-5h-disabled"
             />
           </div>
-          <p class="input-hint">{{ t('admin.accounts.autoPauseDisabledHint') }}</p>
+          <p class="ui-field-hint">{{ t('admin.accounts.autoPauseDisabledHint') }}</p>
         </div>
         <div>
-          <label class="input-label">{{ t('admin.accounts.autoPause5hThreshold') }}</label>
-          <input
+          <UiTextField
             v-model.number="autoPause5hThreshold"
             type="number"
-            min="0"
-            max="100"
-            step="0.1"
-            class="input"
+            density="compact"
+            :label="t('admin.accounts.autoPause5hThreshold')"
+            :min="0"
+            :max="100"
+            :step="0.1"
             :disabled="autoPause5hDisabled"
-            data-testid="auto-pause-5h-threshold"
+            test-id="auto-pause-5h-threshold"
           />
-          <p class="input-hint">{{ t('admin.accounts.autoPauseThresholdHint') }}</p>
+          <p class="ui-field-hint">{{ t('admin.accounts.autoPauseThresholdHint') }}</p>
         </div>
         <div class="space-y-2">
           <div class="flex items-center justify-between">
-            <label class="input-label mb-0">{{ t('admin.accounts.autoPause7dDisabled') }}</label>
+            <label class="ui-field-label mb-0">{{ t('admin.accounts.autoPause7dDisabled') }}</label>
             <UiSwitch
               v-model="autoPause7dDisabled"
               :label="t('admin.accounts.autoPause7dDisabled')"
               data-testid="auto-pause-7d-disabled"
             />
           </div>
-          <p class="input-hint">{{ t('admin.accounts.autoPauseDisabledHint') }}</p>
+          <p class="ui-field-hint">{{ t('admin.accounts.autoPauseDisabledHint') }}</p>
         </div>
         <div>
-          <label class="input-label">{{ t('admin.accounts.autoPause7dThreshold') }}</label>
-          <input
+          <UiTextField
             v-model.number="autoPause7dThreshold"
             type="number"
-            min="0"
-            max="100"
-            step="0.1"
-            class="input"
+            density="compact"
+            :label="t('admin.accounts.autoPause7dThreshold')"
+            :min="0"
+            :max="100"
+            :step="0.1"
             :disabled="autoPause7dDisabled"
-            data-testid="auto-pause-7d-threshold"
+            test-id="auto-pause-7d-threshold"
           />
-          <p class="input-hint">{{ t('admin.accounts.autoPauseThresholdHint') }}</p>
+          <p class="ui-field-hint">{{ t('admin.accounts.autoPauseThresholdHint') }}</p>
         </div>
       </div>
 
@@ -1398,7 +1360,7 @@
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="mb-3">
-          <h3 class="input-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
+          <h3 class="ui-field-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
           <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
             {{ t('admin.accounts.quotaControl.hint') }}
           </p>
@@ -1408,7 +1370,7 @@
         <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.windowCost.label') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.quotaControl.windowCost.label') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.quotaControl.windowCost.hint') }}
               </p>
@@ -1420,36 +1382,8 @@
           </div>
 
           <div v-if="windowCostEnabled" class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.windowCost.limit') }}</label>
-              <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
-                <input
-                  v-model.number="windowCostLimit"
-                  type="number"
-                  min="0"
-                  step="1"
-                  class="input pl-7"
-                  :placeholder="t('admin.accounts.quotaControl.windowCost.limitPlaceholder')"
-                />
-              </div>
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.windowCost.limitHint') }}</p>
-            </div>
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.windowCost.stickyReserve') }}</label>
-              <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
-                <input
-                  v-model.number="windowCostStickyReserve"
-                  type="number"
-                  min="0"
-                  step="1"
-                  class="input pl-7"
-                  :placeholder="t('admin.accounts.quotaControl.windowCost.stickyReservePlaceholder')"
-                />
-              </div>
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.windowCost.stickyReserveHint') }}</p>
-            </div>
+            <UiTextField v-model.number="windowCostLimit" type="number" :label="t('admin.accounts.quotaControl.windowCost.limit')" :description="t('admin.accounts.quotaControl.windowCost.limitHint')" :min="0" :step="1" density="compact" :placeholder="t('admin.accounts.quotaControl.windowCost.limitPlaceholder')"><template #prefix>$</template></UiTextField>
+            <UiTextField v-model.number="windowCostStickyReserve" type="number" :label="t('admin.accounts.quotaControl.windowCost.stickyReserve')" :description="t('admin.accounts.quotaControl.windowCost.stickyReserveHint')" :min="0" :step="1" density="compact" :placeholder="t('admin.accounts.quotaControl.windowCost.stickyReservePlaceholder')"><template #prefix>$</template></UiTextField>
           </div>
         </div>
 
@@ -1457,7 +1391,7 @@
         <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.sessionLimit.label') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.quotaControl.sessionLimit.label') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.quotaControl.sessionLimit.hint') }}
               </p>
@@ -1469,33 +1403,8 @@
           </div>
 
           <div v-if="sessionLimitEnabled" class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.sessionLimit.maxSessions') }}</label>
-              <input
-                v-model.number="maxSessions"
-                type="number"
-                min="1"
-                step="1"
-                class="input"
-                :placeholder="t('admin.accounts.quotaControl.sessionLimit.maxSessionsPlaceholder')"
-              />
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.sessionLimit.maxSessionsHint') }}</p>
-            </div>
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.sessionLimit.idleTimeout') }}</label>
-              <div class="relative">
-                <input
-                  v-model.number="sessionIdleTimeout"
-                  type="number"
-                  min="1"
-                  step="1"
-                  class="input pr-12"
-                  :placeholder="t('admin.accounts.quotaControl.sessionLimit.idleTimeoutPlaceholder')"
-                />
-                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">{{ t('common.minutes') }}</span>
-              </div>
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.sessionLimit.idleTimeoutHint') }}</p>
-            </div>
+            <UiTextField v-model.number="maxSessions" type="number" :label="t('admin.accounts.quotaControl.sessionLimit.maxSessions')" :description="t('admin.accounts.quotaControl.sessionLimit.maxSessionsHint')" :min="1" :step="1" density="compact" :placeholder="t('admin.accounts.quotaControl.sessionLimit.maxSessionsPlaceholder')" />
+            <UiTextField v-model.number="sessionIdleTimeout" type="number" :label="t('admin.accounts.quotaControl.sessionLimit.idleTimeout')" :description="t('admin.accounts.quotaControl.sessionLimit.idleTimeoutHint')" :min="1" :step="1" density="compact" :placeholder="t('admin.accounts.quotaControl.sessionLimit.idleTimeoutPlaceholder')"><template #suffix>{{ t('common.minutes') }}</template></UiTextField>
           </div>
         </div>
 
@@ -1503,7 +1412,7 @@
         <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.rpmLimit.label') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.quotaControl.rpmLimit.label') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.quotaControl.rpmLimit.hint') }}
               </p>
@@ -1515,89 +1424,22 @@
           </div>
 
           <div v-if="rpmLimitEnabled" class="space-y-4">
-            <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.rpmLimit.baseRpm') }}</label>
-              <input
-                v-model.number="baseRpm"
-                type="number"
-                min="1"
-                max="1000"
-                step="1"
-                class="input"
-                :placeholder="t('admin.accounts.quotaControl.rpmLimit.baseRpmPlaceholder')"
-              />
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.rpmLimit.baseRpmHint') }}</p>
-            </div>
+            <UiTextField v-model.number="baseRpm" type="number" :label="t('admin.accounts.quotaControl.rpmLimit.baseRpm')" :description="t('admin.accounts.quotaControl.rpmLimit.baseRpmHint')" :min="1" :max="1000" :step="1" density="compact" :placeholder="t('admin.accounts.quotaControl.rpmLimit.baseRpmPlaceholder')" />
 
             <div>
-              <label class="input-label">{{ t('admin.accounts.quotaControl.rpmLimit.strategy') }}</label>
-              <div class="flex gap-2">
-                <button
-                  type="button"
-                  @click="rpmStrategy = 'tiered'"
-                  :class="[
-                    'flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all',
-                    rpmStrategy === 'tiered'
-                      ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
-                  ]"
-                >
-                  <div class="text-center">
-                    <div>{{ t('admin.accounts.quotaControl.rpmLimit.strategyTiered') }}</div>
-                    <div class="mt-0.5 text-[10px] opacity-70">{{ t('admin.accounts.quotaControl.rpmLimit.strategyTieredHint') }}</div>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  @click="rpmStrategy = 'sticky_exempt'"
-                  :class="[
-                    'flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all',
-                    rpmStrategy === 'sticky_exempt'
-                      ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
-                  ]"
-                >
-                  <div class="text-center">
-                    <div>{{ t('admin.accounts.quotaControl.rpmLimit.strategyStickyExempt') }}</div>
-                    <div class="mt-0.5 text-[10px] opacity-70">{{ t('admin.accounts.quotaControl.rpmLimit.strategyStickyExemptHint') }}</div>
-                  </div>
-                </button>
-              </div>
+              <UiRadioGroup v-model="rpmStrategy" :label="t('admin.accounts.quotaControl.rpmLimit.strategy')" name="edit-rpm-strategy" layout="grid" :options="rpmStrategyOptions" />
             </div>
 
             <div v-if="rpmStrategy === 'tiered'">
-              <label class="input-label">{{ t('admin.accounts.quotaControl.rpmLimit.stickyBuffer') }}</label>
-              <input
-                v-model.number="rpmStickyBuffer"
-                type="number"
-                min="1"
-                step="1"
-                class="input"
-                :placeholder="t('admin.accounts.quotaControl.rpmLimit.stickyBufferPlaceholder')"
-              />
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.rpmLimit.stickyBufferHint') }}</p>
+              <UiTextField v-model.number="rpmStickyBuffer" type="number" :label="t('admin.accounts.quotaControl.rpmLimit.stickyBuffer')" :description="t('admin.accounts.quotaControl.rpmLimit.stickyBufferHint')" :min="1" :step="1" density="compact" :placeholder="t('admin.accounts.quotaControl.rpmLimit.stickyBufferPlaceholder')" />
             </div>
 
           </div>
 
           <!-- 用户消息限速模式（独立于 RPM 开关，始终可见） -->
           <div class="mt-4">
-            <label class="input-label">{{ t('admin.accounts.quotaControl.rpmLimit.userMsgQueue') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 mb-2">
-              {{ t('admin.accounts.quotaControl.rpmLimit.userMsgQueueHint') }}
-            </p>
-            <div class="flex space-x-2">
-              <button type="button" v-for="opt in umqModeOptions" :key="opt.value"
-                @click="userMsgQueueMode = opt.value"
-                :class="[
-                  'px-3 py-1.5 text-sm rounded-md border transition-colors',
-                  userMsgQueueMode === opt.value
-                    ? 'bg-primary-600 text-white border-primary-600'
-                    : 'bg-white dark:bg-dark-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-dark-500 hover:bg-gray-50 dark:hover:bg-dark-600'
-                ]">
-                {{ opt.label }}
-              </button>
-            </div>
+            <UiRadioGroup v-model="userMsgQueueMode" :label="t('admin.accounts.quotaControl.rpmLimit.userMsgQueue')" name="edit-umq-mode" layout="inline" :options="umqModeOptions" />
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.quotaControl.rpmLimit.userMsgQueueHint') }}</p>
           </div>
         </div>
 
@@ -1605,7 +1447,7 @@
         <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
           <div class="flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.tlsFingerprint.label') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.quotaControl.tlsFingerprint.label') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.quotaControl.tlsFingerprint.hint') }}
               </p>
@@ -1630,7 +1472,7 @@
         <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
           <div class="flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.sessionIdMasking.label') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.quotaControl.sessionIdMasking.label') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.quotaControl.sessionIdMasking.hint') }}
               </p>
@@ -1646,7 +1488,7 @@
         <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
           <div class="flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.cacheTTLOverride.label') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.quotaControl.cacheTTLOverride.label') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.quotaControl.cacheTTLOverride.hint') }}
               </p>
@@ -1671,7 +1513,7 @@
         <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
           <div class="flex items-center justify-between">
             <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.customBaseUrl.label') }}</label>
+              <label class="ui-field-label mb-0">{{ t('admin.accounts.quotaControl.customBaseUrl.label') }}</label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ t('admin.accounts.quotaControl.customBaseUrl.hint') }}
               </p>
@@ -1682,10 +1524,11 @@
             />
           </div>
           <div v-if="customBaseUrlEnabled" class="mt-3">
-            <input
+            <UiTextField
               v-model="customBaseUrl"
               type="text"
-              class="input"
+              density="compact"
+              :label="t('admin.accounts.quotaControl.customBaseUrl.label')"
               :placeholder="t('admin.accounts.quotaControl.customBaseUrl.urlHint')"
             />
           </div>
@@ -1694,23 +1537,17 @@
 
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div>
-          <label class="input-label">{{ t('common.status') }}</label>
+          <label class="ui-field-label">{{ t('common.status') }}</label>
           <UiSelect v-model="form.status" :options="statusOptions" />
         </div>
 
         <!-- Mixed Scheduling (only for antigravity accounts, read-only in edit mode) -->
         <div v-if="account?.platform === 'antigravity'" class="flex items-center gap-2">
-          <label class="flex cursor-not-allowed items-center gap-2 opacity-60">
-            <input
-              type="checkbox"
-              v-model="mixedScheduling"
-              disabled
-              class="h-4 w-4 cursor-not-allowed rounded border-gray-300 text-primary-500 focus:ring-primary-500 dark:border-dark-500"
-            />
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t('admin.accounts.mixedScheduling') }}
-            </span>
-          </label>
+          <UiCheckbox
+            v-model="mixedScheduling"
+            disabled
+            :label="t('admin.accounts.mixedScheduling')"
+          />
           <div class="group relative">
             <span
               class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-gray-200 text-xs text-gray-500 hover:bg-gray-300 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500"
@@ -1729,16 +1566,7 @@
           </div>
         </div>
         <div v-if="account?.platform === 'antigravity'" class="mt-3 flex items-center gap-2">
-          <label class="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
-              v-model="allowOverages"
-              class="h-4 w-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500 dark:border-dark-500"
-            />
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t('admin.accounts.allowOverages') }}
-            </span>
-          </label>
+          <UiCheckbox v-model="allowOverages" :label="t('admin.accounts.allowOverages')" />
           <div class="group relative">
             <span
               class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-gray-200 text-xs text-gray-500 hover:bg-gray-300 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500"
@@ -1795,8 +1623,19 @@
     :confirm-text="t('common.confirm')"
     :cancel-text="t('common.cancel')"
     :danger="true"
+    :pending="submitting"
     @confirm="handleMixedChannelConfirm"
     @cancel="handleMixedChannelCancel"
+  />
+  <UiConfirmDialog
+    :show="errorCodeConfirmation !== null"
+    :title="t('common.confirm')"
+    :message="errorCodeConfirmationMessage"
+    :confirm-text="t('common.confirm')"
+    :cancel-text="t('common.cancel')"
+    :danger="true"
+    @confirm="confirmErrorCodeWarning"
+    @cancel="cancelErrorCodeWarning"
   />
 </template>
 
@@ -1821,10 +1660,12 @@ import Icon from '@/components/icons/Icon.vue'
 import {
   AppGrid,
   UiButton,
+  UiCheckbox,
   UiConfirmDialog,
   UiDialog,
   UiIconButton,
   UiPasswordField,
+  UiRadioGroup,
   UiSelect,
   UiSwitch,
   UiTextArea,
@@ -1989,6 +1830,12 @@ function formatPoolModeRetryStatusCodes(value: unknown): string {
 const customErrorCodesEnabled = ref(false)
 const selectedErrorCodes = ref<number[]>([])
 const customErrorCodeInput = ref<number | null>(null)
+const errorCodeConfirmation = ref<{ code: 429 | 529; source: 'toggle' | 'custom' } | null>(null)
+const errorCodeConfirmationMessage = computed(() =>
+  errorCodeConfirmation.value?.code === 429
+    ? t('admin.accounts.customErrorCodes429Warning')
+    : t('admin.accounts.customErrorCodes529Warning'),
+)
 const headerOverrideEnabled = ref(false)
 const headerOverrideRows = ref<HeaderOverrideRow[]>([])
 
@@ -2047,6 +1894,10 @@ const rpmLimitEnabled = ref(false)
 const baseRpm = ref<number | null>(null)
 const rpmStrategy = ref<'tiered' | 'sticky_exempt'>('tiered')
 const rpmStickyBuffer = ref<number | null>(null)
+const rpmStrategyOptions = computed(() => [
+  { value: 'tiered', label: t('admin.accounts.quotaControl.rpmLimit.strategyTiered'), description: t('admin.accounts.quotaControl.rpmLimit.strategyTieredHint') },
+  { value: 'sticky_exempt', label: t('admin.accounts.quotaControl.rpmLimit.strategyStickyExempt'), description: t('admin.accounts.quotaControl.rpmLimit.strategyStickyExemptHint') },
+])
 const userMsgQueueMode = ref('')
 const umqModeOptions = computed(() => [
   { value: '', label: t('admin.accounts.quotaControl.rpmLimit.umqModeOff') },
@@ -2288,8 +2139,13 @@ const readOpenAIEndpointCapabilities = (credentials?: Record<string, unknown>): 
   return ['chat_completions', 'embeddings']
 }
 
-const toggleOpenAIEndpointCapability = (capability: OpenAIEndpointCapability, event?: Event) => {
-  if (openAIEndpointCapabilities.value.includes(capability)) {
+const setOpenAIEndpointCapability = (
+  capability: OpenAIEndpointCapability,
+  enabled: boolean,
+  event?: Event
+) => {
+  const currentlyEnabled = openAIEndpointCapabilities.value.includes(capability)
+  if (!enabled && currentlyEnabled) {
     if (openAIEndpointCapabilities.value.length <= 1) {
       const input = event?.target as HTMLInputElement | null
       if (input) input.checked = true
@@ -2303,10 +2159,12 @@ const toggleOpenAIEndpointCapability = (capability: OpenAIEndpointCapability, ev
     }
     return
   }
-  openAIEndpointCapabilities.value = normalizeOpenAIEndpointCapabilities([
-    ...openAIEndpointCapabilities.value,
-    capability
-  ])
+  if (enabled && !currentlyEnabled) {
+    openAIEndpointCapabilities.value = normalizeOpenAIEndpointCapabilities([
+      ...openAIEndpointCapabilities.value,
+      capability
+    ])
+  }
 }
 
 const applyOpenAIEndpointCapabilities = (credentials: Record<string, unknown>) => {
@@ -2927,14 +2785,9 @@ const toggleErrorCode = (code: number) => {
   const index = selectedErrorCodes.value.indexOf(code)
   if (index === -1) {
     // Adding code - check for 429/529 warning
-    if (code === 429) {
-      if (!confirm(t('admin.accounts.customErrorCodes429Warning'))) {
-        return
-      }
-    } else if (code === 529) {
-      if (!confirm(t('admin.accounts.customErrorCodes529Warning'))) {
-        return
-      }
+    if (code === 429 || code === 529) {
+      errorCodeConfirmation.value = { code, source: 'toggle' }
+      return
     }
     selectedErrorCodes.value.push(code)
   } else {
@@ -2954,17 +2807,24 @@ const addCustomErrorCode = () => {
     return
   }
   // Check for 429/529 warning
-  if (code === 429) {
-    if (!confirm(t('admin.accounts.customErrorCodes429Warning'))) {
-      return
-    }
-  } else if (code === 529) {
-    if (!confirm(t('admin.accounts.customErrorCodes529Warning'))) {
-      return
-    }
+  if (code === 429 || code === 529) {
+    errorCodeConfirmation.value = { code, source: 'custom' }
+    return
   }
   selectedErrorCodes.value.push(code)
   customErrorCodeInput.value = null
+}
+
+const confirmErrorCodeWarning = () => {
+  const confirmation = errorCodeConfirmation.value
+  errorCodeConfirmation.value = null
+  if (!confirmation || selectedErrorCodes.value.includes(confirmation.code)) return
+  selectedErrorCodes.value.push(confirmation.code)
+  if (confirmation.source === 'custom') customErrorCodeInput.value = null
+}
+
+const cancelErrorCodeWarning = () => {
+  errorCodeConfirmation.value = null
 }
 
 // Remove error code
@@ -4041,6 +3901,7 @@ const handleSubmit = async () => {
 
 // Handle mixed channel warning confirmation
 const handleMixedChannelConfirm = async () => {
+  if (submitting.value) return
   const action = mixedChannelWarningAction.value
   if (!action) {
     clearMixedChannelDialog()

@@ -61,6 +61,8 @@
       :title="isEditing ? t('admin.announcements.editAnnouncement') : t('admin.announcements.createAnnouncement')"
       width="wide"
       :close-label="t('common.close')"
+      :close-on-escape="!saving"
+      :show-close-button="!saving"
       @close="closeEdit"
     >
       <form id="announcement-form" @submit.prevent="handleSave">
@@ -88,7 +90,7 @@
 
       <template #footer>
         <AppInline justify="flex-end">
-          <UiButton type="button" density="dense" @click="closeEdit">{{ t('common.cancel') }}</UiButton>
+          <UiButton type="button" density="dense" :disabled="saving" @click="closeEdit">{{ t('common.cancel') }}</UiButton>
           <UiButton
             type="submit"
             form="announcement-form"
@@ -333,6 +335,7 @@ function handleSearch() {
 const showEditDialog = ref(false)
 const saving = ref(false)
 const editingAnnouncement = ref<Announcement | null>(null)
+let editSessionId = 0
 
 const isEditing = computed(() => !!editingAnnouncement.value)
 
@@ -384,18 +387,24 @@ function fillFormFromAnnouncement(a: Announcement) {
 }
 
 function openCreateDialog() {
+  if (saving.value) return
+  editSessionId += 1
   editingAnnouncement.value = null
   resetForm()
   showEditDialog.value = true
 }
 
 function openEditDialog(row: Announcement) {
+  if (saving.value) return
+  editSessionId += 1
   editingAnnouncement.value = row
   fillFormFromAnnouncement(row)
   showEditDialog.value = true
 }
 
 function closeEdit() {
+  if (saving.value) return
+  editSessionId += 1
   showEditDialog.value = false
   editingAnnouncement.value = null
 }
@@ -452,26 +461,30 @@ async function handleSave() {
     return
   }
 
+  const sessionId = editSessionId
+  const original = editingAnnouncement.value
+  const wasEditing = original !== null
   saving.value = true
   try {
-    if (!editingAnnouncement.value) {
+    if (!original) {
       const payload = buildCreatePayload()
       await adminAPI.announcements.create(payload)
       appStore.showSuccess(t('common.success'))
-      showEditDialog.value = false
+      if (sessionId === editSessionId) showEditDialog.value = false
       await loadAnnouncements()
       return
     }
 
-    const original = editingAnnouncement.value
     const payload = buildUpdatePayload(original)
     await adminAPI.announcements.update(original.id, payload)
     appStore.showSuccess(t('common.success'))
-    showEditDialog.value = false
-    editingAnnouncement.value = null
+    if (sessionId === editSessionId && editingAnnouncement.value?.id === original.id) {
+      showEditDialog.value = false
+      editingAnnouncement.value = null
+    }
     await loadAnnouncements()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || (editingAnnouncement.value ? t('admin.announcements.failedToUpdate') : t('admin.announcements.failedToCreate')))
+    appStore.showError(error.response?.data?.detail || (wasEditing ? t('admin.announcements.failedToUpdate') : t('admin.announcements.failedToCreate')))
   } finally {
     saving.value = false
   }

@@ -79,6 +79,8 @@ export default {
       cost: '费用',
       downloadStatus: '下载状态',
       items: '明细',
+      customId: '自定义 ID',
+      prompt: 'Prompt',
       preview: '预览',
       previewZoom: '放大压缩预览 {id}',
       previewReload: '重新加载压缩预览',

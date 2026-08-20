@@ -8,6 +8,7 @@
       :class="{ 'date-picker-trigger-open': isOpen, 'ui-date-range__trigger--disabled': disabled }"
       :disabled="disabled"
       :aria-label="ariaLabel || displayValue"
+      aria-haspopup="dialog"
       :aria-expanded="isOpen"
       :aria-controls="popupId"
       @click="toggle"
@@ -22,6 +23,7 @@
       <div
         v-if="isOpen"
         :id="popupId"
+        ref="popupRef"
         class="ui-date-range__popup date-picker-dropdown"
         role="dialog"
         :aria-label="ariaLabel || displayValue"
@@ -80,7 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import type { UiDensity } from './types'
@@ -116,6 +118,7 @@ const startInputId = `${id.value}-start`
 const endInputId = `${id.value}-end`
 const containerRef = ref<HTMLElement | null>(null)
 const triggerRef = ref<HTMLButtonElement | null>(null)
+const popupRef = ref<HTMLElement | null>(null)
 const isOpen = ref(false)
 const localStartDate = ref(props.startDate)
 const localEndDate = ref(props.endDate)
@@ -183,25 +186,36 @@ function selectPreset(preset: DatePreset): void {
 }
 function onDateChange(): void { syncActivePreset(); activePreset.value = activePreset.value && presets.some(preset => preset.value === activePreset.value) ? activePreset.value : null }
 function toggle(): void { if (!props.disabled) isOpen.value = !isOpen.value }
+async function closeAndRestoreFocus(): Promise<void> {
+  isOpen.value = false
+  await nextTick()
+  triggerRef.value?.focus()
+}
 function apply(): void {
   emit('update:startDate', localStartDate.value)
   emit('update:endDate', localEndDate.value)
   emit('change', { startDate: localStartDate.value, endDate: localEndDate.value, preset: activePreset.value })
-  isOpen.value = false
+  void closeAndRestoreFocus()
 }
 function onTriggerKeydown(event: KeyboardEvent): void {
-  if ((event.key === 'Enter' || event.key === ' ') && !isOpen.value) { event.preventDefault(); isOpen.value = true }
-  else if (event.key === 'Escape' && isOpen.value) { event.preventDefault(); isOpen.value = false; triggerRef.value?.focus() }
+  if (event.key === 'ArrowDown' && !isOpen.value) { event.preventDefault(); isOpen.value = true }
+  else if (event.key === 'Escape' && isOpen.value) { event.preventDefault(); void closeAndRestoreFocus() }
 }
 function onDocumentClick(event: MouseEvent): void {
-  if (isOpen.value && !(event.target instanceof Node && containerRef.value?.contains(event.target))) isOpen.value = false
+  if (isOpen.value && !(event.target instanceof Node && containerRef.value?.contains(event.target))) void closeAndRestoreFocus()
 }
 function onDocumentKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape' && isOpen.value) { event.preventDefault(); isOpen.value = false; triggerRef.value?.focus() }
+  if (event.key === 'Escape' && isOpen.value) { event.preventDefault(); void closeAndRestoreFocus() }
 }
 
 watch(() => props.startDate, value => { localStartDate.value = value; syncActivePreset() })
 watch(() => props.endDate, value => { localEndDate.value = value; syncActivePreset() })
+watch(isOpen, async open => {
+  if (!open) return
+  await nextTick()
+  popupRef.value?.querySelector<HTMLButtonElement>('.ui-date-range__preset')?.focus()
+})
+watch(() => props.disabled, disabled => { if (disabled) isOpen.value = false })
 onMounted(() => {
   syncActivePreset()
   document.addEventListener('click', onDocumentClick)

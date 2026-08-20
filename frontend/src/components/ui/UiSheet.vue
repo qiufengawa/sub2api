@@ -1,13 +1,16 @@
-<template><Teleport to="body"><Transition name="ui-sheet"><div v-if="show" class="ui-sheet__overlay" :style="{zIndex}" role="dialog" aria-modal="true" :aria-label="title" @click.self="emit('close')"><section ref="panelRef" class="ui-sheet" tabindex="-1"><div class="ui-sheet__handle"/><header><h2>{{ title }}</h2><UiIconButton :label="closeLabel" variant="ghost" density="dense" @click="emit('close')"><Icon name="x" size="sm"/></UiIconButton></header><div class="ui-sheet__body"><slot/></div><footer v-if="$slots.footer"><slot name="footer"/></footer></section></div></Transition></Teleport></template>
+<template><Teleport to="body"><Transition name="ui-sheet"><div v-if="show" class="ui-sheet__overlay" :style="{zIndex}" role="dialog" aria-modal="true" :aria-label="title" @click.self="emit('close')"><section ref="panelRef" class="ui-sheet" tabindex="-1"><div class="ui-sheet__handle"/><header><h2>{{ title }}</h2><UiIconButton :label="resolvedCloseLabel" variant="ghost" density="dense" @click="emit('close')"><Icon name="x" size="sm"/></UiIconButton></header><div class="ui-sheet__body"><slot/></div><footer v-if="$slots.footer"><slot name="footer"/></footer></section></div></Transition></Teleport></template>
 <script setup lang="ts">
 import Icon from '@/components/icons/Icon.vue';
-import { toRef } from 'vue';
+import { computed, toRef } from 'vue';
 import UiIconButton from './UiIconButton.vue';
 import { useOverlayLifecycle } from './useOverlayLifecycle';
+import { useUiT } from './useUiI18n';
 const props=withDefaults(defineProps<{show:boolean;
 title:string;
-closeLabel?:string}>(),{closeLabel:'关闭'});
+ closeLabel?:string}>(), {});
 const emit=defineEmits<{close:[]}>()
+const t = useUiT()
+const resolvedCloseLabel = computed(() => props.closeLabel || t('common.close'))
 const { panelRef, zIndex } = useOverlayLifecycle(toRef(props, 'show'), () => emit('close'))
 </script>
 <style scoped>.ui-sheet__overlay{position:fixed;
@@ -35,4 +38,4 @@ border-bottom:1px solid var(--ui-border-soft)}.ui-sheet footer{border-top:1px so
 border-bottom:0}.ui-sheet h2{margin:0;
 font-size:15px}.ui-sheet__body{min-height:0;
 padding:14px 16px;
-overflow:auto}.ui-sheet-enter-active,.ui-sheet-leave-active{transition:opacity var(--ui-motion-base)}.ui-sheet-enter-active .ui-sheet,.ui-sheet-leave-active .ui-sheet{transition:transform var(--ui-motion-base)}.ui-sheet-enter-from,.ui-sheet-leave-to{opacity:0}.ui-sheet-enter-from .ui-sheet,.ui-sheet-leave-to .ui-sheet{transform:translateY(100%)}</style>
+overflow:auto}.ui-sheet-enter-active,.ui-sheet-leave-active{transition:opacity var(--ui-motion-base)}.ui-sheet-enter-active .ui-sheet,.ui-sheet-leave-active .ui-sheet{transition:transform var(--ui-motion-base)}.ui-sheet-enter-from,.ui-sheet-leave-to{opacity:0}.ui-sheet-enter-from .ui-sheet,.ui-sheet-leave-to .ui-sheet{transform:translateY(100%)}@media(prefers-reduced-motion:reduce){.ui-sheet-enter-active,.ui-sheet-leave-active,.ui-sheet-enter-active .ui-sheet,.ui-sheet-leave-active .ui-sheet{transition:none}}</style>

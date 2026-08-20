@@ -59,9 +59,14 @@ describe('PricingEntryCard', () => {
     const collapse = wrapper.get('button[aria-label="common.collapse"]')
 
     expect(collapse.attributes('aria-expanded')).toBe('true')
+    const bodyId = collapse.attributes('aria-controls')
+    expect(bodyId).toBeTruthy()
     await collapse.trigger('click')
 
-    expect(wrapper.get('button[aria-label="common.expand"]').attributes('aria-expanded')).toBe('false')
+    const expand = wrapper.get('button[aria-label="common.expand"]')
+    expect(expand.attributes('aria-expanded')).toBe('false')
+    expect(expand.attributes('aria-controls')).toBe(bodyId)
+    expect(wrapper.get(`#${bodyId}`).exists()).toBe(true)
 
     await wrapper.get('button[aria-label="common.delete"]').trigger('click')
     expect(wrapper.emitted('remove')).toHaveLength(1)

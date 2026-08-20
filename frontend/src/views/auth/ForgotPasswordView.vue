@@ -23,6 +23,7 @@
           autocomplete="email"
           :disabled="isLoading"
           :error="Boolean(errors.email)"
+          :error-message="errors.email"
           :placeholder="t('auth.emailPlaceholder')"
         />
 

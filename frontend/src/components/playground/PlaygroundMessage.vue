@@ -120,8 +120,8 @@
               </div>
             </div>
 
-            <div v-else-if="message.status === 'streaming'" class="message-streaming flex items-center gap-2 py-1 text-sm">
-              <span class="message-streaming__dot h-1.5 w-1.5 animate-pulse rounded-full"></span>
+            <div v-else-if="message.status === 'streaming'" class="message-streaming flex items-center gap-2 py-1 text-sm" role="status" aria-live="polite">
+              <span aria-hidden="true" class="message-streaming__dot h-1.5 w-1.5 animate-pulse rounded-full"></span>
               {{ t('playground.message.generating') }}
             </div>
 
@@ -165,9 +165,14 @@
                     <dt class="flex-none">{{ t('playground.message.model') }}</dt>
                     <dd class="flex min-w-0 items-center gap-1">
                       <code class="min-w-0 truncate" :title="message.model">{{ message.model }}</code>
-                      <button type="button" class="metadata-copy" :title="copyValueLabel(t('playground.message.model'))" :aria-label="copyValueLabel(t('playground.message.model'))" @click="copyValue(message.model)">
-                        <Icon :name="copiedValue === message.model ? 'check' : 'copy'" size="sm" />
-                      </button>
+                      <UiIconButton
+                        class="metadata-copy"
+                        density="mini"
+                        variant="ghost"
+                        :icon="copiedValue === message.model ? 'check' : 'copy'"
+                        :label="copyValueLabel(t('playground.message.model'))"
+                        @click="copyValue(message.model)"
+                      />
                     </dd>
                   </div>
                   <div v-if="message.finishReason" class="flex min-w-0 gap-2">
@@ -178,18 +183,28 @@
                     <dt class="flex-none">{{ t('playground.message.requestId') }}</dt>
                     <dd class="flex min-w-0 items-center gap-1">
                       <code class="min-w-0 truncate" :title="message.requestId">{{ message.requestId }}</code>
-                      <button type="button" class="metadata-copy" :title="copyValueLabel(t('playground.message.requestId'))" :aria-label="copyValueLabel(t('playground.message.requestId'))" @click="copyValue(message.requestId)">
-                        <Icon :name="copiedValue === message.requestId ? 'check' : 'copy'" size="sm" />
-                      </button>
+                      <UiIconButton
+                        class="metadata-copy"
+                        density="mini"
+                        variant="ghost"
+                        :icon="copiedValue === message.requestId ? 'check' : 'copy'"
+                        :label="copyValueLabel(t('playground.message.requestId'))"
+                        @click="copyValue(message.requestId)"
+                      />
                     </dd>
                   </div>
                   <div v-if="message.responseId" class="flex min-w-0 items-center gap-2">
                     <dt class="flex-none">{{ t('playground.message.responseId') }}</dt>
                     <dd class="flex min-w-0 items-center gap-1">
                       <code class="min-w-0 truncate" :title="message.responseId">{{ message.responseId }}</code>
-                      <button type="button" class="metadata-copy" :title="copyValueLabel(t('playground.message.responseId'))" :aria-label="copyValueLabel(t('playground.message.responseId'))" @click="copyValue(message.responseId)">
-                        <Icon :name="copiedValue === message.responseId ? 'check' : 'copy'" size="sm" />
-                      </button>
+                      <UiIconButton
+                        class="metadata-copy"
+                        density="mini"
+                        variant="ghost"
+                        :icon="copiedValue === message.responseId ? 'check' : 'copy'"
+                        :label="copyValueLabel(t('playground.message.responseId'))"
+                        @click="copyValue(message.responseId)"
+                      />
                     </dd>
                   </div>
                 </dl>

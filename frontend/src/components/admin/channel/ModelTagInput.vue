@@ -2,6 +2,7 @@
   <div>
     <UiTagInput
       :model-value="models"
+      :aria-label="t('admin.channels.form.models')"
       :placeholder="placeholder"
       @update:model-value="emit('update:models', $event)"
     />

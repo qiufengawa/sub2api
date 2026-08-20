@@ -1,5 +1,5 @@
 <template>
-  <div :class="props.embedded ? 'space-y-4' : 'card'">
+  <div :class="props.embedded ? 'space-y-4' : 'ui-panel'">
     <div
       v-if="!props.embedded"
       class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
@@ -42,36 +42,44 @@
         </div>
 
         <div :class="props.embedded ? 'flex flex-wrap items-center gap-2' : 'flex flex-wrap items-center gap-3'">
-          <label class="btn btn-secondary btn-sm cursor-pointer">
-            <input
-              data-testid="profile-avatar-file-input"
-              type="file"
-              accept="image/*"
-              class="hidden"
-              @change="handleAvatarFileChange"
-            >
+          <input
+            ref="avatarFileInput"
+            data-testid="profile-avatar-file-input"
+            type="file"
+            accept="image/*"
+            class="hidden"
+            @change="handleAvatarFileChange"
+          >
+          <UiButton
+            data-testid="profile-avatar-upload"
+            type="button"
+            density="compact"
+            @click="openAvatarFilePicker"
+          >
             {{ t('profile.avatar.uploadAction') }}
-          </label>
+          </UiButton>
 
-          <button
+          <UiButton
             data-testid="profile-avatar-save"
             type="button"
-            class="btn btn-primary btn-sm"
-            :disabled="avatarSaving || !avatarDraft"
+            variant="primary"
+            density="compact"
+            :disabled="!avatarDraft"
+            :loading="avatarSaving"
             @click="handleAvatarSave"
           >
             {{ t('common.save') }}
-          </button>
+          </UiButton>
 
-          <button
+          <UiButton
             data-testid="profile-avatar-delete"
             type="button"
-            class="btn btn-secondary btn-sm"
+            density="compact"
             :disabled="avatarSaving"
             @click="handleAvatarDelete"
           >
             {{ t('common.delete') }}
-          </button>
+          </UiButton>
         </div>
       </div>
     </div>
@@ -86,6 +94,7 @@ import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import type { User } from '@/types'
 import { extractApiErrorMessage } from '@/utils/apiError'
+import { UiButton } from '@/components/ui'
 
 const props = withDefaults(defineProps<{
   user: User | null
@@ -103,6 +112,7 @@ const avatarScaleSteps = [1, 0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.44, 0.36]
 const avatarQualitySteps = [0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.44, 0.36]
 const avatarDraft = ref('')
 const avatarSaving = ref(false)
+const avatarFileInput = ref<HTMLInputElement | null>(null)
 
 const displayName = computed(() => props.user?.username?.trim() || props.user?.email?.trim() || t('profile.user'))
 const avatarInitial = computed(() => displayName.value.charAt(0).toUpperCase() || 'U')
@@ -114,6 +124,10 @@ watch(
     avatarDraft.value = ''
   }
 )
+
+function openAvatarFilePicker() {
+  avatarFileInput.value?.click()
+}
 
 function normalizeUploadedAvatar(value: string): string | null {
   const normalized = value.trim()

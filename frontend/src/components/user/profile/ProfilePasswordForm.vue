@@ -1,5 +1,5 @@
 <template>
-  <div :class="props.embedded ? 'space-y-4' : 'card'">
+  <div :class="props.embedded ? 'space-y-4' : 'ui-panel'">
     <div
       v-if="!props.embedded"
       class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
@@ -10,55 +10,51 @@
     </div>
     <div :class="props.embedded ? '' : 'px-6 py-6'">
       <form @submit.prevent="handleChangePassword" :class="props.embedded ? 'grid gap-3 sm:grid-cols-2' : 'space-y-4'">
-        <div :class="props.embedded ? 'sm:col-span-2' : ''">
-          <label for="old_password" class="input-label">
-            {{ t('profile.currentPassword') }}
-          </label>
-          <input
+        <UiPasswordField
             id="old_password"
             v-model="form.old_password"
-            type="password"
             required
             autocomplete="current-password"
-            class="input"
-          />
-        </div>
+            :density="props.embedded ? 'compact' : 'default'"
+            :label="t('profile.currentPassword')"
+            :reveal-label="t('common.showPassword')"
+            :hide-label="t('common.hidePassword')"
+            :class="props.embedded ? 'sm:col-span-2' : ''"
+        />
 
-        <div>
-          <label for="new_password" class="input-label">
-            {{ t('profile.newPassword') }}
-          </label>
-          <input
+        <UiPasswordField
             id="new_password"
             v-model="form.new_password"
-            type="password"
             required
             autocomplete="new-password"
-            class="input"
-          />
-          <p class="input-hint">
-            {{ t('profile.passwordHint') }}
-          </p>
-        </div>
+            :density="props.embedded ? 'compact' : 'default'"
+            :label="t('profile.newPassword')"
+            :description="t('profile.passwordHint')"
+            :rules="t('profile.passwordHint')"
+            :reveal-label="t('common.showPassword')"
+            :hide-label="t('common.hidePassword')"
+        />
 
-        <div>
-          <label for="confirm_password" class="input-label">
-            {{ t('profile.confirmNewPassword') }}
-          </label>
-          <input
+        <UiPasswordField
             id="confirm_password"
             v-model="form.confirm_password"
-            type="password"
             required
             autocomplete="new-password"
-            class="input"
-          />
-        </div>
+            :density="props.embedded ? 'compact' : 'default'"
+            :label="t('profile.confirmNewPassword')"
+            :reveal-label="t('common.showPassword')"
+            :hide-label="t('common.hidePassword')"
+        />
 
         <div :class="props.embedded ? 'flex justify-end pt-1 sm:col-span-2' : 'flex justify-end pt-4'">
-          <button type="submit" :disabled="loading" :class="props.embedded ? 'btn btn-primary btn-sm' : 'btn btn-primary'">
-            {{ loading ? t('profile.changingPassword') : t('profile.changePasswordButton') }}
-          </button>
+          <UiButton
+            type="submit"
+            variant="primary"
+            :density="props.embedded ? 'compact' : 'default'"
+            :loading="loading"
+          >
+            {{ t('profile.changePasswordButton') }}
+          </UiButton>
         </div>
       </form>
     </div>
@@ -70,6 +66,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { userAPI } from '@/api'
+import { UiButton, UiPasswordField } from '@/components/ui'
 
 const { t } = useI18n()
 const appStore = useAppStore()

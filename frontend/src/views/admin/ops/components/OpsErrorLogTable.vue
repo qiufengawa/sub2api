@@ -64,14 +64,16 @@
 
         <template #cell-user="{ row }">
           <div v-if="row.user_id" class="ops-error-log__identity">
-            <button
+            <UiButton
               v-if="userClickable && row.user_email"
               class="ops-error-log__user-button"
+              variant="quiet"
+              density="mini"
               :title="t('admin.usage.clickToViewBalance')"
               @click.stop="emit('userClick', row.user_id, row.user_email)"
             >
               {{ row.user_email }}
-            </button>
+            </UiButton>
             <span v-else class="ops-error-log__value">{{ row.user_email || '-' }}</span>
             <small>#{{ row.user_id }}</small>
           </div>
@@ -187,6 +189,7 @@ import IpGeoBatchToolbar from '@/components/common/IpGeoBatchToolbar.vue'
 import type { OpsErrorLog } from '@/api/admin/ops'
 import {
   UiBadge,
+  UiButton,
   UiDataTable,
   UiEmptyState,
   UiIconButton,
@@ -389,10 +392,7 @@ function formatSmartMessage(msg: string): string {
 }
 
 .ops-error-log__user-button {
-  padding: 0;
-  border: 0;
   color: var(--ui-text);
-  background: transparent;
   font-weight: 600;
   text-decoration: underline;
   text-decoration-color: var(--ui-border);

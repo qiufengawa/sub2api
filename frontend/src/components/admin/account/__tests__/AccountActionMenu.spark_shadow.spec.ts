@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import AccountActionMenu from '../AccountActionMenu.vue'
 import type { Account } from '@/types'
 
@@ -176,6 +176,54 @@ describe('AccountActionMenu — spark shadow 按钮可见性', () => {
 })
 
 describe('AccountActionMenu — operational actions', () => {
+  it('disables account mutations while an operation is pending', () => {
+    const account = makeAccount({ platform: 'openai', type: 'oauth', parent_account_id: null })
+    const wrapper = mount(AccountActionMenu, {
+      props: { show: true, account, position, pending: true },
+      attachTo: document.body,
+    })
+
+    for (const label of [
+      'admin.accounts.refreshToken',
+      'admin.accounts.createSparkShadow',
+      'admin.accounts.setPrivacy',
+    ]) {
+      const button = getBodyButtons().find(item => item.textContent?.includes(label))
+      expect(button).toBeDefined()
+      expect(button?.disabled).toBe(true)
+    }
+
+    wrapper.unmount()
+  })
+
+  it('focuses the menu, supports arrow navigation, and restores the opener', async () => {
+    const opener = document.createElement('button')
+    opener.textContent = 'Open actions'
+    document.body.appendChild(opener)
+    opener.focus()
+    const wrapper = mount(AccountActionMenu, {
+      props: { show: false, account: makeAccount({}), position },
+      attachTo: document.body,
+    })
+
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+    const items = getBodyButtons().filter((button) => button.getAttribute('role') === 'menuitem')
+    expect(document.activeElement).toBe(items[0])
+
+    items[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))
+    expect(document.activeElement).toBe(items[1])
+    items[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }))
+    expect(document.activeElement).toBe(items.at(-1))
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await wrapper.setProps({ show: false })
+    await flushPromises()
+    expect(document.activeElement).toBe(opener)
+    wrapper.unmount()
+    opener.remove()
+  })
+
   it('shows recovery for an error account and emits the account before closing', async () => {
     const account = makeAccount({ status: 'error' })
     const wrapper = mount(AccountActionMenu, {
@@ -228,7 +276,9 @@ describe('AccountActionMenu — operational actions', () => {
     await wrapper.vm.$nextTick()
     expect(wrapper.emitted('close')).toHaveLength(1)
 
-    const backdrop = document.body.querySelector<HTMLElement>('.account-action-menu__backdrop')
+    const backdrop = Array.from(
+      document.body.querySelectorAll<HTMLElement>('.account-action-menu__backdrop')
+    ).at(-1)
     expect(backdrop).not.toBeNull()
     backdrop!.click()
     await wrapper.vm.$nextTick()

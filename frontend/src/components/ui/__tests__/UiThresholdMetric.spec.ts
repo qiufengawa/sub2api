@@ -20,6 +20,7 @@ describe('UiThresholdMetric', () => {
     expect(wrapper.get('.ui-status').text()).toContain('Unavailable')
     expect(wrapper.get('footer').text()).toContain('Limit 99%')
     expect(wrapper.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('0')
+    expect(wrapper.get('[role="progressbar"]').attributes('aria-label')).toBe('SLA')
   })
 
   it('uses caller-provided status labels for available values', () => {
@@ -37,5 +38,6 @@ describe('UiThresholdMetric', () => {
 
     expect(wrapper.get('.ui-status').text()).toContain('Too high')
     expect(wrapper.get('.ui-threshold__value').text()).toContain('8%')
+    expect(wrapper.get('[role="progressbar"]').attributes('aria-label')).toBe('Error rate')
   })
 })

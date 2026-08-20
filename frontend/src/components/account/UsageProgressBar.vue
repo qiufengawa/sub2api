@@ -18,9 +18,17 @@
       </span>
 
       <!-- Progress bar container -->
-      <div class="h-2 overflow-hidden rounded-[3px] bg-gray-200/90 dark:bg-gray-700">
+      <div
+        class="h-2 overflow-hidden rounded-[3px] bg-gray-200/90 dark:bg-gray-700"
+        role="progressbar"
+        :aria-label="label"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        :aria-valuenow="progressValue"
+        :aria-valuetext="displayPercent"
+      >
         <div
-          :class="['h-full rounded-[3px] transition-[width] duration-300', barClass]"
+          :class="['h-full rounded-[3px]', barClass]"
           :style="{ width: barWidth }"
         ></div>
       </div>
@@ -138,6 +146,8 @@ const textClass = computed(() => {
 const barWidth = computed(() => {
   return `${Math.min(Math.max(props.utilization, 0), 100)}%`
 })
+
+const progressValue = computed(() => Math.min(Math.max(props.utilization, 0), 100))
 
 // Display percentage (cap at 999% for readability)
 const displayPercent = computed(() => {

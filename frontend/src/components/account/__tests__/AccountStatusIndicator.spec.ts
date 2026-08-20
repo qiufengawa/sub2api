@@ -106,6 +106,26 @@ describe('AccountStatusIndicator', () => {
     expect(wrapper.text()).not.toContain('admin.accounts.status.tempUnschedulable')
   })
 
+  it('错误状态的信息提示触发器具有可访问名称', () => {
+    const wrapper = mount(AccountStatusIndicator, {
+      props: {
+        account: makeAccount({
+          status: 'error',
+          error_message: 'upstream failed'
+        })
+      },
+      global: {
+        stubs: {
+          Icon: true
+        }
+      }
+    })
+
+    expect(wrapper.get('[tabindex="0"]').attributes('aria-label')).toBe(
+      'admin.accounts.status.errorDetails'
+    )
+  })
+
   it('模型限流 + overages 启用 + 无 AICredits key → 显示 bolt SVG (credits_active)', () => {
     const wrapper = mount(AccountStatusIndicator, {
       props: {

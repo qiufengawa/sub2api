@@ -46,6 +46,7 @@ describe('PlaygroundComposer', () => {
 
     expect(shell.classes()).not.toContain('border-t')
     expect(shell.classes()).not.toContain('bg-white')
+    expect(shell.attributes('aria-label')).toBe('playground.title')
     expect(wrapper.findAll('.playground-composer__surface')).toHaveLength(1)
     expect(wrapper.get('textarea').classes()).toContain('playground-composer__input')
   })
@@ -77,6 +78,9 @@ describe('PlaygroundComposer', () => {
     })
     expect(wrapper.find('textarea').attributes('placeholder')).toBe('playground.image.placeholder')
     expect(wrapper.text()).toContain('playground.image.mode')
+    const count = wrapper.get('.playground-composer__count')
+    expect(count.attributes('aria-label')).toBe('playground.composer.enabledParameterCount')
+    expect(count.attributes('aria-live')).toBe('polite')
     const settings = wrapper.get('button[aria-label="playground.image.parametersTitle"]')
     await settings.trigger('click')
     expect(wrapper.emitted('openParameters')).toHaveLength(1)

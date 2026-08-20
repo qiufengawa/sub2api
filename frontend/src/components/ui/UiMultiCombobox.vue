@@ -1,7 +1,7 @@
 <template>
-  <UiFormField :label="label" :description="description" :error="error">
+  <UiFormField :for-id="resolvedId" :label="label" :description="description" :error="error">
     <div ref="root" class="ui-multi">
-      <button type="button" class="ui-multi__trigger ui-focus-ring" :disabled="disabled" :aria-label="ariaLabel || label || placeholder" :aria-expanded="open" aria-haspopup="listbox" @click="open = !open">
+      <button ref="trigger" :id="resolvedId" type="button" class="ui-multi__trigger ui-focus-ring" :disabled="disabled" :aria-label="ariaLabel || label || placeholder" :aria-expanded="open" aria-haspopup="listbox" :aria-controls="listboxId" :aria-describedby="description || error ? `${resolvedId}-message` : undefined" :aria-invalid="error ? 'true' : undefined" @click="toggleOpen" @keydown.down.prevent="openAndFocusOptions" @keydown.esc.prevent="close(true)">
         <span v-if="selected.length" class="ui-multi__summary">
           <UiBadge v-for="item in selected.slice(0, 2)" :key="String(item.value)" :label="item.label" />
           <UiBadge v-if="selected.length > 2" :label="`+${selected.length - 2}`" />
@@ -10,35 +10,45 @@
         <Icon name="chevronDown" size="sm" />
       </button>
       <div v-if="open" class="ui-multi__panel ui-scale-enter">
-        <UiSearchInput v-model="query" density="dense" :placeholder="searchPlaceholder" />
-        <div class="ui-multi__options" role="listbox" aria-multiselectable="true">
-          <button v-for="option in filtered" :key="String(option.value)" type="button" role="option" :aria-selected="isSelected(option.value)" :disabled="option.disabled" @click="toggle(option.value)">
+        <UiSearchInput v-model="query" density="dense" :placeholder="searchPlaceholder" @keydown.down.prevent="focusOption(0)" @keydown.esc.prevent="close(true)" />
+        <div :id="listboxId" ref="listbox" class="ui-multi__options" role="listbox" aria-multiselectable="true" :aria-label="ariaLabel || label || placeholder">
+          <button v-for="(option, index) in filtered" :key="String(option.value)" type="button" role="option" :aria-selected="isSelected(option.value)" :disabled="option.disabled" :tabindex="index === activeIndex ? 0 : -1" @focus="activeIndex = index" @keydown="onOptionKeydown($event, index)" @click="toggle(option.value)">
             <span class="ui-multi__check" aria-hidden="true"><Icon v-if="isSelected(option.value)" name="check" size="xs" /></span>
             <span>{{ option.label }}</span>
           </button>
           <p v-if="!filtered.length">{{ emptyText }}</p>
         </div>
-        <footer><span>已选择 {{ modelValue.length }} 项</span><UiButton density="dense" variant="primary" @click="open = false">完成</UiButton></footer>
+        <footer><span>已选择 {{ modelValue.length }} 项</span><UiButton density="dense" variant="primary" @click="close(true)">完成</UiButton></footer>
       </div>
     </div>
   </UiFormField>
 </template>
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import Icon from '@/components/icons/Icon.vue'
 import UiBadge from './UiBadge.vue'
 import UiButton from './UiButton.vue'
 import UiFormField from './UiFormField.vue'
 import UiSearchInput from './UiSearchInput.vue'
 import type { UiChoiceOption } from './types'
-const props = withDefaults(defineProps<{ modelValue:(string|number)[]; options:UiChoiceOption[]; label?:string; ariaLabel?:string; description?:string; error?:string; placeholder?:string; searchPlaceholder?:string; emptyText?:string; disabled?:boolean }>(), { placeholder:'请选择', searchPlaceholder:'搜索选项', emptyText:'没有匹配项' })
+const props = withDefaults(defineProps<{ modelValue:(string|number)[]; options:UiChoiceOption[]; id?:string; label?:string; ariaLabel?:string; description?:string; error?:string; placeholder?:string; searchPlaceholder?:string; emptyText?:string; disabled?:boolean }>(), { placeholder:'请选择', searchPlaceholder:'搜索选项', emptyText:'没有匹配项' })
 const emit = defineEmits<{ 'update:modelValue':[(string|number)[]]; change:[(string|number)[]] }>()
-const root = ref<HTMLElement>(); const open = ref(false); const query = ref('')
+const resolvedId = props.id || `ui-multi-${useId()}`
+const listboxId = `${resolvedId}-listbox`
+const root = ref<HTMLElement>(); const trigger = ref<HTMLButtonElement>(); const listbox = ref<HTMLElement>(); const open = ref(false); const query = ref(''); const activeIndex = ref(-1)
 const selected = computed(() => props.options.filter(item => props.modelValue.includes(item.value)))
 const filtered = computed(() => props.options.filter(item => item.label.toLowerCase().includes(query.value.trim().toLowerCase())))
 const isSelected = (value:string|number) => props.modelValue.includes(value)
 function toggle(value:string|number){ const next=isSelected(value)?props.modelValue.filter(item=>item!==value):[...props.modelValue,value]; emit('update:modelValue',next); emit('change',next) }
 function outside(event:MouseEvent){ if(!root.value?.contains(event.target as Node)) open.value=false }
+function focusSearch(){ nextTick(()=>root.value?.querySelector<HTMLInputElement>('.ui-search input')?.focus()) }
+function toggleOpen(){ open.value=!open.value; if(open.value){activeIndex.value=availableIndex(0,1);focusSearch()} }
+function close(restoreFocus=false){ open.value=false; if(restoreFocus)nextTick(()=>trigger.value?.focus()) }
+function availableIndex(start:number,step:number){ if(!filtered.value.length)return-1; for(let offset=0;offset<filtered.value.length;offset++){const index=(start+offset*step+filtered.value.length)%filtered.value.length;if(!filtered.value[index]?.disabled)return index}return-1 }
+function focusOption(index:number){ const next=availableIndex(index,1); if(next<0)return; activeIndex.value=next; nextTick(()=>listbox.value?.querySelectorAll<HTMLElement>('[role="option"]')[next]?.focus()) }
+function onOptionKeydown(event:KeyboardEvent,index:number){ if(event.key==='Escape'){event.preventDefault();close(true);return} if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;event.preventDefault();const start=event.key==='Home'?0:event.key==='End'?filtered.value.length-1:index+(event.key==='ArrowDown'?1:-1);const next=availableIndex(start,event.key==='ArrowUp'||event.key==='End'?-1:1);if(next>=0)focusOption(next) }
+function openAndFocusOptions(){ if(!open.value)open.value=true;nextTick(()=>focusOption(activeIndex.value)) }
+watch(filtered,()=>{activeIndex.value=availableIndex(0,1)})
 onMounted(()=>document.addEventListener('mousedown',outside)); onBeforeUnmount(()=>document.removeEventListener('mousedown',outside))
 </script>
 <style scoped>

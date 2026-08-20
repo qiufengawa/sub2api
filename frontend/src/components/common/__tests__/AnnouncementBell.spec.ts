@@ -1,16 +1,21 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AnnouncementBell from '../AnnouncementBell.vue'
 import { useAnnouncementStore } from '@/stores/announcements'
 
+const appMocks = vi.hoisted(() => ({
+  showError: vi.fn(),
+  showSuccess: vi.fn(),
+}))
+
 vi.mock('@/utils/format', () => ({
   formatRelativeTime: (value: string) => value,
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({ showError: vi.fn(), showSuccess: vi.fn() }),
+  useAppStore: () => appMocks,
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -29,6 +34,7 @@ const UiDialogStub = {
 
 describe('AnnouncementBell', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     setActivePinia(createPinia())
   })
 
@@ -61,5 +67,35 @@ describe('AnnouncementBell', () => {
 
     await wrapper.get('.announcement-center__item').trigger('click')
     expect(markAsRead).toHaveBeenCalledWith(9)
+  })
+
+  it('reports a failed read without clearing the unread announcement', async () => {
+    const store = useAnnouncementStore()
+    store.announcements = [{
+      id: 10,
+      title: 'Retry later',
+      content: 'Network failure fixture',
+      notify_mode: 'silent',
+      created_at: '2026-08-15T12:00:00Z',
+      updated_at: '2026-08-15T12:00:00Z',
+      read_at: null,
+    } as any]
+    vi.spyOn(store, 'markAsRead').mockRejectedValue(new Error('read unavailable'))
+    const wrapper = mount(AnnouncementBell, {
+      global: {
+        stubs: {
+          UiDialog: UiDialogStub,
+          AnnouncementDetail: true,
+          Icon: true,
+        },
+      },
+    })
+
+    await wrapper.get('button[aria-label="announcements.title"]').trigger('click')
+    await wrapper.get('.announcement-center__item').trigger('click')
+    await flushPromises()
+
+    expect(appMocks.showError).toHaveBeenCalledWith('read unavailable')
+    expect(store.announcements[0].read_at).toBeNull()
   })
 })

@@ -23,7 +23,7 @@ vi.mock('vue-i18n', async () => {
 vi.mock('vue-chartjs', () => ({
   Line: {
     props: ['data', 'options'],
-    template: '<div class="chart-data">{{ JSON.stringify(data) }}</div>',
+    template: '<div><div class="chart-data">{{ JSON.stringify(data) }}</div><div class="chart-options">{{ JSON.stringify(options) }}</div></div>',
   },
 }))
 
@@ -129,5 +129,34 @@ describe('TokenUsageTrend', () => {
     )
     // Hit rate = 500 / (200 + 500 + 300) * 100 = 50%
     expect(hitRateDataset.data[0]).toBe(50)
+  })
+
+  it('updates chart colors when the document theme changes', async () => {
+    document.documentElement.classList.remove('dark')
+    const wrapper = mount(TokenUsageTrend, {
+      props: {
+        trendData: [{
+          date: '2026-05-08',
+          requests: 1,
+          input_tokens: 100,
+          output_tokens: 50,
+          cache_creation_tokens: 0,
+          cache_read_tokens: 0,
+          cost: 0.01,
+          actual_cost: 0.005,
+        }],
+      },
+    })
+
+    const lightOptions = JSON.parse(wrapper.find('.chart-options').text())
+    expect(lightOptions.plugins.legend.labels.color).toBe('#374151')
+
+    document.documentElement.classList.add('dark')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await wrapper.vm.$nextTick()
+
+    const darkOptions = JSON.parse(wrapper.find('.chart-options').text())
+    expect(darkOptions.plugins.legend.labels.color).toBe('#e5e7eb')
+    document.documentElement.classList.remove('dark')
   })
 })

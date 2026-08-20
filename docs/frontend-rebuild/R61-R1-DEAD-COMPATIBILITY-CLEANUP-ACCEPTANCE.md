@@ -16,13 +16,32 @@
 
 Repository-wide production searches found no imports of the four compatibility components. Their replacement contracts remain available as `UiDateRangePicker`, `UiSearchInput`, `UiSkeleton`, and `UiTextArea` from `@/components/ui`.
 
+The same no-consumer audit has now removed the remaining generic wrappers:
+
+- `frontend/src/components/common/BaseDialog.vue`
+- `frontend/src/components/common/ConfirmDialog.vue`
+- `frontend/src/components/common/DataTable.vue`
+- `frontend/src/components/common/EmptyState.vue`
+- `frontend/src/components/common/Input.vue`
+- `frontend/src/components/common/LoadingSpinner.vue`
+- `frontend/src/components/common/Pagination.vue`
+- `frontend/src/components/common/Select.vue`
+- `frontend/src/components/common/StatCard.vue`
+- `frontend/src/components/common/StatusBadge.vue`
+- `frontend/src/components/common/Toggle.vue`
+- `frontend/src/components/common/ExportProgressDialog.vue`
+
+Their direct compatibility tests and stale barrel/README exports were removed or
+rewritten. Repository-wide production searches show no remaining imports; all
+live consumers use the public `@/components/ui` contracts.
+
 ## Public Entry Correction
 
 `ScheduledTestsPanel.vue` now imports `SelectOption` from `@/components/ui`. The public entry already exports this type, so the business component no longer bypasses the shared compatibility boundary through `@/components/ui/selectTypes`.
 
 ## Automated Verification
 
-Run on 2026-08-17:
+Run on 2026-08-17 and 2026-08-19:
 
 ```text
 pnpm exec vitest run \
@@ -43,6 +62,13 @@ Result: passed
 ```
 
 The targeted test run retains the existing Browserslist data-age warning.
+
+The generic-wrapper cleanup was additionally checked with:
+
+```text
+rg -n "components/common/(BaseDialog|ConfirmDialog|DataTable|EmptyState|Input|LoadingSpinner|Pagination|Select|StatCard|StatusBadge|Toggle|ExportProgressDialog)\\.vue" frontend/src
+Result: no matches
+```
 
 ## Review Result
 

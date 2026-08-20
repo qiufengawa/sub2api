@@ -101,7 +101,9 @@ describe('ModelDistributionChart', () => {
     const rows = wrapper.findAll('tbody tr')
     expect(rows[0].text()).toContain('model-a')
     expect(rows[1].text()).toContain('model-b')
-    expect(rows[0].find('button[aria-expanded="false"]').exists()).toBe(true)
+    const firstToggle = rows[0].find('button[aria-expanded="false"]')
+    expect(firstToggle.exists()).toBe(true)
+    expect(firstToggle.attributes('aria-controls')).toBe('model-breakdown-0')
 
     const options = (wrapper.vm as any).$?.setupState.doughnutOptions
     const label = options.plugins.tooltip.callbacks.label({

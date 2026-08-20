@@ -3,6 +3,8 @@ const EXACT_ALLOWED_PATHS = [
   '/key-usage',
   '/setup',
   '/payment/result',
+  '/payment/stripe',
+  '/payment/stripe-popup',
   '/payment/airwallex',
 ]
 

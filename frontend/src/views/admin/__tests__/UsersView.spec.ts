@@ -9,21 +9,25 @@ const {
   getAllGroups,
   getBatchUsersUsage,
   listEnabledDefinitions,
-  getBatchUserAttributes
+  getBatchUserAttributes,
+  toggleStatus,
+  deleteUser
 } = vi.hoisted(() => ({
   listUsers: vi.fn(),
   getAllGroups: vi.fn(),
   getBatchUsersUsage: vi.fn(),
   listEnabledDefinitions: vi.fn(),
-  getBatchUserAttributes: vi.fn()
+  getBatchUserAttributes: vi.fn(),
+  toggleStatus: vi.fn(),
+  deleteUser: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     users: {
       list: listUsers,
-      toggleStatus: vi.fn(),
-      delete: vi.fn()
+      toggleStatus,
+      delete: deleteUser
     },
     groups: {
       getAll: getAllGroups
@@ -129,6 +133,8 @@ describe('admin UsersView', () => {
     getBatchUsersUsage.mockReset()
     listEnabledDefinitions.mockReset()
     getBatchUserAttributes.mockReset()
+    toggleStatus.mockReset()
+    deleteUser.mockReset()
 
     listUsers.mockResolvedValue({
       items: [createAdminUser()],
@@ -419,5 +425,59 @@ describe('admin UsersView', () => {
       expect.objectContaining({ role: '', group_name: 'priority' }),
       expect.any(Object)
     )
+  })
+
+  it('prevents duplicate status toggles and deletion confirmations', async () => {
+    const wrapper = mount(UsersView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          UiDataTable: DataTableStub,
+          UiPagination: true,
+          UiConfirmDialog: true,
+          UserAttributesConfigModal: true,
+          UserConcurrencyCell: true,
+          UserCreateModal: true,
+          UserEditModal: true,
+          BulkEditUserModal: BulkEditUserModalStub,
+          UserPlatformQuotaModal: true,
+          UserApiKeysModal: true,
+          UserAllowedGroupsModal: true,
+          UserBalanceModal: true,
+          UserBalanceHistoryModal: true,
+          GroupReplaceModal: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      handleToggleStatus: (value: AdminUser) => Promise<void>
+      handleDelete: (value: AdminUser) => void
+      confirmDelete: () => Promise<void>
+    }
+    const user = createAdminUser()
+
+    let finishToggle!: () => void
+    toggleStatus.mockReturnValueOnce(new Promise<void>(resolve => { finishToggle = resolve }))
+    const firstToggle = vm.handleToggleStatus(user)
+    const secondToggle = vm.handleToggleStatus(user)
+    await flushPromises()
+    expect(toggleStatus).toHaveBeenCalledTimes(1)
+    expect(toggleStatus).toHaveBeenCalledWith(42, 'disabled')
+    finishToggle()
+    await Promise.all([firstToggle, secondToggle])
+
+    let finishDelete!: () => void
+    deleteUser.mockReturnValueOnce(new Promise<void>(resolve => { finishDelete = resolve }))
+    vm.handleDelete(user)
+    const firstDelete = vm.confirmDelete()
+    const secondDelete = vm.confirmDelete()
+    await flushPromises()
+    expect(deleteUser).toHaveBeenCalledTimes(1)
+    expect(deleteUser).toHaveBeenCalledWith(42)
+    finishDelete()
+    await Promise.all([firstDelete, secondDelete])
   })
 })

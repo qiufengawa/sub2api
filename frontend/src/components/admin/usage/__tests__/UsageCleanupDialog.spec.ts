@@ -144,4 +144,61 @@ describe('UsageCleanupDialog', () => {
     expect(payload).not.toHaveProperty('account_id')
     expect(payload).not.toHaveProperty('group_id')
   })
+
+  it('prevents duplicate cleanup task creation while submission is pending', async () => {
+    const pending = deferred<Record<string, never>>()
+    apiMocks.createCleanupTask.mockReturnValueOnce(pending.promise)
+    const wrapper = mountDialog()
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+    const vm = wrapper.vm as unknown as { submitCleanup: () => Promise<void> }
+
+    const first = vm.submitCleanup()
+    const second = vm.submitCleanup()
+    await flushPromises()
+
+    expect(apiMocks.createCleanupTask).toHaveBeenCalledTimes(1)
+
+    pending.resolve({})
+    await Promise.all([first, second])
+  })
+
+  it('prevents duplicate cleanup cancellation while the request is pending', async () => {
+    const pending = deferred<Record<string, never>>()
+    apiMocks.cancelCleanupTask.mockReturnValueOnce(pending.promise)
+    const wrapper = mountDialog()
+    const vm = wrapper.vm as unknown as {
+      openCancelConfirm: (task: { id: number; status: string }) => void
+      cancelTask: () => Promise<void>
+    }
+    vm.openCancelConfirm({ id: 9, status: 'running' })
+
+    const first = vm.cancelTask()
+    const second = vm.cancelTask()
+    await flushPromises()
+
+    expect(apiMocks.cancelCleanupTask).toHaveBeenCalledTimes(1)
+    expect(apiMocks.cancelCleanupTask).toHaveBeenCalledWith(9)
+
+    pending.resolve({})
+    await Promise.all([first, second])
+  })
+
+  it('keeps the cleanup confirmation open after a failed request for retry', async () => {
+    apiMocks.createCleanupTask.mockRejectedValueOnce(new Error('temporary failure'))
+    const wrapper = mountDialog()
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+    const vm = wrapper.vm as any
+
+    vm.openConfirm()
+    await vm.submitCleanup()
+    expect(vm.confirmVisible).toBe(true)
+    expect(vm.submitting).toBe(false)
+
+    apiMocks.createCleanupTask.mockResolvedValueOnce({})
+    await vm.submitCleanup()
+    expect(vm.confirmVisible).toBe(false)
+    expect(apiMocks.createCleanupTask).toHaveBeenCalledTimes(2)
+  })
 })

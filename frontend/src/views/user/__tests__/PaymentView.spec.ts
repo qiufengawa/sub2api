@@ -1,11 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { flushPromises, shallowMount } from '@vue/test-utils'
+import { config, flushPromises, shallowMount } from '@vue/test-utils'
 import PaymentView from '../PaymentView.vue'
-import { PAYMENT_RECOVERY_STORAGE_KEY } from '@/components/payment/paymentFlow'
+import {
+  PAYMENT_RECOVERY_STORAGE_KEY,
+  paymentRecoveryStorageKey,
+  writePaymentRecoverySnapshot,
+  type PaymentRecoverySnapshot,
+} from '@/components/payment/paymentFlow'
 import { formatPaymentAmount } from '@/components/payment/currency'
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import type { CheckoutInfoResponse, MethodLimit, SubscriptionPlan } from '@/types/payment'
 import type { UserSubscription } from '@/types'
+
+config.global.renderStubDefaultSlot = true
+config.global.stubs = {
+  ...config.global.stubs,
+  UiAlert: false,
+  UiBadge: false,
+  UiButton: false,
+  UiDescriptionList: false,
+  UiTabs: false,
+}
 
 const routeState = vi.hoisted(() => ({
   path: '/purchase',
@@ -192,6 +207,31 @@ function jsapiOrderFixture(resumeToken: string) {
   }
 }
 
+function recoverySnapshotFixture(
+  resumeToken: string,
+  orderId: number,
+): PaymentRecoverySnapshot {
+  return {
+    orderId,
+    amount: 88,
+    qrCode: 'stale-qr',
+    expiresAt: '2099-01-01T00:10:00.000Z',
+    paymentType: 'wxpay',
+    payUrl: 'https://pay.example.com/stale',
+    outTradeNo: `sub2_${orderId}`,
+    clientSecret: '',
+    intentId: '',
+    currency: 'CNY',
+    countryCode: 'CN',
+    paymentEnv: '',
+    payAmount: 88,
+    orderType: 'balance',
+    paymentMode: 'jsapi',
+    resumeToken,
+    createdAt: Date.now(),
+  }
+}
+
 function oauthOrderFixture() {
   return {
     order_id: 456,
@@ -326,22 +366,51 @@ async function mountRecharge() {
   return wrapper
 }
 
+async function mountCheckoutFailure() {
+  vi.useRealTimers()
+  routeState.path = '/purchase'
+  routeState.query = {}
+  routerReplace.mockReset().mockResolvedValue(undefined)
+  routerPush.mockReset().mockResolvedValue(undefined)
+  routerResolve.mockClear()
+  getCheckoutInfo.mockReset().mockRejectedValue(new Error('checkout unavailable'))
+  getMySubscriptions.mockReset().mockResolvedValue([])
+  showError.mockReset()
+
+  const wrapper = shallowMount(PaymentView, {
+    global: {
+      stubs: {
+        AppLayout: { template: '<div><slot /></div>' },
+        Teleport: true,
+        Transition: false,
+      },
+    },
+  })
+  await flushPromises()
+  await flushPromises()
+  return wrapper
+}
+
 describe('PaymentView recharge layout', () => {
+  it('keeps checkout loading failures visible in the page workspace', async () => {
+    const wrapper = await mountCheckoutFailure()
+
+    expect(wrapper.get('[data-testid="payment-error"]').text()).toContain('checkout unavailable')
+    expect(showError).toHaveBeenCalled()
+  })
+
   it('keeps the recharge workspace full-width until xl and uses compact mobile padding', async () => {
     const wrapper = await mountRecharge()
     const layout = wrapper.get('[data-testid="recharge-layout"]')
     const amountSection = wrapper.get('[data-testid="recharge-amount-section"]')
     const methodSection = wrapper.get('[data-testid="recharge-method-section"]')
 
-    expect(wrapper.get('[data-testid="payment-page"]').classes()).toContain('w-full')
-    expect(layout.classes()).toEqual(expect.arrayContaining([
-      'grid',
-      'gap-4',
-      'xl:grid-cols-[minmax(0,1fr)_20rem]',
-    ]))
-    expect(layout.attributes('class')).not.toContain('lg:grid-cols-')
-    expect(amountSection.classes()).toEqual(expect.arrayContaining(['p-3', 'sm:p-4']))
-    expect(methodSection.classes()).toEqual(expect.arrayContaining(['p-3', 'sm:p-4']))
+    expect(wrapper.get('[data-testid="payment-page"]').attributes('width')).toBe('wide')
+    expect(wrapper.get('[data-testid="payment-page"]').attributes('density')).toBe('compact')
+    expect(layout.classes()).toContain('payment-checkout-grid')
+    expect(layout.attributes('class')).not.toContain('grid-cols-')
+    expect(amountSection.classes()).toContain('payment-form-section')
+    expect(methodSection.classes()).toEqual(expect.arrayContaining(['payment-form-section', 'payment-form-section--divided']))
   })
 
   it('keeps the order details and payment action in one auxiliary surface', async () => {
@@ -350,11 +419,41 @@ describe('PaymentView recharge layout', () => {
 
     expect(panel.find('[data-testid="recharge-order-summary"]').exists()).toBe(true)
     expect(panel.find('button').text()).toContain('payment.createOrder')
-    expect(panel.classes()).toEqual(expect.arrayContaining([
-      'border',
-      'bg-white',
-      'xl:sticky',
-    ]))
+    expect(panel.classes()).toContain('payment-order-summary')
+    expect(panel.attributes('class')).not.toContain('card')
+  })
+
+  it('ignores a create-order response that arrives after unmount', async () => {
+    const wrapper = await mountRecharge()
+    let resolveOrder!: (value: CreateOrderResult) => void
+    createOrder.mockReturnValueOnce(new Promise<CreateOrderResult>((resolve) => {
+      resolveOrder = resolve
+    }))
+    await wrapper.findComponent({ name: 'AmountInput' }).vm.$emit('update:modelValue', 10)
+    await flushPromises()
+    const submit = wrapper.findAll('[data-testid="recharge-checkout-panel"] button')
+      .find(button => button.text().includes('payment.createOrder'))
+    expect(submit).toBeDefined()
+
+    await submit!.trigger('click')
+    expect(createOrder).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+
+    resolveOrder({
+      order_id: 901,
+      amount: 10,
+      pay_amount: 10,
+      fee_rate: 0,
+      expires_at: '2099-01-01T00:10:00.000Z',
+      payment_type: 'wxpay',
+      out_trade_no: 'sub2_late_901',
+      result_type: 'qr_code',
+      qr_code: 'late-qr',
+    })
+    await flushPromises()
+
+    expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toBeNull()
+    expect(routerPush).not.toHaveBeenCalled()
   })
 })
 
@@ -364,12 +463,7 @@ describe('PaymentView subscription plan grid', () => {
     const cards = wrapper.findAllComponents(SubscriptionPlanCard)
 
     expect(cards).toHaveLength(planCount)
-    expect([...(cards[0].element.parentElement?.classList ?? [])]).toEqual(expect.arrayContaining([
-      'grid',
-      'grid-cols-1',
-      'sm:grid-cols-2',
-      'lg:grid-cols-3',
-    ]))
+    expect([...(cards[0].element.parentElement?.classList ?? [])]).toContain('payment-plan-grid')
   })
 
 })
@@ -429,6 +523,37 @@ describe('PaymentView subscription confirmation amounts', () => {
       purchase_mode: 'renew_instance',
       target_subscription_id: 42,
     }))
+  })
+
+  it('blocks a renewal deep-link when its subscription target is unavailable', async () => {
+    const activeSubscription: UserSubscription = {
+      id: 42,
+      user_id: 1,
+      plan_id: 7,
+      plan_name: 'Starter',
+      status: 'active',
+      starts_at: '2099-05-15T08:30:00.000Z',
+      expires_at: '2099-06-15T08:30:00.000Z',
+      daily_usage_usd: 0,
+      weekly_usage_usd: 0,
+      monthly_usage_usd: 0,
+      daily_window_start: null,
+      weekly_window_start: null,
+      monthly_window_start: null,
+      created_at: '2099-05-15T08:30:00.000Z',
+      updated_at: '2099-05-15T08:30:00.000Z',
+      included_groups: [],
+    }
+
+    const wrapper = await mountSubscriptionConfirm({}, {
+      routeQuery: { subscription_id: '999' },
+      subscriptions: [activeSubscription],
+    })
+
+    expect(wrapper.get('[data-testid="payment-error"]').text()).toContain('payment.errors.renewalTargetUnavailable')
+    expect(wrapper.find('[data-testid="renewal-target"]').exists()).toBe(false)
+    expect(wrapper.findAll('button').some(button => button.text().includes('payment.createOrder'))).toBe(false)
+    expect(createOrder).not.toHaveBeenCalled()
   })
 
   it('shows converted CNY pay amount using the subscription rate, not the balance multiplier', async () => {
@@ -539,9 +664,9 @@ describe('PaymentView accessible purchase controls', () => {
       global: {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
-          BaseDialog: {
+          UiDialog: {
             props: ['show', 'title'],
-            template: '<div v-if="show" role="dialog" :aria-label="title"><slot /></div>',
+            template: '<div v-if="show" role="dialog"><h2>{{ title }}</h2><slot /></div>',
           },
         },
       },
@@ -553,11 +678,16 @@ describe('PaymentView accessible purchase controls', () => {
     expect(tabs).toHaveLength(2)
     expect(tabs[0].attributes('aria-selected')).toBe('true')
     expect(tabs[1].attributes('aria-selected')).toBe('false')
+    expect(tabs[0].attributes('id')).toBe('payment-tab-recharge')
+    expect(tabs[0].attributes('aria-controls')).toBe('payment-tabpanel-recharge')
+    expect(tabs[1].attributes('id')).toBe('payment-tab-subscription')
+    expect(tabs[1].attributes('aria-controls')).toBe('payment-tabpanel-subscription')
+    expect(wrapper.get('#payment-tabpanel-recharge').attributes('aria-labelledby')).toBe('payment-tab-recharge')
 
     const previewButton = wrapper.get('button[aria-label="payment.previewHelpImage"]')
     await previewButton.trigger('click')
 
-    expect(wrapper.get('[role="dialog"]').attributes('aria-label')).toBe('payment.helpImageTitle')
+    expect(wrapper.get('[role="dialog"] h2').text()).toBe('payment.helpImageTitle')
     expect(wrapper.get('[data-testid="payment-help-image-preview"] img').attributes('alt')).toBe('payment.helpImageAlt')
   })
 })
@@ -695,6 +825,9 @@ describe('PaymentView WeChat JSAPI flow', () => {
       },
     })
     expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toBeNull()
+    expect(window.localStorage.getItem(paymentRecoveryStorageKey({
+      resumeToken: 'resume-token-123',
+    }))).toBeNull()
   })
 
   it('resets payment state when JSAPI reports cancellation', async () => {
@@ -717,6 +850,9 @@ describe('PaymentView WeChat JSAPI flow', () => {
     expect(showInfo).toHaveBeenCalledWith('payment.qr.cancelled')
     expect(routerPush).not.toHaveBeenCalled()
     expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toBeNull()
+    expect(window.localStorage.getItem(paymentRecoveryStorageKey({
+      resumeToken: 'resume-token-cancel',
+    }))).toBeNull()
   })
 
   it('clears stale recovery state when JSAPI never becomes available', async () => {
@@ -743,30 +879,18 @@ describe('PaymentView WeChat JSAPI flow', () => {
     )
     expect(routerPush).not.toHaveBeenCalled()
     expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toBeNull()
+    expect(window.localStorage.getItem(paymentRecoveryStorageKey({
+      resumeToken: 'resume-token-missing-bridge',
+    }))).toBeNull()
     expect(wrapper.html()).not.toContain('payment-status-panel-stub')
   })
 
-  it('clears a stale recovery snapshot before handling wechat resume callback params', async () => {
+  it('clears only the current WeChat resume snapshot and preserves a concurrent order', async () => {
     createOrder.mockRejectedValueOnce(new Error('resume failed'))
-    window.localStorage.setItem(PAYMENT_RECOVERY_STORAGE_KEY, JSON.stringify({
-      orderId: 999,
-      amount: 66,
-      qrCode: 'stale-qr',
-      expiresAt: '2099-01-01T00:10:00.000Z',
-      paymentType: 'alipay',
-      payUrl: 'https://pay.example.com/stale',
-      outTradeNo: 'stale-out-trade-no',
-      clientSecret: '',
-      intentId: '',
-      currency: '',
-      countryCode: '',
-      paymentEnv: '',
-      payAmount: 66,
-      orderType: 'balance',
-      paymentMode: 'popup',
-      resumeToken: '',
-      createdAt: Date.UTC(2099, 0, 1, 0, 0, 0),
-    }))
+    const current = recoverySnapshotFixture('resume-token-123', 123)
+    const concurrent = recoverySnapshotFixture('resume-token-concurrent', 999)
+    writePaymentRecoverySnapshot(window.localStorage, current)
+    writePaymentRecoverySnapshot(window.localStorage, concurrent)
 
     shallowMount(PaymentView, {
       global: {
@@ -782,7 +906,15 @@ describe('PaymentView WeChat JSAPI flow', () => {
     expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({
       wechat_resume_token: 'resume-token-123',
     }))
-    expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toBeNull()
+    expect(window.localStorage.getItem(paymentRecoveryStorageKey({
+      resumeToken: 'resume-token-123',
+    }))).toBeNull()
+    expect(window.localStorage.getItem(paymentRecoveryStorageKey({
+      resumeToken: 'resume-token-concurrent',
+    }))).not.toBeNull()
+    expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toContain(
+      'resume-token-concurrent',
+    )
   })
 
   it('keeps subscription resume context for token-only WeChat callbacks', async () => {
@@ -874,6 +1006,7 @@ describe('PaymentView WeChat JSAPI flow', () => {
       payment_type: 'wxpay',
       is_mobile: false,
       payment_source: 'hosted_redirect',
+      wechat_resume_token: 'resume-token-h5',
     }))
     expect(showWarning).toHaveBeenCalledWith('payment.errors.mobilePaymentFallbackToQr')
     expect(showError).not.toHaveBeenCalled()

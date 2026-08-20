@@ -1,15 +1,29 @@
 <template>
   <span ref="root" class="ui-popover">
-    <span @click="toggle"><slot name="trigger" :open="open" /></span>
+    <span
+      :id="triggerId"
+      ref="trigger"
+      :aria-expanded="open"
+      :aria-haspopup="panelRole"
+      :aria-controls="panelId"
+      :role="triggerNeedsKeyboard ? 'button' : undefined"
+      :tabindex="triggerNeedsKeyboard ? 0 : -1"
+      @click="toggle"
+      @keydown="onTriggerKeydown"
+    ><slot name="trigger" :open="open" /></span>
     <Teleport to="body">
       <Transition name="ui-popover">
         <div
           v-if="open"
           ref="panel"
+          :id="panelId"
           class="ui-popover__panel ui-motion"
           :style="style"
           :role="panelRole"
           :aria-label="ariaLabel"
+          :aria-labelledby="ariaLabel ? undefined : triggerId"
+          :aria-modal="panelRole === 'dialog' ? 'true' : undefined"
+          @keydown="onPanelKeydown"
         >
           <slot :close="close" />
         </div>
@@ -19,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, onUpdated, ref, useId } from 'vue'
 
 const props = withDefaults(defineProps<{
   placement?: 'bottom-start' | 'bottom-end'
@@ -31,14 +45,22 @@ const props = withDefaults(defineProps<{
 }>(), {
   placement: 'bottom-start',
   closeOnSelect: false,
+  panelRole: 'menu',
   focusOnOpen: true
 })
 
 const emit = defineEmits<{ openChange: [boolean] }>()
 const open = ref(false)
 const root = ref<HTMLElement>()
+const trigger = ref<HTMLElement>()
 const panel = ref<HTMLElement>()
 const style = ref<Record<string, string>>()
+const popoverId = useId()
+const triggerId = `${popoverId}-trigger`
+const panelId = `${popoverId}-panel`
+const bodyOverflowBeforeOpen = ref<string | null>(null)
+const triggerNeedsKeyboard = ref(true)
+let tabDismissTimer: ReturnType<typeof setTimeout> | undefined
 
 const focusableSelector = [
   'button:not(:disabled)',
@@ -50,17 +72,58 @@ const focusableSelector = [
 ].join(',')
 
 function focusTrigger(): void {
-  root.value?.querySelector<HTMLElement>(focusableSelector)?.focus()
+  if (triggerNeedsKeyboard.value) trigger.value?.focus()
+  else root.value?.querySelector<HTMLElement>(focusableSelector)?.focus()
+}
+
+function syncTriggerA11y(): void {
+  const focusable = trigger.value?.querySelector<HTMLElement>(focusableSelector)
+  triggerNeedsKeyboard.value = !focusable
+  if (focusable) {
+    focusable.setAttribute('aria-expanded', String(open.value))
+    focusable.setAttribute('aria-haspopup', panelRoleValue())
+    focusable.setAttribute('aria-controls', panelId)
+  }
+}
+
+function panelRoleValue(): string {
+  return props.panelRole
+}
+
+function onTriggerKeydown(event: KeyboardEvent): void {
+  if (!triggerNeedsKeyboard.value) return
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  void toggle()
 }
 
 function focusPanel(): void {
   panel.value?.querySelector<HTMLElement>(focusableSelector)?.focus()
 }
 
+function onPanelKeydown(event: KeyboardEvent): void {
+  if (!['menu', 'listbox'].includes(props.panelRole)) return
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+  const role = props.panelRole === 'menu' ? 'menuitem' : 'option'
+  const items = Array.from(panel.value?.querySelectorAll<HTMLElement>(`[role="${role}"]:not([aria-disabled="true"]):not(:disabled)`) ?? [])
+  if (items.length === 0) return
+  event.preventDefault()
+  const current = items.indexOf(document.activeElement as HTMLElement)
+  if (event.key === 'Home') items[0].focus()
+  else if (event.key === 'End') items[items.length - 1].focus()
+  else if (event.key === 'ArrowDown') items[current < 0 || current === items.length - 1 ? 0 : current + 1].focus()
+  else items[current <= 0 ? items.length - 1 : current - 1].focus()
+}
+
 async function dismiss(restoreFocus: boolean): Promise<void> {
   if (!open.value) return
   open.value = false
+  syncTriggerA11y()
   emit('openChange', false)
+  if (props.panelRole === 'dialog' && bodyOverflowBeforeOpen.value !== null) {
+    document.body.style.overflow = bodyOverflowBeforeOpen.value
+    bodyOverflowBeforeOpen.value = null
+  }
   if (restoreFocus) {
     await nextTick()
     focusTrigger()
@@ -78,7 +141,12 @@ async function toggle(): Promise<void> {
   }
 
   open.value = true
+  syncTriggerA11y()
   emit('openChange', true)
+  if (props.panelRole === 'dialog' && bodyOverflowBeforeOpen.value === null) {
+    bodyOverflowBeforeOpen.value = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+  }
   style.value = props.width
     ? { width: props.width, maxWidth: 'calc(100vw - 16px)' }
     : { maxWidth: 'min(320px, calc(100vw - 16px))' }
@@ -112,28 +180,56 @@ function position(): void {
 function outside(event: MouseEvent): void {
   const target = event.target as Node
   if (open.value && !root.value?.contains(target) && !panel.value?.contains(target)) {
-    void dismiss(false)
+    void dismiss(true)
   }
 }
 
 function key(event: KeyboardEvent): void {
-  if (event.key !== 'Escape' || !open.value) return
-  event.preventDefault()
-  void dismiss(true)
+  if (!open.value) return
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    void dismiss(true)
+    return
+  }
+  if (event.key !== 'Tab' || !panel.value) return
+  if (props.panelRole !== 'dialog') {
+    clearTimeout(tabDismissTimer)
+    tabDismissTimer = setTimeout(() => { void dismiss(false) }, 0)
+    return
+  }
+  const focusables = Array.from(panel.value.querySelectorAll<HTMLElement>(focusableSelector))
+  if (focusables.length === 0) return
+  const first = focusables[0]
+  const last = focusables[focusables.length - 1]
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
 }
 
 onMounted(() => {
+  syncTriggerA11y()
   document.addEventListener('click', outside, true)
   document.addEventListener('keydown', key)
   window.addEventListener('resize', position)
   window.addEventListener('scroll', position, true)
 })
 
+onUpdated(syncTriggerA11y)
+
 onBeforeUnmount(() => {
+  clearTimeout(tabDismissTimer)
   document.removeEventListener('click', outside, true)
   document.removeEventListener('keydown', key)
   window.removeEventListener('resize', position)
   window.removeEventListener('scroll', position, true)
+  if (bodyOverflowBeforeOpen.value !== null) {
+    document.body.style.overflow = bodyOverflowBeforeOpen.value
+    bodyOverflowBeforeOpen.value = null
+  }
 })
 </script>
 

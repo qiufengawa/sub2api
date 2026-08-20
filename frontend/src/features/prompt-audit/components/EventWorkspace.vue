@@ -33,57 +33,53 @@
     <UiAlert v-if="error" class="prompt-events__error" tone="danger" :message="error" />
 
     <div class="prompt-events__table-shell">
-      <UiMobileTableScroller :label="t('admin.promptAudit.events.tableRegion')" min-width="1120px">
-        <table class="prompt-events__table">
-          <thead>
-            <tr>
-              <th class="prompt-events__select"><UiCheckbox :model-value="allSelected" :aria-label="t('admin.promptAudit.events.selectAll')" @update:model-value="toggleAll" /></th>
-              <th>{{ t('admin.promptAudit.events.time') }}</th>
-              <th>{{ t('admin.promptAudit.events.identity') }}</th>
-              <th>{{ t('admin.promptAudit.events.group') }}</th>
-              <th>{{ t('admin.promptAudit.events.route') }}</th>
-              <th>{{ t('admin.promptAudit.events.result') }}</th>
-              <th>{{ t('admin.promptAudit.events.preview') }}</th>
-              <th class="prompt-events__actions-heading">{{ t('admin.promptAudit.common.actions') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="loading">
-              <td colspan="8" aria-busy="true">
-                <div class="prompt-events__loading"><UiSkeleton v-for="index in 6" :key="index" variant="text" height="14px" /></div>
-              </td>
-            </tr>
-            <tr v-else-if="events.length === 0">
-              <td colspan="8"><UiEmptyState :title="t('admin.promptAudit.events.empty')" /></td>
-            </tr>
-            <tr v-for="event in events" v-else :key="event.id" :data-test="`event-${event.id}`">
-              <td class="prompt-events__select"><UiCheckbox :model-value="selectedIds.includes(event.id)" :aria-label="t('admin.promptAudit.events.selectEvent', { id: event.id })" @update:model-value="toggleOne(event.id)" /></td>
-              <td class="prompt-events__time">{{ formatDate(event.created_at) }}</td>
-              <td>
-                <div v-for="identity in identityRows(event)" :key="identity.label" class="prompt-events__identity">
-                  <span>{{ identity.label }}</span><b :title="identity.value">{{ identity.value || '—' }}</b>
-                  <UiCopyButton v-if="identity.value" :value="identity.value" :label="`${t('common.copy')} ${identity.label}`" :success-text="t('common.copied')" density="mini" variant="ghost" @error="appStore.showError(t('common.copyFailed'))" />
-                </div>
-              </td>
-              <td>{{ event.snapshot.group_name || '—' }}</td>
-              <td>
-                <strong class="prompt-events__route">{{ event.snapshot.endpoint }}</strong>
-                <small class="prompt-events__metadata">{{ event.snapshot.model }} · {{ event.snapshot.protocol }} · {{ event.snapshot.stage || 'http' }}</small>
-              </td>
-              <td>
-                <UiBadge :tone="decisionTone(event.decision)">{{ formatDecisionRisk(event.decision, event.risk_level) }}</UiBadge>
-                <small class="prompt-events__categories" :title="formatCategories(event.categories)">{{ formatCategories(event.categories) }}</small>
-              </td>
-              <td><p class="prompt-events__preview">{{ event.snapshot.redacted_preview || '—' }}</p></td>
-              <td>
-                <div class="prompt-events__row-actions">
-                  <UiButton density="mini" variant="quiet" @click="emit('view', event.id)">{{ t('common.view') }}</UiButton>
-                  <UiButton density="mini" variant="danger" @click="emit('delete', event.id)">{{ t('common.delete') }}</UiButton>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <UiMobileTableScroller
+        :label="t('admin.promptAudit.events.tableRegion')"
+        min-width="1120px"
+      >
+        <UiDataTable
+        :columns="columns"
+        :data="events"
+        :loading="loading"
+        mobile-table
+        selectable
+        row-key="id"
+        :selected-keys="selectedIds"
+        :selection-label="selectionLabel"
+        :aria-label="t('admin.promptAudit.events.tableRegion')"
+        @update:selected-keys="emit('selection', $event.map(Number))"
+      >
+        <template #empty>
+          <UiEmptyState :title="t('admin.promptAudit.events.empty')" />
+        </template>
+        <template #cell-created_at="{ row: event }">
+          <time class="prompt-events__time" :datetime="event.created_at">{{ formatDate(event.created_at) }}</time>
+        </template>
+        <template #cell-identity="{ row: event }">
+          <div v-for="identity in identityRows(event)" :key="identity.label" class="prompt-events__identity">
+            <span>{{ identity.label }}</span><b :title="identity.value">{{ identity.value || '—' }}</b>
+            <UiCopyButton v-if="identity.value" :value="identity.value" :label="`${t('common.copy')} ${identity.label}`" :success-text="t('common.copied')" density="mini" variant="ghost" @error="appStore.showError(t('common.copyFailed'))" />
+          </div>
+        </template>
+        <template #cell-group="{ row: event }">{{ event.snapshot.group_name || '—' }}</template>
+        <template #cell-route="{ row: event }">
+          <strong class="prompt-events__route">{{ event.snapshot.endpoint }}</strong>
+          <small class="prompt-events__metadata">{{ event.snapshot.model }} · {{ event.snapshot.protocol }} · {{ event.snapshot.stage || 'http' }}</small>
+        </template>
+        <template #cell-result="{ row: event }">
+          <UiBadge :tone="decisionTone(event.decision)">{{ formatDecisionRisk(event.decision, event.risk_level) }}</UiBadge>
+          <small class="prompt-events__categories" :title="formatCategories(event.categories)">{{ formatCategories(event.categories) }}</small>
+        </template>
+        <template #cell-preview="{ row: event }">
+          <p class="prompt-events__preview">{{ event.snapshot.redacted_preview || '—' }}</p>
+        </template>
+        <template #cell-actions="{ row: event }">
+          <div class="prompt-events__row-actions">
+            <UiButton density="mini" variant="quiet" @click="emit('view', event.id)">{{ t('common.view') }}</UiButton>
+            <UiButton density="mini" variant="danger" @click="emit('delete', event.id)">{{ t('common.delete') }}</UiButton>
+          </div>
+        </template>
+        </UiDataTable>
       </UiMobileTableScroller>
       <UiPagination
         :total="total"
@@ -110,16 +106,16 @@ import {
   UiAlert,
   UiBadge,
   UiButton,
-  UiCheckbox,
   UiCopyButton,
+  UiDataTable,
   UiEmptyState,
   UiFilterBar,
   UiMobileTableScroller,
   UiPagination,
   UiSelect,
-  UiSkeleton,
   UiTextField,
 } from '@/components/ui'
+import type { Column } from '@/components/ui'
 import { useAppStore } from '@/stores/app'
 import type { PromptAuditEvent, PromptEventFilters } from '../types'
 import { cloneData, emptyEventFilters, eventQueryParams, SCANNER_CATALOG } from '../viewModel'
@@ -149,8 +145,16 @@ const { t, locale } = useI18n()
 const appStore = useAppStore()
 const localFilters = reactive<PromptEventFilters>(cloneData(props.filters))
 watch(() => props.filters, (value) => Object.assign(localFilters, cloneData(value)), { deep: true })
-const allSelected = computed(() => props.events.length > 0 && props.events.every((event) => props.selectedIds.includes(event.id)))
 const activeFilterCount = computed(() => Object.keys(eventQueryParams(localFilters)).length)
+const columns = computed<Column[]>(() => [
+  { key: 'created_at', label: t('admin.promptAudit.events.time'), class: 'prompt-events__column-time' },
+  { key: 'identity', label: t('admin.promptAudit.events.identity'), class: 'prompt-events__column-identity' },
+  { key: 'group', label: t('admin.promptAudit.events.group') },
+  { key: 'route', label: t('admin.promptAudit.events.route'), class: 'prompt-events__column-route' },
+  { key: 'result', label: t('admin.promptAudit.events.result') },
+  { key: 'preview', label: t('admin.promptAudit.events.preview'), class: 'prompt-events__column-preview' },
+  { key: 'actions', label: t('admin.promptAudit.common.actions'), class: 'prompt-events__column-actions' },
+])
 const decisionOptions = computed(() => [
   { value: '', label: t('common.all') },
   { value: 'pass', label: t('admin.promptAudit.decisions.pass') },
@@ -175,15 +179,11 @@ function resetFilters() {
   Object.assign(localFilters, emptyEventFilters())
   applyFilters()
 }
-function toggleOne(id: number) {
-  const selected = new Set(props.selectedIds)
-  if (selected.has(id)) selected.delete(id)
-  else selected.add(id)
-  emit('selection', [...selected])
-}
-function toggleAll() { emit('selection', allSelected.value ? [] : props.events.map((event) => event.id)) }
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(locale.value, { dateStyle: 'short', timeStyle: 'medium' }).format(new Date(value))
+}
+function selectionLabel(event: PromptAuditEvent): string {
+  return t('admin.promptAudit.events.selectEvent', { id: event.id })
 }
 function identityRows(event: PromptAuditEvent) {
   return [
@@ -211,16 +211,10 @@ function formatCategories(categories: string[]): string { return categories.leng
 .prompt-events__filter{width:170px}.prompt-events__filter--short{width:124px}
 .prompt-events__error{margin-top:12px}
 .prompt-events__table-shell{min-width:0;margin-top:12px;border-block:1px solid var(--ui-border-soft)}
-.prompt-events__table{width:100%;border-collapse:collapse;color:var(--ui-text);font-size:12px;text-align:left}
-.prompt-events__table th{height:34px;padding:6px 10px;border-bottom:1px solid var(--ui-border);color:var(--ui-text-soft);background:var(--ui-surface-muted);font-size:11px;font-weight:600;white-space:nowrap}
-.prompt-events__table td{padding:9px 10px;border-bottom:1px solid var(--ui-border-soft);vertical-align:top}
-.prompt-events__table tbody tr:hover{background:var(--ui-surface-muted)}
-.prompt-events__select{width:36px}.prompt-events__time{color:var(--ui-text-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
-.prompt-events__actions-heading{text-align:right}
+.prompt-events__time{color:var(--ui-text-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .prompt-events__identity{display:grid;max-width:240px;grid-template-columns:58px minmax(0,1fr) 28px;align-items:center;gap:5px;min-height:24px}
 .prompt-events__identity>span{color:var(--ui-text-soft)}.prompt-events__identity>b{min-width:0;overflow:hidden;font-weight:500;text-overflow:ellipsis;white-space:nowrap}
 .prompt-events__route{display:block;font-weight:600}.prompt-events__metadata,.prompt-events__categories{display:block;max-width:240px;margin-top:4px;overflow:hidden;color:var(--ui-text-soft);font-size:10px;text-overflow:ellipsis;white-space:nowrap}
 .prompt-events__preview{display:-webkit-box;max-width:300px;margin:0;overflow:hidden;color:var(--ui-text-muted);line-height:18px;overflow-wrap:anywhere;-webkit-box-orient:vertical;-webkit-line-clamp:2}
-.prompt-events__loading{display:grid;gap:10px;padding:22px 8px}
 @media(max-width:640px){.prompt-events__header-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}.prompt-events__filter,.prompt-events__filter--short{width:auto}}
 </style>

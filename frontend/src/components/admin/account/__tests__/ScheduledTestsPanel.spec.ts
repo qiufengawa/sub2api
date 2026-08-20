@@ -63,6 +63,12 @@ const openPanel = async () => {
   return wrapper
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => { resolve = done })
+  return { promise, resolve }
+}
+
 describe('ScheduledTestsPanel', () => {
   beforeEach(() => {
     Object.values(api).forEach(mock => mock.mockReset())
@@ -88,10 +94,17 @@ describe('ScheduledTestsPanel', () => {
     api.listResults.mockResolvedValue([result()])
     const wrapper = await openPanel()
 
-    await wrapper.get('.scheduled-tests__plan-trigger').trigger('click')
+    const trigger = wrapper.get('.scheduled-tests__plan-trigger')
+    expect(trigger.attributes('aria-expanded')).toBe('false')
+    const controlledId = trigger.attributes('aria-controls')
+    expect(controlledId).toBe('scheduled-test-results-12')
+
+    await trigger.trigger('click')
     await flushPromises()
     expect(api.listResults).toHaveBeenCalledWith(12, 20)
     expect(wrapper.text()).toContain('240ms')
+    expect(trigger.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.get(`#${controlledId}`).exists()).toBe(true)
 
     const detailButton = wrapper.findAll('button').find(button => button.text().includes('admin.scheduledTests.responseText'))
     expect(detailButton).toBeDefined()
@@ -111,5 +124,45 @@ describe('ScheduledTestsPanel', () => {
 
     expect(api.delete).toHaveBeenCalledWith(12)
     expect(wrapper.text()).not.toContain('gpt-5.6-sol')
+  })
+
+  it('prevents duplicate enabled updates for the same plan', async () => {
+    const pending = deferred<ScheduledTestPlan>()
+    api.update.mockReturnValueOnce(pending.promise)
+    const wrapper = await openPanel()
+    const vm = wrapper.vm as unknown as {
+      handleToggleEnabled: (value: ScheduledTestPlan, enabled: boolean) => Promise<void>
+    }
+
+    const first = vm.handleToggleEnabled(plan(), false)
+    const second = vm.handleToggleEnabled(plan(), false)
+    await flushPromises()
+
+    expect(api.update).toHaveBeenCalledTimes(1)
+    expect(api.update).toHaveBeenCalledWith(12, { enabled: false })
+
+    pending.resolve(plan({ enabled: false }))
+    await Promise.all([first, second])
+  })
+
+  it('prevents duplicate plan deletion while confirmation is pending', async () => {
+    const pending = deferred<void>()
+    api.delete.mockReturnValueOnce(pending.promise)
+    const wrapper = await openPanel()
+    const vm = wrapper.vm as unknown as {
+      confirmDeletePlan: (value: ScheduledTestPlan) => void
+      handleDelete: () => Promise<void>
+    }
+    vm.confirmDeletePlan(plan())
+
+    const first = vm.handleDelete()
+    const second = vm.handleDelete()
+    await flushPromises()
+
+    expect(api.delete).toHaveBeenCalledTimes(1)
+    expect(api.delete).toHaveBeenCalledWith(12)
+
+    pending.resolve()
+    await Promise.all([first, second])
   })
 })

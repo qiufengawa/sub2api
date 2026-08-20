@@ -1,13 +1,15 @@
-<template><div class="ui-alert" :class="`ui-alert--${tone}`" :role="role || (tone === 'danger' ? 'alert' : 'status')"><Icon :name="icon" size="sm"/><div class="ui-alert__content"><strong v-if="title">{{ title }}</strong><p><slot>{{ message }}</slot></p></div><button v-if="dismissible" type="button" aria-label="关闭" @click="emit('dismiss')"><Icon name="x" size="xs"/></button></div></template>
+<template><div class="ui-alert" :class="`ui-alert--${tone}`" :role="role || (tone === 'danger' ? 'alert' : 'status')"><Icon :name="icon" size="sm"/><div class="ui-alert__content"><strong v-if="title">{{ title }}</strong><p><slot>{{ message }}</slot></p></div><button v-if="dismissible" type="button" :aria-label="dismissLabel" @click="emit('dismiss')"><Icon name="x" size="xs"/></button></div></template>
 <script setup lang="ts">
 import {computed} from 'vue';
 import Icon from '@/components/icons/Icon.vue';
+import { useUiT } from './useUiI18n'
 const props=withDefaults(defineProps<{tone?:'info'|'success'|'warning'|'danger';
 title?:string;
 message?:string;
 role?:'status'|'alert';
 dismissible?:boolean}>(),{tone:'info',dismissible:false});
 const emit=defineEmits<{dismiss:[]}>();
+const dismissLabel = useUiT()('common.close')
 const icon=computed(()=>({info:'infoCircle',success:'checkCircle',warning:'exclamationTriangle',danger:'exclamationCircle'} as const)[props.tone])
 </script>
 <style scoped>.ui-alert{display:grid;

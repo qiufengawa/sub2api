@@ -5,9 +5,15 @@
         :key="group.id"
         :label="group.name"
       />
-      <UiPopover v-if="hiddenCount > 0" placement="bottom-start">
+      <UiPopover v-if="hiddenCount > 0" placement="bottom-start" panel-role="dialog" :aria-label="t('admin.accounts.groupCountTotal', { count: groups.length })">
         <template #trigger>
-          <UiBadge :label="`+${hiddenCount}`" />
+          <UiButton
+            variant="quiet"
+            density="mini"
+            :aria-label="t('admin.accounts.groupCountTotal', { count: groups.length })"
+          >
+            +{{ hiddenCount }}
+          </UiButton>
         </template>
         <template #default="{ close }">
         <AppStack :gap="8">
@@ -32,7 +38,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { AppInline, AppStack, UiBadge, UiIconButton, UiPopover } from '@/components/ui'
+import { AppInline, AppStack, UiBadge, UiButton, UiIconButton, UiPopover } from '@/components/ui'
 import type { Group } from '@/types'
 
 interface Props {

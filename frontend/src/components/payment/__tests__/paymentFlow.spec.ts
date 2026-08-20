@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { CreateOrderResult, MethodLimit } from '@/types/payment'
 import {
   buildCreateOrderPayload,
+  clearPaymentRecoverySnapshotForIdentity,
   decidePaymentLaunch,
   getVisibleMethods,
+  paymentRecoveryStorageKey,
   readPaymentRecoverySnapshot,
+  readPaymentRecoverySnapshotFromStorage,
   type PaymentRecoverySnapshot,
+  writePaymentRecoverySnapshot,
 } from '@/components/payment/paymentFlow'
 
 function methodLimit(overrides: Partial<MethodLimit> = {}): MethodLimit {
@@ -553,5 +557,96 @@ describe('readPaymentRecoverySnapshot', () => {
     expect(restored?.currency).toBe('')
     expect(restored?.countryCode).toBe('')
     expect(restored?.paymentEnv).toBe('')
+  })
+
+  it('keeps concurrent order recovery snapshots isolated by signed resume token', () => {
+    window.localStorage.clear()
+    const first: PaymentRecoverySnapshot = {
+      orderId: 101,
+      amount: 18,
+      qrCode: '',
+      expiresAt: '2099-01-01T00:10:00.000Z',
+      paymentType: 'airwallex',
+      payUrl: '/payment/airwallex?order_id=101',
+      outTradeNo: 'sub2_101',
+      clientSecret: 'secret-101',
+      intentId: 'intent-101',
+      currency: 'CNY',
+      countryCode: 'CN',
+      paymentEnv: 'demo',
+      payAmount: 18,
+      orderType: 'balance',
+      paymentMode: '',
+      resumeToken: 'resume-101',
+      createdAt: Date.UTC(2099, 0, 1, 0, 0, 0),
+    }
+    const second = {
+      ...first,
+      orderId: 202,
+      outTradeNo: 'sub2_202',
+      clientSecret: 'secret-202',
+      intentId: 'intent-202',
+      resumeToken: 'resume-202',
+    }
+
+    writePaymentRecoverySnapshot(window.localStorage, first)
+    writePaymentRecoverySnapshot(window.localStorage, second)
+
+    expect(readPaymentRecoverySnapshotFromStorage(window.localStorage, {
+      resumeToken: 'resume-101',
+      orderId: 101,
+    })?.clientSecret).toBe('secret-101')
+    expect(readPaymentRecoverySnapshotFromStorage(window.localStorage, {
+      resumeToken: 'resume-202',
+      orderId: 202,
+    })?.clientSecret).toBe('secret-202')
+
+    clearPaymentRecoverySnapshotForIdentity(window.localStorage, {
+      resumeToken: 'resume-101',
+      orderId: 101,
+    })
+
+    expect(window.localStorage.getItem(paymentRecoveryStorageKey({ resumeToken: 'resume-101' }))).toBeNull()
+    expect(readPaymentRecoverySnapshotFromStorage(window.localStorage, {
+      resumeToken: 'resume-202',
+      orderId: 202,
+    })?.clientSecret).toBe('secret-202')
+  })
+
+  it('treats unavailable browser storage as a best-effort recovery channel', () => {
+    const unavailableStorage = {
+      getItem: () => { throw new DOMException('blocked', 'SecurityError') },
+      setItem: () => { throw new DOMException('blocked', 'SecurityError') },
+      removeItem: () => { throw new DOMException('blocked', 'SecurityError') },
+    } as Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+    const snapshot: PaymentRecoverySnapshot = {
+      orderId: 303,
+      amount: 18,
+      qrCode: '',
+      expiresAt: '2099-01-01T00:10:00.000Z',
+      paymentType: 'alipay',
+      payUrl: 'https://pay.example.com/session/303',
+      outTradeNo: 'sub2_303',
+      clientSecret: '',
+      intentId: '',
+      currency: 'CNY',
+      countryCode: 'CN',
+      paymentEnv: '',
+      payAmount: 18,
+      orderType: 'balance',
+      paymentMode: 'redirect',
+      resumeToken: 'resume-303',
+      createdAt: Date.UTC(2099, 0, 1, 0, 0, 0),
+    }
+
+    expect(() => writePaymentRecoverySnapshot(unavailableStorage, snapshot)).not.toThrow()
+    expect(readPaymentRecoverySnapshotFromStorage(unavailableStorage, {
+      resumeToken: snapshot.resumeToken,
+      orderId: snapshot.orderId,
+    })).toBeNull()
+    expect(() => clearPaymentRecoverySnapshotForIdentity(unavailableStorage, {
+      resumeToken: snapshot.resumeToken,
+      orderId: snapshot.orderId,
+    })).not.toThrow()
   })
 })

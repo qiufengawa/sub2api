@@ -103,7 +103,7 @@ describe('UserApiKeysModal', () => {
     const wrapper = mountModal()
     await flushPromises()
 
-    await wrapper.get('button[aria-label="下一页"]').trigger('click')
+    await wrapper.get('nav[aria-label="common.pagination"] button[aria-label="common.nextPage"]').trigger('click')
     await flushPromises()
 
     expect(getUserApiKeys).toHaveBeenLastCalledWith(7, 2, 20)

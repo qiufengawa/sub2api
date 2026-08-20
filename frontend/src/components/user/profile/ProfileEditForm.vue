@@ -1,5 +1,5 @@
 <template>
-  <div :class="props.embedded ? 'space-y-4' : 'card'">
+  <div :class="props.embedded ? 'space-y-4' : 'ui-panel'">
     <div
       v-if="!props.embedded"
       class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
@@ -15,23 +15,24 @@
             {{ t('profile.editProfile') }}
           </p>
         </div>
-        <div>
-          <label for="username" class="input-label">
-            {{ t('profile.username') }}
-          </label>
-          <input
+        <UiTextField
             id="username"
             v-model="username"
             type="text"
-            class="input"
+            :density="props.embedded ? 'compact' : 'default'"
+            :label="t('profile.username')"
             :placeholder="t('profile.enterUsername')"
-          />
-        </div>
+        />
 
         <div :class="props.embedded ? 'flex justify-end pt-1' : 'flex justify-end pt-4'">
-          <button type="submit" :disabled="loading" :class="props.embedded ? 'btn btn-primary btn-sm' : 'btn btn-primary'">
-            {{ loading ? t('profile.updating') : t('profile.updateProfile') }}
-          </button>
+          <UiButton
+            type="submit"
+            variant="primary"
+            :density="props.embedded ? 'compact' : 'default'"
+            :loading="loading"
+          >
+            {{ t('profile.updateProfile') }}
+          </UiButton>
         </div>
       </form>
     </div>
@@ -44,6 +45,7 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
 import { userAPI } from '@/api'
+import { UiButton, UiTextField } from '@/components/ui'
 
 const props = withDefaults(defineProps<{
   initialUsername: string

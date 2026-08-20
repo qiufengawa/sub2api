@@ -24,7 +24,7 @@
             tabindex="-1"
             @input="handleHiddenOtpInput"
           />
-          <div class="auth-totp__cells">
+          <div class="auth-totp__cells" role="group" :aria-label="t('stepUp.title')">
             <input
               v-for="(_, index) in 6"
               :key="index"
@@ -35,6 +35,7 @@
               pattern="[0-9]"
               autocomplete="off"
               class="auth-totp__cell"
+              :aria-label="`${t('stepUp.title')} ${index + 1}`"
               :disabled="verifying"
               @input="handleCodeInput($event, index)"
               @keydown="handleKeydown($event, index)"
@@ -132,7 +133,8 @@ const setInputRef = (el: any, index: number) => {
 
 const handleCodeInput = (event: Event, index: number) => {
   const input = event.target as HTMLInputElement
-  const value = input.value.replace(/[^0-9]/g, '')
+  const value = input.value.replace(/[^0-9]/g, '').slice(0, 1)
+  input.value = value
   code.value[index] = value
   if (value && index < 5) {
     nextTick(() => inputRefs.value[index + 1]?.focus())

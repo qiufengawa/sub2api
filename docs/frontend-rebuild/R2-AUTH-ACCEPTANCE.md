@@ -43,6 +43,13 @@ ESLint：pnpm run lint:check 通过
 - 重置密码的缺参数、有效提交、过期 token、成功状态和按需密码规则帮助。
 - 认证字段的 inputmode、maxlength、monospace、错误关联与 Enter 事件透传。
 
+### 2026-08-19 DingTalk 回调补充
+
+- 新增 `DingTalkCallbackView.spec.ts`，覆盖 pending exchange 返回补邮箱状态时拒绝 `//evil.example` 外部 redirect，并只导航到编码后的 `/dashboard`。
+- 同一夹具覆盖 legacy fragment access/refresh token 兼容路径：不调用 pending exchange，refresh token 与过期时间继续持久化，登录成功后返回受信任站内路径。
+- 新增 `DingTalkEmailCompletionView.spec.ts`，实际填写邮箱/密码并提交 `/auth/oauth/pending/create-account`，验证 access token、refresh token/expiry、成功提示及 sanitized redirect 闭环。
+- DingTalk 两个组件测试与 auth-shell route 契约共 3 files / 17 tests 通过；typecheck、定向 ESLint 与 diff check 通过。
+
 全量测试输出中的网络失败、i18n compiler 和未解析 `router-link` 信息来自既有失败分支测试或测试桩；命令退出码为 0。构建仍报告既有动态/静态 import 与大 chunk 提示，本批次没有新增第二图标库或生产构建错误。
 
 ## 浏览器验证
@@ -79,3 +86,8 @@ ESLint：pnpm run lint:check 通过
 
 - R4 交易流程仍需在认证共享壳依赖落地后完成原子验收。
 - 本记录只证明 R2 认证、回调与初始化批次，不代表 61 个页面的全站重构完成。
+
+## 2026-08-19 TOTP 登录弹窗契约补充
+
+- `TotpLoginModal.spec.ts` 增加 4 tests，覆盖六位数字自动提交、密码管理器 `one-time-code` 填充、粘贴清洗与焦点、空格退格回退、验证中禁用，以及错误后清空并聚焦首格。
+- 本批只补 jsdom 行为证据，不改变 TOTP API、弹窗关闭策略或认证路由；真实认证壳三视口、主题、reduced-motion、keyboard 与 console 仍按 R2/R62 浏览器门禁执行。

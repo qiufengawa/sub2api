@@ -1,122 +1,70 @@
 <template>
-  <div v-if="hasActiveSubscriptions" class="relative" ref="containerRef">
-    <!-- Mini Progress Display -->
-    <button
-      @click="toggleTooltip"
-      class="flex min-h-10 cursor-pointer items-center gap-2 rounded-[4px] px-1.5 text-left transition-colors hover:bg-gray-100/80 dark:hover:bg-dark-800/70"
+  <div v-if="hasActiveSubscriptions" ref="containerRef" class="subscription-progress">
+    <UiButton
+      type="button"
+      variant="quiet"
+      density="default"
+      class="subscription-progress__trigger"
+      :aria-expanded="tooltipOpen"
       :title="t('subscriptionProgress.viewDetails')"
+      @click="toggleTooltip"
     >
-      <Icon name="creditCard" size="sm" class="text-purple-500 dark:text-purple-400" />
-      <div class="min-w-0 leading-tight">
-        <div class="flex items-center gap-1.5">
-          <span class="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
-            {{ activeSubscriptions.length }}
-          </span>
-          <div class="flex items-center gap-0.5" aria-hidden="true">
-            <div
-              v-for="(sub, index) in displaySubscriptions.slice(0, 3)"
-              :key="index"
-              class="h-1.5 w-1.5 rounded-full"
-              :class="getProgressDotClass(sub)"
-            ></div>
-          </div>
-        </div>
-        <div class="mt-0.5 whitespace-nowrap text-[11px] text-gray-500 dark:text-dark-400">
-          {{ t('subscriptionProgress.activeLabel') }}
-        </div>
-      </div>
-    </button>
+      <Icon name="creditCard" size="sm" class="subscription-progress__icon" />
+      <span class="subscription-progress__summary">
+        <span class="subscription-progress__count ui-numeric">{{ activeSubscriptions.length }}</span>
+        <span class="subscription-progress__dots" aria-hidden="true">
+          <i v-for="(sub, index) in displaySubscriptions.slice(0, 3)" :key="index" :class="`is-${getProgressTone(sub)}`" />
+        </span>
+        <span class="subscription-progress__label">{{ t('subscriptionProgress.activeLabel') }}</span>
+      </span>
+    </UiButton>
 
-    <!-- Hover/Click Tooltip -->
     <transition name="dropdown">
-      <div
-        v-if="tooltipOpen"
-        class="absolute right-0 z-50 mt-2 w-[340px] overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg dark:border-dark-700 dark:bg-dark-800"
-      >
-        <div class="border-b border-gray-100 p-3 dark:border-dark-700">
-          <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
-            {{ t('subscriptionProgress.title') }}
-          </h3>
-          <p class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">
+      <div v-if="tooltipOpen" class="subscription-progress__popover">
+        <header>
+          <h3>{{ t('subscriptionProgress.title') }}</h3>
+          <p>
             {{ t('subscriptionProgress.activeCount', { count: activeSubscriptions.length }) }}
           </p>
-        </div>
+        </header>
 
-        <div class="max-h-64 overflow-y-auto">
+        <div class="subscription-progress__list">
           <div
             v-for="subscription in displaySubscriptions"
             :key="subscription.id"
-            class="border-b border-gray-50 p-3 last:border-b-0 dark:border-dark-700/50"
+            class="subscription-progress__item"
           >
-            <div class="mb-2 flex items-center justify-between">
-              <span class="text-sm font-medium text-gray-900 dark:text-white">
+            <div class="subscription-progress__item-header">
+              <span>
                 {{ subscription.plan_name || `#${subscription.plan_id}` }}
               </span>
-              <span
-                v-if="subscription.expires_at"
-                class="text-xs"
-                :class="getDaysRemainingClass(subscription.expires_at)"
-              >
-                {{ formatDaysRemaining(subscription.expires_at) }}
-              </span>
+              <UiStatusBadge v-if="subscription.expires_at" :status="getDaysRemainingStatus(subscription.expires_at)" :label="formatDaysRemaining(subscription.expires_at)" />
             </div>
 
-            <!-- Progress bars or Unlimited badge -->
-            <div class="space-y-1.5">
-              <!-- Unlimited subscription badge -->
-              <div
-                v-if="isUnlimited(subscription)"
-                class="flex items-center gap-2 rounded-[3px] border border-emerald-200 bg-emerald-50 px-2.5 py-1 dark:border-emerald-900/40 dark:bg-emerald-900/20"
-              >
-                <span class="text-lg text-emerald-600 dark:text-emerald-400">∞</span>
-                <span class="text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                  {{ t('subscriptionProgress.unlimited') }}
-                </span>
-              </div>
-
-              <!-- Cycle progress for limited subscriptions -->
-              <template v-else>
-                <div class="flex items-center gap-2">
-                  <span class="w-8 flex-shrink-0 text-[10px] text-gray-500">{{
-                    t('subscriptionProgress.cycle')
-                  }}</span>
-                  <div class="h-1.5 min-w-0 flex-1 rounded-full bg-gray-200 dark:bg-dark-600">
-                    <div
-                      class="h-1.5 rounded-full transition-all"
-                      :class="
-                        getProgressBarClass(
-                          subscription.cycle_usage_usd,
-                          subscription.cycle_quota_usd
-                        )
-                      "
-                      :style="{
-                        width: getProgressWidth(
-                          subscription.cycle_usage_usd,
-                          subscription.cycle_quota_usd
-                        )
-                      }"
-                    ></div>
-                  </div>
-                  <span class="w-24 flex-shrink-0 text-right text-[10px] text-gray-500">
-                    {{
-                      formatUsage(subscription.cycle_usage_usd, subscription.cycle_quota_usd)
-                    }}
-                  </span>
-                </div>
-              </template>
-            </div>
+            <UiStatusBadge v-if="isUnlimited(subscription)" status="active" :label="t('subscriptionProgress.unlimited')" />
+            <UiProgressBar
+              v-else
+              :value="getMaxUsagePercentage(subscription)"
+              :show-value="false"
+              :tone="getProgressTone(subscription)"
+              :label="t('subscriptionProgress.cycle')"
+              :aria-label="formatUsage(subscription.cycle_usage_usd, subscription.cycle_quota_usd)"
+            />
+            <span v-if="!isUnlimited(subscription)" class="subscription-progress__usage">
+              {{ formatUsage(subscription.cycle_usage_usd, subscription.cycle_quota_usd) }}
+            </span>
           </div>
         </div>
 
-        <div class="border-t border-gray-100 p-2 dark:border-dark-700">
-          <router-link
+        <footer>
+          <RouterLink
             to="/subscriptions"
             @click="closeTooltip"
-            class="block w-full py-1 text-center text-xs text-primary-600 hover:underline dark:text-primary-400"
+            class="subscription-progress__link"
           >
             {{ t('subscriptionProgress.viewAll') }}
-          </router-link>
-        </div>
+          </RouterLink>
+        </footer>
       </div>
     </transition>
   </div>
@@ -128,6 +76,7 @@ import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import { useSubscriptionStore } from '@/stores'
 import type { UserSubscription } from '@/types'
+import { UiButton, UiProgressBar, UiStatusBadge } from '@/components/ui'
 
 const { t } = useI18n()
 
@@ -159,29 +108,12 @@ function isUnlimited(sub: UserSubscription): boolean {
   return sub.cycle_quota_usd == null || sub.cycle_quota_usd <= 0
 }
 
-function getProgressDotClass(sub: UserSubscription): string {
-  // Unlimited subscriptions get a special color
-  if (isUnlimited(sub)) {
-    return 'bg-emerald-500'
-  }
-  const maxPercentage = getMaxUsagePercentage(sub)
-  if (maxPercentage >= 90) return 'bg-red-500'
-  if (maxPercentage >= 70) return 'bg-orange-500'
-  return 'bg-green-500'
-}
-
-function getProgressBarClass(used: number | undefined, limit: number | null | undefined): string {
-  if (!limit || limit === 0) return 'bg-gray-400'
-  const percentage = ((used || 0) / limit) * 100
-  if (percentage >= 90) return 'bg-red-500'
-  if (percentage >= 70) return 'bg-orange-500'
-  return 'bg-green-500'
-}
-
-function getProgressWidth(used: number | undefined, limit: number | null | undefined): string {
-  if (!limit || limit === 0) return '0%'
-  const percentage = Math.min(((used || 0) / limit) * 100, 100)
-  return `${percentage}%`
+function getProgressTone(sub: UserSubscription): 'success' | 'warning' | 'danger' | 'info' {
+  if (isUnlimited(sub)) return 'success'
+  const percentage = getMaxUsagePercentage(sub)
+  if (percentage >= 90) return 'danger'
+  if (percentage >= 70) return 'warning'
+  return 'success'
 }
 
 function formatUsage(used: number | undefined, limit: number | null | undefined): string {
@@ -201,14 +133,12 @@ function formatDaysRemaining(expiresAt: string): string {
   return t('subscriptionProgress.daysRemaining', { days })
 }
 
-function getDaysRemainingClass(expiresAt: string): string {
-  const now = new Date()
-  const expires = new Date(expiresAt)
-  const diff = expires.getTime() - now.getTime()
+function getDaysRemainingStatus(expiresAt: string): 'active' | 'warning' | 'danger' {
+  const diff = new Date(expiresAt).getTime() - Date.now()
   const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
-  if (days <= 3) return 'text-red-600 dark:text-red-400'
-  if (days <= 7) return 'text-orange-600 dark:text-orange-400'
-  return 'text-gray-500 dark:text-dark-400'
+  if (days <= 3) return 'danger'
+  if (days <= 7) return 'warning'
+  return 'active'
 }
 
 function toggleTooltip() {
@@ -240,14 +170,21 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.dropdown-enter-active,
-.dropdown-leave-active {
-  transition: all 0.2s ease;
-}
-
-.dropdown-enter-from,
-.dropdown-leave-to {
-  opacity: 0;
-  transform: scale(0.95) translateY(-4px);
-}
+.subscription-progress { position:relative; min-width:0; }
+.subscription-progress__trigger { display:flex; min-height:36px; align-items:center; gap:7px; padding:0 6px; border:0; border-radius:var(--ui-radius); color:var(--ui-text); background:transparent; cursor:pointer; }
+.subscription-progress__trigger:hover { background:var(--ui-surface-muted); }
+.subscription-progress__icon { color:var(--ui-text-muted); }
+.subscription-progress__summary { display:grid; grid-template-columns:auto auto; align-items:center; column-gap:6px; line-height:16px; }
+.subscription-progress__count { font-size:13px; font-weight:600; }
+.subscription-progress__dots { display:flex; gap:3px; }
+.subscription-progress__dots i { width:6px; height:6px; border-radius:50%; background:var(--ui-text-soft); }
+.subscription-progress__dots i.is-success { background:var(--ui-success); }.subscription-progress__dots i.is-warning { background:var(--ui-warning); }.subscription-progress__dots i.is-danger { background:var(--ui-danger); }
+.subscription-progress__label { grid-column:1 / -1; color:var(--ui-text-soft); font-size:10px; white-space:nowrap; }
+.subscription-progress__popover { position:absolute; z-index:40; top:calc(100% + 6px); right:0; width:min(340px,calc(100vw - 16px)); overflow:hidden; border:1px solid var(--ui-border); border-radius:var(--ui-radius); background:var(--ui-surface); box-shadow:0 8px 24px rgb(31 35 41 / 10%); }
+.subscription-progress__popover header,.subscription-progress__popover footer { padding:10px 12px; }.subscription-progress__popover header { border-bottom:1px solid var(--ui-border-soft); }.subscription-progress__popover h3,.subscription-progress__popover p { margin:0; }.subscription-progress__popover h3 { font-size:13px; }.subscription-progress__popover p { margin-top:2px; color:var(--ui-text-soft); font-size:11px; }
+.subscription-progress__list { max-height:260px; overflow-y:auto; }
+.subscription-progress__item { display:grid; gap:7px; padding:10px 12px; border-bottom:1px solid var(--ui-border-soft); }.subscription-progress__item-header { display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--ui-text); font-size:12px; font-weight:500; }.subscription-progress__usage { color:var(--ui-text-soft); font:10px/16px var(--ui-font-mono); font-variant-numeric:tabular-nums; text-align:right; }
+.subscription-progress__popover footer { border-top:1px solid var(--ui-border-soft); }.subscription-progress__link { display:block; color:var(--ui-info); font-size:12px; text-align:center; text-decoration:none; }.subscription-progress__link:hover { text-decoration:underline; }
+.dropdown-enter-active,.dropdown-leave-active { transition:opacity var(--ui-motion-fast),transform var(--ui-motion-fast); }.dropdown-enter-from,.dropdown-leave-to { opacity:0; transform:translateY(-3px); }
+@media(prefers-reduced-motion:reduce){.dropdown-enter-active,.dropdown-leave-active{transition:none}}
 </style>

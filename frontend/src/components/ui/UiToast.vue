@@ -12,7 +12,7 @@
       <span class="ui-toast__content"><b v-if="title">{{ title }}</b>{{ message }}</span>
       <UiIconButton
         v-if="dismissible"
-        :label="closeLabel"
+        :label="resolvedCloseLabel"
         variant="ghost"
         density="mini"
         @click="emit('close')"
@@ -27,6 +27,7 @@
 import { computed } from 'vue'
 import Icon from '@/components/icons/Icon.vue'
 import UiIconButton from './UiIconButton.vue'
+import { useUiT } from './useUiI18n'
 
 const props = withDefaults(defineProps<{
   show: boolean
@@ -35,8 +36,10 @@ const props = withDefaults(defineProps<{
   message: string
   dismissible?: boolean
   closeLabel?: string
-}>(), { tone: 'info', dismissible: true, closeLabel: '关闭' })
+}>(), { tone: 'info', dismissible: true })
 const emit = defineEmits<{ close: [] }>()
+const t = useUiT()
+const resolvedCloseLabel = computed(() => props.closeLabel || t('common.close'))
 const icon = computed(() => ({ info: 'infoCircle', success: 'checkCircle', warning: 'exclamationTriangle', danger: 'exclamationCircle' } as const)[props.tone])
 </script>
 

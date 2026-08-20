@@ -195,7 +195,7 @@ The implemented library contains **114 common components**. Existing components 
 12. `UiCheckbox` - independent binary selection.
 13. `UiRadioGroup` - mutually exclusive choices.
 14. `UiSwitch` - immediate binary setting.
-15. `UiSegmentedControl` - compact modes or views.
+15. `UiSegmentedControl` - compact modes or views, with optional option metadata and `#option` content for branded choices.
 16. `UiDateInput` - single calendar date.
 17. `UiDateRangePicker` - presets, timezone-safe boundaries, and custom range.
 18. `UiFileUpload` - browse, drop, validation, and progress.
@@ -294,7 +294,7 @@ The implemented library contains **114 common components**. Existing components 
 93. `UiSparkline` - compact inline trend visualization.
 94. `UiQuotaSummary` - used/total quota, progress, and reset context.
 95. `UiLogLine` - aligned timestamp, level, and log message.
-114. `UiScoreBar` - bounded score with numeric and visual representation.
+96. `UiScoreBar` - bounded score with numeric and visual representation.
 
 ### 5.8 Advanced workflow and operations: 18
 
@@ -614,6 +614,8 @@ Do not import a new UI contract through a file path such as `@/components/ui/UiB
 
 `UiFormField` supplies label, description, help, error, and required state for custom controls. `UiFieldHelp` contains optional rules or concepts; `UiFieldError` is used only after validation fails.
 
+`UiCheckbox` emits the normal `update:modelValue` event and a secondary `change(checked, nativeEvent)` event. Use the secondary event only when a controlled consumer must reject a change (for example, preserving at least one selected capability) and immediately restore the native checkbox state.
+
 ```vue
 <UiTextField
   v-model="form.email"
@@ -790,7 +792,14 @@ Business components remain in their domain folders and compose this layer. For e
 - 114 component contract files: implemented.
 - Interactive fixture: implemented at `/admin/ui-system`.
 - Inventory and primitive contract tests: implemented in `frontend/src/components/ui/__tests__/`.
-- Existing pages: compatibility migration remains phased according to Section 10. A component being implemented does not mean every legacy consumer has already migrated.
+- Consumer inventory: `docs/frontend-rebuild/CONSUMER-INVENTORY.md` records 114 contracts,
+  276 distinct production consumer files and 1,880 runtime component references.
+  Twenty contracts currently have no external direct consumer: two are composed by
+  another public component (`UiFieldError`, `UiTimeInput`) and 18 are explicitly
+  reference-only/staged contracts retained for low-frequency pages, tests and showcase.
+  The executable AST gate is `UiConsumerInventory.spec.ts`; it rejects unknown,
+  namespace and dynamic barrel imports.
+- Existing pages: compatibility migration remains phased according to Section 10. A component being implemented does not mean every legacy consumer has already migrated; the consumer inventory is evidence of import reachability, not page-level browser acceptance.
 
 ## 18. Component Reference
 
@@ -812,9 +821,9 @@ This is the quick decision index. “Shape” describes the default visual form;
 | `UiSearchInput` | Compact field with search and clear icons | Filtering an existing list or table |
 | `UiNumberStepper` | Minus, editable number, plus in one border | Priority, weight, counts, bounded minimum values |
 | `UiCheckbox` | `16px` box followed by label | Independent selection and bulk row selection |
-| `UiRadioGroup` | Visible round choices in one fieldset | Mutually exclusive settings users should compare |
+| `UiRadioGroup` | Visible round choices in one fieldset; optional `ariaLabel`, option `title`, and `#option` slot preserve rich metadata | Mutually exclusive settings users should compare, including platform/rate choice cards that still need the shared radio contract |
 | `UiSwitch` | `34×20px` neutral/black track and thumb | Immediate on/off settings |
-| `UiSegmentedControl` | Small options on one muted strip | Two to four modes or view types |
+| `UiSegmentedControl` | Small options on one muted strip; supports option `title` and `#option` content without losing radio semantics | Two to five modes or view types, including compact platform selectors |
 | `UiDateInput` | Native date field using shared field styling | One calendar date |
 | `UiDateRangePicker` | Compact preset trigger and two date fields | Usage, audit, order, and monitoring queries |
 | `UiFileUpload` | One dashed drop target with icon and progress | JSON import, images, certificates, configuration files |

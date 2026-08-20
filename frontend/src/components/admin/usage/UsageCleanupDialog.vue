@@ -68,6 +68,7 @@
                 v-if="canCancel(row)"
                 density="mini"
                 variant="danger"
+                :disabled="canceling"
                 @click="openCancelConfirm(row)"
               >
                 {{ t('admin.usage.cleanup.cancel') }}
@@ -95,8 +96,8 @@
     </div>
 
     <template #footer>
-      <UiButton density="compact" @click="handleClose">{{ t('common.cancel') }}</UiButton>
-      <UiButton density="compact" variant="danger" :loading="submitting" @click="openConfirm">
+      <UiButton density="compact" :disabled="submitting || canceling" @click="handleClose">{{ t('common.cancel') }}</UiButton>
+      <UiButton density="compact" variant="danger" :loading="submitting" :disabled="submitting" @click="openConfirm">
         {{ t('admin.usage.cleanup.submit') }}
       </UiButton>
     </template>
@@ -108,6 +109,7 @@
     :message="t('admin.usage.cleanup.confirmMessage')"
     :confirm-text="t('admin.usage.cleanup.confirmSubmit')"
     danger
+    :pending="submitting"
     @confirm="submitCleanup"
     @cancel="confirmVisible = false"
   />
@@ -118,6 +120,7 @@
     :message="t('admin.usage.cleanup.cancelConfirmMessage')"
     :confirm-text="t('admin.usage.cleanup.cancelConfirm')"
     danger
+    :pending="canceling"
     @confirm="cancelTask"
     @cancel="cancelConfirmVisible = false"
   />
@@ -213,6 +216,7 @@ const stopPolling = () => {
 }
 
 const handleClose = () => {
+  if (submitting.value || canceling.value) return
   taskRequestSequence += 1
   tasksLoading.value = false
   stopPolling()
@@ -304,6 +308,7 @@ const handleTaskPageSizeChange = (size: number) => {
 }
 
 const openConfirm = () => {
+  if (submitting.value) return
   confirmVisible.value = true
 }
 
@@ -312,6 +317,7 @@ const canCancel = (task: UsageCleanupTask) => {
 }
 
 const openCancelConfirm = (task: UsageCleanupTask) => {
+  if (canceling.value) return
   cancelTarget.value = task
   cancelConfirmVisible.value = true
 }
@@ -360,15 +366,16 @@ const buildPayload = (): CreateUsageCleanupTaskRequest | null => {
 }
 
 const submitCleanup = async () => {
+  if (submitting.value) return
   const payload = buildPayload()
   if (!payload) {
     confirmVisible.value = false
     return
   }
   submitting.value = true
-  confirmVisible.value = false
   try {
     await adminUsageAPI.createCleanupTask(payload)
+    confirmVisible.value = false
     appStore.showSuccess(t('admin.usage.cleanup.submitSuccess'))
     loadTasks()
   } catch (error) {
@@ -380,15 +387,16 @@ const submitCleanup = async () => {
 }
 
 const cancelTask = async () => {
+  if (canceling.value) return
   const task = cancelTarget.value
   if (!task) {
     cancelConfirmVisible.value = false
     return
   }
   canceling.value = true
-  cancelConfirmVisible.value = false
   try {
     await adminUsageAPI.cancelCleanupTask(task.id)
+    cancelConfirmVisible.value = false
     appStore.showSuccess(t('admin.usage.cleanup.cancelSuccess'))
     loadTasks()
   } catch (error) {
@@ -396,7 +404,7 @@ const cancelTask = async () => {
     appStore.showError(t('admin.usage.cleanup.cancelFailed'))
   } finally {
     canceling.value = false
-    cancelTarget.value = null
+    if (!cancelConfirmVisible.value) cancelTarget.value = null
   }
 }
 

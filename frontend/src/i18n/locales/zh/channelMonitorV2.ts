@@ -18,6 +18,8 @@ export default {
     switchingData: '正在切换筛选数据…',
     summaryAria: '筛选范围整体汇总',
     loadFailed: '渠道监控加载失败',
+    refreshFailed: '当前显示最近一次成功快照，请重试以获取最新数据。',
+    staleData: '数据可能已过期',
     detailLoadFailed: '渠道监控明细加载失败',
     otherModels: '其他模型',
     ignored: '忽略',

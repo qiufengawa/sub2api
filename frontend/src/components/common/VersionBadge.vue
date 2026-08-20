@@ -2,7 +2,10 @@
   <div class="relative flex-shrink-0">
     <!-- Admin: Full version badge with dropdown -->
     <template v-if="isAdmin">
-      <button
+      <UiButton
+        type="button"
+        variant="quiet"
+        density="mini"
         @click="toggleDropdown"
         class="flex items-center gap-1 rounded-[3px] px-1.5 py-0.5 text-[10px] leading-4 transition-colors"
         :class="[
@@ -24,7 +27,7 @@
           ></span>
           <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-500"></span>
         </span>
-      </button>
+      </UiButton>
 
       <!-- Dropdown -->
       <transition name="dropdown">
@@ -44,39 +47,20 @@
             <span class="text-sm font-medium text-gray-700 dark:text-dark-300">{{
               t('version.currentVersion')
             }}</span>
-            <button
+            <UiIconButton
               @click="refreshVersion(true)"
-              class="rounded-[3px] p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700 dark:hover:text-dark-200"
+              variant="ghost"
+              density="mini"
+              :label="t('version.refresh')"
+              icon="refresh"
               :disabled="loading"
-              :title="t('version.refresh')"
-            >
-              <Icon
-                name="refresh"
-                size="sm"
-                :stroke-width="2"
-                :class="{ 'animate-spin': loading }"
-              />
-            </button>
+            />
           </div>
 
           <div class="p-3">
             <!-- Loading state -->
             <div v-if="loading" class="flex items-center justify-center py-4">
-              <svg class="h-6 w-6 animate-spin text-primary-500" fill="none" viewBox="0 0 24 24">
-                <circle
-                  class="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  stroke-width="4"
-                ></circle>
-                <path
-                  class="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
+              <Icon name="loader" size="md" class="animate-spin text-primary-500" />
             </div>
 
             <!-- Content -->
@@ -95,17 +79,7 @@
                     v-if="!hasUpdate"
                     class="flex h-5 w-5 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30"
                   >
-                    <svg
-                      class="h-3 w-3 text-green-600 dark:text-green-400"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fill-rule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clip-rule="evenodd"
-                      />
-                    </svg>
+                    <Icon name="check" size="xs" class="text-green-600 dark:text-green-400" />
                   </span>
                 </div>
                 <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">
@@ -143,13 +117,16 @@
                 </div>
 
                 <!-- Retry button -->
-                <button
+                <UiButton
                   @click="handleUpdate"
+                  type="button"
+                  variant="danger"
+                  density="compact"
+                  block
                   :disabled="updating"
-                  class="flex min-h-8 w-full items-center justify-center gap-2 rounded-[3px] bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {{ t('version.retry') }}
-                </button>
+                </UiButton>
               </div>
 
               <!-- Priority 2: Update success - need restart -->
@@ -160,15 +137,7 @@
                   <div
                     class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50"
                   >
-                    <svg
-                      class="h-4 w-4 text-green-600 dark:text-green-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
+                    <Icon name="check" size="sm" class="text-green-600 dark:text-green-400" />
                   </div>
                   <div class="min-w-0 flex-1">
                     <p class="text-sm font-medium text-green-700 dark:text-green-300">
@@ -185,45 +154,16 @@
                 </div>
 
                 <!-- Restart button with countdown -->
-                <button
+                <UiButton
                   @click="handleRestart"
+                  type="button"
+                  variant="primary"
+                  density="compact"
+                  block
                   :disabled="restarting"
-                  class="flex min-h-8 w-full items-center justify-center gap-2 rounded-[3px] bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <svg
-                    v-if="restarting"
-                    class="h-4 w-4 animate-spin"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      class="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      stroke-width="4"
-                    ></circle>
-                    <path
-                      class="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  <svg
-                    v-else
-                    class="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
+                  <Icon v-if="restarting" name="loader" size="sm" class="animate-spin" />
+                  <Icon v-else name="refresh" size="sm" />
                   <template v-if="restarting">
                     <span>{{ t('version.restarting') }}</span>
                     <span v-if="restartCountdown > 0" class="tabular-nums"
@@ -231,7 +171,7 @@
                     >
                   </template>
                   <span v-else>{{ t('version.restartNow') }}</span>
-                </button>
+                </UiButton>
               </div>
 
               <!-- Priority 3: Update available for source build - show git pull hint -->
@@ -261,33 +201,17 @@
                       v{{ latestVersion }}
                     </p>
                   </div>
-                  <svg
-                    class="h-4 w-4 text-amber-500 transition-transform group-hover:translate-x-0.5 dark:text-amber-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
+                  <Icon
+                    name="chevronRight"
+                    size="sm"
+                    class="text-amber-500 motion-safe:transition-transform group-hover:translate-x-0.5 dark:text-amber-400"
+                  />
                 </a>
                 <!-- Source build hint -->
                 <div
                   class="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-2 dark:border-blue-800/50 dark:bg-blue-900/20"
                 >
-                  <svg
-                    class="h-3.5 w-3.5 flex-shrink-0 text-blue-500 dark:text-blue-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
+                  <Icon name="infoCircle" size="xs" class="flex-shrink-0 text-blue-500 dark:text-blue-400" />
                   <p class="text-xs text-blue-600 dark:text-blue-400">
                     {{ t('version.sourceModeHint') }}
                   </p>
@@ -321,29 +245,18 @@
                 </div>
 
                 <!-- Update button -->
-                <button
+                <UiButton
                   @click="handleUpdate"
+                  type="button"
+                  variant="primary"
+                  density="compact"
+                  block
                   :disabled="updating"
-                  class="flex min-h-8 w-full items-center justify-center gap-2 rounded-[3px] bg-primary-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <svg v-if="updating" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle
-                      class="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      stroke-width="4"
-                    ></circle>
-                    <path
-                      class="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
+                  <Icon v-if="updating" name="loader" size="sm" class="animate-spin" />
                   <Icon v-else name="download" size="sm" :stroke-width="2" />
                   {{ updating ? t('version.updating') : t('version.updateNow') }}
-                </button>
+                </UiButton>
 
                 <!-- View release link -->
                 <a
@@ -367,19 +280,16 @@
                   rel="noopener noreferrer"
                   class="flex items-center justify-center gap-2 py-2 text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-dark-400 dark:hover:text-dark-200"
                 >
-                  <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path
-                      fill-rule="evenodd"
-                      clip-rule="evenodd"
-                      d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z"
-                    />
-                  </svg>
+                  <Icon name="github" size="sm" />
                   {{ t('version.viewRelease') }}
                 </a>
 
                 <!-- Version rollback entry -->
                 <div class="border-t border-gray-100 pt-2 dark:border-dark-700">
-                  <button
+                  <UiButton
+                    type="button"
+                    variant="quiet"
+                    density="dense"
                     @click="toggleRollbackPanel"
                     class="group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-xs text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600 dark:text-dark-500 dark:hover:bg-dark-700/50 dark:hover:text-dark-300"
                   >
@@ -391,10 +301,10 @@
                       name="chevronDown"
                       size="xs"
                       :stroke-width="2"
-                      class="transition-transform duration-200"
+                      class="motion-safe:transition-transform duration-200"
                       :class="{ 'rotate-180': rollbackPanelOpen }"
                     />
-                  </button>
+                  </UiButton>
 
                   <transition name="rollback">
                     <div v-if="rollbackPanelOpen" class="mt-2 space-y-2">
@@ -403,19 +313,7 @@
                         v-if="!isReleaseBuild"
                         class="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-2 dark:border-blue-800/50 dark:bg-blue-900/20"
                       >
-                        <svg
-                          class="h-3.5 w-3.5 flex-shrink-0 text-blue-500 dark:text-blue-400"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
+                        <Icon name="infoCircle" size="xs" class="flex-shrink-0 text-blue-500 dark:text-blue-400" />
                         <p class="min-w-0 flex-1 text-xs leading-4 text-blue-600 dark:text-blue-400">
                           {{ t('version.rollbackSourceHint') }}
                         </p>
@@ -426,25 +324,7 @@
                         v-else-if="rollbackVersionsLoading"
                         class="flex items-center justify-center py-3"
                       >
-                        <svg
-                          class="h-5 w-5 animate-spin text-primary-500"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            class="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            stroke-width="4"
-                          ></circle>
-                          <path
-                            class="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
+                        <Icon name="loader" size="sm" class="animate-spin text-primary-500" />
                       </div>
 
                       <!-- Load error + retry -->
@@ -454,12 +334,16 @@
                         >
                           {{ rollbackVersionsError }}
                         </p>
-                        <button
+                        <UiButton
+                          type="button"
+                          variant="quiet"
+                          density="compact"
+                          block
                           @click="loadRollbackVersions"
                           class="w-full rounded-lg border border-gray-200 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 dark:border-dark-700 dark:text-dark-400 dark:hover:bg-dark-700/50 dark:hover:text-dark-200"
                         >
                           {{ t('version.retry') }}
-                        </button>
+                        </UiButton>
                       </div>
 
                       <!-- No versions available -->
@@ -476,9 +360,13 @@
                           {{ t('version.rollbackSelectVersion') }}
                         </p>
 
-                        <button
+                        <UiButton
                           v-for="item in rollbackVersions"
                           :key="item.version"
+                          type="button"
+                          variant="quiet"
+                          density="dense"
+                          block
                           @click="selectRollbackVersion(item.version)"
                           :disabled="rollingBack"
                           class="flex min-h-8 w-full items-center justify-between rounded-[3px] border px-2.5 py-1.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60"
@@ -515,7 +403,7 @@
                           <span class="text-[11px] tabular-nums text-gray-400 dark:text-dark-500">
                             {{ formatPublishedAt(item.published_at) }}
                           </span>
-                        </button>
+                        </UiButton>
 
                         <!-- Selected version: manual command (per deploy method) + confirm -->
                         <transition name="rollback">
@@ -534,9 +422,12 @@
                                 <div
                                   class="flex items-center gap-0.5 rounded-md bg-gray-200/70 p-0.5 dark:bg-dark-600/70"
                                 >
-                                  <button
+                                  <UiButton
                                     v-for="tab in manualTabs"
                                     :key="tab.key"
+                                    type="button"
+                                    variant="quiet"
+                                    density="mini"
                                     @click="manualTab = tab.key"
                                     class="rounded px-2 py-0.5 text-[11px] font-medium transition-colors"
                                     :class="
@@ -546,9 +437,12 @@
                                     "
                                   >
                                     {{ tab.label }}
-                                  </button>
+                                  </UiButton>
                                 </div>
-                                <button
+                                <UiButton
+                                  type="button"
+                                  variant="quiet"
+                                  density="mini"
                                   @click="copyToClipboard(activeManualCommand)"
                                   class="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600 dark:text-dark-400 dark:hover:bg-dark-600 dark:hover:text-dark-200"
                                 >
@@ -559,7 +453,7 @@
                                     :class="copied ? 'text-green-500' : ''"
                                   />
                                   {{ copied ? t('version.copied') : t('version.copyCommand') }}
-                                </button>
+                                </UiButton>
                               </div>
                               <code
                                 class="block select-all whitespace-pre-wrap break-all bg-gray-50 p-2.5 font-mono text-[10px] leading-relaxed text-gray-600 dark:bg-dark-900 dark:text-dark-300"
@@ -586,31 +480,15 @@
                               {{ rollbackError }}
                             </p>
 
-                            <button
+                            <UiButton
                               @click="handleRollback"
+                              type="button"
+                              variant="primary"
+                              density="compact"
+                              block
                               :disabled="rollingBack"
-                              class="flex min-h-8 w-full items-center justify-center gap-2 rounded-[3px] bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              <svg
-                                v-if="rollingBack"
-                                class="h-4 w-4 animate-spin"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  class="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  stroke-width="4"
-                                ></circle>
-                                <path
-                                  class="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                ></path>
-                              </svg>
+                              <Icon v-if="rollingBack" name="loader" size="sm" class="animate-spin" />
                               <Icon v-else name="clock" size="sm" :stroke-width="2" />
                               <span>{{
                                 rollingBack
@@ -619,7 +497,7 @@
                                       version: 'v' + selectedRollbackVersion
                                     })
                               }}</span>
-                            </button>
+                            </UiButton>
                           </div>
                         </transition>
                       </template>
@@ -653,6 +531,7 @@ import {
 } from '@/api/admin/system'
 import { useClipboard } from '@/composables/useClipboard'
 import Icon from '@/components/icons/Icon.vue'
+import { UiButton, UiIconButton } from '@/components/ui'
 
 const GITHUB_REPO = 'qiufengawa/sub2api'
 // GHCR image published by this fork's release workflow (tags carry no "v" prefix).
@@ -931,7 +810,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .dropdown-enter-active,
 .dropdown-leave-active {
-  transition: all 0.2s ease;
+  transition: opacity var(--ui-motion-fast), transform var(--ui-motion-fast);
 }
 
 .dropdown-enter-from,
@@ -942,7 +821,7 @@ onBeforeUnmount(() => {
 
 .rollback-enter-active,
 .rollback-leave-active {
-  transition: all 0.2s ease;
+  transition: opacity var(--ui-motion-fast), transform var(--ui-motion-fast);
 }
 
 .rollback-enter-from,

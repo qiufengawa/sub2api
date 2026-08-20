@@ -328,6 +328,7 @@ const scheduleLoadError = ref(false)
 const backups = ref<BackupRecord[]>([])
 const loadingBackups = ref(true)
 const backupsLoadError = ref(false)
+let backupsRequestId = 0
 const creatingBackup = ref(false)
 const restoringId = ref('')
 const restoreBackupId = ref('')
@@ -650,18 +651,21 @@ async function saveSchedule() {
 }
 
 async function loadBackups(): Promise<boolean> {
+  const requestId = ++backupsRequestId
   loadingBackups.value = true
   backupsLoadError.value = false
   try {
     const result = await adminAPI.backup.listBackups()
+    if (requestId !== backupsRequestId) return false
     backups.value = result.items || []
     return true
   } catch (error) {
+    if (requestId !== backupsRequestId) return false
     backupsLoadError.value = true
     appStore.showError((error as { message?: string })?.message || t('errors.networkError'))
     return false
   } finally {
-    loadingBackups.value = false
+    if (requestId === backupsRequestId) loadingBackups.value = false
   }
 }
 
@@ -807,6 +811,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  backupsRequestId += 1
   stopPolling()
   stopRestorePolling()
   document.removeEventListener('visibilitychange', handleVisibilityChange)

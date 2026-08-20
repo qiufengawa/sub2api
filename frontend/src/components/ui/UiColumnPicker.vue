@@ -1,4 +1,4 @@
-<template><UiPopover placement="bottom-end"><template #trigger><UiButton density="dense"><template #icon><Icon name="grid" size="sm"/></template>{{ label }}</UiButton></template><div class="ui-column-picker"><UiCheckbox v-for="column in columns" :key="column.key" :model-value="modelValue.includes(column.key)" :label="column.label" :disabled="column.required" @update:model-value="toggle(column.key,$event)"/></div></UiPopover></template>
+<template><UiPopover placement="bottom-end" panel-role="dialog" :aria-label="label"><template #trigger><UiButton density="dense"><template #icon><Icon name="grid" size="sm"/></template>{{ label }}</UiButton></template><div class="ui-column-picker"><UiCheckbox v-for="column in columns" :key="column.key" :model-value="modelValue.includes(column.key)" :label="column.label" :disabled="column.required" @update:model-value="toggle(column.key,$event)"/></div></UiPopover></template>
 <script setup lang="ts">
 import Icon from '@/components/icons/Icon.vue';
 import UiButton from './UiButton.vue';

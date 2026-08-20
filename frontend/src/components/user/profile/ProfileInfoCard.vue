@@ -19,12 +19,12 @@
           <h2 class="min-w-0 truncate text-sm font-semibold text-gray-900 dark:text-white">
             {{ displayName }}
           </h2>
-          <span :class="['badge shrink-0', user?.role === 'admin' ? 'badge-primary' : 'badge-gray']">
+          <UiBadge class="shrink-0" :tone="user?.role === 'admin' ? 'info' : 'neutral'">
             {{ user?.role === 'admin' ? t('profile.administrator') : t('profile.user') }}
-          </span>
-          <span :class="['badge shrink-0', user?.status === 'active' ? 'badge-success' : 'badge-danger']">
+          </UiBadge>
+          <UiBadge class="shrink-0" :tone="user?.status === 'active' ? 'success' : 'danger'">
             {{ user?.status === 'active' ? t('common.active') : t('common.disabled') }}
-          </span>
+          </UiBadge>
         </div>
         <p class="mt-1 truncate text-xs text-gray-500 dark:text-dark-400">
           {{ primaryEmailDisplay || '-' }}
@@ -81,6 +81,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { User, UserAuthBindingStatus, UserAuthProvider, UserProfileSourceContext } from '@/types'
+import { UiBadge } from '@/components/ui'
 
 const props = withDefaults(defineProps<{
   user: User | null

@@ -411,7 +411,7 @@ watch(
           </div>
 
           <!-- 进度条 -->
-          <UiProgressBar :value="row.load_percentage" :tone="getLoadTone(row.load_percentage)" :show-value="false" />
+          <UiProgressBar :value="row.load_percentage" :tone="getLoadTone(row.load_percentage)" :show-value="false" :aria-label="`${row.username || row.user_email} ${Math.round(row.load_percentage)}%`" />
 
           <!-- 等待队列 -->
           <div v-if="row.waiting_in_queue > 0" class="ops-concurrency__queue">
@@ -440,7 +440,7 @@ watch(
           </div>
 
           <!-- 进度条 -->
-          <UiProgressBar :value="row.concurrency_percentage" :tone="getLoadTone(row.concurrency_percentage)" :show-value="false" />
+          <UiProgressBar :value="row.concurrency_percentage" :tone="getLoadTone(row.concurrency_percentage)" :show-value="false" :aria-label="`${row.name} ${row.concurrency_percentage}%`" />
 
           <!-- 统计信息 -->
           <div class="ops-concurrency__row-meta">
@@ -489,7 +489,7 @@ watch(
           </div>
 
           <!-- 进度条 -->
-          <UiProgressBar :value="row.load_percentage" :tone="getLoadTone(row.load_percentage)" :show-value="false" />
+          <UiProgressBar :value="row.load_percentage" :tone="getLoadTone(row.load_percentage)" :show-value="false" :aria-label="`${row.name} ${Math.round(row.load_percentage)}%`" />
 
           <!-- 等待队列 -->
           <div v-if="row.waiting_in_queue > 0" class="ops-concurrency__queue">

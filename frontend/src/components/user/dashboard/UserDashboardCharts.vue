@@ -1,5 +1,5 @@
 <template>
-  <section class="card relative flex h-full min-h-[360px] flex-col overflow-hidden xl:h-[470px] xl:min-h-[470px]" data-testid="dashboard-trend-card">
+  <section class="ui-panel relative flex h-full min-h-[360px] flex-col overflow-hidden xl:h-[470px] xl:min-h-[470px]" data-testid="dashboard-trend-card">
     <div class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-dark-700">
       <div>
         <h2 class="text-sm font-semibold text-gray-950 dark:text-white">{{ t('dashboard.overview.usageTrend') }}</h2>
@@ -10,34 +10,35 @@
           {{ t('dashboard.overview.periodComparison', { cost: formatChange(periodCost, previousPeriodCost), requests: formatChange(periodRequests, previousPeriodRequests) }) }}
         </p>
       </div>
-      <div class="inline-flex rounded-[3px] border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-600 dark:bg-dark-800">
-        <button
-          v-for="days in ranges"
-          :key="days"
-          type="button"
-          class="min-h-7 rounded-[2px] px-2.5 text-xs font-medium transition-colors"
-          :class="rangeDays === days ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-700 dark:text-primary-300' : 'text-gray-500 hover:text-gray-900 dark:text-dark-400 dark:hover:text-gray-200'"
-          @click="$emit('update:rangeDays', days)"
-        >
-          {{ t(days === 7 ? 'dashboard.overview.last7Days' : 'dashboard.overview.last30Days') }}
-        </button>
-      </div>
+      <UiSegmentedControl
+        :model-value="rangeDays"
+        :options="rangeOptions"
+        :label="t('dashboard.overview.usageTrend')"
+        @update:model-value="updateRange"
+      />
     </div>
 
     <div class="relative min-h-[258px] flex-1 p-4">
       <div v-if="loading" class="absolute inset-0 z-10 flex items-center justify-center bg-white/70 dark:bg-dark-800/70">
-        <LoadingSpinner size="md" />
+        <UiSpinner size="md" />
       </div>
-      <Chart v-if="hasData" :type="chartType" :data="chartData" :options="chartOptions" />
+      <div
+        v-if="hasData"
+        class="h-full min-h-[240px]"
+        role="img"
+        :aria-label="t('dashboard.overview.usageTrend')"
+      >
+        <Chart :type="chartType" :data="chartData" :options="chartOptions" />
+      </div>
       <div v-else class="flex h-full flex-col items-center justify-center text-center">
         <div class="flex h-9 w-9 items-center justify-center rounded-[3px] bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
           <Icon name="chartBar" size="md" />
         </div>
         <p class="mt-3 text-sm font-medium text-gray-900 dark:text-white">{{ t('dashboard.overview.noTrendTitle') }}</p>
         <p class="mt-1 max-w-sm text-xs leading-5 text-gray-500 dark:text-dark-400">{{ t('dashboard.overview.noTrendDescription') }}</p>
-        <router-link :to="hasApiKey ? '/available-channels' : '/keys'" class="btn btn-secondary btn-sm mt-3">
+        <UiButton :to="hasApiKey ? '/available-channels' : '/keys'" density="compact" class="mt-3">
           {{ t(hasApiKey ? 'dashboard.overview.viewAvailableModels' : 'dashboard.overview.viewApiKeys') }}
-        </router-link>
+        </UiButton>
       </div>
     </div>
   </section>
@@ -61,9 +62,11 @@ import {
   type ChartOptions,
   type TooltipItem,
 } from 'chart.js'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { UiButton, UiSegmentedControl, UiSpinner } from '@/components/ui'
 import Icon from '@/components/icons/Icon.vue'
 import type { TrendDataPoint } from '@/types'
+import { useReducedMotion } from '@/composables/useReducedMotion'
+import { useDarkMode } from '@/composables/useDarkMode'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Filler)
 
@@ -74,13 +77,19 @@ const props = defineProps<{
   previousTrend?: TrendDataPoint[]
   hasApiKey?: boolean
 }>()
-
-defineEmits<{
-  'update:rangeDays': [days: 7 | 30]
-}>()
+const reducedMotion = useReducedMotion()
+const darkMode = useDarkMode()
 
 const { t, locale } = useI18n()
 const ranges = [7, 30] as const
+const rangeOptions = computed(() => ranges.map((days) => ({
+  value: days,
+  label: t(days === 7 ? 'dashboard.overview.last7Days' : 'dashboard.overview.last30Days'),
+})))
+const emit = defineEmits<{
+  'update:rangeDays': [days: 7 | 30]
+}>()
+const updateRange = (value: string | number) => emit('update:rangeDays', Number(value) === 30 ? 30 : 7)
 type MixedChartType = 'bar' | 'line'
 const chartType: MixedChartType = 'bar'
 const hasData = computed(() => props.trend.some((item) => item.requests > 0 || item.actual_cost > 0))
@@ -103,9 +112,9 @@ const chartData = computed<ChartData<MixedChartType, number[], string>>(() => ({
       type: 'line',
       label: t('dashboard.overview.actualCost'),
       data: props.trend.map((item) => item.actual_cost),
-      borderColor: '#366ef4',
-      backgroundColor: 'rgba(97, 141, 255, 0.12)',
-      pointBackgroundColor: '#366ef4',
+      borderColor: darkMode.value ? '#8db2ff' : '#366ef4',
+      backgroundColor: darkMode.value ? 'rgba(141, 178, 255, 0.18)' : 'rgba(97, 141, 255, 0.12)',
+      pointBackgroundColor: darkMode.value ? '#b6ccff' : '#366ef4',
       pointBorderWidth: 0,
       pointRadius: props.rangeDays === 7 ? 2.5 : 0,
       pointHoverRadius: 4,
@@ -119,8 +128,8 @@ const chartData = computed<ChartData<MixedChartType, number[], string>>(() => ({
       type: 'bar',
       label: t('dashboard.overview.requests'),
       data: props.trend.map((item) => item.requests),
-      backgroundColor: 'rgba(181, 199, 255, 0.46)',
-      borderColor: 'rgba(142, 171, 255, 0.75)',
+      backgroundColor: darkMode.value ? 'rgba(141, 178, 255, 0.46)' : 'rgba(181, 199, 255, 0.46)',
+      borderColor: darkMode.value ? 'rgba(182, 204, 255, 0.86)' : 'rgba(142, 171, 255, 0.75)',
       borderWidth: 1,
       borderRadius: 2,
       maxBarThickness: 18,
@@ -133,14 +142,27 @@ const chartData = computed<ChartData<MixedChartType, number[], string>>(() => ({
 const chartOptions = computed<ChartOptions<MixedChartType>>(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  ...(reducedMotion.value ? { animation: false } : {}),
   interaction: { intersect: false, mode: 'index' },
   plugins: {
     legend: {
       position: 'bottom',
       align: 'start',
-      labels: { boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: 'rectRounded', padding: 16 },
+      labels: {
+        boxWidth: 8,
+        boxHeight: 8,
+        usePointStyle: true,
+        pointStyle: 'rectRounded',
+        padding: 16,
+        color: darkMode.value ? '#d7deed' : '#374151',
+      },
     },
     tooltip: {
+      backgroundColor: darkMode.value ? '#1f2937' : '#ffffff',
+      titleColor: darkMode.value ? '#f3f4f6' : '#111827',
+      bodyColor: darkMode.value ? '#d1d5db' : '#4b5563',
+      borderColor: darkMode.value ? '#374151' : '#e5e7eb',
+      borderWidth: 1,
       callbacks: {
         label: (context: TooltipItem<MixedChartType>) => context.dataset.yAxisID === 'yCost'
           ? `${context.dataset.label}: ${formatMoney(Number(context.parsed.y ?? 0))}`
@@ -151,22 +173,22 @@ const chartOptions = computed<ChartOptions<MixedChartType>>(() => ({
   scales: {
     x: {
       grid: { display: false },
-      ticks: { maxTicksLimit: props.rangeDays === 7 ? 7 : 8, maxRotation: 0, color: '#8b8b8b' },
+      ticks: { maxTicksLimit: props.rangeDays === 7 ? 7 : 8, maxRotation: 0, color: darkMode.value ? '#aeb8ca' : '#6b7280' },
       border: { display: false },
     },
     yCost: {
       position: 'left',
       beginAtZero: true,
-      grid: { color: 'rgba(166, 166, 166, 0.16)' },
+      grid: { color: darkMode.value ? 'rgba(148, 163, 184, 0.22)' : 'rgba(166, 166, 166, 0.16)' },
       border: { display: false },
-      ticks: { color: '#8b8b8b', callback: (value: string | number) => `$${Number(value).toFixed(2)}` },
+      ticks: { color: darkMode.value ? '#aeb8ca' : '#6b7280', callback: (value: string | number) => `$${Number(value).toFixed(2)}` },
     },
     yRequests: {
       position: 'right',
       beginAtZero: true,
       grid: { display: false },
       border: { display: false },
-      ticks: { color: '#8b8b8b', precision: 0 },
+      ticks: { color: darkMode.value ? '#aeb8ca' : '#6b7280', precision: 0 },
     },
   },
 }))

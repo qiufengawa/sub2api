@@ -278,6 +278,7 @@ export default {
       clearAuditTest: '清空试跑',
       auditTestImageLimit: '最多只能添加 {count} 张测试图片',
       auditTestImageTooLarge: '单张测试图片不能超过 8MB',
+      auditTestImageTypeUnsupported: '测试图片仅支持 JPEG、PNG 或 WebP 格式',
       auditTestImageReadFailed: '读取测试图片失败',
       auditTestResult: '审计试跑结果',
       auditTestHighest: '最高分类 {category}，分数 {score}',

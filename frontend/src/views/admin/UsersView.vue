@@ -146,7 +146,7 @@
               <!-- Refresh Button -->
               <UiIconButton icon="refresh" density="compact" :disabled="loading" :label="t('common.refresh')" @click="loadUsers" />
               <!-- Filter Settings Dropdown -->
-              <UiPopover placement="bottom-end">
+              <UiPopover placement="bottom-end" panel-role="dialog" :aria-label="t('admin.users.filterSettings')">
                 <template #trigger>
                   <UiButton type="button" variant="secondary" density="compact" :title="t('admin.users.filterSettings')">
                     <template #icon><Icon name="filter" size="sm" /></template>
@@ -375,7 +375,7 @@
           >
             <div class="users-sort-header">
               <span>{{ column.label }}</span>
-              <UiPopover placement="bottom-end">
+              <UiPopover placement="bottom-end" panel-role="dialog" :aria-label="t('admin.users.sortBy')">
                 <template #trigger><UiButton
                   density="mini"
                   variant="quiet"
@@ -469,6 +469,7 @@
                 :icon="row.status === 'active' ? 'ban' : 'checkCircle'"
                 :variant="row.status === 'active' ? 'danger' : 'success'"
                 :label="row.status === 'active' ? t('admin.users.disable') : t('admin.users.enable')"
+                :disabled="togglingStatusIds.has(row.id)"
                 @click="handleToggleStatus(row)"
               />
 
@@ -501,7 +502,7 @@
       </UiServerTableWorkspace>
     </AppPage>
 
-    <UiConfirmDialog :show="showDeleteDialog" :title="t('admin.users.deleteUser')" :message="t('admin.users.deleteConfirm', { email: deletingUser?.email })" danger @confirm="confirmDelete" @cancel="showDeleteDialog = false" />
+    <UiConfirmDialog :show="showDeleteDialog" :title="t('admin.users.deleteUser')" :message="t('admin.users.deleteConfirm', { email: deletingUser?.email })" :pending="deletePending" danger @confirm="confirmDelete" @cancel="showDeleteDialog = false" />
     <UserCreateModal :show="showCreateModal" @close="showCreateModal = false" @success="loadUsers" />
     <UserEditModal :show="showEditModal" :user="editingUser" @close="closeEditModal" @success="loadUsers" />
     <BulkEditUserModal
@@ -1129,6 +1130,8 @@ const showAttributesModal = ref(false)
 const showPlatformQuotaModal = ref(false)
 const editingUser = ref<AdminUser | null>(null)
 const deletingUser = ref<AdminUser | null>(null)
+const deletePending = ref(false)
+const togglingStatusIds = reactive(new Set<number>())
 const viewingUser = ref<AdminUser | null>(null)
 const platformQuotaUser = ref<AdminUser | null>(null)
 
@@ -1474,16 +1477,20 @@ const closeEditModal = () => {
 }
 
 const handleToggleStatus = async (user: AdminUser) => {
+  if (togglingStatusIds.has(user.id)) return
   const newStatus = user.status === 'active' ? 'disabled' : 'active'
+  togglingStatusIds.add(user.id)
   try {
     await adminAPI.users.toggleStatus(user.id, newStatus)
     appStore.showSuccess(
       newStatus === 'active' ? t('admin.users.userEnabled') : t('admin.users.userDisabled')
     )
-    loadUsers()
+    await loadUsers()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.users.failedToToggle'))
     console.error('Error toggling user status:', error)
+  } finally {
+    togglingStatusIds.delete(user.id)
   }
 }
 
@@ -1525,16 +1532,20 @@ const handleDelete = (user: AdminUser) => {
 }
 
 const confirmDelete = async () => {
-  if (!deletingUser.value) return
+  if (deletePending.value || !deletingUser.value) return
+  const user = deletingUser.value
+  deletePending.value = true
   try {
-    await adminAPI.users.delete(deletingUser.value.id)
+    await adminAPI.users.delete(user.id)
     appStore.showSuccess(t('common.success'))
     showDeleteDialog.value = false
     deletingUser.value = null
-    loadUsers()
+    await loadUsers()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.users.failedToDelete'))
     console.error('Error deleting user:', error)
+  } finally {
+    deletePending.value = false
   }
 }
 

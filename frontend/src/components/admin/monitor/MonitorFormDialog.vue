@@ -28,12 +28,12 @@
           @update:model-value="form.api_mode = $event as APIMode"
         />
 
-        <AppInline :wrap="false">
+        <div class="monitor-form-command">
           <UiTextField v-model="form.endpoint" test-id="monitor-endpoint" :label="t('admin.channelMonitor.form.endpoint')" :placeholder="t('admin.channelMonitor.form.endpointPlaceholder')" required />
           <UiButton type="button" density="compact" @click="useCurrentDomain">{{ t('admin.channelMonitor.form.useCurrentDomain') }}</UiButton>
-        </AppInline>
+        </div>
 
-        <AppInline :wrap="false">
+        <div class="monitor-form-command">
           <UiTextField
             v-model="form.api_key"
             type="password"
@@ -43,7 +43,7 @@
             :placeholder="editing ? t('admin.channelMonitor.form.apiKeyEditPlaceholder') : t('admin.channelMonitor.form.apiKeyPlaceholder')"
           />
           <UiButton type="button" density="compact" @click="openMyKeyPicker">{{ t('admin.channelMonitor.form.useMyKey') }}</UiButton>
-        </AppInline>
+        </div>
 
         <UiTextField v-model="form.primary_model" test-id="monitor-primary-model" :label="t('admin.channelMonitor.form.primaryModel')" :placeholder="t('admin.channelMonitor.form.primaryModelPlaceholder')" monospace required />
 
@@ -522,3 +522,23 @@ async function handleSubmit() {
   }
 }
 </script>
+
+<style scoped>
+.monitor-form-command {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+  min-width: 0;
+}
+
+@media (max-width: 520px) {
+  .monitor-form-command {
+    grid-template-columns: 1fr;
+  }
+
+  .monitor-form-command > :last-child {
+    justify-self: stretch;
+  }
+}
+</style>

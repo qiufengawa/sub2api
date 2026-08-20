@@ -288,6 +288,8 @@ export function usePlayground(userId: number) {
   let generation = 0
   let keyRequestSequence = 0
   let modelRequestSequence = 0
+  let keyRequestController: AbortController | null = null
+  let modelRequestController: AbortController | null = null
   let sessionPersistTimer: ReturnType<typeof setTimeout> | null = null
   let streamRenderTimer: ReturnType<typeof setTimeout> | null = null
   let pendingStreamUpdate: (PlaygroundStreamUpdate & { token: number; messageId: string }) | null = null
@@ -359,10 +361,15 @@ export function usePlayground(userId: number) {
 
   async function loadKeys(): Promise<void> {
     const requestSequence = ++keyRequestSequence
+    keyRequestController?.abort()
+    modelRequestController?.abort()
+    modelRequestSequence += 1
+    const requestController = new AbortController()
+    keyRequestController = requestController
     isLoadingKeys.value = true
     optionsError.value = ''
     try {
-      const result = await playgroundAPI.listKeys()
+      const result = await playgroundAPI.listKeys(requestController.signal)
       if (requestSequence !== keyRequestSequence) return
       keys.value = result.items
       keysTruncated.value = result.truncated
@@ -377,18 +384,25 @@ export function usePlayground(userId: number) {
       }
     } catch (error) {
       if (requestSequence !== keyRequestSequence) return
+      if (requestController.signal.aborted) return
       keys.value = []
       keysTruncated.value = false
       models.value = []
       optionsError.value = errorMessage(error)
     } finally {
-      if (requestSequence === keyRequestSequence) isLoadingKeys.value = false
+      if (requestSequence === keyRequestSequence) {
+        isLoadingKeys.value = false
+        keyRequestController = null
+      }
     }
   }
 
   async function selectKey(keyId: number): Promise<void> {
     if (isGenerating.value) stop()
     const requestSequence = ++modelRequestSequence
+    modelRequestController?.abort()
+    const requestController = new AbortController()
+    modelRequestController = requestController
     const preferredModel = config.value.model
     config.value.keyId = keyId
     config.value.model = ''
@@ -398,12 +412,13 @@ export function usePlayground(userId: number) {
     const key = keys.value.find((item) => item.id === keyId)
     if (!key || key.status !== 'active' || key.group_id === null) {
       isLoadingModels.value = false
+      modelRequestController = null
       return
     }
 
     isLoadingModels.value = true
     try {
-      const available = await playgroundAPI.listModels(keyId)
+      const available = await playgroundAPI.listModels(keyId, requestController.signal)
       if (requestSequence !== modelRequestSequence || config.value.keyId !== keyId) return
       const unique = new Map<string, PlaygroundModelOption>()
       for (const model of available) {
@@ -416,11 +431,15 @@ export function usePlayground(userId: number) {
         : models.value[0]?.id || ''
     } catch (error) {
       if (requestSequence !== modelRequestSequence || config.value.keyId !== keyId) return
+      if (requestController.signal.aborted) return
       models.value = []
       config.value.model = ''
       optionsError.value = errorMessage(error)
     } finally {
-      if (requestSequence === modelRequestSequence) isLoadingModels.value = false
+      if (requestSequence === modelRequestSequence) {
+        isLoadingModels.value = false
+        modelRequestController = null
+      }
     }
   }
 
@@ -745,6 +764,8 @@ export function usePlayground(userId: number) {
   })
 
   onBeforeUnmount(() => {
+    keyRequestController?.abort()
+    modelRequestController?.abort()
     stop()
     flushStreamUpdate()
     persistSession()

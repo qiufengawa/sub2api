@@ -48,7 +48,7 @@ AppLayout
 ```text
 pnpm exec vitest run src/views/admin/__tests__/SubscriptionsView.spec.ts
   1 file passed
-  6 tests passed
+  7 tests passed
 
 pnpm exec vue-tsc --noEmit
   passed
@@ -60,7 +60,7 @@ git diff --check
   passed
 ```
 
-覆盖的关键场景：初始请求参数、列偏好迁移、用户搜索与清除、`usage + reserved`、100% 封顶、状态操作矩阵、服务端排序。
+覆盖的关键场景：初始请求参数、列偏好迁移、用户搜索与清除、`usage + reserved`、100% 封顶、三类额度进度条可访问名称、状态操作矩阵、服务端排序。
 
 ## 浏览器验收待办
 
@@ -68,3 +68,23 @@ git diff --check
 - [ ] 900px：高级筛选和工具栏可换行，表格保持可比较。
 - [ ] 390px：表格保持横向滚动，弹窗切换为 sheet，搜索结果不被浏览器键盘遮挡。
 - [ ] dark mode、reduced motion、键盘焦点和屏幕阅读器名称。
+
+## 2026-08-19 高级筛选与写操作防重入补充
+
+- 高级筛选按钮通过 `aria-controls` 关联稳定筛选区域 id；新增行为测试覆盖折叠/展开关系。
+- assign/extend 增加函数级 `submitting` guard，revoke/restore 增加独立 pending guard，并将 pending 传入共享确认弹窗；deferred revoke 回归证明快速重复确认只发出一次请求。
+- `SubscriptionsView.spec.ts` 当前 9 tests 通过；typecheck、lint、生产构建和全量前端门禁均通过。
+- 本地契约仍不替代 1440/900/390、dark、reduced-motion、keyboard/screen-reader 的真实管理员浏览器验收。
+
+## 2026-08-19 列表失败恢复补充
+
+- 订阅列表现在区分 initial loading 与 refresh loading。首屏请求失败显示可重试 `UiErrorState`，不再误呈现业务空列表；刷新失败保留已有行并显示 inline danger alert。
+- 新增首屏失败/重试与刷新失败保留旧行回归，`SubscriptionsView.spec.ts` 当前 11 tests 通过。
+- 新增 `UiErrorState` 生产导入后，UI consumer inventory 更新为 1869 runtime references / 276 production consumer files。
+- 本地失败态证据仍不替代受保护管理员浏览器矩阵、ownership 隔离、Code Review 或发布证据。
+
+## 2026-08-19 隔离后端真实浏览器复验
+
+- 真实 `admin@admin.com` 登录后，`/admin/subscriptions` 在 1440/900/390、dark、`prefers-reduced-motion: reduce` 下均加载目标路由；无横向溢出，Tab 可到达筛选、表格和操作控件，console/pageerror 清洁。
+- 截图索引：`/tmp/sub2api-clean-admin-admin-subscriptions-1440.png`、`/tmp/sub2api-clean-admin-admin-subscriptions-900.png`、`/tmp/sub2api-clean-admin-admin-subscriptions-390.png`。
+- 本次未提交真实 assign/extend/revoke/restore mutation；动作防重入和失败恢复仍以组件测试为证据。

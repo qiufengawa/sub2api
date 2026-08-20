@@ -1,29 +1,32 @@
 <template>
-  <UiFormField :label="label" :description="description" :error="error">
-    <UiPopover placement="bottom-start">
+  <UiFormField :for-id="resolvedId" :label="label" :description="description" :error="error">
+    <UiPopover placement="bottom-start" panel-role="dialog" :aria-label="timePickerLabel">
       <template #trigger>
         <button
           type="button"
+          :id="resolvedId"
           class="ui-time-trigger ui-focus-ring"
           :class="[`ui-time-trigger--${density}`, { 'is-empty': !modelValue, 'is-error': error }]"
           :disabled="disabled"
+          :aria-describedby="error || description ? `${resolvedId}-message` : undefined"
+          :aria-invalid="error ? 'true' : undefined"
         >
-          <span>{{ modelValue || placeholder }}</span>
+          <span>{{ modelValue || resolvedPlaceholder }}</span>
           <Icon name="clock" size="sm" />
         </button>
       </template>
       <template #default="{ close }">
-        <div class="ui-time-panel ui-scale-enter" aria-label="选择时间">
-          <div class="ui-time-panel__head"><span>小时</span><span>分钟</span></div>
+        <div class="ui-time-panel ui-scale-enter" :aria-label="timePickerLabel">
+          <div class="ui-time-panel__head"><span>{{ hoursLabel }}</span><span>{{ minutesLabel }}</span></div>
           <div class="ui-time-panel__columns">
-            <div role="listbox" aria-label="小时">
+            <div role="listbox" :aria-label="hoursLabel">
               <button v-for="hour in hours" :key="hour" type="button" role="option" :aria-selected="hour === selectedHour" :class="{ 'is-selected': hour === selectedHour }" @click="selectHour(hour)">{{ hour }}</button>
             </div>
-            <div role="listbox" aria-label="分钟">
+            <div role="listbox" :aria-label="minutesLabel">
               <button v-for="minute in minutes" :key="minute" type="button" role="option" :aria-selected="minute === selectedMinute" :class="{ 'is-selected': minute === selectedMinute }" @click="selectMinute(minute)">{{ minute }}</button>
             </div>
           </div>
-          <footer><button type="button" @click="setNow">现在</button><button type="button" class="is-primary" @click="close">确定</button></footer>
+          <footer><button type="button" @click="setNow">{{ nowLabel }}</button><button type="button" class="is-primary" @click="close">{{ confirmLabel }}</button></footer>
         </div>
       </template>
     </UiPopover>
@@ -31,14 +34,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 import Icon from '@/components/icons/Icon.vue'
 import UiFormField from './UiFormField.vue'
 import UiPopover from './UiPopover.vue'
 import type { UiDensity } from './types'
+import { useUiT } from './useUiI18n'
 
 const props = withDefaults(defineProps<{
   modelValue: string
+  id?: string
   label?: string
   description?: string
   error?: string
@@ -46,16 +51,25 @@ const props = withDefaults(defineProps<{
   density?: UiDensity
   minuteStep?: number
   disabled?: boolean
-}>(), { placeholder: '选择时间', density: 'default', minuteStep: 5 })
+}>(), { density: 'default', minuteStep: 5 })
+const resolvedId = props.id || `ui-time-${useId()}`
 const emit = defineEmits<{ 'update:modelValue': [string] }>()
+const t = useUiT()
+const resolvedPlaceholder = computed(() => props.placeholder || t('common.timePicker'))
+const timePickerLabel = computed(() => props.label || t('common.timePicker'))
+const hoursLabel = computed(() => t('common.hours'))
+const minutesLabel = computed(() => t('common.minutesLabel'))
+const nowLabel = computed(() => t('common.now'))
+const confirmLabel = computed(() => t('common.confirm'))
 const hours = Array.from({ length: 24 }, (_, value) => String(value).padStart(2, '0'))
-const minutes = computed(() => Array.from({ length: Math.ceil(60 / props.minuteStep) }, (_, index) => String(index * props.minuteStep).padStart(2, '0')).filter(value => Number(value) < 60))
+const safeMinuteStep = computed(() => Number.isFinite(props.minuteStep) && props.minuteStep > 0 ? Math.min(60, Math.floor(props.minuteStep)) : 5)
+const minutes = computed(() => Array.from({ length: Math.ceil(60 / safeMinuteStep.value) }, (_, index) => String(index * safeMinuteStep.value).padStart(2, '0')).filter(value => Number(value) < 60))
 const selectedHour = computed(() => props.modelValue?.split(':')[0] || '09')
 const selectedMinute = computed(() => props.modelValue?.split(':')[1] || '00')
 function update(hour: string, minute: string) { emit('update:modelValue', `${hour}:${minute}`) }
 function selectHour(hour: string) { update(hour, selectedMinute.value) }
 function selectMinute(minute: string) { update(selectedHour.value, minute) }
-function setNow() { const now = new Date(); const minute = Math.floor(now.getMinutes() / props.minuteStep) * props.minuteStep; update(String(now.getHours()).padStart(2, '0'), String(minute).padStart(2, '0')) }
+function setNow() { const now = new Date(); const minute = Math.floor(now.getMinutes() / safeMinuteStep.value) * safeMinuteStep.value; update(String(now.getHours()).padStart(2, '0'), String(minute).padStart(2, '0')) }
 </script>
 
 <style scoped>

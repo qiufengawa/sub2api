@@ -84,7 +84,13 @@
       <div v-else class="scheduled-tests__list">
         <section v-for="plan in plans" :key="plan.id" class="scheduled-tests__plan">
           <div class="scheduled-tests__plan-header">
-            <button type="button" class="scheduled-tests__plan-trigger" :aria-expanded="expandedPlanId === plan.id" @click="toggleExpand(plan.id)">
+            <button
+              type="button"
+              class="scheduled-tests__plan-trigger"
+              :aria-expanded="expandedPlanId === plan.id"
+              :aria-controls="`scheduled-test-results-${plan.id}`"
+              @click="toggleExpand(plan.id)"
+            >
               <span>
                 <strong>{{ plan.model_id }}</strong>
                 <code>{{ plan.cron_expression }}</code>
@@ -95,6 +101,7 @@
               <UiSwitch
                   :model-value="plan.enabled"
                   :label="t('admin.scheduledTests.enabled')"
+                  :disabled="updatingEnabledPlanIds.has(plan.id)"
                   @update:model-value="(val: boolean) => handleToggleEnabled(plan, val)"
                 />
               <UiBadge v-if="plan.auto_recover" tone="success" :label="t('admin.scheduledTests.autoRecover')" />
@@ -159,7 +166,11 @@
             </div>
           </section>
 
-          <section v-if="expandedPlanId === plan.id" class="scheduled-tests__results">
+          <section
+            v-if="expandedPlanId === plan.id"
+            :id="`scheduled-test-results-${plan.id}`"
+            class="scheduled-tests__results"
+          >
             <h3>{{ t('admin.scheduledTests.results') }}</h3>
             <div v-if="loadingResults" class="scheduled-tests__loading scheduled-tests__loading--small">
               <UiSpinner size="sm" :label="t('common.loading')" />
@@ -198,6 +209,7 @@
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
       :danger="true"
+      :pending="deleting"
       @confirm="handleDelete"
       @cancel="showDeleteConfirm = false"
     />
@@ -244,8 +256,12 @@ const emit = defineEmits<{
 
 // State
 const loading = ref(false)
+const plansRequestSeq = ref(0)
 const creating = ref(false)
+const deleting = ref(false)
 const loadingResults = ref(false)
+const resultsRequestSeq = ref(0)
+const updatingEnabledPlanIds = reactive(new Set<number>())
 const plans = ref<ScheduledTestPlan[]>([])
 const results = ref<ScheduledTestResult[]>([])
 const expandedPlanId = ref<number | null>(null)
@@ -281,8 +297,9 @@ const resetNewPlan = () => {
 
 // Load plans when dialog opens
 watch(
-  () => props.show,
-  async (visible) => {
+  [() => props.show, () => props.accountId],
+  async ([visible]) => {
+    resultsRequestSeq.value += 1
     if (visible && props.accountId) {
       await loadPlans()
     } else {
@@ -292,24 +309,34 @@ watch(
       expandedResultIds.clear()
       showAddForm.value = false
       showDeleteConfirm.value = false
+      loadingResults.value = false
     }
   }
 )
 
 const loadPlans = async () => {
   if (!props.accountId) return
+  const accountId = props.accountId
+  const requestSeq = ++plansRequestSeq.value
   loading.value = true
   try {
-    plans.value = await adminAPI.scheduledTests.listByAccount(props.accountId)
+    const nextPlans = await adminAPI.scheduledTests.listByAccount(accountId)
+    if (requestSeq === plansRequestSeq.value && props.accountId === accountId) {
+      plans.value = nextPlans
+    }
   } catch (error: any) {
-    appStore.showError(error?.message || 'Failed to load plans')
+    if (requestSeq === plansRequestSeq.value && props.accountId === accountId) {
+      appStore.showError(error?.message || 'Failed to load plans')
+    }
   } finally {
-    loading.value = false
+    if (requestSeq === plansRequestSeq.value && props.accountId === accountId) {
+      loading.value = false
+    }
   }
 }
 
 const handleCreate = async () => {
-  if (!props.accountId || !newPlan.model_id || !newPlan.cron_expression) return
+  if (creating.value || !props.accountId || !newPlan.model_id || !newPlan.cron_expression) return
   creating.value = true
   try {
     const maxResults = Number(newPlan.max_results) || 100
@@ -333,6 +360,8 @@ const handleCreate = async () => {
 }
 
 const handleToggleEnabled = async (plan: ScheduledTestPlan, enabled: boolean) => {
+  if (updatingEnabledPlanIds.has(plan.id)) return
+  updatingEnabledPlanIds.add(plan.id)
   try {
     const updated = await adminAPI.scheduledTests.update(plan.id, { enabled })
     const index = plans.value.findIndex((p) => p.id === plan.id)
@@ -342,6 +371,8 @@ const handleToggleEnabled = async (plan: ScheduledTestPlan, enabled: boolean) =>
     appStore.showSuccess(t('admin.scheduledTests.updateSuccess'))
   } catch (error: any) {
     appStore.showError(error?.message || 'Failed to update plan')
+  } finally {
+    updatingEnabledPlanIds.delete(plan.id)
   }
 }
 
@@ -359,7 +390,7 @@ const cancelEdit = () => {
 }
 
 const handleEdit = async () => {
-  if (!editingPlanId.value || !editForm.model_id || !editForm.cron_expression) return
+  if (updating.value || !editingPlanId.value || !editForm.model_id || !editForm.cron_expression) return
   updating.value = true
   try {
     const updated = await adminAPI.scheduledTests.update(editingPlanId.value, {
@@ -388,24 +419,28 @@ const confirmDeletePlan = (plan: ScheduledTestPlan) => {
 }
 
 const handleDelete = async () => {
-  if (!deletingPlan.value) return
+  if (deleting.value || !deletingPlan.value) return
+  const plan = deletingPlan.value
+  deleting.value = true
   try {
-    await adminAPI.scheduledTests.delete(deletingPlan.value.id)
+    await adminAPI.scheduledTests.delete(plan.id)
     appStore.showSuccess(t('admin.scheduledTests.deleteSuccess'))
-    plans.value = plans.value.filter((p) => p.id !== deletingPlan.value!.id)
-    if (expandedPlanId.value === deletingPlan.value.id) {
+    plans.value = plans.value.filter((item) => item.id !== plan.id)
+    if (expandedPlanId.value === plan.id) {
       expandedPlanId.value = null
       results.value = []
     }
   } catch (error: any) {
     appStore.showError(error?.message || 'Failed to delete plan')
   } finally {
+    deleting.value = false
     showDeleteConfirm.value = false
     deletingPlan.value = null
   }
 }
 
 const toggleExpand = async (planId: number) => {
+  const requestSeq = ++resultsRequestSeq.value
   if (expandedPlanId.value === planId) {
     expandedPlanId.value = null
     results.value = []
@@ -417,12 +452,19 @@ const toggleExpand = async (planId: number) => {
   expandedResultIds.clear()
   loadingResults.value = true
   try {
-    results.value = await adminAPI.scheduledTests.listResults(planId, 20)
+    const nextResults = await adminAPI.scheduledTests.listResults(planId, 20)
+    if (requestSeq === resultsRequestSeq.value && expandedPlanId.value === planId) {
+      results.value = nextResults
+    }
   } catch (error: any) {
-    appStore.showError(error?.message || 'Failed to load results')
-    results.value = []
+    if (requestSeq === resultsRequestSeq.value && expandedPlanId.value === planId) {
+      appStore.showError(error?.message || 'Failed to load results')
+      results.value = []
+    }
   } finally {
-    loadingResults.value = false
+    if (requestSeq === resultsRequestSeq.value && expandedPlanId.value === planId) {
+      loadingResults.value = false
+    }
   }
 }
 

@@ -13,10 +13,17 @@ const {
   listWithEtag,
   getBatchTodayStats,
   getServiceStatus,
+  getUpstreamBillingProbeSettings,
   getAllProxies,
   getAllGroups,
   duplicateAccount,
   createSparkShadow,
+  deleteAccount,
+  refreshCredentials,
+  recoverState,
+  resetAccountQuota,
+  setPrivacy,
+  revertProxyFallback,
   showSuccess,
   showError
 } = vi.hoisted(() => ({
@@ -24,10 +31,17 @@ const {
   listWithEtag: vi.fn(),
   getBatchTodayStats: vi.fn(),
   getServiceStatus: vi.fn(),
+  getUpstreamBillingProbeSettings: vi.fn(),
   getAllProxies: vi.fn(),
   getAllGroups: vi.fn(),
   duplicateAccount: vi.fn(),
   createSparkShadow: vi.fn(),
+  deleteAccount: vi.fn(),
+  refreshCredentials: vi.fn(),
+  recoverState: vi.fn(),
+  resetAccountQuota: vi.fn(),
+  setPrivacy: vi.fn(),
+  revertProxyFallback: vi.fn(),
   showSuccess: vi.fn(),
   showError: vi.fn()
 }))
@@ -40,9 +54,14 @@ vi.mock('@/api/admin', () => ({
       getBatchTodayStats,
       getServiceStatus,
       duplicate: duplicateAccount,
-      getUpstreamBillingProbeSettings: vi.fn().mockResolvedValue({ enabled: true, interval_minutes: 30 }),
+      getUpstreamBillingProbeSettings,
       createSparkShadow,
-      delete: vi.fn(),
+      delete: deleteAccount,
+      refreshCredentials,
+      recoverState,
+      resetAccountQuota,
+      setPrivacy,
+      revertProxyFallback,
       batchClearError: vi.fn(),
       batchRefresh: vi.fn(),
       toggleSchedulable: vi.fn()
@@ -109,17 +128,24 @@ const mountView = () =>
 describe('admin AccountsView — 外审 F2:spark 影子创建接线', () => {
   beforeEach(() => {
     localStorage.clear()
-    for (const fn of [listAccounts, listWithEtag, getBatchTodayStats, getServiceStatus, getAllProxies, getAllGroups, duplicateAccount, createSparkShadow, showSuccess, showError]) {
+    for (const fn of [listAccounts, listWithEtag, getBatchTodayStats, getServiceStatus, getUpstreamBillingProbeSettings, getAllProxies, getAllGroups, duplicateAccount, createSparkShadow, deleteAccount, refreshCredentials, recoverState, resetAccountQuota, setPrivacy, revertProxyFallback, showSuccess, showError]) {
       fn.mockReset()
     }
     listAccounts.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, pages: 0 })
     listWithEtag.mockResolvedValue({ notModified: true, etag: null, data: null })
     getBatchTodayStats.mockResolvedValue({ stats: {} })
     getServiceStatus.mockResolvedValue({ enabled: true, accounts: {} })
+    getUpstreamBillingProbeSettings.mockResolvedValue({ enabled: true, interval_minutes: 30 })
     getAllProxies.mockResolvedValue([])
     getAllGroups.mockResolvedValue([])
     duplicateAccount.mockResolvedValue({ id: 998, name: 'parent-acc (Copy)' })
     createSparkShadow.mockResolvedValue({ id: 999, name: 'parent-acc (Spark)' })
+    deleteAccount.mockResolvedValue(undefined)
+    refreshCredentials.mockResolvedValue({ id: 42, name: 'parent-acc' })
+    recoverState.mockResolvedValue({ id: 42, name: 'parent-acc' })
+    resetAccountQuota.mockResolvedValue({ id: 42, name: 'parent-acc' })
+    setPrivacy.mockResolvedValue({ id: 42, name: 'parent-acc', platform: 'openai', extra: { privacy_mode: 'training_off' } })
+    revertProxyFallback.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -154,6 +180,29 @@ describe('admin AccountsView — 外审 F2:spark 影子创建接线', () => {
     expect(duplicateAccount).toHaveBeenCalledTimes(1)
     resolveDuplicate({ id: 998, name: 'parent-acc (Copy)' })
     await flushPromises()
+    wrapper.unmount()
+  })
+
+  it('账号删除请求未完成时忽略重复确认', async () => {
+    let finishDelete!: () => void
+    deleteAccount.mockReturnValueOnce(new Promise<void>(resolve => { finishDelete = resolve }))
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      handleDelete: (account: { id: number; name: string }) => void
+      confirmDelete: () => Promise<void>
+    }
+    vm.handleDelete({ id: 42, name: 'parent-acc' })
+
+    const first = vm.confirmDelete()
+    const second = vm.confirmDelete()
+    await flushPromises()
+
+    expect(deleteAccount).toHaveBeenCalledTimes(1)
+    expect(deleteAccount).toHaveBeenCalledWith(42)
+
+    finishDelete()
+    await Promise.all([first, second])
     wrapper.unmount()
   })
 
@@ -209,6 +258,59 @@ describe('admin AccountsView — 外审 F2:spark 影子创建接线', () => {
     expect(createSparkShadow).not.toHaveBeenCalled()
     wrapper.unmount()
   })
+
+  it('Spark 影子创建请求未完成时忽略重复确认并锁定对话框', async () => {
+    let finishCreate!: () => void
+    createSparkShadow.mockReturnValueOnce(new Promise<void>(resolve => { finishCreate = resolve }))
+    const wrapper = mountView()
+    await flushPromises()
+
+    wrapper.findComponent(AccountActionMenu).vm.$emit('create-spark-shadow', { id: 42, name: 'parent-acc' })
+    await flushPromises()
+    const dialog = wrapper.findAllComponents(UiConfirmDialog).find(d => d.props('show'))
+    expect(dialog).toBeTruthy()
+
+    dialog?.vm.$emit('confirm')
+    dialog?.vm.$emit('confirm')
+    await flushPromises()
+
+    expect(createSparkShadow).toHaveBeenCalledTimes(1)
+    expect(dialog?.props('pending')).toBe(true)
+
+    finishCreate()
+    await flushPromises()
+    wrapper.unmount()
+  })
+
+  it.each([
+    ['handleRefresh', refreshCredentials],
+    ['handleRecoverState', recoverState],
+    ['handleResetQuota', resetAccountQuota],
+    ['handleSetPrivacy', setPrivacy],
+    ['onRevertFallback', revertProxyFallback],
+  ])('%s 在同一账号请求未完成时忽略重复调用', async (handlerName, requestMock) => {
+    let finishRequest!: (account: Record<string, unknown>) => void
+    requestMock.mockReturnValueOnce(new Promise(resolve => { finishRequest = resolve }))
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as unknown as Record<string, (account: Record<string, unknown>) => Promise<void>>
+    const account = {
+      id: 42,
+      name: 'parent-acc',
+      platform: 'openai',
+      type: 'oauth',
+      extra: { privacy_mode: 'training_off' },
+    }
+
+    const first = vm[handlerName](account)
+    const second = vm[handlerName](account)
+    await flushPromises()
+
+    expect(requestMock).toHaveBeenCalledTimes(1)
+    finishRequest(account)
+    await Promise.all([first, second])
+    wrapper.unmount()
+  })
 })
 
 // 账号行展示
@@ -262,12 +364,13 @@ const mountViewWithRow = () =>
 describe('admin AccountsView — 账号行展示', () => {
   beforeEach(() => {
     localStorage.clear()
-    for (const fn of [listAccounts, listWithEtag, getBatchTodayStats, getServiceStatus, getAllProxies, getAllGroups, duplicateAccount, createSparkShadow, showSuccess, showError]) {
+    for (const fn of [listAccounts, listWithEtag, getBatchTodayStats, getServiceStatus, getUpstreamBillingProbeSettings, getAllProxies, getAllGroups, duplicateAccount, createSparkShadow, showSuccess, showError]) {
       fn.mockReset()
     }
     listWithEtag.mockResolvedValue({ notModified: true, etag: null, data: null })
     getBatchTodayStats.mockResolvedValue({ stats: {} })
     getServiceStatus.mockResolvedValue({ enabled: true, accounts: {} })
+    getUpstreamBillingProbeSettings.mockResolvedValue({ enabled: true, interval_minutes: 30 })
     getAllProxies.mockResolvedValue([])
     getAllGroups.mockResolvedValue([])
     vi.stubGlobal('confirm', vi.fn(() => true))
@@ -338,7 +441,7 @@ describe('admin AccountsView — 账号行展示', () => {
     })
     const tooltip = wrapper.findComponent(UiTooltip)
     expect(tooltip.props('content')).toBe('https://relay.example.com')
-    expect(tooltip.props('widthClass')).toBe('w-max max-w-sm break-all')
+    expect(tooltip.props('widthClass')).toBe('accounts-tooltip-wide accounts-tooltip-break')
     expect(wrapper.text()).toContain('oauth-account')
     expect(wrapper.text()).toContain('invalid-url')
 

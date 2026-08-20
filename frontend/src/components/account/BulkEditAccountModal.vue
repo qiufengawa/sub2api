@@ -26,7 +26,7 @@
           <div class="flex-1 pr-4">
             <label
               id="bulk-edit-openai-passthrough-label"
-              class="input-label mb-0"
+              class="ui-field-label mb-0"
               for="bulk-edit-openai-passthrough-enabled"
             >
               {{ t('admin.accounts.openai.oauthPassthrough') }}
@@ -65,7 +65,7 @@
           <div class="flex-1 pr-4">
             <label
               id="bulk-edit-openai-flatten-namespaces-label"
-              class="input-label mb-0"
+              class="ui-field-label mb-0"
               for="bulk-edit-openai-flatten-namespaces-enabled"
             >
               {{ t('admin.accounts.openai.flattenNamespaces') }}
@@ -100,7 +100,7 @@
         <div class="mb-3 flex items-center justify-between">
           <label
             id="bulk-edit-base-url-label"
-            class="input-label mb-0"
+            class="ui-field-label mb-0"
             for="bulk-edit-base-url-enabled"
           >
             {{ t('admin.accounts.baseUrl') }}
@@ -122,7 +122,7 @@
           class="mt-2"
           @select="baseUrl = $event; enableBaseUrl = true"
         />
-        <p class="input-hint">
+        <p class="ui-field-hint">
           {{ t('admin.accounts.bulkEdit.baseUrlNotice') }}
         </p>
       </div>
@@ -132,7 +132,7 @@
         <div class="mb-3 flex items-center justify-between">
           <label
             id="bulk-edit-model-restriction-label"
-            class="input-label mb-0"
+            class="ui-field-label mb-0"
             for="bulk-edit-model-restriction-enabled"
           >
             {{ t('admin.accounts.modelRestriction') }}
@@ -234,15 +234,16 @@
 
               <!-- Quick Add Buttons -->
               <div class="flex flex-wrap gap-2">
-                <button
+                <UiButton
                   v-for="preset in filteredPresets"
                   :key="preset.label"
                   type="button"
-                  :class="['rounded-lg px-3 py-1 text-xs transition-colors', preset.color]"
+                  variant="quiet"
+                  density="dense"
                   @click="addPresetMapping(preset.from, preset.to)"
                 >
                   + {{ preset.label }}
-                </button>
+                </UiButton>
               </div>
             </div>
           </template>
@@ -255,7 +256,7 @@
           <div>
             <label
               id="bulk-edit-custom-error-codes-label"
-              class="input-label mb-0"
+              class="ui-field-label mb-0"
               for="bulk-edit-custom-error-codes-enabled"
             >
               {{ t('admin.accounts.customErrorCodes') }}
@@ -281,20 +282,17 @@
 
           <!-- Error Code Buttons -->
           <div class="flex flex-wrap gap-2">
-            <button
+            <UiButton
               v-for="code in commonErrorCodes"
               :key="code.value"
               type="button"
-              :class="[
-                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                selectedErrorCodes.includes(code.value)
-                  ? 'bg-red-100 text-red-700 ring-1 ring-red-500 dark:bg-red-900/30 dark:text-red-400'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
-              ]"
+              :variant="selectedErrorCodes.includes(code.value) ? 'danger' : 'secondary'"
+              density="dense"
+              :aria-pressed="selectedErrorCodes.includes(code.value)"
               @click="toggleErrorCode(code.value)"
             >
               {{ code.value }} {{ code.label }}
-            </button>
+            </UiButton>
           </div>
 
           <!-- Manual input -->
@@ -324,13 +322,14 @@
               class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-sm font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400"
             >
               {{ code }}
-              <button
+              <UiIconButton
                 type="button"
-                class="hover:text-red-900 dark:hover:text-red-300"
+                icon="x"
+                variant="ghost"
+                density="mini"
+                :label="`${t('common.delete')} ${code}`"
                 @click="removeErrorCode(code)"
-              >
-                <Icon name="x" size="xs" class="h-3.5 w-3.5" :stroke-width="2" />
-              </button>
+              />
             </span>
             <span v-if="selectedErrorCodes.length === 0" class="text-xs text-gray-400">
               {{ t('admin.accounts.noneSelectedUsesDefault') }}
@@ -345,7 +344,7 @@
           <div class="flex-1 pr-4">
             <label
               id="bulk-edit-intercept-warmup-label"
-              class="input-label mb-0"
+              class="ui-field-label mb-0"
               for="bulk-edit-intercept-warmup-enabled"
             >
               {{ t('admin.accounts.interceptWarmupRequests') }}
@@ -374,7 +373,7 @@
           <div class="flex-1 pr-4">
             <label
               id="bulk-edit-header-override-label"
-              class="input-label mb-0"
+              class="ui-field-label mb-0"
               for="bulk-edit-header-override-enabled"
             >
               {{ t('admin.accounts.headerOverride.title') }}
@@ -423,7 +422,7 @@
         <div class="mb-3 flex items-center justify-between">
           <label
             id="bulk-edit-proxy-label"
-            class="input-label mb-0"
+            class="ui-field-label mb-0"
             for="bulk-edit-proxy-enabled"
           >
             {{ t('admin.accounts.proxy') }}
@@ -449,7 +448,7 @@
           <div class="mb-3 flex items-center justify-between">
             <label
               id="bulk-edit-concurrency-label"
-              class="input-label mb-0"
+              class="ui-field-label mb-0"
               for="bulk-edit-concurrency-enabled"
             >
               {{ t('admin.accounts.concurrency') }}
@@ -473,7 +472,7 @@
           <div class="mb-3 flex items-center justify-between">
             <label
               id="bulk-edit-load-factor-label"
-              class="input-label mb-0"
+              class="ui-field-label mb-0"
               for="bulk-edit-load-factor-enabled"
             >
               {{ t('admin.accounts.loadFactor') }}
@@ -492,13 +491,13 @@
             :disabled="!enableLoadFactor"
             @input="loadFactor = (loadFactor &amp;&amp; loadFactor >= 1) ? loadFactor : null"
           />
-          <p class="input-hint">{{ t('admin.accounts.loadFactorHint') }}</p>
+          <p class="ui-field-hint">{{ t('admin.accounts.loadFactorHint') }}</p>
         </div>
         <div>
           <div class="mb-3 flex items-center justify-between">
             <label
               id="bulk-edit-priority-label"
-              class="input-label mb-0"
+              class="ui-field-label mb-0"
               for="bulk-edit-priority-enabled"
             >
               {{ t('admin.accounts.priority') }}
@@ -517,13 +516,13 @@
             min="0"
             :disabled="!enablePriority"
           />
-          <p class="input-hint">{{ t('admin.accounts.priorityHint') }}</p>
+          <p class="ui-field-hint">{{ t('admin.accounts.priorityHint') }}</p>
         </div>
         <div>
           <div class="mb-3 flex items-center justify-between">
             <label
               id="bulk-edit-rate-multiplier-label"
-              class="input-label mb-0"
+              class="ui-field-label mb-0"
               for="bulk-edit-rate-multiplier-enabled"
             >
               {{ t('admin.accounts.billingRateMultiplier') }}
@@ -542,7 +541,7 @@
             step="0.01"
             :disabled="!enableRateMultiplier"
           />
-          <p class="input-hint">{{ t('admin.accounts.billingRateMultiplierHint') }}</p>
+          <p class="ui-field-hint">{{ t('admin.accounts.billingRateMultiplierHint') }}</p>
           <p
             v-if="enableRateMultiplier"
             class="mt-2 flex items-start gap-1 text-xs text-amber-700 dark:text-amber-300"
@@ -559,7 +558,7 @@
         <div class="mb-3 flex items-center justify-between">
           <label
             id="bulk-edit-status-label"
-            class="input-label mb-0"
+            class="ui-field-label mb-0"
             for="bulk-edit-status-enabled"
           >
             {{ t('common.status') }}
@@ -584,7 +583,7 @@
         <div class="mb-3 flex items-center justify-between">
           <label
             id="bulk-edit-openai-ws-mode-label"
-            class="input-label mb-0"
+            class="ui-field-label mb-0"
             for="bulk-edit-openai-ws-mode-enabled"
           >
             {{ t('admin.accounts.openai.wsMode') }}
@@ -619,7 +618,7 @@
         <div class="mb-3 flex items-center justify-between">
           <label
             id="bulk-edit-openai-codex-cli-only-label"
-            class="input-label mb-0"
+            class="ui-field-label mb-0"
             for="bulk-edit-openai-codex-cli-only-enabled"
           >
             {{ t('admin.accounts.openai.codexCLIOnly') }}
@@ -650,7 +649,7 @@
         <div class="mb-3 flex items-center justify-between">
           <label
             id="bulk-edit-openai-codex-app-server-label"
-            class="input-label mb-0"
+            class="ui-field-label mb-0"
             for="bulk-edit-openai-codex-app-server-enabled"
           >
             {{ t('admin.accounts.openai.codexCLIOnlyAppServer') }}
@@ -679,7 +678,7 @@
       <!-- Codex 指纹收敛模式（仅 OpenAI OAuth） -->
       <div v-if="allOpenAIOAuth" class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
-          <label class="input-label mb-0">{{ t('admin.accounts.openai.codexFingerprintMode') }}</label>
+          <label class="ui-field-label mb-0">{{ t('admin.accounts.openai.codexFingerprintMode') }}</label>
           <UiCheckbox
             v-model="enableCodexFingerprintMode"
             :aria-label="t('admin.accounts.openai.codexFingerprintMode')"
@@ -699,7 +698,7 @@
           <div class="flex-1 pr-4">
             <label
               id="bulk-edit-upstream-billing-auto-probe-label"
-              class="input-label mb-0"
+              class="ui-field-label mb-0"
               for="bulk-edit-upstream-billing-auto-probe-enabled"
             >
               {{ t('admin.accounts.upstreamBilling.autoProbe') }}
@@ -735,7 +734,7 @@
         <div class="mb-3 flex items-center justify-between">
           <label
             id="bulk-edit-openai-apikey-ws-mode-label"
-            class="input-label mb-0"
+            class="ui-field-label mb-0"
             for="bulk-edit-openai-apikey-ws-mode-enabled"
           >
             {{ t('admin.accounts.openai.wsMode') }}
@@ -771,7 +770,7 @@
           <div class="flex-1 pr-4">
             <label
               id="bulk-edit-openai-compact-mode-label"
-              class="input-label mb-0"
+              class="ui-field-label mb-0"
               for="bulk-edit-openai-compact-mode-enabled"
             >
               {{ t('admin.accounts.openai.compactMode') }}
@@ -805,7 +804,7 @@
           <div class="flex-1 pr-4">
             <label
               id="bulk-edit-openai-compact-model-mapping-label"
-              class="input-label mb-0"
+              class="ui-field-label mb-0"
               for="bulk-edit-openai-compact-model-mapping-enabled"
             >
               {{ t('admin.accounts.openai.compactModelMapping') }}
@@ -871,7 +870,7 @@
         <div class="mb-3 flex items-center justify-between">
           <label
             id="bulk-edit-rpm-limit-label"
-            class="input-label mb-0"
+            class="ui-field-label mb-0"
             for="bulk-edit-rpm-limit-enabled"
           >
             {{ t('admin.accounts.quotaControl.rpmLimit.label') }}
@@ -899,7 +898,7 @@
 
           <div v-if="rpmLimitEnabled" class="space-y-3">
             <div>
-              <label class="input-label text-xs">{{ t('admin.accounts.quotaControl.rpmLimit.baseRpm') }}</label>
+              <label class="ui-field-label text-xs">{{ t('admin.accounts.quotaControl.rpmLimit.baseRpm') }}</label>
               <UiTextField
                 v-model.number="bulkBaseRpm"
                 type="number"
@@ -908,11 +907,11 @@
                 step="1"
                 :placeholder="t('admin.accounts.quotaControl.rpmLimit.baseRpmPlaceholder')"
               />
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.rpmLimit.baseRpmHint') }}</p>
+              <p class="ui-field-hint">{{ t('admin.accounts.quotaControl.rpmLimit.baseRpmHint') }}</p>
             </div>
 
             <div>
-              <label class="input-label text-xs">{{ t('admin.accounts.quotaControl.rpmLimit.strategy') }}</label>
+              <label class="ui-field-label text-xs">{{ t('admin.accounts.quotaControl.rpmLimit.strategy') }}</label>
               <UiSegmentedControl
                 v-model="bulkRpmStrategy"
                 :label="t('admin.accounts.quotaControl.rpmLimit.strategy')"
@@ -921,7 +920,7 @@
             </div>
 
             <div v-if="bulkRpmStrategy === 'tiered'">
-              <label class="input-label text-xs">{{ t('admin.accounts.quotaControl.rpmLimit.stickyBuffer') }}</label>
+              <label class="ui-field-label text-xs">{{ t('admin.accounts.quotaControl.rpmLimit.stickyBuffer') }}</label>
               <UiTextField
                 v-model.number="bulkRpmStickyBuffer"
                 type="number"
@@ -929,7 +928,7 @@
                 step="1"
                 :placeholder="t('admin.accounts.quotaControl.rpmLimit.stickyBufferPlaceholder')"
               />
-              <p class="input-hint">{{ t('admin.accounts.quotaControl.rpmLimit.stickyBufferHint') }}</p>
+              <p class="ui-field-hint">{{ t('admin.accounts.quotaControl.rpmLimit.stickyBufferHint') }}</p>
             </div>
 
             </div>
@@ -937,21 +936,19 @@
 
         <!-- 用户消息限速模式（独立于 RPM 开关，始终可见） -->
         <div class="mt-4">
-          <label class="input-label">{{ t('admin.accounts.quotaControl.rpmLimit.userMsgQueue') }}</label>
+          <label class="ui-field-label">{{ t('admin.accounts.quotaControl.rpmLimit.userMsgQueue') }}</label>
           <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 mb-2">
             {{ t('admin.accounts.quotaControl.rpmLimit.userMsgQueueHint') }}
           </p>
           <div class="flex space-x-2">
-            <button type="button" v-for="opt in umqModeOptions" :key="opt.value"
+            <UiButton type="button" v-for="opt in umqModeOptions" :key="opt.value"
+              :variant="userMsgQueueMode === opt.value ? 'primary' : 'secondary'"
+              density="dense"
+              :aria-pressed="userMsgQueueMode === opt.value"
               @click="userMsgQueueMode = userMsgQueueMode === opt.value ? null : opt.value"
-              :class="[
-                'px-3 py-1.5 text-sm rounded-md border transition-colors',
-                userMsgQueueMode === opt.value
-                  ? 'bg-primary-600 text-white border-primary-600'
-                  : 'bg-white dark:bg-dark-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-dark-500 hover:bg-gray-50 dark:hover:bg-dark-600'
-              ]">
+            >
               {{ opt.label }}
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
@@ -961,7 +958,7 @@
         <div class="mb-3 flex items-center justify-between">
           <label
             id="bulk-edit-groups-label"
-            class="input-label mb-0"
+            class="ui-field-label mb-0"
             for="bulk-edit-groups-enabled"
           >
             {{ t('nav.groups') }}
@@ -1008,8 +1005,19 @@
     :confirm-text="t('common.confirm')"
     :cancel-text="t('common.cancel')"
     :danger="true"
+    :pending="submitting"
     @confirm="handleMixedChannelConfirm"
     @cancel="handleMixedChannelCancel"
+  />
+  <UiConfirmDialog
+    :show="errorCodeConfirmation !== null"
+    :title="t('common.confirm')"
+    :message="errorCodeConfirmationMessage"
+    :confirm-text="t('common.confirm')"
+    :cancel-text="t('common.cancel')"
+    :danger="true"
+    @confirm="confirmErrorCodeWarning"
+    @cancel="cancelErrorCodeWarning"
   />
 </template>
 
@@ -1236,6 +1244,12 @@ const allowedModels = ref<string[]>([])
 const modelMappings = ref<ModelMapping[]>([])
 const selectedErrorCodes = ref<number[]>([])
 const customErrorCodeInput = ref<number | null>(null)
+const errorCodeConfirmation = ref<{ code: 429 | 529; source: 'toggle' | 'custom' } | null>(null)
+const errorCodeConfirmationMessage = computed(() =>
+  errorCodeConfirmation.value?.code === 429
+    ? t('admin.accounts.customErrorCodes429Warning')
+    : t('admin.accounts.customErrorCodes529Warning'),
+)
 const interceptWarmupRequests = ref(false)
 const headerOverrideEnabled = ref(false)
 const headerOverrideRows = ref<HeaderOverrideRow[]>([])
@@ -1352,14 +1366,9 @@ const toggleErrorCode = (code: number) => {
   const index = selectedErrorCodes.value.indexOf(code)
   if (index === -1) {
     // Adding code - check for 429/529 warning
-    if (code === 429) {
-      if (!confirm(t('admin.accounts.customErrorCodes429Warning'))) {
-        return
-      }
-    } else if (code === 529) {
-      if (!confirm(t('admin.accounts.customErrorCodes529Warning'))) {
-        return
-      }
+    if (code === 429 || code === 529) {
+      errorCodeConfirmation.value = { code, source: 'toggle' }
+      return
     }
     selectedErrorCodes.value.push(code)
   } else {
@@ -1378,17 +1387,24 @@ const addCustomErrorCode = () => {
     return
   }
   // Check for 429/529 warning
-  if (code === 429) {
-    if (!confirm(t('admin.accounts.customErrorCodes429Warning'))) {
-      return
-    }
-  } else if (code === 529) {
-    if (!confirm(t('admin.accounts.customErrorCodes529Warning'))) {
-      return
-    }
+  if (code === 429 || code === 529) {
+    errorCodeConfirmation.value = { code, source: 'custom' }
+    return
   }
   selectedErrorCodes.value.push(code)
   customErrorCodeInput.value = null
+}
+
+const confirmErrorCodeWarning = () => {
+  const confirmation = errorCodeConfirmation.value
+  errorCodeConfirmation.value = null
+  if (!confirmation || selectedErrorCodes.value.includes(confirmation.code)) return
+  selectedErrorCodes.value.push(confirmation.code)
+  if (confirmation.source === 'custom') customErrorCodeInput.value = null
+}
+
+const cancelErrorCodeWarning = () => {
+  errorCodeConfirmation.value = null
 }
 
 const removeErrorCode = (code: number) => {
@@ -1775,6 +1791,7 @@ const submitBulkUpdate = async (baseUpdates: Record<string, unknown>) => {
 }
 
 const handleMixedChannelConfirm = async () => {
+  if (submitting.value) return
   showMixedChannelWarning.value = false
   mixedChannelConfirmed.value = true
   if (pendingUpdatesForConfirm.value) {

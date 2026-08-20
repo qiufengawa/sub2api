@@ -28,13 +28,13 @@
       <AppStack :gap="16">
         <ParameterField v-model:enabled="model.parameterEnabled.temperature" :label="t('playground.parameters.temperature')">
           <div class="parameter-range">
-            <UiSlider :model-value="model.temperature" :min="0" :max="2" :step="0.1" @update:model-value="model.temperature = $event" />
+            <UiSlider :model-value="model.temperature" :aria-label="t('playground.parameters.temperature')" :min="0" :max="2" :step="0.1" @update:model-value="model.temperature = $event" />
             <UiTextField :model-value="model.temperature" type="number" min="0" max="2" step="0.1" density="dense" text-align="right" @update:model-value="model.temperature = Number($event)" />
           </div>
         </ParameterField>
         <ParameterField v-model:enabled="model.parameterEnabled.top_p" :label="t('playground.parameters.topP')">
           <div class="parameter-range">
-            <UiSlider :model-value="model.top_p" :min="0" :max="1" :step="0.05" @update:model-value="model.top_p = $event" />
+            <UiSlider :model-value="model.top_p" :aria-label="t('playground.parameters.topP')" :min="0" :max="1" :step="0.05" @update:model-value="model.top_p = $event" />
             <UiTextField :model-value="model.top_p" type="number" min="0" max="1" step="0.05" density="dense" text-align="right" @update:model-value="model.top_p = Number($event)" />
           </div>
         </ParameterField>
@@ -43,13 +43,13 @@
         </ParameterField>
         <ParameterField v-model:enabled="model.parameterEnabled.frequency_penalty" :label="t('playground.parameters.frequencyPenalty')">
           <div class="parameter-range">
-            <UiSlider :model-value="model.frequency_penalty" :min="-2" :max="2" :step="0.1" @update:model-value="model.frequency_penalty = $event" />
+            <UiSlider :model-value="model.frequency_penalty" :aria-label="t('playground.parameters.frequencyPenalty')" :min="-2" :max="2" :step="0.1" @update:model-value="model.frequency_penalty = $event" />
             <UiTextField :model-value="model.frequency_penalty" type="number" min="-2" max="2" step="0.1" density="dense" text-align="right" @update:model-value="model.frequency_penalty = Number($event)" />
           </div>
         </ParameterField>
         <ParameterField v-model:enabled="model.parameterEnabled.presence_penalty" :label="t('playground.parameters.presencePenalty')">
           <div class="parameter-range">
-            <UiSlider :model-value="model.presence_penalty" :min="-2" :max="2" :step="0.1" @update:model-value="model.presence_penalty = $event" />
+            <UiSlider :model-value="model.presence_penalty" :aria-label="t('playground.parameters.presencePenalty')" :min="-2" :max="2" :step="0.1" @update:model-value="model.presence_penalty = $event" />
             <UiTextField :model-value="model.presence_penalty" type="number" min="-2" max="2" step="0.1" density="dense" text-align="right" @update:model-value="model.presence_penalty = Number($event)" />
           </div>
         </ParameterField>

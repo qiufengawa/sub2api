@@ -1,53 +1,48 @@
 <template>
-  <div>
-    <label class="input-label">
+  <div class="group-selector">
+    <div class="group-selector__label">
       {{ t('admin.users.groups') }}
-      <span class="font-normal text-gray-400">{{ t('common.selectedCount', { count: modelValue.length }) }}</span>
-    </label>
-    <div
-      v-if="isSearchable"
-      class="flex items-center gap-2 rounded-t-lg border border-b-0 border-gray-200 bg-gray-50 px-3 py-2 dark:border-dark-600 dark:bg-dark-800"
-    >
-      <Icon name="search" size="sm" class="shrink-0 text-gray-400" />
-      <input
+      <span>{{ t('common.selectedCount', { count: modelValue.length }) }}</span>
+    </div>
+    <div v-if="isSearchable" class="group-selector__search">
+      <UiSearchInput
         v-model="searchText"
-        type="text"
         :placeholder="t('common.searchPlaceholder')"
-        class="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none dark:text-gray-100 dark:placeholder:text-dark-400"
+        :aria-label="t('common.searchPlaceholder')"
+        density="compact"
+        :debounce-ms="0"
       />
     </div>
     <div
-      :class="[
-        'grid max-h-32 grid-cols-2 gap-1 overflow-y-auto p-2',
-        isSearchable
-          ? 'rounded-b-lg border border-t-0 border-gray-200 bg-gray-50 dark:border-dark-600 dark:bg-dark-800'
-          : 'rounded-lg border border-gray-200 bg-gray-50 dark:border-dark-600 dark:bg-dark-800'
-      ]"
+      class="group-selector__options"
+      :class="{ 'group-selector__options--searchable': isSearchable }"
     >
-      <label
+      <div
         v-for="group in filteredGroups"
         :key="group.id"
-        class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-white dark:hover:bg-dark-700"
+        class="group-selector__option"
         :title="t('admin.groups.rateAndAccounts', { rate: group.rate_multiplier, count: group.account_count || 0 })"
       >
-        <input
-          type="checkbox"
+        <UiCheckbox
+          :model-value="modelValue.includes(group.id)"
           :value="group.id"
-          :checked="modelValue.includes(group.id)"
-          @change="handleChange(group.id, ($event.target as HTMLInputElement).checked)"
-          class="h-3.5 w-3.5 shrink-0 rounded border-gray-300 text-primary-500 focus:ring-primary-500 dark:border-dark-500"
-        />
-        <GroupBadge
-          :name="group.name"
-          :platform="group.platform"
-          :rate-multiplier="group.rate_multiplier"
-          class="min-w-0 flex-1"
-        />
-        <span class="shrink-0 text-xs text-gray-400">{{ group.account_count || 0 }}</span>
-      </label>
+          full-width
+          @update:model-value="handleChange(group.id, $event)"
+        >
+          <span class="group-selector__option-content">
+            <GroupBadge
+              :name="group.name"
+              :platform="group.platform"
+              :rate-multiplier="group.rate_multiplier"
+              class="group-selector__badge"
+            />
+            <span class="group-selector__count">{{ group.account_count || 0 }}</span>
+          </span>
+        </UiCheckbox>
+      </div>
       <div
         v-if="filteredGroups.length === 0"
-        class="col-span-2 py-2 text-center text-sm text-gray-500 dark:text-gray-400"
+        class="group-selector__empty"
       >
         {{ t('common.noGroupsAvailable') }}
       </div>
@@ -59,7 +54,7 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import GroupBadge from './GroupBadge.vue'
-import Icon from '@/components/icons/Icon.vue'
+import { UiCheckbox, UiSearchInput } from '@/components/ui'
 import type { AdminGroup, GroupPlatform } from '@/types'
 
 const { t } = useI18n()
@@ -116,3 +111,19 @@ const handleChange = (groupId: number, checked: boolean) => {
   emit('update:modelValue', newValue)
 }
 </script>
+
+<style scoped>
+.group-selector{display:grid;gap:6px}
+.group-selector__label{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--ui-text);font-size:13px;font-weight:500;line-height:20px}
+.group-selector__label span{color:var(--ui-text-soft);font-size:12px;font-weight:400;font-variant-numeric:tabular-nums}
+.group-selector__search{padding:6px;border:1px solid var(--ui-border);border-bottom:0;border-radius:var(--ui-radius) var(--ui-radius) 0 0;background:var(--ui-surface-muted)}
+.group-selector__options{display:grid;max-height:144px;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;padding:6px;overflow-y:auto;border:1px solid var(--ui-border);border-radius:var(--ui-radius);background:var(--ui-surface-muted)}
+.group-selector__options--searchable{border-radius:0 0 var(--ui-radius) var(--ui-radius)}
+.group-selector__option{min-width:0;padding:4px 6px;border-radius:var(--ui-radius);transition:background var(--ui-motion-fast)}
+.group-selector__option:hover{background:var(--ui-surface)}
+.group-selector__option-content{display:flex;min-width:0;flex:1;align-items:center;gap:6px}
+.group-selector__badge{min-width:0;flex:1}
+.group-selector__count{flex:none;color:var(--ui-text-soft);font-family:var(--ui-font-mono);font-size:11px;font-variant-numeric:tabular-nums}
+.group-selector__empty{grid-column:1/-1;padding:8px;color:var(--ui-text-muted);font-size:12px;text-align:center}
+@media(max-width:560px){.group-selector__options{grid-template-columns:minmax(0,1fr)}}
+</style>

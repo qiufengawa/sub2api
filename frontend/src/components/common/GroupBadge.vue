@@ -1,28 +1,15 @@
 <template>
-  <span
-    :class="[
-      'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
-      badgeClass
-    ]"
-  >
-    <!-- Platform logo -->
+  <span class="group-badge" :data-platform="platform || 'default'">
     <PlatformIcon v-if="platform" :platform="platform" size="sm" />
-    <!-- Group name -->
-    <span class="truncate">{{ name }}</span>
-    <!-- Right side label -->
-    <span v-if="showLabel" :class="labelClass">
+    <span class="group-badge__name">{{ name }}</span>
+    <UiBadge v-if="showLabel" class="group-badge__rate">
       <template v-if="hasCustomRate">
-        <!-- 原倍率删除线 + 专属倍率高亮 -->
-        <span class="line-through opacity-50 mr-0.5">{{ rateMultiplier }}x</span>
-        <span class="font-bold">{{ userRateMultiplier }}x</span>
+        <span class="group-badge__old-rate">{{ rateMultiplier }}x</span>
+        <strong>{{ userRateMultiplier }}x</strong>
       </template>
-      <template v-else>
-        {{ labelText }}
-      </template>
-    </span>
-    <span v-if="hasPeakRate" :class="peakRateClass" :title="peakRateTitle">
-      {{ peakRateText }}
-    </span>
+      <template v-else>{{ labelText }}</template>
+    </UiBadge>
+    <UiBadge v-if="hasPeakRate" tone="warning" :title="peakRateTitle">{{ peakRateText }}</UiBadge>
   </span>
 </template>
 
@@ -33,6 +20,7 @@ import type { GroupPlatform } from '@/types'
 import { useAppStore } from '@/stores/app'
 import { formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
 import PlatformIcon from './PlatformIcon.vue'
+import { UiBadge } from '@/components/ui'
 
 interface Props {
   name: string
@@ -96,34 +84,12 @@ const labelText = computed(() => {
   return props.rateMultiplier !== undefined ? `${props.rateMultiplier}x` : ''
 })
 
-const labelClass = computed(() => {
-  const base = 'px-1.5 py-0.5 rounded text-[10px] font-semibold'
-  return `${base} bg-black/10 dark:bg-white/10`
-})
-
-const peakRateClass = computed(() => {
-  return 'px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-})
-
-// Badge color is determined only by the real routing platform.
-const badgeClass = computed(() => {
-  if (props.platform === 'anthropic') {
-    return 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
-  } else if (props.platform === 'openai') {
-    return 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-  }
-  if (props.platform === 'gemini') {
-    return 'bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400'
-  }
-  if (props.platform === 'antigravity') {
-    return 'bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-900/20 dark:text-fuchsia-400'
-  }
-  if (props.platform === 'grok') {
-    return 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200'
-  }
-  if (props.platform === 'composite') {
-    return 'bg-cyan-50 text-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-300'
-  }
-  return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-})
 </script>
+
+<style scoped>
+.group-badge{display:inline-flex;min-width:0;align-items:center;gap:6px;color:var(--ui-text);font-size:12px;font-weight:500;line-height:20px}
+.group-badge__name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.group-badge__rate{font-family:var(--ui-font-mono);font-variant-numeric:tabular-nums}
+.group-badge__old-rate{color:var(--ui-text-soft);text-decoration:line-through}
+.group-badge__rate strong{color:var(--ui-text);font-weight:600}
+</style>

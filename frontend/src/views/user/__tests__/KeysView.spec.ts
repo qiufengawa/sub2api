@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import type { ApiKey, Group } from '@/types'
 import KeysView from '../KeysView.vue'
+
+const keysViewSource = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../KeysView.vue'), 'utf8')
 
 const {
   listKeys,
@@ -13,6 +18,8 @@ const {
   getUserGroupRates,
   createKey,
   updateKey,
+  deleteKey,
+  toggleStatus,
   showError,
   showSuccess,
   routerReplace,
@@ -28,6 +35,8 @@ const {
   getUserGroupRates: vi.fn(),
   createKey: vi.fn(),
   updateKey: vi.fn(),
+  deleteKey: vi.fn(),
+  toggleStatus: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn(),
   routerReplace: vi.fn(),
@@ -41,6 +50,7 @@ const messages: Record<string, string> = {
   'common.actions': 'Actions',
   'common.name': 'Name',
   'common.refresh': 'Refresh',
+  'common.retry': 'Retry',
   'common.status': 'Status',
   'keys.apiKey': 'API Key',
   'keys.allGroups': 'All Groups',
@@ -50,6 +60,7 @@ const messages: Record<string, string> = {
   'keys.created': 'Created',
   'keys.expiresAt': 'Expires',
   'keys.group': 'Group',
+  'keys.failedToLoad': 'Failed to load API keys',
   'keys.id': 'ID',
   'keys.currentConcurrency': 'Current Concurrency',
   'keys.lastUsedAt': 'Last Used',
@@ -85,8 +96,8 @@ vi.mock('@/api', () => ({
     list: listKeys,
     create: createKey,
     update: updateKey,
-    delete: vi.fn(),
-    toggleStatus: vi.fn(),
+    delete: deleteKey,
+    toggleStatus,
   },
   authAPI: {
     getPublicSettings,
@@ -275,7 +286,7 @@ const UiConfirmDialogStub = {
   `,
 }
 
-const mountView = async () => {
+const mountView = async (waitForLoad = true) => {
   const wrapper = mount(KeysView, {
     global: {
       stubs: {
@@ -296,8 +307,10 @@ const mountView = async () => {
       },
     },
   })
-  await flushPromises()
-  await nextTick()
+  if (waitForLoad) {
+    await flushPromises()
+    await nextTick()
+  }
   return wrapper
 }
 
@@ -326,6 +339,8 @@ describe('user KeysView column settings', () => {
     getUserGroupRates.mockReset()
     createKey.mockReset()
     updateKey.mockReset()
+    deleteKey.mockReset()
+    toggleStatus.mockReset()
     showError.mockReset()
     showSuccess.mockReset()
     routerReplace.mockReset()
@@ -347,8 +362,18 @@ describe('user KeysView column settings', () => {
     getUserGroupRates.mockResolvedValue({})
     createKey.mockResolvedValue(createApiKey())
     updateKey.mockResolvedValue(createApiKey())
+    deleteKey.mockResolvedValue(undefined)
+    toggleStatus.mockResolvedValue(undefined)
     routerReplace.mockResolvedValue(undefined)
     isCurrentStep.mockReturnValue(false)
+  })
+
+  it('keeps group options inside an accessible listbox contract', () => {
+    expect(keysViewSource).toContain('class="keys-group-picker__list"')
+    expect(keysViewSource).toContain('role="listbox"')
+    expect(keysViewSource).toContain(':aria-label="t(\'keys.selectGroup\')"')
+    expect(keysViewSource).toContain('role="option"')
+    expect(keysViewSource).toContain('aria-haspopup="dialog"')
   })
 
   it('uses the default API key columns with low-frequency columns hidden', async () => {
@@ -369,6 +394,34 @@ describe('user KeysView column settings', () => {
     expect(visibleColumnKeys(wrapper)).not.toContain('last_used_at')
     expect(visibleColumnKeys(wrapper)).not.toContain('last_used_ip')
     expect(visibleColumnKeys(wrapper)).not.toContain('id')
+  })
+
+  it('shows a persistent retry state when the initial key request fails', async () => {
+    listKeys.mockRejectedValueOnce(new Error('offline'))
+    const wrapper = await mountView()
+
+    expect(wrapper.get('[data-testid="keys-load-error"]').text()).toContain('Failed to load API keys')
+    expect(wrapper.find('[data-test="key-actions"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="keys-load-error"] button').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="keys-load-error"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('test-key')
+  })
+
+  it('keeps existing key rows visible when a refresh fails', async () => {
+    const wrapper = await mountView()
+    listKeys.mockRejectedValueOnce(new Error('offline'))
+    const vm = wrapper.vm as unknown as { loadApiKeys: () => Promise<void> }
+
+    await vm.loadApiKeys()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="keys-refresh-error"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('test-key')
+    expect(wrapper.find('[data-testid="keys-load-error"]').exists()).toBe(false)
   })
 
   it('shows a hidden column when toggled and persists the preference', async () => {
@@ -515,6 +568,23 @@ describe('user KeysView column settings', () => {
     expect(wrapper.find('[data-testid="subscription-bind-banner"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="subscription-create-context"]').exists()).toBe(false)
     expect(routerReplace).not.toHaveBeenCalled()
+  })
+
+  it('aborts the active key request when leaving the page', async () => {
+    let resolveList!: (value: unknown) => void
+    listKeys.mockReset().mockReturnValueOnce(new Promise((resolve) => {
+      resolveList = resolve
+    }))
+
+    const wrapper = await mountView(false)
+    const signal = listKeys.mock.calls[0]?.[3]?.signal as AbortSignal
+    expect(signal.aborted).toBe(false)
+
+    wrapper.unmount()
+    expect(signal.aborted).toBe(true)
+
+    resolveList({ items: [], total: 0, page: 1, page_size: 20, pages: 0 })
+    await flushPromises()
   })
 
   it('waits for available groups before opening a preselected subscription key form', async () => {
@@ -738,5 +808,133 @@ describe('user KeysView column settings', () => {
     const expiresInDays = createKey.mock.calls[0]?.[6]
     expect(expiresInDays).toBeGreaterThanOrEqual(2)
     expect(expiresInDays).toBeLessThanOrEqual(4)
+  })
+
+  it('does not apply a late quota reset response to a newly selected key', async () => {
+    const keyA = { ...createApiKey(), id: 1, quota_used: 4 }
+    const keyB = { ...createApiKey(), id: 2, name: 'second-key', quota_used: 7 }
+    listKeys.mockResolvedValueOnce({ items: [keyA, keyB], total: 2, page: 1, page_size: 20, pages: 1 })
+    let resolveUpdate!: (value: ApiKey) => void
+    updateKey.mockImplementationOnce(() => new Promise<ApiKey>((resolve) => {
+      resolveUpdate = resolve
+    }))
+
+    const wrapper = await mountView()
+    ;(wrapper.vm as any).selectedKey = keyA
+    const resetPromise = (wrapper.vm as any).resetQuotaUsed()
+    ;(wrapper.vm as any).selectedKey = keyB
+    resolveUpdate({ ...keyA, quota_used: 0 })
+    await resetPromise
+
+    expect((wrapper.vm as any).selectedKey.id).toBe(2)
+    expect((wrapper.vm as any).selectedKey.quota_used).toBe(7)
+    expect((wrapper.vm as any).apiKeys.find((key: ApiKey) => key.id === 1).quota_used).toBe(0)
+    expect(updateKey).toHaveBeenCalledWith(1, { reset_quota: true })
+  })
+
+  it('single-flight guards quota reset and preserves the confirmation on failure', async () => {
+    const key = { ...createApiKey(), id: 21, quota_used: 4 }
+    let resolveUpdate!: (value: ApiKey) => void
+    updateKey.mockImplementationOnce(() => new Promise<ApiKey>((resolve) => { resolveUpdate = resolve }))
+    const wrapper = await mountView()
+    const vm = wrapper.vm as any
+    vm.selectedKey = key
+    vm.showResetQuotaDialog = true
+
+    const first = vm.resetQuotaUsed()
+    const second = vm.resetQuotaUsed()
+    expect(updateKey).toHaveBeenCalledTimes(1)
+    expect(vm.resetQuotaPending).toBe(true)
+    resolveUpdate({ ...key, quota_used: 0 })
+    await Promise.all([first, second])
+    expect(vm.resetQuotaPending).toBe(false)
+    expect(vm.showResetQuotaDialog).toBe(false)
+
+    updateKey.mockRejectedValueOnce(new Error('reset failed'))
+    vm.selectedKey = key
+    vm.showResetQuotaDialog = true
+    await vm.resetQuotaUsed()
+    expect(vm.showResetQuotaDialog).toBe(true)
+  })
+
+  it('single-flight guards rate-limit reset and keeps the dialog on a failed request', async () => {
+    const key = { ...createApiKey(), id: 22 }
+    let resolveUpdate!: (value: ApiKey) => void
+    updateKey.mockImplementationOnce(() => new Promise<ApiKey>((resolve) => { resolveUpdate = resolve }))
+    const wrapper = await mountView()
+    const vm = wrapper.vm as any
+    vm.selectedKey = key
+    vm.showResetRateLimitDialog = true
+
+    const first = vm.resetRateLimitUsage()
+    const second = vm.resetRateLimitUsage()
+    expect(updateKey).toHaveBeenCalledTimes(1)
+    expect(vm.resetRateLimitPending).toBe(true)
+    resolveUpdate({ ...key })
+    await Promise.all([first, second])
+    expect(vm.resetRateLimitPending).toBe(false)
+    expect(vm.showResetRateLimitDialog).toBe(false)
+
+    updateKey.mockRejectedValueOnce(new Error('rate reset failed'))
+    vm.selectedKey = key
+    vm.showResetRateLimitDialog = true
+    await vm.resetRateLimitUsage()
+    expect(vm.showResetRateLimitDialog).toBe(true)
+  })
+
+  it('deduplicates status toggles while the row request is pending', async () => {
+    const key = { ...createApiKey(), id: 11, status: 'active' as const }
+    let resolveToggle!: () => void
+    toggleStatus.mockImplementationOnce(() => new Promise<void>((resolve) => {
+      resolveToggle = resolve
+    }))
+    const wrapper = await mountView()
+    const vm = wrapper.vm as any
+
+    const first = vm.toggleKeyStatus(key)
+    const second = vm.toggleKeyStatus(key)
+    expect(toggleStatus).toHaveBeenCalledTimes(1)
+
+    resolveToggle()
+    await Promise.all([first, second])
+  })
+
+  it('deduplicates group changes while the row request is pending', async () => {
+    const key = { ...createApiKey(), id: 12, group_id: 1 }
+    let resolveUpdate!: (value: ApiKey) => void
+    updateKey.mockImplementationOnce(() => new Promise<ApiKey>((resolve) => {
+      resolveUpdate = resolve
+    }))
+    const wrapper = await mountView()
+    const vm = wrapper.vm as any
+
+    const first = vm.changeGroup(key, 2)
+    const second = vm.changeGroup(key, 3)
+    expect(updateKey).toHaveBeenCalledTimes(1)
+    expect(updateKey).toHaveBeenCalledWith(12, { group_id: 2 })
+
+    resolveUpdate({ ...key, group_id: 2 })
+    await Promise.all([first, second])
+  })
+
+  it('prevents duplicate delete confirmations while the request is pending', async () => {
+    const key = { ...createApiKey(), id: 13 }
+    let resolveDelete!: () => void
+    deleteKey.mockImplementationOnce(() => new Promise<void>((resolve) => {
+      resolveDelete = resolve
+    }))
+    const wrapper = await mountView()
+    const vm = wrapper.vm as any
+    vm.selectedKey = key
+    vm.showDeleteDialog = true
+
+    const first = vm.handleDelete()
+    const second = vm.handleDelete()
+    expect(deleteKey).toHaveBeenCalledTimes(1)
+    expect(deleteKey).toHaveBeenCalledWith(13)
+
+    resolveDelete()
+    await Promise.all([first, second])
+    expect(vm.showDeleteDialog).toBe(false)
   })
 })

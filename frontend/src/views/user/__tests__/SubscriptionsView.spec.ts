@@ -159,9 +159,9 @@ function mountSubscriptionsView() {
     global: {
       stubs: {
         AppLayout: { template: '<main><slot /></main>' },
-        BaseDialog: {
+        UiDialog: {
           props: ['show', 'title'],
-          template: '<section v-if="show" data-testid="base-dialog"><h2>{{ title }}</h2><slot /><slot name="footer" /></section>',
+          template: '<section v-if="show" data-testid="ui-dialog"><h2>{{ title }}</h2><slot /><slot name="footer" /></section>',
         },
         Icon: true,
         PlatformIcon: {
@@ -178,6 +178,21 @@ describe('user SubscriptionsView', () => {
     getMySubscriptions.mockReset().mockResolvedValue([...subscriptionFixtures].reverse())
     routerPush.mockReset()
     showError.mockReset()
+  })
+
+  it('uses the localized loading label while subscriptions are pending', async () => {
+    let resolveSubscriptions!: (value: UserSubscription[]) => void
+    getMySubscriptions.mockImplementationOnce(() => new Promise<UserSubscription[]>((resolve) => {
+      resolveSubscriptions = resolve
+    }))
+
+    const wrapper = mountSubscriptionsView()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.get('[data-testid="subscriptions-loading"]').attributes('aria-label')).toBe('common.loading')
+    resolveSubscriptions([])
+    await flushPromises()
+    wrapper.unmount()
   })
 
   it('renders cycle and complete-term quota progress together', async () => {
@@ -256,20 +271,16 @@ describe('user SubscriptionsView', () => {
 
     expect(wrapper.get('[data-testid="subscription-summary"]').text()).toContain('3')
     expect(wrapper.get('[data-testid="subscription-summary"]').text()).toContain('93%')
-    expect(wrapper.get('[data-testid="subscription-summary"]').classes()).toEqual(expect.arrayContaining([
-      'grid-cols-1',
-      'sm:grid-cols-3',
-    ]))
+    expect(wrapper.get('[data-testid="subscription-summary"]').classes()).toContain('subscription-summary')
     expect(wrapper.get('[data-testid="subscriptions-grid"]').classes()).toEqual(expect.arrayContaining([
-      'md:grid-cols-2',
+      'subscription-grid--double',
     ]))
-    expect(wrapper.get('[data-testid="subscriptions-grid"]').classes()).not.toContain('xl:grid-cols-3')
+    expect(wrapper.get('[data-testid="subscriptions-grid"]').classes()).not.toContain('subscription-grid--triple')
     expect(wrapper.findAll('[data-testid="subscription-card"]')).toHaveLength(3)
     expect(wrapper.findAll('[data-testid="unlimited-quota"]')).toHaveLength(1)
     const firstCard = wrapper.findAll('[data-testid="subscription-card"]')[0]
     expect(firstCard.text()).toContain('TEST-UI-SUB-企业版')
-    expect(firstCard.get('.badge-openai').exists()).toBe(true)
-    expect(firstCard.get('[data-platform-icon]').attributes('data-platform')).toBe('openai')
+    expect(firstCard.text()).toContain('TEST-ROUTE-OpenAI')
   })
 
   it('sorts quota rows by risk and preserves the renewal route', async () => {
@@ -355,7 +366,7 @@ describe('user SubscriptionsView', () => {
     expect(quota.text()).toContain('90%')
     expect(quota.text()).toContain('$7.00 / $10.00')
     expect(quota.get('[data-testid="quota-reserved"]').text()).toContain('"amount":"2.00"')
-    expect(quota.get('.h-full').attributes('style')).toContain('width: 90%')
+    expect(quota.get('[role="progressbar"] span').attributes('style')).toContain('width: 90%')
   })
 
   it('caps an over-limit cycle bar while preserving the real percentage', async () => {
@@ -372,7 +383,7 @@ describe('user SubscriptionsView', () => {
 
     const quota = wrapper.get('[data-testid="quota-row"]')
     expect(quota.text()).toContain('120%')
-    expect(quota.get('.h-full').attributes('style')).toContain('width: 100%')
+    expect(quota.get('[role="progressbar"] span').attributes('style')).toContain('width: 100%')
   })
 
   it('does not offer subscription key actions for an inactive subscription', async () => {
@@ -387,7 +398,7 @@ describe('user SubscriptionsView', () => {
     getMySubscriptions.mockResolvedValueOnce([subscriptionFixtures[0]])
     const singleWrapper = mountSubscriptionsView()
     await flushPromises()
-    expect(singleWrapper.get('[data-testid="subscriptions-grid"]').classes()).toContain('grid-cols-1')
+    expect(singleWrapper.get('[data-testid="subscriptions-grid"]').classes()).toContain('subscription-grid--single')
 
     getMySubscriptions.mockResolvedValueOnce([])
     const emptyWrapper = mountSubscriptionsView()
@@ -398,5 +409,34 @@ describe('user SubscriptionsView', () => {
     mountSubscriptionsView()
     await flushPromises()
     expect(showError).toHaveBeenCalledWith('userSubscriptions.failedToLoad')
+  })
+
+  it('ignores a stale subscription response after a newer refresh completes', async () => {
+    let resolveFirst!: (value: UserSubscription[]) => void
+    let resolveSecond!: (value: UserSubscription[]) => void
+    getMySubscriptions
+      .mockImplementationOnce(() => new Promise<UserSubscription[]>((resolve) => {
+        resolveFirst = resolve
+      }))
+      .mockImplementationOnce(() => new Promise<UserSubscription[]>((resolve) => {
+        resolveSecond = resolve
+      }))
+
+    const wrapper = mountSubscriptionsView()
+    await Promise.resolve()
+
+    const refresh = (wrapper.vm as unknown as {
+      loadSubscriptions: () => Promise<void>
+    }).loadSubscriptions()
+    resolveSecond([{ ...subscriptionFixtures[0], plan_name: 'NEW-SUBSCRIPTION' }])
+    await refresh
+    await flushPromises()
+
+    resolveFirst([{ ...subscriptionFixtures[0], plan_name: 'STALE-SUBSCRIPTION' }])
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('NEW-SUBSCRIPTION')
+    expect(wrapper.text()).not.toContain('STALE-SUBSCRIPTION')
+    expect(showError).not.toHaveBeenCalled()
   })
 })

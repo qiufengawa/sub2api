@@ -98,6 +98,37 @@ type CreateOrderFlowResult = CreateOrderResult & {
 }
 
 type StorageWriter = Pick<Storage, 'removeItem' | 'setItem'>
+type StorageReader = Pick<Storage, 'getItem'>
+
+function storageGetItem(storage: StorageReader, key: string): string | null {
+  try {
+    return storage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function storageSetItem(storage: Pick<Storage, 'setItem'>, key: string, value: string): void {
+  try {
+    storage.setItem(key, value)
+  } catch {
+    // Payment recovery is best-effort; storage can be unavailable in privacy modes.
+  }
+}
+
+function storageRemoveItem(storage: Pick<Storage, 'removeItem'>, key: string): void {
+  try {
+    storage.removeItem(key)
+  } catch {
+    // A storage failure must not interrupt payment completion or navigation.
+  }
+}
+
+export interface PaymentRecoveryIdentity {
+  resumeToken?: string
+  orderId?: number
+  outTradeNo?: string
+}
 
 export function normalizePaymentNavigationUrl(rawUrl: string | null | undefined): string {
   const value = (rawUrl || '').trim()
@@ -286,16 +317,105 @@ export function createPaymentRecoverySnapshot(
 export function writePaymentRecoverySnapshot(
   storage: StorageWriter,
   snapshot: PaymentRecoverySnapshot,
-  key = PAYMENT_RECOVERY_STORAGE_KEY,
+  key?: string,
 ): void {
-  storage.setItem(key, JSON.stringify(snapshot))
+  const serialized = JSON.stringify(snapshot)
+  if (key) {
+    storageSetItem(storage, key, serialized)
+    return
+  }
+
+  storageSetItem(storage, paymentRecoveryStorageKey(snapshot), serialized)
+  storageSetItem(storage, PAYMENT_RECOVERY_STORAGE_KEY, serialized)
 }
 
 export function clearPaymentRecoverySnapshot(
   storage: Pick<Storage, 'removeItem'>,
   key = PAYMENT_RECOVERY_STORAGE_KEY,
 ): void {
-  storage.removeItem(key)
+  storageRemoveItem(storage, key)
+}
+
+export function paymentRecoveryStorageKey(identity: PaymentRecoveryIdentity): string {
+  const resumeToken = identity.resumeToken?.trim()
+  if (resumeToken) {
+    return `${PAYMENT_RECOVERY_STORAGE_KEY}:token:${encodeURIComponent(resumeToken)}`
+  }
+
+  const orderId = Number(identity.orderId)
+  if (Number.isFinite(orderId) && orderId > 0) {
+    return `${PAYMENT_RECOVERY_STORAGE_KEY}:order:${orderId}`
+  }
+
+  const outTradeNo = identity.outTradeNo?.trim()
+  if (outTradeNo) {
+    return `${PAYMENT_RECOVERY_STORAGE_KEY}:trade:${encodeURIComponent(outTradeNo)}`
+  }
+
+  return PAYMENT_RECOVERY_STORAGE_KEY
+}
+
+function recoverySnapshotMatchesIdentity(
+  snapshot: PaymentRecoverySnapshot,
+  identity: PaymentRecoveryIdentity,
+): boolean {
+  const resumeToken = identity.resumeToken?.trim()
+  if (resumeToken && snapshot.resumeToken !== resumeToken) return false
+
+  const orderId = Number(identity.orderId)
+  if (Number.isFinite(orderId) && orderId > 0 && snapshot.orderId !== orderId) return false
+
+  const outTradeNo = identity.outTradeNo?.trim()
+  if (outTradeNo && snapshot.outTradeNo !== outTradeNo) return false
+
+  return !!resumeToken || (Number.isFinite(orderId) && orderId > 0) || !!outTradeNo
+}
+
+function recoverySnapshotMatchesPrimaryIdentity(
+  snapshot: PaymentRecoverySnapshot,
+  identity: PaymentRecoveryIdentity,
+): boolean {
+  const resumeToken = identity.resumeToken?.trim()
+  if (resumeToken) return snapshot.resumeToken === resumeToken
+
+  const orderId = Number(identity.orderId)
+  if (Number.isFinite(orderId) && orderId > 0) return snapshot.orderId === orderId
+
+  const outTradeNo = identity.outTradeNo?.trim()
+  return !!outTradeNo && snapshot.outTradeNo === outTradeNo
+}
+
+export function readPaymentRecoverySnapshotFromStorage(
+  storage: StorageReader,
+  identity: PaymentRecoveryIdentity = {},
+  options: { now?: number } = {},
+): PaymentRecoverySnapshot | null {
+  const keys = [paymentRecoveryStorageKey(identity), PAYMENT_RECOVERY_STORAGE_KEY]
+  for (const key of new Set(keys)) {
+    const snapshot = readPaymentRecoverySnapshot(storageGetItem(storage, key), {
+      now: options.now,
+      resumeToken: identity.resumeToken?.trim() || undefined,
+    })
+    if (!snapshot) continue
+    if (paymentRecoveryStorageKey(identity) === PAYMENT_RECOVERY_STORAGE_KEY) return snapshot
+    if (recoverySnapshotMatchesIdentity(snapshot, identity)) return snapshot
+  }
+  return null
+}
+
+export function clearPaymentRecoverySnapshotForIdentity(
+  storage: Pick<Storage, 'getItem' | 'removeItem'>,
+  identity: PaymentRecoveryIdentity,
+): void {
+  const scopedKey = paymentRecoveryStorageKey(identity)
+  if (scopedKey !== PAYMENT_RECOVERY_STORAGE_KEY) {
+    storageRemoveItem(storage, scopedKey)
+  }
+
+  const current = readPaymentRecoverySnapshot(storageGetItem(storage, PAYMENT_RECOVERY_STORAGE_KEY))
+  if (current && recoverySnapshotMatchesPrimaryIdentity(current, identity)) {
+    storageRemoveItem(storage, PAYMENT_RECOVERY_STORAGE_KEY)
+  }
 }
 
 export function readPaymentRecoverySnapshot(

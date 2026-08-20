@@ -2,6 +2,16 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import AccountTestModal from '../AccountTestModal.vue'
 
+const ImagePreviewStub = {
+  props: ['show', 'src', 'alt'],
+  emits: ['close'],
+  template: `
+    <div v-if="show" data-testid="image-preview" :data-src="src" :aria-label="alt">
+      <button type="button" data-testid="image-preview-close" @click="$emit('close')">close</button>
+    </div>
+  `
+}
+
 const { getAvailableModels, copyToClipboard } = vi.hoisted(() => ({
   getAvailableModels: vi.fn(),
   copyToClipboard: vi.fn()
@@ -84,7 +94,7 @@ function mountModal(account: Record<string, unknown> = {
           template: '<textarea class="textarea-stub" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />'
         },
         UiFileUpload: true,
-        UiImagePreview: true,
+        UiImagePreview: ImagePreviewStub,
         Icon: true
       }
     }
@@ -148,6 +158,14 @@ describe('AccountTestModal', () => {
     const preview = wrapper.find('img[alt="test-image-1"]')
     expect(preview.exists()).toBe(true)
     expect(preview.attributes('src')).toBe('data:image/png;base64,QUJD')
+
+    await wrapper.get('button.account-test__image').trigger('click')
+    const lightbox = wrapper.get('[data-testid="image-preview"]')
+    expect(lightbox.attributes('data-src')).toBe('data:image/png;base64,QUJD')
+    expect(lightbox.attributes('aria-label')).toBe('admin.accounts.imageLightboxAlt')
+
+    await lightbox.get('[data-testid="image-preview-close"]').trigger('click')
+    expect(wrapper.find('[data-testid="image-preview"]').exists()).toBe(false)
   })
 
   it('grok 账号测试默认选择 Grok 模型', async () => {

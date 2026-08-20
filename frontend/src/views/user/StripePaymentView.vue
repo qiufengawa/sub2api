@@ -1,117 +1,115 @@
 <template>
-  <component :is="isPopup ? 'div' : AppLayout" :class="isPopup ? 'min-h-screen bg-gray-50 dark:bg-dark-900' : ''">
-    <div class="mx-auto max-w-5xl space-y-3" :class="isPopup ? 'px-4 py-6' : ''">
-      <div v-if="loading" class="flex items-center justify-center py-20">
-        <div class="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"></div>
-      </div>
-      <div v-else-if="initError" class="card p-6 text-center">
-        <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-          <Icon name="exclamationCircle" size="xl" class="text-red-500" />
+  <component :is="isPopup ? 'div' : AppLayout" :class="isPopup ? 'stripe-payment-popup' : undefined">
+    <AppPage density="compact" width="wide" class="stripe-payment-page">
+      <AppPageHeader
+        :title="t('payment.stripePay')"
+        :description="order ? `${t('payment.actualPay')}: ${formatGatewayAmount(order.pay_amount)}` : undefined"
+      >
+        <template #status>
+          <UiStatusBadge
+            :status="stripeSuccess ? 'success' : stripeError || initError ? 'failed' : 'pending'"
+            :label="stripeSuccess ? t('payment.result.success') : stripeError || initError ? t('payment.result.failed') : t('payment.result.processing')"
+          />
+        </template>
+        <template #actions>
+          <UiButton variant="secondary" density="compact" @click="router.push('/purchase')">
+            {{ t('payment.result.backToRecharge') }}
+          </UiButton>
+        </template>
+      </AppPageHeader>
+
+      <section v-if="loading" class="stripe-payment__loading" aria-live="polite" aria-busy="true">
+        <UiSkeleton variant="text" width="220px" height="24px" />
+        <UiSkeleton variant="rect" width="100%" height="220px" />
+        <UiSkeleton variant="text" width="180px" height="18px" />
+      </section>
+
+      <AppSection v-else-if="initError" class="stripe-payment__error">
+        <UiAlert tone="danger" :title="t('payment.stripeLoadFailed')" :message="initError" />
+        <UiButton variant="primary" density="compact" @click="router.push('/purchase')">
+          {{ t('payment.result.backToRecharge') }}
+        </UiButton>
+      </AppSection>
+
+      <AppGrid v-else min="340px" class="stripe-payment__grid">
+        <div class="stripe-payment__main">
+          <AppSection v-if="wechatQrUrl" title="WeChat Pay" class="stripe-payment__section">
+            <div class="stripe-payment__qr">
+              <div class="stripe-payment__qr-frame">
+                <img :src="wechatQrUrl" alt="WeChat Pay QR" />
+              </div>
+              <p v-if="!wechatQrExpired && !wechatQrFailed">{{ t('payment.qr.scanWxpayHint') }}</p>
+              <UiStatusBadge
+                :status="wechatQrExpired || wechatQrFailed ? 'failed' : 'pending'"
+                :label="wechatQrExpired ? t('payment.qr.expired') : wechatQrFailed ? t('payment.result.failed') : t('payment.qr.waitingPayment')"
+              />
+              <UiAlert
+                v-if="wechatQrExpired || wechatQrFailed"
+                tone="danger"
+                :message="wechatQrExpired ? t('payment.qr.expired') : stripeError || t('payment.result.failed')"
+              />
+              <UiButton
+                v-if="wechatQrExpired || wechatQrFailed"
+                variant="secondary"
+                density="compact"
+                @click="router.push('/purchase')"
+              >
+                {{ t('payment.result.backToRecharge') }}
+              </UiButton>
+            </div>
+          </AppSection>
+
+          <AppSection v-else-if="redirecting" class="stripe-payment__section">
+            <div class="stripe-payment__state">
+              <UiSpinner size="md" />
+              <p>{{ t('payment.qr.payInNewWindowHint') }}</p>
+            </div>
+          </AppSection>
+
+          <AppSection v-else-if="stripeSuccess" class="stripe-payment__section">
+            <div class="stripe-payment__state">
+              <Icon name="checkCircle" size="lg" class="stripe-payment__success-icon" />
+              <strong>{{ t('payment.result.success') }}</strong>
+              <p>{{ t('payment.stripeSuccessProcessing') }}</p>
+            </div>
+          </AppSection>
+
+          <AppSection v-else-if="showPaymentElement" title="Stripe">
+            <div id="stripe-payment-element" class="stripe-payment__element"></div>
+            <UiAlert v-if="stripeError" class="stripe-payment__inline-error" tone="danger" :message="stripeError" />
+            <UiButton
+              class="stripe-payment__submit"
+              variant="primary"
+              density="compact"
+              block
+              :loading="stripeSubmitting"
+              :disabled="!stripeReady"
+              @click="handleGenericPay"
+            >
+              {{ t('payment.stripePay') }}
+            </UiButton>
+          </AppSection>
+
+          <AppSection v-if="stripeError && !showPaymentElement" class="stripe-payment__section">
+            <UiAlert tone="danger" :message="stripeError" />
+          </AppSection>
         </div>
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('payment.stripeLoadFailed') }}</h3>
-        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ initError }}</p>
-        <button class="btn btn-primary mt-6" @click="router.push('/purchase')">{{ t('payment.result.backToRecharge') }}</button>
-      </div>
-      <template v-else>
-        <div class="grid items-start gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)]">
-          <main class="min-w-0 space-y-3">
 
-        <!-- 微信二维码展示 -->
-        <template v-if="wechatQrUrl">
-          <div class="card p-5">
-            <div class="flex flex-col items-center space-y-3">
-              <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('payment.qr.scanWxpay') }}</p>
-              <div class="relative rounded-[4px] border-2 border-[#2BB741] bg-green-50 p-4 dark:border-[#2BB741]/70 dark:bg-green-950/20">
-                <img :src="wechatQrUrl" alt="WeChat Pay QR" class="h-56 w-56 rounded-[3px]" />
-                <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
-                  <span class="rounded-full bg-[#2BB741] p-2 shadow ring-2 ring-white">
-                    <svg class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm3.636 4.35c-2.084 0-3.993.672-5.363 1.844-1.188.982-2.004 2.308-2.004 3.862 0 1.207.546 2.355 1.483 3.285.114.113.238.213.358.321l-.105.42c-.021.084-.042.17-.042.253 0 .168.126.258.282.258.065 0 .126-.025.18-.058l1.27-.765a.69.69 0 0 1 .58-.086c.96.282 1.99.437 3.043.437 2.633 0 5.03-.972 6.4-2.5.782-.87 1.258-1.901 1.258-3.006 0-3.328-3.325-6.006-7.34-6.006zm-3.21 3.09c.52 0 .94.429.94.957a.949.949 0 0 1-.94.955.949.949 0 0 1-.94-.955c0-.528.42-.957.94-.957zm4.739 0c.52 0 .94.429.94.957a.949.949 0 0 1-.94.955.949.949 0 0 1-.94-.955c0-.528.42-.957.94-.957z"/></svg>
-                  </span>
-                </div>
-              </div>
-              <p class="text-center text-sm text-gray-500 dark:text-gray-400">{{ t('payment.qr.scanWxpayHint') }}</p>
-            </div>
-          </div>
-          <div class="card p-4 text-center">
-            <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.qr.waitingPayment') }}</p>
-          </div>
-        </template>
-
-        <!-- 支付宝跳转状态 -->
-        <template v-else-if="redirecting">
-          <div class="card p-5">
-            <div class="flex flex-col items-center space-y-4 py-4">
-              <div class="h-10 w-10 animate-spin rounded-full border-4 border-[#00AEEF] border-t-transparent"></div>
-              <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.qr.payInNewWindowHint') }}</p>
-            </div>
-          </div>
-        </template>
-
-        <!-- 成功状态 -->
-        <template v-else-if="stripeSuccess">
-          <div class="card p-5 text-center">
-            <div class="flex flex-col items-center gap-3 py-4">
-              <div class="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-                <Icon name="check" size="lg" class="text-green-500" />
-              </div>
-              <p class="text-lg font-bold text-gray-900 dark:text-white">{{ t('payment.result.success') }}</p>
-              <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.stripeSuccessProcessing') }}</p>
-            </div>
-          </div>
-        </template>
-
-        <!-- 无指定方式或未知方式时展示完整 Payment Element -->
-        <template v-else-if="showPaymentElement">
-          <div class="card p-5">
-            <div id="stripe-payment-element" class="min-h-[200px]"></div>
-            <p v-if="stripeError" class="mt-4 text-sm text-red-600 dark:text-red-400">{{ stripeError }}</p>
-            <button class="btn btn-stripe mt-5 w-full py-2.5 text-sm" :disabled="stripeSubmitting || !stripeReady" @click="handleGenericPay">
-              <span v-if="stripeSubmitting" class="flex items-center justify-center gap-2">
-                <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                {{ t('common.processing') }}
-              </span>
-              <span v-else>{{ t('payment.stripePay') }}</span>
-            </button>
-          </div>
-          <div class="text-center">
-            <button class="btn btn-secondary" @click="router.push('/purchase')">{{ t('payment.result.backToRecharge') }}</button>
-          </div>
-        </template>
-
-        <!-- 错误状态 -->
-        <div v-if="stripeError && !showPaymentElement" class="card p-4">
-          <p class="text-sm text-red-600 dark:text-red-400">{{ stripeError }}</p>
-          <button class="btn btn-secondary mt-3 w-full" @click="router.push('/purchase')">{{ t('payment.result.backToRecharge') }}</button>
-        </div>
-          </main>
-
-          <aside v-if="order" class="card overflow-hidden lg:sticky lg:top-4">
-            <div class="border-b border-primary-100 bg-primary-50 px-4 py-4 dark:border-primary-900 dark:bg-primary-950/20">
-              <p class="text-xs font-medium text-primary-600 dark:text-primary-300">{{ t('payment.actualPay') }}</p>
-              <p class="mt-1 text-3xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ formatGatewayAmount(order.pay_amount) }}</p>
-            </div>
-            <dl class="grid gap-3 p-4 text-sm sm:grid-cols-2 lg:grid-cols-1">
-              <div class="flex justify-between gap-3">
-                <dt class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.orderId') }}</dt>
-                <dd class="font-medium tabular-nums text-gray-900 dark:text-white">#{{ order.id }}</dd>
-              </div>
-              <div v-if="order.out_trade_no" class="flex justify-between gap-3">
-                <dt class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.orderNo') }}</dt>
-                <dd class="max-w-[180px] truncate font-medium text-gray-900 dark:text-white" :title="order.out_trade_no">{{ order.out_trade_no }}</dd>
-              </div>
-              <div class="flex justify-between gap-3">
-                <dt class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.baseAmount') }}</dt>
-                <dd class="font-medium tabular-nums text-gray-900 dark:text-white">{{ formatGatewayAmount(order.amount) }}</dd>
-              </div>
-              <div class="flex justify-between gap-3">
-                <dt class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.paymentMethod') }}</dt>
-                <dd class="font-medium text-gray-900 dark:text-white">Stripe</dd>
-              </div>
-            </dl>
-          </aside>
-        </div>
-      </template>
-    </div>
+        <AppSection v-if="order" title="Order details" class="stripe-payment__summary">
+          <p class="stripe-payment__amount-label">{{ t('payment.actualPay') }}</p>
+          <p class="stripe-payment__amount">{{ formatGatewayAmount(order.pay_amount) }}</p>
+          <UiDescriptionList
+            :items="[
+              { label: t('payment.orders.orderId'), value: `#${order.id}`, numeric: true },
+              ...(order.out_trade_no ? [{ label: t('payment.orders.orderNo'), value: order.out_trade_no }] : []),
+              { label: t('payment.orders.baseAmount'), value: formatGatewayAmount(order.amount), numeric: true },
+              { label: t('payment.orders.paymentMethod'), value: 'Stripe' },
+            ]"
+            :columns="1"
+          />
+        </AppSection>
+      </AppGrid>
+    </AppPage>
   </component>
 </template>
 
@@ -124,11 +122,23 @@ import { paymentAPI } from '@/api/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
 import { formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
-import { PAYMENT_RECOVERY_STORAGE_KEY, readPaymentRecoverySnapshot } from '@/components/payment/paymentFlow'
+import { readPaymentRecoverySnapshotFromStorage } from '@/components/payment/paymentFlow'
 import type { PaymentOrder } from '@/types/payment'
-import type { Stripe, StripeElements } from '@stripe/stripe-js'
+import type { Stripe, StripeElements, StripePaymentElement } from '@stripe/stripe-js'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  AppGrid,
+  AppPage,
+  AppPageHeader,
+  AppSection,
+  UiAlert,
+  UiButton,
+  UiDescriptionList,
+  UiSkeleton,
+  UiSpinner,
+  UiStatusBadge,
+} from '@/components/ui'
 
 const i18n = useI18n()
 const { t } = i18n
@@ -136,7 +146,6 @@ const route = useRoute()
 const router = useRouter()
 const paymentStore = usePaymentStore()
 
-// 弹窗模式：指定支付宝或微信方式时跳过 AppLayout
 const isPopup = computed(() => !!route.query.method)
 
 const loading = ref(true)
@@ -148,12 +157,20 @@ const stripeReady = ref(false)
 const order = ref<PaymentOrder | null>(null)
 const currency = ref('CNY')
 const wechatQrUrl = ref('')
+const wechatQrExpired = ref(false)
+const wechatQrFailed = ref(false)
 const redirecting = ref(false)
 const showPaymentElement = ref(false)
 
 let stripeInstance: Stripe | null = null
 let elementsInstance: StripeElements | null = null
+let paymentElement: StripePaymentElement | null = null
 let redirectTimer: ReturnType<typeof setTimeout> | null = null
+let disposed = false
+let paymentSettled = false
+let pollInFlight = false
+let pollExpiryTimer: ReturnType<typeof setTimeout> | null = null
+const WECHAT_QR_POLL_MAX_DURATION_MS = 30 * 60 * 1000
 
 onMounted(async () => {
   const orderId = Number(route.query.order_id)
@@ -169,40 +186,42 @@ onMounted(async () => {
 
   try {
     if (typeof window !== 'undefined') {
-      const restored = readPaymentRecoverySnapshot(
-        window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY),
-        { resumeToken },
-      )
+      const restored = readPaymentRecoverySnapshotFromStorage(window.localStorage, {
+        resumeToken,
+        orderId,
+      })
       if (restored?.orderId === orderId) {
         currency.value = normalizePaymentCurrency(restored.currency)
       }
     }
     const res = await paymentAPI.getOrder(orderId)
+    if (disposed) return
     order.value = res.data
     if (res.data.currency) {
       currency.value = normalizePaymentCurrency(res.data.currency)
     }
 
     await paymentStore.fetchConfig()
+    if (disposed) return
     const publishableKey = paymentStore.config?.stripe_publishable_key
     if (!publishableKey) { initError.value = t('payment.stripeNotConfigured'); return }
 
     const { loadStripe } = await import('@stripe/stripe-js/pure')
     const stripe = await loadStripe(publishableKey)
+    if (disposed) return
     if (!stripe) { initError.value = t('payment.stripeLoadFailed'); return }
 
     stripeInstance = stripe
     loading.value = false
 
-    // 指定方式直接确认，无需渲染完整 Payment Element
     if (method === 'alipay') {
-      await confirmAlipay(stripe, clientSecret, orderId)
+      await confirmAlipay(stripe, clientSecret)
     } else if (method === 'wechat_pay') {
       await confirmWechatPay(stripe, clientSecret)
     } else {
-      // 未指定方式时渲染完整 Payment Element
       showPaymentElement.value = true
       await nextTick()
+      if (disposed) return
       mountPaymentElement(stripe, clientSecret)
     }
   } catch (err: unknown) {
@@ -225,15 +244,31 @@ function formatGatewayAmount(value: number): string {
   return formatPaymentAmount(value, currency.value, localeCode.value)
 }
 
-async function confirmAlipay(stripe: Stripe, clientSecret: string, orderId: number) {
+function buildPaymentResultQuery(): Record<string, string> {
+  const query: Record<string, string> = {
+    order_id: String(route.query.order_id || ''),
+    status: 'success',
+  }
+  const resumeToken = typeof route.query.resume_token === 'string' ? route.query.resume_token : ''
+  const outTradeNo = String(order.value?.out_trade_no || route.query.out_trade_no || '')
+  if (resumeToken) query.resume_token = resumeToken
+  if (outTradeNo) query.out_trade_no = outTradeNo
+  return query
+}
+
+function buildPaymentResultUrl(): string {
+  const params = new URLSearchParams(buildPaymentResultQuery())
+  return `${window.location.origin}/payment/result?${params.toString()}`
+}
+
+async function confirmAlipay(stripe: Stripe, clientSecret: string) {
   redirecting.value = true
-  const returnUrl = window.location.origin + '/payment/result?order_id=' + orderId + '&status=success'
+  const returnUrl = buildPaymentResultUrl()
   const { error } = await stripe.confirmAlipayPayment(clientSecret, { return_url: returnUrl })
   if (error) {
     redirecting.value = false
     stripeError.value = error.message || t('payment.result.failed')
   }
-  // 无错误时 Stripe 会自动跳转
 }
 
 async function confirmWechatPay(stripe: Stripe, clientSecret: string) {
@@ -248,15 +283,12 @@ async function confirmWechatPay(stripe: Stripe, clientSecret: string) {
     return
   }
 
-  // 从 next_action 中提取二维码
   const qrData = paymentIntent?.next_action?.wechat_pay_display_qr_code?.image_data_url
   if (qrData) {
     wechatQrUrl.value = qrData
-    // 轮询支付完成状态
     startPolling()
   } else if (paymentIntent?.status === 'succeeded') {
-    stripeSuccess.value = true
-    scheduleClose()
+    settleSuccessfulPayment()
   } else {
     stripeError.value = t('payment.result.failed')
   }
@@ -266,15 +298,16 @@ function mountPaymentElement(stripe: Stripe, clientSecret: string) {
   const isDark = document.documentElement.classList.contains('dark')
   const elements = stripe.elements({
     clientSecret,
-    appearance: { theme: isDark ? 'night' : 'stripe', variables: { borderRadius: '8px' } },
+    appearance: { theme: isDark ? 'night' : 'stripe', variables: { borderRadius: '6px' } },
   })
   elementsInstance = elements
-  const paymentElement = elements.create('payment', {
+  if (disposed) return
+  paymentElement = elements.create('payment', {
     layout: 'tabs',
     paymentMethodOrder: ['alipay', 'wechat_pay', 'card', 'link'],
   } as Record<string, unknown>)
   paymentElement.mount('#stripe-payment-element')
-  paymentElement.on('ready', () => { stripeReady.value = true })
+  paymentElement.on('ready', () => { if (!disposed) stripeReady.value = true })
 }
 
 async function handleGenericPay() {
@@ -285,15 +318,14 @@ async function handleGenericPay() {
     const { error } = await stripeInstance.confirmPayment({
       elements: elementsInstance,
       confirmParams: {
-        return_url: window.location.origin + '/payment/result?order_id=' + route.query.order_id + '&status=success',
+        return_url: buildPaymentResultUrl(),
       },
       redirect: 'if_required',
     })
     if (error) {
       stripeError.value = error.message || t('payment.result.failed')
     } else {
-      stripeSuccess.value = true
-      scheduleClose()
+      settleSuccessfulPayment()
     }
   } catch (err: unknown) {
     stripeError.value = extractI18nErrorMessage(err, t, 'payment.errors', t('payment.result.failed'))
@@ -304,33 +336,215 @@ async function handleGenericPay() {
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
+function stopPolling() {
+  if (pollTimer) clearInterval(pollTimer)
+  if (pollExpiryTimer) clearTimeout(pollExpiryTimer)
+  pollTimer = null
+  pollExpiryTimer = null
+}
+
+function expireWechatPayment() {
+  if (disposed || paymentSettled || wechatQrExpired.value || wechatQrFailed.value) return
+  stopPolling()
+  wechatQrExpired.value = true
+}
+
+function failWechatPayment() {
+  if (disposed || paymentSettled || wechatQrExpired.value || wechatQrFailed.value) return
+  stopPolling()
+  wechatQrFailed.value = true
+  stripeError.value = t('payment.result.failed')
+}
+
+function resolveWechatPollingDeadline(): number {
+  const fallbackDeadline = Date.now() + WECHAT_QR_POLL_MAX_DURATION_MS
+  const orderDeadline = Date.parse(order.value?.expires_at || '')
+  return Number.isFinite(orderDeadline)
+    ? Math.min(orderDeadline, fallbackDeadline)
+    : fallbackDeadline
+}
+
 function startPolling() {
   const orderId = Number(route.query.order_id)
-  if (!orderId) return
+  if (!orderId || pollTimer || paymentSettled || disposed) return
+  const deadline = resolveWechatPollingDeadline()
+  const remaining = deadline - Date.now()
+  if (remaining <= 0) {
+    expireWechatPayment()
+    return
+  }
+  pollExpiryTimer = setTimeout(expireWechatPayment, remaining)
   pollTimer = setInterval(async () => {
-    const o = await paymentStore.pollOrderStatus(orderId)
-    if (!o) return
-    if (o.status === 'COMPLETED' || o.status === 'PAID') {
-      if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
-      stripeSuccess.value = true
-      wechatQrUrl.value = ''
-      scheduleClose()
+    if (Date.now() >= deadline) {
+      expireWechatPayment()
+      return
+    }
+    if (pollInFlight || paymentSettled || disposed || wechatQrExpired.value || wechatQrFailed.value) return
+    pollInFlight = true
+    try {
+      const nextOrder = await paymentStore.pollOrderStatus(orderId)
+      if (disposed || paymentSettled || wechatQrExpired.value || wechatQrFailed.value || !nextOrder) return
+      if (nextOrder.status === 'COMPLETED' || nextOrder.status === 'PAID' || nextOrder.status === 'RECHARGING') {
+        settleSuccessfulPayment(true)
+      } else if (nextOrder.status === 'EXPIRED' || nextOrder.status === 'CANCELLED' || nextOrder.status === 'FAILED') {
+        if (nextOrder.status === 'EXPIRED') expireWechatPayment()
+        else failWechatPayment()
+      }
+    } catch (_err: unknown) {
+      // Keep the QR flow active; a later interval can recover from a transient status error.
+    } finally {
+      pollInFlight = false
     }
   }, 3000)
 }
 
+function settleSuccessfulPayment(clearWechatQr = false) {
+  if (disposed || paymentSettled) return
+  paymentSettled = true
+  stopPolling()
+  stripeSuccess.value = true
+  if (clearWechatQr) wechatQrUrl.value = ''
+  scheduleClose()
+}
+
 function scheduleClose() {
+  if (disposed || redirectTimer) return
   if (window.opener) {
     redirectTimer = setTimeout(() => { window.close() }, 2000)
   } else {
     redirectTimer = setTimeout(() => {
-      router.push({ path: '/payment/result', query: { order_id: String(route.query.order_id || ''), status: 'success' } })
+      router.push({ path: '/payment/result', query: buildPaymentResultQuery() })
     }, 2000)
   }
 }
 
 onUnmounted(() => {
+  disposed = true
+  paymentElement?.unmount()
+  paymentElement = null
+  elementsInstance = null
+  stripeInstance = null
   if (redirectTimer) clearTimeout(redirectTimer)
-  if (pollTimer) clearInterval(pollTimer)
+  stopPolling()
+  redirectTimer = null
 })
 </script>
+
+<style scoped>
+.stripe-payment-popup {
+  min-height: 100vh;
+  background: var(--ui-page);
+}
+
+.stripe-payment-page {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.stripe-payment__loading,
+.stripe-payment__state,
+.stripe-payment__qr {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 32px 0;
+}
+
+.stripe-payment__loading {
+  justify-items: stretch;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.stripe-payment__grid {
+  align-items: start;
+  gap: 28px;
+  padding-top: 8px;
+}
+
+.stripe-payment__main {
+  min-width: 0;
+}
+
+.stripe-payment__section {
+  text-align: center;
+}
+
+.stripe-payment__qr-frame {
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+}
+
+.stripe-payment__qr-frame img {
+  width: min(256px, 70vw);
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+}
+
+.stripe-payment__qr p,
+.stripe-payment__state p {
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.stripe-payment__state strong {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.stripe-payment__success-icon {
+  color: var(--ui-success);
+}
+
+.stripe-payment__element {
+  min-height: 200px;
+}
+
+.stripe-payment__inline-error {
+  margin-top: 12px;
+}
+
+.stripe-payment__submit {
+  margin-top: 16px;
+}
+
+.stripe-payment__summary {
+  position: sticky;
+  top: 16px;
+}
+
+.stripe-payment__amount-label {
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+.stripe-payment__amount {
+  margin: 4px 0 20px;
+  color: var(--ui-text);
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  line-height: 34px;
+}
+
+.stripe-payment__error :deep(.ui-button) {
+  margin-top: 16px;
+}
+
+@media (max-width: 640px) {
+  .stripe-payment__grid {
+    gap: 8px;
+  }
+
+  .stripe-payment__summary {
+    position: static;
+  }
+}
+
+</style>

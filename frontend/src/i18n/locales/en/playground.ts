@@ -53,6 +53,7 @@ export default {
       noGroup: 'No group',
       stream: 'Stream',
       nonStream: 'Non-stream',
+      enabledParameterCount: '{count} enabled parameters',
     },
     image: {
       mode: 'Image generation',

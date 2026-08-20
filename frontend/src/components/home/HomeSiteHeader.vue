@@ -1,13 +1,13 @@
 <template>
   <header class="qiu-site-header" :class="{ 'qiu-site-header--compact': compact }">
     <div class="qiu-site-nav">
-      <RouterLink v-if="compact" to="/home" class="qiu-site-brand" @click="closeMenu">
+      <RouterLink v-if="compact && compactBrandLink" to="/home" class="qiu-site-brand ui-focus-ring" @click="closeMenu()">
         <span v-if="siteLogo" class="qiu-site-logo">
           <img :src="siteLogo" :alt="`${siteName} Logo`" />
         </span>
         <span v-else class="qiu-site-name" :title="siteName">{{ siteName }}</span>
       </RouterLink>
-      <a v-else href="#home-top" class="qiu-site-brand" @click="closeMenu">
+      <a v-else :href="compact ? '/home' : '#home-top'" class="qiu-site-brand ui-focus-ring" @click="closeMenu()">
         <span v-if="siteLogo" class="qiu-site-logo">
           <img :src="siteLogo" :alt="`${siteName} Logo`" />
         </span>
@@ -15,11 +15,11 @@
       </a>
 
       <nav v-if="!compact" class="qiu-desktop-links" :aria-label="t('home.nav.primary')">
-        <a href="#advantages">{{ t('home.nav.advantages') }}</a>
-        <a href="#model-coverage">{{ t('home.nav.models') }}</a>
-        <a href="#integration">{{ t('home.nav.integration') }}</a>
-        <a href="#faq">{{ t('home.nav.faq') }}</a>
-        <RouterLink v-if="modelPlazaEnabled" to="/model-plaza">
+        <a class="ui-focus-ring" href="#advantages">{{ t('home.nav.advantages') }}</a>
+        <a class="ui-focus-ring" href="#model-coverage">{{ t('home.nav.models') }}</a>
+        <a class="ui-focus-ring" href="#integration">{{ t('home.nav.integration') }}</a>
+        <a class="ui-focus-ring" href="#faq">{{ t('home.nav.faq') }}</a>
+        <RouterLink v-if="modelPlazaEnabled" class="ui-focus-ring" to="/model-plaza">
           {{ t('home.nav.modelPlaza') }}
         </RouterLink>
       </nav>
@@ -33,40 +33,50 @@
           :href="docUrl"
           target="_blank"
           rel="noopener noreferrer"
-          class="qiu-icon-button qiu-doc-button"
+          class="qiu-icon-button qiu-doc-button ui-focus-ring ui-motion"
           :title="t('home.viewDocs')"
           :aria-label="t('home.viewDocs')"
         >
           <Icon name="book" size="sm" />
         </a>
-        <button
+        <UiIconButton
           type="button"
-          class="qiu-icon-button"
-          :title="isDark ? t('home.switchToLight') : t('home.switchToDark')"
-          :aria-label="isDark ? t('home.switchToLight') : t('home.switchToDark')"
+          variant="ghost"
+          density="default"
+          class="qiu-icon-button ui-motion"
+          :label="isDark ? t('home.switchToLight') : t('home.switchToDark')"
+          :tooltip="isDark ? t('home.switchToLight') : t('home.switchToDark')"
           @click="emit('toggle-theme')"
         >
           <Icon :name="isDark ? 'sun' : 'moon'" size="sm" />
-        </button>
+        </UiIconButton>
         <RouterLink
-          :to="compact ? '/home' : isAuthenticated ? dashboardPath : '/login'"
-          class="qiu-auth-link"
-          :class="{ 'qiu-auth-link--quiet': compact }"
+          v-if="!compact"
+          :to="isAuthenticated ? dashboardPath : '/login'"
+          class="qiu-auth-link ui-focus-ring ui-motion"
         >
-          {{ compact ? t('common.goHome') : isAuthenticated ? t('home.dashboard') : t('home.login') }}
+          {{ isAuthenticated ? t('home.dashboard') : t('home.login') }}
           <Icon name="arrowRight" size="xs" />
         </RouterLink>
-        <button
+        <a v-else href="/home" class="qiu-auth-link qiu-auth-link--quiet ui-focus-ring ui-motion">
+          {{ t('common.goHome') }}
+          <Icon name="arrowRight" size="xs" />
+        </a>
+        <UiIconButton
           v-if="!compact"
+          ref="menuButton"
           type="button"
-          class="qiu-icon-button qiu-menu-button"
-          :aria-label="t('home.nav.toggleMenu')"
+          variant="ghost"
+          density="default"
+          class="qiu-icon-button qiu-menu-button ui-motion"
+          :label="t('home.nav.toggleMenu')"
+          :tooltip="t('home.nav.toggleMenu')"
           :aria-expanded="menuOpen"
           aria-controls="qiu-mobile-menu"
           @click="menuOpen = !menuOpen"
         >
           <Icon :name="menuOpen ? 'x' : 'menu'" size="md" />
-        </button>
+        </UiIconButton>
       </div>
     </div>
 
@@ -77,14 +87,14 @@
       class="qiu-mobile-menu"
       :aria-label="t('home.nav.mobile')"
     >
-      <a href="#advantages" @click="closeMenu">{{ t('home.nav.advantages') }}</a>
-      <a href="#model-coverage" @click="closeMenu">{{ t('home.nav.models') }}</a>
-      <a href="#integration" @click="closeMenu">{{ t('home.nav.integration') }}</a>
-      <a href="#faq" @click="closeMenu">{{ t('home.nav.faq') }}</a>
-      <RouterLink v-if="modelPlazaEnabled" to="/model-plaza" @click="closeMenu">
+      <a class="ui-focus-ring" href="#advantages" @click="closeMenu()">{{ t('home.nav.advantages') }}</a>
+      <a class="ui-focus-ring" href="#model-coverage" @click="closeMenu()">{{ t('home.nav.models') }}</a>
+      <a class="ui-focus-ring" href="#integration" @click="closeMenu()">{{ t('home.nav.integration') }}</a>
+      <a class="ui-focus-ring" href="#faq" @click="closeMenu()">{{ t('home.nav.faq') }}</a>
+      <RouterLink v-if="modelPlazaEnabled" class="ui-focus-ring" to="/model-plaza" @click="closeMenu()">
         {{ t('home.nav.modelPlaza') }}
       </RouterLink>
-      <a v-if="docUrl" :href="docUrl" target="_blank" rel="noopener noreferrer" @click="closeMenu">
+      <a v-if="docUrl" class="ui-focus-ring" :href="docUrl" target="_blank" rel="noopener noreferrer" @click="closeMenu()">
         {{ t('home.docs') }}
       </a>
     </nav>
@@ -96,8 +106,9 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { UiIconButton } from '@/components/ui'
 
-defineProps<{
+withDefaults(defineProps<{
   siteName: string
   siteLogo: string
   docUrl: string
@@ -106,7 +117,8 @@ defineProps<{
   dashboardPath: string
   modelPlazaEnabled: boolean
   compact?: boolean
-}>()
+  compactBrandLink?: boolean
+}>(), { compactBrandLink: true })
 
 const emit = defineEmits<{
   'toggle-theme': []
@@ -114,13 +126,20 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const menuOpen = ref(false)
+const menuButton = ref<HTMLButtonElement | null>(null)
 
-function closeMenu(): void {
+function closeMenu(restoreFocus = false): void {
   menuOpen.value = false
+  if (restoreFocus) {
+    menuButton.value?.focus()
+  }
 }
 
 function handleKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') closeMenu()
+  if (event.key === 'Escape' && menuOpen.value) {
+    event.preventDefault()
+    closeMenu(true)
+  }
 }
 
 onMounted(() => document.addEventListener('keydown', handleKeydown))

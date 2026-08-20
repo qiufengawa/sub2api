@@ -1,11 +1,9 @@
 <template>
-  <div>
-    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-      {{ t('payment.paymentMethod') }}
-    </label>
+  <fieldset class="payment-methods">
+    <legend>{{ t('payment.paymentMethod') }}</legend>
     <div
       data-testid="payment-method-grid"
-      class="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,156px),1fr))]"
+      class="payment-methods__grid"
     >
       <button
         v-for="method in sortedMethods"
@@ -13,33 +11,26 @@
         type="button"
         :disabled="!method.available"
         :title="methodLabel(method)"
-        :class="[
-          'relative flex min-h-14 min-w-0 items-center justify-start rounded-[3px] border px-3 py-2.5 text-left transition-colors',
-          !method.available
-            ? 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-50 dark:border-dark-700 dark:bg-dark-800/50'
-            : selected === method.type
-              ? methodSelectedClass(method.type)
-              : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200 dark:hover:border-dark-500',
-        ]"
+        :aria-pressed="selected === method.type"
+        class="payment-methods__option ui-focus-ring ui-motion"
+        :class="{ 'is-selected': selected === method.type }"
         @click="method.available && emit('select', method.type)"
       >
-        <span class="flex min-w-0 flex-1 items-center gap-2">
-          <img :src="methodIcon(method.type)" :alt="methodLabel(method)" class="h-6 w-6 shrink-0 object-contain" />
-          <span class="flex min-w-0 flex-1 flex-col items-start leading-none">
-            <span data-testid="payment-method-label" class="block max-w-full truncate whitespace-nowrap text-sm font-semibold">
+        <img :src="methodIcon(method.type)" :alt="methodLabel(method)" />
+        <span class="payment-methods__copy">
+            <span data-testid="payment-method-label" class="payment-methods__label">
               {{ methodLabel(method) }}
             </span>
             <span
               v-if="method.fee_rate > 0"
-              class="mt-1 whitespace-nowrap text-[10px] tracking-wide text-gray-500 dark:text-dark-400"
+              class="payment-methods__fee"
             >
               {{ t('payment.fee') }} {{ method.fee_rate }}%
             </span>
-          </span>
         </span>
       </button>
     </div>
-  </div>
+  </fieldset>
 </template>
 
 <script setup lang="ts">
@@ -98,11 +89,18 @@ function methodLabel(method: PaymentMethodOption): string {
   return method.display_name || t(`payment.methods.${method.type}`, method.type)
 }
 
-function methodSelectedClass(type: string): string {
-  if (isBuiltInAlipayMethod(type)) return 'border-[#02A9F1] bg-blue-50 text-gray-900 shadow-sm dark:bg-blue-950 dark:text-gray-100'
-  if (isBuiltInWxpayMethod(type)) return 'border-[#09BB07] bg-green-50 text-gray-900 shadow-sm dark:bg-green-950 dark:text-gray-100'
-  if (type === 'stripe') return 'border-[#676BE5] bg-indigo-50 text-gray-900 shadow-sm dark:bg-indigo-950 dark:text-gray-100'
-  if (type === 'airwallex') return 'border-[#FF6B3D] bg-orange-50 text-gray-900 shadow-sm dark:border-[#FF8E3C] dark:bg-orange-950 dark:text-gray-100'
-  return 'border-primary-500 bg-primary-50 text-gray-900 shadow-sm dark:bg-primary-950 dark:text-gray-100'
-}
 </script>
+
+<style scoped>
+.payment-methods { min-width:0; margin:0; padding:0; border:0; }
+.payment-methods legend { margin:0 0 8px; color:var(--ui-text); font-size:12px; font-weight:500; }
+.payment-methods__grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,156px),1fr)); gap:8px; }
+.payment-methods__option { display:grid; min-width:0; min-height:48px; grid-template-columns:24px minmax(0,1fr); align-items:center; gap:9px; padding:7px 10px; border:1px solid var(--ui-border); border-radius:var(--ui-radius); color:var(--ui-text); background:var(--ui-surface); text-align:left; cursor:pointer; }
+.payment-methods__option:hover { border-color:var(--ui-text-soft); background:var(--ui-surface-muted); }
+.payment-methods__option.is-selected { border-color:var(--ui-text); background:var(--ui-surface-muted); box-shadow:inset 2px 0 0 var(--ui-text); }
+.payment-methods__option:disabled { cursor:not-allowed; opacity:.45; }
+.payment-methods__option img { width:24px; height:24px; object-fit:contain; }
+.payment-methods__copy { display:flex; min-width:0; flex-direction:column; gap:4px; }
+.payment-methods__label { overflow:hidden; font-size:12px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
+.payment-methods__fee { color:var(--ui-text-muted); font-size:10px; font-variant-numeric:tabular-nums; }
+</style>

@@ -20,7 +20,7 @@
             <h2 :id="titleId">{{ title }}</h2>
             <UiIconButton
               v-if="showCloseButton"
-              :label="closeLabel"
+              :label="resolvedCloseLabel"
               variant="ghost"
               density="dense"
               @click="emit('close')"
@@ -37,10 +37,11 @@
 </template>
 
 <script setup lang="ts">
-import { toRef } from 'vue'
+import { computed, toRef } from 'vue'
 import Icon from '@/components/icons/Icon.vue'
 import UiIconButton from './UiIconButton.vue'
 import { useOverlayLifecycle } from './useOverlayLifecycle'
+import { useUiT } from './useUiI18n'
 
 type DialogWidth = 'narrow' | 'normal' | 'wide' | 'extra-wide' | 'full'
 
@@ -60,10 +61,11 @@ const props = withDefaults(defineProps<{
   closeOnEscape: true,
   closeOnClickOutside: false,
   showCloseButton: true,
-  closeLabel: '关闭',
   zIndex: 100_000_000
 })
 const emit = defineEmits<{ close: [] }>()
+const t = useUiT()
+const resolvedCloseLabel = computed(() => props.closeLabel || t('common.close'))
 const { panelRef, zIndex } = useOverlayLifecycle(
   toRef(props, 'show'),
   () => emit('close'),

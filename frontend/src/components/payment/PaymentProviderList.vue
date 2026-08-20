@@ -1,5 +1,5 @@
 <template>
-  <div class="card">
+  <div class="ui-panel">
     <!-- Header -->
     <div class="border-b border-gray-100 px-4 py-3 dark:border-dark-700">
       <div class="flex items-center justify-between">
@@ -12,25 +12,24 @@
           </p>
         </div>
         <div class="flex items-center gap-2">
-          <button
+          <UiButton
             type="button"
-            @click="emit('refresh')"
+            density="compact"
             :disabled="loading"
-            class="btn btn-secondary btn-sm"
             :title="t('common.refresh')"
+            @click="emit('refresh')"
           >
-            <Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" />
-          </button>
-          <button
+            <template #icon><Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" /></template>
+          </UiButton>
+          <UiButton
             type="button"
-            @click="emit('create')"
+            density="compact"
+            variant="primary"
             :disabled="!canCreate"
-            :class="canCreate
-              ? 'btn btn-primary btn-sm'
-              : 'btn btn-secondary btn-sm cursor-not-allowed opacity-50'"
+            @click="emit('create')"
           >
             {{ t('admin.settings.payment.createProvider') }}
-          </button>
+          </UiButton>
         </div>
       </div>
     </div>
@@ -39,7 +38,7 @@
     <div class="p-4">
       <!-- Loading -->
       <div v-if="loading && !providers.length" class="flex items-center justify-center py-6">
-        <div class="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+        <UiSpinner size="sm" :label="t('common.loading')" />
       </div>
 
       <!-- Provider cards (draggable) -->
@@ -53,9 +52,7 @@
       >
         <div v-for="p in localProviders" :key="p.id" class="flex items-start gap-2">
           <div class="drag-handle mt-3 flex cursor-grab items-center text-gray-300 hover:text-gray-500 active:cursor-grabbing dark:text-dark-600 dark:hover:text-dark-400">
-            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
-            </svg>
+            <Icon name="gripVertical" size="sm" />
           </div>
           <div class="min-w-0 flex-1">
             <ProviderCard
@@ -78,14 +75,16 @@
             ? t('admin.settings.payment.noProviders')
             : t('admin.settings.payment.enableTypesFirst') }}
         </p>
-        <button
+        <UiButton
           type="button"
           v-if="canCreate"
           @click="emit('create')"
-          class="btn btn-primary btn-sm mt-2"
+          class="mt-2"
+          variant="primary"
+          density="compact"
         >
           {{ t('admin.settings.payment.createProvider') }}
-        </button>
+        </UiButton>
       </div>
     </div>
   </div>
@@ -96,6 +95,7 @@ import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { VueDraggable } from 'vue-draggable-plus'
 import Icon from '@/components/icons/Icon.vue'
+import { UiButton, UiSpinner } from '@/components/ui'
 import ProviderCard from './ProviderCard.vue'
 import type { ProviderInstance } from '@/types/payment'
 import type { TypeOption } from './providerConfig'

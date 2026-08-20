@@ -82,6 +82,8 @@ describe('TotpStepUpDialog', () => {
   it('submits once after six digits and completes the controller', async () => {
     stepUpMock.mockResolvedValue({})
     const { controller, wrapper } = mountDialog()
+    expect(wrapper.get('.auth-totp__cells').attributes('role')).toBe('group')
+    expect(wrapper.findAll('.auth-totp__cell')[0].attributes('aria-label')).toBe('stepUp.title 1')
 
     await enterCode(wrapper, '123456')
 

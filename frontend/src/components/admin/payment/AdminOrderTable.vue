@@ -1,48 +1,48 @@
 <template>
   <div class="space-y-4">
-    <div class="card p-4">
+    <div class="ui-panel p-4">
       <div class="flex flex-wrap items-center gap-3">
-        <div class="flex-1 sm:max-w-64">
-          <input
-            v-model="searchQuery"
-            type="text"
-            :placeholder="t('payment.admin.searchOrders')"
-            class="input"
-            @input="handleSearch"
-          />
-        </div>
-        <Select
+        <UiSearchInput
+          v-model="searchQuery"
+          class="flex-1 sm:max-w-64"
+          density="compact"
+          :placeholder="t('payment.admin.searchOrders')"
+          @search="emitFiltersChanged"
+        />
+        <UiSelect
           v-model="filters.status"
           :options="statusFilterOptions"
           class="w-36"
+          density="compact"
           @change="emitFiltersChanged"
         />
-        <Select
+        <UiSelect
           v-model="filters.payment_type"
           :options="paymentTypeFilterOptions"
           class="w-40"
+          density="compact"
           @change="emitFiltersChanged"
         />
-        <Select
+        <UiSelect
           v-model="filters.order_type"
           :options="orderTypeFilterOptions"
           class="w-36"
+          density="compact"
           @change="emitFiltersChanged"
         />
         <div class="flex flex-1 flex-wrap items-center justify-end gap-2">
-          <button
+          <UiIconButton
             @click="emit('refresh')"
             :disabled="loading"
-            class="btn btn-secondary"
-            :title="t('common.refresh')"
-          >
-            <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
-          </button>
+            icon="refresh"
+            density="compact"
+            :label="t('common.refresh')"
+          />
         </div>
       </div>
     </div>
 
-    <DataTable :columns="columns" :data="orders" :loading="loading">
+    <UiDataTable :columns="columns" :data="orders" :loading="loading" :aria-label="t('payment.orders.title')">
       <template #cell-id="{ value }">
         <span class="font-mono text-sm">#{{ value }}</span>
       </template>
@@ -70,9 +70,9 @@
       </template>
 
       <template #cell-status="{ value }">
-        <span :class="['badge', statusBadgeClass(value)]">
+        <UiBadge :tone="statusBadgeTone(value)">
           {{ t('payment.status.' + value.toLowerCase(), value) }}
-        </span>
+        </UiBadge>
       </template>
 
       <template #cell-order_type="{ value }">
@@ -87,42 +87,42 @@
 
       <template #cell-actions="{ row }">
         <div class="flex items-center gap-2">
-          <button
-            @click="emit('detail', row)"
-            class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 dark:hover:bg-gray-800/50 dark:hover:text-gray-300"
-          >
-            <Icon name="eye" size="sm" />
-            <span class="text-xs">{{ t('common.view') }}</span>
-          </button>
-          <button
+          <UiButton density="dense" variant="quiet" @click="emit('detail', row)">
+            <template #icon><Icon name="eye" size="sm" /></template>
+            {{ t('common.view') }}
+          </UiButton>
+          <UiButton
             v-if="row.status === 'PENDING'"
             @click="emit('cancel', row)"
-            class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-yellow-50 hover:text-yellow-600 dark:hover:bg-yellow-900/20 dark:hover:text-yellow-400"
+            density="dense"
+            variant="quiet"
           >
-            <Icon name="x" size="sm" />
-            <span class="text-xs">{{ t('payment.orders.cancel') }}</span>
-          </button>
-          <button
+            <template #icon><Icon name="x" size="sm" /></template>
+            {{ t('payment.orders.cancel') }}
+          </UiButton>
+          <UiButton
             v-if="row.status === 'FAILED'"
             @click="emit('retry', row)"
-            class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
+            density="dense"
+            variant="quiet"
           >
-            <Icon name="refresh" size="sm" />
-            <span class="text-xs">{{ t('payment.admin.retry') }}</span>
-          </button>
-          <button
+            <template #icon><Icon name="refresh" size="sm" /></template>
+            {{ t('payment.admin.retry') }}
+          </UiButton>
+          <UiButton
             v-if="canRefundRow(row)"
             @click="emit('refund', row)"
-            class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+            density="dense"
+            variant="danger"
           >
-            <Icon name="dollar" size="sm" />
-            <span class="text-xs">{{ t('payment.admin.refund') }}</span>
-          </button>
+            <template #icon><Icon name="dollar" size="sm" /></template>
+            {{ t('payment.admin.refund') }}
+          </UiButton>
         </div>
       </template>
-    </DataTable>
+    </UiDataTable>
 
-    <Pagination
+    <UiPagination
       v-if="total > 0"
       :page="page"
       :total="total"
@@ -137,12 +137,18 @@
 import { ref, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { PaymentOrder } from '@/types/payment'
-import type { Column } from '@/components/common/types'
-import DataTable from '@/components/common/DataTable.vue'
-import Pagination from '@/components/common/Pagination.vue'
-import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { statusBadgeClass, canRefund, formatOrderDateTime } from '@/components/payment/orderUtils'
+import {
+  UiButton,
+  UiBadge,
+  UiDataTable,
+  UiIconButton,
+  UiPagination,
+  UiSearchInput,
+  UiSelect,
+  type Column,
+} from '@/components/ui'
+import { statusBadgeTone, canRefund, formatOrderDateTime } from '@/components/payment/orderUtils'
 import { currencySymbol } from '@/components/payment/currency'
 
 const { t } = useI18n()
@@ -172,12 +178,6 @@ const creditedAmountSymbol = currencySymbol('USD')
 
 function paymentAmountSymbol(order: PaymentOrder): string {
   return currencySymbol(order.currency)
-}
-
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-function handleSearch() {
-  if (debounceTimer) clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => emitFiltersChanged(), 300)
 }
 
 function emitFiltersChanged() {

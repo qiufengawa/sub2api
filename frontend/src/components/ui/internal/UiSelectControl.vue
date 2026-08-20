@@ -253,6 +253,7 @@ const filteredOptions = computed<SelectOptionLike[]>(() => {
   if (isSearchable.value && query) {
     const normalized = query.toLocaleLowerCase()
     options = options.filter(option => {
+      if (typeof option === 'object' && option !== null && option.alwaysVisible === true) return true
       if (getOptionLabel(option).toLocaleLowerCase().includes(normalized)) return true
       return typeof option === 'object' && option !== null
         && String(option.description ?? '').toLocaleLowerCase().includes(normalized)

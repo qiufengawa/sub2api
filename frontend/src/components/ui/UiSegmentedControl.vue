@@ -1,4 +1,4 @@
-<template><div class="ui-segmented" role="radiogroup" :aria-label="label"><button v-for="option in options" :key="String(option.value)" type="button" role="radio" :aria-checked="option.value===modelValue" :tabindex="option.value===modelValue?0:-1" :class="{'is-active':option.value===modelValue}" :disabled="option.disabled" @click="emit('update:modelValue',option.value)" @keydown="navigate($event,option.value)">{{ option.label }}</button></div></template>
+<template><div class="ui-segmented" role="radiogroup" :aria-label="label"><button v-for="option in options" :key="String(option.value)" type="button" role="radio" :aria-checked="option.value===modelValue" :tabindex="option.value===modelValue?0:-1" :title="option.title" :class="{'is-active':option.value===modelValue}" :disabled="option.disabled" @click="emit('update:modelValue',option.value)" @keydown="navigate($event,option.value)"><slot name="option" :option="option" :selected="option.value===modelValue">{{ option.label }}</slot></button></div></template>
 <script setup lang="ts">
 
 import type {UiChoiceOption} from './types';

@@ -41,6 +41,14 @@ const flushPromises = async () => {
   await Promise.resolve()
 }
 
+const dialogMountOptions = {
+  global: {
+    stubs: {
+      Teleport: true
+    }
+  }
+}
+
 describe('TOTP 弹窗定时器清理', () => {
   let intervalSeed = 1000
   let setIntervalSpy: ReturnType<typeof vi.spyOn>
@@ -80,7 +88,7 @@ describe('TOTP 弹窗定时器清理', () => {
   })
 
   it('TotpSetupModal 卸载时清理倒计时定时器', async () => {
-    const wrapper = mount(TotpSetupModal)
+    const wrapper = mount(TotpSetupModal, dialogMountOptions)
     await flushPromises()
 
     const sendButton = wrapper
@@ -100,7 +108,7 @@ describe('TOTP 弹窗定时器清理', () => {
   })
 
   it('TotpDisableDialog 卸载时清理倒计时定时器', async () => {
-    const wrapper = mount(TotpDisableDialog)
+    const wrapper = mount(TotpDisableDialog, dialogMountOptions)
     await flushPromises()
 
     const sendButton = wrapper
@@ -125,11 +133,11 @@ describe('TOTP 弹窗定时器清理', () => {
       response: { data: { message: 'setup failed' } }
     })
 
-    const wrapper = mount(TotpSetupModal)
+    const wrapper = mount(TotpSetupModal, dialogMountOptions)
     await flushPromises()
 
     await wrapper.get('input[type="password"]').setValue('correct horse battery staple')
-    await wrapper.get('button[type="button"].btn-primary').trigger('click')
+    await wrapper.get('button[type="button"].ui-button--primary').trigger('click')
     await flushPromises()
 
     expect(mocks.showError).toHaveBeenCalledWith('setup failed')
@@ -143,7 +151,7 @@ describe('TOTP 弹窗定时器清理', () => {
       response: { data: { message: 'disable failed' } }
     })
 
-    const wrapper = mount(TotpDisableDialog)
+    const wrapper = mount(TotpDisableDialog, dialogMountOptions)
     await flushPromises()
 
     await wrapper.get('input[type="password"]').setValue('correct horse battery staple')
@@ -153,5 +161,41 @@ describe('TOTP 弹窗定时器清理', () => {
     expect(mocks.showError).toHaveBeenCalledWith('disable failed')
     expect(wrapper.text()).not.toContain('disable failed')
     expect(wrapper.find('.bg-red-50').exists()).toBe(false)
+  })
+
+  it('统一使用共享 Dialog 并将六位验证码压缩到标准控件高度', async () => {
+    const setup = mount(TotpSetupModal, dialogMountOptions)
+    await flushPromises()
+
+    expect(setup.get('[role="dialog"]').attributes('aria-modal')).toBe('true')
+    expect(setup.get('[role="dialog"] h2').text()).toBe('profile.totp.setupTitle')
+
+    await setup.get('input[inputmode="numeric"]').setValue('123456')
+    const nextButton = setup
+      .findAll('button')
+      .find((button) => button.text() === 'common.next')
+    expect(nextButton).toBeTruthy()
+    await nextButton!.trigger('click')
+    await flushPromises()
+
+    const qrNextButton = setup
+      .findAll('button')
+      .find((button) => button.text() === 'common.next')
+    expect(qrNextButton).toBeTruthy()
+    await qrNextButton!.trigger('click')
+    await flushPromises()
+
+    const digits = setup.findAll('.totp-setup__digit')
+    expect(digits).toHaveLength(6)
+    expect(digits[0]?.attributes('autocomplete')).toBe('one-time-code')
+    expect(digits.every((digit) => digit.attributes('aria-label'))).toBe(true)
+
+    setup.unmount()
+
+    const disable = mount(TotpDisableDialog, dialogMountOptions)
+    await flushPromises()
+    expect(disable.get('[role="dialog"]').attributes('aria-modal')).toBe('true')
+    expect(disable.get('[role="dialog"] h2').text()).toBe('profile.totp.disableTitle')
+    disable.unmount()
   })
 })

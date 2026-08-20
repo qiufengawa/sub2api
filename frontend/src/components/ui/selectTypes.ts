@@ -5,6 +5,8 @@ export interface SelectOption {
   label: string
   disabled?: boolean
   description?: string
+  /** Keep semantic options such as "none" visible while searching. */
+  alwaysVisible?: boolean
   kind?: string
   [key: string]: unknown
 }

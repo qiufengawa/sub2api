@@ -109,6 +109,16 @@ const makePlan = () => ({
   included_groups: [group],
 })
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
 const DataTableStub = {
   props: ['columns', 'data'],
   emits: ['sort'],
@@ -158,16 +168,17 @@ function mountView() {
         UiDialog: { props: ['show'], template: '<section v-if="show"><slot /><slot name="footer" /></section>' },
         UiConfirmDialog: { props: ['show'], emits: ['confirm', 'cancel'], template: '<button v-if="show" data-test="confirm" @click="$emit(\'confirm\')">confirm</button>' },
         UiButton: { props: ['form'], template: '<button :form="form"><slot /></button>' },
-        UiIconButton: { props: ['icon', 'label'], template: '<button :aria-label="label" :data-icon="icon"><slot /></button>' },
+        UiIconButton: { props: ['icon', 'label'], emits: ['click'], template: '<button :aria-label="label" :data-icon="icon" @click="$emit(\'click\')"><slot /></button>' },
         UiNumberStepper: { props: ['modelValue'], template: '<input :value="modelValue" />' },
         UiTextField: { props: ['modelValue'], template: '<input :value="modelValue" />' },
         UiDescriptionList: { template: '<dl><slot /></dl>' },
         UiEmptyState: { template: '<div data-test="empty"><slot name="action" /></div>' },
-        UiProgressBar: { props: ['value', 'tone'], template: '<div role="progressbar" :data-value="value" :data-tone="tone" />' },
+        UiErrorState: { props: ['title', 'retryText'], emits: ['retry'], template: '<div data-testid="subscriptions-list-error"><button data-test="retry" @click="$emit(\'retry\')">{{ title }}</button></div>' },
+        UiProgressBar: { props: ['value', 'tone', 'ariaLabel'], template: '<div role="progressbar" :aria-label="ariaLabel" :data-value="value" :data-tone="tone" />' },
         UiStatusBadge: { props: ['label'], template: '<span data-test="status">{{ label }}</span>' },
         UiBadge: { props: ['label'], template: '<span data-test="badge">{{ label }}<slot /></span>' },
         UiAvatar: true,
-        UiAlert: true,
+        UiAlert: { props: ['message'], template: '<div data-test="alert">{{ message }}<slot /></div>' },
         UiLink: true,
         Icon: true,
       },
@@ -196,6 +207,54 @@ describe('admin SubscriptionsView', () => {
       sort_order: 'desc',
     }), expect.any(Object))
     expect(wrapper.get('[data-test="columns"]').text()).toContain('user,plan,usage,expires_at,status,actions')
+  })
+
+  it('shows a retryable error state instead of an empty list when the first load fails', async () => {
+    list.mockRejectedValueOnce(new Error('network'))
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="subscriptions-list-error"]').text()).toContain('admin.subscriptions.failedToLoad')
+    expect(wrapper.find('[data-test="empty"]').exists()).toBe(false)
+    expect(showError).toHaveBeenCalledWith('admin.subscriptions.failedToLoad')
+
+    list.mockResolvedValueOnce({ items: [makeSubscription({ id: 2 })], total: 1, page: 1, page_size: 20, pages: 1 })
+    await wrapper.get('[data-test="retry"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-test="row-2"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="subscriptions-list-error"]').exists()).toBe(false)
+  })
+
+  it('keeps existing rows visible and exposes an inline error after a refresh fails', async () => {
+    const refresh = deferred<{ items: never[]; total: number; page: number; page_size: number; pages: number }>()
+    list.mockResolvedValueOnce({ items: [makeSubscription()], total: 1, page: 1, page_size: 20, pages: 1 })
+    list.mockReturnValueOnce(refresh.promise)
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('button[aria-label="common.refresh"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-test="row-1"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="subscriptions-list-error"]').exists()).toBe(false)
+
+    refresh.reject(new Error('refresh failed'))
+    await flushPromises()
+    expect(wrapper.get('[data-test="row-1"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="alert"]').text()).toContain('admin.subscriptions.failedToLoad')
+  })
+
+  it('links the advanced filter trigger to its expandable region', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const toggle = wrapper.get('[data-testid="subscription-advanced-toggle"]')
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+    expect(toggle.attributes('aria-controls')).toBe('subscription-advanced-filters')
+    expect(wrapper.find('#subscription-advanced-filters').exists()).toBe(false)
+
+    await toggle.trigger('click')
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.get('#subscription-advanced-filters').exists()).toBe(true)
   })
 
   it('migrates the legacy group column key and preserves required columns', async () => {
@@ -247,6 +306,19 @@ describe('admin SubscriptionsView', () => {
     expect(progress.attributes('data-tone')).toBe('danger')
   })
 
+  it('gives each subscription quota progressbar an accessible name', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.findAll('[role="progressbar"]').map(progress =>
+      progress.attributes('aria-label')
+    )).toEqual([
+      'admin.subscriptions.fiveHour',
+      'admin.subscriptions.cycle',
+      'admin.subscriptions.total',
+    ])
+  })
+
   it('uses the status action matrix for active and revoked rows', async () => {
     list.mockResolvedValue({
       items: [makeSubscription({ id: 1, status: 'active' }), makeSubscription({ id: 2, status: 'revoked' })],
@@ -260,6 +332,55 @@ describe('admin SubscriptionsView', () => {
 
     expect(wrapper.get('[data-test="row-1"]').findAll('button[data-icon]').map(button => button.attributes('data-icon'))).toEqual(['calendar', 'refresh', 'ban'])
     expect(wrapper.get('[data-test="row-2"]').findAll('button[data-icon]').map(button => button.attributes('data-icon'))).toEqual(['refresh'])
+  })
+
+  it('prevents duplicate revoke requests while confirmation is pending', async () => {
+    let resolveRevoke!: () => void
+    revoke.mockReturnValue(new Promise<void>((resolve) => {
+      resolveRevoke = resolve
+    }))
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-test="row-1"] button[data-icon="ban"]').trigger('click')
+    const confirm = wrapper.get('[data-test="confirm"]')
+    await confirm.trigger('click')
+    await confirm.trigger('click')
+
+    expect(revoke).toHaveBeenCalledTimes(1)
+    resolveRevoke()
+    await flushPromises()
+  })
+
+  it('locks quota reset to one target and preserves confirmation after failure', async () => {
+    const request = deferred<void>()
+    resetQuota.mockReturnValueOnce(request.promise)
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    const firstSubscription = makeSubscription({ id: 1 })
+    const secondSubscription = makeSubscription({ id: 2 })
+    vm.handleResetQuota(firstSubscription)
+
+    const first = vm.confirmResetQuota()
+    const second = vm.confirmResetQuota()
+    vm.handleResetQuota(secondSubscription)
+    expect(resetQuota).toHaveBeenCalledTimes(1)
+    expect(resetQuota).toHaveBeenCalledWith(1, { daily: true, weekly: true, monthly: true })
+    expect(vm.resettingSubscription.id).toBe(1)
+    expect(vm.resettingQuota).toBe(true)
+
+    request.resolve()
+    await Promise.all([first, second])
+    expect(vm.showResetQuotaConfirm).toBe(false)
+    expect(vm.resettingQuota).toBe(false)
+
+    resetQuota.mockRejectedValueOnce(new Error('reset failed'))
+    vm.handleResetQuota(firstSubscription)
+    await vm.confirmResetQuota()
+    expect(vm.showResetQuotaConfirm).toBe(true)
+    expect(vm.resettingSubscription.id).toBe(1)
+    expect(showError).toHaveBeenCalled()
   })
 
   it('requests the selected server sort and resets to page one', async () => {

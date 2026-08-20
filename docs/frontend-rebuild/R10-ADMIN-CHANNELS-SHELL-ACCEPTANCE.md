@@ -4,7 +4,7 @@
 
 - 页面：`frontend/src/views/admin/ChannelsView.vue`
 - 本批次完成列表工作区、筛选栏、分页、状态切换、行操作、空态和编辑弹窗外壳迁移。
-- 平台定价、账户统计规则和冲突检测等领域逻辑继续复用原有脚本和 `PricingEntryCard`，后续 R10 子批次继续拆换其内部控件。
+- 平台定价、账户统计规则、模型映射和账户搜索继续复用原有脚本/负载语义，内部控件已收口到共享 UI 合同。
 
 ## 已迁移
 
@@ -29,6 +29,7 @@ AppLayout
 - 基础字段改为 `UiTextField`、`UiTextArea`、`UiSelect`、`UiCheckbox`。
 - 平台切换改为 `UiTabs`，移除旧 `channel-tab` 页面样式。
 - 修复 `bedrock_cc_compat` 读取对象形状与写入对象形状不一致的问题，同时兼容旧布尔值。
+- `ChannelGroupSelector`、`ChannelModelMappingEditor`、`ChannelAccountStatsRulesEditor`、`PricingEntryCard` 和 `IntervalRow` 均使用共享 `Ui*` 控件；账户规则搜索使用 `UiAsyncEntityPicker`，模型列表使用 `UiTagInput`。
 
 ## 保留契约
 
@@ -38,15 +39,15 @@ AppLayout
 
 ## 当前剩余工作
 
-- 平台分组选择、模型映射、规则账户搜索和定价条目内部仍有旧原生控件/旧页面 class，需要在后续 R10 子批次迁移到 `UiCheckbox`、`UiTextField`、`UiAsyncEntityPicker`、`UiAccordion` 等组件。
-- `PricingEntryCard` 和领域平台图标仍需独立完成视觉重构后才可将 Channels 页面标记为最终完成。
+- 当前源码生产路径未发现裸 `input`/`select`/`textarea`/`button`；`channel-*` 类为局部布局/状态类，不是旧 generic card/form helper。
+- 仍需真实管理员浏览器三视口、主题、reduced-motion、键盘、screen-reader 和成功/失败 mutation 证据；这些不由 jsdom 定向测试替代。
 
 ## 验证
 
 ```text
-pnpm exec vitest run src/views/admin/__tests__/ChannelsView.spec.ts
-  1 file passed
-  2 tests passed
+pnpm exec vitest run src/views/admin/__tests__/ChannelsView.spec.ts src/components/admin/channel/__tests__/PricingEntryCard.spec.ts src/components/admin/channel/__tests__/types.spec.ts
+  3 files passed
+  13 tests passed
 
 pnpm exec vue-tsc --noEmit
   passed

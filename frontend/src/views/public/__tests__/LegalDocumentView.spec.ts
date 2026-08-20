@@ -144,4 +144,25 @@ describe('LegalDocumentView', () => {
     expect(push).toHaveBeenCalledWith({ name: 'LegalDocument', params: { documentId: 'privacy' } })
     wrapper.unmount()
   })
+
+  it('continues from the bundled admin compliance document to the first configured document', async () => {
+    routeState.params.documentId = 'admin-compliance'
+    storeState.cachedPublicSettings = {
+      login_agreement_documents: [
+        { id: 'terms', title: 'Terms', content_md: 'Terms' },
+        { id: 'privacy', title: 'Privacy', content_md: 'Privacy' },
+      ],
+    }
+    fetchPublicSettings.mockResolvedValue(true)
+
+    const wrapper = mountView()
+    await flushPromises()
+    const navigation = wrapper.getComponent(UiPageNav)
+    expect(navigation.props('previous')).toBeUndefined()
+    expect(navigation.props('next')).toEqual({ key: 'terms', label: 'Terms' })
+
+    navigation.vm.$emit('navigate', 'terms')
+    expect(push).toHaveBeenCalledWith({ name: 'LegalDocument', params: { documentId: 'terms' } })
+    wrapper.unmount()
+  })
 })

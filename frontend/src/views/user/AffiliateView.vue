@@ -269,7 +269,7 @@ onMounted(() => {
 .affiliate-skeleton { display: grid; gap: 16px; }
 .affiliate-retry-banner { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding-top: 16px; }
 .affiliate-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding-top: 16px; }
-.affiliate-workspace { display: grid; min-width: 0; gap: 0; margin-top: 8px; }
+.affiliate-workspace { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 0; margin-top: 8px; }
 .affiliate-value-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-width: 0; padding-top: 4px; }
 .affiliate-value { min-width: 0; overflow: hidden; color: var(--ui-text); font-family: var(--ui-font-mono); font-size: 12px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
 .affiliate-tips { display: grid; gap: 6px; margin: 0; padding-left: 18px; color: var(--ui-text-muted); font-size: 13px; line-height: 20px; }

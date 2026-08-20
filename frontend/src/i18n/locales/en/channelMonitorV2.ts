@@ -18,6 +18,8 @@ export default {
     switchingData: 'Switching filtered data…',
     summaryAria: 'Selected range summary',
     loadFailed: 'Failed to load channel monitor',
+    refreshFailed: 'Showing the last successful snapshot. Retry to fetch current data.',
+    staleData: 'Data may be stale',
     detailLoadFailed: 'Failed to load channel monitor details',
     otherModels: 'Other models',
     ignored: 'Ignored',

@@ -1,8 +1,8 @@
 <template>
-  <div class="flex min-w-0 flex-1 items-start justify-between gap-2">
+  <div class="group-option-item">
     <!-- Left: name + description -->
     <div
-      class="flex min-w-0 flex-1 flex-col items-start"
+      class="group-option-item__copy"
       :title="description || undefined"
     >
       <!-- Row 1: platform badge (name bold) -->
@@ -15,17 +15,17 @@
       <!-- Row 2: description with top spacing -->
       <span
         v-if="description"
-        class="mt-1 w-full whitespace-pre-line [overflow-wrap:anywhere] text-left text-xs leading-normal text-gray-500 dark:text-gray-400 line-clamp-2"
+        class="group-option-item__description whitespace-pre-line [overflow-wrap:anywhere] line-clamp-2"
       >
         {{ description }}
       </span>
     </div>
 
     <!-- Right: rate pill + checkmark (vertically centered to first row) -->
-    <div class="flex shrink-0 items-center gap-2 pt-0.5">
-      <div class="flex shrink-0 flex-col items-end gap-1">
+    <div class="group-option-item__details">
+      <div class="group-option-item__rates">
         <!-- Rate pill (platform color) -->
-        <span v-if="rateMultiplier !== undefined" :class="['inline-flex items-center whitespace-nowrap rounded-[3px] px-2 py-0.5 text-xs font-medium', ratePillClass]">
+        <UiBadge v-if="rateMultiplier !== undefined">
           <template v-if="hasCustomRate">
             <span class="mr-1 line-through opacity-50">{{ rateMultiplier }}x</span>
             <span class="font-bold">{{ userRateMultiplier }}x</span>
@@ -33,26 +33,16 @@
           <template v-else>
             {{ rateMultiplier }}x {{ t('admin.groups.rateLabel') }}
           </template>
-        </span>
-        <span
+        </UiBadge>
+        <UiBadge
           v-if="hasPeakRate"
-          class="inline-flex items-center whitespace-nowrap rounded-[3px] bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
+          tone="warning"
           :title="peakRateTitle"
         >
           {{ peakRateText }}
-        </span>
+        </UiBadge>
       </div>
-      <!-- Checkmark -->
-      <svg
-        v-if="showCheckmark && selected"
-        class="h-4 w-4 shrink-0 text-primary-600 dark:text-primary-400"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-        stroke-width="2"
-      >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-      </svg>
+      <Icon v-if="showCheckmark && selected" name="check" size="sm" class="group-option-item__check" />
     </div>
   </div>
 </template>
@@ -61,6 +51,8 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import GroupBadge from './GroupBadge.vue'
+import Icon from '@/components/icons/Icon.vue'
+import { UiBadge } from '@/components/ui'
 import type { GroupPlatform } from '@/types'
 import { useAppStore } from '@/stores/app'
 import { formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
@@ -120,24 +112,16 @@ const peakRateTitle = computed(() => {
   return t('common.peakRateTooltip', { window: peakRateText.value })
 })
 
-// Rate pill color matches platform badge color
-const ratePillClass = computed(() => {
-  switch (props.platform) {
-    case 'anthropic':
-      return 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
-    case 'openai':
-      return 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-    case 'gemini':
-      return 'bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400'
-    default: // antigravity and others
-      return 'bg-violet-50 text-violet-700 dark:bg-violet-900/20 dark:text-violet-400'
-  }
-})
 </script>
 
 <style scoped>
-/* Bold the group name inside GroupBadge when used in dropdown option */
-.groupOptionItemBadge :deep(span.truncate) {
+.group-option-item{display:flex;min-width:0;flex:1;align-items:flex-start;justify-content:space-between;gap:10px}
+.group-option-item__copy{display:flex;min-width:0;flex:1;flex-direction:column;align-items:flex-start}
+.group-option-item__description{width:100%;margin-top:4px;overflow:hidden;color:var(--ui-text-soft);font-size:11px;line-height:17px;text-align:left;white-space:pre-line;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.group-option-item__details{display:flex;flex:none;align-items:center;gap:7px;padding-top:2px}
+.group-option-item__rates{display:flex;flex:none;flex-direction:column;align-items:flex-end;gap:4px}
+.group-option-item__check{flex:none;color:var(--ui-success)}
+.groupOptionItemBadge :deep(.group-badge__name) {
   font-weight: 600;
 }
 </style>

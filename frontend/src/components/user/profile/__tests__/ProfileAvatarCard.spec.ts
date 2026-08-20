@@ -175,6 +175,21 @@ describe('ProfileAvatarCard', () => {
     expect(wrapper.find('[data-testid="profile-avatar-input"]').exists()).toBe(false)
   })
 
+  it('opens the native file picker from the shared upload button', async () => {
+    authStoreState.user = createUser()
+
+    const wrapper = mount(ProfileAvatarCard, {
+      props: { user: authStoreState.user },
+      global: { stubs: { Icon: true } }
+    })
+    const fileInput = wrapper.get('[data-testid="profile-avatar-file-input"]')
+    const clickSpy = vi.spyOn(fileInput.element, 'click')
+
+    await wrapper.get('[data-testid="profile-avatar-upload"]').trigger('click')
+
+    expect(clickSpy).toHaveBeenCalledTimes(1)
+  })
+
   it('compresses an uploaded image that exceeds the 20KB target before saving', async () => {
     installAvatarCompressionMocks()
     const updatedUser = createUser({ avatar_url: 'data:image/webp;base64,Y29tcHJlc3NlZC1hdmF0YXI=' })

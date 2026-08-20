@@ -178,6 +178,41 @@ describe('RelayPulseMatrix', () => {
     expect(header).toContain('成功率')
     expect(header).toContain('缓存率')
   })
+
+  it('uses one Tab stop and arrow-key navigation across matrix cells', async () => {
+    const wrapper = mount(RelayPulseMatrix, {
+      attachTo: document.body,
+      props: {
+        rows: [{
+          platform: 'openai',
+          metrics: metrics(10),
+          health,
+          buckets: [{ bucket_start: '2026-08-01T00:00:00Z', metrics: metrics(10), health }],
+        }],
+        coverage: {
+          requested_start: '2026-08-01T00:00:00Z',
+          requested_end: '2026-08-01T00:03:00Z',
+          coverage_start: '2026-08-01T00:00:00Z',
+          data_through: '2026-08-01T00:03:00Z',
+          computed_at: '2026-08-01T00:03:00Z',
+          aggregation_lag_seconds: 0,
+          coverage_complete: true,
+          bucket_seconds: 60,
+        },
+        healthMode: 'overall',
+      },
+    })
+
+    const cells = wrapper.findAll('.pulse-cell')
+    expect(cells.filter((cell) => cell.attributes('tabindex') === '0')).toHaveLength(1)
+    await cells[0].trigger('keydown', { key: 'ArrowRight' })
+    expect(cells[1].attributes('tabindex')).toBe('0')
+    expect(document.activeElement).toBe(cells[1].element)
+    await cells[1].trigger('keydown', { key: 'End' })
+    expect(cells[2].attributes('tabindex')).toBe('0')
+    expect(document.activeElement).toBe(cells[2].element)
+    wrapper.unmount()
+  })
 })
 
 describe('RelayPulseMatrix axis range', () => {

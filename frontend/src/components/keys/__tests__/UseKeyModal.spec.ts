@@ -31,7 +31,7 @@ describe('UseKeyModal', () => {
       },
       global: {
         stubs: {
-          BaseDialog: {
+          UiDialog: {
             template: '<div><slot /><slot name="footer" /></div>'
           },
           Icon: {
@@ -124,7 +124,7 @@ describe('UseKeyModal', () => {
       },
       global: {
         stubs: {
-          BaseDialog: {
+          UiDialog: {
             template: '<div><slot /><slot name="footer" /></div>'
           },
           Icon: {
@@ -213,7 +213,7 @@ describe('UseKeyModal', () => {
       },
       global: {
         stubs: {
-          BaseDialog: {
+          UiDialog: {
             template: '<div><slot /><slot name="footer" /></div>'
           },
           Icon: {
@@ -273,7 +273,7 @@ describe('UseKeyModal', () => {
       },
       global: {
         stubs: {
-          BaseDialog: {
+          UiDialog: {
             template: '<div><slot /><slot name="footer" /></div>'
           },
           Icon: {
@@ -314,7 +314,7 @@ describe('UseKeyModal', () => {
       },
       global: {
         stubs: {
-          BaseDialog: {
+          UiDialog: {
             template: '<div><slot /><slot name="footer" /></div>'
           },
           Icon: {
@@ -364,7 +364,7 @@ describe('UseKeyModal', () => {
       },
       global: {
         stubs: {
-          BaseDialog: {
+          UiDialog: {
             template: '<div><slot /><slot name="footer" /></div>'
           },
           Icon: {
@@ -411,7 +411,7 @@ describe('UseKeyModal', () => {
       },
       global: {
         stubs: {
-          BaseDialog: {
+          UiDialog: {
             template: '<div><slot /><slot name="footer" /></div>'
           },
           Icon: {
@@ -455,7 +455,7 @@ describe('UseKeyModal', () => {
       },
       global: {
         stubs: {
-          BaseDialog: {
+          UiDialog: {
             template: '<div><slot /><slot name="footer" /></div>'
           },
           Icon: {
@@ -492,7 +492,7 @@ describe('UseKeyModal', () => {
       },
       global: {
         stubs: {
-          BaseDialog: {
+          UiDialog: {
             template: '<div><slot /><slot name="footer" /></div>'
           },
           Icon: {
@@ -526,7 +526,7 @@ describe('UseKeyModal', () => {
       },
       global: {
         stubs: {
-          BaseDialog: {
+          UiDialog: {
             template: '<div><slot /><slot name="footer" /></div>'
           },
           Icon: {
@@ -563,7 +563,7 @@ describe('UseKeyModal', () => {
       },
       global: {
         stubs: {
-          BaseDialog: {
+          UiDialog: {
             template: '<div><slot /><slot name="footer" /></div>'
           },
           Icon: {

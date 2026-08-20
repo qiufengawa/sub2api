@@ -8,7 +8,7 @@
 
       <UiServerTableWorkspace
         class="subscriptions-workspace"
-        :loading="loading"
+        :loading="refreshing"
         :loading-text="t('common.loading')"
         :empty="false"
       >
@@ -38,6 +38,7 @@
                 variant="secondary"
                 density="compact"
                 :aria-expanded="advancedFiltersExpanded"
+                aria-controls="subscription-advanced-filters"
                 data-testid="subscription-advanced-toggle"
                 @click="advancedFiltersExpanded = !advancedFiltersExpanded"
               >
@@ -84,6 +85,7 @@
         <template #filters>
           <UiFilterBar
             v-if="advancedFiltersExpanded || advancedFilterCount > 0"
+            id="subscription-advanced-filters"
             data-testid="subscription-advanced-filters"
           >
             <UiSelect
@@ -106,12 +108,17 @@
         </template>
 
       <!-- Subscriptions Table -->
-      <template #default>
+        <template #default>
+        <UiAlert
+          v-if="loadError && subscriptions.length"
+          tone="danger"
+          :message="t('admin.subscriptions.failedToLoad')"
+        />
         <UiMobileTableScroller :label="t('admin.subscriptions.title')" min-width="1040px">
         <UiDataTable
           :columns="columns"
           :data="subscriptions"
-          :loading="loading"
+          :loading="initialLoading"
           :mobile-table="true"
           :aria-label="t('admin.subscriptions.title')"
           :server-side-sort="true"
@@ -163,6 +170,7 @@
                   <UiProgressBar
                     :value="getProgressPercent(getFiveHourCommitted(row), row.five_hour_quota_usd)"
                     :tone="getProgressTone(getFiveHourCommitted(row), row.five_hour_quota_usd)"
+                    :aria-label="t('admin.subscriptions.fiveHour')"
                     :show-value="false"
                   />
                   <div class="subscription-quota__meta">
@@ -184,6 +192,7 @@
                   <UiProgressBar
                     :value="getProgressPercent(getCycleCommitted(row), row.cycle_quota_usd)"
                     :tone="getProgressTone(getCycleCommitted(row), row.cycle_quota_usd)"
+                    :aria-label="t('admin.subscriptions.cycle')"
                     :show-value="false"
                   />
                   <div v-if="row.reset_interval_seconds" class="subscription-quota__meta">
@@ -205,6 +214,7 @@
                   <UiProgressBar
                     :value="getProgressPercent(getTotalCommitted(row), row.total_quota_usd)"
                     :tone="getProgressTone(getTotalCommitted(row), row.total_quota_usd)"
+                    :aria-label="t('admin.subscriptions.total')"
                     :show-value="false"
                   />
                   <div class="subscription-quota__meta">
@@ -284,7 +294,15 @@
           </template>
 
           <template #empty>
+            <UiErrorState
+              v-if="loadError"
+              data-testid="subscriptions-list-error"
+              :title="t('admin.subscriptions.failedToLoad')"
+              :retry-text="t('common.retry')"
+              @retry="loadSubscriptions"
+            />
             <UiEmptyState
+              v-else
               :title="t('admin.subscriptions.noSubscriptionsYet')"
               :description="t('admin.subscriptions.assignFirstSubscription')"
             >
@@ -429,6 +447,7 @@
       :confirm-text="t('admin.subscriptions.revoke')"
       :cancel-text="t('common.cancel')"
       :danger="true"
+      :pending="revokePending"
       @confirm="confirmRevoke"
       @cancel="showRevokeDialog = false"
     />
@@ -440,6 +459,7 @@
       :message="t('admin.subscriptions.restoreConfirm', { user: restoringSubscription?.user?.email })"
       :confirm-text="t('admin.subscriptions.restore')"
       :cancel-text="t('common.cancel')"
+      :pending="restorePending"
       @confirm="confirmRestore"
       @cancel="showRestoreDialog = false"
     />
@@ -451,6 +471,7 @@
       :message="t('admin.subscriptions.resetQuotaConfirm', { user: resettingSubscription?.user?.email })"
       :confirm-text="t('admin.subscriptions.resetQuota')"
       :cancel-text="t('common.cancel')"
+      :pending="resettingQuota"
       @confirm="confirmResetQuota"
       @cancel="showResetQuotaConfirm = false"
     />
@@ -525,6 +546,7 @@ import {
   UiDescriptionList,
   UiDialog,
   UiEmptyState,
+  UiErrorState,
   UiFilterBar,
   UiIconButton,
   UiLink,
@@ -685,6 +707,9 @@ const subscriptions = ref<UserSubscription[]>([])
 const groups = ref<Group[]>([])
 const plans = ref<SubscriptionPlan[]>([])
 const loading = ref(false)
+const loadError = ref(false)
+const initialLoading = computed(() => loading.value && subscriptions.value.length === 0)
+const refreshing = computed(() => loading.value && subscriptions.value.length > 0)
 let abortController: AbortController | null = null
 
 // Toolbar user filter (fuzzy search -> select user_id)
@@ -740,6 +765,8 @@ const showRevokeDialog = ref(false)
 const showRestoreDialog = ref(false)
 const showResetQuotaConfirm = ref(false)
 const submitting = ref(false)
+const revokePending = ref(false)
+const restorePending = ref(false)
 const resettingSubscription = ref<UserSubscription | null>(null)
 const resettingQuota = ref(false)
 const extendingSubscription = ref<UserSubscription | null>(null)
@@ -810,6 +837,7 @@ const loadSubscriptions = async () => {
   const { signal } = requestController
 
   loading.value = true
+  loadError.value = false
   try {
     const response = await adminAPI.subscriptions.list(
       pagination.page,
@@ -830,10 +858,12 @@ const loadSubscriptions = async () => {
     subscriptions.value = response.items
     pagination.total = response.total
     pagination.pages = response.pages
+    loadError.value = false
   } catch (error: any) {
     if (signal.aborted || error?.name === 'AbortError' || error?.code === 'ERR_CANCELED') {
       return
     }
+    loadError.value = true
     appStore.showError(t('admin.subscriptions.failedToLoad'))
     console.error('Error loading subscriptions:', error)
   } finally {
@@ -1026,6 +1056,7 @@ const closeAssignModal = () => {
 }
 
 const handleAssignSubscription = async () => {
+  if (submitting.value) return
   if (!assignForm.user_id) {
     appStore.showError(t('admin.subscriptions.pleaseSelectUser'))
     return
@@ -1074,6 +1105,7 @@ const closeExtendModal = () => {
 }
 
 const handleExtendSubscription = async () => {
+  if (submitting.value) return
   if (!extendingSubscription.value) return
 
   // 前端验证：调整后的过期时间必须在未来
@@ -1109,7 +1141,9 @@ const handleRevoke = (subscription: UserSubscription) => {
 
 const confirmRevoke = async () => {
   if (!revokingSubscription.value) return
+  if (revokePending.value) return
 
+  revokePending.value = true
   try {
     await adminAPI.subscriptions.revoke(revokingSubscription.value.id)
     appStore.showSuccess(t('admin.subscriptions.subscriptionRevoked'))
@@ -1119,6 +1153,8 @@ const confirmRevoke = async () => {
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.subscriptions.failedToRevoke'))
     console.error('Error revoking subscription:', error)
+  } finally {
+    revokePending.value = false
   }
 }
 
@@ -1129,7 +1165,9 @@ const handleRestore = (subscription: UserSubscription) => {
 
 const confirmRestore = async () => {
   if (!restoringSubscription.value) return
+  if (restorePending.value) return
 
+  restorePending.value = true
   try {
     await adminAPI.subscriptions.restore(restoringSubscription.value.id)
     appStore.showSuccess(t('admin.subscriptions.subscriptionRestored'))
@@ -1139,23 +1177,28 @@ const confirmRestore = async () => {
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.subscriptions.failedToRestore'))
     console.error('Error restoring subscription:', error)
+  } finally {
+    restorePending.value = false
   }
 }
 
 const handleResetQuota = (subscription: UserSubscription) => {
+  if (resettingQuota.value) return
   resettingSubscription.value = subscription
   showResetQuotaConfirm.value = true
 }
 
 const confirmResetQuota = async () => {
-  if (!resettingSubscription.value) return
-  if (resettingQuota.value) return
+  const target = resettingSubscription.value
+  if (!target || resettingQuota.value) return
   resettingQuota.value = true
   try {
-    await adminAPI.subscriptions.resetQuota(resettingSubscription.value.id, { daily: true, weekly: true, monthly: true })
+    await adminAPI.subscriptions.resetQuota(target.id, { daily: true, weekly: true, monthly: true })
     appStore.showSuccess(t('admin.subscriptions.quotaResetSuccess'))
-    showResetQuotaConfirm.value = false
-    resettingSubscription.value = null
+    if (resettingSubscription.value?.id === target.id) {
+      showResetQuotaConfirm.value = false
+      resettingSubscription.value = null
+    }
     await loadSubscriptions()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.subscriptions.failedToResetQuota'))

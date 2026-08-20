@@ -6,6 +6,8 @@
         :description="
           refreshing
             ? t('channelMonitorV2.updating')
+            : loadError && !snapshot
+              ? t('channelMonitorV2.loadFailed')
             : snapshot?.coverage.data_through
               ? t('channelMonitorV2.updatedTo', { time: formatTime(snapshot.coverage.data_through) })
               : t('common.loading')
@@ -13,8 +15,8 @@
       >
         <template #status>
           <UiStatusBadge
-            :status="loading || refreshing ? 'pending' : 'online'"
-            :label="loading || refreshing ? t('channelMonitorV2.updating') : t('channelMonitorV2.title')"
+            :status="loadError ? (snapshot ? 'stale' : 'error') : loading || refreshing ? 'pending' : 'online'"
+            :label="loadError ? (snapshot ? t('channelMonitorV2.staleData') : t('channelMonitorV2.loadFailed')) : loading || refreshing ? t('channelMonitorV2.updating') : t('channelMonitorV2.title')"
           />
           <UiBadge
             v-if="snapshot && !snapshot.coverage.coverage_complete && !bootstrapActive"
@@ -33,6 +35,20 @@
         </template>
       </AppPageHeader>
 
+      <UiErrorState
+        v-if="loadError && !snapshot"
+        :title="t('channelMonitorV2.loadFailed')"
+        :retry-text="t('common.retry')"
+        @retry="reload(false)"
+      />
+
+      <UiBanner
+        v-else-if="loadError"
+        tone="danger"
+        :title="t('channelMonitorV2.loadFailed')"
+        :message="t('channelMonitorV2.refreshFailed')"
+      />
+
       <UiBanner
         v-if="bootstrapActive"
         tone="info"
@@ -48,7 +64,7 @@
         </div>
       </UiBanner>
 
-      <AppToolbar sticky>
+      <AppToolbar v-if="!loadError || snapshot" sticky>
         <UiSegmentedControl
           :model-value="filter.range"
           :options="ranges"
@@ -73,6 +89,7 @@
       </AppToolbar>
 
       <UiFilterBar
+        v-if="!loadError || snapshot"
         :active-count="filter.platforms.length + filter.groupIds.length + filter.models.length"
         :clear-label="t('channelMonitorV2.clearFilters')"
         @clear="clearDimensions"
@@ -111,7 +128,7 @@
         />
       </UiFilterBar>
 
-      <AppSection>
+      <AppSection v-if="!loadError || snapshot">
         <AppGrid
           v-if="snapshot"
           :min="showThroughput ? '180px' : '210px'"
@@ -177,7 +194,7 @@
       </AppSection>
 
       <AppSection
-        v-if="trendView === 'line' || matrix || loading"
+        v-if="(!loadError || snapshot) && (trendView === 'line' || matrix || loading)"
         class="monitor-chart-section"
       >
         <MonitorTrendChart
@@ -196,7 +213,7 @@
         <UiSkeleton v-else-if="loading" variant="rect" width="100%" height="320px" />
       </AppSection>
 
-      <AppSection class="monitor-records">
+      <AppSection v-if="!loadError || snapshot" class="monitor-records">
         <UiTabs
           v-model="activeTab"
           :tabs="tabs"
@@ -280,6 +297,7 @@
                 type="button"
                 class="monitor-error__trigger ui-focus-ring"
                 :aria-expanded="expandedErrors.has(row.category)"
+                :aria-controls="expandedErrors.has(row.category) ? `monitor-error-details-${encodeURIComponent(row.category)}` : undefined"
                 @click="toggleError(row.category)"
               >
                 <span class="monitor-error__name">
@@ -299,7 +317,11 @@
                   :class="{ 'is-open': expandedErrors.has(row.category) }"
                 />
               </button>
-              <div v-if="expandedErrors.has(row.category)" class="monitor-error__details">
+              <div
+                v-if="expandedErrors.has(row.category)"
+                :id="`monitor-error-details-${encodeURIComponent(row.category)}`"
+                class="monitor-error__details"
+              >
                 <template v-if="isAdmin && (row.details || []).length">
                   <div
                     v-for="(detail, index) in row.details || []"
@@ -390,6 +412,7 @@ import {
   UiBanner,
   UiButton,
   UiEmptyState,
+  UiErrorState,
   UiFilterBar,
   UiIconButton,
   UiMobileTableScroller,
@@ -497,6 +520,7 @@ const userRows = ref<MonitorUserRow[]>([])
 const loading = ref(false)
 const tabLoading = ref(false)
 const refreshing = ref(false)
+const loadError = ref(false)
 const expandedErrors = ref(new Set<string>())
 let controller: AbortController | null = null
 let sequence = 0
@@ -654,12 +678,18 @@ async function loadMetrics(signal?: AbortSignal, id = sequence) {
   await loadTab(signal, id)
 }
 
+function isAbortError(error: unknown): boolean {
+  const candidate = error as { name?: string; code?: string }
+  return candidate?.name === 'AbortError' || candidate?.name === 'CanceledError' || candidate?.code === 'ERR_CANCELED'
+}
+
 async function reload(silent = true) {
   controller?.abort()
   const request = new AbortController()
   controller = request
   const id = ++sequence
   refreshing.value = true
+  loadError.value = false
   if (!silent) loading.value = true
   try {
     // Catalog + metrics in parallel; catalog ignores dimension filters so options never shrink.
@@ -668,9 +698,9 @@ async function reload(silent = true) {
       loadMetrics(request.signal, id),
     ])
   } catch (error) {
-    if ((error as { name?: string }).name !== 'CanceledError') {
-      appStore.showError(extractApiErrorMessage(error, t('channelMonitorV2.loadFailed')))
-    }
+    if (id !== sequence || request.signal.aborted || isAbortError(error)) return
+    loadError.value = true
+    appStore.showError(extractApiErrorMessage(error, t('channelMonitorV2.loadFailed')))
   } finally {
     if (id === sequence) {
       loading.value = false
@@ -687,13 +717,14 @@ async function reloadMetricsOnly(silent = true) {
   controller = request
   const id = ++sequence
   refreshing.value = true
+  loadError.value = false
   if (!silent) loading.value = true
   try {
     await loadMetrics(request.signal, id)
   } catch (error) {
-    if ((error as { name?: string }).name !== 'CanceledError') {
-      appStore.showError(extractApiErrorMessage(error, t('channelMonitorV2.loadFailed')))
-    }
+    if (id !== sequence || request.signal.aborted || isAbortError(error)) return
+    loadError.value = true
+    appStore.showError(extractApiErrorMessage(error, t('channelMonitorV2.loadFailed')))
   } finally {
     if (id === sequence) {
       loading.value = false
@@ -721,8 +752,7 @@ async function loadTab(signal?: AbortSignal, id = sequence) {
       userRows.value = next
     }
   } catch (error) {
-    const e = error as { name?: string; code?: string }
-    if (e?.name === 'AbortError' || e?.name === 'CanceledError' || e?.code === 'ERR_CANCELED') return
+    if (isAbortError(error)) return
     appStore.showError(extractApiErrorMessage(error, t('channelMonitorV2.detailLoadFailed')))
   } finally {
     if (id === sequence && tabRequestId === tabSequence) tabLoading.value = false
@@ -856,8 +886,14 @@ watch(activeTab, () => {
 })
 onMounted(() => void reload(false))
 onBeforeUnmount(() => {
+  sequence += 1
+  tabSequence += 1
   controller?.abort()
-  if (autoRefreshTimer) window.clearInterval(autoRefreshTimer)
+  controller = null
+  if (autoRefreshTimer) {
+    window.clearInterval(autoRefreshTimer)
+    autoRefreshTimer = null
+  }
 })
 </script>
 

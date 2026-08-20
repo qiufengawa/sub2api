@@ -173,6 +173,7 @@
       :confirm-text="t('common.delete', 'Delete')"
       :cancel-text="t('common.cancel', 'Cancel')"
       :danger="true"
+      :pending="deletePending"
       @confirm="confirmDelete"
       @cancel="showDeleteDialog = false"
     />
@@ -317,6 +318,7 @@ const editingChannel = ref<Channel | null>(null)
 const submitting = ref(false)
 const showDeleteDialog = ref(false)
 const deletingChannel = ref<Channel | null>(null)
+const deletePending = ref(false)
 const activeTab = ref<string>('basic')
 
 const channelTabOptions = computed(() => [
@@ -1197,16 +1199,20 @@ function handleDelete(channel: Channel) {
 }
 
 async function confirmDelete() {
-  if (!deletingChannel.value) return
+  const target = deletingChannel.value
+  if (!target || deletePending.value) return
+  deletePending.value = true
 
   try {
-    await adminAPI.channels.remove(deletingChannel.value.id)
+    await adminAPI.channels.remove(target.id)
     appStore.showSuccess(t('admin.channels.deleteSuccess', 'Channel deleted'))
     showDeleteDialog.value = false
     deletingChannel.value = null
     loadChannels()
   } catch (error: unknown) {
     appStore.showError(extractApiErrorMessage(error, t('admin.channels.deleteError', 'Failed to delete channel')))
+  } finally {
+    deletePending.value = false
   }
 }
 

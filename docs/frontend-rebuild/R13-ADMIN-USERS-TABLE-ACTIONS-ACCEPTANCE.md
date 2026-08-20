@@ -16,3 +16,9 @@
 ## Deferred
 
 - The teleported action menu and user-management modal internals still use compatibility wrappers/native menu rows and remain scheduled for the next Users migration batch.
+
+## 2026-08-19 Mutation single-flight follow-up
+
+- Status toggles are guarded per user ID and the row button is disabled until the mutation plus list refresh completes.
+- User deletion now has a function-level pending guard and passes pending state to the shared confirmation dialog.
+- `UsersView.spec.ts` now has 5 tests, including direct duplicate handler invocation for both mutations; typecheck and targeted ESLint passed. Protected administrator browser verification remains pending.

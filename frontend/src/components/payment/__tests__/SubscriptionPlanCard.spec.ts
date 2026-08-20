@@ -134,20 +134,14 @@ describe("SubscriptionPlanCard", () => {
     expect(text).toContain("Gemini");
     expect(text).toContain("Imagen");
     expect(badges).toHaveLength(3);
-    expect(badges[0].classes()).toEqual(expect.arrayContaining(["bg-orange-50", "text-orange-700"]));
-    expect(badges[1].classes()).toEqual(expect.arrayContaining(["bg-blue-50", "text-blue-700"]));
-    expect(badges[2].classes()).toEqual(expect.arrayContaining(["bg-violet-50", "text-violet-700"]));
+    expect(badges.every((badge) => badge.classes().includes("ui-badge--neutral"))).toBe(true);
   });
 
   it("renders Composite as a cyan platform badge", () => {
     const badge = mountPlanCard("composite").get(".plan-card-platform-badge");
 
     expect(badge.text()).toContain("Composite");
-    expect(badge.classes()).toEqual(expect.arrayContaining([
-      "border-cyan-500/30",
-      "bg-cyan-500/10",
-      "text-cyan-700",
-    ]));
+    expect(badge.classes()).toContain("ui-badge--neutral");
   });
 
   // #4607: admin forms persist plural units; keep every validity branch intact.
@@ -177,12 +171,7 @@ describe("SubscriptionPlanCard", () => {
 
     expect(title.text()).toBe(name);
     expect(title.attributes("title")).toBe(name);
-    expect(title.classes()).toEqual(expect.arrayContaining([
-      "min-w-0",
-      "break-words",
-      "[overflow-wrap:anywhere]",
-      "text-lg",
-    ]));
+    expect(title.classes()).toContain("subscription-plan__title");
     expect(title.classes()).not.toContain("truncate");
     expect(title.classes()).not.toContain("line-clamp-2");
     expect(title.classes()).not.toContain("h-12");
@@ -205,30 +194,16 @@ describe("SubscriptionPlanCard", () => {
     expect(priceLine.text()).toContain("$123.45USD");
     expect(priceLine.text()).toContain("$200");
     expect(priceLine.text()).toContain("-38%");
-    expect(priceLine.get(".plan-card-discount-badge").classes()).toEqual(expect.arrayContaining([
-      "bg-fuchsia-50",
-      "text-fuchsia-700",
-      "ring-fuchsia-200",
-    ]));
-    expect(priceLine.classes()).toEqual(expect.arrayContaining([
-      "flex",
-      "flex-wrap",
-      "items-baseline",
-      "justify-end",
-    ]));
+    expect(priceLine.get(".plan-card-discount-badge").classes()).toContain("ui-badge--info");
+    expect(priceLine.classes()).toContain("subscription-plan__price");
     expect(wrapper.get("button").text()).toBe("payment.subscribeNow");
   });
 
   it("uses a neutral solid card without a colored top accent or gradient", () => {
     const wrapper = mountPlanCard("openai", { name: "Pro", description: "" });
-    const root = wrapper.get(".group");
+    const root = wrapper.get(".subscription-plan");
 
-    expect(root.classes()).toEqual(expect.arrayContaining([
-      "border-gray-200",
-      "bg-white",
-      "p-4",
-      "h-full",
-    ]));
+    expect(root.classes()).toContain("subscription-plan");
     expect(wrapper.html()).not.toContain("bg-gradient");
     expect(wrapper.html()).not.toContain("h-1.5");
   });

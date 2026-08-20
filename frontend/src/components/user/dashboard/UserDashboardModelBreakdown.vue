@@ -1,18 +1,18 @@
 <template>
-  <section class="card flex h-full min-h-[360px] flex-col xl:h-[470px] xl:min-h-[470px]" data-testid="dashboard-model-breakdown">
+  <section class="ui-panel flex h-full min-h-[360px] flex-col xl:h-[470px] xl:min-h-[470px]" data-testid="dashboard-model-breakdown">
     <div class="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-dark-700">
       <div>
         <h2 class="text-sm font-semibold text-gray-950 dark:text-white">{{ t('dashboard.overview.costBreakdown') }}</h2>
         <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('dashboard.overview.costBreakdownDescription') }}</p>
       </div>
-      <router-link to="/usage" class="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">
+      <UiLink to="/usage" variant="muted">
         {{ t('dashboard.overview.details') }}
-      </router-link>
+      </UiLink>
     </div>
 
     <div class="min-h-[268px] flex-1 p-4">
       <div v-if="loading" class="flex min-h-[236px] items-center justify-center">
-        <LoadingSpinner size="md" />
+        <UiSpinner size="md" />
       </div>
       <div v-else-if="rows.length === 0" class="flex min-h-[236px] flex-col items-center justify-center text-center">
         <div class="flex h-9 w-9 items-center justify-center rounded-[3px] bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
@@ -20,9 +20,9 @@
         </div>
         <p class="mt-3 text-sm font-medium text-gray-900 dark:text-white">{{ t('dashboard.overview.noCostTitle') }}</p>
         <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('dashboard.overview.noCostDescription') }}</p>
-        <router-link to="/available-channels" class="btn btn-secondary btn-sm mt-3">
+        <UiButton to="/available-channels" density="compact" class="mt-3">
           {{ t('dashboard.overview.viewAvailableModels') }}
-        </router-link>
+        </UiButton>
       </div>
       <div v-else class="space-y-3.5">
         <div v-for="row in rows" :key="row.model" data-testid="model-cost-row" :data-model="row.model">
@@ -43,7 +43,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { UiButton, UiLink, UiSpinner } from '@/components/ui'
 import Icon from '@/components/icons/Icon.vue'
 import type { ModelStat } from '@/types'
 

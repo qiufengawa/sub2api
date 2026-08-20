@@ -342,4 +342,22 @@ describe('AuditLogView contracts', () => {
     expect(showSuccess).toHaveBeenCalledWith(expect.stringContaining('admin.audit.clearConfirm.success'))
     expect(vm.clearTotpVisible).toBe(false)
   })
+
+  it('exposes a pending state and deduplicates the TOTP status check', async () => {
+    const pending = deferred<{ enabled: boolean }>()
+    getStatus.mockReturnValueOnce(pending.promise)
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+
+    const first = vm.openClearDialog()
+    const second = vm.openClearDialog()
+    expect(getStatus).toHaveBeenCalledOnce()
+    expect(vm.checkingTotpStatus).toBe(true)
+
+    pending.resolve({ enabled: true })
+    await Promise.all([first, second])
+    expect(vm.checkingTotpStatus).toBe(false)
+    expect(vm.clearConfirmVisible).toBe(true)
+  })
 })

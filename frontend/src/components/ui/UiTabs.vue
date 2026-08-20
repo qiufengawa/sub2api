@@ -1,6 +1,6 @@
 <template>
   <div class="ui-tabs" role="tablist" :aria-label="label">
-    <button v-for="tab in tabs" :key="String(tab.value)" :data-testid="tab.testId || testId || undefined" :data-test="tab.dataTest || undefined" type="button" role="tab" :aria-selected="modelValue===tab.value" :tabindex="modelValue===tab.value?0:-1" :disabled="tab.disabled" :class="{ 'is-active': modelValue===tab.value }" @click="emit('update:modelValue',tab.value)" @keydown="navigate($event,tab.value)">
+    <button v-for="tab in tabs" :key="String(tab.value)" :id="tab.id" :aria-controls="tab.controls" :data-testid="tab.testId || testId || undefined" :data-test="tab.dataTest || undefined" type="button" role="tab" :aria-selected="modelValue===tab.value" :tabindex="modelValue===tab.value?0:-1" :disabled="tab.disabled" :class="{ 'is-active': modelValue===tab.value }" @click="emit('update:modelValue',tab.value)" @keydown="navigate($event,tab.value)">
       <Icon v-if="tab.icon" :name="tab.icon" size="sm" /><span>{{ tab.label }}</span><small v-if="tab.count!==undefined" class="ui-numeric">{{ tab.count }}</small>
     </button>
   </div>
@@ -14,6 +14,8 @@ value:string|number;
 icon?:IconName;
 count?:number;
 disabled?:boolean;
+id?:string;
+controls?:string;
 testId?:string;
 dataTest?:string }
 const props=defineProps<{modelValue:string|number;
@@ -22,9 +24,10 @@ label:string;
 testId?:string}>()
 const emit=defineEmits<{ 'update:modelValue':[string|number] }>()
 function navigate(event:KeyboardEvent,value:string|number){
-  if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return
+  if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key))return
   const enabled=props.tabs.filter(tab=>!tab.disabled),current=enabled.findIndex(tab=>tab.value===value)
-  const next=event.key==='Home'?enabled[0]:event.key==='End'?enabled.at(-1):enabled[(current+(event.key==='ArrowRight'?1:-1)+enabled.length)%enabled.length]
+  const forward=event.key==='ArrowRight'||event.key==='ArrowDown'
+  const next=event.key==='Home'?enabled[0]:event.key==='End'?enabled.at(-1):enabled[(current+(forward?1:-1)+enabled.length)%enabled.length]
   if(!next)return
   event.preventDefault();emit('update:modelValue',next.value)
   const index=props.tabs.findIndex(tab=>tab.value===next.value)

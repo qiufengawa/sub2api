@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
     <AppPage density="compact">
-      <AppPageHeader :title="t('common.apiKeys')" :description="t('keys.createFirstKey')" />
+      <AppPageHeader :title="t('nav.apiKeys')" :description="t('keys.createFirstKey')" />
       <UiServerTableWorkspace :loading="loading" :empty="false" :aria-busy="loading">
       <template #filters>
         <div class="keys-filter-layout">
@@ -83,12 +83,27 @@
           </UiButton>
         </div>
 
+        <UiErrorState
+          v-if="loadError && apiKeys.length === 0"
+          :title="t('keys.failedToLoad')"
+          :description="t('keys.failedToLoad')"
+          :retry-text="t('common.retry')"
+          data-testid="keys-load-error"
+          @retry="loadApiKeys"
+        />
+        <template v-else>
+        <UiAlert
+          v-if="loadError"
+          tone="danger"
+          :title="t('keys.failedToLoad')"
+          data-testid="keys-refresh-error"
+        />
         <UiDataTable
           :columns="columns"
           :data="apiKeys"
           :loading="loading"
           :mobile-table="true"
-          :aria-label="t('common.apiKeys')"
+          :aria-label="t('nav.apiKeys')"
           :server-side-sort="true"
           default-sort-key="created_at"
           default-sort-order="desc"
@@ -153,7 +168,9 @@
                 <button
                   type="button"
                   class="keys-group-trigger"
+                  :disabled="groupChangePendingKeys.has(row.id)"
                   :aria-expanded="open"
+                  aria-haspopup="dialog"
                   :title="t('keys.clickToChangeGroup')"
                 >
                 <GroupBadge
@@ -182,13 +199,18 @@
                   >
                     <template #prefix><Icon name="search" size="sm" /></template>
                   </UiTextField>
-                  <div class="keys-group-picker__list">
+                  <div
+                    class="keys-group-picker__list"
+                    role="listbox"
+                    :aria-label="t('keys.selectGroup')"
+                  >
                     <button
                       v-for="option in filteredGroupOptions"
                       :key="option.value ?? 'null'"
                       type="button"
                       role="option"
                       class="keys-group-picker__option"
+                      :disabled="groupChangePendingKeys.has(row.id)"
                       :aria-selected="row.group_id === option.value || (!row.group_id && option.value === null)"
                       :title="option.description || undefined"
                       @click="changeGroup(row, option.value); close()"
@@ -399,6 +421,7 @@
                 :icon="row.status === 'active' ? 'ban' : 'checkCircle'"
                 :variant="row.status === 'active' ? 'danger' : 'success'"
                 density="mini"
+                :disabled="statusChangePendingKeys.has(row.id)"
                 :label="row.status === 'active' ? t('keys.disable') : t('keys.enable')"
                 @click="toggleKeyStatus(row)"
               />
@@ -421,6 +444,7 @@
             </UiEmptyState>
           </template>
         </UiDataTable>
+        </template>
       </template>
 
       <template #pagination>
@@ -452,6 +476,8 @@
           ? t('keys.subscriptionIntent.createTitle')
           : t('keys.createKey')"
       width="wide"
+      :close-on-escape="!submitting"
+      :show-close-button="!submitting"
       @close="closeModals"
     >
       <form id="key-form" class="key-form" @submit.prevent="handleSubmit">
@@ -693,7 +719,7 @@
       </form>
       <template #footer>
         <div class="key-form__actions">
-          <UiButton density="compact" @click="closeModals">
+          <UiButton density="compact" :disabled="submitting" @click="closeModals">
             {{ t('common.cancel') }}
           </UiButton>
           <UiButton
@@ -735,6 +761,7 @@
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
       :danger="true"
+      :pending="deletingKeyId !== null"
       @confirm="handleDelete"
       @cancel="showDeleteDialog = false"
     />
@@ -747,6 +774,7 @@
       :confirm-text="t('keys.reset')"
       :cancel-text="t('common.cancel')"
       :danger="true"
+      :pending="resetQuotaPending"
       @confirm="resetQuotaUsed"
       @cancel="showResetQuotaDialog = false"
     />
@@ -759,6 +787,7 @@
       :confirm-text="t('keys.reset')"
       :cancel-text="t('common.cancel')"
       :danger="true"
+      :pending="resetRateLimitPending"
       @confirm="resetRateLimitUsage"
       @cancel="showResetRateLimitDialog = false"
     />
@@ -827,6 +856,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 	import {
 		  AppPage,
 		  AppPageHeader,
+		  UiAlert,
 		  UiBadge,
 		  UiButton,
 		  UiColumnPicker,
@@ -834,6 +864,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 		  UiDataTable,
 		  UiDialog,
 		  UiEmptyState,
+		  UiErrorState,
 		  UiIconButton,
 		  UiPagination,
 		  UiPopover,
@@ -997,9 +1028,12 @@ const columns = computed<Column[]>(() =>
 const apiKeys = ref<ApiKey[]>([])
 const groups = ref<Group[]>([])
 const loading = ref(false)
+const loadError = ref(false)
 const submitting = ref(false)
 const now = ref(new Date())
 let resetTimer: ReturnType<typeof setInterval> | null = null
+let ccsImportTimer: ReturnType<typeof setTimeout> | null = null
+let ccsImportSeq = 0
 const usageStats = ref<Record<string, BatchApiKeyUsageStats>>({})
 const userGroupRates = ref<Record<number, number>>({})
 
@@ -1032,6 +1066,12 @@ const showUseKeyModal = ref(false)
 const showCcsClientSelect = ref(false)
 const pendingCcsRow = ref<ApiKey | null>(null)
 const selectedKey = ref<ApiKey | null>(null)
+const deletingKeyId = ref<number | null>(null)
+const resetQuotaPending = ref(false)
+const resetRateLimitPending = ref(false)
+const statusChangePendingKeys = ref(new Set<number>())
+const groupChangePendingKeys = ref(new Set<number>())
+let keyMutationSeq = 0
 const subscriptionIntentGroup = ref<Group | null>(null)
 const subscriptionCreateGroup = ref<Group | null>(null)
 const pendingSubscriptionBindingKey = ref<ApiKey | null>(null)
@@ -1264,6 +1304,7 @@ const loadApiKeys = async () => {
   abortController = controller
   const { signal } = controller
   loading.value = true
+  loadError.value = false
   try {
     // Build filters
     const filters: {
@@ -1284,6 +1325,7 @@ const loadApiKeys = async () => {
     })
     if (signal.aborted) return
     apiKeys.value = response.items
+    loadError.value = false
     pagination.value.total = response.total
     pagination.value.pages = response.pages
 
@@ -1304,6 +1346,7 @@ const loadApiKeys = async () => {
     if (isAbortError(error)) {
       return
     }
+    loadError.value = true
     appStore.showError(t('keys.failedToLoad'))
   } finally {
     if (abortController === controller) {
@@ -1493,7 +1536,9 @@ const editKey = (key: ApiKey) => {
 }
 
 const toggleKeyStatus = async (key: ApiKey) => {
+  if (statusChangePendingKeys.value.has(key.id)) return
   const newStatus = key.status === 'active' ? 'inactive' : 'active'
+  statusChangePendingKeys.value = new Set(statusChangePendingKeys.value).add(key.id)
   try {
     await keysAPI.toggleStatus(key.id, newStatus)
     appStore.showSuccess(
@@ -1502,6 +1547,10 @@ const toggleKeyStatus = async (key: ApiKey) => {
     loadApiKeys()
   } catch (error) {
     appStore.showError(t('keys.failedToUpdateStatus'))
+  } finally {
+    const pending = new Set(statusChangePendingKeys.value)
+    pending.delete(key.id)
+    statusChangePendingKeys.value = pending
   }
 }
 
@@ -1510,14 +1559,19 @@ const prepareGroupSelector = (_key: ApiKey, open: boolean) => {
 }
 
 const changeGroup = async (key: ApiKey, newGroupId: number | null) => {
-  if (key.group_id === newGroupId) return
+  if (key.group_id === newGroupId || groupChangePendingKeys.value.has(key.id)) return
 
+  groupChangePendingKeys.value = new Set(groupChangePendingKeys.value).add(key.id)
   try {
     await keysAPI.update(key.id, { group_id: newGroupId })
     appStore.showSuccess(t('keys.groupChangedSuccess'))
     loadApiKeys()
   } catch (error) {
     appStore.showError(t('keys.failedToChangeGroup'))
+  } finally {
+    const pending = new Set(groupChangePendingKeys.value)
+    pending.delete(key.id)
+    groupChangePendingKeys.value = pending
   }
 }
 
@@ -1527,6 +1581,7 @@ const confirmDelete = (key: ApiKey) => {
 }
 
 const handleSubmit = async () => {
+  if (submitting.value) return
   // Validate group_id is required
   if (formData.value.group_id === null) {
     appStore.showError(t('keys.groupRequired'))
@@ -1580,12 +1635,15 @@ const handleSubmit = async () => {
     rate_limit_7d: formData.value.rate_limit_7d && formData.value.rate_limit_7d > 0 ? formData.value.rate_limit_7d : 0,
   } : { rate_limit_5h: 0, rate_limit_1d: 0, rate_limit_7d: 0 }
 
+  const operationId = ++keyMutationSeq
+  const editingKeyId = showEditModal.value ? selectedKey.value?.id ?? null : null
+  const wasEditing = editingKeyId !== null
   submitting.value = true
   try {
     const createdForSubscription = !showEditModal.value &&
       subscriptionCreateGroup.value !== null &&
       formData.value.group_id === subscriptionCreateGroup.value.id
-    if (showEditModal.value && selectedKey.value) {
+    if (showEditModal.value && selectedKey.value && editingKeyId !== null) {
       const updates: UpdateApiKeyRequest = {
         name: formData.value.name,
         group_id: formData.value.group_id,
@@ -1600,8 +1658,7 @@ const handleSubmit = async () => {
       if (shouldSubmitEditStatus(selectedKey.value, formData.value.status)) {
         updates.status = formData.value.status
       }
-      await keysAPI.update(selectedKey.value.id, updates)
-      appStore.showSuccess(t('keys.keyUpdatedSuccess'))
+      await keysAPI.update(editingKeyId, updates)
     } else {
       const customKey = formData.value.use_custom_key ? formData.value.custom_key : undefined
       await keysAPI.create(
@@ -1614,6 +1671,11 @@ const handleSubmit = async () => {
         expiresInDays,
         rateLimitData
       )
+    }
+    if (operationId !== keyMutationSeq) return
+    if (wasEditing) {
+      appStore.showSuccess(t('keys.keyUpdatedSuccess'))
+    } else {
       appStore.showSuccess(t('keys.keyCreatedSuccess'))
       // Only advance tour if active, on submit step, and creation succeeded
       if (onboardingStore.isCurrentStep('[data-tour="key-form-submit"]')) {
@@ -1626,11 +1688,12 @@ const handleSubmit = async () => {
     closeModals()
     loadApiKeys()
   } catch (error: any) {
+    if (operationId !== keyMutationSeq) return
     const errorMsg = error.response?.data?.detail || t('keys.failedToSave')
     appStore.showError(errorMsg)
     // Don't advance tour on error
   } finally {
-    submitting.value = false
+    if (operationId === keyMutationSeq) submitting.value = false
   }
 }
 
@@ -1641,20 +1704,33 @@ const handleSubmit = async () => {
  */
 const handleDelete = async () => {
   if (!selectedKey.value) return
+  if (deletingKeyId.value !== null) return
+
+  const keyId = selectedKey.value.id
+  const operationId = ++keyMutationSeq
+  deletingKeyId.value = keyId
 
   try {
-    await keysAPI.delete(selectedKey.value.id)
+    await keysAPI.delete(keyId)
+    if (operationId !== keyMutationSeq) return
     appStore.showSuccess(t('keys.keyDeletedSuccess'))
-    showDeleteDialog.value = false
+    if (showDeleteDialog.value && selectedKey.value?.id === keyId) {
+      showDeleteDialog.value = false
+    }
     loadApiKeys()
   } catch (error: any) {
+    if (operationId !== keyMutationSeq) return
     // 优先使用后端返回的错误消息，提供更具体的错误信息给用户
     const errorMsg = error?.message || t('keys.failedToDelete')
     appStore.showError(errorMsg)
+  } finally {
+    if (operationId === keyMutationSeq) deletingKeyId.value = null
   }
 }
 
 const closeModals = () => {
+  keyMutationSeq += 1
+  submitting.value = false
   showCreateModal.value = false
   showEditModal.value = false
   selectedKey.value = null
@@ -1664,6 +1740,7 @@ const closeModals = () => {
 
 // Show reset quota confirmation dialog
 const confirmResetQuota = () => {
+  if (resetQuotaPending.value) return
   showResetQuotaDialog.value = true
 }
 
@@ -1677,49 +1754,68 @@ const setExpirationDays = (days: number) => {
 
 // Reset quota used for an API key
 const resetQuotaUsed = async () => {
-  if (!selectedKey.value) return
-  showResetQuotaDialog.value = false
+  if (!selectedKey.value || resetQuotaPending.value) return
+  const keyId = selectedKey.value.id
+  let succeeded = false
+  resetQuotaPending.value = true
   try {
-    await keysAPI.update(selectedKey.value.id, { reset_quota: true })
+    await keysAPI.update(keyId, { reset_quota: true })
     appStore.showSuccess(t('keys.quotaResetSuccess'))
-    // Update local state
-    if (selectedKey.value) {
-      selectedKey.value.quota_used = 0
+    const refreshedIndex = apiKeys.value.findIndex(key => key.id === keyId)
+    if (refreshedIndex >= 0) {
+      apiKeys.value[refreshedIndex] = { ...apiKeys.value[refreshedIndex], quota_used: 0 }
     }
+    if (selectedKey.value?.id === keyId) {
+      selectedKey.value = { ...selectedKey.value, quota_used: 0 }
+    }
+    succeeded = true
   } catch (error: any) {
     const errorMsg = error.response?.data?.detail || t('keys.failedToResetQuota')
     appStore.showError(errorMsg)
+  } finally {
+    resetQuotaPending.value = false
+    if (succeeded && selectedKey.value?.id === keyId) {
+      showResetQuotaDialog.value = false
+    }
   }
 }
 
 // Show reset rate limit confirmation dialog (from edit modal)
 const confirmResetRateLimit = () => {
+  if (resetRateLimitPending.value) return
   showResetRateLimitDialog.value = true
 }
 
 // Show reset rate limit confirmation dialog (from table row)
 const confirmResetRateLimitFromTable = (row: ApiKey) => {
+  if (resetRateLimitPending.value) return
   selectedKey.value = row
   showResetRateLimitDialog.value = true
 }
 
 // Reset rate limit usage for an API key
 const resetRateLimitUsage = async () => {
-  if (!selectedKey.value) return
-  showResetRateLimitDialog.value = false
+  if (!selectedKey.value || resetRateLimitPending.value) return
+  const keyId = selectedKey.value.id
+  let succeeded = false
+  resetRateLimitPending.value = true
   try {
-    await keysAPI.update(selectedKey.value.id, { reset_rate_limit_usage: true })
+    await keysAPI.update(keyId, { reset_rate_limit_usage: true })
     appStore.showSuccess(t('keys.rateLimitResetSuccess'))
     // Refresh key data
     await loadApiKeys()
-    // Update the editing key with fresh data
-    const refreshedKey = apiKeys.value.find(k => k.id === selectedKey.value!.id)
-    if (refreshedKey) {
+    // Keep the refreshed target tied to the key that initiated the request.
+    const refreshedKey = apiKeys.value.find(key => key.id === keyId)
+    if (refreshedKey && selectedKey.value?.id === keyId) {
       selectedKey.value = refreshedKey
     }
+    succeeded = true
   } catch (error: any) {
     const errorMsg = error.response?.data?.detail || t('keys.failedToResetRateLimit')
     appStore.showError(errorMsg)
+  } finally {
+    resetRateLimitPending.value = false
+    if (succeeded && selectedKey.value?.id === keyId) showResetRateLimitDialog.value = false
   }
 }
 
@@ -1738,6 +1834,11 @@ const importToCcswitch = (row: ApiKey) => {
 }
 
 const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
+  if (ccsImportTimer) {
+    clearTimeout(ccsImportTimer)
+    ccsImportTimer = null
+  }
+  const importSeq = ++ccsImportSeq
   const baseUrl = publicSettings.value?.api_base_url || window.location.origin
   const platform = row.group?.platform || 'anthropic'
 
@@ -1771,8 +1872,9 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
     window.open(deeplink, '_self')
 
     // Check if the protocol handler worked by detecting if we're still focused
-    setTimeout(() => {
-      if (document.hasFocus()) {
+    ccsImportTimer = setTimeout(() => {
+      ccsImportTimer = null
+      if (importSeq === ccsImportSeq && document.hasFocus()) {
         // Still focused means the protocol handler likely failed
         appStore.showError(t('keys.ccSwitchNotInstalled'))
       }
@@ -1818,6 +1920,11 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  ccsImportSeq += 1
+  if (ccsImportTimer) clearTimeout(ccsImportTimer)
+  ccsImportTimer = null
+  abortController?.abort()
+  abortController = null
   if (resetTimer) clearInterval(resetTimer)
 })
 </script>

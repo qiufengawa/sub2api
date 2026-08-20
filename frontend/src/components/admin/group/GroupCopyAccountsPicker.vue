@@ -8,9 +8,14 @@
     <div v-if="selectedIds.length" class="group-copy-picker__selection">
       <UiBadge v-for="groupId in selectedIds" :key="groupId">
         <span>{{ labelFor(groupId) }}</span>
-        <button type="button" :aria-label="`${removeLabel}: ${labelFor(groupId)}`" @click="remove(groupId)">
-          <Icon name="x" size="xs" />
-        </button>
+        <UiIconButton
+          type="button"
+          icon="x"
+          variant="ghost"
+          density="mini"
+          :label="`${removeLabel}: ${labelFor(groupId)}`"
+          @click="remove(groupId)"
+        />
       </UiBadge>
     </div>
 
@@ -29,8 +34,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
-import Icon from '@/components/icons/Icon.vue'
-import { UiBadge, UiFieldHelp, UiSelect, type SelectOption, type SelectValue } from '@/components/ui'
+import { UiBadge, UiFieldHelp, UiIconButton, UiSelect, type SelectOption, type SelectValue } from '@/components/ui'
 
 interface GroupOption extends SelectOption {
   value: number

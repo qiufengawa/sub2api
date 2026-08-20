@@ -1,5 +1,5 @@
 <template>
-  <section class="card flex h-full min-h-[360px] flex-col xl:h-[470px] xl:min-h-[470px]" data-testid="dashboard-quota-card">
+  <section class="ui-panel flex h-full min-h-[360px] flex-col xl:h-[470px] xl:min-h-[470px]" data-testid="dashboard-quota-card">
     <div class="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-dark-700">
       <div>
         <h2 class="text-sm font-semibold text-gray-950 dark:text-white">{{ t('dashboard.overview.allowanceStatus') }}</h2>
@@ -50,7 +50,7 @@
             </div>
           </div>
           <div class="h-1.5 overflow-hidden rounded-[2px] bg-gray-100 dark:bg-dark-700">
-            <div class="h-full rounded-[2px] transition-all" :class="barClass(row.percent)" :style="{ width: `${Math.max(row.limit === 0 ? 100 : 2, row.percent)}%` }" />
+            <div class="h-full rounded-[2px]" :class="barClass(row.percent)" :style="{ width: `${Math.max(row.limit === 0 ? 100 : 2, row.percent)}%` }" />
           </div>
         </div>
       </div>

@@ -1,61 +1,51 @@
 <template>
-  <div ref="containerRef" class="relative">
-    <div v-if="selectedUserIds.length > 0" class="mb-2 flex flex-wrap gap-2">
+  <div ref="containerRef" class="fast-user-picker">
+    <div v-if="selectedUserIds.length > 0" class="fast-user-picker__selection">
       <span
         v-for="userId in selectedUserIds"
         :key="userId"
-        class="inline-flex max-w-full items-center gap-1.5 rounded-md bg-gray-100 px-2.5 py-1.5 text-xs text-gray-700 dark:bg-dark-600 dark:text-gray-200"
+        class="fast-user-picker__chip"
       >
-        <span class="max-w-64 truncate font-medium" :title="selectedUserLabel(userId)">
+        <span class="fast-user-picker__chip-label" :title="selectedUserLabel(userId)">
           {{ selectedUserLabel(userId) }}
         </span>
-        <span class="shrink-0 text-gray-400">#{{ userId }}</span>
-        <span
-          v-if="selectedUsers[userId]?.deleted"
-          class="shrink-0 text-gray-400"
-        >
+        <span class="fast-user-picker__id">#{{ userId }}</span>
+        <UiBadge v-if="selectedUsers[userId]?.deleted">
           {{ t("admin.settings.openaiFastPolicy.userDeleted") }}
-        </span>
-        <button
-          type="button"
-          class="shrink-0 rounded text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-          :aria-label="t('admin.settings.openaiFastPolicy.removeUser')"
-          :title="t('admin.settings.openaiFastPolicy.removeUser')"
+        </UiBadge>
+        <UiIconButton
+          density="mini"
+          variant="danger"
+          icon="x"
+          :label="t('admin.settings.openaiFastPolicy.removeUser')"
           @click="removeUser(userId)"
-        >
-          <Icon name="x" size="xs" :stroke-width="2" />
-        </button>
+        />
       </span>
     </div>
 
-    <div class="relative">
-      <Icon
-        name="search"
-        size="sm"
-        class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-      />
-      <input
-        v-model="searchQuery"
-        type="text"
-        autocomplete="off"
-        class="input input-sm w-full pl-9"
-        :placeholder="t('admin.settings.openaiFastPolicy.userSearchPlaceholder')"
-        @input="debounceSearch"
-        @focus="showDropdown = true"
-      />
-    </div>
+    <UiTextField
+      v-model="searchQuery"
+      type="text"
+      density="compact"
+      autocomplete="off"
+      :placeholder="t('admin.settings.openaiFastPolicy.userSearchPlaceholder')"
+      @input="debounceSearch"
+      @focus="showDropdown = true"
+    >
+      <template #prefix><Icon name="search" size="sm" /></template>
+    </UiTextField>
 
     <div
       v-if="showDropdown && searchQuery.trim()"
-      class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-dark-600 dark:bg-dark-700"
+      class="fast-user-picker__dropdown"
+      role="listbox"
+      :aria-label="t('admin.settings.openaiFastPolicy.userSearchPlaceholder')"
     >
-      <div v-if="searchLoading" class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-        {{ t("common.loading") }}
+      <div v-if="searchLoading" class="fast-user-picker__status" aria-live="polite">
+        <UiSpinner size="sm" :label="t('common.loading')" />
+        <span>{{ t("common.loading") }}</span>
       </div>
-      <div
-        v-else-if="availableResults.length === 0"
-        class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400"
-      >
+      <div v-else-if="availableResults.length === 0" class="fast-user-picker__status">
         {{ t("admin.settings.openaiFastPolicy.userSearchEmpty") }}
       </div>
       <template v-else>
@@ -63,16 +53,18 @@
           v-for="user in availableResults"
           :key="user.id"
           type="button"
-          class="flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-dark-600"
+          class="fast-user-picker__option ui-focus-ring"
+          role="option"
+          aria-selected="false"
           @click="selectUser(user)"
         >
-          <span class="min-w-0 truncate font-medium text-gray-900 dark:text-white">
-            {{ user.email }}
-            <span v-if="user.deleted" class="ml-1 text-xs font-normal text-gray-400">
+          <span class="fast-user-picker__option-label">
+            <span>{{ user.email }}</span>
+            <UiBadge v-if="user.deleted">
               {{ t("admin.settings.openaiFastPolicy.userDeleted") }}
-            </span>
+            </UiBadge>
           </span>
-          <span class="shrink-0 text-xs text-gray-400">#{{ user.id }}</span>
+          <span class="fast-user-picker__id">#{{ user.id }}</span>
         </button>
       </template>
     </div>
@@ -85,6 +77,7 @@ import { useI18n } from "vue-i18n";
 import { adminAPI } from "@/api/admin";
 import type { SimpleUser } from "@/api/admin/usage";
 import Icon from "@/components/icons/Icon.vue";
+import { UiBadge, UiIconButton, UiSpinner, UiTextField } from "@/components/ui";
 
 const props = defineProps<{
   modelValue: number[];
@@ -227,3 +220,127 @@ onUnmounted(() => {
   document.removeEventListener("click", handleDocumentClick);
 });
 </script>
+
+<style scoped>
+.fast-user-picker {
+  position: relative;
+  min-width: 0;
+}
+
+.fast-user-picker__selection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.fast-user-picker__chip {
+  display: inline-flex;
+  max-width: 100%;
+  min-height: 28px;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 3px 2px 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-dense);
+  color: var(--ui-text-muted);
+  background: var(--ui-surface-muted);
+  font-size: 12px;
+}
+
+.fast-user-picker__chip-label,
+.fast-user-picker__option-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ui-text);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fast-user-picker__chip-label {
+  max-width: 256px;
+}
+
+.fast-user-picker__id {
+  flex: 0 0 auto;
+  color: var(--ui-text-soft);
+  font-family: var(--ui-font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.fast-user-picker__dropdown {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+  box-shadow: 0 8px 24px rgb(31 35 41 / 10%);
+}
+
+.fast-user-picker__status {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  color: var(--ui-text-soft);
+  font-size: 12px;
+}
+
+.fast-user-picker__option {
+  display: flex;
+  width: 100%;
+  min-height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--ui-border-soft);
+  color: var(--ui-text);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--ui-motion-fast);
+}
+
+.fast-user-picker__option:last-child {
+  border-bottom: 0;
+}
+
+.fast-user-picker__option:hover,
+.fast-user-picker__option:focus-visible {
+  background: var(--ui-surface-muted);
+}
+
+.fast-user-picker__option-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+}
+
+@media (max-width: 520px) {
+  .fast-user-picker__chip {
+    width: 100%;
+  }
+
+  .fast-user-picker__chip-label {
+    max-width: none;
+    flex: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fast-user-picker__option {
+    transition: none;
+  }
+}
+</style>

@@ -215,6 +215,29 @@ describe('admin UsageView route filters', () => {
     expect(wrapper.getComponent(UsageStatsCardsStub).props('showCacheHitRate')).toBe(true)
   })
 
+  it('associates each detail tab with a persistent tabpanel', async () => {
+    const wrapper = mountRouteFilteredUsageView()
+    await flushPromises()
+
+    for (const value of ['usage', 'errors', 'ranking']) {
+      const tab = wrapper.get(`#admin-usage-tab-${value}`)
+      const panelId = `admin-usage-panel-${value}`
+      expect(tab.attributes('role')).toBe('tab')
+      expect(tab.attributes('aria-controls')).toBe(panelId)
+      const panel = wrapper.get(`#${panelId}`)
+      expect(panel.attributes('role')).toBe('tabpanel')
+      expect(panel.attributes('aria-labelledby')).toBe(`admin-usage-tab-${value}`)
+    }
+  })
+
+  it('shows a retryable error state when usage logs fail', async () => {
+    list.mockRejectedValue(new Error('network failure'))
+    const wrapper = mountRouteFilteredUsageView()
+    await flushPromises()
+
+    expect(wrapper.find('#admin-usage-panel-usage .ui-error-state').exists()).toBe(true)
+  })
+
   it('shows the routed user while applying user_id to usage requests', async () => {
     routeQuery.user_id = '42'
     getById.mockResolvedValue({ id: 42, email: 'route-user@test.com' })

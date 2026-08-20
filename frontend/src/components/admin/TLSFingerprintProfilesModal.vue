@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.tlsFingerprintProfiles.title')"
     width="wide"
@@ -11,10 +11,10 @@
         <p class="text-sm text-gray-500 dark:text-gray-400">
           {{ t('admin.tlsFingerprintProfiles.description') }}
         </p>
-        <button @click="showCreateModal = true" class="btn btn-primary btn-sm">
-          <Icon name="plus" size="sm" class="mr-1" />
+        <UiButton type="button" density="compact" variant="primary" @click="showCreateModal = true">
+          <template #icon><Icon name="plus" size="sm" /></template>
           {{ t('admin.tlsFingerprintProfiles.createProfile') }}
-        </button>
+        </UiButton>
       </div>
 
       <!-- Profiles Table -->
@@ -75,13 +75,13 @@
               </td>
               <td class="px-3 py-2">
                 <div v-if="profile.alpn_protocols?.length" class="flex flex-wrap gap-1">
-                  <span
+                  <UiBadge
                     v-for="proto in profile.alpn_protocols.slice(0, 3)"
                     :key="proto"
-                    class="badge badge-primary text-xs"
+                    tone="info"
                   >
                     {{ proto }}
-                  </span>
+                  </UiBadge>
                   <span v-if="profile.alpn_protocols.length > 3" class="text-xs text-gray-500">
                     +{{ profile.alpn_protocols.length - 3 }}
                   </span>
@@ -90,20 +90,20 @@
               </td>
               <td class="px-3 py-2">
                 <div class="flex items-center gap-1">
-                  <button
+                  <UiIconButton
                     @click="handleEdit(profile)"
-                    class="p-1 text-gray-500 hover:text-primary-600 dark:hover:text-primary-400"
-                    :title="t('common.edit')"
-                  >
-                    <Icon name="edit" size="sm" />
-                  </button>
-                  <button
+                    icon="edit"
+                    variant="ghost"
+                    density="mini"
+                    :label="t('common.edit')"
+                  />
+                  <UiIconButton
                     @click="handleDelete(profile)"
-                    class="p-1 text-gray-500 hover:text-red-600 dark:hover:text-red-400"
-                    :title="t('common.delete')"
-                  >
-                    <Icon name="trash" size="sm" />
-                  </button>
+                    icon="trash"
+                    variant="danger"
+                    density="mini"
+                    :label="t('common.delete')"
+                  />
                 </div>
               </td>
             </tr>
@@ -114,14 +114,14 @@
 
     <template #footer>
       <div class="flex justify-end">
-        <button @click="$emit('close')" class="btn btn-secondary">
+        <UiButton type="button" density="compact" @click="$emit('close')">
           {{ t('common.close') }}
-        </button>
+        </UiButton>
       </div>
     </template>
 
     <!-- Create/Edit Modal -->
-    <BaseDialog
+    <UiDialog
       :show="showCreateModal || showEditModal"
       :title="showEditModal ? t('admin.tlsFingerprintProfiles.editProfile') : t('admin.tlsFingerprintProfiles.createProfile')"
       width="wide"
@@ -131,18 +131,18 @@
       <form @submit.prevent="handleSubmit" class="space-y-4">
         <!-- Paste YAML -->
         <div>
-          <label class="input-label">{{ t('admin.tlsFingerprintProfiles.form.pasteYaml') }}</label>
-          <textarea
+          <UiTextArea
             v-model="yamlInput"
-            rows="4"
-            class="input font-mono text-xs"
+            :rows="4"
+            monospace
+            :label="t('admin.tlsFingerprintProfiles.form.pasteYaml')"
             :placeholder="t('admin.tlsFingerprintProfiles.form.pasteYamlPlaceholder')"
             @paste="handleYamlPaste"
           />
           <div class="mt-1 flex items-center gap-2">
-            <button type="button" @click="parseYamlInput" class="btn btn-secondary btn-sm">
+            <UiButton type="button" density="compact" @click="parseYamlInput">
               {{ t('admin.tlsFingerprintProfiles.form.parseYaml') }}
-            </button>
+            </UiButton>
             <p class="text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.tlsFingerprintProfiles.form.pasteYamlHint') }}
               <a href="https://tls.sub2api.org" target="_blank" rel="noopener noreferrer" class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 underline">{{ t('admin.tlsFingerprintProfiles.form.openCollector') }}</a>
@@ -155,21 +155,21 @@
         <!-- Basic Info -->
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="input-label">{{ t('admin.tlsFingerprintProfiles.form.name') }}</label>
-            <input
+            <UiTextField
               v-model="form.name"
               type="text"
               required
-              class="input"
+              density="compact"
+              :label="t('admin.tlsFingerprintProfiles.form.name')"
               :placeholder="t('admin.tlsFingerprintProfiles.form.namePlaceholder')"
             />
           </div>
           <div>
-            <label class="input-label">{{ t('admin.tlsFingerprintProfiles.form.description') }}</label>
-            <input
+            <UiTextField
               v-model="form.description"
               type="text"
-              class="input"
+              density="compact"
+              :label="t('admin.tlsFingerprintProfiles.form.description')"
               :placeholder="t('admin.tlsFingerprintProfiles.form.descriptionPlaceholder')"
             />
           </div>
@@ -177,25 +177,11 @@
 
         <!-- GREASE Toggle -->
         <div class="flex items-center gap-3">
-          <button
-            type="button"
-            @click="form.enable_grease = !form.enable_grease"
-            :class="[
-              'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              form.enable_grease ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                form.enable_grease ? 'translate-x-4' : 'translate-x-0'
-              ]"
-            />
-          </button>
+          <UiSwitch
+            v-model="form.enable_grease"
+            :label="t('admin.tlsFingerprintProfiles.form.enableGrease')"
+          />
           <div>
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t('admin.tlsFingerprintProfiles.form.enableGrease') }}
-            </span>
             <p class="text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.tlsFingerprintProfiles.form.enableGreaseHint') }}
             </p>
@@ -205,83 +191,83 @@
         <!-- TLS Array Fields - 2 column grid -->
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="input-label text-xs">{{ t('admin.tlsFingerprintProfiles.form.cipherSuites') }}</label>
-            <textarea
+            <UiTextArea
               v-model="fieldInputs.cipher_suites"
-              rows="2"
-              class="input font-mono text-xs"
+              :rows="2"
+              monospace
+              :label="t('admin.tlsFingerprintProfiles.form.cipherSuites')"
+              :description="t('admin.tlsFingerprintProfiles.form.cipherSuitesHint')"
               :placeholder="'0x1301, 0x1302, 0xc02c'"
             />
-            <p class="input-hint text-xs">{{ t('admin.tlsFingerprintProfiles.form.cipherSuitesHint') }}</p>
           </div>
 
           <div>
-            <label class="input-label text-xs">{{ t('admin.tlsFingerprintProfiles.form.curves') }}</label>
-            <textarea
+            <UiTextArea
               v-model="fieldInputs.curves"
-              rows="2"
-              class="input font-mono text-xs"
+              :rows="2"
+              monospace
+              :label="t('admin.tlsFingerprintProfiles.form.curves')"
+              :description="t('admin.tlsFingerprintProfiles.form.curvesHint')"
               :placeholder="'29, 23, 24'"
             />
-            <p class="input-hint text-xs">{{ t('admin.tlsFingerprintProfiles.form.curvesHint') }}</p>
           </div>
 
           <div>
-            <label class="input-label text-xs">{{ t('admin.tlsFingerprintProfiles.form.signatureAlgorithms') }}</label>
-            <textarea
+            <UiTextArea
               v-model="fieldInputs.signature_algorithms"
-              rows="2"
-              class="input font-mono text-xs"
+              :rows="2"
+              monospace
+              :label="t('admin.tlsFingerprintProfiles.form.signatureAlgorithms')"
               :placeholder="'0x0403, 0x0804, 0x0401'"
             />
           </div>
 
           <div>
-            <label class="input-label text-xs">{{ t('admin.tlsFingerprintProfiles.form.supportedVersions') }}</label>
-            <textarea
+            <UiTextArea
               v-model="fieldInputs.supported_versions"
-              rows="2"
-              class="input font-mono text-xs"
+              :rows="2"
+              monospace
+              :label="t('admin.tlsFingerprintProfiles.form.supportedVersions')"
               :placeholder="'0x0304, 0x0303'"
             />
           </div>
 
           <div>
-            <label class="input-label text-xs">{{ t('admin.tlsFingerprintProfiles.form.keyShareGroups') }}</label>
-            <textarea
+            <UiTextArea
               v-model="fieldInputs.key_share_groups"
-              rows="2"
-              class="input font-mono text-xs"
+              :rows="2"
+              monospace
+              :label="t('admin.tlsFingerprintProfiles.form.keyShareGroups')"
               :placeholder="'29, 23'"
             />
           </div>
 
           <div>
-            <label class="input-label text-xs">{{ t('admin.tlsFingerprintProfiles.form.extensions') }}</label>
-            <textarea
+            <UiTextArea
               v-model="fieldInputs.extensions"
-              rows="2"
-              class="input font-mono text-xs"
+              :rows="2"
+              monospace
+              :label="t('admin.tlsFingerprintProfiles.form.extensions')"
               :placeholder="'0x0000, 0x0005, 0x000a'"
             />
           </div>
 
           <div>
-            <label class="input-label text-xs">{{ t('admin.tlsFingerprintProfiles.form.pointFormats') }}</label>
-            <textarea
+            <UiTextArea
               v-model="fieldInputs.point_formats"
-              rows="2"
-              class="input font-mono text-xs"
+              :rows="2"
+              monospace
+              :label="t('admin.tlsFingerprintProfiles.form.pointFormats')"
               :placeholder="'0'"
             />
           </div>
 
           <div>
-            <label class="input-label text-xs">{{ t('admin.tlsFingerprintProfiles.form.pskModes') }}</label>
-            <textarea
+            <UiTextArea
               v-model="fieldInputs.psk_modes"
-              rows="2"
-              class="input font-mono text-xs"
+              :rows="2"
+              monospace
+              :label="t('admin.tlsFingerprintProfiles.form.pskModes')"
               :placeholder="'1'"
             />
           </div>
@@ -289,11 +275,11 @@
 
         <!-- ALPN Protocols - full width -->
         <div>
-          <label class="input-label text-xs">{{ t('admin.tlsFingerprintProfiles.form.alpnProtocols') }}</label>
-          <textarea
+          <UiTextArea
             v-model="fieldInputs.alpn_protocols"
-            rows="2"
-            class="input font-mono text-xs"
+            :rows="2"
+            monospace
+            :label="t('admin.tlsFingerprintProfiles.form.alpnProtocols')"
             :placeholder="'h2, http/1.1'"
           />
         </div>
@@ -301,29 +287,29 @@
 
       <template #footer>
         <div class="flex justify-end gap-3">
-          <button @click="closeFormModal" type="button" class="btn btn-secondary">
+          <UiButton type="button" density="compact" @click="closeFormModal">
             {{ t('common.cancel') }}
-          </button>
-          <button @click="handleSubmit" :disabled="submitting" class="btn btn-primary">
-            <Icon v-if="submitting" name="refresh" size="sm" class="mr-1 animate-spin" />
+          </UiButton>
+          <UiButton type="button" density="compact" variant="primary" :loading="submitting" @click="handleSubmit">
             {{ showEditModal ? t('common.update') : t('common.create') }}
-          </button>
+          </UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
     <!-- Delete Confirmation -->
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showDeleteDialog"
       :title="t('admin.tlsFingerprintProfiles.deleteProfile')"
       :message="t('admin.tlsFingerprintProfiles.deleteConfirmMessage', { name: deletingProfile?.name })"
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
       :danger="true"
+      :pending="deletePending"
       @confirm="confirmDelete"
-      @cancel="showDeleteDialog = false"
+      @cancel="showDeleteDialog = false; deletingProfile = null"
     />
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
@@ -332,9 +318,8 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { TLSFingerprintProfile } from '@/api/admin/tlsFingerprintProfile'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { UiBadge, UiButton, UiConfirmDialog, UiDialog, UiIconButton, UiSwitch, UiTextArea, UiTextField } from '@/components/ui'
 
 const props = defineProps<{
   show: boolean
@@ -358,6 +343,7 @@ const showEditModal = ref(false)
 const showDeleteDialog = ref(false)
 const editingProfile = ref<TLSFingerprintProfile | null>(null)
 const deletingProfile = ref<TLSFingerprintProfile | null>(null)
+const deletePending = ref(false)
 const yamlInput = ref('')
 
 // Raw string inputs for array fields
@@ -609,10 +595,12 @@ const handleSubmit = async () => {
 }
 
 const confirmDelete = async () => {
-  if (!deletingProfile.value) return
+  if (deletePending.value || !deletingProfile.value) return
+  const profile = deletingProfile.value
+  deletePending.value = true
 
   try {
-    await adminAPI.tlsFingerprintProfiles.delete(deletingProfile.value.id)
+    await adminAPI.tlsFingerprintProfiles.delete(profile.id)
     appStore.showSuccess(t('admin.tlsFingerprintProfiles.deleteSuccess'))
     showDeleteDialog.value = false
     deletingProfile.value = null
@@ -620,6 +608,8 @@ const confirmDelete = async () => {
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.tlsFingerprintProfiles.deleteFailed'))
     console.error('Error deleting TLS fingerprint profile:', error)
+  } finally {
+    deletePending.value = false
   }
 }
 </script>

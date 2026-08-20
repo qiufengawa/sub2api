@@ -25,54 +25,60 @@
       class="matrix-scroll"
       @wheel="onMatrixWheel"
     >
-      <div class="matrix-table" :style="tableStyle">
+      <div class="matrix-table" role="grid" :aria-label="t('channelMonitorV2.matrix.title')" :style="tableStyle">
         <div
           class="matrix-header matrix-row"
+          role="row"
           :class="{ 'matrix-row--with-tps': showThroughput }"
         >
-          <span>{{ t('channelMonitorV2.matrix.dimension') }}</span>
-          <span>{{ t('channelMonitorV2.metrics.successRate') }}</span>
-          <span>{{ t('channelMonitorV2.metrics.ttft') }}</span>
-          <span v-if="showThroughput">{{ t('channelMonitorV2.metrics.tps') }}</span>
-          <span>{{ t('channelMonitorV2.metrics.cacheRate') }}</span>
-          <span class="pulse-axis">
+          <span role="columnheader">{{ t('channelMonitorV2.matrix.dimension') }}</span>
+          <span role="columnheader">{{ t('channelMonitorV2.metrics.successRate') }}</span>
+          <span role="columnheader">{{ t('channelMonitorV2.metrics.ttft') }}</span>
+          <span v-if="showThroughput" role="columnheader">{{ t('channelMonitorV2.metrics.tps') }}</span>
+          <span role="columnheader">{{ t('channelMonitorV2.metrics.cacheRate') }}</span>
+          <span role="columnheader" class="pulse-axis">
             <i>{{ axisStart }}</i>
             <i>{{ axisEnd }}</i>
           </span>
         </div>
 
         <div
-          v-for="entry in alignedRows"
+          v-for="(entry, rowIndex) in alignedRows"
           :key="rowKey(entry.row)"
           class="matrix-row matrix-data-row"
+          role="row"
+          :aria-rowindex="rowIndex + 2"
           :class="{ 'matrix-row--with-tps': showThroughput }"
         >
-          <div class="dimension-cell" :title="rowLabel(entry.row)">
+          <div class="dimension-cell" role="gridcell" :title="rowLabel(entry.row)">
             <span :class="['status-dot', cellClass(entry.row.health, entry.row.metrics.request_count)]" />
             <strong>{{ rowLabel(entry.row) }}</strong>
           </div>
-          <strong class="summary-value">{{ successRate(entry.row.metrics) }}</strong>
-          <strong class="summary-value" :title="latencyPrivacy(entry.row.metrics.ttft)">
+          <strong class="summary-value" role="gridcell">{{ successRate(entry.row.metrics) }}</strong>
+          <strong class="summary-value" role="gridcell" :title="latencyPrivacy(entry.row.metrics.ttft)">
             {{ formatMs(entry.row.metrics.ttft.p50_ms) }}
           </strong>
           <strong
             v-if="showThroughput"
             class="summary-value"
+            role="gridcell"
             :title="exactTps(entry.row.metrics.tpm)"
           >
             {{ formatTps(entry.row.metrics.tpm) }}
           </strong>
-          <strong class="summary-value">{{ formatPercent(entry.row.metrics.cache_rate) }}</strong>
-          <div class="pulse-track" :style="pulseStyle">
+          <strong class="summary-value" role="gridcell">{{ formatPercent(entry.row.metrics.cache_rate) }}</strong>
+          <div class="pulse-track" role="gridcell" :style="pulseStyle">
             <span
-              v-for="slot in entry.slots"
+              v-for="(slot, columnIndex) in entry.slots"
               :key="slot.start"
               class="pulse-cell"
               :class="[
                 slot.bucket ? cellClass(slot.bucket.health, slot.bucket.metrics.request_count) : 'health-unknown',
                 slot.bucket ? 'has-data' : 'is-empty'
               ]"
-              tabindex="0"
+              :tabindex="rowIndex === activeCell.row && columnIndex === activeCell.column ? 0 : -1"
+              :data-row="rowIndex"
+              :data-column="columnIndex"
               role="img"
               :title="
                 slot.bucket
@@ -87,8 +93,9 @@
               @mouseenter="showTooltip($event, slot)"
               @mousemove="moveTooltip($event)"
               @mouseleave="hideTooltip"
-              @focus="showTooltip($event, slot)"
+              @focus="focusCell(rowIndex, columnIndex, $event, slot)"
               @blur="hideTooltip"
+              @keydown="onCellKeydown($event, rowIndex, columnIndex)"
             >
               <span class="pulse-tooltip" role="tooltip">
                 <template v-if="slot.bucket">
@@ -198,6 +205,7 @@ const floatingTooltip = reactive({
 })
 
 const scrollRef = ref<HTMLElement | null>(null)
+const activeCell = reactive({ row: 0, column: 0 })
 const zoom = ref<ZoomState>(resetZoom())
 const zoomed = computed(() => isZoomed(zoom.value))
 
@@ -319,6 +327,44 @@ watch(
     zoom.value = resetZoom()
   },
 )
+
+watch(
+  [() => alignedRows.value.length, () => bucketStarts.value.length],
+  ([rowCount, columnCount]) => {
+    activeCell.row = Math.min(activeCell.row, Math.max(0, rowCount - 1))
+    activeCell.column = Math.min(activeCell.column, Math.max(0, columnCount - 1))
+  },
+)
+
+function focusCell(row: number, column: number, event: FocusEvent, slot: AlignedSlot) {
+  activeCell.row = row
+  activeCell.column = column
+  showTooltip(event, slot)
+}
+
+function moveCell(row: number, column: number) {
+  const rowCount = alignedRows.value.length
+  const columnCount = bucketStarts.value.length
+  if (!rowCount || !columnCount) return
+  activeCell.row = Math.min(Math.max(row, 0), rowCount - 1)
+  activeCell.column = Math.min(Math.max(column, 0), columnCount - 1)
+  const selector = `.pulse-cell[data-row="${activeCell.row}"][data-column="${activeCell.column}"]`
+  scrollRef.value?.querySelector<HTMLElement>(selector)?.focus()
+}
+
+function onCellKeydown(event: KeyboardEvent, row: number, column: number) {
+  let nextRow = row
+  let nextColumn = column
+  if (event.key === 'ArrowLeft') nextColumn -= 1
+  else if (event.key === 'ArrowRight') nextColumn += 1
+  else if (event.key === 'ArrowUp') nextRow -= 1
+  else if (event.key === 'ArrowDown') nextRow += 1
+  else if (event.key === 'Home') nextColumn = 0
+  else if (event.key === 'End') nextColumn = bucketStarts.value.length - 1
+  else return
+  event.preventDefault()
+  moveCell(nextRow, nextColumn)
+}
 
 function cellClass(health: MonitorHealth, requestCount: number): string {
   return healthScoreClass(health, props.healthMode, requestCount)

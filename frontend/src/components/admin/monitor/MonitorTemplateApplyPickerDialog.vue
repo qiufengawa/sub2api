@@ -14,9 +14,9 @@
         </AppInline>
 
         <AppStack :gap="6">
-          <AppInline v-for="monitor in monitors" :key="monitor.id" justify="space-between" :wrap="false">
+          <AppInline v-for="monitor in monitors" :key="monitor.id" justify="space-between">
             <UiCheckbox :model-value="selectedSet.has(monitor.id)" :label="monitor.name" @update:model-value="toggle(monitor.id)" />
-            <AppInline :wrap="false">
+            <AppInline>
               <UiBadge :label="monitor.provider" />
               <UiBadge v-if="monitor.provider === 'openai'" tone="info" :label="monitor.api_mode" />
               <UiStatusBadge :status="monitor.enabled ? 'active' : 'inactive'" :label="monitor.enabled ? t('admin.channelMonitor.onlyEnabled') : t('admin.channelMonitor.onlyDisabled')" />

@@ -9,30 +9,26 @@
       </p>
     </header>
 
-    <div class="mt-3 divide-y divide-gray-100 border-y border-gray-100 dark:divide-dark-700 dark:border-dark-700">
-      <label
-        v-for="option in options"
-        :key="option.value"
-        class="flex cursor-pointer items-start gap-3 py-3"
-      >
-        <input
-          v-model="selected"
-          type="radio"
-          name="billing-preference"
-          :value="option.value"
-          class="mt-0.5 h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-500"
-        />
-        <span class="min-w-0">
-          <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ option.label }}</span>
-          <span class="mt-0.5 block text-xs leading-5 text-gray-500 dark:text-dark-400">{{ option.description }}</span>
-        </span>
-      </label>
-    </div>
+    <UiRadioGroup
+      class="mt-3"
+      :model-value="selected"
+      :options="options"
+      name="billing-preference"
+      layout="stacked"
+      @update:model-value="selectPreference"
+    />
 
     <div class="mt-3 flex justify-end">
-      <button type="button" class="btn btn-primary btn-sm" :disabled="saving || !dirty" @click="save">
+      <UiButton
+        type="button"
+        variant="primary"
+        density="compact"
+        :disabled="!dirty"
+        :loading="saving"
+        @click="save"
+      >
         {{ saving ? t('common.saving') : t('common.save') }}
-      </button>
+      </UiButton>
     </div>
   </div>
 </template>
@@ -45,6 +41,7 @@ import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import type { BillingPreference } from '@/types'
+import { UiButton, UiRadioGroup } from '@/components/ui'
 
 const props = defineProps<{ value?: BillingPreference }>()
 const { t } = useI18n()
@@ -68,6 +65,10 @@ const options = computed<Array<{ value: BillingPreference; label: string; descri
   { value: 'subscription_only', label: t('profile.billingPreference.subscriptionOnly'), description: t('profile.billingPreference.subscriptionOnlyDesc') },
   { value: 'wallet_only', label: t('profile.billingPreference.walletOnly'), description: t('profile.billingPreference.walletOnlyDesc') },
 ])
+
+function selectPreference(value: string | number) {
+  selected.value = value as BillingPreference
+}
 
 async function save() {
   if (!dirty.value || saving.value) return

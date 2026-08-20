@@ -1,75 +1,99 @@
 <template>
   <AppLayout>
-    <div class="mx-auto max-w-4xl overflow-hidden rounded border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800">
-      <header class="border-b border-gray-100 px-4 py-3 dark:border-dark-700">
-        <h2 class="text-base font-semibold text-gray-900 dark:text-white">
-          {{ qrUrl ? scanTitle : t('payment.qr.payInNewWindow') }}
-        </h2>
-        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.qr.waitingPayment') }}</p>
-      </header>
+    <AppPage density="compact" width="wide">
+      <AppPageHeader
+        :title="qrUrl ? scanTitle : t('payment.qr.payInNewWindow')"
+        :description="t('payment.qr.waitingPayment')"
+      >
+        <template #status>
+          <UiStatusBadge
+            :status="isTerminal ? 'failed' : 'pending'"
+            :label="isTerminal ? terminalStatusLabel : t('payment.qr.waitingPayment')"
+          />
+        </template>
+      </AppPageHeader>
 
-      <div class="grid md:grid-cols-[minmax(300px,0.9fr)_minmax(0,1.1fr)]">
-        <section class="flex min-h-[340px] items-center justify-center border-b border-gray-100 bg-gray-50/60 p-5 md:border-b-0 md:border-r dark:border-dark-700 dark:bg-dark-900/30">
+      <AppGrid min="300px" class="payment-qr__grid">
+        <AppSection class="payment-qr__code-section">
           <div v-if="qrUrl" class="text-center">
-            <div class="inline-block rounded border border-gray-200 bg-white p-3 dark:border-dark-700">
-              <canvas ref="qrCanvas" class="mx-auto max-w-full"></canvas>
+            <div class="payment-qr__canvas-wrap">
+              <canvas
+                ref="qrCanvas"
+                class="mx-auto max-w-full"
+                role="img"
+                :aria-label="t('payment.qr.qrCodeLabel')"
+              ></canvas>
             </div>
-            <p v-if="!expired && scanHint" class="mt-3 max-w-xs text-sm text-gray-500 dark:text-gray-400">{{ scanHint }}</p>
+            <p v-if="!isTerminal && scanHint" class="payment-qr__hint">{{ scanHint }}</p>
+            <a
+              v-if="payUrl && !isTerminal"
+              :href="payUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="payment-qr__external-link payment-qr__external-link--fallback"
+            >
+              {{ t('payment.qr.openPayWindow') }}
+            </a>
           </div>
           <a
-            v-else-if="payUrl && !expired"
+            v-else-if="payUrl && !isTerminal"
             :href="payUrl"
             target="_blank"
             rel="noopener noreferrer"
-            class="btn btn-primary"
+            class="payment-qr__external-link"
           >
             {{ t('payment.qr.openPayWindow') }}
           </a>
-          <Icon v-else name="exclamationCircle" size="xl" class="text-red-500" />
-        </section>
+          <Icon v-else name="exclamationCircle" size="xl" class="payment-qr__error-icon" />
+        </AppSection>
 
-        <aside class="flex flex-col p-5">
-          <div v-if="expired" class="rounded border border-red-100 bg-red-50 px-3 py-2.5 dark:border-red-900 dark:bg-red-950/20">
-            <p class="text-sm font-medium text-red-600 dark:text-red-300">{{ t('payment.qr.expired') }}</p>
-          </div>
-          <div v-else class="rounded border border-primary-100 bg-primary-50/60 px-4 py-3 dark:border-primary-900 dark:bg-primary-950/20">
-            <p class="text-xs text-primary-600 dark:text-primary-300">{{ qrUrl ? t('payment.qr.expiresIn') : t('payment.qr.payInNewWindowHint') }}</p>
-            <p class="mt-1 text-3xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ countdownDisplay }}</p>
+        <AppSection class="payment-qr__details-section">
+          <UiAlert
+            v-if="isTerminal"
+            tone="danger"
+            :message="terminalStatusDescription"
+          />
+          <div v-else class="payment-qr__countdown" aria-live="polite">
+            <span>{{ qrUrl ? t('payment.qr.expiresIn') : t('payment.qr.payInNewWindowHint') }}</span>
+            <strong>{{ countdownDisplay }}</strong>
           </div>
 
-          <dl data-testid="qr-order-details" class="mt-4 divide-y divide-gray-100 border-y border-gray-100 text-sm dark:divide-dark-700 dark:border-dark-700">
-            <div class="flex items-center justify-between gap-3 py-3">
-              <dt class="text-gray-500 dark:text-gray-400">{{ t('payment.actualPay') }}</dt>
-              <dd class="text-xl font-semibold tabular-nums text-primary-600 dark:text-primary-400">
-                {{ paymentAmount > 0 ? formatPaymentAmount(paymentAmount, paymentCurrency) : '-' }}
-              </dd>
-            </div>
-            <div class="flex items-center justify-between gap-3 py-3">
-              <dt class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.orderId') }}</dt>
-              <dd class="font-medium tabular-nums text-gray-900 dark:text-white">#{{ orderId || '-' }}</dd>
-            </div>
-            <div class="flex items-center justify-between gap-3 py-3">
-              <dt class="shrink-0 text-gray-500 dark:text-gray-400">{{ t('payment.orders.paymentMethod') }}</dt>
-              <dd class="min-w-0 truncate font-medium text-gray-900 dark:text-white" :title="paymentType || undefined">{{ paymentType || '-' }}</dd>
-            </div>
-            <div class="flex items-center justify-between gap-3 py-3">
-              <dt class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.status') }}</dt>
-              <dd class="inline-flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
-                <span :class="['h-2 w-2 rounded-full', expired ? 'bg-red-500' : 'bg-primary-500']"></span>
-                {{ expired ? t('payment.qr.expired') : t('payment.qr.waitingPayment') }}
-              </dd>
-            </div>
-          </dl>
+          <UiDescriptionList
+            data-testid="qr-order-details"
+            class="payment-qr__details-list divide-y"
+            :items="[
+              { label: t('payment.actualPay'), value: paymentAmount > 0 ? formatPaymentAmount(paymentAmount, paymentCurrency) : '-', numeric: true },
+              { label: t('payment.orders.orderId'), value: `#${orderId || '-'}`, numeric: true },
+              { label: t('payment.orders.paymentMethod'), value: paymentType || '-' },
+              { label: t('payment.orders.status'), value: isTerminal ? terminalStatusLabel : t('payment.qr.waitingPayment') },
+            ]"
+            :columns="1"
+          />
 
-          <div class="mt-auto grid gap-2 pt-5 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
-            <button v-if="expired" class="btn btn-primary" @click="router.push('/purchase')">{{ t('payment.result.backToRecharge') }}</button>
-            <button v-if="!expired && orderId" class="btn btn-secondary" :disabled="cancelling" @click="handleCancel">
-              {{ cancelling ? t('common.processing') : t('payment.qr.cancelOrder') }}
-            </button>
+          <div class="payment-qr__actions">
+            <UiButton
+              v-if="isTerminal"
+              variant="primary"
+              density="compact"
+              block
+              @click="router.push('/purchase')"
+            >
+              {{ t('payment.result.backToRecharge') }}
+            </UiButton>
+            <UiButton
+              v-if="!isTerminal && orderId"
+              variant="secondary"
+              density="compact"
+              block
+              :loading="cancelling"
+              @click="handleCancel"
+            >
+              {{ t('payment.qr.cancelOrder') }}
+            </UiButton>
           </div>
-        </aside>
-      </div>
-    </div>
+        </AppSection>
+      </AppGrid>
+    </AppPage>
   </AppLayout>
 </template>
 
@@ -87,6 +111,16 @@ import QRCode from 'qrcode'
 import alipayIcon from '@/assets/icons/alipay.svg'
 import wxpayIcon from '@/assets/icons/wxpay.svg'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  AppGrid,
+  AppPage,
+  AppPageHeader,
+  AppSection,
+  UiAlert,
+  UiButton,
+  UiDescriptionList,
+  UiStatusBadge,
+} from '@/components/ui'
 import { DEFAULT_PAYMENT_CURRENCY, formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 import { normalizePaymentNavigationUrl } from '@/components/payment/paymentFlow'
 
@@ -101,19 +135,46 @@ const qrUrl = ref('')
 const payUrl = ref('')
 const orderId = ref(0)
 const remainingSeconds = ref(0)
-const expired = ref(false)
 const cancelling = ref(false)
 const paymentType = ref('')
 const paymentAmount = ref(0)
 const paymentCurrency = ref(DEFAULT_PAYMENT_CURRENCY)
+const terminalStatus = ref<'expired' | 'cancelled' | 'failed' | null>(null)
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let countdownTimer: ReturnType<typeof setInterval> | null = null
+let disposed = false
 
 const countdownDisplay = computed(() => {
   const m = Math.floor(remainingSeconds.value / 60)
   const s = remainingSeconds.value % 60
   return m.toString().padStart(2, '0') + ':' + s.toString().padStart(2, '0')
+})
+
+const isTerminal = computed(() => terminalStatus.value !== null)
+const terminalStatusLabel = computed(() => {
+  switch (terminalStatus.value) {
+    case 'cancelled':
+      return t('payment.qr.cancelled')
+    case 'failed':
+      return t('payment.result.failed')
+    case 'expired':
+      return t('payment.qr.expired')
+    default:
+      return t('payment.qr.waitingPayment')
+  }
+})
+const terminalStatusDescription = computed(() => {
+  switch (terminalStatus.value) {
+    case 'cancelled':
+      return t('payment.qr.cancelledDesc')
+    case 'failed':
+      return t('payment.result.failedHint')
+    case 'expired':
+      return t('payment.qr.expiredDesc')
+    default:
+      return ''
+  }
 })
 
 const isAlipay = computed(() => isBuiltInAlipayMethod(paymentType.value))
@@ -180,24 +241,38 @@ async function renderQR() {
 
 let pollInFlight = false
 async function pollStatus() {
-  if (!orderId.value) return
+  if (!orderId.value || disposed) return
   // 防重入：接口响应慢于 3 秒轮询间隔时避免并发重叠请求与重复跳转。
   if (pollInFlight) return
   pollInFlight = true
   try {
     const order = await paymentStore.pollOrderStatus(orderId.value)
-    if (!order) return
+    if (!order || disposed) return
     paymentAmount.value = Number(order.pay_amount) || Number(order.amount) || paymentAmount.value
     paymentCurrency.value = normalizePaymentCurrency(order.currency || paymentCurrency.value)
     // 定时器已被 cleanup 清除时不再执行终态跳转（响应可能在 cleanup 后才回来）。
     if (!pollTimer) return
-    if (order.status === 'COMPLETED' || order.status === 'PAID') {
+    if (order.status === 'COMPLETED' || order.status === 'PAID' || order.status === 'RECHARGING') {
       cleanup()
-      router.push({ path: '/payment/result', query: { order_id: String(orderId.value), status: 'success' } })
+      const query: Record<string, string> = {
+        order_id: String(orderId.value),
+        status: 'success',
+      }
+      const routeResumeToken = String(route.query.resume_token || '')
+      const routeOutTradeNo = String(route.query.out_trade_no || '')
+      if (routeResumeToken) query.resume_token = routeResumeToken
+      if (routeOutTradeNo) query.out_trade_no = routeOutTradeNo
+      router.push({ path: '/payment/result', query })
     } else if (order.status === 'EXPIRED' || order.status === 'CANCELLED' || order.status === 'FAILED') {
       cleanup()
-      expired.value = true
+      terminalStatus.value = order.status === 'CANCELLED'
+        ? 'cancelled'
+        : order.status === 'FAILED'
+          ? 'failed'
+          : 'expired'
     }
+  } catch {
+    // Keep the polling window alive across transient network failures.
   } finally {
     pollInFlight = false
   }
@@ -206,29 +281,32 @@ async function pollStatus() {
 function startCountdown(seconds: number) {
   remainingSeconds.value = Math.max(0, seconds)
   if (remainingSeconds.value <= 0) {
-    expired.value = true
+    terminalStatus.value = 'expired'
     return
   }
   countdownTimer = setInterval(() => {
+    if (disposed) return
     remainingSeconds.value--
     if (remainingSeconds.value <= 0) {
-      expired.value = true
+      terminalStatus.value = 'expired'
       cleanup()
     }
   }, 1000)
 }
 
 async function handleCancel() {
-  if (!orderId.value || cancelling.value) return
+  if (!orderId.value || cancelling.value || disposed) return
   cancelling.value = true
   try {
     await paymentAPI.cancelOrder(orderId.value)
+    if (disposed) return
     cleanup()
     router.push('/purchase')
   } catch (err: unknown) {
+    if (disposed) return
     appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
   } finally {
-    cancelling.value = false
+    if (!disposed) cancelling.value = false
   }
 }
 
@@ -251,15 +329,21 @@ onMounted(() => {
   const expiresAtStr = String(route.query.expires_at || '')
   let seconds = 30 * 60 // fallback: 30 minutes
   if (expiresAtStr) {
-    const expiresAt = new Date(expiresAtStr)
-    const now = new Date()
-    seconds = Math.floor((expiresAt.getTime() - now.getTime()) / 1000)
+    const expiresAtMs = Date.parse(expiresAtStr)
+    seconds = Number.isFinite(expiresAtMs)
+      ? Math.floor((expiresAtMs - Date.now()) / 1000)
+      : 0
   }
   startCountdown(seconds)
-  pollTimer = setInterval(pollStatus, 3000)
-  void pollStatus()
+  if (!isTerminal.value) {
+    pollTimer = setInterval(pollStatus, 3000)
+    void pollStatus()
+  }
   renderQR()
 })
 
-onUnmounted(() => cleanup())
+onUnmounted(() => {
+  disposed = true
+  cleanup()
+})
 </script>

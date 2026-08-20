@@ -25,19 +25,14 @@ describe('PaymentMethodSelector', () => {
     })
 
     const grid = wrapper.get('[data-testid="payment-method-grid"]')
-    expect(grid.classes()).toEqual(expect.arrayContaining([
-      'grid',
-      'gap-2',
-      '[grid-template-columns:repeat(auto-fit,minmax(min(100%,156px),1fr))]',
-    ]))
+    expect(grid.classes()).toContain('payment-methods__grid')
     expect(grid.classes()).not.toContain('sm:flex')
 
     const buttons = wrapper.findAll('button')
     expect(buttons).toHaveLength(methods.length)
-    expect(buttons.every(button => button.classes().includes('min-w-0'))).toBe(true)
-    expect(buttons.every(button => button.classes().includes('min-h-14'))).toBe(true)
+    expect(buttons.every(button => button.classes().includes('payment-methods__option'))).toBe(true)
     expect(buttons.every((button, index) => button.attributes('title') === methods[index].display_name)).toBe(true)
-    expect(wrapper.findAll('[data-testid="payment-method-label"]').every(label => label.classes().includes('truncate'))).toBe(true)
+    expect(wrapper.findAll('[data-testid="payment-method-label"]').every(label => label.classes().includes('payment-methods__label'))).toBe(true)
   })
 
   it('shows the configured display name for custom EasyPay methods', () => {
@@ -62,8 +57,9 @@ describe('PaymentMethodSelector', () => {
     })
 
     const button = wrapper.get('button')
-    expect(button.classes()).toContain('border-primary-500')
-    expect(button.classes()).not.toContain('border-[#02A9F1]')
+    expect(button.classes()).toContain('is-selected')
+    expect(button.attributes('aria-pressed')).toBe('true')
+    expect(button.attributes('class')).not.toContain('#02A9F1')
   })
 
   it('keeps long custom names on one truncatable line in an adaptive grid', () => {
@@ -76,10 +72,7 @@ describe('PaymentMethodSelector', () => {
     })
 
     expect(wrapper.get('button').attributes('title')).toBe(longName)
-    expect(wrapper.get('button span span span').classes()).toEqual(expect.arrayContaining([
-      'truncate',
-      'whitespace-nowrap',
-    ]))
-    expect(wrapper.get('.grid').attributes('class')).toContain('auto-fit')
+    expect(wrapper.get('[data-testid="payment-method-label"]').classes()).toContain('payment-methods__label')
+    expect(wrapper.get('[data-testid="payment-method-grid"]').classes()).toContain('payment-methods__grid')
   })
 })

@@ -1,302 +1,119 @@
 <template>
   <AppLayout>
-    <div class="space-y-4" data-testid="subscriptions-page">
-      <div
-        v-if="loading"
-        class="flex min-h-32 items-center justify-center rounded border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800"
-      >
-        <div
-          class="h-6 w-6 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
-          aria-label="Loading"
-        ></div>
-      </div>
+    <AppPage density="compact" data-testid="subscriptions-page">
+      <AppPageHeader :title="t('userSubscriptions.title')" :description="t('userSubscriptions.description')" />
 
-      <div
+      <UiSkeleton v-if="loading" variant="rect" width="100%" height="180px" :aria-label="t('common.loading')" data-testid="subscriptions-loading" />
+      <UiErrorState
+        v-else-if="loadError && subscriptions.length === 0"
+        :title="t('userSubscriptions.failedToLoad')"
+        :description="t('userSubscriptions.failedToLoadDescription')"
+        :retry-text="t('common.retry')"
+        data-testid="subscriptions-error"
+        @retry="loadSubscriptions"
+      />
+      <UiEmptyState
         v-else-if="subscriptions.length === 0"
-        class="flex min-h-40 flex-col items-center justify-center rounded border border-gray-200 bg-white px-4 py-8 text-center dark:border-dark-700 dark:bg-dark-800"
-      >
-        <div
-          class="mb-3 flex h-9 w-9 items-center justify-center rounded bg-primary-50 text-primary-600 dark:bg-primary-950/40 dark:text-primary-300"
-        >
-          <Icon name="creditCard" size="md" />
-        </div>
-        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
-          {{ t('userSubscriptions.noActiveSubscriptions') }}
-        </h3>
-        <p class="mt-1 max-w-lg text-xs leading-5 text-gray-500 dark:text-dark-400">
-          {{ t('userSubscriptions.noActiveSubscriptionsDesc') }}
-        </p>
-      </div>
+        icon="creditCard"
+        :title="t('userSubscriptions.noActiveSubscriptions')"
+        :description="t('userSubscriptions.noActiveSubscriptionsDesc')"
+      />
 
       <template v-else>
-        <section
-          class="grid grid-cols-1 overflow-hidden rounded border border-gray-200 bg-white sm:grid-cols-3 dark:border-dark-700 dark:bg-dark-800"
-          data-testid="subscription-summary"
+        <UiAlert
+          v-if="loadError"
+          tone="danger"
+          :title="t('userSubscriptions.failedToLoad')"
+          data-testid="subscriptions-refresh-error"
         >
-          <div class="min-w-0 border-b border-gray-100 px-3 py-3 sm:border-b-0 sm:border-r sm:px-4 dark:border-dark-700">
-            <p class="text-[10px] text-gray-500 sm:text-xs dark:text-dark-400">
-              {{ t('userSubscriptions.summaryActive') }}
-            </p>
-            <div class="mt-1 flex items-baseline gap-1.5">
-              <strong class="text-lg font-semibold tabular-nums text-gray-900 sm:text-xl dark:text-white">
-                {{ activeSubscriptions.length }}
-              </strong>
-              <span class="hidden text-xs text-gray-400 sm:inline dark:text-dark-500">
-                / {{ subscriptions.length }} {{ t('userSubscriptions.summaryTotal') }}
-              </span>
-            </div>
-          </div>
-
-          <div class="min-w-0 border-b border-gray-100 px-3 py-3 sm:border-b-0 sm:border-r sm:px-4 dark:border-dark-700">
-            <p class="text-[10px] text-gray-500 sm:text-xs dark:text-dark-400">
-              {{ t('userSubscriptions.summaryNearestExpiry') }}
-            </p>
-            <p class="mt-1 truncate text-sm font-semibold text-gray-900 dark:text-white">
-              {{ nearestExpiration?.label || t('userSubscriptions.noUpcomingExpiration') }}
-            </p>
-            <p v-if="nearestExpiration" class="mt-0.5 truncate text-[11px] text-gray-400 dark:text-dark-500">
-              {{ nearestExpiration.planName }} · {{ t('userSubscriptions.expiresOn', { date: nearestExpiration.exactDate }) }}
-            </p>
-          </div>
-
-          <div class="min-w-0 px-3 py-3 sm:px-4">
-            <p class="text-[10px] text-gray-500 sm:text-xs dark:text-dark-400">
-              {{ t('userSubscriptions.summaryHighestUsage') }}
-            </p>
-            <div v-if="highestQuota" class="mt-1 flex items-baseline gap-1.5">
-              <strong :class="['text-lg font-semibold tabular-nums sm:text-xl', quotaTextClass(highestQuota.percentage)]">
-                {{ formatPercentage(highestQuota.percentage) }}
-              </strong>
-              <span class="truncate text-[11px] text-gray-400 dark:text-dark-500">
-                {{ highestQuota.planName }} · {{ highestQuota.label }}
-              </span>
-            </div>
-            <p v-else class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">
-              {{ t('userSubscriptions.noQuotaLimit') }}
-            </p>
-          </div>
+          {{ t('common.retry') }}
+          <UiButton density="dense" variant="quiet" @click="loadSubscriptions">{{ t('common.retry') }}</UiButton>
+        </UiAlert>
+        <section class="subscription-summary" data-testid="subscription-summary">
+          <UiStatMetric
+            :label="t('userSubscriptions.summaryActive')"
+            :value="`${activeSubscriptions.length} / ${subscriptions.length}`"
+            :meta="t('userSubscriptions.summaryTotal')"
+          />
+          <UiStatMetric
+            :label="t('userSubscriptions.summaryNearestExpiry')"
+            :value="nearestExpiration?.label || t('userSubscriptions.noUpcomingExpiration')"
+            :meta="nearestExpiration ? `${nearestExpiration.planName} · ${nearestExpiration.exactDate}` : undefined"
+          />
+          <UiStatMetric
+            :label="t('userSubscriptions.summaryHighestUsage')"
+            :value="highestQuota ? formatPercentage(highestQuota.percentage) : t('userSubscriptions.noQuotaLimit')"
+            :meta="highestQuota ? `${highestQuota.planName} · ${highestQuota.label}` : undefined"
+          />
         </section>
 
-        <section
-          :class="['grid gap-4', subscriptionsGridClass]"
-          data-testid="subscriptions-grid"
-        >
-          <article
-            v-for="subscription in displayedSubscriptions"
-            :key="subscription.id"
-            class="flex min-w-0 flex-col rounded border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800"
-            data-testid="subscription-card"
-          >
-            <header
-              class="border-b border-gray-100 px-4 py-3 dark:border-dark-700"
-              :title="subscription.plan_name || undefined"
-            >
-              <div class="flex min-w-0 items-center justify-between gap-3">
-                <h2 class="min-w-0 truncate text-sm font-semibold text-gray-900 dark:text-white">
-                  {{ subscription.plan_name || `Plan #${subscription.plan_id}` }}
-                </h2>
-                <span :class="['inline-flex shrink-0 items-center gap-1.5 text-[11px] font-medium', statusTextClass(subscription.status)]">
-                  <span :class="['h-1.5 w-1.5 rounded-full', statusDotClass(subscription.status)]"></span>
-                  {{ t(`userSubscriptions.status.${subscription.status}`) }}
-                </span>
+        <section :class="['subscription-grid', subscriptionsGridClass]" data-testid="subscriptions-grid">
+          <article v-for="subscription in displayedSubscriptions" :key="subscription.id" class="subscription-card" data-testid="subscription-card">
+            <header class="subscription-card__header" :title="subscription.plan_name || undefined">
+              <div class="subscription-card__title-row">
+                <h2>{{ subscription.plan_name || `Plan #${subscription.plan_id}` }}</h2>
+                <UiStatusBadge :status="subscription.status" :label="t(`userSubscriptions.status.${subscription.status}`)" />
               </div>
-
-              <div class="mt-2 flex min-w-0 items-center gap-2">
-                <span
-                  class="inline-flex items-center gap-1 text-[10px] text-gray-500 dark:text-dark-400"
-                >
-                  {{ t('userSubscriptions.includedGroups') }}
-                  <strong class="font-semibold tabular-nums text-gray-700 dark:text-gray-300">
-                    {{ subscriptionIncludedGroups(subscription).length }}
-                  </strong>
-                </span>
-                <button
-                  v-if="subscription.status === 'active'"
-                  type="button"
-                  class="ml-auto inline-flex h-7 shrink-0 items-center gap-1 rounded-[3px] border border-primary-200 px-2 text-[11px] font-medium text-primary-700 transition-colors hover:bg-primary-50 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-primary-800 dark:text-primary-300 dark:hover:bg-primary-950/30"
-                  @click="renewSubscription(subscription)"
-                >
+              <div class="subscription-card__subline">
+                <span>{{ t('userSubscriptions.includedGroups') }} <strong>{{ subscriptionIncludedGroups(subscription).length }}</strong></span>
+                <UiButton v-if="subscription.status === 'active'" variant="secondary" density="dense" @click="renewSubscription(subscription)">
+                  <template #icon><Icon name="arrowRight" size="xs" /></template>
                   {{ t('userSubscriptions.renewSubscription') }}
-                  <Icon name="arrowRight" size="xs" />
-                </button>
+                </UiButton>
               </div>
             </header>
 
-            <div class="border-b border-gray-100 px-4 py-3 text-[11px] dark:border-dark-700">
-              <div class="grid grid-cols-2 gap-0">
-                <div class="min-w-0 pr-3">
-                  <span class="text-gray-400 dark:text-dark-500">{{ t('userSubscriptions.remainingTime') }}</span>
-                  <p :class="['mt-0.5 truncate text-sm font-semibold', expirationTextClass(subscription.expires_at)]" data-testid="expiration-remaining">
-                    {{ expirationRemainingLabel(subscription.expires_at) }}
-                  </p>
-                  <p v-if="subscription.expires_at" class="mt-1 truncate text-[10px] leading-3 text-gray-400 dark:text-dark-500" data-testid="expiration-date">
-                    {{ formatExpirationExactDate(subscription.expires_at) }}
-                  </p>
-                </div>
-                <div class="min-w-0 border-l border-gray-100 pl-3 dark:border-dark-700">
-                  <span class="text-gray-400 dark:text-dark-500">{{ t('userSubscriptions.includedGroups') }}</span>
-                  <p class="mt-0.5 text-sm font-semibold tabular-nums text-gray-800 dark:text-gray-200">
-                    {{ subscriptionIncludedGroups(subscription).length }}
-                  </p>
-                  <p class="mt-1 truncate text-[10px] leading-3 text-gray-400 dark:text-dark-500">
-                    {{ subscriptionIncludedGroups(subscription).map(group => group.name).join(' / ') }}
-                  </p>
-                </div>
-              </div>
+            <div class="subscription-card__meta">
+              <div><span>{{ t('userSubscriptions.remainingTime') }}</span><strong data-testid="expiration-remaining">{{ expirationRemainingLabel(subscription.expires_at) }}</strong><small v-if="subscription.expires_at" data-testid="expiration-date">{{ formatExpirationExactDate(subscription.expires_at) }}</small></div>
+              <div><span>{{ t('userSubscriptions.includedGroups') }}</span><strong>{{ subscriptionIncludedGroups(subscription).length }}</strong><small>{{ subscriptionIncludedGroups(subscription).map(group => group.name).join(' / ') }}</small></div>
             </div>
 
-            <div class="flex-1 px-4 py-3.5">
-			  <div v-if="subscriptionIncludedGroups(subscription).length" class="mb-3 flex flex-wrap gap-1.5 border-b border-gray-100 pb-3 dark:border-dark-700">
-				<span
-				  v-for="group in subscriptionIncludedGroups(subscription)"
-				  :key="group.id"
-				  :class="['inline-flex max-w-full items-center gap-1.5 rounded-[3px] border px-2 py-1 text-[10px] font-medium', platformBadgeClass(group.platform || '')]"
-				  :title="group.name"
-				>
-				  <PlatformIcon :platform="group.platform" size="xs" />
-				  <span class="max-w-40 truncate">{{ group.name }}</span>
-				  <span class="shrink-0 tabular-nums">×{{ normalizedGroupRate(group.rate_multiplier) }}</span>
-				  <span v-if="group.peak_rate_enabled" class="shrink-0 text-amber-700 dark:text-amber-300">
-					{{ t('userSubscriptions.peakRateCompact', { rate: normalizedGroupRate(group.peak_rate_multiplier ?? 1) }) }}
-				  </span>
-				</span>
-			  </div>
-              <div v-if="quotaItems(subscription).length" class="space-y-3">
-                <div
-                  v-for="quota in quotaItems(subscription)"
-                  :key="quota.period"
-                  class="space-y-1"
-                  data-testid="quota-row"
-                >
-                  <div class="flex items-center justify-between gap-2 text-[11px]">
-                    <div class="flex min-w-0 items-center gap-1.5">
-                      <span class="font-medium text-gray-700 dark:text-gray-300">{{ quota.label }}</span>
-                      <span :class="quotaTextClass(quota.percentage)" class="tabular-nums">
-                        {{ formatPercentage(quota.percentage) }}
-                      </span>
-                    </div>
-                    <span class="shrink-0 tabular-nums text-gray-500 dark:text-dark-400">
-                      ${{ quota.used.toFixed(2) }} / ${{ quota.limit.toFixed(2) }}
-                    </span>
-                  </div>
-                  <div class="h-1.5 overflow-hidden rounded-sm bg-gray-100 dark:bg-dark-700">
-                    <div
-                      :class="['h-full rounded-sm transition-[width] duration-300', quotaBarClass(quota.percentage)]"
-                      :style="{ width: `${Math.min(quota.percentage, 100)}%` }"
-                    ></div>
-                  </div>
-                  <p class="truncate text-[10px] leading-3 text-gray-400 dark:text-dark-500">
-                    {{ quota.resetLabel }}
-                  </p>
-                  <p
-                    v-if="quota.showReserved && quota.reserved > 0"
-                    class="truncate text-[10px] leading-3 text-amber-600 dark:text-amber-300"
-                    data-testid="quota-reserved"
-                  >
-                    {{ t('userSubscriptions.pendingSettlement', { amount: quota.reserved.toFixed(2) }) }}
-                  </p>
+            <div class="subscription-card__body">
+              <div v-if="subscriptionIncludedGroups(subscription).length" class="subscription-groups">
+                <UiBadge v-for="group in subscriptionIncludedGroups(subscription)" :key="group.id" tone="info" :label="`${group.name} ×${normalizedGroupRate(group.rate_multiplier)}${group.peak_rate_enabled ? ` · ${t('userSubscriptions.peakRateCompact', { rate: normalizedGroupRate(group.peak_rate_multiplier ?? 1) })}` : ''}`" />
+              </div>
+              <div v-if="quotaItems(subscription).length" class="subscription-quotas">
+                <div v-for="quota in quotaItems(subscription)" :key="quota.period" class="subscription-quota" data-testid="quota-row">
+                  <div class="subscription-quota__head"><span>{{ quota.label }} <strong>{{ formatPercentage(quota.percentage) }}</strong></span><span>${{ quota.used.toFixed(2) }} / ${{ quota.limit.toFixed(2) }}</span></div>
+                  <UiProgressBar :value="quota.percentage" :show-value="false" :tone="quotaTone(quota.percentage)" :label="quota.label" />
+                  <small>{{ quota.resetLabel }}</small>
+                  <small v-if="quota.showReserved && quota.reserved > 0" data-testid="quota-reserved">{{ t('userSubscriptions.pendingSettlement', { amount: quota.reserved.toFixed(2) }) }}</small>
                 </div>
               </div>
-
-              <div
-                v-else
-                class="flex min-h-16 items-center justify-between py-2"
-                data-testid="unlimited-quota"
-              >
-                <div>
-                  <p class="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    {{ t('userSubscriptions.unlimited') }}
-                  </p>
-                  <p class="mt-0.5 text-[10px] text-gray-500 dark:text-dark-400">
-                    {{ t('userSubscriptions.unlimitedDesc') }}
-                  </p>
-                </div>
-                <Icon name="checkCircle" size="sm" class="text-emerald-500" />
-              </div>
+              <div v-else class="subscription-unlimited" data-testid="unlimited-quota"><span><strong>{{ t('userSubscriptions.unlimited') }}</strong><small>{{ t('userSubscriptions.unlimitedDesc') }}</small></span><Icon name="checkCircle" size="sm" /></div>
             </div>
 
-            <footer
-              v-if="subscription.status === 'active'"
-              class="grid grid-cols-2 gap-2 border-t border-gray-100 px-4 py-3 sm:flex sm:justify-end dark:border-dark-700"
-              data-testid="subscription-key-actions"
-            >
-              <button
-                type="button"
-                class="inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-[3px] bg-primary-600 px-2.5 text-xs font-medium text-white transition-colors hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500/25 sm:min-w-40 sm:px-3"
-                :title="t('userSubscriptions.createSubscriptionKey')"
-                data-testid="create-subscription-key"
-                @click="openSubscriptionKeyAction(subscription, 'create')"
-              >
-                <Icon name="key" size="sm" class="shrink-0" />
-                <span class="truncate">{{ t('userSubscriptions.createSubscriptionKey') }}</span>
-              </button>
-              <button
-                type="button"
-                class="inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-[3px] border border-gray-200 px-2.5 text-xs font-medium text-gray-700 transition-colors hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500/20 sm:min-w-40 sm:px-3 dark:border-dark-600 dark:text-gray-300 dark:hover:border-primary-800 dark:hover:bg-primary-950/30 dark:hover:text-primary-300"
-                :title="t('userSubscriptions.bindExistingKey')"
-                data-testid="bind-subscription-key"
-                @click="openSubscriptionKeyAction(subscription, 'bind')"
-              >
-                <Icon name="link" size="sm" class="shrink-0" />
-                <span class="truncate">{{ t('userSubscriptions.bindExistingKey') }}</span>
-              </button>
+            <footer v-if="subscription.status === 'active'" class="subscription-card__actions" data-testid="subscription-key-actions">
+              <UiButton variant="primary" density="compact" block data-testid="create-subscription-key" @click="openSubscriptionKeyAction(subscription, 'create')"><template #icon><Icon name="key" size="sm" /></template>{{ t('userSubscriptions.createSubscriptionKey') }}</UiButton>
+              <UiButton variant="secondary" density="compact" block data-testid="bind-subscription-key" @click="openSubscriptionKeyAction(subscription, 'bind')"><template #icon><Icon name="link" size="sm" /></template>{{ t('userSubscriptions.bindExistingKey') }}</UiButton>
             </footer>
           </article>
         </section>
       </template>
 
-      <BaseDialog
-        :show="keyActionIntent !== null"
-        :title="t('userSubscriptions.selectKeyGroupTitle')"
-        width="narrow"
-        @close="closeKeyActionGroupDialog"
-      >
-        <div class="space-y-3" data-testid="subscription-key-group-dialog">
-          <p class="text-xs leading-5 text-gray-500 dark:text-dark-400">
-            {{ t('userSubscriptions.selectKeyGroupDescription') }}
-          </p>
-          <div class="divide-y divide-gray-100 border-y border-gray-100 dark:divide-dark-700 dark:border-dark-700">
-            <label
-              v-for="group in keyActionGroups"
-              :key="group.id"
-              class="flex cursor-pointer items-center gap-3 py-2.5"
-              :title="group.description || group.name"
-            >
-              <input
-                v-model="selectedKeyActionGroupID"
-                type="radio"
-                name="subscription-key-group"
-                :value="group.id"
-                class="h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              <PlatformIcon :platform="group.platform" size="sm" />
-              <span class="min-w-0 flex-1 truncate text-sm font-medium text-gray-800 dark:text-gray-200">
-                {{ group.name }}
-              </span>
-              <span class="shrink-0 text-xs tabular-nums text-gray-500 dark:text-dark-400">
-                ×{{ normalizedGroupRate(group.rate_multiplier) }}
-              </span>
-            </label>
-          </div>
+      <UiDialog :show="keyActionIntent !== null" :title="t('userSubscriptions.selectKeyGroupTitle')" width="narrow" @close="closeKeyActionGroupDialog">
+        <div class="subscription-group-dialog" data-testid="subscription-key-group-dialog">
+          <p>{{ t('userSubscriptions.selectKeyGroupDescription') }}</p>
+          <UiRadioGroup
+            :model-value="selectedKeyActionGroupID ?? 0"
+            :options="keyActionGroupOptions"
+            name="subscription-key-group"
+            layout="stacked"
+            :aria-label="t('userSubscriptions.selectKeyGroupTitle')"
+            @update:model-value="selectedKeyActionGroupID = Number($event)"
+          >
+            <template #option="{ option }">
+              <PlatformIcon :platform="keyActionGroupForOption(option.value)?.platform" size="sm" />
+              <span>{{ option.label }}</span>
+              <strong>×{{ normalizedGroupRate(keyActionGroupForOption(option.value)?.rate_multiplier ?? 1) }}</strong>
+            </template>
+          </UiRadioGroup>
         </div>
         <template #footer>
-          <div class="flex w-full justify-end gap-2">
-            <button type="button" class="btn btn-secondary" @click="closeKeyActionGroupDialog">
-              {{ t('common.cancel') }}
-            </button>
-            <button
-              type="button"
-              class="btn btn-primary"
-              :disabled="selectedKeyActionGroupID === null"
-              data-testid="confirm-subscription-key-group"
-              @click="confirmKeyActionGroup"
-            >
-              {{ t('common.confirm') }}
-            </button>
-          </div>
+          <div class="subscription-dialog-actions"><UiButton density="compact" @click="closeKeyActionGroupDialog">{{ t('common.cancel') }}</UiButton><UiButton variant="primary" density="compact" :disabled="selectedKeyActionGroupID === null" data-testid="confirm-subscription-key-group" @click="confirmKeyActionGroup">{{ t('common.confirm') }}</UiButton></div>
         </template>
-      </BaseDialog>
-    </div>
+      </UiDialog>
+    </AppPage>
   </AppLayout>
 </template>
 
@@ -308,15 +125,28 @@ import { useAppStore } from '@/stores/app'
 import subscriptionsAPI from '@/api/subscriptions'
 import type { Group, UserSubscription } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import { formatDateTimeToMinute } from '@/utils/format'
-import { platformBadgeClass } from '@/utils/platformColors'
 import {
   getExpirationDateRelation,
   type RemainingDurationParts
 } from '@/utils/subscriptionQuota'
+import {
+  AppPage,
+  AppPageHeader,
+  UiBadge,
+  UiAlert,
+  UiButton,
+  UiDialog,
+  UiEmptyState,
+  UiErrorState,
+  UiProgressBar,
+  UiRadioGroup,
+  UiSkeleton,
+  UiStatMetric,
+  UiStatusBadge,
+} from '@/components/ui'
 
 type QuotaPeriod = 'fiveHour' | 'cycle' | 'total' | 'daily' | 'weekly' | 'monthly'
 
@@ -341,6 +171,8 @@ const appStore = useAppStore()
 
 const subscriptions = ref<UserSubscription[]>([])
 const loading = ref(true)
+const loadError = ref(false)
+let loadSequence = 0
 const keyActionIntent = ref<{ subscription: UserSubscription; action: 'create' | 'bind' } | null>(null)
 const selectedKeyActionGroupID = ref<number | null>(null)
 
@@ -348,6 +180,12 @@ const keyActionGroups = computed(() => {
   if (!keyActionIntent.value) return []
   return subscriptionKeyGroups(keyActionIntent.value.subscription)
 })
+
+const keyActionGroupOptions = computed(() => keyActionGroups.value.map(group => ({
+  value: group.id,
+  label: group.name,
+  title: group.description || group.name,
+})))
 
 const activeSubscriptions = computed(() => subscriptions.value.filter((subscription) => subscription.status === 'active'))
 
@@ -370,8 +208,8 @@ const displayedSubscriptions = computed(() => [...subscriptions.value].sort((a, 
 }))
 
 const subscriptionsGridClass = computed(() => {
-  if (subscriptions.value.length === 1) return 'grid-cols-1'
-  return 'md:grid-cols-2'
+  if (subscriptions.value.length === 1) return 'subscription-grid--single'
+  return 'subscription-grid--double'
 })
 
 const nearestExpiration = computed(() => {
@@ -409,14 +247,20 @@ function normalizedGroupRate(rate: number): number {
 }
 
 async function loadSubscriptions() {
+  const requestSequence = ++loadSequence
   try {
     loading.value = true
-    subscriptions.value = await subscriptionsAPI.getMySubscriptions()
+    loadError.value = false
+    const nextSubscriptions = await subscriptionsAPI.getMySubscriptions()
+    if (requestSequence !== loadSequence) return
+    subscriptions.value = nextSubscriptions
   } catch (error) {
+    if (requestSequence !== loadSequence) return
     console.error('Failed to load subscriptions:', error)
+    loadError.value = true
     appStore.showError(t('userSubscriptions.failedToLoad'))
   } finally {
-    loading.value = false
+    if (requestSequence === loadSequence) loading.value = false
   }
 }
 
@@ -434,6 +278,10 @@ function subscriptionKeyGroups(subscription: UserSubscription): Group[] {
     if (group.id > 0 && (!group.status || group.status === 'active')) unique.set(group.id, group)
   }
   return [...unique.values()]
+}
+
+function keyActionGroupForOption(value: string | number): Group | undefined {
+  return keyActionGroups.value.find(group => group.id === Number(value))
 }
 
 function navigateToSubscriptionKeyAction(action: 'create' | 'bind', groupID: number) {
@@ -472,26 +320,6 @@ function confirmKeyActionGroup() {
   if (!intent || groupID === null || !keyActionGroups.value.some(group => group.id === groupID)) return
   navigateToSubscriptionKeyAction(intent.action, groupID)
   closeKeyActionGroupDialog()
-}
-
-function statusTextClass(status: UserSubscription['status']): string {
-  if (status === 'active') {
-    return 'text-emerald-700 dark:text-emerald-300'
-  }
-  if (status === 'suspended') {
-    return 'text-orange-700 dark:text-orange-300'
-  }
-  if (status === 'revoked') {
-    return 'text-red-700 dark:text-red-300'
-  }
-  return 'text-gray-500 dark:text-gray-400'
-}
-
-function statusDotClass(status: UserSubscription['status']): string {
-  if (status === 'active') return 'bg-emerald-500'
-  if (status === 'suspended') return 'bg-orange-500'
-  if (status === 'revoked') return 'bg-red-500'
-  return 'bg-gray-400'
 }
 
 function quotaItems(subscription: UserSubscription): QuotaItem[] {
@@ -583,16 +411,10 @@ function formatPercentage(percentage: number): string {
   return `${Math.round(percentage)}%`
 }
 
-function quotaBarClass(percentage: number): string {
-  if (percentage >= 90) return 'bg-red-500'
-  if (percentage >= 70) return 'bg-orange-500'
-  return 'bg-primary-500'
-}
-
-function quotaTextClass(percentage: number): string {
-  if (percentage >= 90) return 'text-red-600 dark:text-red-400'
-  if (percentage >= 70) return 'text-orange-600 dark:text-orange-300'
-  return 'text-primary-600 dark:text-primary-300'
+function quotaTone(percentage: number): 'neutral' | 'warning' | 'danger' {
+  if (percentage >= 90) return 'danger'
+  if (percentage >= 70) return 'warning'
+  return 'neutral'
 }
 
 function expirationRemainingLabel(expiresAt: string | null): string {
@@ -615,22 +437,6 @@ function formatExpirationExactDate(expiresAt: string): string {
   return formatDateTimeToMinute(new Date(expiresAt))
 }
 
-function expirationTextClass(expiresAt: string | null): string {
-  if (!expiresAt) return 'text-gray-700 dark:text-gray-300'
-
-  const now = new Date()
-  const expires = new Date(expiresAt)
-  const relation = getExpirationDateRelation(expires, now)
-
-  if (relation === null) return 'text-gray-700 dark:text-gray-300'
-  if (relation === 'expired') return 'font-medium text-red-600 dark:text-red-400'
-
-  const days = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-  if (days <= 3) return 'text-red-600 dark:text-red-400'
-  if (days <= 7) return 'text-orange-600 dark:text-orange-300'
-  return 'text-gray-700 dark:text-gray-300'
-}
-
 function formatDurationParts(parts: RemainingDurationParts): string {
   if (parts.days > 0) return `${parts.days}d ${parts.hours}h`
   if (parts.hours > 0) return `${parts.hours}h ${parts.minutes}m`
@@ -639,3 +445,58 @@ function formatDurationParts(parts: RemainingDurationParts): string {
 
 onMounted(loadSubscriptions)
 </script>
+
+<style scoped>
+.subscription-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-border-soft);
+}
+.subscription-summary > * { min-width: 0; padding: 14px 16px; background: var(--ui-surface); }
+.subscription-grid { display: grid; gap: 14px; }
+.subscription-grid--single { grid-template-columns: minmax(0, 1fr); }
+.subscription-grid--double { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.subscription-card { display: flex; min-width: 0; flex-direction: column; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-panel); background: var(--ui-surface); }
+.subscription-card__header { display: grid; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--ui-border-soft); }
+.subscription-card__title-row, .subscription-card__subline { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; }
+.subscription-card__title-row h2 { min-width: 0; margin: 0; overflow: hidden; color: var(--ui-text); font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.subscription-card__subline { color: var(--ui-text-muted); font-size: 12px; }
+.subscription-card__subline strong { color: var(--ui-text); font-variant-numeric: tabular-nums; }
+.subscription-card__meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--ui-border-soft); }
+.subscription-card__meta > div { display: grid; min-width: 0; gap: 3px; }
+.subscription-card__meta > div + div { padding-left: 12px; border-left: 1px solid var(--ui-border-soft); }
+.subscription-card__meta span, .subscription-card__meta small { overflow: hidden; color: var(--ui-text-soft); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.subscription-card__meta strong { overflow: hidden; color: var(--ui-text); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.subscription-card__body { display: grid; flex: 1; gap: 14px; padding: 14px 16px; }
+.subscription-groups { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--ui-border-soft); }
+.subscription-quotas { display: grid; gap: 14px; }
+.subscription-quota { display: grid; gap: 6px; min-width: 0; }
+.subscription-quota__head { display: flex; justify-content: space-between; gap: 12px; color: var(--ui-text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.subscription-quota__head strong { margin-left: 4px; color: var(--ui-text); font-weight: 600; }
+.subscription-quota small { overflow: hidden; color: var(--ui-text-soft); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.subscription-quota small[data-testid="quota-reserved"] { color: var(--ui-warning); }
+.subscription-unlimited { display: flex; min-height: 64px; align-items: center; justify-content: space-between; gap: 12px; color: var(--ui-success); }
+.subscription-unlimited span { display: grid; gap: 3px; }
+.subscription-unlimited strong { color: var(--ui-text); font-size: 13px; }
+.subscription-unlimited small { color: var(--ui-text-muted); font-size: 11px; }
+.subscription-card__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 12px 16px; border-top: 1px solid var(--ui-border-soft); }
+.subscription-group-dialog { display: grid; gap: 10px; }
+.subscription-group-dialog > p { margin: 0; color: var(--ui-text-muted); font-size: 12px; line-height: 18px; }
+.subscription-group-dialog :deep(.ui-radio-group) { display: grid; gap: 10px; }
+.subscription-group-dialog :deep(.ui-radio) { display: grid; grid-template-columns: 16px 20px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 36px; padding: 6px 0; border: 0; border-bottom: 1px solid var(--ui-border-soft); border-radius: 0; color: var(--ui-text); font-size: 13px; cursor: pointer; }
+.subscription-group-dialog :deep(.ui-radio__content) { display: contents; }
+.subscription-group-dialog :deep(.ui-radio__content > span) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.subscription-group-dialog :deep(.ui-radio__content > strong) { color: var(--ui-text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.subscription-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+@media (max-width: 760px) {
+  .subscription-summary { grid-template-columns: 1fr; gap: 1px; }
+  .subscription-grid--double { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .subscription-card__actions { grid-template-columns: 1fr; }
+}
+</style>

@@ -22,10 +22,10 @@
 
 	  <AppInline justify="space-between">
 		<UiAlert :message="t('payment.admin.walletFallbackHint')" />
-		<UiSwitch v-model="planForm.wallet_fallback_enabled" :label="t('payment.admin.walletFallback')" />
+    <UiSwitch v-model="planForm.wallet_fallback_enabled" :label="t('payment.admin.walletFallback')" :native-input="false" />
 	  </AppInline>
 
-	  <UiCheckbox v-if="removesIncludedGroups && affectedSubscriptions !== null" v-model="confirmGroupRemoval" :label="t('payment.admin.confirmGroupRemovalAffected', { count: affectedSubscriptions })" />
+  <UiCheckbox v-if="removesIncludedGroups && affectedSubscriptions !== null" v-model="confirmGroupRemoval" :label="t('payment.admin.confirmGroupRemovalAffected', { count: affectedSubscriptions })" />
 	  <UiAlert v-else-if="removesIncludedGroups" tone="warning" :message="t('payment.admin.groupRemovalImpactCheck')" />
 
       <UiTextArea v-model="planForm.description" :label="t('payment.admin.planDescription')" :rows="2" required />
@@ -52,7 +52,7 @@
         <UiTextField v-model="planForm.currency" :label="t('payment.admin.currency')" :description="t('payment.admin.currencyHint')" :maxlength="3" :placeholder="t('payment.admin.currencyPlaceholder')" />
       </AppGrid>
       <UiTextArea v-model="planFeaturesText" :label="t('payment.admin.features')" :description="t('payment.admin.featuresHint')" :rows="3" :placeholder="t('payment.admin.featuresPlaceholder')" />
-      <UiSwitch v-model="planForm.for_sale" :label="t('payment.admin.forSale')" />
+      <UiSwitch v-model="planForm.for_sale" :label="t('payment.admin.forSale')" :native-input="false" />
       </AppStack>
     </form>
     <template #footer>
@@ -275,6 +275,7 @@ function buildPlanPayload() {
 }
 
 async function handleSavePlan() {
+  if (saving.value) return
   if (normalizedIncludedGroupIDs.value.length === 0) {
     appStore.showError(t('payment.admin.groupRequired'))
     return

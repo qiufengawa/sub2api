@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { daysUntil, proxyExpiryBadgeClass, proxyExpiryLabelKey } from '../proxyExpiry'
+import { daysUntil, proxyExpiryLabelKey, proxyExpiryTone } from '../proxyExpiry'
 
 // 固定「现在」,按天数构造确定输入:isoInDays(n) 距今正好 n 天
 const NOW = new Date('2026-06-02T00:00:00Z')
@@ -20,20 +20,20 @@ describe('daysUntil', () => {
   })
 })
 
-describe('proxyExpiryBadgeClass', () => {
+describe('proxyExpiryTone', () => {
   it('status=expired → danger', () => {
-    expect(proxyExpiryBadgeClass(isoInDays(30), 'expired')).toBe('badge badge-danger')
+    expect(proxyExpiryTone(isoInDays(30), 'expired')).toBe('danger')
   })
   it('≤3 天 → danger（含边界 3）', () => {
-    expect(proxyExpiryBadgeClass(isoInDays(2), 'active')).toBe('badge badge-danger')
-    expect(proxyExpiryBadgeClass(isoInDays(3), 'active')).toBe('badge badge-danger')
+    expect(proxyExpiryTone(isoInDays(2), 'active')).toBe('danger')
+    expect(proxyExpiryTone(isoInDays(3), 'active')).toBe('danger')
   })
   it('4–7 天 → warning（含边界 7）', () => {
-    expect(proxyExpiryBadgeClass(isoInDays(5), 'active')).toBe('badge badge-warning')
-    expect(proxyExpiryBadgeClass(isoInDays(7), 'active')).toBe('badge badge-warning')
+    expect(proxyExpiryTone(isoInDays(5), 'active')).toBe('warning')
+    expect(proxyExpiryTone(isoInDays(7), 'active')).toBe('warning')
   })
   it('>7 天 → gray', () => {
-    expect(proxyExpiryBadgeClass(isoInDays(30), 'active')).toBe('text-gray-500')
+    expect(proxyExpiryTone(isoInDays(30), 'active')).toBe('neutral')
   })
 })
 

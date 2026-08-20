@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('admin.errorPassthrough.title')"
     width="extra-wide"
@@ -11,10 +11,10 @@
         <p class="text-sm text-gray-500 dark:text-gray-400">
           {{ t('admin.errorPassthrough.description') }}
         </p>
-        <button @click="showCreateModal = true" class="btn btn-primary btn-sm">
-          <Icon name="plus" size="sm" class="mr-1" />
+        <UiButton type="button" density="compact" variant="primary" @click="showCreateModal = true">
+          <template #icon><Icon name="plus" size="sm" /></template>
           {{ t('admin.errorPassthrough.createRule') }}
-        </button>
+        </UiButton>
       </div>
 
       <!-- Rules Table -->
@@ -76,26 +76,26 @@
               </td>
               <td class="px-3 py-2">
                 <div class="flex flex-wrap gap-1 max-w-48">
-                  <span
+                  <UiBadge
                     v-for="code in rule.error_codes.slice(0, 3)"
                     :key="code"
-                    class="badge badge-danger text-xs"
+                    tone="danger"
                   >
                     {{ code }}
-                  </span>
-                  <span
+                  </UiBadge>
+                  <UiBadge
                     v-if="rule.error_codes.length > 3"
                     class="text-xs text-gray-500"
                   >
                     +{{ rule.error_codes.length - 3 }}
-                  </span>
-                  <span
+                  </UiBadge>
+                  <UiBadge
                     v-for="keyword in rule.keywords.slice(0, 1)"
                     :key="keyword"
-                    class="badge badge-gray text-xs"
+                    tone="neutral"
                   >
                     "{{ keyword.length > 10 ? keyword.substring(0, 10) + '...' : keyword }}"
-                  </span>
+                  </UiBadge>
                   <span
                     v-if="rule.keywords.length > 1"
                     class="text-xs text-gray-500"
@@ -112,13 +112,13 @@
                   {{ t('admin.errorPassthrough.allPlatforms') }}
                 </div>
                 <div v-else class="flex flex-wrap gap-1">
-                  <span
+                  <UiBadge
                     v-for="platform in rule.platforms.slice(0, 2)"
                     :key="platform"
-                    class="badge badge-primary text-xs"
+                    tone="info"
                   >
                     {{ platform }}
-                  </span>
+                  </UiBadge>
                   <span v-if="rule.platforms.length > 2" class="text-xs text-gray-500">
                     +{{ rule.platforms.length - 2 }}
                   </span>
@@ -161,37 +161,28 @@
                 </div>
               </td>
               <td class="px-3 py-2">
-                <button
-                  @click="toggleEnabled(rule)"
-                  :class="[
-                    'relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                    rule.enabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-                  ]"
-                >
-                  <span
-                    :class="[
-                      'pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                      rule.enabled ? 'translate-x-3' : 'translate-x-0'
-                    ]"
-                  />
-                </button>
+                <UiSwitch
+                  :model-value="rule.enabled"
+                  :label="t('admin.errorPassthrough.form.enabled')"
+                  @update:model-value="toggleEnabled(rule)"
+                />
               </td>
               <td class="px-3 py-2">
                 <div class="flex items-center gap-1">
-                  <button
+                  <UiIconButton
                     @click="handleEdit(rule)"
-                    class="p-1 text-gray-500 hover:text-primary-600 dark:hover:text-primary-400"
-                    :title="t('common.edit')"
-                  >
-                    <Icon name="edit" size="sm" />
-                  </button>
-                  <button
+                    icon="edit"
+                    variant="ghost"
+                    density="mini"
+                    :label="t('common.edit')"
+                  />
+                  <UiIconButton
                     @click="handleDelete(rule)"
-                    class="p-1 text-gray-500 hover:text-red-600 dark:hover:text-red-400"
-                    :title="t('common.delete')"
-                  >
-                    <Icon name="trash" size="sm" />
-                  </button>
+                    icon="trash"
+                    variant="danger"
+                    density="mini"
+                    :label="t('common.delete')"
+                  />
                 </div>
               </td>
             </tr>
@@ -202,14 +193,14 @@
 
     <template #footer>
       <div class="flex justify-end">
-        <button @click="$emit('close')" class="btn btn-secondary">
+        <UiButton type="button" density="compact" @click="$emit('close')">
           {{ t('common.close') }}
-        </button>
+        </UiButton>
       </div>
     </template>
 
     <!-- Create/Edit Modal -->
-    <BaseDialog
+    <UiDialog
       :show="showCreateModal || showEditModal"
       :title="showEditModal ? t('admin.errorPassthrough.editRule') : t('admin.errorPassthrough.createRule')"
       width="wide"
@@ -218,37 +209,31 @@
       <form @submit.prevent="handleSubmit" class="space-y-4">
         <!-- Basic Info -->
         <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="input-label">{{ t('admin.errorPassthrough.form.name') }}</label>
-            <input
-              v-model="form.name"
-              type="text"
-              required
-              class="input"
-              :placeholder="t('admin.errorPassthrough.form.namePlaceholder')"
-            />
-          </div>
-          <div>
-            <label class="input-label">{{ t('admin.errorPassthrough.form.priority') }}</label>
-            <input
-              v-model.number="form.priority"
-              type="number"
-              min="0"
-              class="input"
-            />
-            <p class="input-hint">{{ t('admin.errorPassthrough.form.priorityHint') }}</p>
-          </div>
-        </div>
-
-        <div>
-          <label class="input-label">{{ t('admin.errorPassthrough.form.description') }}</label>
-          <input
-            v-model="form.description"
+          <UiTextField
+            v-model="form.name"
             type="text"
-            class="input"
-            :placeholder="t('admin.errorPassthrough.form.descriptionPlaceholder')"
+            required
+            density="compact"
+            :label="t('admin.errorPassthrough.form.name')"
+            :placeholder="t('admin.errorPassthrough.form.namePlaceholder')"
+          />
+          <UiTextField
+            v-model.number="form.priority"
+            type="number"
+            min="0"
+            density="compact"
+            :label="t('admin.errorPassthrough.form.priority')"
+            :description="t('admin.errorPassthrough.form.priorityHint')"
           />
         </div>
+
+        <UiTextField
+          v-model="form.description"
+          type="text"
+          density="compact"
+          :label="t('admin.errorPassthrough.form.description')"
+          :placeholder="t('admin.errorPassthrough.form.descriptionPlaceholder')"
+        />
 
         <!-- Match Conditions -->
         <div class="rounded-lg border border-gray-200 p-3 dark:border-dark-600">
@@ -257,68 +242,45 @@
           </h4>
 
           <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="input-label text-xs">{{ t('admin.errorPassthrough.form.errorCodes') }}</label>
-              <input
-                v-model="errorCodesInput"
-                type="text"
-                class="input text-sm"
-                :placeholder="t('admin.errorPassthrough.form.errorCodesPlaceholder')"
-              />
-              <p class="input-hint text-xs">{{ t('admin.errorPassthrough.form.errorCodesHint') }}</p>
-            </div>
-            <div>
-              <label class="input-label text-xs">{{ t('admin.errorPassthrough.form.keywords') }}</label>
-              <textarea
-                v-model="keywordsInput"
-                rows="2"
-                class="input font-mono text-xs"
-                :placeholder="t('admin.errorPassthrough.form.keywordsPlaceholder')"
-              />
-              <p class="input-hint text-xs">{{ t('admin.errorPassthrough.form.keywordsHint') }}</p>
-            </div>
+            <UiTextField
+              v-model="errorCodesInput"
+              type="text"
+              density="compact"
+              :label="t('admin.errorPassthrough.form.errorCodes')"
+              :description="t('admin.errorPassthrough.form.errorCodesHint')"
+              :placeholder="t('admin.errorPassthrough.form.errorCodesPlaceholder')"
+            />
+            <UiTextArea
+              v-model="keywordsInput"
+              :rows="2"
+              monospace
+              :label="t('admin.errorPassthrough.form.keywords')"
+              :description="t('admin.errorPassthrough.form.keywordsHint')"
+              :placeholder="t('admin.errorPassthrough.form.keywordsPlaceholder')"
+            />
           </div>
 
-          <div class="mt-3">
-            <label class="input-label text-xs">{{ t('admin.errorPassthrough.form.matchMode') }}</label>
-            <div class="mt-1 space-y-2">
-              <label
-                v-for="option in matchModeOptions"
-                :key="option.value"
-                class="flex items-start gap-2 cursor-pointer"
-              >
-                <input
-                  type="radio"
-                  :value="option.value"
-                  v-model="form.match_mode"
-                  class="mt-0.5 h-3.5 w-3.5 border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <div class="flex-1">
-                  <span class="text-xs font-medium text-gray-700 dark:text-gray-300">{{ option.label }}</span>
-                  <p class="text-xs text-gray-500 dark:text-gray-400">{{ option.description }}</p>
-                </div>
-              </label>
-            </div>
-          </div>
+          <UiRadioGroup
+            v-model="form.match_mode"
+            class="mt-3"
+            :label="t('admin.errorPassthrough.form.matchMode')"
+            name="error-passthrough-match-mode"
+            layout="stacked"
+            :options="matchModeOptions"
+          />
 
           <div class="mt-3">
-            <label class="input-label text-xs">{{ t('admin.errorPassthrough.form.platforms') }}</label>
+            <label class="ui-field-label text-xs">{{ t('admin.errorPassthrough.form.platforms') }}</label>
             <div class="flex flex-wrap gap-3">
-              <label
+              <UiCheckbox
                 v-for="platform in platformOptions"
                 :key="platform.value"
-                class="inline-flex items-center gap-1.5"
-              >
-                <input
-                  type="checkbox"
-                  :value="platform.value"
-                  v-model="form.platforms"
-                  class="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <span class="text-xs text-gray-700 dark:text-gray-300">{{ platform.label }}</span>
-              </label>
+                :model-value="form.platforms.includes(platform.value)"
+                :label="platform.label"
+                @update:model-value="setPlatformSelected(platform.value, $event)"
+              />
             </div>
-            <p class="input-hint text-xs mt-1">{{ t('admin.errorPassthrough.form.platformsHint') }}</p>
+            <p class="ui-field-hint text-xs mt-1">{{ t('admin.errorPassthrough.form.platformsHint') }}</p>
           </div>
         </div>
 
@@ -330,45 +292,33 @@
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
-                  v-model="form.passthrough_code"
-                  class="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <span class="text-xs font-medium text-gray-700 dark:text-gray-300">
-                  {{ t('admin.errorPassthrough.form.passthroughCode') }}
-                </span>
-              </label>
+              <UiSwitch
+                v-model="form.passthrough_code"
+                :label="t('admin.errorPassthrough.form.passthroughCode')"
+              />
               <div v-if="!form.passthrough_code" class="mt-2">
-                <label class="input-label text-xs">{{ t('admin.errorPassthrough.form.responseCode') }}</label>
-                <input
+                <UiTextField
                   v-model.number="form.response_code"
                   type="number"
                   min="100"
                   max="599"
-                  class="input text-sm"
+                  density="compact"
+                  :label="t('admin.errorPassthrough.form.responseCode')"
                   placeholder="422"
                 />
               </div>
             </div>
             <div>
-              <label class="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
-                  v-model="form.passthrough_body"
-                  class="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <span class="text-xs font-medium text-gray-700 dark:text-gray-300">
-                  {{ t('admin.errorPassthrough.form.passthroughBody') }}
-                </span>
-              </label>
+              <UiSwitch
+                v-model="form.passthrough_body"
+                :label="t('admin.errorPassthrough.form.passthroughBody')"
+              />
               <div v-if="!form.passthrough_body" class="mt-2">
-                <label class="input-label text-xs">{{ t('admin.errorPassthrough.form.customMessage') }}</label>
-                <input
+                <UiTextField
                   v-model="form.custom_message"
                   type="text"
-                  class="input text-sm"
+                  density="compact"
+                  :label="t('admin.errorPassthrough.form.customMessage')"
                   :placeholder="t('admin.errorPassthrough.form.customMessagePlaceholder')"
                 />
               </div>
@@ -377,56 +327,44 @@
         </div>
 
         <!-- Skip Monitoring -->
-        <div class="flex items-center gap-1.5">
-          <input
-            type="checkbox"
-            v-model="form.skip_monitoring"
-            class="h-3.5 w-3.5 rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"
-          />
-          <span class="text-xs font-medium text-gray-700 dark:text-gray-300">
-            {{ t('admin.errorPassthrough.form.skipMonitoring') }}
-          </span>
-        </div>
-        <p class="input-hint text-xs -mt-3">{{ t('admin.errorPassthrough.form.skipMonitoringHint') }}</p>
+        <UiSwitch
+          v-model="form.skip_monitoring"
+          :label="t('admin.errorPassthrough.form.skipMonitoring')"
+        />
+        <p class="ui-field-hint text-xs -mt-3">{{ t('admin.errorPassthrough.form.skipMonitoringHint') }}</p>
 
         <!-- Enabled -->
-        <div class="flex items-center gap-1.5">
-          <input
-            type="checkbox"
-            v-model="form.enabled"
-            class="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-          />
-          <span class="text-xs font-medium text-gray-700 dark:text-gray-300">
-            {{ t('admin.errorPassthrough.form.enabled') }}
-          </span>
-        </div>
+        <UiSwitch
+          v-model="form.enabled"
+          :label="t('admin.errorPassthrough.form.enabled')"
+        />
       </form>
 
       <template #footer>
         <div class="flex justify-end gap-3">
-          <button @click="closeFormModal" type="button" class="btn btn-secondary">
+          <UiButton type="button" density="compact" @click="closeFormModal">
             {{ t('common.cancel') }}
-          </button>
-          <button @click="handleSubmit" :disabled="submitting" class="btn btn-primary">
-            <Icon v-if="submitting" name="refresh" size="sm" class="mr-1 animate-spin" />
+          </UiButton>
+          <UiButton type="button" density="compact" variant="primary" :loading="submitting" @click="handleSubmit">
             {{ showEditModal ? t('common.update') : t('common.create') }}
-          </button>
+          </UiButton>
         </div>
       </template>
-    </BaseDialog>
+    </UiDialog>
 
     <!-- Delete Confirmation -->
-    <ConfirmDialog
+    <UiConfirmDialog
       :show="showDeleteDialog"
       :title="t('admin.errorPassthrough.deleteRule')"
       :message="t('admin.errorPassthrough.deleteConfirm', { name: deletingRule?.name })"
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
       :danger="true"
+      :pending="deletePending"
       @confirm="confirmDelete"
-      @cancel="showDeleteDialog = false"
+      @cancel="showDeleteDialog = false; deletingRule = null"
     />
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
@@ -435,9 +373,19 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { ErrorPassthroughRule } from '@/api/admin/errorPassthrough'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  UiButton,
+  UiBadge,
+  UiCheckbox,
+  UiConfirmDialog,
+  UiDialog,
+  UiIconButton,
+  UiRadioGroup,
+  UiSwitch,
+  UiTextArea,
+  UiTextField,
+} from '@/components/ui'
 
 const props = defineProps<{
   show: boolean
@@ -461,6 +409,7 @@ const showEditModal = ref(false)
 const showDeleteDialog = ref(false)
 const editingRule = ref<ErrorPassthroughRule | null>(null)
 const deletingRule = ref<ErrorPassthroughRule | null>(null)
+const deletePending = ref(false)
 
 // Form inputs for arrays
 const errorCodesInput = ref('')
@@ -492,6 +441,12 @@ const platformOptions = [
   { value: 'antigravity', label: 'Antigravity' },
   { value: 'grok', label: 'Grok' }
 ]
+
+function setPlatformSelected(platform: string, selected: boolean): void {
+  form.platforms = selected
+    ? Array.from(new Set([...form.platforms, platform]))
+    : form.platforms.filter((item) => item !== platform)
+}
 
 // Load rules when dialog opens
 watch(() => props.show, (newVal) => {
@@ -635,10 +590,12 @@ const toggleEnabled = async (rule: ErrorPassthroughRule) => {
 }
 
 const confirmDelete = async () => {
-  if (!deletingRule.value) return
+  if (deletePending.value || !deletingRule.value) return
+  const rule = deletingRule.value
+  deletePending.value = true
 
   try {
-    await adminAPI.errorPassthrough.delete(deletingRule.value.id)
+    await adminAPI.errorPassthrough.delete(rule.id)
     appStore.showSuccess(t('admin.errorPassthrough.ruleDeleted'))
     showDeleteDialog.value = false
     deletingRule.value = null
@@ -646,6 +603,8 @@ const confirmDelete = async () => {
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.errorPassthrough.failedToDelete'))
     console.error('Error deleting rule:', error)
+  } finally {
+    deletePending.value = false
   }
 }
 </script>

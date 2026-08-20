@@ -1,5 +1,5 @@
 <template>
-  <div class="card p-3">
+  <div class="ui-panel p-3">
     <div class="mb-4 flex items-center justify-between gap-3">
       <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
         {{ title || t('usage.endpointDistribution') }}
@@ -9,67 +9,29 @@
           v-if="showSourceToggle"
           class="inline-flex rounded-[3px] border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800"
         >
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="source === 'inbound'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
-            @click="emit('update:source', 'inbound')"
-          >
-            {{ t('usage.inbound') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="source === 'upstream'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
-            @click="emit('update:source', 'upstream')"
-          >
-            {{ t('usage.upstream') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="source === 'path'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
-            @click="emit('update:source', 'path')"
-          >
-            {{ t('usage.path') }}
-          </button>
+          <UiSegmentedControl
+            :model-value="source"
+            :options="sourceOptions"
+            :label="t('admin.dashboard.sourceSelectorLabel')"
+            @update:model-value="emit('update:source', $event as EndpointSource)"
+          />
         </div>
 
         <div
           v-if="showMetricToggle"
           class="inline-flex rounded-[3px] border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800"
         >
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="metric === 'tokens'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
-            @click="emit('update:metric', 'tokens')"
-          >
-            {{ t('admin.dashboard.metricTokens') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="metric === 'actual_cost'
-              ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
-            @click="emit('update:metric', 'actual_cost')"
-          >
-            {{ t('admin.dashboard.metricActualCost') }}
-          </button>
+          <UiSegmentedControl
+            :model-value="metric"
+            :options="metricOptions"
+            :label="t('admin.dashboard.metricSelectorLabel')"
+            @update:model-value="emit('update:metric', $event as DistributionMetric)"
+          />
         </div>
       </div>
     </div>
     <div v-if="loading" class="flex h-48 items-center justify-center">
-      <LoadingSpinner />
+      <UiSpinner />
     </div>
     <div v-else-if="displayMode === 'ranking' && displayEndpointStats.length > 0" class="space-y-2.5 py-1" data-testid="endpoint-distribution-ranking">
       <div v-for="(item, index) in displayEndpointStats" :key="item.endpoint" class="space-y-1">
@@ -89,11 +51,12 @@
       </div>
     </div>
     <div v-else-if="displayEndpointStats.length > 0 && chartData" class="flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
-      <div class="h-48 w-48 shrink-0">
+      <div class="h-48 w-48 shrink-0" role="img" :aria-label="title || t('usage.endpointDistribution')">
         <Doughnut :data="chartData" :options="doughnutOptions" />
       </div>
       <div class="max-h-48 w-full min-w-0 flex-1 overflow-auto">
-        <table class="w-full text-xs">
+        <table class="w-full text-xs" :aria-label="title || t('usage.endpointDistribution')">
+          <caption class="sr-only">{{ title || t('usage.endpointDistribution') }}</caption>
           <thead>
             <tr class="text-gray-500 dark:text-gray-400">
               <th class="pb-2 text-left">{{ t('usage.endpoint') }}</th>
@@ -108,12 +71,16 @@
               <tr
                 class="border-t border-gray-100 transition-colors dark:border-dark-700"
                 :class="enableBreakdown ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-700/40' : ''"
+                :role="enableBreakdown ? 'button' : undefined"
+                :tabindex="enableBreakdown ? 0 : undefined"
+                :aria-expanded="enableBreakdown ? expandedKey === item.endpoint : undefined"
+                :aria-controls="enableBreakdown ? `endpoint-breakdown-${encodeURIComponent(item.endpoint)}` : undefined"
                 @click="enableBreakdown && toggleBreakdown(item.endpoint)"
+                @keydown="handleEndpointRowKeydown($event, item.endpoint)"
               >
                 <td class="max-w-[180px] truncate py-1.5 font-medium" :class="enableBreakdown ? 'text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300' : 'text-gray-900 dark:text-white'" :title="item.endpoint">
                   <span class="inline-flex items-center gap-1">
-                    <svg v-if="enableBreakdown && expandedKey === item.endpoint" class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                    <svg v-else-if="enableBreakdown" class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    <Icon v-if="enableBreakdown" :name="expandedKey === item.endpoint ? 'chevronDown' : 'chevronRight'" size="xs" />
                     {{ item.endpoint }}
                   </span>
                 </td>
@@ -130,7 +97,7 @@
                   ${{ formatCost(item.cost) }}
                 </td>
               </tr>
-              <tr v-if="expandedKey === item.endpoint">
+              <tr v-if="expandedKey === item.endpoint" :id="`endpoint-breakdown-${encodeURIComponent(item.endpoint)}`">
                 <td colspan="5" class="p-0">
                   <UserBreakdownSubTable
                     :items="breakdownItems"
@@ -154,15 +121,18 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut } from 'vue-chartjs'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { UiSegmentedControl, UiSpinner } from '@/components/ui'
+import Icon from '@/components/icons/Icon.vue'
 import UserBreakdownSubTable from './UserBreakdownSubTable.vue'
 import type { EndpointStat, UserBreakdownItem } from '@/types'
 import { getUserBreakdown } from '@/api/admin/dashboard'
 import { getStableCategoryColor } from '@/utils/categoricalColors'
+import { useReducedMotion } from '@/composables/useReducedMotion'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
 const { t } = useI18n()
+const reducedMotion = useReducedMotion()
 
 type DistributionMetric = 'tokens' | 'actual_cost'
 type EndpointSource = 'inbound' | 'upstream' | 'path'
@@ -211,6 +181,17 @@ const emit = defineEmits<{
   'update:source': [value: EndpointSource]
 }>()
 
+const sourceOptions = computed(() => [
+  { value: 'inbound' as EndpointSource, label: t('usage.inbound') },
+  { value: 'upstream' as EndpointSource, label: t('usage.upstream') },
+  { value: 'path' as EndpointSource, label: t('usage.path') },
+])
+
+const metricOptions = computed(() => [
+  { value: 'tokens' as DistributionMetric, label: t('admin.dashboard.metricTokens') },
+  { value: 'actual_cost' as DistributionMetric, label: t('admin.dashboard.metricActualCost') },
+])
+
 const expandedKey = ref<string | null>(null)
 const breakdownItems = ref<UserBreakdownItem[]>([])
 const breakdownLoading = ref(false)
@@ -237,6 +218,13 @@ const toggleBreakdown = async (endpoint: string) => {
   } finally {
     breakdownLoading.value = false
   }
+}
+
+const handleEndpointRowKeydown = (event: KeyboardEvent, endpoint: string) => {
+  if (!props.enableBreakdown) return
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  void toggleBreakdown(endpoint)
 }
 
 const chartColors = [
@@ -327,6 +315,7 @@ const chartData = computed(() => {
 const doughnutOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  ...(reducedMotion.value ? { animation: false } : {}),
   plugins: {
     legend: {
       display: false

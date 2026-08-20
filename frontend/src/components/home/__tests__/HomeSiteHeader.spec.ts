@@ -13,8 +13,9 @@ const RouterLinkStub = {
   template: '<a :href="to"><slot /></a>',
 }
 
-function mountHeader(overrides: Record<string, unknown> = {}) {
+function mountHeader(overrides: Record<string, unknown> = {}, attachTo?: Element) {
   return mount(HomeSiteHeader, {
+    attachTo,
     props: {
       siteName: 'Qiu API',
       siteLogo: '/brand.svg',
@@ -71,7 +72,7 @@ describe('HomeSiteHeader', () => {
   })
 
   it('opens the mobile navigation and closes it with Escape', async () => {
-    const wrapper = mountHeader()
+    const wrapper = mountHeader({}, document.body)
     const toggle = wrapper.get('button[aria-controls="qiu-mobile-menu"]')
     const menu = wrapper.get('#qiu-mobile-menu')
 
@@ -82,10 +83,12 @@ describe('HomeSiteHeader', () => {
     expect(toggle.attributes('aria-expanded')).toBe('true')
     expect(menu.attributes('style')).not.toContain('display: none')
 
+    menu.get('a').element.focus()
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     await wrapper.vm.$nextTick()
     expect(toggle.attributes('aria-expanded')).toBe('false')
     expect(menu.attributes('style')).toContain('display: none')
+    expect(document.activeElement).toBe(toggle.element)
   })
 
   it('uses the shared compact navigation on authentication pages', () => {

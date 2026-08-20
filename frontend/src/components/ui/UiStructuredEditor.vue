@@ -1,3 +1,38 @@
-<template><UiFormField :label="label" :description="description" :error="error||parseError"><div class="ui-structured"><div class="ui-structured__toolbar"><span>{{language.toUpperCase()}}</span><div><UiButton density="mini" variant="quiet" @click="format"><template #icon><Icon name="sparkles" size="xs"/></template>格式化</UiButton><UiButton density="mini" variant="quiet" @click="fileInput?.click()"><template #icon><Icon name="upload" size="xs"/></template>导入</UiButton><input ref="fileInput" type="file" accept="application/json,.json" hidden @change="readFile"></div></div><textarea :value="modelValue" :rows="rows" spellcheck="false" class="ui-structured__input ui-focus-ring" @input="update(($event.target as HTMLTextAreaElement).value)"/><footer><span :class="parseError?'is-error':'is-valid'"><Icon :name="parseError?'exclamationCircle':'checkCircle'" size="xs"/>{{parseError||'结构有效'}}</span><span>{{modelValue.length}} 字符</span></footer></div></UiFormField></template>
-<script setup lang="ts">import{ref}from'vue';import Icon from '@/components/icons/Icon.vue';import UiButton from './UiButton.vue';import UiFormField from './UiFormField.vue';const props=withDefaults(defineProps<{modelValue:string;label?:string;description?:string;error?:string;language?:'json';rows?:number}>(),{language:'json',rows:9});const emit=defineEmits<{'update:modelValue':[string];valid:[unknown];invalid:[string]}>();const parseError=ref('');const fileInput=ref<HTMLInputElement>();function update(value:string){emit('update:modelValue',value);validate(value)}function validate(value:string){try{const parsed=JSON.parse(value);parseError.value='';emit('valid',parsed)}catch(error){parseError.value=error instanceof Error?error.message:'JSON 格式错误';emit('invalid',parseError.value)}}function format(){try{update(JSON.stringify(JSON.parse(props.modelValue),null,2))}catch{validate(props.modelValue)}}function readFile(event:Event){const file=(event.target as HTMLInputElement).files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>update(String(reader.result||''));reader.readAsText(file)}</script>
+<template>
+  <UiFormField :for-id="fieldId" :label="label" :description="description" :error="error || parseError">
+    <div class="ui-structured">
+      <div class="ui-structured__toolbar">
+        <span>{{ language.toUpperCase() }}</span>
+        <div>
+          <UiButton density="mini" variant="quiet" @click="format"><template #icon><Icon name="sparkles" size="xs" /></template>格式化</UiButton>
+          <UiButton density="mini" variant="quiet" @click="fileInput?.click()"><template #icon><Icon name="upload" size="xs" /></template>导入</UiButton>
+          <input ref="fileInput" type="file" accept="application/json,.json" hidden @change="readFile" />
+        </div>
+      </div>
+      <textarea :id="fieldId" :value="modelValue" :rows="rows" spellcheck="false" class="ui-structured__input ui-focus-ring" :aria-describedby="error || parseError || description ? `${fieldId}-message` : undefined" :aria-invalid="error || parseError ? 'true' : undefined" @input="update(($event.target as HTMLTextAreaElement).value)" />
+      <footer><span :class="(error || parseError) ? 'is-error' : 'is-valid'"><Icon :name="(error || parseError) ? 'exclamationCircle' : 'checkCircle'" size="xs" />{{ error || parseError || '结构有效' }}</span><span>{{ modelValue.length }} 字符</span></footer>
+    </div>
+  </UiFormField>
+</template>
+
+<script setup lang="ts">
+import { ref, useId } from 'vue'
+import Icon from '@/components/icons/Icon.vue'
+import UiButton from './UiButton.vue'
+import UiFormField from './UiFormField.vue'
+
+const props = withDefaults(defineProps<{ modelValue: string; id?: string; label?: string; description?: string; error?: string; language?: 'json'; rows?: number }>(), { language: 'json', rows: 9 })
+const fieldId = props.id || `ui-structured-${useId()}`
+const emit = defineEmits<{ 'update:modelValue': [string]; valid: [unknown]; invalid: [string] }>()
+const parseError = ref('')
+const fileInput = ref<HTMLInputElement>()
+function update(value: string) { emit('update:modelValue', value); validate(value) }
+function validate(value: string) {
+  try { const parsed = JSON.parse(value); parseError.value = ''; emit('valid', parsed) }
+  catch (error) { parseError.value = error instanceof Error ? error.message : 'JSON 格式错误'; emit('invalid', parseError.value) }
+}
+function format() { try { update(JSON.stringify(JSON.parse(props.modelValue), null, 2)) } catch { validate(props.modelValue) } }
+function readFile(event: Event) { const file = (event.target as HTMLInputElement).files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => update(String(reader.result || '')); reader.readAsText(file) }
+</script>
+
 <style scoped>.ui-structured{overflow:hidden;border:1px solid var(--ui-border);border-radius:var(--ui-radius);background:var(--ui-surface)}.ui-structured__toolbar,.ui-structured footer{display:flex;align-items:center;justify-content:space-between;padding:4px 7px;color:var(--ui-text-soft);background:var(--ui-surface-muted);font-size:10px}.ui-structured__toolbar>div{display:flex}.ui-structured__input{display:block;width:100%;resize:vertical;padding:10px;border:0;border-block:1px solid var(--ui-border-soft);outline:0;color:var(--ui-text);background:var(--ui-surface);font:12px/1.65 var(--ui-font-mono);font-variant-ligatures:none;letter-spacing:0;tab-size:2}.ui-structured footer span{display:flex;align-items:center;gap:4px}.ui-structured footer .is-valid{color:var(--ui-success)}.ui-structured footer .is-error{color:var(--ui-danger)}</style>

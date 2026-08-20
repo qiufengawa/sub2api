@@ -93,6 +93,9 @@
 .ui-badge { border-radius: var(--ui-radius-mini) !important; font-size: 11px !important; line-height: 16px !important; }
 .ui-focus-ring:focus-visible { outline: 2px solid color-mix(in srgb, var(--ui-focus) 26%, transparent); outline-offset: 1px; }
 .ui-numeric { font-variant-numeric: tabular-nums; }
+.ui-panel { min-width: 0; border: 1px solid var(--ui-border-soft); border-radius: var(--ui-radius-panel); background: var(--ui-surface); }
+.ui-field-label { display: block; margin: 0 0 6px; color: var(--ui-text); font-size: 13px; font-weight: 500; line-height: 20px; }
+.ui-field-hint { margin: 4px 0 0; color: var(--ui-text-soft); font-size: 11px; line-height: 18px; }
 
 /* Legacy common wrappers still used by Select and DateRangePicker. */
 .select-trigger, .date-range-trigger, .date-input {
@@ -134,6 +137,9 @@ textarea {
   *::before,
   *::after {
     scroll-behavior: auto !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
   }
 
   .ui-motion {

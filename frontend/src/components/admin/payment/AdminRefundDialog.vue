@@ -185,8 +185,8 @@ const balanceItems = computed(() => [
   { key: 'orderAmount', label: t('payment.admin.orderAmount'), value: `${creditedAmountSymbol}${(props.order?.amount || 0).toFixed(2)}`, numeric: true },
 ])
 
-watch(() => props.show, (val) => {
-  if (val && props.order) {
+watch([() => props.show, () => props.order?.id], ([show]) => {
+  if (show && props.order) {
     // For REFUND_REQUESTED, pre-fill with the requested amount
     if (props.order.status === 'REFUND_REQUESTED' && props.order.refund_amount) {
       form.amount = props.order.refund_amount

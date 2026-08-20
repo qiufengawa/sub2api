@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog :show="show" :title="t('admin.users.attributes.title')" width="wide" @close="emit('close')">
+  <UiDialog :show="show" :title="t('admin.users.attributes.title')" width="wide" @close="emit('close')">
     <div class="space-y-4">
       <!-- Header with Add Button -->
       <div class="flex items-center justify-between">
@@ -11,18 +11,12 @@
 
       <!-- Loading State -->
       <div v-if="loading" class="flex justify-center py-12">
-        <svg class="h-8 w-8 animate-spin text-primary-500" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-        </svg>
+        <UiSpinner size="lg" :label="t('common.loading')" />
       </div>
 
       <!-- Empty State -->
       <div v-else-if="attributes.length === 0" class="py-12 text-center">
-        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
-        </svg>
+        <Icon name="inbox" size="xl" class="mx-auto text-gray-400" />
         <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
           {{ t('admin.users.attributes.noAttributes') }}
         </p>
@@ -89,10 +83,10 @@
         <UiButton @click="emit('close')">{{ t('common.close') }}</UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 
   <!-- Create/Edit Attribute Modal -->
-  <BaseDialog
+  <UiDialog
     :show="showEditModal"
     :title="editingAttribute ? t('admin.users.attributes.editAttribute') : t('admin.users.attributes.addAttribute')"
     width="normal"
@@ -101,7 +95,7 @@
     <form id="attribute-form" @submit.prevent="handleSave" class="space-y-4">
       <!-- Key -->
       <div>
-        <label class="input-label">{{ t('admin.users.attributes.key') }}</label>
+        <label class="ui-field-label">{{ t('admin.users.attributes.key') }}</label>
         <UiTextField
           v-model="form.key"
           type="text"
@@ -111,12 +105,12 @@
           :placeholder="t('admin.users.attributes.keyHint')"
           :disabled="!!editingAttribute"
         />
-        <p class="input-hint">{{ t('admin.users.attributes.keyHint') }}</p>
+        <p class="ui-field-hint">{{ t('admin.users.attributes.keyHint') }}</p>
       </div>
 
       <!-- Name -->
       <div>
-        <label class="input-label">{{ t('admin.users.attributes.name') }}</label>
+        <label class="ui-field-label">{{ t('admin.users.attributes.name') }}</label>
         <UiTextField
           v-model="form.name"
           type="text"
@@ -128,7 +122,7 @@
 
       <!-- Type -->
       <div>
-        <label class="input-label">{{ t('admin.users.attributes.type') }}</label>
+        <label class="ui-field-label">{{ t('admin.users.attributes.type') }}</label>
         <UiSelect
           v-model="form.type"
           :options="attributeTypes.map(type => ({ value: type, label: t(`admin.users.attributes.types.${type}`) }))"
@@ -137,7 +131,7 @@
 
       <!-- Options (for select/multi_select) -->
       <div v-if="form.type === 'select' || form.type === 'multi_select'" class="space-y-2">
-        <label class="input-label">{{ t('admin.users.attributes.options') }}</label>
+        <label class="ui-field-label">{{ t('admin.users.attributes.options') }}</label>
         <div v-for="(option, index) in form.options" :key="getOptionKey(option)" class="flex items-center gap-2">
           <UiTextField
             v-model="option.value"
@@ -166,7 +160,7 @@
 
       <!-- Description -->
       <div>
-        <label class="input-label">{{ t('admin.users.attributes.fieldDescription') }}</label>
+        <label class="ui-field-label">{{ t('admin.users.attributes.fieldDescription') }}</label>
         <UiTextField
           v-model="form.description"
           type="text"
@@ -177,7 +171,7 @@
 
       <!-- Placeholder -->
       <div>
-        <label class="input-label">{{ t('admin.users.attributes.placeholder') }}</label>
+        <label class="ui-field-label">{{ t('admin.users.attributes.placeholder') }}</label>
         <UiTextField
           v-model="form.placeholder"
           type="text"
@@ -203,18 +197,19 @@
         <UiButton type="submit" form="attribute-form" :disabled="saving" :loading="saving" variant="primary">{{ saving ? t('common.saving') : (editingAttribute ? t('common.update') : t('common.create')) }}</UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 
   <!-- Delete Confirmation -->
-  <ConfirmDialog
+  <UiConfirmDialog
     :show="showDeleteDialog"
     :title="t('admin.users.attributes.deleteAttribute')"
     :message="t('admin.users.attributes.deleteConfirm', { name: deletingAttribute?.name })"
     :confirm-text="t('common.delete')"
     :cancel-text="t('common.cancel')"
     :danger="true"
+    :pending="deletePending"
     @confirm="handleDelete"
-    @cancel="showDeleteDialog = false"
+    @cancel="showDeleteDialog = false; deletingAttribute = null"
   />
 </template>
 
@@ -224,10 +219,8 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { UserAttributeDefinition, UserAttributeType, UserAttributeOption } from '@/types'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { UiBadge, UiButton, UiCheckbox, UiIconButton, UiSelect, UiTextField } from '@/components/ui'
+import { UiBadge, UiButton, UiCheckbox, UiConfirmDialog, UiDialog, UiIconButton, UiSelect, UiSpinner, UiTextField } from '@/components/ui'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
 
 const { t } = useI18n()
@@ -251,6 +244,7 @@ const saving = ref(false)
 const attributes = ref<UserAttributeDefinition[]>([])
 const showEditModal = ref(false)
 const showDeleteDialog = ref(false)
+const deletePending = ref(false)
 const editingAttribute = ref<UserAttributeDefinition | null>(null)
 const deletingAttribute = ref<UserAttributeDefinition | null>(null)
 const getOptionKey = createStableObjectKeyResolver<UserAttributeOption>('user-attr-option')
@@ -368,16 +362,20 @@ const confirmDelete = (attr: UserAttributeDefinition) => {
 }
 
 const handleDelete = async () => {
-  if (!deletingAttribute.value) return
+  if (deletePending.value || !deletingAttribute.value) return
+  const attribute = deletingAttribute.value
+  deletePending.value = true
 
   try {
-    await adminAPI.userAttributes.deleteDefinition(deletingAttribute.value.id)
+    await adminAPI.userAttributes.deleteDefinition(attribute.id)
     appStore.showSuccess(t('admin.users.attributes.deleted'))
     showDeleteDialog.value = false
     deletingAttribute.value = null
     loadAttributes()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.users.attributes.failedToDelete'))
+  } finally {
+    deletePending.value = false
   }
 }
 

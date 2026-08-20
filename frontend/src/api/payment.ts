@@ -11,7 +11,10 @@ import type {
   CheckoutInfoResponse,
   CreateOrderRequest,
   CreateOrderResult,
-  PaymentOrder
+  PaymentOrder,
+  OrderStatus,
+  OrderType,
+  SubscriptionPurchaseMode
 } from '@/types/payment'
 import type { BasePaginationResponse } from '@/types'
 
@@ -21,6 +24,32 @@ export interface PublicOrderVerifyResult {
   paid: boolean
   created_at: string
   expires_at: string
+}
+
+/** Full receipt returned by the signed resume-token endpoint. */
+export interface PublicOrderResult {
+  id: number
+  out_trade_no: string
+  amount: number
+  pay_amount: number
+  fee_rate: number
+  currency: string
+  payment_type: string
+  order_type: OrderType
+  status: OrderStatus
+  created_at: string
+  expires_at: string
+  paid_at?: string
+  completed_at?: string
+  refund_amount: number
+  refund_reason?: string
+  refund_requested_at?: string
+  refund_requested_by?: number
+  refund_request_reason?: string
+  plan_id?: number
+  purchase_mode?: SubscriptionPurchaseMode
+  target_subscription_id?: number
+  fulfilled_subscription_id?: number
 }
 
 export const paymentAPI = {
@@ -76,7 +105,7 @@ export const paymentAPI = {
 
   /** Resolve an order from a signed resume token without auth */
   resolveOrderPublicByResumeToken(resumeToken: string) {
-    return apiClient.post<PublicOrderVerifyResult>('/payment/public/orders/resolve', { resume_token: resumeToken })
+    return apiClient.post<PublicOrderResult>('/payment/public/orders/resolve', { resume_token: resumeToken })
   },
 
   /** Request a refund for a completed order */

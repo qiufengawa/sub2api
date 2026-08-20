@@ -19,6 +19,14 @@
           <UiSkeleton variant="rect" width="100%" height="320px" />
         </div>
 
+        <UiErrorState
+          v-else-if="settingsLoadError"
+          :title="t('common.loadFailed')"
+          :description="t('customPage.settingsLoadFailedDesc')"
+          :retry-text="t('common.retry')"
+          @retry="loadPublicSettings(true)"
+        />
+
         <UiEmptyState
           v-else-if="!menuItem"
           icon="link"
@@ -31,6 +39,13 @@
           :title="t('common.loadFailed')"
           :retry-text="t('common.retry')"
           @retry="retryLoad"
+        />
+
+        <UiEmptyState
+          v-else-if="isMarkdownMode && markdownEmpty"
+          icon="document"
+          :title="t('customPage.emptyTitle')"
+          :description="t('customPage.emptyDesc')"
         />
 
         <div v-else-if="isMarkdownMode" class="custom-markdown-workspace">
@@ -47,6 +62,8 @@
                 variant="ghost"
                 density="dense"
                 :label="t('common.collapse')"
+                aria-controls="custom-page-toc"
+                :aria-expanded="tocVisible"
                 @click="tocVisible = false"
               />
             </div>
@@ -69,6 +86,7 @@
 
           <UiDrawer
             :show="isCompactToc && tocVisible"
+            id="custom-page-toc"
             side="left"
             :title="t('customPage.tableOfContents')"
             @close="tocVisible = false"
@@ -170,6 +188,8 @@ const adminSettingsStore = useAdminSettingsStore()
 
 const loading = ref(false)
 const loadError = ref(false)
+const settingsLoadError = ref(false)
+const markdownEmpty = ref(false)
 const pageTheme = ref<'light' | 'dark'>('light')
 const renderedHtml = ref('')
 const markdownContainer = ref<HTMLElement | null>(null)
@@ -209,7 +229,7 @@ const embeddedUrl = computed(() => {
   return buildEmbeddedUrl(
     menuItem.value.url,
     authStore.user?.id,
-    authStore.token,
+    null,
     pageTheme.value,
     locale.value,
   )
@@ -267,6 +287,7 @@ async function fetchAndRenderMarkdown(slug: string) {
   markdownRequestController = controller
   loading.value = true
   loadError.value = false
+  markdownEmpty.value = false
   tocItems.value = []
   activeHeadingId.value = ''
   try {
@@ -317,10 +338,14 @@ async function fetchAndRenderMarkdown(slug: string) {
     )
 
     renderedHtml.value = withIds
+    const parsed = new DOMParser().parseFromString(withIds, 'text/html')
+    const meaningfulSource = raw.replace(/<!--[\s\S]*?-->|<script\b[^>]*>[\s\S]*?<\/script>/gi, '').trim()
+    markdownEmpty.value = !meaningfulSource || (!parsed.body.textContent?.trim() && !parsed.body.querySelector('img, iframe, table, hr, video, audio, svg, canvas, picture, div, pre, code, blockquote, ul, ol'))
     tocItems.value = toc
   } catch (error) {
     if (controller.signal.aborted || requestId !== markdownRequestSeq) return
     renderedHtml.value = ''
+    markdownEmpty.value = false
     loadError.value = true
   } finally {
     if (requestId === markdownRequestSeq) {
@@ -339,6 +364,16 @@ function retryLoad() {
     return
   }
   loadError.value = false
+}
+
+async function loadPublicSettings(force = false) {
+  loading.value = true
+  settingsLoadError.value = false
+  const result = await appStore.fetchPublicSettings(force)
+  settingsLoadError.value = result == null
+  if (!markdownSlug.value) {
+    loading.value = false
+  }
 }
 
 function scrollToHeading(id: string) {
@@ -415,6 +450,7 @@ watch(markdownSlug, (slug) => {
     markdownRequestController = null
     renderedHtml.value = ''
     tocItems.value = []
+    markdownEmpty.value = false
     loadError.value = false
     loading.value = false
   }
@@ -450,14 +486,7 @@ onMounted(async () => {
   }
 
   if (appStore.publicSettingsLoaded) return
-  loading.value = true
-  try {
-    await appStore.fetchPublicSettings()
-  } finally {
-    if (!markdownSlug.value) {
-      loading.value = false
-    }
-  }
+  await loadPublicSettings()
 })
 
 onUnmounted(() => {

@@ -60,11 +60,12 @@
       v-else-if="activeView === 'model_distribution' && displayMode !== 'ranking' && displayModelStats.length > 0 && chartData"
       class="chart-split"
     >
-      <div class="chart-split__visual">
+      <div class="chart-split__visual" role="img" :aria-label="chartTitle">
         <Doughnut :data="chartData" :options="doughnutOptions" />
       </div>
       <UiMobileTableScroller class="chart-split__table" :label="t('admin.dashboard.modelDistribution')" min-width="620px">
         <table class="chart-table">
+          <caption class="sr-only">{{ t('admin.dashboard.modelDistribution') }}</caption>
           <thead>
             <tr>
               <th>{{ t('admin.dashboard.model') }}</th>
@@ -76,7 +77,7 @@
             </tr>
           </thead>
           <tbody>
-            <template v-for="model in displayModelStats" :key="model.model">
+            <template v-for="(model, modelIndex) in displayModelStats" :key="model.model">
               <tr
                 :class="{ 'is-clickable': enableBreakdown }"
                 @click="enableBreakdown && toggleBreakdown('model', model.model)"
@@ -90,6 +91,7 @@
                     type="button"
                     class="chart-table__toggle"
                     :aria-expanded="expandedKey === `model-${model.model}`"
+                    :aria-controls="`model-breakdown-${modelIndex}`"
                     @click.stop="toggleBreakdown('model', model.model)"
                   >
                     <Icon
@@ -116,7 +118,10 @@
                   ${{ formatCost(model.cost) }}
                 </td>
               </tr>
-              <tr v-if="expandedKey === `model-${model.model}`">
+              <tr
+                v-if="expandedKey === `model-${model.model}`"
+                :id="`model-breakdown-${modelIndex}`"
+              >
                   <td :colspan="distributionColspan" class="chart-table__details">
                   <UserBreakdownSubTable
                     :items="breakdownItems"
@@ -209,10 +214,12 @@ import UserBreakdownSubTable from './UserBreakdownSubTable.vue'
 import type { ModelStat, UserSpendingRankingItem, UserBreakdownItem } from '@/types'
 import { getUserBreakdown } from '@/api/admin/dashboard'
 import { getStableCategoryColor } from '@/utils/categoricalColors'
+import { useReducedMotion } from '@/composables/useReducedMotion'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
 const { t } = useI18n()
+const reducedMotion = useReducedMotion()
 
 type DistributionMetric = 'tokens' | 'actual_cost'
 type ModelSource = 'requested' | 'upstream' | 'mapping'
@@ -475,6 +482,7 @@ const rankingDisplayItems = computed<RankingDisplayItem[]>(() => {
 const doughnutOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  ...(reducedMotion.value ? { animation: false } : {}),
   plugins: {
     legend: {
       display: false
@@ -498,6 +506,7 @@ const doughnutOptions = computed(() => ({
 const rankingDoughnutOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  ...(reducedMotion.value ? { animation: false } : {}),
   plugins: {
     legend: {
       display: false

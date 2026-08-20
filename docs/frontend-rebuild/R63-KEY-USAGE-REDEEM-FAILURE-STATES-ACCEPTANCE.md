@@ -20,6 +20,7 @@
 - Prevents duplicate redemption submissions with a runtime guard in addition to the disabled submit control.
 - Makes the shared public header consume the global light/dark design tokens instead of a page-private dark class and preserves a readable horizontal logo at mobile width.
 - Keeps balance, concurrency, subscription redemption, user refresh, subscription refresh, history refresh, and success/error feedback behavior intact.
+- Queues a post-redemption history refresh when the initial history request is still pending, preventing a successful redemption from leaving stale activity rows visible.
 
 ## Automated Verification
 
@@ -79,5 +80,6 @@ Redeem browser acceptance remains pending because the available browser session 
 
 - Independent Key Usage review found no P0-P2 defect and confirmed the public route and request contract remain unchanged.
 - Independent Redeem review found a duplicate-submit risk; the handler now rejects re-entry and the regression test proves one request is issued while pending.
+- Redeem regression coverage now also proves the initial-history-pending plus successful-redemption race issues a second history request after the first completes.
 - The subscription redemption fixture now uses the real `plan_name` contract and verifies the plan name is rendered.
 - No backend, database, API contract, version, tag, release, or deployment metadata changed.

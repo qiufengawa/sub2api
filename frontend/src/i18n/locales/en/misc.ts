@@ -81,8 +81,11 @@ export default {
     openInNewTab: 'Open in new tab',
     notFoundTitle: 'Page not found',
     notFoundDesc: 'This custom page does not exist or has been removed.',
+    settingsLoadFailedDesc: 'The custom page configuration could not be loaded. Try again.',
     notConfiguredTitle: 'Page URL not configured',
     notConfiguredDesc: 'The URL for this custom page has not been properly configured.',
+    emptyTitle: 'This document is empty',
+    emptyDesc: 'No content has been published on this page yet.',
     tableOfContents: 'Contents',
     scrollableTable: 'Scrollable data table',
     copyCode: 'Copy',
@@ -122,6 +125,7 @@ export default {
     noActiveSubscriptionsDesc:
       "You don't have any subscriptions available for use. Contact an administrator to get one.",
     failedToLoad: 'Failed to load subscriptions',
+    failedToLoadDescription: 'Check your connection and try again.',
     status: {
       active: 'In use',
       expired: 'Expired',
@@ -353,6 +357,7 @@ export default {
     },
     qr: {
       scanToPay: 'Scan to Pay',
+      qrCodeLabel: 'Payment QR code',
       scanAlipay: 'Alipay QR Payment',
       scanWxpay: 'WeChat QR Payment',
       scanAlipayHint: 'Open Alipay on your phone and scan the QR code to pay',
@@ -396,6 +401,10 @@ export default {
       orderType: 'Order Type',
       actions: 'Actions',
       requestRefund: 'Request Refund',
+      loadFailed: 'Orders could not be loaded',
+      loadFailedDescription: 'Check your connection and try again.',
+      detailLoadFailed: 'Order details could not be loaded',
+      timeline: 'Order timeline',
     },
     result: {
       title: 'Payment Result',
@@ -408,6 +417,9 @@ export default {
       processingHint: 'Payment confirmation is still pending. This page will refresh automatically; do not pay again.',
       failed: 'Payment Failed',
       failedHint: 'This payment has not been confirmed. You can retry or review the order status.',
+      refundedHint: 'This order has been fully refunded.',
+      partiallyRefundedHint: 'This order has been partially refunded.',
+      refundFailedHint: 'The latest refund attempt failed. Review the order before trying again.',
       receiptTitle: 'Order Receipt',
       expectedCredit: 'Expected Credit',
       paidAt: 'Paid At',
@@ -446,6 +458,7 @@ export default {
     errors: {
       tooManyPending: 'Too many pending orders (max {max}). Please complete or cancel existing orders first.',
       cancelRateLimited: 'Too many cancellations. Please try again later.',
+      renewalTargetUnavailable: 'The subscription instance selected for renewal is no longer available. Choose a plan again.',
       wechatH5NotAuthorized: 'This merchant has not enabled WeChat H5 payment. Open this page in WeChat to continue.',
       wechatPaymentMpNotConfigured: 'This site has not completed WeChat MP/JSAPI payment setup, so in-app WeChat payment is unavailable right now.',
       wechatJsapiUnavailable: 'WeChat payment could not be invoked in the current environment. Reopen this page inside WeChat and try again.',

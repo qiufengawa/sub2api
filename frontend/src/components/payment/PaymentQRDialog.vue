@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog :show="show" :title="dialogTitle" width="narrow" @close="handleClose">
+  <UiDialog :show="show" :title="dialogTitle" width="narrow" @close="handleClose">
     <!-- QR Code + Polling State -->
     <div v-if="!success" class="flex flex-col items-center space-y-4">
       <!-- QR Code mode -->
@@ -14,11 +14,11 @@
       <!-- Popup window waiting mode (no QR code) -->
       <template v-else>
         <div class="flex flex-col items-center py-4">
-          <div class="h-10 w-10 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"></div>
+          <UiSpinner size="lg" :label="t('common.processing')" />
           <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">{{ t('payment.qr.payInNewWindowHint') }}</p>
-          <button v-if="safePayUrl" class="btn btn-secondary mt-3 text-sm" @click="reopenPopup">
+          <UiButton v-if="safePayUrl" variant="secondary" class="mt-3" @click="reopenPopup">
             {{ t('payment.qr.openPayWindow') }}
-          </button>
+          </UiButton>
         </div>
       </template>
       <!-- Countdown -->
@@ -56,25 +56,25 @@
     </div>
     <template #footer>
       <div class="flex justify-end gap-3">
-        <button v-if="!success && !expired" class="btn btn-secondary" :disabled="cancelling" @click="handleCancel">
-          {{ cancelling ? t('common.processing') : t('payment.qr.cancelOrder') }}
-        </button>
-        <button v-if="success" class="btn btn-primary" @click="handleDone">
+        <UiButton v-if="!success && !expired" variant="secondary" :loading="cancelling" :disabled="cancelling" @click="handleCancel">
+          {{ t('payment.qr.cancelOrder') }}
+        </UiButton>
+        <UiButton v-if="success" variant="primary" @click="handleDone">
           {{ t('common.confirm') }}
-        </button>
-        <button v-if="expired" class="btn btn-primary" @click="handleClose">
+        </UiButton>
+        <UiButton v-if="expired" variant="primary" @click="handleClose">
           {{ t('payment.result.backToRecharge') }}
-        </button>
+        </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { UiButton, UiDialog, UiSpinner } from '@/components/ui'
 import { usePaymentStore } from '@/stores/payment'
 import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/api/payment'

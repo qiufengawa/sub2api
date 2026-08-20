@@ -5,16 +5,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AdminOrdersView from '../AdminOrdersView.vue'
 import type { PaymentOrder } from '@/types/payment'
 
-const { getOrders } = vi.hoisted(() => ({ getOrders: vi.fn() }))
+const { getOrders, cancelOrder, retryRecharge, refundOrder, queryRefund } = vi.hoisted(() => ({
+  getOrders: vi.fn(),
+  cancelOrder: vi.fn(),
+  retryRecharge: vi.fn(),
+  refundOrder: vi.fn(),
+  queryRefund: vi.fn(),
+}))
 
 vi.mock('@/api/admin/payment', () => {
   const api = {
     getOrders,
     getOrder: vi.fn(),
-    cancelOrder: vi.fn(),
-    retryRecharge: vi.fn(),
-    refundOrder: vi.fn(),
-    queryRefund: vi.fn(),
+    cancelOrder,
+    retryRecharge,
+    refundOrder,
+    queryRefund,
   }
   return { default: api, adminPaymentAPI: api }
 })
@@ -72,8 +78,18 @@ const UiPaginationStub = {
 describe('AdminOrdersView', () => {
   beforeEach(() => {
     getOrders.mockReset()
+    cancelOrder.mockReset()
+    retryRecharge.mockReset()
+    refundOrder.mockReset()
+    queryRefund.mockReset()
     getOrders.mockResolvedValue({ data: { items: [order], total: 1 } })
   })
+
+  function deferred<T>() {
+    let resolve!: (value: T) => void
+    const promise = new Promise<T>((done) => { resolve = done })
+    return { promise, resolve }
+  }
 
   function mountView() {
     return mount(AdminOrdersView, {
@@ -119,6 +135,15 @@ describe('AdminOrdersView', () => {
     }))
   })
 
+  it('associates the advanced filter toggle with a persistent filter region', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const toggle = wrapper.get('[data-testid="admin-orders-advanced-toggle"]')
+    expect(toggle.attributes('aria-controls')).toBe('admin-orders-advanced-filters')
+    expect(wrapper.get('#admin-orders-advanced-filters').exists()).toBe(true)
+  })
+
   it('reloads once when page size changes', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -155,5 +180,88 @@ describe('AdminOrdersView', () => {
 
     expect(wrapper.get('[data-testid="order-rows"]').text()).toContain('7')
     expect(wrapper.get('[data-testid="order-rows"]').text()).not.toContain('2')
+  })
+
+  it('prevents duplicate cancel and retry mutations per order', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      handleCancelOrder: (value: PaymentOrder) => Promise<void>
+      handleRetryOrder: (value: PaymentOrder) => Promise<void>
+    }
+
+    const cancelPending = deferred<void>()
+    cancelOrder.mockReturnValueOnce(cancelPending.promise)
+    const firstCancel = vm.handleCancelOrder({ ...order, status: 'PENDING' })
+    const secondCancel = vm.handleCancelOrder({ ...order, status: 'PENDING' })
+    await flushPromises()
+    expect(cancelOrder).toHaveBeenCalledTimes(1)
+    cancelPending.resolve()
+    await Promise.all([firstCancel, secondCancel])
+
+    const retryPending = deferred<void>()
+    retryRecharge.mockReturnValueOnce(retryPending.promise)
+    const firstRetry = vm.handleRetryOrder({ ...order, status: 'FAILED' })
+    const secondRetry = vm.handleRetryOrder({ ...order, status: 'FAILED' })
+    await flushPromises()
+    expect(retryRecharge).toHaveBeenCalledTimes(1)
+    retryPending.resolve()
+    await Promise.all([firstRetry, secondRetry])
+  })
+
+  it('prevents duplicate refund submission and status queries', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      openRefundDialog: (value: PaymentOrder) => void
+      handleRefund: (data: { amount: number; reason: string; deduct_balance: boolean; force: boolean }) => Promise<void>
+      handleQueryRefund: (value: PaymentOrder) => Promise<void>
+    }
+    const refundData = { amount: 10, reason: 'duplicate guard', deduct_balance: true, force: false }
+    vm.openRefundDialog(order)
+    const refundPending = deferred<{ data: { success: boolean } }>()
+    refundOrder.mockReturnValueOnce(refundPending.promise)
+
+    const firstRefund = vm.handleRefund(refundData)
+    const secondRefund = vm.handleRefund(refundData)
+    await flushPromises()
+    expect(refundOrder).toHaveBeenCalledTimes(1)
+    refundPending.resolve({ data: { success: true } })
+    await Promise.all([firstRefund, secondRefund])
+
+    const queryPending = deferred<{ data: { success: boolean } }>()
+    queryRefund.mockReturnValueOnce(queryPending.promise)
+    const pendingOrder = { ...order, status: 'REFUND_PENDING' as const }
+    const firstQuery = vm.handleQueryRefund(pendingOrder)
+    const secondQuery = vm.handleQueryRefund(pendingOrder)
+    await flushPromises()
+    expect(queryRefund).toHaveBeenCalledTimes(1)
+    queryPending.resolve({ data: { success: true } })
+    await Promise.all([firstQuery, secondQuery])
+  })
+
+  it('keeps a pending refund target stable and ignores a late replacement target', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      openRefundDialog: (value: PaymentOrder) => void
+      handleRefund: (data: { amount: number; reason: string; deduct_balance: boolean; force: boolean }) => Promise<void>
+      selectedOrder: PaymentOrder | null
+      showRefundDialog: boolean
+    }
+    const secondOrder = { ...order, id: 2, out_trade_no: 'order-2' }
+    vm.openRefundDialog(order)
+    const refundPending = deferred<{ data: { success: boolean } }>()
+    refundOrder.mockReturnValueOnce(refundPending.promise)
+
+    const firstRefund = vm.handleRefund({ amount: 10, reason: 'first', deduct_balance: true, force: false })
+    vm.openRefundDialog(secondOrder)
+    expect(vm.selectedOrder?.id).toBe(order.id)
+    vm.selectedOrder = secondOrder
+
+    refundPending.resolve({ data: { success: true } })
+    await firstRefund
+    await flushPromises()
+    expect(vm.showRefundDialog).toBe(true)
   })
 })

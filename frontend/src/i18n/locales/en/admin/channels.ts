@@ -278,6 +278,7 @@ export default {
       clearAuditTest: 'Clear test',
       auditTestImageLimit: 'You can add up to {count} test images',
       auditTestImageTooLarge: 'Each test image must be 8MB or smaller',
+      auditTestImageTypeUnsupported: 'Use a JPEG, PNG, or WebP image for testing',
       auditTestImageReadFailed: 'Failed to read test image',
       auditTestResult: 'Audit Test Result',
       auditTestHighest: 'Top category {category}, score {score}',

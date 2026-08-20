@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
 import AccountsView from '../AccountsView.vue'
@@ -9,6 +9,9 @@ const {
   getBatchTodayStats,
   getServiceStatus,
   getUpstreamBillingProbeSettings,
+  batchDelete,
+  batchClearError,
+  batchRefresh,
   getAllProxies,
   getAllGroups,
   showError
@@ -18,6 +21,9 @@ const {
   getBatchTodayStats: vi.fn(),
   getServiceStatus: vi.fn(),
   getUpstreamBillingProbeSettings: vi.fn(),
+  batchDelete: vi.fn(),
+  batchClearError: vi.fn(),
+  batchRefresh: vi.fn(),
   getAllProxies: vi.fn(),
   getAllGroups: vi.fn(),
   showError: vi.fn()
@@ -31,9 +37,9 @@ vi.mock('@/api/admin', () => ({
       getBatchTodayStats,
       getServiceStatus,
       getUpstreamBillingProbeSettings,
-      batchDelete: vi.fn(),
-      batchClearError: vi.fn(),
-      batchRefresh: vi.fn(),
+      batchDelete,
+      batchClearError,
+      batchRefresh,
       bulkUpdate: vi.fn()
     },
     proxies: {
@@ -81,8 +87,8 @@ const makeAccounts = (count: number) => Array.from({ length: count }, (_, index)
 }))
 
 const AccountBulkActionsBarStub = {
-  props: ['selectedIds', 'totalResults', 'selectingAll', 'allResultsSelected'],
-  emits: ['select-all-results', 'select-page', 'clear'],
+  props: ['selectedIds', 'totalResults', 'selectingAll', 'allResultsSelected', 'pending'],
+  emits: ['select-all-results', 'select-page', 'clear', 'delete'],
   template: `
     <div>
       <span data-test="selected-count">{{ selectedIds.length }}</span>
@@ -91,6 +97,7 @@ const AccountBulkActionsBarStub = {
       <button data-test="select-page" @click="$emit('select-page')">select page</button>
       <button data-test="select-all-results" @click="$emit('select-all-results')">select all</button>
       <button data-test="clear" @click="$emit('clear')">clear</button>
+      <button data-test="bulk-delete" @click="$emit('delete')">delete</button>
     </div>
   `
 }
@@ -148,6 +155,7 @@ describe('admin AccountsView select all filtered results', () => {
     getAllProxies.mockReset()
     getAllGroups.mockReset()
     showError.mockReset()
+    batchDelete.mockReset()
 
     listWithEtag.mockResolvedValue({
       notModified: true,
@@ -159,6 +167,10 @@ describe('admin AccountsView select all filtered results', () => {
     getUpstreamBillingProbeSettings.mockResolvedValue({ enabled: true, interval_minutes: 30 })
     getAllProxies.mockResolvedValue([])
     getAllGroups.mockResolvedValue([])
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('selects all matching IDs in one commit and clears the selection when filters change', async () => {
@@ -229,5 +241,63 @@ describe('admin AccountsView select all filtered results', () => {
     expect(wrapper.get('[data-test="selected-count"]').text()).toBe('20')
     expect(wrapper.get('[data-test="all-results-selected"]').text()).toBe('false')
     expect(showError).toHaveBeenCalledWith('admin.accounts.bulkActions.selectAllFailed')
+  })
+
+  it('prevents duplicate bulk deletion when the handler is triggered twice', async () => {
+    const currentPage = makeAccounts(2)
+    listAccounts.mockResolvedValue({
+      items: currentPage,
+      total: 2,
+      page: 1,
+      page_size: 20,
+      pages: 1
+    })
+    let finishDelete!: (result: { success: number; failed: number; failed_ids: number[] }) => void
+    batchDelete.mockReturnValueOnce(new Promise(resolve => { finishDelete = resolve }))
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-test="select-page"]').trigger('click')
+    const vm = wrapper.vm as unknown as {
+      handleBulkDelete: () => Promise<void>
+      confirmBulkAction: () => Promise<void>
+    }
+
+    await vm.handleBulkDelete()
+    const first = vm.confirmBulkAction()
+    const second = vm.confirmBulkAction()
+    await flushPromises()
+
+    expect(batchDelete).toHaveBeenCalledTimes(1)
+    expect(batchDelete).toHaveBeenCalledWith([1, 2])
+
+    finishDelete({ success: 2, failed: 0, failed_ids: [] })
+    await Promise.all([first, second])
+  })
+
+  it.each([
+    ['reset status', 'handleBulkResetStatus', 'batchClearError'],
+    ['refresh token', 'handleBulkRefreshToken', 'batchRefresh'],
+  ] as const)('prevents duplicate bulk %s confirmation requests', async (_label, openMethod, apiKey) => {
+    const currentPage = makeAccounts(2)
+    listAccounts.mockResolvedValue({ items: currentPage, total: 2, page: 1, page_size: 20, pages: 1 })
+    let finish!: (result: { success: number; failed: number }) => void
+    const request = new Promise<{ success: number; failed: number }>(resolve => { finish = resolve })
+    const api = apiKey === 'batchClearError' ? batchClearError : batchRefresh
+    api.mockReturnValueOnce(request)
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-test="select-page"]').trigger('click')
+    const vm = wrapper.vm as any
+
+    await vm[openMethod]()
+    const first = vm.confirmBulkAction()
+    const second = vm.confirmBulkAction()
+    await flushPromises()
+
+    expect(api).toHaveBeenCalledTimes(1)
+    expect(api).toHaveBeenCalledWith([1, 2])
+    finish({ success: 2, failed: 0 })
+    await Promise.all([first, second])
+    wrapper.unmount()
   })
 })

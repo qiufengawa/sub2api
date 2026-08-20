@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="show"
     :title="t('payment.admin.orderDetail')"
     width="wide"
@@ -13,9 +13,7 @@
         </div>
         <div>
           <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.status') }}</p>
-          <span :class="['badge', statusBadgeClass(order.status)]">
-            {{ t('payment.status.' + order.status.toLowerCase(), order.status) }}
-          </span>
+          <UiStatusBadge :status="order.status" :label="t('payment.status.' + order.status.toLowerCase(), order.status)" />
         </div>
         <div>
           <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.baseAmount') }}</p>
@@ -87,38 +85,38 @@
       </div>
 
       <div class="flex items-center justify-end gap-2 border-t border-gray-200 pt-4 dark:border-dark-700">
-        <button
+        <UiButton
           v-if="order.status === 'PENDING'"
+          variant="secondary"
           @click="emit('cancel', order)"
-          class="btn btn-sm rounded-md bg-yellow-50 px-3 py-1.5 text-sm text-yellow-600 hover:bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-400 dark:hover:bg-yellow-900/30"
         >
           {{ t('payment.orders.cancel') }}
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           v-if="order.status === 'FAILED'"
+          variant="secondary"
           @click="emit('retry', order)"
-          class="btn btn-sm btn-secondary"
         >
           {{ t('payment.admin.retry') }}
-        </button>
-        <button
+        </UiButton>
+        <UiButton
           v-if="canRefund(order)"
+          variant="danger"
           @click="emit('refund', order)"
-          class="btn btn-sm rounded-md bg-red-50 px-3 py-1.5 text-sm text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
         >
           {{ t('payment.admin.refund') }}
-        </button>
+        </UiButton>
       </div>
     </div>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import BaseDialog from '@/components/common/BaseDialog.vue'
+import { UiButton, UiDialog, UiStatusBadge } from '@/components/ui'
 import type { PaymentOrder } from '@/types/payment'
-import { statusBadgeClass, canRefund as canRefundStatus, formatOrderDateTime } from '@/components/payment/orderUtils'
+import { canRefund as canRefundStatus, formatOrderDateTime } from '@/components/payment/orderUtils'
 import { currencySymbol } from '@/components/payment/currency'
 
 const { t } = useI18n()

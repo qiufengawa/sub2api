@@ -795,7 +795,7 @@ function handleToolbarRefresh() {
     <div v-if="overview" class="ops-overview">
       <UiPopover placement="bottom-start" panel-role="dialog" :aria-label="t('admin.ops.diagnosis.title')" width="320px">
         <template #trigger>
-          <button type="button" class="ops-health ui-focus-ring" data-overview-section="health">
+          <UiButton type="button" variant="quiet" density="default" class="ops-health" data-overview-section="health">
             <UiProgressRing
               :value="isSystemIdle ? 0 : healthScoreValue ?? 0"
               :size="props.fullscreen ? 132 : 104"
@@ -805,7 +805,7 @@ function handleToolbarRefresh() {
               :aria-label="t('admin.ops.healthScoreAria', { value: isSystemIdle ? t('admin.ops.idleStatus') : healthScoreValue == null ? t('admin.ops.noData') : Math.round(healthScoreValue), description: t('admin.ops.healthHelp') })"
             />
             <span class="ops-health__copy"><strong>{{ t('admin.ops.healthCondition') }}</strong><small>{{ t('admin.ops.healthHelp') }}</small></span>
-          </button>
+          </UiButton>
         </template>
         <div class="ops-diagnosis">
           <header><Icon name="brain" size="sm" /><strong>{{ t('admin.ops.diagnosis.title') }}</strong></header>

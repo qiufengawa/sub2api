@@ -73,6 +73,26 @@ describe('PaymentStatusPanel', () => {
     vi.useRealTimers()
   })
 
+  it('treats malformed expiry timestamps as expired without polling', async () => {
+    const wrapper = mount(PaymentStatusPanel, {
+      props: {
+        orderId: 42,
+        qrCode: 'https://pay.example.com/qr/42',
+        expiresAt: 'not-a-date',
+        paymentType: 'alipay',
+        orderType: 'balance',
+      },
+      global: { stubs: { Icon: true } },
+    })
+
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(3000)
+
+    expect(pollOrderStatus).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('payment.qr.expired')
+    wrapper.unmount()
+  })
+
   it('treats RECHARGING as a successful terminal state', async () => {
     pollOrderStatus.mockResolvedValue(orderFactory('RECHARGING'))
 
@@ -100,6 +120,111 @@ describe('PaymentStatusPanel', () => {
     expect(wrapper.emitted('success')).toHaveLength(1)
   })
 
+  it('ignores a successful poll that resolves after the panel is unmounted', async () => {
+    let resolvePoll!: (order: ReturnType<typeof orderFactory>) => void
+    pollOrderStatus.mockReturnValue(new Promise((resolve) => {
+      resolvePoll = resolve
+    }))
+
+    const wrapper = mount(PaymentStatusPanel, {
+      props: {
+        orderId: 42,
+        qrCode: 'https://pay.example.com/qr/42',
+        expiresAt: '2099-01-01T12:30:00Z',
+        paymentType: 'alipay',
+        orderType: 'balance',
+      },
+      global: { stubs: { Icon: true } },
+    })
+
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(pollOrderStatus).toHaveBeenCalledWith(42)
+    wrapper.unmount()
+    resolvePoll(orderFactory('PAID'))
+    await flushPromises()
+
+    expect(wrapper.emitted('success')).toBeUndefined()
+  })
+
+  it('does not mutate cancel state after an in-flight cancellation resolves post-unmount', async () => {
+    let resolveCancel!: () => void
+    cancelOrder.mockReturnValue(new Promise<void>((resolve) => {
+      resolveCancel = resolve
+    }))
+
+    const wrapper = mount(PaymentStatusPanel, {
+      props: {
+        orderId: 42,
+        qrCode: 'https://pay.example.com/qr/42',
+        expiresAt: '2099-01-01T12:30:00Z',
+        paymentType: 'alipay',
+        orderType: 'balance',
+      },
+      global: { stubs: { Icon: true } },
+    })
+
+    await flushPromises()
+    const cancelButton = wrapper.findAll('button').find((button) => button.text().includes('payment.qr.cancelOrder'))
+    expect(cancelButton).toBeDefined()
+    await cancelButton!.trigger('click')
+    expect(cancelOrder).toHaveBeenCalledWith(42)
+
+    wrapper.unmount()
+    resolveCancel()
+    await flushPromises()
+
+    expect(showError).not.toHaveBeenCalled()
+  })
+
+  it('continues polling after a transient status request failure', async () => {
+    pollOrderStatus
+      .mockRejectedValueOnce(new Error('network unavailable'))
+      .mockResolvedValueOnce(orderFactory('PAID'))
+
+    const wrapper = mount(PaymentStatusPanel, {
+      props: {
+        orderId: 42,
+        qrCode: 'https://pay.example.com/qr/42',
+        expiresAt: '2099-01-01T12:30:00Z',
+        paymentType: 'alipay',
+        orderType: 'balance',
+      },
+      global: { stubs: { Icon: true } },
+    })
+
+    await vi.advanceTimersByTimeAsync(3000)
+    await flushPromises()
+    expect(wrapper.emitted('success')).toBeUndefined()
+
+    await vi.advanceTimersByTimeAsync(3000)
+    await flushPromises()
+    expect(pollOrderStatus).toHaveBeenCalledTimes(2)
+    expect(wrapper.emitted('success')).toHaveLength(1)
+  })
+
+  it('keeps a failed payment distinct from an expired order', async () => {
+    pollOrderStatus.mockResolvedValue(orderFactory('FAILED'))
+
+    const wrapper = mount(PaymentStatusPanel, {
+      props: {
+        orderId: 42,
+        qrCode: 'https://pay.example.com/qr/42',
+        expiresAt: '2099-01-01T12:30:00Z',
+        paymentType: 'alipay',
+        orderType: 'balance',
+      },
+      global: { stubs: { Icon: true } },
+    })
+
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(3000)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('payment.result.failed')
+    expect(wrapper.text()).not.toContain('payment.qr.expired')
+    expect(wrapper.emitted('settled')?.[0]).toEqual(['failed'])
+  })
+
   it('shows reopen button in QR mode when payUrl is also available', async () => {
     const openSpy = vi.spyOn(window, 'open').mockReturnValue({ closed: false } as Window)
 
@@ -122,7 +247,7 @@ describe('PaymentStatusPanel', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('payment.qr.openPayWindow')
 
-    await wrapper.get('button.btn.btn-secondary.text-sm').trigger('click')
+    await wrapper.get('button.ui-button--secondary:not(.ui-button--block)').trigger('click')
     expect(openSpy).toHaveBeenCalledWith(
       'https://pay.example.com/session/42',
       'paymentPopup',

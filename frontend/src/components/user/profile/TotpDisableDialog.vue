@@ -1,85 +1,74 @@
 <template>
-  <div class="fixed inset-0 z-50 overflow-y-auto" @click.self="$emit('close')">
-    <div class="flex min-h-full items-center justify-center p-4">
-      <div class="fixed inset-0 bg-black/50 transition-opacity" @click="$emit('close')"></div>
-
-      <div class="relative w-full max-w-md transform rounded-xl bg-white p-6 shadow-xl transition-all dark:bg-dark-800">
-        <!-- Header -->
-        <div class="mb-6">
-          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-            <svg class="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-            </svg>
-          </div>
-          <h3 class="mt-4 text-center text-xl font-semibold text-gray-900 dark:text-white">
-            {{ t('profile.totp.disableTitle') }}
-          </h3>
-          <p class="mt-2 text-center text-sm text-gray-500 dark:text-gray-400">
-            {{ t('profile.totp.disableWarning') }}
-          </p>
-        </div>
-
-        <!-- Loading verification method -->
-        <div v-if="methodLoading" class="flex items-center justify-center py-8">
-          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
-        </div>
-
-        <form v-else @submit.prevent="handleDisable" class="space-y-4">
-          <!-- Email verification -->
-          <div v-if="verificationMethod === 'email'">
-            <label class="input-label">{{ t('profile.totp.emailCode') }}</label>
-            <div class="flex gap-2">
-              <input
-                v-model="form.emailCode"
-                type="text"
-                maxlength="6"
-                inputmode="numeric"
-                class="input flex-1"
-                :placeholder="t('profile.totp.enterEmailCode')"
-              />
-              <button
-                type="button"
-                class="btn btn-secondary whitespace-nowrap"
-                :disabled="sendingCode || codeCooldown > 0"
-                @click="handleSendCode"
-              >
-                {{ codeCooldown > 0 ? `${codeCooldown}s` : (sendingCode ? t('common.sending') : t('profile.totp.sendCode')) }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Password verification -->
-          <div v-else>
-            <label for="password" class="input-label">
-              {{ t('profile.currentPassword') }}
-            </label>
-            <input
-              id="password"
-              v-model="form.password"
-              type="password"
-              autocomplete="current-password"
-              class="input"
-              :placeholder="t('profile.totp.enterPassword')"
-            />
-          </div>
-
-          <!-- Actions -->
-          <div class="flex justify-end gap-3 pt-4">
-            <button type="button" class="btn btn-secondary" @click="$emit('close')">
-              {{ t('common.cancel') }}
-            </button>
-            <button
-              type="submit"
-              class="btn btn-danger"
-              :disabled="loading || !canSubmit"
-            >
-              {{ loading ? t('common.processing') : t('profile.totp.confirmDisable') }}
-            </button>
-          </div>
-        </form>
+  <UiDialog
+    :show="true"
+    :title="t('profile.totp.disableTitle')"
+    width="narrow"
+    :show-close-button="false"
+    :close-on-click-outside="true"
+    @close="$emit('close')"
+  >
+    <div class="totp-disable__intro">
+      <div class="totp-disable__warning" aria-hidden="true">
+        <Icon name="exclamationTriangle" size="md" />
       </div>
+      <p>{{ t('profile.totp.disableWarning') }}</p>
     </div>
-  </div>
+
+    <div v-if="methodLoading" class="totp-disable__loading">
+      <UiSpinner size="lg" :label="t('common.loading')" />
+    </div>
+
+    <form v-else class="totp-disable__form" @submit.prevent="handleDisable">
+      <div v-if="verificationMethod === 'email'" class="totp-disable__email-row">
+        <UiTextField
+          v-model="form.emailCode"
+          type="text"
+          :maxlength="6"
+          inputmode="numeric"
+          density="compact"
+          class="totp-disable__email-field"
+          :label="t('profile.totp.emailCode')"
+          :placeholder="t('profile.totp.enterEmailCode')"
+        />
+        <UiButton
+          type="button"
+          density="compact"
+          class="totp-disable__send"
+          :disabled="sendingCode || codeCooldown > 0"
+          @click="handleSendCode"
+        >
+          {{ codeCooldown > 0 ? `${codeCooldown}s` : (sendingCode ? t('common.sending') : t('profile.totp.sendCode')) }}
+        </UiButton>
+      </div>
+
+      <UiPasswordField
+        v-else
+        id="password"
+        v-model="form.password"
+        autocomplete="current-password"
+        density="compact"
+        :label="t('profile.currentPassword')"
+        :reveal-label="t('common.showPassword')"
+        :hide-label="t('common.hidePassword')"
+        :placeholder="t('profile.totp.enterPassword')"
+      />
+
+      <div class="totp-disable__actions">
+        <UiButton type="button" density="compact" @click="$emit('close')">
+          {{ t('common.cancel') }}
+        </UiButton>
+        <UiButton
+          type="submit"
+          variant="danger"
+          density="compact"
+          :disabled="!canSubmit"
+          :loading="loading"
+        >
+          {{ loading ? t('common.processing') : t('profile.totp.confirmDisable') }}
+        </UiButton>
+      </div>
+    </form>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
@@ -87,6 +76,8 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { totpAPI } from '@/api'
+import Icon from '@/components/icons/Icon.vue'
+import { UiButton, UiDialog, UiPasswordField, UiSpinner, UiTextField } from '@/components/ui'
 
 const emit = defineEmits<{
   close: []
@@ -185,3 +176,16 @@ onUnmounted(() => {
   }
 })
 </script>
+
+<style scoped>
+.totp-disable__intro{display:grid;justify-items:center;gap:10px;margin-bottom:20px;text-align:center;color:var(--ui-text-muted)}
+.totp-disable__intro p{margin:0;font-size:13px;line-height:20px}
+.totp-disable__warning{display:grid;width:40px;height:40px;place-items:center;border-radius:50%;color:var(--ui-danger);background:color-mix(in srgb,var(--ui-danger) 10%,transparent)}
+.totp-disable__loading{display:flex;justify-content:center;padding:28px 0}
+.totp-disable__form{display:grid;gap:16px}
+.totp-disable__email-row{display:flex;align-items:end;gap:8px}
+.totp-disable__email-field{min-width:0;flex:1}
+.totp-disable__send{white-space:nowrap}
+.totp-disable__actions{display:flex;justify-content:flex-end;gap:8px;padding-top:4px}
+@media(max-width:420px){.totp-disable__email-row{align-items:stretch;flex-direction:column}.totp-disable__send{align-self:flex-end}}
+</style>

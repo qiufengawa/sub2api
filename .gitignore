@@ -138,7 +138,16 @@ docs/*
 !docs/PAYMENT_CN.md
 !docs/ADMIN_PAYMENT_INTEGRATION_API.md
 !docs/ASYNC_IMAGE_TASKS.md
+!docs/FRONTEND_REFACTOR_PLAN.md
+!docs/reference/
+!docs/reference/xiaomi-mimo/
+!docs/reference/xiaomi-mimo/*.css
+!docs/reference/xiaomi-mimo/profile.html
+!docs/reference/lucide.min.js
 !docs/email-template-showcase.html
+!docs/ui-component-showcase.html
+!docs/ui-showcase/
+!docs/ui-showcase/**
 !docs/legal/
 !docs/legal/*.md
 .serena/

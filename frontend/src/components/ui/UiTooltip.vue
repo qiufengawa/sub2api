@@ -27,7 +27,7 @@
         <UiIconButton
           v-if="trigger === 'click'"
           class="ui-tooltip__close"
-          label="关闭"
+          :label="resolvedCloseLabel"
           variant="ghost"
           density="mini"
           @click.stop="close"
@@ -42,9 +42,10 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import Icon from '@/components/icons/Icon.vue'
 import UiIconButton from './UiIconButton.vue'
+import { useUiT } from './useUiI18n'
 
 defineOptions({ inheritAttrs: false })
 
@@ -54,7 +55,10 @@ const props = withDefaults(defineProps<{
   content?: string
   trigger?: 'hover' | 'click'
   widthClass?: string
+  closeLabel?: string
 }>(), { content: '', trigger: 'hover', widthClass: '' })
+const t = useUiT()
+const resolvedCloseLabel = computed(() => props.closeLabel || t('common.close'))
 const show = ref(false)
 const triggerRef = ref<HTMLElement | null>(null)
 const tooltipRef = ref<HTMLElement | null>(null)

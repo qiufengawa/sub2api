@@ -1,14 +1,20 @@
-<template><Teleport to="body"><div v-if="show" ref="panelRef" class="ui-image-preview" :style="{zIndex}" role="dialog" aria-modal="true" :aria-label="alt" tabindex="-1" @click.self="emit('close')"><div class="ui-image-preview__tools"><UiIconButton label="下载" @click="download"><Icon name="download" size="sm"/></UiIconButton><UiIconButton label="关闭" @click="emit('close')"><Icon name="x" size="sm"/></UiIconButton></div><img :src="src" :alt="alt" draggable="false"/></div></Teleport></template>
+<template><Teleport to="body"><div v-if="show" ref="panelRef" class="ui-image-preview" :style="{zIndex}" role="dialog" aria-modal="true" :aria-label="alt" tabindex="-1" @click.self="emit('close')"><div class="ui-image-preview__tools"><UiIconButton :label="resolvedDownloadLabel" @click="download"><Icon name="download" size="sm"/></UiIconButton><UiIconButton :label="resolvedCloseLabel" @click="emit('close')"><Icon name="x" size="sm"/></UiIconButton></div><img :src="src" :alt="alt" draggable="false"/></div></Teleport></template>
 <script setup lang="ts">
 import Icon from '@/components/icons/Icon.vue';
 import { toRef } from 'vue';
 import UiIconButton from './UiIconButton.vue';
 import { useOverlayLifecycle } from './useOverlayLifecycle';
+import { useUiT } from './useUiI18n';
 const props=defineProps<{show:boolean;
 src:string;
 alt:string;
-filename?:string}>();
+filename?:string;
+downloadLabel?:string;
+closeLabel?:string}>();
 const emit=defineEmits<{close:[]}>();
+const t = useUiT()
+const resolvedDownloadLabel = props.downloadLabel || t('common.download')
+const resolvedCloseLabel = props.closeLabel || t('common.close')
 const { panelRef, zIndex } = useOverlayLifecycle(toRef(props, 'show'), () => emit('close'), { zIndex: 100_000_100 })
 function download(){const a=document.createElement('a');
 a.href=props.src;

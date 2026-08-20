@@ -290,6 +290,20 @@ describe('PromptAuditView', () => {
     expect(wrapper.find('[data-test="filter-delete-dialog"]').exists()).toBe(false)
   })
 
+  it('keeps a failed event deletion confirmation open for retry', async () => {
+    mocks.deleteEvent.mockRejectedValueOnce(new Error('delete failed'))
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-test="delete-one"]').trigger('click')
+    await wrapper.get('[data-test="confirm-action"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="confirm"]').exists()).toBe(true)
+    expect(mocks.showError).toHaveBeenCalledWith('delete failed')
+    expect((wrapper.vm as any).loading.deleting).toBe(false)
+  })
+
   it('mints the confirmation token on the fly for one-click filter deletion without a manual preview', async () => {
     const wrapper = mountView()
     await flushPromises()

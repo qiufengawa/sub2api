@@ -33,6 +33,21 @@
 
 ## Automated Verification
 
+Additional mounted shell contract coverage added on 2026-08-19:
+
+```text
+pnpm exec vitest run \
+  src/components/layout/__tests__/AppLayout.behavior.spec.ts \
+  src/components/layout/__tests__/AppSidebar.behavior.spec.ts \
+  src/components/layout/__tests__/AppSidebar.spec.ts
+Result: 3 files, 21 tests passed
+```
+
+The new `AppLayout` behavior fixture verifies expanded/collapsed workspace
+classes, persistent header/sidebar/page slot mounting, and registration of the
+onboarding replay callback. It is a local contract test only and does not
+replace authenticated browser evidence.
+
 Run on 2026-08-17:
 
 ```text

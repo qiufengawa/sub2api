@@ -21,7 +21,20 @@ import RegisterView from '@/views/auth/RegisterView.vue'
 /**
  * Route definitions with lazy loading
  */
-const routes: RouteRecordRaw[] = [
+export const routes: RouteRecordRaw[] = [
+  ...(import.meta.env.DEV
+    ? [
+        {
+          path: '/ui-system-preview',
+          name: 'UiSystemPreview',
+          component: () => import('@/views/admin/UiSystemView.vue'),
+          meta: {
+            requiresAuth: false,
+            title: 'UI System Preview'
+          }
+        } satisfies RouteRecordRaw
+      ]
+    : []),
   // ==================== Setup Routes ====================
   {
     path: '/setup',
@@ -436,6 +449,16 @@ const routes: RouteRecordRaw[] = [
       title: 'Admin Dashboard',
       titleKey: 'admin.dashboard.title',
       descriptionKey: 'admin.dashboard.description'
+    }
+  },
+  {
+    path: '/admin/ui-system',
+    name: 'AdminUiSystem',
+    component: () => import('@/views/admin/UiSystemView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'UI System'
     }
   },
   {

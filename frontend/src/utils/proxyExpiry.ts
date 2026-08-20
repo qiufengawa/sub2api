@@ -7,13 +7,15 @@ export const EXPIRY_DANGER_DAYS = 3
 export const daysUntil = (iso: string): number =>
   Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000)
 
-// 倒计时徽章的 CSS class(纯函数,无 i18n 依赖)。
-export function proxyExpiryBadgeClass(expiresAt: string | null, status?: string): string {
-  if (status === 'expired') return 'badge badge-danger'
+// 倒计时状态色(纯函数,无 i18n 依赖)。
+export type ProxyExpiryTone = 'neutral' | 'warning' | 'danger'
+
+export function proxyExpiryTone(expiresAt: string | null, status?: string): ProxyExpiryTone {
+  if (status === 'expired') return 'danger'
   const d = expiresAt ? daysUntil(expiresAt) : Infinity
-  if (d <= EXPIRY_DANGER_DAYS) return 'badge badge-danger'
-  if (d <= EXPIRY_WARN_DAYS) return 'badge badge-warning'
-  return 'text-gray-500'
+  if (d <= EXPIRY_DANGER_DAYS) return 'danger'
+  if (d <= EXPIRY_WARN_DAYS) return 'warning'
+  return 'neutral'
 }
 
 // 倒计时文案的 i18n key + 参数(返回 key 而非已翻译文本,便于单测且不耦合 i18n)。

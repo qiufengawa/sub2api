@@ -1,18 +1,31 @@
-<template><div class="ui-search" :class="`ui-search--${density}`"><Icon name="search" size="sm"/><input :value="modelValue" type="search" :placeholder="placeholder" :disabled="disabled" :aria-label="ariaLabel||placeholder" @input="onInput"/><button v-if="modelValue&&!disabled" type="button" aria-label="清除搜索" @click="clear"><Icon name="x" size="xs"/></button></div></template>
+<template><div class="ui-search" :class="`ui-search--${density}`"><Icon name="search" size="sm"/><input ref="inputRef" :value="modelValue" type="search" :placeholder="resolvedPlaceholder" :disabled="disabled" :aria-label="resolvedAriaLabel" :role="inputRole" :aria-expanded="ariaExpanded" :aria-controls="ariaControls" :aria-activedescendant="ariaActivedescendant" :aria-autocomplete="ariaAutocomplete" @input="onInput"/><button v-if="modelValue&&!disabled" type="button" :aria-label="resolvedClearLabel" @click="clear"><Icon name="x" size="xs"/></button></div></template>
 <script setup lang="ts">
 
 import {useDebounceFn} from '@vueuse/core';
 import Icon from '@/components/icons/Icon.vue';
+import {computed,ref} from 'vue';
+import {useUiT} from './useUiI18n';
 import type {UiDensity} from './types';
 const props=withDefaults(defineProps<{modelValue:string;
 placeholder?:string;
 ariaLabel?:string;
+inputRole?:string;
+ariaExpanded?:boolean;
+ariaControls?:string;
+ariaActivedescendant?:string;
+ariaAutocomplete?:'none'|'inline'|'list'|'both';
 disabled?:boolean;
 debounceMs?:number;
-density?:UiDensity}>(),{placeholder:'搜索',debounceMs:300,density:'default'});
+density?:UiDensity}>(),{debounceMs:300,density:'default'});
 const emit=defineEmits<{ 'update:modelValue':[string];
 search:[string]}>();
+const t=useUiT();
+const inputRef=ref<HTMLInputElement|null>(null);
 const notify=useDebounceFn((v:string)=>emit('search',v),props.debounceMs);
+const resolvedPlaceholder=computed(()=>props.placeholder||t('common.searchPlaceholder'));
+const resolvedAriaLabel=computed(()=>props.ariaLabel||resolvedPlaceholder.value);
+const resolvedClearLabel=computed(()=>t('common.clearSearch'));
+defineExpose({focus:()=>inputRef.value?.focus(),input:inputRef});
 function onInput(e:Event){const v=(e.target as HTMLInputElement).value;
 emit('update:modelValue',v);
 notify(v)}function clear(){emit('update:modelValue','');

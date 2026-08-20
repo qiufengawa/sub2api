@@ -158,6 +158,29 @@ describe('user RedeemView', () => {
     wrapper.unmount()
   })
 
+  it('queues the post-redemption history refresh behind an initial pending request', async () => {
+    let resolveHistory!: (rows: typeof historyRows) => void
+    getHistory.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveHistory = resolve
+    }))
+    redeem.mockResolvedValue({ message: 'ok', type: 'balance', value: 20 })
+
+    const wrapper = mountRedeemView()
+    await wrapper.get('#code').setValue('TEST-UI-BALANCE-20')
+    const submit = wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(getHistory).toHaveBeenCalledTimes(1)
+    resolveHistory(historyRows)
+    await submit
+    await flushPromises()
+
+    expect(getHistory).toHaveBeenCalledTimes(2)
+    expect(wrapper.findAll('article')).toHaveLength(2)
+    expect(showSuccess).toHaveBeenCalledWith('redeem.codeRedeemSuccess')
+    wrapper.unmount()
+  })
+
   it('prevents duplicate redemption submissions while one request is pending', async () => {
     let resolveRedeem!: (value: {
       message: string

@@ -1,5 +1,5 @@
 <template>
-  <div class="mb-3 flex flex-wrap items-center justify-between gap-3 border-block border-[var(--ui-border-soft)] py-2">
+  <div class="mb-3 flex flex-wrap items-center justify-between gap-3 border-block border-[var(--ui-border-soft)] py-2" :aria-busy="pending">
     <div class="flex flex-wrap items-center gap-2">
       <span v-if="allResultsSelected" class="text-sm font-medium text-primary-900 dark:text-primary-100">
         {{ t('admin.accounts.bulkActions.selectedAll', { count: selectedIds.length }) }}
@@ -14,6 +14,7 @@
         <UiButton
           density="dense"
           variant="quiet"
+          :disabled="pending"
           @click="$emit('select-page')"
         >
           {{ t('admin.accounts.bulkActions.selectCurrentPage') }}
@@ -24,7 +25,7 @@
         <UiButton
           density="dense"
           variant="quiet"
-          :disabled="selectingAll"
+          :disabled="selectingAll || pending"
           @click="$emit('select-all-results')"
         >
           {{
@@ -39,6 +40,7 @@
         <UiButton
           density="dense"
           variant="quiet"
+          :disabled="pending"
           @click="$emit('clear')"
         >
           {{ t('admin.accounts.bulkActions.clear') }}
@@ -47,15 +49,15 @@
     </div>
     <div class="flex gap-2">
       <template v-if="selectedIds.length > 0">
-        <UiButton density="compact" variant="danger" @click="$emit('delete')">{{ t('admin.accounts.bulkActions.delete') }}</UiButton>
-        <UiButton density="compact" variant="secondary" @click="$emit('reset-status')">{{ t('admin.accounts.bulkActions.resetStatus') }}</UiButton>
-        <UiButton density="compact" variant="secondary" @click="$emit('refresh-token')">{{ t('admin.accounts.bulkActions.refreshToken') }}</UiButton>
-        <UiButton density="compact" variant="secondary" @click="$emit('probe-upstream-billing')">{{ t('admin.accounts.bulkActions.probeUpstreamBilling') }}</UiButton>
-        <UiButton density="compact" variant="secondary" @click="$emit('toggle-schedulable', true)">{{ t('admin.accounts.bulkActions.enableScheduling') }}</UiButton>
-        <UiButton density="compact" variant="secondary" @click="$emit('toggle-schedulable', false)">{{ t('admin.accounts.bulkActions.disableScheduling') }}</UiButton>
-        <UiButton density="compact" variant="primary" @click="$emit('edit-selected')">{{ t('admin.accounts.bulkActions.edit') }}</UiButton>
+        <UiButton density="compact" variant="danger" :disabled="pending" @click="$emit('delete')">{{ t('admin.accounts.bulkActions.delete') }}</UiButton>
+        <UiButton density="compact" variant="secondary" :disabled="pending" @click="$emit('reset-status')">{{ t('admin.accounts.bulkActions.resetStatus') }}</UiButton>
+        <UiButton density="compact" variant="secondary" :disabled="pending" @click="$emit('refresh-token')">{{ t('admin.accounts.bulkActions.refreshToken') }}</UiButton>
+        <UiButton density="compact" variant="secondary" :disabled="pending" @click="$emit('probe-upstream-billing')">{{ t('admin.accounts.bulkActions.probeUpstreamBilling') }}</UiButton>
+        <UiButton density="compact" variant="secondary" :disabled="pending" @click="$emit('toggle-schedulable', true)">{{ t('admin.accounts.bulkActions.enableScheduling') }}</UiButton>
+        <UiButton density="compact" variant="secondary" :disabled="pending" @click="$emit('toggle-schedulable', false)">{{ t('admin.accounts.bulkActions.disableScheduling') }}</UiButton>
+        <UiButton density="compact" variant="primary" :disabled="pending" @click="$emit('edit-selected')">{{ t('admin.accounts.bulkActions.edit') }}</UiButton>
       </template>
-      <UiButton density="compact" variant="primary" @click="$emit('edit-filtered')">
+      <UiButton density="compact" variant="primary" :disabled="pending" @click="$emit('edit-filtered')">
         {{ t('admin.accounts.bulkEdit.submit') }}
       </UiButton>
     </div>
@@ -71,6 +73,7 @@ defineProps<{
   totalResults: number
   selectingAll: boolean
   allResultsSelected: boolean
+  pending?: boolean
 }>()
 
 defineEmits([

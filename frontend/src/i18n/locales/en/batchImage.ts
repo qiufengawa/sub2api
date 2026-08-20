@@ -79,6 +79,8 @@ export default {
       cost: 'Cost',
       downloadStatus: 'Download status',
       items: 'Items',
+      customId: 'Custom ID',
+      prompt: 'Prompt',
       preview: 'Preview',
       previewZoom: 'Zoom compressed preview {id}',
       previewReload: 'Reload compressed preview',

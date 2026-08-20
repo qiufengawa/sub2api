@@ -105,6 +105,13 @@ describe('AvailableChannelsTable', () => {
     expect(componentSource).not.toContain('!important')
   })
 
+  it('keeps the visually hidden actions header inside the table scroll boundary', () => {
+    expect(componentSource).toContain('.sr-only {')
+    expect(componentSource).toContain('position: static;')
+    expect(componentSource).toContain('display: block;')
+    expect(componentSource).toContain('margin: -1px;')
+  })
+
   it('shows a compact summary and expands complete group, rate, peak, and model details', async () => {
     const wrapper = mountTable()
     const table = wrapper.get('[data-testid="desktop-channels"]')
@@ -115,9 +122,13 @@ describe('AvailableChannelsTable', () => {
     expect(table.text()).not.toContain('Exclusive Pro')
 
     const disclosure = table.get('button[aria-expanded="false"]')
+    const detailsId = disclosure.attributes('aria-controls')
+    expect(detailsId).toBe('available-channel-details-0')
+    expect(table.find(`#${detailsId}`).exists()).toBe(false)
     await disclosure.trigger('click')
 
     expect(disclosure.attributes('aria-expanded')).toBe('true')
+    expect(table.get(`#${detailsId}`).exists()).toBe(true)
     expect(table.text()).toContain('Exclusive Pro')
     expect(table.text()).toContain('1.2x')
     expect(table.text()).toContain('0.8x')

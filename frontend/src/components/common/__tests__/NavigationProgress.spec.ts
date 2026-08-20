@@ -4,6 +4,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { ref } from 'vue'
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import NavigationProgress from '../../common/NavigationProgress.vue'
 
 // Mock useNavigationLoadingState
@@ -57,6 +60,16 @@ describe('NavigationProgress', () => {
 
     const bar = wrapper.find('.navigation-progress-bar')
     expect(bar.exists()).toBe(true)
+  })
+
+  it('prefers-reduced-motion 下停止无限动画', () => {
+    const source = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), '../NavigationProgress.vue'),
+      'utf8',
+    )
+    const reducedMotionBlock = source.match(/@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/)?.[1] ?? ''
+    expect(reducedMotionBlock).toContain('animation: none')
+    expect(source).not.toContain('progress-pulse')
   })
 
   it('应该正确响应 isLoading 状态变化', async () => {

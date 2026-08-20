@@ -8,6 +8,7 @@ export interface UiChoiceOption {
   disabled?: boolean
   description?: string
   dataTest?: string
+  title?: string
 }
 
 export const densityHeight: Record<UiDensity, string> = {

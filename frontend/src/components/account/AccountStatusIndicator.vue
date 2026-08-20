@@ -14,7 +14,9 @@
       @click="handleTempUnschedClick"
     />
     <UiTooltip v-if="hasError && account.error_message" :content="account.error_message" width-class="w-72">
-      <span tabindex="0"><Icon name="infoCircle" size="sm" /></span>
+      <span tabindex="0" :aria-label="t('admin.accounts.status.errorDetails')">
+        <Icon name="infoCircle" size="sm" />
+      </span>
     </UiTooltip>
     <UiTooltip
       v-if="isRateLimited"

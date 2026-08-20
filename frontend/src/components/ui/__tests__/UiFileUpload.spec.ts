@@ -16,4 +16,15 @@ describe('UiFileUpload', () => {
     expect(wrapper.emitted('select')).toEqual([[[file]]])
     expect((input.element as HTMLInputElement).value).toBe('')
   })
+
+  it('exposes upload progress to assistive technology', () => {
+    const wrapper = mount(UiFileUpload, { props: { label: 'Upload', progress: 125, progressLabel: 'Upload progress' } })
+    const progress = wrapper.get('[role="progressbar"]')
+    expect(progress.attributes()).toMatchObject({
+      'aria-label': 'Upload progress',
+      'aria-valuemin': '0',
+      'aria-valuemax': '100',
+      'aria-valuenow': '100'
+    })
+  })
 })

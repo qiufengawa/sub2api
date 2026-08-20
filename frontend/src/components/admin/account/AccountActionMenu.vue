@@ -4,11 +4,13 @@
       <div v-if="show && position" class="account-action-menu__layer">
       <div class="account-action-menu__backdrop" aria-hidden="true" @click="emit('close')"></div>
       <div
+        ref="panelRef"
         class="account-action-menu__panel"
         :style="{ top: position.top + 'px', left: position.left + 'px' }"
         role="menu"
         :aria-label="t('common.more')"
         @click.stop
+        @keydown="handleMenuKeydown"
       >
         <div class="account-action-menu__items">
           <template v-if="account">
@@ -34,25 +36,25 @@
                 <template #icon><Icon name="link" size="sm" /></template>
                 {{ t('admin.accounts.reAuthorize') }}
               </UiButton>
-              <UiButton role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" @click="$emit('refresh-token', account); $emit('close')">
+              <UiButton role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" :disabled="pending" @click="$emit('refresh-token', account); $emit('close')">
                 <template #icon><Icon name="refresh" size="sm" /></template>
                 {{ t('admin.accounts.refreshToken') }}
               </UiButton>
             </template>
-            <UiButton v-if="isOpenAIOAuthParent" role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" @click="$emit('create-spark-shadow', account); $emit('close')">
+            <UiButton v-if="isOpenAIOAuthParent" role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" :disabled="pending" @click="$emit('create-spark-shadow', account); $emit('close')">
               <template #icon><Icon name="sparkles" size="sm" /></template>
               {{ t('admin.accounts.createSparkShadow') }}
             </UiButton>
-            <UiButton v-if="supportsPrivacy" role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" @click="$emit('set-privacy', account); $emit('close')">
+            <UiButton v-if="supportsPrivacy" role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" :disabled="pending" @click="$emit('set-privacy', account); $emit('close')">
               <template #icon><Icon name="shield" size="sm" /></template>
               {{ t('admin.accounts.setPrivacy') }}
             </UiButton>
             <div v-if="hasRecoverableState" class="account-action-menu__divider"></div>
-            <UiButton v-if="hasRecoverableState" role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" @click="$emit('recover-state', account); $emit('close')">
+            <UiButton v-if="hasRecoverableState" role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" :disabled="pending" @click="$emit('recover-state', account); $emit('close')">
               <template #icon><Icon name="sync" size="sm" /></template>
               {{ t('admin.accounts.recoverState') }}
             </UiButton>
-            <UiButton v-if="hasQuotaLimit" role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" @click="$emit('reset-quota', account); $emit('close')">
+            <UiButton v-if="hasQuotaLimit" role="menuitem" block density="compact" variant="quiet" class="account-action-menu__button" :disabled="pending" @click="$emit('reset-quota', account); $emit('close')">
               <template #icon><Icon name="refresh" size="sm" /></template>
               {{ t('admin.accounts.resetQuota') }}
             </UiButton>
@@ -65,15 +67,24 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch, onUnmounted } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Icon } from '@/components/icons'
 import type { Account } from '@/types'
 import { UiButton } from '@/components/ui'
 
-const props = defineProps<{ show: boolean; account: Account | null; position: { top: number; left: number } | null }>()
+const props = withDefaults(defineProps<{
+  show: boolean
+  account: Account | null
+  position: { top: number; left: number } | null
+  pending?: boolean
+}>(), {
+  pending: false,
+})
 const emit = defineEmits(['close', 'test', 'stats', 'schedule', 'duplicate', 'reauth', 'refresh-token', 'recover-state', 'reset-quota', 'set-privacy', 'create-spark-shadow'])
 const { t } = useI18n()
+const panelRef = ref<HTMLElement | null>(null)
+let returnFocusElement: HTMLElement | null = null
 const canDuplicate = computed(() => {
   if (!props.account || props.account.parent_account_id != null) return false
   return ['apikey', 'upstream', 'bedrock', 'service_account'].includes(props.account.type)
@@ -115,13 +126,44 @@ const handleKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Escape') emit('close')
 }
 
+function menuItems(): HTMLElement[] {
+  return Array.from(panelRef.value?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])') ?? [])
+}
+
+function focusFirstMenuItem(): void {
+  menuItems()[0]?.focus()
+}
+
+function handleMenuKeydown(event: KeyboardEvent): void {
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+  const items = menuItems()
+  if (!items.length) return
+  event.preventDefault()
+  const currentIndex = items.indexOf(document.activeElement as HTMLElement)
+  const nextIndex = event.key === 'Home'
+    ? 0
+    : event.key === 'End'
+      ? items.length - 1
+      : event.key === 'ArrowDown'
+        ? currentIndex < 0 ? 0 : (currentIndex + 1) % items.length
+        : currentIndex < 0 ? items.length - 1 : (currentIndex - 1 + items.length) % items.length
+  items[nextIndex]?.focus()
+}
+
 watch(
   () => props.show,
   (visible) => {
     if (visible) {
+      returnFocusElement = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
       window.addEventListener('keydown', handleKeydown)
+      void nextTick(focusFirstMenuItem)
     } else {
       window.removeEventListener('keydown', handleKeydown)
+      const target = returnFocusElement
+      returnFocusElement = null
+      if (target) void nextTick(() => target.focus())
     }
   },
   { immediate: true }
@@ -129,6 +171,8 @@ watch(
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  returnFocusElement?.focus()
+  returnFocusElement = null
 })
 </script>
 

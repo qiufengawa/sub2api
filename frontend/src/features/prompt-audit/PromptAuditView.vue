@@ -383,13 +383,14 @@ function requestSingleDelete(id: number) { deleteRequest.mode = 'single'; delete
 function requestBatchDelete() { if (selectedEventIds.value.length) { deleteRequest.mode = 'batch'; deleteRequest.ids = [...selectedEventIds.value] } }
 function clearDeleteRequest() { deleteRequest.mode = ''; deleteRequest.ids = [] }
 async function confirmIDDelete() {
+  if (loading.deleting) return
   const mode = deleteRequest.mode
   const ids = [...deleteRequest.ids]
-  clearDeleteRequest()
   if (!mode || ids.length === 0) return
   loading.deleting = true
   try {
     const result = mode === 'single' ? await promptAuditAPI.deleteEvent(ids[0]) : await promptAuditAPI.batchDeleteEvents(ids)
+    clearDeleteRequest()
     appStore.showSuccess(t('admin.promptAudit.messages.deleted', { count: result.deleted_events }))
     await Promise.allSettled([loadEvents(), loadRuntime()])
   } catch (error) { appStore.showError(errorMessage(error, 'admin.promptAudit.errors.delete')) }

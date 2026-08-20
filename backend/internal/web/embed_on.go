@@ -221,13 +221,18 @@ func (s *FrontendServer) injectSettings(settingsJSON []byte) []byte {
 func injectSiteFavicon(html, settingsJSON []byte) []byte {
 	var cfg struct {
 		SiteLogo string `json:"site_logo"`
+		SiteIcon string `json:"site_icon"`
 	}
 	if err := json.Unmarshal(settingsJSON, &cfg); err != nil {
 		return html
 	}
 
-	logoURL := safeImageURL(cfg.SiteLogo)
-	if logoURL == "" {
+	iconURL := safeImageURL(cfg.SiteIcon)
+	if iconURL == "" {
+		// Keep older installations branded until an explicit icon is uploaded.
+		iconURL = safeImageURL(cfg.SiteLogo)
+	}
+	if iconURL == "" {
 		return html
 	}
 
@@ -240,7 +245,7 @@ func injectSiteFavicon(html, settingsJSON []byte) []byte {
 		return html
 	}
 	linkEnd := linkStart + linkEndOffset + 1
-	replacement := []byte(`<link rel="icon" href="` + htmlpkg.EscapeString(logoURL) + `" />`)
+	replacement := []byte(`<link rel="icon" href="` + htmlpkg.EscapeString(iconURL) + `" />`)
 
 	var buf bytes.Buffer
 	buf.Write(html[:linkStart])

@@ -1,7 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import OpsErrorLogTable from '../OpsErrorLogTable.vue'
-import { UiDataTable, UiPagination } from '@/components/ui'
+import { UiButton, UiDataTable, UiPagination } from '@/components/ui'
 import zhLocale from '@/i18n/locales/zh'
 import enLocale from '@/i18n/locales/en'
 import type { OpsErrorLog } from '@/api/admin/ops'
@@ -77,6 +77,38 @@ describe('OpsErrorLogTable user/api-key/account columns', () => {
 
     expect(wrapper.text()).toContain('old-key')
     expect(wrapper.text()).toContain('admin.ops.errorLog.keyDeletedBadge')
+  })
+
+  it('uses the shared compact action for clickable users', async () => {
+    const wrapper = mount(OpsErrorLogTable, {
+      props: {
+        rows: [{
+          id: 1,
+          created_at: '2026-06-05T23:59:50Z',
+          phase: 'request',
+          type: '',
+          error_owner: 'client',
+          error_source: 'client',
+          severity: 'error',
+          status_code: 400,
+          user_id: 42,
+          user_email: 'alice@test.com',
+          request_id: 'req-1',
+          message: 'boom',
+        } as OpsErrorLog],
+        total: 1,
+        loading: false,
+        page: 1,
+        pageSize: 20,
+        userClickable: true,
+      },
+      global: { stubs: { 'el-tooltip': TooltipStub, Pagination: PaginationStub } },
+    })
+
+    const userButton = wrapper.getComponent(UiButton)
+    expect(userButton.props('density')).toBe('mini')
+    await userButton.trigger('click')
+    expect(wrapper.emitted('userClick')).toEqual([[42, 'alice@test.com']])
   })
 
   it('keeps the dense mobile experience as a horizontally scrollable table', () => {

@@ -35,7 +35,9 @@ const contentWidth = computed(() => route.name === 'OAuthCallback' ? '560px' : '
 
 .auth-switch-enter-active,
 .auth-switch-leave-active {
-  transition: opacity 140ms ease, transform 140ms ease;
+  transition:
+    opacity var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-standard);
 }
 
 .auth-switch-enter-from {

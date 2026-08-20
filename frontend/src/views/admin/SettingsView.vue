@@ -3,49 +3,29 @@
     <div class="mx-auto w-full min-w-0 max-w-6xl space-y-6">
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-12">
-        <div
-          class="h-8 w-8 animate-spin rounded-full border-b-2 border-primary-600"
-        ></div>
+        <UiSpinner size="lg" :label="t('common.loading')" />
       </div>
 
       <!-- Settings Form -->
       <form v-else @submit.prevent="saveSettings" class="min-w-0 space-y-6" novalidate>
         <!-- Tab Navigation -->
         <div class="settings-tabs-shell">
-          <nav
-            class="settings-tabs-scroll"
-            role="tablist"
-            :aria-label="t('admin.settings.title')"
-          >
-            <div class="settings-tabs">
-              <button
-                v-for="tab in settingsTabs"
-                :key="tab.key"
-                :id="`settings-tab-${tab.key}`"
-                type="button"
-                role="tab"
-                :aria-selected="activeTab === tab.key"
-                :tabindex="activeTab === tab.key ? 0 : -1"
-                :class="[
-                  'settings-tab',
-                  activeTab === tab.key && 'settings-tab-active',
-                ]"
-                @click="selectSettingsTab(tab.key)"
-                @keydown="handleSettingsTabKeydown($event, tab.key)"
-              >
-                <span class="settings-tab-icon">
-                  <Icon :name="tab.icon" size="sm" />
-                </span>
-                <span class="settings-tab-label">{{
-                  t(`admin.settings.tabs.${tab.key}`)
-                }}</span>
-              </button>
-            </div>
-          </nav>
+          <UiTabs
+            :model-value="activeTab"
+            :tabs="settingsTabOptions"
+            :label="t('admin.settings.title')"
+            @update:model-value="selectSettingsTab(String($event) as SettingsTab)"
+          />
         </div>
 
         <!-- Tab: Security — Admin API Key -->
-        <div v-show="activeTab === 'security'" class="settings-panel">
+        <div
+          id="settings-panel-security"
+          v-show="activeTab === 'security'"
+          class="settings-panel"
+          role="tabpanel"
+          aria-labelledby="settings-tab-security"
+        >
           <!-- Admin API Key Settings -->
           <div class="settings-section">
             <div
@@ -80,9 +60,7 @@
                 v-if="adminApiKeyLoading"
                 class="flex items-center gap-2 text-gray-500"
               >
-                <div
-                  class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"
-                ></div>
+                <UiSpinner size="sm" :label="t('common.loading')" />
                 {{ t("common.loading") }}
               </div>
 
@@ -94,38 +72,20 @@
                 <span class="text-gray-500 dark:text-gray-400">
                   {{ t("admin.settings.adminApiKey.notConfigured") }}
                 </span>
-                <button
+                <UiButton
                   type="button"
+                  variant="primary"
+                  density="compact"
+                  :loading="adminApiKeyOperating"
+                  data-testid="admin-api-key-create"
                   @click="createAdminApiKey"
-                  :disabled="adminApiKeyOperating"
-                  class="btn btn-primary btn-sm"
                 >
-                  <svg
-                    v-if="adminApiKeyOperating"
-                    class="mr-1 h-4 w-4 animate-spin"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      class="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      stroke-width="4"
-                    ></circle>
-                    <path
-                      class="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
                   {{
                     adminApiKeyOperating
                       ? t("admin.settings.adminApiKey.creating")
                       : t("admin.settings.adminApiKey.create")
                   }}
-                </button>
+                </UiButton>
               </div>
 
               <!-- Key Exists -->
@@ -144,26 +104,30 @@
                     </code>
                   </div>
                   <div class="flex gap-2">
-                    <button
+                    <UiButton
                       type="button"
+                      variant="secondary"
+                      density="compact"
+                      :loading="adminApiKeyOperating"
+                      data-testid="admin-api-key-regenerate"
                       @click="regenerateAdminApiKey"
-                      :disabled="adminApiKeyOperating"
-                      class="btn btn-secondary btn-sm"
                     >
                       {{
                         adminApiKeyOperating
                           ? t("admin.settings.adminApiKey.regenerating")
                           : t("admin.settings.adminApiKey.regenerate")
                       }}
-                    </button>
-                    <button
+                    </UiButton>
+                    <UiButton
                       type="button"
+                      variant="danger"
+                      density="compact"
+                      :loading="adminApiKeyOperating"
+                      data-testid="admin-api-key-delete"
                       @click="deleteAdminApiKey"
-                      :disabled="adminApiKeyOperating"
-                      class="btn btn-secondary btn-sm text-red-600 hover:text-red-700 dark:text-red-400"
                     >
                       {{ t("admin.settings.adminApiKey.delete") }}
-                    </button>
+                    </UiButton>
                   </div>
                 </div>
 
@@ -183,13 +147,16 @@
                     >
                       {{ newAdminApiKey }}
                     </code>
-                    <button
+                    <UiButton
                       type="button"
+                      variant="primary"
+                      density="compact"
+                      class="flex-shrink-0"
+                      data-testid="admin-api-key-copy"
                       @click="copyNewKey"
-                      class="btn btn-primary btn-sm flex-shrink-0"
                     >
                       {{ t("admin.settings.adminApiKey.copyKey") }}
-                    </button>
+                    </UiButton>
                   </div>
                   <p class="text-xs text-green-600 dark:text-green-400">
                     {{ t("admin.settings.adminApiKey.usage") }}
@@ -202,7 +169,13 @@
         <!-- /Tab: Security — Admin API Key -->
 
         <!-- Tab: Gateway -->
-        <div v-show="activeTab === 'gateway'" class="settings-panel">
+        <div
+          id="settings-panel-gateway"
+          v-show="activeTab === 'gateway'"
+          class="settings-panel"
+          role="tabpanel"
+          aria-labelledby="settings-tab-gateway"
+        >
           <!-- Overload Cooldown (529) Settings -->
           <div class="settings-section">
             <div
@@ -220,9 +193,7 @@
                 v-if="overloadCooldownLoading"
                 class="flex items-center gap-2 text-gray-500"
               >
-                <div
-                  class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"
-                ></div>
+                <UiSpinner size="sm" :label="t('common.loading')" />
                 {{ t("common.loading") }}
               </div>
 
@@ -243,62 +214,35 @@
                   v-if="overloadCooldownForm.enabled"
                   class="space-y-4 border-t border-gray-100 pt-4 dark:border-dark-700"
                 >
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.overloadCooldown.cooldownMinutes") }}
-                    </label>
-                    <input
-                      v-model.number="overloadCooldownForm.cooldown_minutes"
-                      type="number"
-                      min="1"
-                      max="120"
-                      class="input w-32"
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{
-                        t("admin.settings.overloadCooldown.cooldownMinutesHint")
-                      }}
-                    </p>
-                  </div>
+                  <UiTextField
+                    v-model.number="overloadCooldownForm.cooldown_minutes"
+                    type="number"
+                    min="1"
+                    max="120"
+                    density="compact"
+                    class="w-32"
+                    :label="t('admin.settings.overloadCooldown.cooldownMinutes')"
+                    :description="t('admin.settings.overloadCooldown.cooldownMinutesHint')"
+                  />
                 </div>
 
                 <div
                   class="flex justify-end border-t border-gray-100 pt-4 dark:border-dark-700"
                 >
-                  <button
+                  <UiButton
                     type="button"
                     @click="saveOverloadCooldownSettings"
                     :disabled="overloadCooldownSaving"
-                    class="btn btn-primary btn-sm"
+                    variant="primary"
+                    density="compact"
+                    :loading="overloadCooldownSaving"
                   >
-                    <svg
-                      v-if="overloadCooldownSaving"
-                      class="mr-1 h-4 w-4 animate-spin"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        class="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        stroke-width="4"
-                      ></circle>
-                      <path
-                        class="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
                     {{
                       overloadCooldownSaving
                         ? t("common.saving")
                         : t("common.save")
                     }}
-                  </button>
+                  </UiButton>
                 </div>
               </template>
             </div>
@@ -321,9 +265,7 @@
                 v-if="rateLimit429CooldownLoading"
                 class="flex items-center gap-2 text-gray-500"
               >
-                <div
-                  class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"
-                ></div>
+                <UiSpinner size="sm" :label="t('common.loading')" />
                 {{ t("common.loading") }}
               </div>
 
@@ -344,68 +286,35 @@
                   v-if="rateLimit429CooldownForm.enabled"
                   class="space-y-4 border-t border-gray-100 pt-4 dark:border-dark-700"
                 >
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{
-                        t(
-                          "admin.settings.rateLimit429Cooldown.cooldownSeconds",
-                        )
-                      }}
-                    </label>
-                    <input
-                      v-model.number="rateLimit429CooldownForm.cooldown_seconds"
-                      type="number"
-                      min="1"
-                      max="7200"
-                      class="input w-32"
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{
-                        t(
-                          "admin.settings.rateLimit429Cooldown.cooldownSecondsHint",
-                        )
-                      }}
-                    </p>
-                  </div>
+                  <UiTextField
+                    v-model.number="rateLimit429CooldownForm.cooldown_seconds"
+                    type="number"
+                    min="1"
+                    max="7200"
+                    density="compact"
+                    class="w-32"
+                    :label="t('admin.settings.rateLimit429Cooldown.cooldownSeconds')"
+                    :description="t('admin.settings.rateLimit429Cooldown.cooldownSecondsHint')"
+                  />
                 </div>
 
                 <div
                   class="flex justify-end border-t border-gray-100 pt-4 dark:border-dark-700"
                 >
-                  <button
+                  <UiButton
                     type="button"
                     @click="saveRateLimit429CooldownSettings"
                     :disabled="rateLimit429CooldownSaving"
-                    class="btn btn-primary btn-sm"
+                    variant="primary"
+                    density="compact"
+                    :loading="rateLimit429CooldownSaving"
                   >
-                    <svg
-                      v-if="rateLimit429CooldownSaving"
-                      class="mr-1 h-4 w-4 animate-spin"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        class="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        stroke-width="4"
-                      ></circle>
-                      <path
-                        class="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
                     {{
                       rateLimit429CooldownSaving
                         ? t("common.saving")
                         : t("common.save")
                     }}
-                  </button>
+                  </UiButton>
                 </div>
               </template>
             </div>
@@ -455,137 +364,71 @@
                   class="space-y-4 border-t border-gray-100 pt-4 dark:border-dark-700"
                 >
                   <!-- Action -->
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.streamTimeout.action") }}
-                    </label>
-                    <select
-                      v-model="streamTimeoutForm.action"
-                      class="input w-64"
-                    >
-                      <option value="temp_unsched">
-                        {{
-                          t("admin.settings.streamTimeout.actionTempUnsched")
-                        }}
-                      </option>
-                      <option value="error">
-                        {{ t("admin.settings.streamTimeout.actionError") }}
-                      </option>
-                      <option value="none">
-                        {{ t("admin.settings.streamTimeout.actionNone") }}
-                      </option>
-                    </select>
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.streamTimeout.actionHint") }}
-                    </p>
-                  </div>
+                  <Select
+                    v-model="streamTimeoutForm.action"
+                    :options="streamTimeoutActionOptions"
+                    density="compact"
+                    class="w-64"
+                    :label="t('admin.settings.streamTimeout.action')"
+                    :description="t('admin.settings.streamTimeout.actionHint')"
+                  />
 
                   <!-- Temp Unsched Minutes (only show when action is temp_unsched) -->
-                  <div v-if="streamTimeoutForm.action === 'temp_unsched'">
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.streamTimeout.tempUnschedMinutes") }}
-                    </label>
-                    <input
-                      v-model.number="streamTimeoutForm.temp_unsched_minutes"
-                      type="number"
-                      min="1"
-                      max="60"
-                      class="input w-32"
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{
-                        t("admin.settings.streamTimeout.tempUnschedMinutesHint")
-                      }}
-                    </p>
-                  </div>
+                  <UiTextField
+                    v-if="streamTimeoutForm.action === 'temp_unsched'"
+                    v-model.number="streamTimeoutForm.temp_unsched_minutes"
+                    type="number"
+                    min="1"
+                    max="60"
+                    density="compact"
+                    class="w-32"
+                    :label="t('admin.settings.streamTimeout.tempUnschedMinutes')"
+                    :description="t('admin.settings.streamTimeout.tempUnschedMinutesHint')"
+                  />
 
                   <!-- Threshold Count -->
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.streamTimeout.thresholdCount") }}
-                    </label>
-                    <input
-                      v-model.number="streamTimeoutForm.threshold_count"
-                      type="number"
-                      min="1"
-                      max="10"
-                      class="input w-32"
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.streamTimeout.thresholdCountHint") }}
-                    </p>
-                  </div>
+                  <UiTextField
+                    v-model.number="streamTimeoutForm.threshold_count"
+                    type="number"
+                    min="1"
+                    max="10"
+                    density="compact"
+                    class="w-32"
+                    :label="t('admin.settings.streamTimeout.thresholdCount')"
+                    :description="t('admin.settings.streamTimeout.thresholdCountHint')"
+                  />
 
                   <!-- Threshold Window Minutes -->
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{
-                        t("admin.settings.streamTimeout.thresholdWindowMinutes")
-                      }}
-                    </label>
-                    <input
-                      v-model.number="
-                        streamTimeoutForm.threshold_window_minutes
-                      "
-                      type="number"
-                      min="1"
-                      max="60"
-                      class="input w-32"
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{
-                        t(
-                          "admin.settings.streamTimeout.thresholdWindowMinutesHint",
-                        )
-                      }}
-                    </p>
-                  </div>
+                  <UiTextField
+                    v-model.number="streamTimeoutForm.threshold_window_minutes"
+                    type="number"
+                    min="1"
+                    max="60"
+                    density="compact"
+                    class="w-32"
+                    :label="t('admin.settings.streamTimeout.thresholdWindowMinutes')"
+                    :description="t('admin.settings.streamTimeout.thresholdWindowMinutesHint')"
+                  />
                 </div>
 
                 <!-- Save Button -->
                 <div
                   class="flex justify-end border-t border-gray-100 pt-4 dark:border-dark-700"
                 >
-                  <button
+                  <UiButton
                     type="button"
                     @click="saveStreamTimeoutSettings"
                     :disabled="streamTimeoutSaving"
-                    class="btn btn-primary btn-sm"
+                    variant="primary"
+                    density="compact"
+                    :loading="streamTimeoutSaving"
                   >
-                    <svg
-                      v-if="streamTimeoutSaving"
-                      class="mr-1 h-4 w-4 animate-spin"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        class="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        stroke-width="4"
-                      ></circle>
-                      <path
-                        class="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
                     {{
                       streamTimeoutSaving
                         ? t("common.saving")
                         : t("common.save")
                     }}
-                  </button>
+                  </UiButton>
                 </div>
               </template>
             </div>
@@ -709,46 +552,34 @@
                       :key="index"
                       class="flex items-center gap-2"
                     >
-                      <input
+                      <UiTextField
                         v-model="rectifierForm.apikey_signature_patterns[index]"
-                        type="text"
-                        class="input input-sm flex-1"
-                        :placeholder="
-                          t('admin.settings.rectifier.apikeyPatternPlaceholder')
-                        "
+                        density="compact"
+                        class="flex-1"
+                        :label="t('admin.settings.rectifier.apikeyPatternPlaceholder')"
+                        :placeholder="t('admin.settings.rectifier.apikeyPatternPlaceholder')"
                       />
-                      <button
-                        type="button"
+                      <UiIconButton
+                        icon="x"
+                        variant="danger"
+                        density="compact"
+                        :label="t('common.remove')"
                         @click="
                           rectifierForm.apikey_signature_patterns.splice(
                             index,
                             1,
                           )
                         "
-                        class="btn btn-ghost btn-xs text-red-500 hover:text-red-700"
-                      >
-                        <svg
-                          class="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </button>
+                      />
                     </div>
-                    <button
+                    <UiButton
                       type="button"
                       @click="rectifierForm.apikey_signature_patterns.push('')"
-                      class="btn btn-ghost btn-xs text-primary-600 dark:text-primary-400"
+                      variant="quiet"
+                      density="dense"
                     >
                       + {{ t("admin.settings.rectifier.addPattern") }}
-                    </button>
+                    </UiButton>
                   </div>
                 </div>
 
@@ -756,36 +587,18 @@
                 <div
                   class="flex justify-end border-t border-gray-100 pt-4 dark:border-dark-700"
                 >
-                  <button
+                  <UiButton
                     type="button"
                     @click="saveRectifierSettings"
                     :disabled="rectifierSaving"
-                    class="btn btn-primary btn-sm"
+                    variant="primary"
+                    density="compact"
+                    :loading="rectifierSaving"
                   >
-                    <svg
-                      v-if="rectifierSaving"
-                      class="mr-1 h-4 w-4 animate-spin"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        class="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        stroke-width="4"
-                      ></circle>
-                      <path
-                        class="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
                     {{
                       rectifierSaving ? t("common.saving") : t("common.save")
                     }}
-                  </button>
+                  </UiButton>
                 </div>
               </template>
             </div>
@@ -808,9 +621,7 @@
                 v-if="betaPolicyLoading"
                 class="flex items-center gap-2 text-gray-500"
               >
-                <div
-                  class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"
-                ></div>
+                <UiSpinner size="sm" :label="t('common.loading')" />
                 {{ t("common.loading") }}
               </div>
 
@@ -846,6 +657,7 @@
                         :modelValue="rule.action"
                         @update:modelValue="rule.action = $event as any"
                         :options="betaPolicyActionOptions"
+                        density="compact"
                       />
                     </div>
 
@@ -860,6 +672,7 @@
                         :modelValue="rule.scope"
                         @update:modelValue="rule.scope = $event as any"
                         :options="betaPolicyScopeOptions"
+                        density="compact"
                       />
                     </div>
                   </div>
@@ -871,13 +684,10 @@
                     >
                       {{ t("admin.settings.betaPolicy.errorMessage") }}
                     </label>
-                    <input
+                    <UiTextField
                       v-model="rule.error_message"
-                      type="text"
-                      class="input"
-                      :placeholder="
-                        t('admin.settings.betaPolicy.errorMessagePlaceholder')
-                      "
+                      density="compact"
+                      :placeholder="t('admin.settings.betaPolicy.errorMessagePlaceholder')"
                     />
                     <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
                       {{ t("admin.settings.betaPolicy.errorMessageHint") }}
@@ -892,16 +702,17 @@
                       {{ t("admin.settings.betaPolicy.quickPresets") }}
                     </label>
                     <div class="flex flex-wrap gap-2">
-                      <button
+                      <UiButton
                         v-for="preset in betaPresets[rule.beta_token]"
                         :key="preset.label"
                         type="button"
-                        class="inline-flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-100 dark:border-primary-800 dark:bg-primary-900/30 dark:text-primary-300 dark:hover:bg-primary-900/50"
+                        variant="quiet"
+                        density="mini"
                         @click="applyBetaPreset(rule, preset)"
                         :title="preset.description"
                       >
                         {{ preset.label }}
-                      </button>
+                      </UiButton>
                     </div>
                   </div>
 
@@ -921,58 +732,34 @@
                       :key="index"
                       class="mb-1.5 flex items-center gap-2"
                     >
-                      <input
+                      <UiTextField
                         v-model="rule.model_whitelist![index]"
-                        type="text"
-                        class="input input-sm flex-1"
-                        :placeholder="
-                          t('admin.settings.betaPolicy.modelPatternPlaceholder')
-                        "
+                        density="compact"
+                        class="flex-1"
+                        :placeholder="t('admin.settings.betaPolicy.modelPatternPlaceholder')"
                       />
-                      <button
+                      <UiIconButton
                         type="button"
+                        icon="x"
+                        variant="danger"
+                        density="mini"
+                        :label="t('common.delete')"
                         @click="rule.model_whitelist!.splice(index, 1)"
-                        class="shrink-0 rounded p-1 text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
-                      >
-                        <svg
-                          class="h-4 w-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </button>
+                      />
                     </div>
                     <!-- Add pattern button -->
-                    <button
+                    <UiButton
                       type="button"
+                      variant="quiet"
+                      density="mini"
                       @click="
                         if (!rule.model_whitelist) rule.model_whitelist = [];
                         rule.model_whitelist.push('');
                       "
-                      class="mb-2 inline-flex items-center gap-1 text-xs text-primary-600 transition-colors hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
                     >
-                      <svg
-                        class="h-3.5 w-3.5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        stroke-width="2"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          d="M12 4v16m8-8H4"
-                        />
-                      </svg>
+                      <template #icon><Icon name="plus" size="xs" /></template>
                       {{ t("admin.settings.betaPolicy.addModelPattern") }}
-                    </button>
+                    </UiButton>
                     <!-- Common pattern chips -->
                     <div class="flex flex-wrap items-center gap-1.5">
                       <span class="text-xs text-gray-400 dark:text-gray-500"
@@ -980,15 +767,16 @@
                           t("admin.settings.betaPolicy.commonPatterns")
                         }}:</span
                       >
-                      <button
+                      <UiButton
                         v-for="pattern in commonModelPatterns"
                         :key="pattern"
                         type="button"
-                        class="rounded border border-gray-200 px-2 py-0.5 text-xs text-gray-600 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 dark:border-dark-600 dark:text-gray-400 dark:hover:border-primary-700 dark:hover:bg-primary-900/30 dark:hover:text-primary-300"
+                        variant="quiet"
+                        density="mini"
                         @click="addQuickPattern(rule, pattern)"
                       >
                         {{ pattern }}
-                      </button>
+                      </UiButton>
                     </div>
                   </div>
 
@@ -1008,21 +796,17 @@
                       :modelValue="rule.fallback_action || 'pass'"
                       @update:modelValue="rule.fallback_action = $event as any"
                       :options="betaPolicyActionOptions"
+                      density="compact"
                     />
                     <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
                       {{ t("admin.settings.betaPolicy.fallbackActionHint") }}
                     </p>
                     <!-- Fallback Error Message (only when fallback_action=block) -->
                     <div v-if="rule.fallback_action === 'block'" class="mt-2">
-                      <input
+                      <UiTextField
                         v-model="rule.fallback_error_message"
-                        type="text"
-                        class="input"
-                        :placeholder="
-                          t(
-                            'admin.settings.betaPolicy.fallbackErrorMessagePlaceholder',
-                          )
-                        "
+                        density="compact"
+                        :placeholder="t('admin.settings.betaPolicy.fallbackErrorMessagePlaceholder')"
                       />
                       <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
                         {{ t("admin.settings.betaPolicy.errorMessageHint") }}
@@ -1035,36 +819,17 @@
                 <div
                   class="flex justify-end border-t border-gray-100 pt-4 dark:border-dark-700"
                 >
-                  <button
+                  <UiButton
                     type="button"
+                    variant="primary"
+                    density="compact"
+                    :loading="betaPolicySaving"
                     @click="saveBetaPolicySettings"
-                    :disabled="betaPolicySaving"
-                    class="btn btn-primary btn-sm"
                   >
-                    <svg
-                      v-if="betaPolicySaving"
-                      class="mr-1 h-4 w-4 animate-spin"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        class="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        stroke-width="4"
-                      ></circle>
-                      <path
-                        class="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
                     {{
                       betaPolicySaving ? t("common.saving") : t("common.save")
                     }}
-                  </button>
+                  </UiButton>
                 </div>
               </template>
             </div>
@@ -1106,26 +871,14 @@
                       })
                     }}
                   </span>
-                  <button
+                  <UiIconButton
                     type="button"
+                    icon="x"
+                    variant="danger"
+                    density="mini"
+                    :label="t('admin.settings.openaiFastPolicy.removeRule')"
                     @click="removeOpenAIFastPolicyRule(ruleIndex)"
-                    class="rounded p-1 text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
-                    :title="t('admin.settings.openaiFastPolicy.removeRule')"
-                  >
-                    <svg
-                      class="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
+                  />
                 </div>
 
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -1145,6 +898,7 @@
                           | 'flex'
                       "
                       :options="openaiFastPolicyTierOptions"
+                      density="compact"
                     />
                   </div>
 
@@ -1165,6 +919,7 @@
                           | 'force_priority'
                       "
                       :options="openaiFastPolicyActionOptions"
+                      density="compact"
                     />
                   </div>
 
@@ -1185,6 +940,7 @@
                           | 'bedrock'
                       "
                       :options="openaiFastPolicyScopeOptions"
+                      density="compact"
                     />
                   </div>
                 </div>
@@ -1212,15 +968,10 @@
                   >
                     {{ t("admin.settings.openaiFastPolicy.errorMessage") }}
                   </label>
-                  <input
+                  <UiTextField
                     v-model="rule.error_message"
-                    type="text"
-                    class="input"
-                    :placeholder="
-                      t(
-                        'admin.settings.openaiFastPolicy.errorMessagePlaceholder',
-                      )
-                    "
+                    density="compact"
+                    :placeholder="t('admin.settings.openaiFastPolicy.errorMessagePlaceholder')"
                   />
                   <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
                     {{ t("admin.settings.openaiFastPolicy.errorMessageHint") }}
@@ -1244,58 +995,30 @@
                     :key="patternIdx"
                     class="mb-1.5 flex items-center gap-2"
                   >
-                    <input
+                    <UiTextField
                       v-model="rule.model_whitelist![patternIdx]"
-                      type="text"
-                      class="input input-sm flex-1"
-                      :placeholder="
-                        t(
-                          'admin.settings.openaiFastPolicy.modelPatternPlaceholder',
-                        )
-                      "
+                      density="compact"
+                      class="flex-1"
+                      :placeholder="t('admin.settings.openaiFastPolicy.modelPatternPlaceholder')"
                     />
-                    <button
+                    <UiIconButton
                       type="button"
-                      @click="
-                        removeOpenAIFastPolicyModelPattern(rule, patternIdx)
-                      "
-                      class="shrink-0 rounded p-1 text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
-                    >
-                      <svg
-                        class="h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        stroke-width="2"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
+                      icon="x"
+                      variant="danger"
+                      density="mini"
+                      :label="t('common.delete')"
+                      @click="removeOpenAIFastPolicyModelPattern(rule, patternIdx)"
+                    />
                   </div>
-                  <button
+                  <UiButton
                     type="button"
+                    variant="quiet"
+                    density="mini"
                     @click="addOpenAIFastPolicyModelPattern(rule)"
-                    class="mb-2 inline-flex items-center gap-1 text-xs text-primary-600 transition-colors hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
                   >
-                    <svg
-                      class="h-3.5 w-3.5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
+                    <template #icon><Icon name="plus" size="xs" /></template>
                     {{ t("admin.settings.openaiFastPolicy.addModelPattern") }}
-                  </button>
+                  </UiButton>
                 </div>
 
                 <!-- Fallback Action (only when model_whitelist is non-empty) -->
@@ -1320,6 +1043,7 @@
                         | 'force_priority'
                     "
                     :options="openaiFastPolicyActionOptions"
+                    density="compact"
                   />
                   <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
                     {{
@@ -1327,15 +1051,10 @@
                     }}
                   </p>
                   <div v-if="rule.fallback_action === 'block'" class="mt-2">
-                    <input
+                    <UiTextField
                       v-model="rule.fallback_error_message"
-                      type="text"
-                      class="input"
-                      :placeholder="
-                        t(
-                          'admin.settings.openaiFastPolicy.fallbackErrorMessagePlaceholder',
-                        )
-                      "
+                      density="compact"
+                      :placeholder="t('admin.settings.openaiFastPolicy.fallbackErrorMessagePlaceholder')"
                     />
                   </div>
                 </div>
@@ -1343,26 +1062,15 @@
 
               <!-- Add Rule Button -->
               <div>
-                <button
+                <UiButton
                   type="button"
+                  variant="secondary"
+                  density="compact"
                   @click="addOpenAIFastPolicyRule"
-                  class="btn btn-secondary btn-sm inline-flex items-center gap-1"
                 >
-                  <svg
-                    class="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
+                  <template #icon><Icon name="plus" size="sm" /></template>
                   {{ t("admin.settings.openaiFastPolicy.addRule") }}
-                </button>
+                </UiButton>
                 <p class="mt-2 text-xs text-gray-400 dark:text-gray-500">
                   {{ t("admin.settings.openaiFastPolicy.saveHint") }}
                 </p>
@@ -1373,7 +1081,13 @@
         <!-- /Tab: Gateway -->
 
         <!-- Tab: Security — Registration, Turnstile, LinuxDo -->
-        <div v-show="activeTab === 'security'" class="settings-panel">
+        <div
+          id="settings-panel-security-details"
+          v-show="activeTab === 'security'"
+          class="settings-panel"
+          role="tabpanel"
+          aria-labelledby="settings-tab-security"
+        >
           <!-- Registration Settings -->
           <div class="settings-section">
             <div
@@ -1437,40 +1151,26 @@
                       class="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs font-mono text-gray-700 dark:bg-dark-600 dark:text-gray-200"
                     >
                       <span>{{ suffix }}</span>
-                      <button
+                      <UiIconButton
                         type="button"
-                        class="rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-dark-500 dark:hover:text-white"
-                        @click="
-                          removeRegistrationEmailSuffixWhitelistTag(suffix)
-                        "
-                      >
-                        <Icon
-                          name="x"
-                          size="xs"
-                          class="h-3.5 w-3.5"
-                          :stroke-width="2"
-                        />
-                      </button>
+                        icon="x"
+                        variant="ghost"
+                        density="mini"
+                        :label="t('common.remove')"
+                        @click="removeRegistrationEmailSuffixWhitelistTag(suffix)"
+                      />
                     </span>
 
-                    <div
-                      class="flex min-w-[220px] flex-1 items-center gap-1 rounded border border-transparent px-2 py-1 focus-within:border-primary-300 dark:focus-within:border-primary-700"
-                    >
-                      <input
+                    <div class="min-w-[220px] flex-1">
+                      <UiTextField
                         v-model="registrationEmailSuffixWhitelistDraft"
                         type="text"
-                        class="w-full bg-transparent text-sm font-mono text-gray-900 outline-none placeholder:text-gray-400 dark:text-white dark:placeholder:text-gray-500"
-                        :placeholder="
-                          t(
-                            'admin.settings.registration.emailSuffixWhitelistPlaceholder',
-                          )
-                        "
-                        @input="
-                          handleRegistrationEmailSuffixWhitelistDraftInput
-                        "
-                        @keydown="
-                          handleRegistrationEmailSuffixWhitelistDraftKeydown
-                        "
+                        density="compact"
+                        monospace
+                        :placeholder="t('admin.settings.registration.emailSuffixWhitelistPlaceholder')"
+                        :input-attrs="{ 'aria-label': t('admin.settings.registration.emailSuffixWhitelist') }"
+                        @input="handleRegistrationEmailSuffixWhitelistDraftInput"
+                        @keydown="handleRegistrationEmailSuffixWhitelistDraftKeydown"
                         @blur="commitRegistrationEmailSuffixWhitelistDraft"
                         @paste="handleRegistrationEmailSuffixWhitelistPaste"
                       />
@@ -1552,29 +1252,23 @@
                 v-if="form.email_verify_enabled && form.password_reset_enabled"
                 class="border-t border-gray-100 pt-4 dark:border-dark-700"
               >
-                <label
-                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  {{ t("admin.settings.registration.frontendUrl") }}
-                </label>
-                <input
+                <UiTextField
                   v-model="form.frontend_url"
                   type="url"
-                  class="input"
+                  density="compact"
+                  :label="t('admin.settings.registration.frontendUrl')"
+                  :description="t('admin.settings.registration.frontendUrlHint')"
                   :placeholder="
                     t('admin.settings.registration.frontendUrlPlaceholder')
                   "
                 />
-                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t("admin.settings.registration.frontendUrlHint") }}
-                </p>
               </div>
 
               <!-- TOTP 2FA -->
               <div
                 class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
               >
-                <div>
+                <div class="min-w-0">
                   <label class="font-medium text-gray-900 dark:text-white">{{
                     t("admin.settings.registration.totp")
                   }}</label>
@@ -1688,19 +1382,15 @@
               <div
                 class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
               >
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.security.auditRetention")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.security.auditRetentionHint") }}
-                  </p>
-                </div>
-                <input
+                <UiTextField
                   v-model.number="form.audit_log_retention_days"
                   type="number"
                   min="0"
-                  class="input w-28 text-right"
+                  density="compact"
+                  class="w-28"
+                  text-align="right"
+                  :label="t('admin.settings.security.auditRetention')"
+                  :description="t('admin.settings.security.auditRetentionHint')"
                 />
               </div>
             </div>
@@ -1755,30 +1445,25 @@
                       class="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs font-mono text-gray-700 dark:bg-dark-600 dark:text-gray-200"
                     >
                       <span>{{ header }}</span>
-                      <button
+                      <UiIconButton
                         type="button"
-                        class="rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-dark-500 dark:hover:text-white"
-                        :aria-label="t('admin.settings.apiKeyAcl.removeForwardedClientIpHeader', { header })"
+                        icon="x"
+                        variant="ghost"
+                        density="mini"
+                        :label="t('admin.settings.apiKeyAcl.removeForwardedClientIpHeader', { header })"
                         @click="removeForwardedClientIpHeader(header)"
-                      >
-                        <Icon
-                          name="x"
-                          size="xs"
-                          class="h-3.5 w-3.5"
-                          :stroke-width="2"
-                        />
-                      </button>
+                      />
                     </span>
-                    <div
-                      class="flex min-w-[220px] flex-1 items-center gap-1 rounded border border-transparent px-2 py-1 focus-within:border-primary-300 dark:focus-within:border-primary-700"
-                    >
-                      <input
+                    <div class="min-w-[220px] flex-1">
+                      <UiTextField
                         id="forwarded-client-ip-headers"
                         v-model="forwardedClientIpHeaderDraft"
-                        data-testid="forwarded-client-ip-headers-input"
+                        test-id="forwarded-client-ip-headers-input"
                         type="text"
-                        class="w-full bg-transparent text-sm font-mono text-gray-900 outline-none placeholder:text-gray-400 dark:text-white dark:placeholder:text-gray-500"
+                        density="compact"
+                        monospace
                         :placeholder="t('admin.settings.apiKeyAcl.forwardedClientIpHeadersPlaceholder')"
+                        :input-attrs="{ 'aria-label': t('admin.settings.apiKeyAcl.forwardedClientIpHeaders') }"
                         @keydown="handleForwardedClientIpHeaderKeydown"
                         @blur="commitForwardedClientIpHeaderDraft"
                         @paste="handleForwardedClientIpHeaderPaste"
@@ -1817,9 +1502,7 @@
                 v-if="panelRateLimitLoading"
                 class="flex items-center gap-2 text-gray-500"
               >
-                <div
-                  class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"
-                ></div>
+                <UiSpinner size="sm" :label="t('common.loading')" />
                 {{ t("common.loading") }}
               </div>
 
@@ -1858,19 +1541,16 @@
                 >
                   <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div>
-                      <label
-                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                      >
-                        {{ t("admin.settings.panelRateLimit.userRpm") }}
-                      </label>
                       <div class="flex items-center gap-2">
-                        <input
+                        <UiTextField
                           v-model.number="panelRateLimitForm.user_rpm"
-                          data-testid="panel-rate-limit-user-rpm"
                           type="number"
                           min="0"
                           max="100000"
-                          class="input w-32"
+                          density="compact"
+                          class="w-32"
+                          :test-id="'panel-rate-limit-user-rpm'"
+                          :label="t('admin.settings.panelRateLimit.userRpm')"
                         />
                         <span class="text-sm text-gray-500 dark:text-gray-400">
                           {{ t("admin.settings.panelRateLimit.perMinute") }}
@@ -1882,18 +1562,15 @@
                     </div>
 
                     <div>
-                      <label
-                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                      >
-                        {{ t("admin.settings.panelRateLimit.heavyRpm") }}
-                      </label>
                       <div class="flex items-center gap-2">
-                        <input
+                        <UiTextField
                           v-model.number="panelRateLimitForm.heavy_rpm"
                           type="number"
                           min="0"
                           max="100000"
-                          class="input w-32"
+                          density="compact"
+                          class="w-32"
+                          :label="t('admin.settings.panelRateLimit.heavyRpm')"
                         />
                         <span class="text-sm text-gray-500 dark:text-gray-400">
                           {{ t("admin.settings.panelRateLimit.perMinute") }}
@@ -1905,18 +1582,15 @@
                     </div>
 
                     <div>
-                      <label
-                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                      >
-                        {{ t("admin.settings.panelRateLimit.publicIpRpm") }}
-                      </label>
                       <div class="flex items-center gap-2">
-                        <input
+                        <UiTextField
                           v-model.number="panelRateLimitForm.public_ip_rpm"
                           type="number"
                           min="0"
                           max="100000"
-                          class="input w-32"
+                          density="compact"
+                          class="w-32"
+                          :label="t('admin.settings.panelRateLimit.publicIpRpm')"
                         />
                         <span class="text-sm text-gray-500 dark:text-gray-400">
                           {{ t("admin.settings.panelRateLimit.perMinute") }}
@@ -1946,39 +1620,20 @@
                 <div
                   class="flex justify-end border-t border-gray-100 pt-4 dark:border-dark-700"
                 >
-                  <button
+                  <UiButton
                     type="button"
                     data-testid="panel-rate-limit-save"
                     @click="savePanelRateLimitSettings"
-                    :disabled="panelRateLimitSaving"
-                    class="btn btn-primary btn-sm"
+                    variant="primary"
+                    density="compact"
+                    :loading="panelRateLimitSaving"
                   >
-                    <svg
-                      v-if="panelRateLimitSaving"
-                      class="mr-1 h-4 w-4 animate-spin"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        class="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        stroke-width="4"
-                      ></circle>
-                      <path
-                        class="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
                     {{
                       panelRateLimitSaving
                         ? t("common.saving")
                         : t("common.save")
                     }}
-                  </button>
+                  </UiButton>
                 </div>
               </template>
             </div>
@@ -2028,45 +1683,36 @@
                   <div
                     class="grid grid-cols-3 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700"
                   >
-                    <button
+                    <UiButton
                       type="button"
                       data-testid="captcha-provider-turnstile"
-                      class="inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition"
-                      :class="
-                        captchaProviderSelection === 'turnstile'
-                          ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                          : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                      "
+                      :aria-pressed="captchaProviderSelection === 'turnstile'"
+                      :variant="captchaProviderSelection === 'turnstile' ? 'primary' : 'secondary'"
+                      density="compact"
                       @click="selectCaptchaProvider('turnstile')"
                     >
                       {{ t("admin.settings.captcha.providerTurnstile") }}
-                    </button>
-                    <button
+                    </UiButton>
+                    <UiButton
                       type="button"
                       data-testid="captcha-provider-tencent"
-                      class="inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition"
-                      :class="
-                        captchaProviderSelection === 'tencent'
-                          ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                          : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                      "
+                      :aria-pressed="captchaProviderSelection === 'tencent'"
+                      :variant="captchaProviderSelection === 'tencent' ? 'primary' : 'secondary'"
+                      density="compact"
                       @click="selectCaptchaProvider('tencent')"
                     >
                       {{ t("admin.settings.captcha.providerTencent") }}
-                    </button>
-                    <button
+                    </UiButton>
+                    <UiButton
                       type="button"
                       data-testid="captcha-provider-aliyun"
-                      class="inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition"
-                      :class="
-                        captchaProviderSelection === 'aliyun'
-                          ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                          : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                      "
+                      :aria-pressed="captchaProviderSelection === 'aliyun'"
+                      :variant="captchaProviderSelection === 'aliyun' ? 'primary' : 'secondary'"
+                      density="compact"
                       @click="selectCaptchaProvider('aliyun')"
                     >
                       {{ t("admin.settings.captcha.providerAliyun") }}
-                    </button>
+                    </UiButton>
                   </div>
                 </div>
 
@@ -2076,15 +1722,12 @@
                   class="grid grid-cols-1 gap-6"
                 >
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.turnstile.siteKey") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.turnstile_site_key"
                       type="text"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.turnstile.siteKey')"
                       placeholder="0x4AAAAAAA..."
                     />
                     <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -2100,15 +1743,11 @@
                     </p>
                   </div>
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.turnstile.secretKey") }}
-                    </label>
-                    <input
+                    <UiPasswordField
                       v-model="form.turnstile_secret_key"
-                      type="password"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.turnstile.secretKey')"
                       placeholder="0x4AAAAAAA..."
                     />
                     <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -2130,32 +1769,26 @@
                       {{ t("admin.settings.tencentCaptcha.region") }}
                     </label>
                     <div class="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700">
-                      <button
+                      <UiButton
                         type="button"
                         data-testid="tencent-captcha-region-cn"
-                        class="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition"
-                        :class="
-                          form.tencent_captcha_region !== 'intl'
-                            ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                            : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                        "
+                        :aria-pressed="form.tencent_captcha_region !== 'intl'"
+                        :variant="form.tencent_captcha_region !== 'intl' ? 'primary' : 'secondary'"
+                        density="compact"
                         @click="form.tencent_captcha_region = 'cn'"
                       >
                         {{ t("admin.settings.tencentCaptcha.regionCn") }}
-                      </button>
-                      <button
+                      </UiButton>
+                      <UiButton
                         type="button"
                         data-testid="tencent-captcha-region-intl"
-                        class="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition"
-                        :class="
-                          form.tencent_captcha_region === 'intl'
-                            ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                            : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                        "
+                        :aria-pressed="form.tencent_captcha_region === 'intl'"
+                        :variant="form.tencent_captcha_region === 'intl' ? 'primary' : 'secondary'"
+                        density="compact"
                         @click="form.tencent_captcha_region = 'intl'"
                       >
                         {{ t("admin.settings.tencentCaptcha.regionIntl") }}
-                      </button>
+                      </UiButton>
                     </div>
                     <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                       {{ t("admin.settings.tencentCaptcha.regionHint") }}
@@ -2171,26 +1804,23 @@
                       </p>
                     </div>
                     <div>
-                      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ t("admin.settings.tencentCaptcha.appId") }}
-                      </label>
-                      <input
+                      <UiTextField
                         v-model="form.tencent_captcha_app_id"
                         type="text"
                         inputmode="numeric"
-                        class="input font-mono text-sm"
+                        density="compact"
+                        monospace
+                        :label="t('admin.settings.tencentCaptcha.appId')"
                         placeholder="123456789"
                       />
                     </div>
                     <div>
-                      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ t("admin.settings.tencentCaptcha.appSecretKey") }}
-                      </label>
-                      <input
+                      <UiPasswordField
                         v-model="form.tencent_captcha_app_secret_key"
-                        type="password"
+                        density="compact"
+                        monospace
+                        :label="t('admin.settings.tencentCaptcha.appSecretKey')"
                         autocomplete="new-password"
-                        class="input font-mono text-sm"
                         :placeholder="t('admin.settings.tencentCaptcha.keepExisting')"
                       />
                       <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -2206,14 +1836,12 @@
                       </p>
                     </div>
                     <div>
-                      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ t("admin.settings.tencentCaptcha.cloudSecretId") }}
-                      </label>
-                      <input
+                      <UiPasswordField
                         v-model="form.tencent_captcha_cloud_secret_id"
-                        type="password"
+                        density="compact"
+                        monospace
+                        :label="t('admin.settings.tencentCaptcha.cloudSecretId')"
                         autocomplete="new-password"
-                        class="input font-mono text-sm"
                         :placeholder="t('admin.settings.tencentCaptcha.keepExisting')"
                       />
                       <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -2221,14 +1849,12 @@
                       </p>
                     </div>
                     <div>
-                      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ t("admin.settings.tencentCaptcha.cloudSecretKey") }}
-                      </label>
-                      <input
+                      <UiPasswordField
                         v-model="form.tencent_captcha_cloud_secret_key"
-                        type="password"
+                        density="compact"
+                        monospace
+                        :label="t('admin.settings.tencentCaptcha.cloudSecretKey')"
                         autocomplete="new-password"
-                        class="input font-mono text-sm"
                         :placeholder="t('admin.settings.tencentCaptcha.keepExisting')"
                       />
                       <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -2282,45 +1908,36 @@
                       <div
                         class="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700"
                       >
-                        <button
+                        <UiButton
                           type="button"
-                          class="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition"
-                          :class="
-                            form.aliyun_captcha_region !== 'sgp'
-                              ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                              : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                          "
+                          :aria-pressed="form.aliyun_captcha_region !== 'sgp'"
+                          :variant="form.aliyun_captcha_region !== 'sgp' ? 'primary' : 'secondary'"
+                          density="compact"
                           @click="form.aliyun_captcha_region = 'cn'"
                         >
                           {{ t("admin.settings.aliyunCaptcha.regionCn") }}
-                        </button>
-                        <button
+                        </UiButton>
+                        <UiButton
                           type="button"
-                          class="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition"
-                          :class="
-                            form.aliyun_captcha_region === 'sgp'
-                              ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                              : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                          "
+                          :aria-pressed="form.aliyun_captcha_region === 'sgp'"
+                          :variant="form.aliyun_captcha_region === 'sgp' ? 'primary' : 'secondary'"
+                          density="compact"
                           @click="form.aliyun_captcha_region = 'sgp'"
                         >
                           {{ t("admin.settings.aliyunCaptcha.regionSgp") }}
-                        </button>
+                        </UiButton>
                       </div>
                       <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                         {{ t("admin.settings.aliyunCaptcha.regionHint") }}
                       </p>
                     </div>
                     <div>
-                      <label
-                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                      >
-                        {{ t("admin.settings.aliyunCaptcha.prefix") }}
-                      </label>
-                      <input
+                      <UiTextField
                         v-model="form.aliyun_captcha_prefix"
                         type="text"
-                        class="input font-mono text-sm"
+                        density="compact"
+                        monospace
+                        :label="t('admin.settings.aliyunCaptcha.prefix')"
                         placeholder="14xxxxx"
                       />
                       <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -2329,15 +1946,12 @@
                     </div>
                   </div>
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.aliyunCaptcha.sceneId") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.aliyun_captcha_scene_id"
                       type="text"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.aliyunCaptcha.sceneId')"
                       placeholder="1cxxxxxx"
                     />
                     <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -2345,15 +1959,12 @@
                     </p>
                   </div>
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.aliyunCaptcha.accessKeyId") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.aliyun_captcha_access_key_id"
                       type="text"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.aliyunCaptcha.accessKeyId')"
                       placeholder="LTAI..."
                     />
                     <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -2361,16 +1972,12 @@
                     </p>
                   </div>
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.aliyunCaptcha.accessKeySecret") }}
-                    </label>
-                    <input
+                    <UiPasswordField
                       v-model="form.aliyun_captcha_access_key_secret"
-                      type="password"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.aliyunCaptcha.accessKeySecret')"
                       autocomplete="new-password"
-                      class="input font-mono text-sm"
                       placeholder="••••••••"
                     />
                     <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -2419,15 +2026,12 @@
               >
                 <div class="grid grid-cols-1 gap-6">
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.linuxdo.clientId") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.linuxdo_connect_client_id"
                       type="text"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.linuxdo.clientId')"
                       :placeholder="
                         t('admin.settings.linuxdo.clientIdPlaceholder')
                       "
@@ -2438,15 +2042,11 @@
                   </div>
 
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.linuxdo.clientSecret") }}
-                    </label>
-                    <input
+                    <UiPasswordField
                       v-model="form.linuxdo_connect_client_secret"
-                      type="password"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.linuxdo.clientSecret')"
                       :placeholder="
                         form.linuxdo_connect_client_secret_configured
                           ? t(
@@ -2467,15 +2067,12 @@
                   </div>
 
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.linuxdo.redirectUrl") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.linuxdo_connect_redirect_url"
                       type="url"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.linuxdo.redirectUrl')"
                       :placeholder="
                         t('admin.settings.linuxdo.redirectUrlPlaceholder')
                       "
@@ -2483,13 +2080,14 @@
                     <div
                       class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"
                     >
-                      <button
+                      <UiButton
                         type="button"
-                        class="btn btn-secondary btn-sm w-fit"
+                        variant="secondary"
+                        density="compact"
                         @click="setAndCopyLinuxdoRedirectUrl"
                       >
                         {{ t("admin.settings.linuxdo.quickSetCopy") }}
-                      </button>
+                      </UiButton>
                       <code
                         v-if="linuxdoRedirectUrlSuggestion"
                         class="select-all break-all rounded bg-gray-50 px-2 py-1 font-mono text-xs text-gray-600 dark:bg-dark-800 dark:text-gray-300"
@@ -2571,20 +2169,21 @@
 
                     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
                       <div>
-                        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Client ID</label>
-                        <input
+                        <UiTextField
                           v-model="form.github_oauth_client_id"
                           type="text"
-                          class="input font-mono text-sm"
+                          density="compact"
+                          monospace
+                          label="Client ID"
                           placeholder="GitHub OAuth Client ID"
                         />
                       </div>
                       <div>
-                        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Client Secret</label>
-                        <input
+                        <UiPasswordField
                           v-model="form.github_oauth_client_secret"
-                          type="password"
-                          class="input font-mono text-sm"
+                          density="compact"
+                          monospace
+                          label="Client Secret"
                           :placeholder="
                             form.github_oauth_client_secret_configured
                               ? localText('密钥已配置，留空以保留当前值。', 'Secret configured. Leave empty to keep the current value.')
@@ -2595,23 +2194,23 @@
                     </div>
 
                     <div>
-                      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ localText("后端回调地址", "Backend Callback URL") }}
-                      </label>
-                      <input
+                      <UiTextField
                         v-model="form.github_oauth_redirect_url"
                         type="url"
-                        class="input font-mono text-sm"
+                        density="compact"
+                        monospace
+                        :label="localText('后端回调地址', 'Backend Callback URL')"
                         placeholder="https://your-domain.com/api/v1/auth/oauth/github/callback"
                       />
                       <div class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                        <button
+                        <UiButton
                           type="button"
-                          class="btn btn-secondary btn-sm w-fit"
+                          variant="secondary"
+                          density="compact"
                           @click="setAndCopyEmailOAuthRedirectUrl('github')"
                         >
                           {{ localText("生成并复制", "Generate and copy") }}
-                        </button>
+                        </UiButton>
                         <code
                           v-if="githubOAuthRedirectUrlSuggestion"
                           class="select-all break-all rounded bg-gray-50 px-2 py-1 font-mono text-xs text-gray-600 dark:bg-dark-800 dark:text-gray-300"
@@ -2622,13 +2221,12 @@
                     </div>
 
                     <div>
-                      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ localText("前端回跳地址", "Frontend Callback URL") }}
-                      </label>
-                      <input
+                      <UiTextField
                         v-model="form.github_oauth_frontend_redirect_url"
                         type="text"
-                        class="input font-mono text-sm"
+                        density="compact"
+                        monospace
+                        :label="localText('前端回跳地址', 'Frontend Callback URL')"
                         placeholder="/auth/oauth/callback"
                       />
                     </div>
@@ -2665,20 +2263,21 @@
 
                     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
                       <div>
-                        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Client ID</label>
-                        <input
+                        <UiTextField
                           v-model="form.google_oauth_client_id"
                           type="text"
-                          class="input font-mono text-sm"
+                          density="compact"
+                          monospace
+                          label="Client ID"
                           placeholder="Google OAuth Client ID"
                         />
                       </div>
                       <div>
-                        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Client Secret</label>
-                        <input
+                        <UiPasswordField
                           v-model="form.google_oauth_client_secret"
-                          type="password"
-                          class="input font-mono text-sm"
+                          density="compact"
+                          monospace
+                          label="Client Secret"
                           :placeholder="
                             form.google_oauth_client_secret_configured
                               ? localText('密钥已配置，留空以保留当前值。', 'Secret configured. Leave empty to keep the current value.')
@@ -2689,23 +2288,23 @@
                     </div>
 
                     <div>
-                      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ localText("后端回调地址", "Backend Callback URL") }}
-                      </label>
-                      <input
+                      <UiTextField
                         v-model="form.google_oauth_redirect_url"
                         type="url"
-                        class="input font-mono text-sm"
+                        density="compact"
+                        monospace
+                        :label="localText('后端回调地址', 'Backend Callback URL')"
                         placeholder="https://your-domain.com/api/v1/auth/oauth/google/callback"
                       />
                       <div class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                        <button
+                        <UiButton
                           type="button"
-                          class="btn btn-secondary btn-sm w-fit"
+                          variant="secondary"
+                          density="compact"
                           @click="setAndCopyEmailOAuthRedirectUrl('google')"
                         >
                           {{ localText("生成并复制", "Generate and copy") }}
-                        </button>
+                        </UiButton>
                         <code
                           v-if="googleOAuthRedirectUrlSuggestion"
                           class="select-all break-all rounded bg-gray-50 px-2 py-1 font-mono text-xs text-gray-600 dark:bg-dark-800 dark:text-gray-300"
@@ -2716,13 +2315,12 @@
                     </div>
 
                     <div>
-                      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ localText("前端回跳地址", "Frontend Callback URL") }}
-                      </label>
-                      <input
+                      <UiTextField
                         v-model="form.google_oauth_frontend_redirect_url"
                         type="text"
-                        class="input font-mono text-sm"
+                        density="compact"
+                        monospace
+                        :label="localText('前端回跳地址', 'Frontend Callback URL')"
                         placeholder="/auth/oauth/callback"
                       />
                     </div>
@@ -2793,16 +2391,13 @@
                       class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2"
                     >
                       <div>
-                        <label
-                          class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {{ localText("PC AppID", "PC App ID") }}
-                        </label>
-                        <input
+                        <UiTextField
                           v-model="form.wechat_connect_open_app_id"
-                          data-testid="wechat-connect-open-app-id"
+                          test-id="wechat-connect-open-app-id"
                           type="text"
-                          class="input font-mono text-sm"
+                          density="compact"
+                          monospace
+                          :label="localText('PC AppID', 'PC App ID')"
                           :placeholder="
                             localText(
                               '微信开放平台 PC 应用 AppID',
@@ -2812,16 +2407,12 @@
                         />
                       </div>
                       <div>
-                        <label
-                          class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {{ localText("PC AppSecret", "PC App Secret") }}
-                        </label>
-                        <input
+                        <UiPasswordField
                           v-model="form.wechat_connect_open_app_secret"
-                          data-testid="wechat-connect-open-app-secret"
-                          type="password"
-                          class="input font-mono text-sm"
+                          test-id="wechat-connect-open-app-secret"
+                          density="compact"
+                          monospace
+                          :label="localText('PC AppSecret', 'PC App Secret')"
                           :placeholder="
                             form.wechat_connect_open_app_secret_configured
                               ? localText(
@@ -2866,16 +2457,13 @@
                       class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2"
                     >
                       <div>
-                        <label
-                          class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {{ localText("公众号 AppID", "Official Account App ID") }}
-                        </label>
-                        <input
+                        <UiTextField
                           v-model="form.wechat_connect_mp_app_id"
-                          data-testid="wechat-connect-mp-app-id"
+                          test-id="wechat-connect-mp-app-id"
                           type="text"
-                          class="input font-mono text-sm"
+                          density="compact"
+                          monospace
+                          :label="localText('公众号 AppID', 'Official Account App ID')"
                           :placeholder="
                             localText(
                               '公众号 AppID',
@@ -2885,21 +2473,12 @@
                         />
                       </div>
                       <div>
-                        <label
-                          class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {{
-                            localText(
-                              "公众号 AppSecret",
-                              "Official Account App Secret",
-                            )
-                          }}
-                        </label>
-                        <input
+                        <UiPasswordField
                           v-model="form.wechat_connect_mp_app_secret"
-                          data-testid="wechat-connect-mp-app-secret"
-                          type="password"
-                          class="input font-mono text-sm"
+                          test-id="wechat-connect-mp-app-secret"
+                          density="compact"
+                          monospace
+                          :label="localText('公众号 AppSecret', 'Official Account App Secret')"
                           :placeholder="
                             form.wechat_connect_mp_app_secret_configured
                               ? localText(
@@ -2944,16 +2523,13 @@
                       class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2"
                     >
                       <div>
-                        <label
-                          class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {{ localText("移动应用 AppID", "Mobile App ID") }}
-                        </label>
-                        <input
+                        <UiTextField
                           v-model="form.wechat_connect_mobile_app_id"
-                          data-testid="wechat-connect-mobile-app-id"
+                          test-id="wechat-connect-mobile-app-id"
                           type="text"
-                          class="input font-mono text-sm"
+                          density="compact"
+                          monospace
+                          :label="localText('移动应用 AppID', 'Mobile App ID')"
                           :placeholder="
                             localText(
                               '移动应用 AppID',
@@ -2963,16 +2539,12 @@
                         />
                       </div>
                       <div>
-                        <label
-                          class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {{ localText("移动应用 AppSecret", "Mobile App Secret") }}
-                        </label>
-                        <input
+                        <UiPasswordField
                           v-model="form.wechat_connect_mobile_app_secret"
-                          data-testid="wechat-connect-mobile-app-secret"
-                          type="password"
-                          class="input font-mono text-sm"
+                          test-id="wechat-connect-mobile-app-secret"
+                          density="compact"
+                          monospace
+                          :label="localText('移动应用 AppSecret', 'Mobile App Secret')"
                           :placeholder="
                             form.wechat_connect_mobile_app_secret_configured
                               ? localText(
@@ -3008,21 +2580,13 @@
 
                 <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{
-                        localText(
-                          "浏览器回调地址",
-                          "Browser Redirect URL",
-                        )
-                      }}
-                    </label>
-                    <input
-                      data-testid="wechat-connect-redirect-url"
+                    <UiTextField
+                      test-id="wechat-connect-redirect-url"
                       v-model="form.wechat_connect_redirect_url"
                       type="url"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="localText('浏览器回调地址', 'Browser Redirect URL')"
                       :placeholder="t('admin.settings.wechatConnect.redirectUrlPlaceholder')"
                     />
                     <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -3036,13 +2600,15 @@
                     <div
                       class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"
                     >
-                      <button
+                      <UiButton
                         type="button"
-                        class="btn btn-secondary btn-sm w-fit"
+                        variant="secondary"
+                        density="compact"
+                        class="w-fit"
                         @click="setAndCopyWeChatRedirectUrl"
                       >
                         {{ t("admin.settings.wechatConnect.generateAndCopy") }}
-                      </button>
+                      </UiButton>
                       <code
                         v-if="wechatRedirectUrlSuggestion"
                         class="select-all break-all rounded bg-gray-50 px-2 py-1 font-mono text-xs text-gray-600 dark:bg-dark-800 dark:text-gray-300"
@@ -3054,16 +2620,13 @@
                 </div>
 
                 <div>
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.wechatConnect.frontendRedirectUrlLabel") }}
-                  </label>
-                  <input
-                    data-testid="wechat-connect-frontend-redirect-url"
+                  <UiTextField
+                    test-id="wechat-connect-frontend-redirect-url"
                     v-model="form.wechat_connect_frontend_redirect_url"
                     type="text"
-                    class="input font-mono text-sm"
+                    density="compact"
+                    monospace
+                    :label="t('admin.settings.wechatConnect.frontendRedirectUrlLabel')"
                     :placeholder="t('admin.settings.wechatConnect.frontendRedirectUrlPlaceholder')"
                   />
                   <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -3105,15 +2668,12 @@
               >
                 <div class="grid grid-cols-1 gap-6">
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.dingtalk.clientId") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.dingtalk_connect_client_id"
                       type="text"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.dingtalk.clientId')"
                       :placeholder="
                         t('admin.settings.dingtalk.clientIdPlaceholder')
                       "
@@ -3124,15 +2684,13 @@
                   </div>
 
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.dingtalk.clientSecret") }}
-                    </label>
-                    <input
+                    <UiPasswordField
                       v-model="form.dingtalk_connect_client_secret"
-                      type="password"
-                      class="input font-mono text-sm"
+                      inputmode="text"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.dingtalk.clientSecret')"
+                      :input-attrs="{ class: 'font-mono' }"
                       :placeholder="
                         form.dingtalk_connect_client_secret_configured
                           ? t(
@@ -3153,15 +2711,12 @@
                   </div>
 
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.dingtalk.redirectUrl") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.dingtalk_connect_redirect_url"
                       type="url"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.dingtalk.redirectUrl')"
                       :placeholder="
                         t('admin.settings.dingtalk.redirectUrlPlaceholder')
                       "
@@ -3173,36 +2728,19 @@
 
                   <!-- Corp Restriction Policy -->
                   <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
-                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {{ t("admin.settings.dingtalk.corpPolicy.label") }}
-                    </label>
                     <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
                       {{ t("admin.settings.dingtalk.corpPolicy.hint") }}
                     </p>
-                    <div class="space-y-2">
-                      <label class="flex cursor-pointer items-center gap-3">
-                        <input
-                          v-model="form.dingtalk_connect_corp_restriction_policy"
-                          type="radio"
-                          value="none"
-                          class="h-4 w-4 text-primary-600"
-                        />
-                        <span class="text-sm text-gray-700 dark:text-gray-300">
-                          {{ t("admin.settings.dingtalk.corpPolicy.none") }}
-                        </span>
-                      </label>
-                      <label class="flex cursor-pointer items-center gap-3">
-                        <input
-                          v-model="form.dingtalk_connect_corp_restriction_policy"
-                          type="radio"
-                          value="internal_only"
-                          class="h-4 w-4 text-primary-600"
-                        />
-                        <span class="text-sm text-gray-700 dark:text-gray-300">
-                          {{ t("admin.settings.dingtalk.corpPolicy.internalOnly") }}
-                        </span>
-                      </label>
-                    </div>
+                    <UiRadioGroup
+                      v-model="form.dingtalk_connect_corp_restriction_policy"
+                      name="dingtalk-corp-restriction-policy"
+                      :label="t('admin.settings.dingtalk.corpPolicy.label')"
+                      layout="stacked"
+                      :options="[
+                        { value: 'none', label: t('admin.settings.dingtalk.corpPolicy.none') },
+                        { value: 'internal_only', label: t('admin.settings.dingtalk.corpPolicy.internalOnly') },
+                      ]"
+                    />
                   </div>
 
                   <!-- bypass_registration toggle（仅 internal_only 模式下可见可用） -->
@@ -3239,25 +2777,23 @@
                     </div>
                     <div v-if="form.dingtalk_connect_sync_display_name" class="space-y-2">
                       <div class="flex items-center gap-2">
-                        <label class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap min-w-[5rem]">
-                          {{ t("admin.settings.dingtalk.syncDisplayNameTarget") }}
-                        </label>
-                        <input
+                        <UiTextField
                           v-model="form.dingtalk_connect_sync_display_name_attr_key"
                           type="text"
+                          density="compact"
+                          :label="t('admin.settings.dingtalk.syncDisplayNameTarget')"
                           placeholder="dingtalk_name"
-                          class="input text-sm flex-1 max-w-xs"
+                          class="max-w-xs flex-1"
                         />
                       </div>
                       <div class="flex items-center gap-2">
-                        <label class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap min-w-[5rem]">
-                          {{ t("admin.settings.dingtalk.syncAttrDisplayName") }}
-                        </label>
-                        <input
+                        <UiTextField
                           v-model="form.dingtalk_connect_sync_display_name_attr_name"
                           type="text"
+                          density="compact"
+                          :label="t('admin.settings.dingtalk.syncAttrDisplayName')"
                           :placeholder="localText('钉钉姓名', 'DingTalk Name')"
-                          class="input text-sm flex-1 max-w-xs"
+                          class="max-w-xs flex-1"
                         />
                       </div>
                     </div>
@@ -3285,25 +2821,23 @@
                     </div>
                     <div v-if="form.dingtalk_connect_sync_corp_email" class="space-y-2">
                       <div class="flex items-center gap-2">
-                        <label class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap min-w-[5rem]">
-                          {{ t("admin.settings.dingtalk.syncCorpEmailTarget") }}
-                        </label>
-                        <input
+                        <UiTextField
                           v-model="form.dingtalk_connect_sync_corp_email_attr_key"
                           type="text"
+                          density="compact"
+                          :label="t('admin.settings.dingtalk.syncCorpEmailTarget')"
                           placeholder="dingtalk_email"
-                          class="input text-sm flex-1 max-w-xs"
+                          class="max-w-xs flex-1"
                         />
                       </div>
                       <div class="flex items-center gap-2">
-                        <label class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap min-w-[5rem]">
-                          {{ t("admin.settings.dingtalk.syncAttrDisplayName") }}
-                        </label>
-                        <input
+                        <UiTextField
                           v-model="form.dingtalk_connect_sync_corp_email_attr_name"
                           type="text"
+                          density="compact"
+                          :label="t('admin.settings.dingtalk.syncAttrDisplayName')"
                           :placeholder="localText('钉钉企业邮箱', 'DingTalk Corporate Email')"
-                          class="input text-sm flex-1 max-w-xs"
+                          class="max-w-xs flex-1"
                         />
                       </div>
                     </div>
@@ -3331,25 +2865,23 @@
                     </div>
                     <div v-if="form.dingtalk_connect_sync_dept" class="space-y-2">
                       <div class="flex items-center gap-2">
-                        <label class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap min-w-[5rem]">
-                          {{ t("admin.settings.dingtalk.syncDeptTarget") }}
-                        </label>
-                        <input
+                        <UiTextField
                           v-model="form.dingtalk_connect_sync_dept_attr_key"
                           type="text"
+                          density="compact"
+                          :label="t('admin.settings.dingtalk.syncDeptTarget')"
                           placeholder="dingtalk_department"
-                          class="input text-sm flex-1 max-w-xs"
+                          class="max-w-xs flex-1"
                         />
                       </div>
                       <div class="flex items-center gap-2">
-                        <label class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap min-w-[5rem]">
-                          {{ t("admin.settings.dingtalk.syncAttrDisplayName") }}
-                        </label>
-                        <input
+                        <UiTextField
                           v-model="form.dingtalk_connect_sync_dept_attr_name"
                           type="text"
+                          density="compact"
+                          :label="t('admin.settings.dingtalk.syncAttrDisplayName')"
                           :placeholder="localText('钉钉部门', 'DingTalk Department')"
-                          class="input text-sm flex-1 max-w-xs"
+                          class="max-w-xs flex-1"
                         />
                       </div>
                     </div>
@@ -3393,15 +2925,11 @@
               >
                 <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.providerName") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.oidc_connect_provider_name"
                       type="text"
-                      class="input"
+                      density="compact"
+                      :label="t('admin.settings.oidc.providerName')"
                       :placeholder="
                         t('admin.settings.oidc.providerNamePlaceholder')
                       "
@@ -3409,15 +2937,12 @@
                   </div>
 
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.clientId") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.oidc_connect_client_id"
                       type="text"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.oidc.clientId')"
                       :placeholder="
                         t('admin.settings.oidc.clientIdPlaceholder')
                       "
@@ -3425,15 +2950,11 @@
                   </div>
 
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.clientSecret") }}
-                    </label>
-                    <input
+                    <UiPasswordField
                       v-model="form.oidc_connect_client_secret"
-                      type="password"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.oidc.clientSecret')"
                       :placeholder="
                         form.oidc_connect_client_secret_configured
                           ? t(
@@ -3454,15 +2975,12 @@
 
                 <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.issuerUrl") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.oidc_connect_issuer_url"
                       type="url"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.oidc.issuerUrl')"
                       :placeholder="
                         t('admin.settings.oidc.issuerUrlPlaceholder')
                       "
@@ -3470,15 +2988,12 @@
                   </div>
 
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.discoveryUrl") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.oidc_connect_discovery_url"
                       type="url"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.oidc.discoveryUrl')"
                       :placeholder="
                         t('admin.settings.oidc.discoveryUrlPlaceholder')
                       "
@@ -3486,15 +3001,12 @@
                   </div>
 
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.authorizeUrl") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.oidc_connect_authorize_url"
                       type="url"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.oidc.authorizeUrl')"
                       :placeholder="
                         t('admin.settings.oidc.authorizeUrlPlaceholder')
                       "
@@ -3502,15 +3014,12 @@
                   </div>
 
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.tokenUrl") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.oidc_connect_token_url"
                       type="url"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.oidc.tokenUrl')"
                       :placeholder="
                         t('admin.settings.oidc.tokenUrlPlaceholder')
                       "
@@ -3518,15 +3027,12 @@
                   </div>
 
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.userinfoUrl") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.oidc_connect_userinfo_url"
                       type="url"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.oidc.userinfoUrl')"
                       :placeholder="
                         t('admin.settings.oidc.userinfoUrlPlaceholder')
                       "
@@ -3534,15 +3040,12 @@
                   </div>
 
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.jwksUrl") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.oidc_connect_jwks_url"
                       type="url"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.oidc.jwksUrl')"
                       :placeholder="t('admin.settings.oidc.jwksUrlPlaceholder')"
                     />
                   </div>
@@ -3550,15 +3053,12 @@
 
                 <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.scopes") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.oidc_connect_scopes"
                       type="text"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.oidc.scopes')"
                       :placeholder="t('admin.settings.oidc.scopesPlaceholder')"
                     />
                     <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -3567,15 +3067,12 @@
                   </div>
 
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.redirectUrl") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.oidc_connect_redirect_url"
                       type="url"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.oidc.redirectUrl')"
                       :placeholder="
                         t('admin.settings.oidc.redirectUrlPlaceholder')
                       "
@@ -3583,13 +3080,15 @@
                     <div
                       class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"
                     >
-                      <button
+                      <UiButton
                         type="button"
-                        class="btn btn-secondary btn-sm w-fit"
+                        variant="secondary"
+                        density="compact"
+                        class="w-fit"
                         @click="setAndCopyOIDCRedirectUrl"
                       >
                         {{ t("admin.settings.oidc.quickSetCopy") }}
-                      </button>
+                      </UiButton>
                       <code
                         v-if="oidcRedirectUrlSuggestion"
                         class="select-all break-all rounded bg-gray-50 px-2 py-1 font-mono text-xs text-gray-600 dark:bg-dark-800 dark:text-gray-300"
@@ -3603,15 +3102,12 @@
                   </div>
 
                   <div class="lg:col-span-2">
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.frontendRedirectUrl") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.oidc_connect_frontend_redirect_url"
                       type="text"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.oidc.frontendRedirectUrl')"
                       :placeholder="
                         t('admin.settings.oidc.frontendRedirectUrlPlaceholder')
                       "
@@ -3624,50 +3120,37 @@
 
                 <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.tokenAuthMethod") }}
-                    </label>
-                    <select
+                    <Select
                       v-model="form.oidc_connect_token_auth_method"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      :label="t('admin.settings.oidc.tokenAuthMethod')"
+                      :options="[
+                        { value: 'client_secret_post', label: 'client_secret_post' },
+                        { value: 'client_secret_basic', label: 'client_secret_basic' },
+                        { value: 'none', label: 'none' },
+                      ]"
                     >
-                      <option value="client_secret_post">
-                        client_secret_post
-                      </option>
-                      <option value="client_secret_basic">
-                        client_secret_basic
-                      </option>
-                      <option value="none">none</option>
-                    </select>
+                    </Select>
                   </div>
 
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.clockSkewSeconds") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model.number="form.oidc_connect_clock_skew_seconds"
                       type="number"
                       min="0"
                       max="600"
-                      class="input"
+                      density="compact"
+                      :label="t('admin.settings.oidc.clockSkewSeconds')"
                     />
                   </div>
 
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.allowedSigningAlgs") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.oidc_connect_allowed_signing_algs"
                       type="text"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.oidc.allowedSigningAlgs')"
                       :placeholder="
                         t('admin.settings.oidc.allowedSigningAlgsPlaceholder')
                       "
@@ -3720,15 +3203,12 @@
 
                 <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.userinfoEmailPath") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.oidc_connect_userinfo_email_path"
                       type="text"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.oidc.userinfoEmailPath')"
                       :placeholder="
                         t('admin.settings.oidc.userinfoEmailPathPlaceholder')
                       "
@@ -3736,15 +3216,12 @@
                   </div>
 
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.userinfoIdPath") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.oidc_connect_userinfo_id_path"
                       type="text"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.oidc.userinfoIdPath')"
                       :placeholder="
                         t('admin.settings.oidc.userinfoIdPathPlaceholder')
                       "
@@ -3752,15 +3229,12 @@
                   </div>
 
                   <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.userinfoUsernamePath") }}
-                    </label>
-                    <input
+                    <UiTextField
                       v-model="form.oidc_connect_userinfo_username_path"
                       type="text"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.oidc.userinfoUsernamePath')"
                       :placeholder="
                         t('admin.settings.oidc.userinfoUsernamePathPlaceholder')
                       "
@@ -3774,7 +3248,13 @@
         <!-- /Tab: Security — Registration, Turnstile, LinuxDo, OIDC -->
 
         <!-- Tab: Users -->
-        <div v-show="activeTab === 'users'" class="settings-panel">
+        <div
+          id="settings-panel-users"
+          v-show="activeTab === 'users'"
+          class="settings-panel"
+          role="tabpanel"
+          aria-labelledby="settings-tab-users"
+        >
           <!-- Default Settings -->
           <div class="settings-section">
             <div
@@ -3790,57 +3270,39 @@
             <div class="space-y-6 p-6">
               <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div>
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.defaults.defaultBalance") }}
-                  </label>
-                  <input
+                  <UiTextField
                     v-model.number="form.default_balance"
                     type="number"
                     step="0.01"
                     min="0"
-                    class="input"
+                    density="compact"
+                    :label="t('admin.settings.defaults.defaultBalance')"
+                    :description="t('admin.settings.defaults.defaultBalanceHint')"
                     placeholder="0.00"
                   />
-                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.defaults.defaultBalanceHint") }}
-                  </p>
                 </div>
                 <div>
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.defaults.defaultConcurrency") }}
-                  </label>
-                  <input
+                  <UiTextField
                     v-model.number="form.default_concurrency"
                     type="number"
                     min="1"
-                    class="input"
+                    density="compact"
+                    :label="t('admin.settings.defaults.defaultConcurrency')"
+                    :description="t('admin.settings.defaults.defaultConcurrencyHint')"
                     placeholder="1"
                   />
-                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.defaults.defaultConcurrencyHint") }}
-                  </p>
                 </div>
                 <div>
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.defaults.defaultUserRpmLimit") }}
-                  </label>
-                  <input
+                  <UiTextField
                     v-model.number="form.default_user_rpm_limit"
                     type="number"
                     min="0"
                     step="1"
-                    class="input"
+                    density="compact"
+                    :label="t('admin.settings.defaults.defaultUserRpmLimit')"
+                    :description="t('admin.settings.defaults.defaultUserRpmLimitHint')"
                     placeholder="0"
                   />
-                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.defaults.defaultUserRpmLimitHint") }}
-                  </p>
                 </div>
               </div>
 
@@ -3856,14 +3318,14 @@
                       }}
                     </p>
                   </div>
-                  <button
+                  <UiButton
                     type="button"
-                    class="btn btn-secondary btn-sm"
+                    density="compact"
                     @click="addDefaultSubscription"
                     :disabled="subscriptionPlans.length === 0"
                   >
                     {{ t("admin.settings.defaults.addDefaultSubscription") }}
-                  </button>
+                  </UiButton>
                 </div>
 
                 <div
@@ -3887,8 +3349,8 @@
                       </label>
                       <Select
                         v-model="item.plan_id"
-                        class="default-sub-plan-select"
                         :options="defaultSubscriptionPlanOptions"
+                        density="compact"
                         :placeholder="
                           t('admin.settings.defaults.subscriptionPlan')
                         "
@@ -3944,29 +3406,24 @@
                       </Select>
                     </div>
                     <div>
-                      <label
-                        class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
-                      >
-                        {{
-                          t("admin.settings.defaults.subscriptionValidityDays")
-                        }}
-                      </label>
-                      <input
+                      <UiTextField
                         v-model.number="item.validity_days"
                         type="number"
                         min="1"
                         max="36500"
-                        class="input h-[42px]"
+                        density="compact"
+                        :label="t('admin.settings.defaults.subscriptionValidityDays')"
                       />
                     </div>
                     <div class="flex items-end">
-                      <button
+                      <UiIconButton
                         type="button"
-                        class="btn btn-secondary default-sub-delete-btn w-full text-red-600 hover:text-red-700 dark:text-red-400"
+                        icon="trash"
+                        variant="danger"
+                        density="compact"
+                        :label="t('common.delete')"
                         @click="removeDefaultSubscription(index)"
-                      >
-                        {{ t("common.delete") }}
-                      </button>
+                      />
                     </div>
                   </div>
                 </div>
@@ -4001,32 +3458,38 @@
                           <span class="font-mono text-xs text-gray-700 dark:text-gray-300">{{ p }}</span>
                         </td>
                         <td class="pr-4 py-1">
-                          <input
+                          <UiTextField
                             v-model.number="form.default_platform_quotas[p]!.daily"
                             type="number"
                             step="0.01"
                             min="0"
-                            class="input h-8 w-28 text-sm"
+                            density="mini"
+                            class="w-28"
+                            :input-attrs="{ 'aria-label': `${p} ${t('admin.settings.platformQuota.daily')}` }"
                             :placeholder="t('admin.settings.platformQuota.placeholder')"
                           />
                         </td>
                         <td class="pr-4 py-1">
-                          <input
+                          <UiTextField
                             v-model.number="form.default_platform_quotas[p]!.weekly"
                             type="number"
                             step="0.01"
                             min="0"
-                            class="input h-8 w-28 text-sm"
+                            density="mini"
+                            class="w-28"
+                            :input-attrs="{ 'aria-label': `${p} ${t('admin.settings.platformQuota.weekly')}` }"
                             :placeholder="t('admin.settings.platformQuota.placeholder')"
                           />
                         </td>
                         <td class="py-1">
-                          <input
+                          <UiTextField
                             v-model.number="form.default_platform_quotas[p]!.monthly"
                             type="number"
                             step="0.01"
                             min="0"
-                            class="input h-8 w-28 text-sm"
+                            density="mini"
+                            class="w-28"
+                            :input-attrs="{ 'aria-label': `${p} ${t('admin.settings.platformQuota.monthly')}` }"
                             :placeholder="t('admin.settings.platformQuota.placeholder')"
                           />
                         </td>
@@ -4099,35 +3562,27 @@
 
                     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div>
-                        <label
-                          class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {{ t("admin.settings.defaults.defaultBalance") }}
-                        </label>
-                        <input
+                        <UiTextField
                           v-model.number="
                             authSourceDefaults[authSource.source].balance
                           "
                           type="number"
                           step="0.01"
                           min="0"
-                          class="input"
+                          density="compact"
+                          :label="t('admin.settings.defaults.defaultBalance')"
                           placeholder="0.00"
                         />
                       </div>
                       <div>
-                        <label
-                          class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {{ t("admin.settings.defaults.defaultConcurrency") }}
-                        </label>
-                        <input
+                        <UiTextField
                           v-model.number="
                             authSourceDefaults[authSource.source].concurrency
                           "
                           type="number"
                           min="1"
-                          class="input"
+                          density="compact"
+                          :label="t('admin.settings.defaults.defaultConcurrency')"
                           placeholder="5"
                         />
                       </div>
@@ -4167,9 +3622,10 @@
                           {{ t("admin.settings.authSourceDefaults.defaultSubscriptionsHint") }}
                         </p>
                       </div>
-                      <button
+                      <UiButton
                         type="button"
-                        class="btn btn-secondary btn-sm"
+                        variant="secondary"
+                        density="compact"
                         @click="
                           addAuthSourceDefaultSubscription(authSource.source)
                         "
@@ -4178,7 +3634,7 @@
                         {{
                           t("admin.settings.defaults.addDefaultSubscription")
                         }}
-                      </button>
+                      </UiButton>
                     </div>
 
                     <div
@@ -4207,8 +3663,8 @@
                           </label>
                           <Select
                             v-model="item.plan_id"
-                            class="default-sub-plan-select"
                             :options="defaultSubscriptionPlanOptions"
+                            density="compact"
                             :placeholder="
                               t('admin.settings.defaults.subscriptionPlan')
                             "
@@ -4275,18 +3731,21 @@
                               )
                             }}
                           </label>
-                          <input
+                          <UiTextField
                             v-model.number="item.validity_days"
                             type="number"
                             min="1"
                             max="36500"
-                            class="input h-[42px]"
+                            density="compact"
+                            :label="t('admin.settings.defaults.subscriptionValidityDays')"
                           />
                         </div>
                         <div class="flex items-end">
-                          <button
+                          <UiButton
                             type="button"
-                            class="btn btn-secondary w-full text-red-600 hover:text-red-700 dark:text-red-400"
+                            variant="danger"
+                            density="compact"
+                            block
                             @click="
                               removeAuthSourceDefaultSubscription(
                                 authSource.source,
@@ -4295,7 +3754,7 @@
                             "
                           >
                             {{ t("common.delete") }}
-                          </button>
+                          </UiButton>
                         </div>
                       </div>
                     </div>
@@ -4326,32 +3785,38 @@
                                 <span class="font-mono text-xs text-gray-700 dark:text-gray-300">{{ p }}</span>
                               </td>
                               <td class="pr-4 py-1">
-                                <input
+                                <UiTextField
                                   v-model.number="authSourceDefaults[authSource.source].platform_quotas[p]!.daily"
                                   type="number"
                                   step="0.01"
                                   min="0"
-                                  class="input h-8 w-28 text-sm"
+                                  density="compact"
+                                  class="w-28"
+                                  :input-attrs="{ 'aria-label': `${p} ${t('admin.settings.platformQuota.daily')}` }"
                                   :placeholder="t('admin.settings.platformQuota.placeholder')"
                                 />
                               </td>
                               <td class="pr-4 py-1">
-                                <input
+                                <UiTextField
                                   v-model.number="authSourceDefaults[authSource.source].platform_quotas[p]!.weekly"
                                   type="number"
                                   step="0.01"
                                   min="0"
-                                  class="input h-8 w-28 text-sm"
+                                  density="compact"
+                                  class="w-28"
+                                  :input-attrs="{ 'aria-label': `${p} ${t('admin.settings.platformQuota.weekly')}` }"
                                   :placeholder="t('admin.settings.platformQuota.placeholder')"
                                 />
                               </td>
                               <td class="py-1">
-                                <input
+                                <UiTextField
                                   v-model.number="authSourceDefaults[authSource.source].platform_quotas[p]!.monthly"
                                   type="number"
                                   step="0.01"
                                   min="0"
-                                  class="input h-8 w-28 text-sm"
+                                  density="compact"
+                                  class="w-28"
+                                  :input-attrs="{ 'aria-label': `${p} ${t('admin.settings.platformQuota.monthly')}` }"
                                   :placeholder="t('admin.settings.platformQuota.placeholder')"
                                 />
                               </td>
@@ -4370,7 +3835,13 @@
         <!-- /Tab: Users -->
 
         <!-- Tab: Gateway — Claude Code, Scheduling -->
-        <div v-show="activeTab === 'gateway'" class="settings-panel">
+        <div
+          id="settings-panel-gateway-details"
+          v-show="activeTab === 'gateway'"
+          class="settings-panel"
+          role="tabpanel"
+          aria-labelledby="settings-tab-gateway"
+        >
           <!-- Claude Code Settings -->
           <div class="settings-section">
             <div
@@ -4385,33 +3856,27 @@
             </div>
             <div class="p-6">
               <div>
-                <label
-                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  {{ t("admin.settings.claudeCode.minVersion") }}
-                </label>
-                <input
+                <UiTextField
                   v-model="form.min_claude_code_version"
                   type="text"
-                  class="input max-w-xs font-mono text-sm"
+                  density="compact"
+                  class="max-w-xs"
+                  monospace
+                  :label="t('admin.settings.claudeCode.minVersion')"
                   :placeholder="
                     t('admin.settings.claudeCode.minVersionPlaceholder')
                   "
                 />
-                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t("admin.settings.claudeCode.minVersionHint") }}
-                </p>
+                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">{{ t("admin.settings.claudeCode.minVersionHint") }}</p>
               </div>
               <div class="mt-4">
-                <label
-                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  {{ t("admin.settings.claudeCode.maxVersion") }}
-                </label>
-                <input
+                <UiTextField
                   v-model="form.max_claude_code_version"
                   type="text"
-                  class="input max-w-xs font-mono text-sm"
+                  density="compact"
+                  class="max-w-xs"
+                  monospace
+                  :label="t('admin.settings.claudeCode.maxVersion')"
                   :placeholder="
                     t('admin.settings.claudeCode.maxVersionPlaceholder')
                   "
@@ -4448,10 +3913,11 @@
                     >
                       {{ t("admin.settings.gatewayForwarding.minCodexVersion") }}
                     </label>
-                    <input
+                    <UiTextField
                       v-model="form.min_codex_version"
                       type="text"
-                      class="input w-full font-mono text-sm"
+                      density="compact"
+                      monospace
                       :placeholder="
                         t(
                           'admin.settings.gatewayForwarding.minCodexVersionPlaceholder',
@@ -4465,10 +3931,11 @@
                     >
                       {{ t("admin.settings.gatewayForwarding.maxCodexVersion") }}
                     </label>
-                    <input
+                    <UiTextField
                       v-model="form.max_codex_version"
                       type="text"
-                      class="input w-full font-mono text-sm"
+                      density="compact"
+                      monospace
                       :placeholder="
                         t(
                           'admin.settings.gatewayForwarding.maxCodexVersionPlaceholder',
@@ -4493,32 +3960,43 @@
                     :key="`codex-fp-${i}`"
                     class="mb-2 flex items-center gap-2"
                   >
-                    <select v-model="row.type" class="input w-32 text-sm">
-                      <option value="header_exact">{{ t("admin.settings.gatewayForwarding.codexFpTypeHeaderExact") }}</option>
-                      <option value="header_prefix">{{ t("admin.settings.gatewayForwarding.codexFpTypeHeaderPrefix") }}</option>
-                      <option value="body_path">{{ t("admin.settings.gatewayForwarding.codexFpTypeBodyPath") }}</option>
-                    </select>
-                    <input
+                    <Select
+                      v-model="row.type"
+                      density="compact"
+                      class="w-32"
+                      aria-label="Codex fingerprint signal type"
+                      :options="[
+                        { value: 'header_exact', label: t('admin.settings.gatewayForwarding.codexFpTypeHeaderExact') },
+                        { value: 'header_prefix', label: t('admin.settings.gatewayForwarding.codexFpTypeHeaderPrefix') },
+                        { value: 'body_path', label: t('admin.settings.gatewayForwarding.codexFpTypeBodyPath') },
+                      ]"
+                    />
+                    <UiTextField
                       v-model="row.match"
                       type="text"
-                      class="input flex-1 font-mono text-sm"
+                      density="compact"
+                      class="flex-1"
+                      monospace
                       :placeholder="t('admin.settings.gatewayForwarding.codexFpMatchPlaceholder')"
                     />
-                    <label class="flex shrink-0 items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                      <input v-model="row.required" type="checkbox" />
-                      {{ t("admin.settings.gatewayForwarding.codexFpRequired") }}
-                    </label>
-                    <button
+                    <UiCheckbox
+                      v-model="row.required"
+                      class="shrink-0"
+                      :label="t('admin.settings.gatewayForwarding.codexFpRequired')"
+                    />
+                    <UiButton
                       type="button"
-                      class="btn btn-secondary btn-sm shrink-0 text-red-600 hover:text-red-700 dark:text-red-400"
+                      variant="secondary"
+                      density="compact"
+                      class="shrink-0"
                       @click="removeCodexFingerprintRow(i)"
                     >
                       {{ t("admin.settings.gatewayForwarding.codexRemoveRow") }}
-                    </button>
+                    </UiButton>
                   </div>
-                  <button type="button" class="btn btn-secondary btn-sm" @click="addCodexFingerprintRow">
+                  <UiButton type="button" variant="secondary" density="compact" @click="addCodexFingerprintRow">
                     {{ t("admin.settings.gatewayForwarding.codexAddRow") }}
-                  </button>
+                  </UiButton>
                   <p
                     v-if="codexFingerprintNoRequired"
                     class="mt-2 text-xs text-amber-600 dark:text-amber-500"
@@ -4563,41 +4041,48 @@
                     :key="`codex-bl-${i}`"
                     class="mb-2 flex gap-2"
                   >
-                    <input
+                    <UiTextField
                       v-model="row.originator"
                       type="text"
-                      class="input w-1/3 font-mono text-sm"
+                      density="compact"
+                      class="w-1/3"
+                      monospace
                       :placeholder="
                         t(
                           'admin.settings.gatewayForwarding.codexOriginatorPlaceholder',
                         )
                       "
                     />
-                    <input
+                    <UiTextField
                       v-model="row.uaContains"
                       type="text"
-                      class="input flex-1 font-mono text-sm"
+                      density="compact"
+                      class="flex-1"
+                      monospace
                       :placeholder="
                         t(
                           'admin.settings.gatewayForwarding.codexUaContainsPlaceholder',
                         )
                       "
                     />
-                    <button
+                    <UiButton
                       type="button"
-                      class="btn btn-secondary btn-sm shrink-0 text-red-600 hover:text-red-700 dark:text-red-400"
+                      variant="secondary"
+                      density="compact"
+                      class="shrink-0"
                       @click="removeCodexBlacklistRow(i)"
                     >
                       {{ t("admin.settings.gatewayForwarding.codexRemoveRow") }}
-                    </button>
+                    </UiButton>
                   </div>
-                  <button
+                  <UiButton
                     type="button"
-                    class="btn btn-secondary btn-sm"
+                    variant="secondary"
+                    density="compact"
                     @click="addCodexBlacklistRow"
                   >
                     {{ t("admin.settings.gatewayForwarding.codexAddRow") }}
-                  </button>
+                  </UiButton>
                 </div>
 
                 <div>
@@ -4614,59 +4099,55 @@
                     :key="`codex-wl-${i}`"
                     class="mb-2 flex gap-2"
                   >
-                    <input
+                    <UiTextField
                       v-model="row.originator"
                       type="text"
-                      class="input w-1/3 font-mono text-sm"
+                      density="compact"
+                      class="w-1/3"
+                      monospace
                       :placeholder="
                         t(
                           'admin.settings.gatewayForwarding.codexOriginatorPlaceholder',
                         )
                       "
                     />
-                    <input
+                    <UiTextField
                       v-model="row.uaContains"
                       type="text"
-                      class="input flex-1 font-mono text-sm"
+                      density="compact"
+                      class="flex-1"
+                      monospace
                       :placeholder="
                         t(
                           'admin.settings.gatewayForwarding.codexUaContainsPlaceholder',
                         )
                       "
                     />
-                    <label
-                      class="flex shrink-0 items-center gap-1 text-xs text-gray-600 dark:text-gray-400"
-                      :title="
-                        t(
-                          'admin.settings.gatewayForwarding.codexWhitelistSkipFingerprintTooltip',
-                        )
-                      "
-                    >
-                      <input
-                        v-model="row.skipEngineFingerprint"
-                        type="checkbox"
-                      />
-                      {{
-                        t(
-                          'admin.settings.gatewayForwarding.codexWhitelistSkipFingerprint',
-                        )
-                      }}
-                    </label>
-                    <button
+                    <UiCheckbox
+                      :model-value="!!row.skipEngineFingerprint"
+                      @update:model-value="row.skipEngineFingerprint = $event"
+                      class="shrink-0"
+                      :title="t('admin.settings.gatewayForwarding.codexWhitelistSkipFingerprintTooltip')"
+                      :label="t('admin.settings.gatewayForwarding.codexWhitelistSkipFingerprint')"
+                    />
+                    <UiButton
                       type="button"
-                      class="btn btn-secondary btn-sm shrink-0 text-red-600 hover:text-red-700 dark:text-red-400"
+                      variant="secondary"
+                      density="compact"
+                      class="shrink-0"
                       @click="removeCodexWhitelistRow(i)"
                     >
                       {{ t("admin.settings.gatewayForwarding.codexRemoveRow") }}
-                    </button>
+                    </UiButton>
                   </div>
-                  <button
+                  <UiButton
                     type="button"
-                    class="btn btn-secondary btn-sm"
+                    variant="secondary"
+                    density="compact"
                     @click="addCodexWhitelistRow"
                   >
                     {{ t("admin.settings.gatewayForwarding.codexAddRow") }}
-                  </button>
+                  </UiButton>
                 </div>
             </div>
           </div>
@@ -4688,9 +4169,7 @@
                 v-if="upstreamBillingProbeLoading"
                 class="flex items-center gap-2 text-gray-500"
               >
-                <div
-                  class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"
-                ></div>
+                <UiSpinner size="sm" :label="t('common.loading')" />
                 {{ t("common.loading") }}
               </div>
 
@@ -4711,25 +4190,19 @@
                   />
                 </div>
 
-                <div
-                  v-if="upstreamBillingProbeForm.enabled"
-                  class="border-t border-gray-100 pt-4 dark:border-dark-700"
-                >
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    for="upstream-billing-probe-interval"
-                  >
-                    {{ t("admin.settings.upstreamBillingProbe.intervalMinutes") }}
-                  </label>
-                  <input
+                <div v-if="upstreamBillingProbeForm.enabled" class="border-t border-gray-100 pt-4 dark:border-dark-700">
+                  <UiTextField
                     id="upstream-billing-probe-interval"
                     v-model.number="upstreamBillingProbeForm.interval_minutes"
                     type="number"
                     min="5"
                     max="1440"
-                    class="input w-32"
-                    data-testid="upstream-billing-probe-interval"
-                    @keydown.enter.prevent="saveUpstreamBillingProbeSettings"
+                    density="compact"
+                    :label="t('admin.settings.upstreamBillingProbe.intervalMinutes')"
+                    :test-id="'upstream-billing-probe-interval'"
+                    prevent-enter-default
+                    class="w-32"
+                    @enter="saveUpstreamBillingProbeSettings"
                   />
                   <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                     {{ t("admin.settings.upstreamBillingProbe.intervalHint") }}
@@ -4739,19 +4212,16 @@
                 <div
                   class="flex justify-end border-t border-gray-100 pt-4 dark:border-dark-700"
                 >
-                  <button
+                  <UiButton
                     type="button"
-                    class="btn btn-primary btn-sm"
-                    :disabled="upstreamBillingProbeSaving"
+                    variant="primary"
+                    density="compact"
+                    :loading="upstreamBillingProbeSaving"
                     data-testid="upstream-billing-probe-save"
                     @click="saveUpstreamBillingProbeSettings"
                   >
-                    {{
-                      upstreamBillingProbeSaving
-                        ? t("common.saving")
-                        : t("common.save")
-                    }}
-                  </button>
+                    {{ t("common.save") }}
+                  </UiButton>
                 </div>
               </template>
             </div>
@@ -4769,7 +4239,7 @@
             </div>
             <div class="space-y-5 p-6">
               <div v-if="ollamaCloudUsageLoading" class="flex items-center gap-2 text-gray-500">
-                <div class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"></div>
+                <UiSpinner size="sm" :label="t('common.loading')" />
                 {{ t("common.loading") }}
               </div>
               <template v-else>
@@ -4789,53 +4259,50 @@
                   />
                 </div>
                 <div v-if="ollamaCloudUsageForm.enabled" class="space-y-4 border-t border-gray-100 pt-4 dark:border-dark-700">
-                  <div>
-                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300" for="ollama-cloud-usage-debounce">
-                      {{ t("admin.settings.ollamaCloudUsage.debounceMinutes") }}
-                    </label>
-                    <input
+                  <UiTextField
                       id="ollama-cloud-usage-debounce"
                       v-model.number="ollamaCloudUsageForm.debounce_minutes"
                       type="number"
                       min="1"
                       max="60"
-                      class="input w-32"
-                      data-testid="ollama-cloud-usage-global-debounce"
-                      @keydown.enter.prevent="saveOllamaCloudUsageSettings"
-                    />
+                      density="compact"
+                      :label="t('admin.settings.ollamaCloudUsage.debounceMinutes')"
+                      :test-id="'ollama-cloud-usage-global-debounce'"
+                      prevent-enter-default
+                      class="w-32"
+                      @enter="saveOllamaCloudUsageSettings"
+                  />
                     <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                       {{ t("admin.settings.ollamaCloudUsage.debounceHint") }}
                     </p>
-                  </div>
-                  <div>
-                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300" for="ollama-cloud-usage-interval">
-                      {{ t("admin.settings.ollamaCloudUsage.intervalMinutes") }}
-                    </label>
-                    <input
+                  <UiTextField
                       id="ollama-cloud-usage-interval"
                       v-model.number="ollamaCloudUsageForm.interval_minutes"
                       type="number"
                       min="15"
                       max="1440"
-                      class="input w-32"
-                      data-testid="ollama-cloud-usage-global-interval"
-                      @keydown.enter.prevent="saveOllamaCloudUsageSettings"
-                    />
+                      density="compact"
+                      :label="t('admin.settings.ollamaCloudUsage.intervalMinutes')"
+                      :test-id="'ollama-cloud-usage-global-interval'"
+                      prevent-enter-default
+                      class="w-32"
+                      @enter="saveOllamaCloudUsageSettings"
+                  />
                     <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                       {{ t("admin.settings.ollamaCloudUsage.intervalHint") }}
                     </p>
-                  </div>
                 </div>
                 <div class="flex justify-end border-t border-gray-100 pt-4 dark:border-dark-700">
-                  <button
+                  <UiButton
                     type="button"
-                    class="btn btn-primary btn-sm"
-                    :disabled="ollamaCloudUsageSaving"
+                    variant="primary"
+                    density="compact"
+                    :loading="ollamaCloudUsageSaving"
                     data-testid="ollama-cloud-usage-global-save"
                     @click="saveOllamaCloudUsageSettings"
                   >
-                    {{ ollamaCloudUsageSaving ? t("common.saving") : t("common.save") }}
-                  </button>
+                    {{ t("common.save") }}
+                  </UiButton>
                 </div>
               </template>
             </div>
@@ -4900,43 +4367,23 @@
                   </p>
                 </div>
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  <div
+                  <UiTextField
                     v-for="platform in schedulingThresholdPlatforms"
                     :key="platform"
-                    class="rounded-lg border border-gray-200 p-4 dark:border-dark-700"
+                    v-model.number="form.account_scheduling_thresholds[platform]"
+                    type="number"
+                    min="1"
+                    max="100"
+                    step="1"
+                    density="compact"
+                    monospace
+                    :label="platform"
+                    :description="t('admin.settings.scheduling.accountSchedulingThresholdsRangeHint')"
+                    :test-id="`account-scheduling-threshold-${platform}`"
+                    placeholder="100"
                   >
-                    <div class="flex items-start justify-between gap-3">
-                      <div>
-                        <label
-                          class="font-mono text-sm font-medium text-gray-900 dark:text-white"
-                        >
-                          {{ platform }}
-                        </label>
-                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                          {{
-                            t(
-                              "admin.settings.scheduling.accountSchedulingThresholdsRangeHint",
-                            )
-                          }}
-                        </p>
-                      </div>
-                      <span
-                        class="rounded bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-dark-700 dark:text-gray-300"
-                      >
-                        %
-                      </span>
-                    </div>
-                    <input
-                      v-model.number="form.account_scheduling_thresholds[platform]"
-                      type="number"
-                      min="1"
-                      max="100"
-                      step="1"
-                      class="input mt-3"
-                      :data-testid="`account-scheduling-threshold-${platform}`"
-                      placeholder="100"
-                    />
-                  </div>
+                    <template #suffix>%</template>
+                  </UiTextField>
                 </div>
               </div>
 
@@ -4967,31 +4414,24 @@
                 class="flex flex-col items-stretch gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6 dark:border-dark-700"
               >
                 <div class="min-w-0">
-                  <label
-                    class="text-sm font-medium text-gray-700 dark:text-gray-300"
-                    for="openai-oauth-scheduling-rate-multiplier"
-                  >
-                    {{ t("admin.settings.openaiExperimentalScheduler.oauthRateTitle") }}
-                  </label>
                   <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                     {{ t("admin.settings.openaiExperimentalScheduler.oauthRatePriorityDescription") }}
                   </p>
                 </div>
-                <div class="relative w-full shrink-0 sm:w-32">
-                  <input
-                    id="openai-oauth-scheduling-rate-multiplier"
-                    v-model.number="form.openai_oauth_scheduling_rate_multiplier"
-                    class="input pr-8"
-                    data-testid="openai-oauth-scheduling-rate-multiplier"
-                    min="0"
-                    required
-                    step="0.01"
-                    type="number"
-                  />
-                  <span
-                    class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400"
-                  >x</span>
-                </div>
+                <UiTextField
+                  id="openai-oauth-scheduling-rate-multiplier"
+                  v-model.number="form.openai_oauth_scheduling_rate_multiplier"
+                  test-id="openai-oauth-scheduling-rate-multiplier"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  required
+                  density="compact"
+                  class="w-full shrink-0 sm:w-32"
+                  :label="t('admin.settings.openaiExperimentalScheduler.oauthRateTitle')"
+                >
+                  <template #suffix>x</template>
+                </UiTextField>
               </div>
 
               <div class="flex items-center justify-between border-t border-gray-100 pt-5 dark:border-dark-700">
@@ -5066,20 +4506,20 @@
                     {{ t("admin.settings.openaiExperimentalScheduler.oauthRateWeightedDescription") }}
                   </p>
                 </div>
-                <div class="relative w-full shrink-0 sm:w-32">
-                  <input
+                <div class="w-full shrink-0 sm:w-32">
+                  <UiTextField
                     id="openai-oauth-scheduling-rate-multiplier"
+                    test-id="openai-oauth-scheduling-rate-multiplier"
                     v-model.number="form.openai_oauth_scheduling_rate_multiplier"
-                    class="input pr-8"
-                    data-testid="openai-oauth-scheduling-rate-multiplier"
                     min="0"
                     required
                     step="0.01"
                     type="number"
-                  />
-                  <span
-                    class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400"
-                  >x</span>
+                    density="compact"
+                    :label="t('admin.settings.openaiExperimentalScheduler.oauthRateTitle')"
+                  >
+                    <template #suffix>x</template>
+                  </UiTextField>
                 </div>
               </div>
 
@@ -5101,22 +4541,20 @@
                 </div>
 
                 <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-                  <label
+                  <div
                     v-for="field in openAIAdvancedSchedulerWeightFields"
                     :key="field.key"
                     class="block"
                   >
-                    <span class="text-xs font-medium text-gray-600 dark:text-gray-400">
-                      {{ field.label }}
-                    </span>
-                    <input
+                    <UiTextField
                       v-model="form[field.key]"
-                      class="input mt-1"
+                      density="compact"
+                      :label="field.label"
                       inputmode="decimal"
                       :placeholder="field.placeholder"
                       type="text"
                     />
-                  </label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -5137,19 +4575,15 @@
             <div class="space-y-5 p-6">
               <div class="grid gap-5 border-b border-gray-100 pb-5 dark:border-dark-700 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
                 <div>
-                  <label
-                    for="grok-default-text-model"
-                    class="text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.gatewayForwarding.grokDefaultTextModel") }}
-                  </label>
-                  <input
+                  <UiTextField
                     id="grok-default-text-model"
+                    test-id="grok-default-text-model"
                     v-model.trim="form.grok_default_text_model"
                     type="text"
-                    class="input mt-2 w-full"
-                    list="grok-default-text-model-options"
-                    data-testid="grok-default-text-model"
+                    density="compact"
+                    class="mt-2"
+                    :label="t('admin.settings.gatewayForwarding.grokDefaultTextModel')"
+                    :input-attrs="{ list: 'grok-default-text-model-options' }"
                     placeholder="grok-4.5"
                   />
                   <datalist id="grok-default-text-model-options">
@@ -5177,24 +4611,21 @@
                 </div>
                 </div>
                 <div class="md:col-span-2">
-                  <label
-                    for="grok-default-base-url-mode"
-                    class="text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.gatewayForwarding.grokDefaultBaseURLMode") }}
-                  </label>
-                  <select
+                  <Select
                     id="grok-default-base-url-mode"
                     v-model="form.grok_default_base_url_mode"
-                    class="input mt-2 w-full"
                     data-testid="grok-default-base-url-mode"
+                    density="compact"
+                    :label="t('admin.settings.gatewayForwarding.grokDefaultBaseURLMode')"
+                    :options="[
+                      { value: 'cli', label: t('admin.settings.gatewayForwarding.grokBaseURLModeCLI') },
+                      { value: 'api', label: t('admin.settings.gatewayForwarding.grokBaseURLModeAPI') },
+                      { value: 'us-east-1', label: t('admin.settings.gatewayForwarding.grokBaseURLModeUSEast1') },
+                      { value: 'us-west-2', label: t('admin.settings.gatewayForwarding.grokBaseURLModeUSWest2') },
+                      { value: 'eu-west-1', label: t('admin.settings.gatewayForwarding.grokBaseURLModeEUWest1') },
+                    ]"
                   >
-                    <option value="cli">{{ t("admin.settings.gatewayForwarding.grokBaseURLModeCLI") }}</option>
-                    <option value="api">{{ t("admin.settings.gatewayForwarding.grokBaseURLModeAPI") }}</option>
-                    <option value="us-east-1">{{ t("admin.settings.gatewayForwarding.grokBaseURLModeUSEast1") }}</option>
-                    <option value="us-west-2">{{ t("admin.settings.gatewayForwarding.grokBaseURLModeUSWest2") }}</option>
-                    <option value="eu-west-1">{{ t("admin.settings.gatewayForwarding.grokBaseURLModeEUWest1") }}</option>
-                  </select>
+                  </Select>
                   <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                     {{ t("admin.settings.gatewayForwarding.grokDefaultBaseURLModeHint") }}
                   </p>
@@ -5324,9 +4755,16 @@
                         </div>
                       </div>
                       <div class="flex items-center gap-2">
-                        <button
+                        <UiIconButton
                           type="button"
-                          class="btn btn-secondary btn-sm px-2"
+                          variant="ghost"
+                          density="compact"
+                          :icon="block.expanded ? 'eyeOff' : 'eye'"
+                          :label="
+                            block.expanded
+                              ? t('admin.settings.gatewayForwarding.systemBlockHide')
+                              : t('admin.settings.gatewayForwarding.systemBlockShow')
+                          "
                           :title="
                             block.expanded
                               ? t(
@@ -5336,48 +4774,37 @@
                                   'admin.settings.gatewayForwarding.systemBlockShow',
                                 )
                           "
-                          :aria-label="
-                            block.expanded
-                              ? t(
-                                  'admin.settings.gatewayForwarding.systemBlockHide',
-                                )
-                              : t(
-                                  'admin.settings.gatewayForwarding.systemBlockShow',
-                                )
-                          "
                           @click="toggleClaudeOAuthSystemPromptBlock(index)"
-                        >
-                          <Icon
-                            :name="block.expanded ? 'eyeOff' : 'eye'"
-                            size="xs"
-                          />
-                        </button>
-                        <button
+                        />
+                        <UiIconButton
                           type="button"
-                          class="btn btn-secondary btn-sm px-2"
+                          variant="ghost"
+                          density="compact"
+                          icon="arrowUp"
+                          :label="localText('上移 block', 'Move block up')"
                           :disabled="index === 0"
                           @click="moveClaudeOAuthSystemPromptBlock(index, -1)"
-                        >
-                          <Icon name="arrowUp" size="xs" />
-                        </button>
-                        <button
+                        />
+                        <UiIconButton
                           type="button"
-                          class="btn btn-secondary btn-sm px-2"
+                          variant="ghost"
+                          density="compact"
+                          icon="arrowDown"
+                          :label="localText('下移 block', 'Move block down')"
                           :disabled="
                             index === claudeOAuthSystemPromptBlocks.length - 1
                           "
                           @click="moveClaudeOAuthSystemPromptBlock(index, 1)"
-                        >
-                          <Icon name="arrowDown" size="xs" />
-                        </button>
+                        />
                         <Toggle v-model="block.enabled" />
-                        <button
+                        <UiIconButton
                           type="button"
-                          class="btn btn-secondary btn-sm px-2 text-red-600 hover:text-red-700 dark:text-red-400"
+                          variant="danger"
+                          density="compact"
+                          icon="trash"
+                          :label="t('common.delete')"
                           @click="removeClaudeOAuthSystemPromptBlock(index)"
-                        >
-                          <Icon name="trash" size="xs" />
-                        </button>
+                        />
                       </div>
                     </div>
 
@@ -5396,6 +4823,7 @@
                           <Select
                             v-model="block.preset"
                             :options="claudeOAuthSystemPromptPresetOptions"
+                            density="compact"
                             @change="
                               (value) =>
                                 applyClaudeOAuthSystemPromptPreset(index, value)
@@ -5415,20 +4843,17 @@
                           <Select
                             v-model="block.type"
                             :options="claudeOAuthSystemPromptBlockTypeOptions"
+                            density="compact"
                           />
                         </div>
                       </div>
 
                       <div class="mt-3">
-                        <label
-                          class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300"
-                        >
-                          {{ t("admin.settings.gatewayForwarding.systemBlockText") }}
-                        </label>
-                        <textarea
+                        <UiTextArea
                           v-model="block.text"
-                          rows="6"
-                          class="input w-full resize-y font-mono text-xs leading-5"
+                          :rows="6"
+                          monospace
+                          :label="t('admin.settings.gatewayForwarding.systemBlockText')"
                           @input="markClaudeOAuthSystemPromptBlockCustom(block)"
                         />
                       </div>
@@ -5454,6 +4879,7 @@
                           <Select
                             v-model="block.cacheControlTTL"
                             :options="claudeOAuthSystemPromptCacheTTLOptions"
+                            density="compact"
                           />
                         </div>
                       </div>
@@ -5462,24 +4888,26 @@
                 </div>
 
                 <div class="mt-3 flex flex-wrap gap-2">
-                  <button
+                  <UiButton
                     type="button"
-                    class="btn btn-secondary btn-sm"
+                    variant="secondary"
+                    density="compact"
                     @click="addClaudeOAuthSystemPromptBlock"
                   >
-                    <Icon name="plus" size="xs" />
+                    <template #icon><Icon name="plus" size="xs" /></template>
                     {{ t("admin.settings.gatewayForwarding.addSystemBlock") }}
-                  </button>
-                  <button
+                  </UiButton>
+                  <UiButton
                     type="button"
-                    class="btn btn-secondary btn-sm"
+                    variant="secondary"
+                    density="compact"
                     @click="resetClaudeOAuthSystemPromptBlocks"
                   >
-                    <Icon name="refresh" size="xs" />
+                    <template #icon><Icon name="refresh" size="xs" /></template>
                     {{
                       t("admin.settings.gatewayForwarding.resetSystemBlocks")
                     }}
-                  </button>
+                  </UiButton>
                 </div>
                 <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                   {{
@@ -5574,10 +5002,12 @@
                     )
                   }}
                 </label>
-                <input
+                <UiTextField
                   v-model="form.antigravity_user_agent_version"
                   type="text"
-                  class="input max-w-xs font-mono text-sm"
+                  density="compact"
+                  monospace
+                  class="max-w-xs"
                   :placeholder="
                     t(
                       'admin.settings.gatewayForwarding.antigravityUserAgentVersionPlaceholder',
@@ -5604,10 +5034,11 @@
                     )
                   }}
                 </label>
-                <input
+                <UiTextField
                   v-model="form.openai_codex_user_agent"
                   type="text"
-                  class="input w-full font-mono text-sm"
+                  density="compact"
+                  monospace
                   :placeholder="
                     t(
                       'admin.settings.gatewayForwarding.openaiCodexUserAgentPlaceholder',
@@ -5634,10 +5065,11 @@
                     )
                   }}
                 </label>
-                <input
+                <UiTextField
                   v-model="form.openai_codex_client_version"
                   type="text"
-                  class="input w-full font-mono text-sm"
+                  density="compact"
+                  monospace
                   :placeholder="
                     t(
                       'admin.settings.gatewayForwarding.openaiCodexClientVersionPlaceholder',
@@ -5721,13 +5153,14 @@
                   >
                     {{ t("admin.settings.webSearchEmulation.providers") }}
                   </label>
-                  <button
+                  <UiButton
                     type="button"
-                    class="btn btn-secondary btn-sm"
+                    variant="secondary"
+                    density="compact"
                     @click="addWebSearchProvider"
                   >
                     {{ t("admin.settings.webSearchEmulation.addProvider") }}
-                  </button>
+                  </UiButton>
                 </div>
 
                 <div
@@ -5743,25 +5176,24 @@
                   class="rounded-lg border border-gray-200 dark:border-dark-600"
                 >
                   <!-- Collapsible header -->
-                  <div
-                    class="flex cursor-pointer items-center justify-between px-4 py-3"
-                    @click="toggleProviderExpand(pIdx)"
-                  >
+                  <div class="flex items-center justify-between px-4 py-3">
                     <div class="flex items-center gap-3">
-                      <svg
-                        class="h-4 w-4 text-gray-400 transition-transform"
-                        :class="{ 'rotate-90': expandedProviders[pIdx] }"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
+                      <UiIconButton
+                        type="button"
+                        variant="ghost"
+                        density="mini"
+                        :aria-expanded="expandedProviders[pIdx]"
+                        :aria-controls="`web-search-provider-panel-${pIdx}`"
+                        :label="`${provider.type} ${t('admin.settings.webSearchEmulation.providers')}`"
+                        @click="toggleProviderExpand(pIdx)"
                       >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M9 5l7 7-7 7"
+                        <Icon
+                          name="chevronRight"
+                          size="sm"
+                          class="text-gray-400 motion-safe:transition-transform"
+                          :class="{ 'rotate-90': expandedProviders[pIdx] }"
                         />
-                      </svg>
+                      </UiIconButton>
                       <Select
                         v-model="provider.type"
                         :options="[
@@ -5795,140 +5227,72 @@
                         }}
                       </span>
                     </div>
-                    <button
+                    <UiButton
                       type="button"
-                      class="text-red-500 hover:text-red-700 text-xs"
-                      @click.stop="removeWebSearchProvider(pIdx)"
+                      variant="danger"
+                      density="compact"
+                      @click="removeWebSearchProvider(pIdx)"
                     >
                       {{
                         t("admin.settings.webSearchEmulation.removeProvider")
                       }}
-                    </button>
+                    </UiButton>
                   </div>
 
                   <!-- Expanded content -->
                   <div
-                    v-if="expandedProviders[pIdx]"
+                    v-show="expandedProviders[pIdx]"
+                    :id="`web-search-provider-panel-${pIdx}`"
                     class="space-y-3 border-t border-gray-100 px-4 pb-4 pt-3 dark:border-dark-700"
                   >
                     <!-- API Key with inline show/copy -->
-                    <div>
-                      <label class="text-xs text-gray-500">{{
-                        t("admin.settings.webSearchEmulation.apiKey")
-                      }}</label>
-                      <div class="relative">
-                        <input
-                          v-model="provider.api_key"
-                          :type="apiKeyVisible[pIdx] ? 'text' : 'password'"
-                          class="input w-full text-sm"
-                          :class="
-                            provider.api_key || provider.api_key_configured
-                              ? 'pr-16'
-                              : ''
-                          "
-                          :placeholder="
-                            provider.api_key_configured
-                              ? '••••••••'
-                              : t(
-                                  'admin.settings.webSearchEmulation.apiKeyPlaceholder',
-                                )
-                          "
-                        />
-                        <div
-                          v-if="provider.api_key || provider.api_key_configured"
-                          class="absolute inset-y-0 right-0 flex items-center pr-1.5"
-                        >
-                          <button
+                    <UiTextField
+                      v-model="provider.api_key"
+                      :type="apiKeyVisible[pIdx] ? 'text' : 'password'"
+                      density="compact"
+                      :label="t('admin.settings.webSearchEmulation.apiKey')"
+                      :placeholder="
+                        provider.api_key_configured
+                          ? '••••••••'
+                          : t('admin.settings.webSearchEmulation.apiKeyPlaceholder')
+                      "
+                    >
+                      <template v-if="provider.api_key || provider.api_key_configured" #suffix>
+                        <span class="flex items-center gap-1">
+                          <UiIconButton
                             type="button"
-                            class="rounded p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                            :title="
+                            variant="ghost"
+                            density="mini"
+                            :icon="apiKeyVisible[pIdx] ? 'eyeOff' : 'eye'"
+                            :label="
                               apiKeyVisible[pIdx]
-                                ? t(
-                                    'admin.settings.webSearchEmulation.hideApiKey',
-                                  )
-                                : t(
-                                    'admin.settings.webSearchEmulation.showApiKey',
-                                  )
+                                ? t('admin.settings.webSearchEmulation.hideApiKey')
+                                : t('admin.settings.webSearchEmulation.showApiKey')
                             "
                             @click="apiKeyVisible[pIdx] = !apiKeyVisible[pIdx]"
-                          >
-                            <svg
-                              v-if="!apiKeyVisible[pIdx]"
-                              class="h-4 w-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                              />
-                              <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                              />
-                            </svg>
-                            <svg
-                              v-else
-                              class="h-4 w-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"
-                              />
-                            </svg>
-                          </button>
-                          <button
+                          />
+                          <UiIconButton
                             type="button"
-                            class="rounded p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                            :class="{
-                              'opacity-30 cursor-not-allowed':
-                                !provider.api_key,
-                            }"
-                            :title="
-                              t('admin.settings.webSearchEmulation.copyApiKey')
-                            "
+                            variant="ghost"
+                            density="mini"
+                            icon="copy"
+                            :label="t('admin.settings.webSearchEmulation.copyApiKey')"
                             :disabled="!provider.api_key"
                             @click="copyApiKey(pIdx)"
-                          >
-                            <svg
-                              class="h-4 w-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                          />
+                        </span>
+                      </template>
+                    </UiTextField>
 
                     <!-- Quota + Subscription in compact row -->
                     <div class="grid grid-cols-2 gap-3">
                       <div>
-                        <label class="text-xs text-gray-500">{{
-                          t("admin.settings.webSearchEmulation.quotaLimit")
-                        }}</label>
-                        <input
+                        <UiTextField
                           v-model="provider.quota_limit"
                           type="number"
                           min="1"
-                          class="input text-sm"
+                          density="compact"
+                          :label="t('admin.settings.webSearchEmulation.quotaLimit')"
                           :placeholder="'∞'"
                         />
                         <p class="mt-0.5 text-xs text-gray-400">
@@ -5940,26 +5304,14 @@
                         </p>
                       </div>
                       <div>
-                        <label class="text-xs text-gray-500">{{
-                          t("admin.settings.webSearchEmulation.subscribedAt")
-                        }}</label>
-                        <input
-                          :value="formatSubscribedAt(provider.subscribed_at)"
+                        <UiTextField
+                          :model-value="formatSubscribedAt(provider.subscribed_at)"
                           type="date"
-                          class="input text-sm"
-                          @input="
-                            provider.subscribed_at = parseSubscribedAt(
-                              ($event.target as HTMLInputElement).value,
-                            )
-                          "
+                          density="compact"
+                          :label="t('admin.settings.webSearchEmulation.subscribedAt')"
+                          :description="t('admin.settings.webSearchEmulation.subscribedAtHint')"
+                          @update:model-value="provider.subscribed_at = parseSubscribedAt(String($event))"
                         />
-                        <p class="mt-0.5 text-xs text-gray-400">
-                          {{
-                            t(
-                              "admin.settings.webSearchEmulation.subscribedAtHint",
-                            )
-                          }}
-                        </p>
                       </div>
                     </div>
 
@@ -5970,29 +5322,17 @@
                           t("admin.settings.webSearchEmulation.quotaUsage")
                         }}:</span
                       >
-                      <div
+                      <UiProgressBar
                         v-if="
                           provider.quota_limit != null &&
                           provider.quota_limit > 0
                         "
-                        class="flex-1 rounded-full bg-gray-200 dark:bg-dark-600"
-                        style="height: 6px"
-                      >
-                        <div
-                          class="h-full rounded-full transition-all"
-                          :class="
-                            quotaPercentage(provider) > 90
-                              ? 'bg-red-500'
-                              : quotaPercentage(provider) > 70
-                                ? 'bg-yellow-500'
-                                : 'bg-green-500'
-                          "
-                          :style="{
-                            width:
-                              Math.min(quotaPercentage(provider), 100) + '%',
-                          }"
-                        />
-                      </div>
+                        class="flex-1"
+                        :value="Math.min(quotaPercentage(provider), 100)"
+                        :show-value="false"
+                        :tone="quotaPercentage(provider) > 90 ? 'danger' : quotaPercentage(provider) > 70 ? 'warning' : 'success'"
+                        :aria-label="t('admin.settings.webSearchEmulation.quotaUsage')"
+                      />
                       <div v-else class="flex-1" />
                       <span class="text-xs text-gray-500"
                         >{{ provider.quota_used ?? 0 }} /
@@ -6003,14 +5343,15 @@
                             : "∞"
                         }}</span
                       >
-                      <button
+                      <UiButton
                         v-if="(provider.quota_used ?? 0) > 0"
                         type="button"
-                        class="text-xs text-primary-600 hover:text-primary-700"
+                        variant="quiet"
+                        density="mini"
                         @click="resetWebSearchUsage(pIdx)"
                       >
                         {{ t("admin.settings.webSearchEmulation.resetUsage") }}
-                      </button>
+                      </UiButton>
                     </div>
 
                     <!-- Proxy + Test on same row -->
@@ -6024,13 +5365,14 @@
                           :proxies="webSearchProxies"
                         />
                       </div>
-                      <button
+                      <UiButton
                         type="button"
-                        class="btn btn-secondary btn-sm whitespace-nowrap"
+                        variant="secondary"
+                        density="compact"
                         @click="openTestDialog()"
                       >
                         {{ t("admin.settings.webSearchEmulation.test") }}
-                      </button>
+                      </UiButton>
                     </div>
                   </div>
                 </div>
@@ -6039,32 +5381,31 @@
           </div>
 
           <!-- Web Search Test Dialog -->
-          <div
-            v-if="wsTestDialogOpen"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-            @click.self="wsTestDialogOpen = false"
+          <UiDialog
+            :show="wsTestDialogOpen"
+            :title="t('admin.settings.webSearchEmulation.testResultTitle')"
+            width="normal"
+            :close-on-click-outside="true"
+            @close="wsTestDialogOpen = false"
           >
-            <div
-              class="mx-4 w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-dark-800"
-            >
-              <h3
-                class="mb-4 text-lg font-semibold text-gray-900 dark:text-white"
-              >
-                {{ t("admin.settings.webSearchEmulation.testResultTitle") }}
-              </h3>
               <div class="flex items-center gap-2">
-                <input
+                <UiTextField
                   v-model="wsTestQuery"
                   type="text"
-                  class="input flex-1 text-sm"
+                  density="compact"
+                  class="flex-1"
+                  :label="t('admin.settings.webSearchEmulation.testDefaultQuery')"
                   :placeholder="
                     t('admin.settings.webSearchEmulation.testDefaultQuery')
                   "
-                  @keyup.enter="testWebSearchProvider()"
+                  prevent-enter-default
+                  @enter="testWebSearchProvider()"
                 />
-                <button
+                <UiButton
                   type="button"
-                  class="btn btn-primary btn-sm"
+                  variant="primary"
+                  density="compact"
+                  :loading="wsTestLoading"
                   :disabled="wsTestLoading"
                   @click="testWebSearchProvider()"
                 >
@@ -6073,7 +5414,7 @@
                       ? t("admin.settings.webSearchEmulation.testing")
                       : t("admin.settings.webSearchEmulation.test")
                   }}
-                </button>
+                </UiButton>
               </div>
               <!-- Test results -->
               <div
@@ -6109,17 +5450,17 @@
                   </p>
                 </div>
               </div>
-              <div class="mt-4 flex justify-end">
-                <button
+              <template #footer>
+                <UiButton
                   type="button"
-                  class="btn btn-secondary btn-sm"
+                  variant="secondary"
+                  density="compact"
                   @click="wsTestDialogOpen = false"
                 >
                   {{ t("common.close") }}
-                </button>
-              </div>
-            </div>
-          </div>
+                </UiButton>
+              </template>
+          </UiDialog>
 
         <!-- Usage Records Settings -->
         <div class="settings-section">
@@ -6142,10 +5483,10 @@
                   {{ t('admin.settings.user_error_view.description') }}
                 </p>
               </div>
-              <label class="toggle">
-                <input v-model="form.allow_user_view_error_requests" type="checkbox" />
-                <span class="toggle-slider"></span>
-              </label>
+              <Toggle
+                v-model="form.allow_user_view_error_requests"
+                :aria-label="t('admin.settings.user_error_view.label')"
+              />
             </div>
           </div>
         </div>
@@ -6153,7 +5494,13 @@
         <!-- /Tab: Gateway — Claude Code, Scheduling -->
 
         <!-- Tab: General -->
-        <div v-show="activeTab === 'general'" class="settings-panel">
+        <div
+          id="settings-panel-general"
+          v-show="activeTab === 'general'"
+          class="settings-panel"
+          role="tabpanel"
+          aria-labelledby="settings-tab-general"
+        >
           <!-- Site Settings -->
           <div class="settings-section">
             <div
@@ -6183,59 +5530,36 @@
 	              </div>
 
 	              <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div>
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.site.siteName") }}
-                  </label>
-                  <input
+                <UiTextField
                     v-model="form.site_name"
                     type="text"
-                    class="input"
+                    density="compact"
+                    :label="t('admin.settings.site.siteName')"
+                    :description="t('admin.settings.site.siteNameHint')"
                     :placeholder="t('admin.settings.site.siteNamePlaceholder')"
                   />
-                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.site.siteNameHint") }}
-                  </p>
-                </div>
-                <div>
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.site.siteSubtitle") }}
-                  </label>
-                  <input
+                <UiTextField
                     v-model="form.site_subtitle"
                     type="text"
-                    class="input"
+                    density="compact"
+                    :label="t('admin.settings.site.siteSubtitle')"
+                    :description="t('admin.settings.site.siteSubtitleHint')"
                     :placeholder="
                       t('admin.settings.site.siteSubtitlePlaceholder')
                     "
                   />
-                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.site.siteSubtitleHint") }}
-                  </p>
-                </div>
               </div>
 
               <!-- API Base URL -->
-              <div>
-                <label
-                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  {{ t("admin.settings.site.apiBaseUrl") }}
-                </label>
-                <input
+              <UiTextField
                   v-model="form.api_base_url"
                   type="text"
-                  class="input font-mono text-sm"
+                  density="compact"
+                  monospace
+                  :label="t('admin.settings.site.apiBaseUrl')"
+                  :description="t('admin.settings.site.apiBaseUrlHint')"
                   :placeholder="t('admin.settings.site.apiBaseUrlPlaceholder')"
                 />
-                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t("admin.settings.site.apiBaseUrlHint") }}
-                </p>
-              </div>
 
               <!-- Global Table Preferences -->
               <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
@@ -6246,42 +5570,27 @@
                   {{ t("admin.settings.site.tablePreferencesDescription") }}
                 </p>
                 <div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.site.tableDefaultPageSize") }}
-                    </label>
-                    <input
+                  <UiTextField
                       v-model.number="form.table_default_page_size"
                       type="number"
                       min="5"
                       max="1000"
                       step="1"
-                      class="input w-40"
+                      density="compact"
+                      :label="t('admin.settings.site.tableDefaultPageSize')"
+                      :description="t('admin.settings.site.tableDefaultPageSizeHint')"
                     />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.site.tableDefaultPageSizeHint") }}
-                    </p>
-                  </div>
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.site.tablePageSizeOptions") }}
-                    </label>
-                    <input
+                  <UiTextField
                       v-model="tablePageSizeOptionsInput"
                       type="text"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.site.tablePageSizeOptions')"
+                      :description="t('admin.settings.site.tablePageSizeOptionsHint')"
                       :placeholder="
                         t('admin.settings.site.tablePageSizeOptionsPlaceholder')
                       "
                     />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.site.tablePageSizeOptionsHint") }}
-                    </p>
-                  </div>
                 </div>
               </div>
 
@@ -6312,148 +5621,96 @@
                           })
                         }}
                       </span>
-                      <button
+                      <UiIconButton
                         type="button"
-                        class="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                        variant="danger"
+                        density="mini"
+                        icon="trash"
+                        :label="t('common.delete')"
                         @click="removeEndpoint(index)"
-                      >
-                        <svg
-                          class="h-4 w-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                      </button>
+                      />
                     </div>
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div>
-                        <label
-                          class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
-                        >
-                          {{ t("admin.settings.site.customEndpoints.name") }}
-                        </label>
-                        <input
+                      <UiTextField
                           v-model="ep.name"
                           type="text"
-                          class="input text-sm"
+                          density="compact"
+                          :label="t('admin.settings.site.customEndpoints.name')"
                           :placeholder="
                             t(
                               'admin.settings.site.customEndpoints.namePlaceholder',
                             )
                           "
                         />
-                      </div>
-                      <div>
-                        <label
-                          class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
-                        >
-                          {{
-                            t("admin.settings.site.customEndpoints.endpointUrl")
-                          }}
-                        </label>
-                        <input
+                      <UiTextField
                           v-model="ep.endpoint"
                           type="url"
-                          class="input font-mono text-sm"
+                          density="compact"
+                          monospace
+                          :label="t('admin.settings.site.customEndpoints.endpointUrl')"
                           :placeholder="
                             t(
                               'admin.settings.site.customEndpoints.endpointUrlPlaceholder',
                             )
                           "
                         />
-                      </div>
-                      <div class="sm:col-span-2">
-                        <label
-                          class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
-                        >
-                          {{
-                            t(
-                              "admin.settings.site.customEndpoints.descriptionLabel",
-                            )
-                          }}
-                        </label>
-                        <input
+                      <UiTextField
+                          class="sm:col-span-2"
                           v-model="ep.description"
                           type="text"
-                          class="input text-sm"
+                          density="compact"
+                          :label="t('admin.settings.site.customEndpoints.descriptionLabel')"
                           :placeholder="
                             t(
                               'admin.settings.site.customEndpoints.descriptionPlaceholder',
                             )
                           "
                         />
-                      </div>
                     </div>
                   </div>
                 </div>
 
-                <button
+                <UiButton
                   type="button"
+                  variant="quiet"
+                  density="compact"
+                  block
                   class="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-2.5 text-sm text-gray-500 transition-colors hover:border-primary-400 hover:text-primary-600 dark:border-dark-600 dark:text-gray-400 dark:hover:border-primary-500 dark:hover:text-primary-400"
                   @click="addEndpoint"
                 >
-                  <svg
-                    class="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
+                  <Icon name="plus" size="sm" />
                   {{ t("admin.settings.site.customEndpoints.add") }}
-                </button>
+                </UiButton>
               </div>
 
               <!-- Contact Info -->
               <div>
-                <label
-                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  {{ t("admin.settings.site.contactInfo") }}
-                </label>
-                <input
+                <UiTextField
                   v-model="form.contact_info"
                   type="text"
-                  class="input"
+                  density="compact"
+                  :label="t('admin.settings.site.contactInfo')"
                   :placeholder="t('admin.settings.site.contactInfoPlaceholder')"
+                  :description="t('admin.settings.site.contactInfoHint')"
                 />
-                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t("admin.settings.site.contactInfoHint") }}
-                </p>
               </div>
 
               <!-- Doc URL -->
               <div>
-                <label
-                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  {{ t("admin.settings.site.docUrl") }}
-                </label>
-                <input
+                <UiTextField
                   v-model="form.doc_url"
                   type="url"
-                  class="input font-mono text-sm"
+                  density="compact"
+                  monospace
+                  :label="t('admin.settings.site.docUrl')"
                   :placeholder="t('admin.settings.site.docUrlPlaceholder')"
+                  :description="t('admin.settings.site.docUrlHint')"
                 />
-                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t("admin.settings.site.docUrlHint") }}
-                </p>
               </div>
 
-              <!-- Site Logo Upload -->
-              <div>
+              <!-- Brand Assets -->
+              <div class="grid gap-5 md:grid-cols-[minmax(0,1.35fr)_minmax(220px,0.65fr)]">
+                <div>
                 <label
                   class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
                 >
@@ -6462,29 +5719,41 @@
                 <ImageUpload
                   v-model="form.site_logo"
                   mode="image"
+                  aspect="wide"
                   :upload-label="t('admin.settings.site.uploadImage')"
                   :remove-label="t('admin.settings.site.remove')"
                   :hint="t('admin.settings.site.logoHint')"
-                  :max-size="300 * 1024"
+                  :max-size="500 * 1024"
                 />
+                </div>
+                <div>
+                  <label
+                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    {{ t("admin.settings.site.siteIcon") }}
+                  </label>
+                  <ImageUpload
+                    v-model="form.site_icon"
+                    mode="image"
+                    aspect="square"
+                    :upload-label="t('admin.settings.site.uploadIcon')"
+                    :remove-label="t('admin.settings.site.remove')"
+                    :hint="t('admin.settings.site.iconHint')"
+                    :max-size="300 * 1024"
+                  />
+                </div>
               </div>
 
               <!-- Home Content -->
               <div>
-                <label
-                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  {{ t("admin.settings.site.homeContent") }}
-                </label>
-                <textarea
+                <UiTextArea
                   v-model="form.home_content"
-                  rows="6"
-                  class="input font-mono text-sm"
+                  :rows="6"
+                  monospace
+                  :label="t('admin.settings.site.homeContent')"
                   :placeholder="t('admin.settings.site.homeContentPlaceholder')"
-                ></textarea>
-                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t("admin.settings.site.homeContentHint") }}
-                </p>
+                  :description="t('admin.settings.site.homeContentHint')"
+                />
                 <!-- iframe CSP Warning -->
                 <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
                   {{ t("admin.settings.site.homeContentIframeWarning") }}
@@ -6550,124 +5819,74 @@
                   </span>
                   <div class="flex items-center gap-2">
                     <!-- Move up -->
-                    <button
+                    <UiIconButton
                       v-if="index > 0"
                       type="button"
-                      class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700"
+                      variant="ghost"
+                      density="mini"
+                      icon="arrowUp"
+                      :label="t('admin.settings.customMenu.moveUp')"
                       :title="t('admin.settings.customMenu.moveUp')"
                       @click="moveMenuItem(index, -1)"
-                    >
-                      <svg
-                        class="h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        stroke-width="2"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          d="M5 15l7-7 7 7"
-                        />
-                      </svg>
-                    </button>
+                    />
                     <!-- Move down -->
-                    <button
+                    <UiIconButton
                       v-if="index < form.custom_menu_items.length - 1"
                       type="button"
-                      class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700"
+                      variant="ghost"
+                      density="mini"
+                      icon="arrowDown"
+                      :label="t('admin.settings.customMenu.moveDown')"
                       :title="t('admin.settings.customMenu.moveDown')"
                       @click="moveMenuItem(index, 1)"
-                    >
-                      <svg
-                        class="h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        stroke-width="2"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </button>
+                    />
                     <!-- Delete -->
-                    <button
+                    <UiIconButton
                       type="button"
-                      class="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                      variant="danger"
+                      density="mini"
+                      icon="trash"
+                      :label="t('admin.settings.customMenu.remove')"
                       :title="t('admin.settings.customMenu.remove')"
                       @click="removeMenuItem(index)"
-                    >
-                      <svg
-                        class="h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        stroke-width="2"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </button>
+                    />
                   </div>
                 </div>
 
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <!-- Label -->
-                  <div>
-                    <label
-                      class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
-                    >
-                      {{ t("admin.settings.customMenu.name") }}
-                    </label>
-                    <input
+                  <UiTextField
                       v-model="item.label"
                       type="text"
-                      class="input text-sm"
+                      density="compact"
+                      :label="t('admin.settings.customMenu.name')"
                       :placeholder="
                         t('admin.settings.customMenu.namePlaceholder')
                       "
                     />
-                  </div>
 
                   <!-- Visibility -->
-                  <div>
-                    <label
-                      class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
-                    >
-                      {{ t("admin.settings.customMenu.visibility") }}
-                    </label>
-                    <select v-model="item.visibility" class="input text-sm">
-                      <option value="user">
-                        {{ t("admin.settings.customMenu.visibilityUser") }}
-                      </option>
-                      <option value="admin">
-                        {{ t("admin.settings.customMenu.visibilityAdmin") }}
-                      </option>
-                    </select>
-                  </div>
+                  <Select
+                    v-model="item.visibility"
+                    :label="t('admin.settings.customMenu.visibility')"
+                    :options="[
+                      { value: 'user', label: t('admin.settings.customMenu.visibilityUser') },
+                      { value: 'admin', label: t('admin.settings.customMenu.visibilityAdmin') },
+                    ]"
+                  />
 
                   <!-- URL (full width) -->
-                  <div class="sm:col-span-2">
-                    <label
-                      class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
-                    >
-                      {{ t("admin.settings.customMenu.url") }}
-                    </label>
-                    <input
+                  <UiTextField
+                      class="sm:col-span-2"
                       v-model="item.url"
                       type="url"
-                      class="input font-mono text-sm"
+                      density="compact"
+                      monospace
+                      :label="t('admin.settings.customMenu.url')"
                       :placeholder="
                         t('admin.settings.customMenu.urlPlaceholder')
                       "
                     />
-                  </div>
 
                   <!-- SVG Icon (full width) -->
                   <div class="sm:col-span-2">
@@ -6689,33 +5908,30 @@
               </div>
 
               <!-- Add button -->
-              <button
+              <UiButton
                 type="button"
+                variant="quiet"
+                density="compact"
+                block
                 class="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 py-3 text-sm text-gray-500 transition-colors hover:border-primary-400 hover:text-primary-600 dark:border-dark-600 dark:text-gray-400 dark:hover:border-primary-500 dark:hover:text-primary-400"
                 @click="addMenuItem"
               >
-                <svg
-                  class="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
+                <Icon name="plus" size="sm" />
                 {{ t("admin.settings.customMenu.add") }}
-              </button>
+              </UiButton>
             </div>
           </div>
 	        </div>
 	        <!-- /Tab: General -->
 
 	        <!-- Tab: Login Agreement -->
-	        <div v-show="activeTab === 'agreement'" class="settings-panel">
+        <div
+          id="settings-panel-agreement"
+          v-show="activeTab === 'agreement'"
+          class="settings-panel"
+          role="tabpanel"
+          aria-labelledby="settings-tab-agreement"
+        >
 	          <div class="settings-section">
 	            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
 	              <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -6748,32 +5964,26 @@
 	                    {{ localText("展示形式", "Display mode") }}
 	                  </label>
 	                  <div class="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700">
-                    <button
+                    <UiButton
                       type="button"
-                      class="inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition"
-                      :class="
-                        form.login_agreement_mode === 'modal'
-                          ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                          : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                      "
+                      :aria-pressed="form.login_agreement_mode === 'modal'"
+                      :variant="form.login_agreement_mode === 'modal' ? 'primary' : 'secondary'"
+                      density="compact"
                       @click="form.login_agreement_mode = 'modal'"
                     >
-                      <Icon name="shield" size="sm" />
+                      <template #icon><Icon name="shield" size="sm" /></template>
                       {{ localText("弹窗", "Modal") }}
-                    </button>
-                    <button
+                    </UiButton>
+                    <UiButton
                       type="button"
-                      class="inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition"
-                      :class="
-                        form.login_agreement_mode === 'checkbox'
-                          ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                          : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                      "
+                      :aria-pressed="form.login_agreement_mode === 'checkbox'"
+                      :variant="form.login_agreement_mode === 'checkbox' ? 'primary' : 'secondary'"
+                      density="compact"
                       @click="form.login_agreement_mode = 'checkbox'"
                     >
-                      <Icon name="checkCircle" size="sm" />
+                      <template #icon><Icon name="checkCircle" size="sm" /></template>
                       {{ localText("复选框", "Checkbox") }}
-                    </button>
+                    </UiButton>
                   </div>
                   <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                     {{
@@ -6785,17 +5995,13 @@
                 </div>
 
                 <div>
-                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {{ localText("条款更新日期", "Updated date") }}
-                  </label>
-                  <input
+                  <UiTextField
                     v-model="form.login_agreement_updated_at"
                     type="date"
-                    class="input"
+                    density="compact"
+                    :label="localText('条款更新日期', 'Updated date')"
+                    :description="localText('日期或文档内容变化后，用户需要重新同意。', 'Changing the date or content requires fresh consent.')"
                   />
-                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ localText("日期或文档内容变化后，用户需要重新同意。", "Changing the date or content requires fresh consent.") }}
-                  </p>
                 </div>
               </div>
 
@@ -6814,14 +6020,15 @@
                       }}
                     </p>
                   </div>
-                  <button
+                  <UiButton
                     type="button"
-                    class="btn btn-primary btn-sm inline-flex items-center gap-1.5"
+                    variant="primary"
+                    density="compact"
                     @click="addLoginAgreementDocument"
                   >
-                    <Icon name="plus" size="sm" />
+                    <template #icon><Icon name="plus" size="sm" /></template>
                     {{ localText("添加文档", "Add document") }}
-                  </button>
+                  </UiButton>
                 </div>
 
                 <div class="mt-4 space-y-3">
@@ -6855,58 +6062,47 @@
                           </p>
                         </div>
                       </div>
-                      <button
+                      <UiIconButton
                         type="button"
-                        class="rounded-md p-2 text-red-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-red-900/20"
+                        variant="danger"
+                        density="compact"
+                        icon="trash"
+                        :label="localText('删除文档', 'Remove document')"
                         :disabled="
                           form.login_agreement_enabled &&
                           form.login_agreement_documents.length <= 1
                         "
                         @click="removeLoginAgreementDocument(index)"
-                      >
-                        <Icon name="trash" size="sm" />
-                      </button>
+                      />
                     </div>
 
                     <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                      <div>
-                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                          {{ localText("文档名称", "Document title") }}
-                        </label>
-                        <input
+                      <UiTextField
                           v-model="doc.title"
                           type="text"
-                          class="input text-sm"
+                          density="compact"
+                          :label="localText('文档名称', 'Document title')"
                           :placeholder="localText('例如：服务条款', 'Example: Terms of Service')"
                         />
-                      </div>
-                      <div>
-                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                          {{ localText("路由标识", "Route slug") }}
-                        </label>
-                        <div class="flex overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500 dark:border-dark-600 dark:bg-dark-900">
-                          <span class="inline-flex flex-shrink-0 items-center border-r border-gray-200 bg-gray-50 px-3 text-sm text-gray-500 dark:border-dark-700 dark:bg-dark-800 dark:text-dark-400">
-                            /legal/
-                          </span>
-                          <input
+                      <UiTextField
                             v-model="doc.id"
                             type="text"
-                            class="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:ring-0 dark:text-white dark:placeholder:text-dark-500"
+                            density="compact"
+                            monospace
+                            :label="localText('路由标识', 'Route slug')"
                             placeholder="usage-policy"
-                          />
-                        </div>
-                      </div>
+                          >
+                            <template #prefix>/legal/</template>
+                          </UiTextField>
                     </div>
                     <div class="mt-3">
-                      <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                        {{ localText("Markdown 内容", "Markdown content") }}
-                      </label>
-                        <textarea
+                      <UiTextArea
                           v-model="doc.content_md"
-                          rows="8"
-                          class="input font-mono text-sm"
+                          :rows="8"
+                          monospace
+                          :label="localText('Markdown 内容', 'Markdown content')"
                           :placeholder="localText('在这里填写正式 Markdown 内容。', 'Write the final Markdown content here.')"
-                        ></textarea>
+                        />
                     </div>
                   </div>
                 </div>
@@ -6917,7 +6113,13 @@
         <!-- /Tab: Login Agreement -->
 
 	        <!-- Tab: Features (功能开关) -->
-        <div v-show="activeTab === 'features'" class="settings-panel">
+        <div
+          id="settings-panel-features"
+          v-show="activeTab === 'features'"
+          class="settings-panel"
+          role="tabpanel"
+          aria-labelledby="settings-tab-features"
+        >
 
         <div class="settings-section">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
@@ -6952,34 +6154,30 @@
 
             <div v-if="form.channel_monitor_enabled" class="space-y-5">
               <div>
-                <label class="input-label">
+                <label class="ui-field-label">
                   {{ t('admin.settings.features.channelMonitor.mode') }}
                 </label>
                 <div class="mt-1.5 inline-flex w-full max-w-md rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-dark-600 dark:bg-dark-900/40">
-                  <button
+                  <UiButton
                     type="button"
-                    class="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition"
-                    :class="
-                      form.channel_monitor_mode === 'v2'
-                        ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                        : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                    "
+                    :aria-pressed="form.channel_monitor_mode === 'v2'"
+                    class="flex-1"
+                    :variant="form.channel_monitor_mode === 'v2' ? 'primary' : 'secondary'"
+                    density="compact"
                     @click="form.channel_monitor_mode = 'v2'"
                   >
                     {{ t('admin.settings.features.channelMonitor.modeV2') }}
-                  </button>
-                  <button
+                  </UiButton>
+                  <UiButton
                     type="button"
-                    class="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition"
-                    :class="
-                      form.channel_monitor_mode === 'v1'
-                        ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                        : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                    "
+                    :aria-pressed="form.channel_monitor_mode === 'v1'"
+                    class="flex-1"
+                    :variant="form.channel_monitor_mode === 'v1' ? 'primary' : 'secondary'"
+                    density="compact"
                     @click="form.channel_monitor_mode = 'v1'"
                   >
                     {{ t('admin.settings.features.channelMonitor.modeV1') }}
-                  </button>
+                  </UiButton>
                 </div>
                 <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                   {{
@@ -6994,16 +6192,14 @@
               </div>
 
               <div v-if="form.channel_monitor_mode === 'v1'">
-                <label class="input-label">
-                  {{ t('admin.settings.features.channelMonitor.defaultInterval') }}
-                  <span class="text-red-500">*</span>
-                </label>
-                <input
+                <UiTextField
                   v-model.number="form.channel_monitor_default_interval_seconds"
                   type="number"
                   min="15"
                   max="3600"
-                  class="input"
+                  required
+                  density="compact"
+                  :label="t('admin.settings.features.channelMonitor.defaultInterval')"
                 />
                 <p class="mt-1 text-xs text-gray-400">
                   {{ t('admin.settings.features.channelMonitor.defaultIntervalHint') }}
@@ -7093,17 +6289,13 @@
             </div>
 
             <div v-if="form.model_plaza_enabled">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {{ t('admin.settings.features.modelPlaza.priceDescription') }}
-              </label>
-              <p class="mb-2 mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                {{ t('admin.settings.features.modelPlaza.priceDescriptionHint') }}
-              </p>
-              <textarea
+              <UiTextArea
                 v-model="form.model_plaza_description"
-                rows="6"
-                class="input font-mono text-sm"
-              ></textarea>
+                :rows="6"
+                monospace
+                :label="t('admin.settings.features.modelPlaza.priceDescription')"
+                :description="t('admin.settings.features.modelPlaza.priceDescriptionHint')"
+              />
             </div>
           </div>
         </div>
@@ -7176,15 +6368,13 @@
             </div>
 
             <div v-if="form.cyber_session_block_enabled">
-              <label class="input-label">
-                {{ t('admin.settings.features.riskControl.cyberSessionBlockTTL') }}
-                <span class="text-red-500">*</span>
-              </label>
-              <input
+              <UiTextField
                 v-model.number="form.cyber_session_block_ttl_seconds"
                 type="number"
                 min="1"
-                class="input"
+                density="compact"
+                required
+                :label="t('admin.settings.features.riskControl.cyberSessionBlockTTL')"
               />
             </div>
           </div>
@@ -7227,74 +6417,57 @@
               </div>
 
               <div>
-                <label class="input-label">
-                  {{ t('admin.settings.features.affiliate.rebateRate') }}
-                </label>
-                <div class="relative">
-                  <input
-                    v-model.number="form.affiliate_rebate_rate"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    class="input pr-8"
-                    placeholder="20"
-                  />
-                  <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
-                </div>
-                <p class="mt-1 text-xs text-gray-400">
-                  {{ t('admin.settings.features.affiliate.rebateRateHint') }}
-                </p>
+                <UiTextField
+                  v-model.number="form.affiliate_rebate_rate"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  density="compact"
+                  :label="t('admin.settings.features.affiliate.rebateRate')"
+                  placeholder="20"
+                  :description="t('admin.settings.features.affiliate.rebateRateHint')"
+                >
+                  <template #suffix>%</template>
+                </UiTextField>
               </div>
 
               <div>
-                <label class="input-label">
-                  {{ t('admin.settings.features.affiliate.freezeHours') }}
-                </label>
-                <input
+                <UiTextField
                   v-model.number="form.affiliate_rebate_freeze_hours"
                   type="number"
                   step="1"
                   min="0"
                   max="720"
-                  class="input"
+                  density="compact"
+                  :label="t('admin.settings.features.affiliate.freezeHours')"
+                  :description="t('admin.settings.features.affiliate.freezeHoursDesc')"
                 />
-                <p class="mt-1 text-xs text-gray-400">
-                  {{ t('admin.settings.features.affiliate.freezeHoursDesc') }}
-                </p>
               </div>
 
               <div>
-                <label class="input-label">
-                  {{ t('admin.settings.features.affiliate.durationDays') }}
-                </label>
-                <input
+                <UiTextField
                   v-model.number="form.affiliate_rebate_duration_days"
                   type="number"
                   step="1"
                   min="0"
                   max="3650"
-                  class="input"
+                  density="compact"
+                  :label="t('admin.settings.features.affiliate.durationDays')"
+                  :description="t('admin.settings.features.affiliate.durationDaysDesc')"
                 />
-                <p class="mt-1 text-xs text-gray-400">
-                  {{ t('admin.settings.features.affiliate.durationDaysDesc') }}
-                </p>
               </div>
 
               <div>
-                <label class="input-label">
-                  {{ t('admin.settings.features.affiliate.perInviteeCap') }}
-                </label>
-                <input
+                <UiTextField
                   v-model.number="form.affiliate_rebate_per_invitee_cap"
                   type="number"
                   step="0.01"
                   min="0"
-                  class="input"
+                  density="compact"
+                  :label="t('admin.settings.features.affiliate.perInviteeCap')"
+                  :description="t('admin.settings.features.affiliate.perInviteeCapDesc')"
                 />
-                <p class="mt-1 text-xs text-gray-400">
-                  {{ t('admin.settings.features.affiliate.perInviteeCapDesc') }}
-                </p>
               </div>
 
               <!-- 专属用户管理 -->
@@ -7308,31 +6481,35 @@
                       {{ t('admin.settings.features.affiliate.customUsers.description') }}
                     </p>
                   </div>
-                  <button
+                  <UiButton
                     type="button"
-                    class="btn btn-primary btn-sm"
+                    variant="primary"
+                    density="compact"
                     @click="openAffiliateModal(null)"
                   >
                     + {{ t('admin.settings.features.affiliate.customUsers.addButton') }}
-                  </button>
+                  </UiButton>
                 </div>
 
                 <div class="mb-3 flex items-center gap-2">
-                  <input
+                  <UiTextField
                     v-model="affiliateState.search"
                     type="text"
-                    class="input flex-1"
+                    density="compact"
+                    class="flex-1"
+                    :label="t('admin.settings.features.affiliate.customUsers.searchPlaceholder')"
                     :placeholder="t('admin.settings.features.affiliate.customUsers.searchPlaceholder')"
                     @input="onAffiliateSearchInput"
                   />
-                  <button
+                  <UiButton
                     v-if="affiliateState.selected.length > 0"
                     type="button"
-                    class="btn btn-secondary btn-sm"
+                    variant="secondary"
+                    density="compact"
                     @click="openAffiliateBatchModal"
                   >
                     {{ t('admin.settings.features.affiliate.customUsers.batchButton', { count: affiliateState.selected.length }) }}
-                  </button>
+                  </UiButton>
                 </div>
 
                 <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-dark-700">
@@ -7340,10 +6517,10 @@
                     <thead class="bg-gray-50 dark:bg-dark-800">
                       <tr>
                         <th class="px-3 py-2 text-left">
-                          <input
-                            type="checkbox"
-                            :checked="affiliateState.entries.length > 0 && affiliateState.selected.length === affiliateState.entries.length"
-                            @change="toggleAffiliateSelectAll"
+                          <UiCheckbox
+                            :model-value="affiliateState.entries.length > 0 && affiliateState.selected.length === affiliateState.entries.length"
+                            :aria-label="t('common.selectAll')"
+                            @update:model-value="toggleAffiliateSelectAll"
                           />
                         </th>
                         <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">{{ t('admin.settings.features.affiliate.customUsers.col.email') }}</th>
@@ -7366,10 +6543,10 @@
                       </tr>
                       <tr v-for="entry in affiliateState.entries" :key="entry.user_id">
                         <td class="px-3 py-2">
-                          <input
-                            type="checkbox"
-                            :checked="affiliateState.selected.includes(entry.user_id)"
-                            @change="toggleAffiliateSelect(entry.user_id)"
+                          <UiCheckbox
+                            :model-value="affiliateState.selected.includes(entry.user_id)"
+                            :aria-label="entry.email"
+                            @update:model-value="toggleAffiliateSelect(entry.user_id)"
                           />
                         </td>
                         <td class="px-3 py-2 text-sm text-gray-900 dark:text-white">{{ entry.email }}</td>
@@ -7387,16 +6564,17 @@
                         </td>
                         <td class="px-3 py-2 text-sm">
                           <div class="flex items-center gap-2">
-                            <button type="button" class="text-primary-600 hover:underline" @click="openAffiliateModal(entry)">
+                            <UiButton type="button" variant="quiet" density="mini" @click="openAffiliateModal(entry)">
                               {{ t('common.edit') }}
-                            </button>
-                            <button
+                            </UiButton>
+                            <UiButton
                               type="button"
-                              class="text-red-600 hover:underline"
+                              variant="danger"
+                              density="mini"
                               @click="askResetAffiliateUser(entry)"
                             >
                               {{ t('common.delete') }}
-                            </button>
+                            </UiButton>
                           </div>
                         </td>
                       </tr>
@@ -7409,23 +6587,25 @@
                     {{ t('admin.settings.features.affiliate.customUsers.totalLabel', { total: affiliateState.total }) }}
                   </span>
                   <div class="flex items-center gap-2">
-                    <button
+                    <UiButton
                       type="button"
-                      class="btn btn-secondary btn-sm"
+                      variant="secondary"
+                      density="compact"
                       :disabled="affiliateState.page <= 1"
                       @click="changeAffiliatePage(affiliateState.page - 1)"
                     >
                       {{ t('pagination.previous') }}
-                    </button>
+                    </UiButton>
                     <span class="text-gray-500">{{ affiliateState.page }} / {{ Math.max(1, Math.ceil(affiliateState.total / affiliateState.pageSize)) }}</span>
-                    <button
+                    <UiButton
                       type="button"
-                      class="btn btn-secondary btn-sm"
+                      variant="secondary"
+                      density="compact"
                       :disabled="affiliateState.page >= Math.ceil(affiliateState.total / affiliateState.pageSize)"
                       @click="changeAffiliatePage(affiliateState.page + 1)"
                     >
                       {{ t('pagination.next') }}
-                    </button>
+                    </UiButton>
                   </div>
                 </div>
               </div>
@@ -7434,18 +6614,15 @@
         </div>
 
         <!-- Affiliate add/edit modal -->
-        <div
-          v-if="affiliateModal.open"
-          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          @click.self="closeAffiliateModal"
+        <UiDialog
+          :show="affiliateModal.open"
+          :title="affiliateModal.mode === 'add' ? t('admin.settings.features.affiliate.modal.addTitle') : t('admin.settings.features.affiliate.modal.editTitle')"
+          width="narrow"
+          :close-on-click-outside="true"
+          @close="closeAffiliateModal"
         >
-          <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-dark-900">
-            <h3 class="mb-4 text-lg font-semibold">
-              {{ affiliateModal.mode === 'add' ? t('admin.settings.features.affiliate.modal.addTitle') : t('admin.settings.features.affiliate.modal.editTitle') }}
-            </h3>
             <div class="space-y-4">
               <div v-if="affiliateModal.mode === 'add'">
-                <label class="input-label">{{ t('admin.settings.features.affiliate.modal.userLabel') }}</label>
                 <!-- Chip showing the picked user; clicking it re-opens the search -->
                 <div
                   v-if="affiliateModal.selectedUser"
@@ -7455,21 +6632,22 @@
                     <span class="font-medium text-gray-900 dark:text-white">{{ affiliateModal.selectedUser.email }}</span>
                     <span class="ml-1 text-xs text-gray-500">({{ affiliateModal.selectedUser.username }})</span>
                   </div>
-                  <button
+                  <UiIconButton
                     type="button"
-                    class="text-lg leading-none text-gray-400 hover:text-red-600"
-                    :title="t('admin.settings.features.affiliate.modal.changeUser')"
+                    variant="ghost"
+                    density="mini"
+                    icon="x"
+                    :label="t('admin.settings.features.affiliate.modal.changeUser')"
                     @click="clearSelectedAffiliateUser"
-                  >
-                    ×
-                  </button>
+                  />
                 </div>
                 <!-- Search input + result dropdown — hidden once a selection is made -->
                 <template v-else>
-                  <input
+                  <UiTextField
                     v-model="affiliateModal.userQuery"
                     type="text"
-                    class="input"
+                    density="compact"
+                    :label="t('admin.settings.features.affiliate.modal.userLabel')"
                     :placeholder="t('admin.settings.features.affiliate.modal.userPlaceholder')"
                     @input="onAffiliateUserSearchInput"
                   />
@@ -7477,36 +6655,40 @@
                     v-if="affiliateModal.userResults.length > 0"
                     class="mt-1 max-h-40 overflow-y-auto rounded border border-gray-200 dark:border-dark-700"
                   >
-                    <button
+                    <UiButton
                       v-for="u in affiliateModal.userResults"
                       :key="u.id"
                       type="button"
-                      class="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-dark-800"
+                      variant="quiet"
+                      density="compact"
+                      block
+                      class="justify-start rounded-none px-3 text-left text-sm"
                       @click="selectAffiliateUser(u)"
                     >
                       {{ u.email }} <span class="text-xs text-gray-500">({{ u.username }})</span>
-                    </button>
+                    </UiButton>
                   </div>
                 </template>
               </div>
               <div v-else>
-                <label class="input-label">{{ t('admin.settings.features.affiliate.modal.userLabel') }}</label>
-                <input
+                <UiTextField
                   type="text"
-                  class="input"
-                  :value="affiliateModal.editingEntry ? affiliateModal.editingEntry.email : ''"
+                  density="compact"
+                  :label="t('admin.settings.features.affiliate.modal.userLabel')"
+                  :model-value="affiliateModal.editingEntry ? affiliateModal.editingEntry.email : ''"
                   disabled
                 />
               </div>
 
               <div>
-                <label class="input-label">{{ t('admin.settings.features.affiliate.modal.codeLabel') }}</label>
-                <input
+                <UiTextField
                   v-model="affiliateModal.code"
                   type="text"
-                  class="input font-mono"
+                  density="compact"
+                  monospace
+                  :label="t('admin.settings.features.affiliate.modal.codeLabel')"
                   :placeholder="t('admin.settings.features.affiliate.modal.codePlaceholder')"
-                  maxlength="32"
+                  :maxlength="32"
                 />
                 <p class="mt-1 text-xs text-gray-400">
                   {{ t('admin.settings.features.affiliate.modal.codeHint') }}
@@ -7514,26 +6696,26 @@
               </div>
 
               <div>
-                <label class="input-label">{{ t('admin.settings.features.affiliate.modal.rateLabel') }}</label>
-                <div class="relative">
-                  <input
-                    v-model="affiliateModal.rate"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    class="input pr-8"
-                    :placeholder="t('admin.settings.features.affiliate.modal.ratePlaceholder')"
-                  />
-                  <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
-                </div>
+                <UiTextField
+                  v-model="affiliateModal.rate"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  density="compact"
+                  :label="t('admin.settings.features.affiliate.modal.rateLabel')"
+                  :placeholder="t('admin.settings.features.affiliate.modal.ratePlaceholder')"
+                >
+                  <template #suffix>%</template>
+                </UiTextField>
                 <p class="mt-1 text-xs text-gray-400">
                   {{ t('admin.settings.features.affiliate.modal.rateHint') }}
                 </p>
               </div>
             </div>
 
-            <div class="mt-6 flex items-center justify-between gap-3">
+            <template #footer>
+            <div class="flex w-full items-center justify-between gap-3">
               <p
                 v-if="!affiliateModalCanSubmit"
                 class="text-xs text-gray-500 dark:text-gray-400"
@@ -7542,71 +6724,80 @@
               </p>
               <span v-else></span>
               <div class="flex gap-2">
-                <button type="button" class="btn btn-secondary" @click="closeAffiliateModal">
+                <UiButton type="button" variant="secondary" density="compact" @click="closeAffiliateModal">
                   {{ t('common.cancel') }}
-                </button>
-                <button
+                </UiButton>
+                <UiButton
                   type="button"
-                  class="btn btn-primary"
+                  variant="primary"
+                  density="compact"
+                  :loading="affiliateModal.saving"
                   :disabled="affiliateModal.saving || !affiliateModalCanSubmit"
                   @click="submitAffiliateModal"
                 >
                   {{ affiliateModal.saving ? t('common.saving') : t('common.save') }}
-                </button>
+                </UiButton>
               </div>
             </div>
-          </div>
-        </div>
+            </template>
+        </UiDialog>
 
         <!-- Affiliate batch rate modal -->
-        <div
-          v-if="affiliateBatchModal.open"
-          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          @click.self="affiliateBatchModal.open = false"
+        <UiDialog
+          :show="affiliateBatchModal.open"
+          :title="t('admin.settings.features.affiliate.batchModal.title', { count: affiliateState.selected.length })"
+          width="narrow"
+          :close-on-click-outside="true"
+          @close="affiliateBatchModal.open = false"
         >
-          <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-dark-900">
-            <h3 class="mb-4 text-lg font-semibold">
-              {{ t('admin.settings.features.affiliate.batchModal.title', { count: affiliateState.selected.length }) }}
-            </h3>
             <p class="mb-4 text-sm text-gray-500">
               {{ t('admin.settings.features.affiliate.batchModal.hint') }}
             </p>
             <div class="relative">
-              <input
+              <UiTextField
                 v-model="affiliateBatchModal.rate"
                 type="number"
                 step="0.01"
                 min="0"
                 max="100"
-                class="input pr-8"
+                density="compact"
+                :label="t('admin.settings.features.affiliate.batchModal.title', { count: affiliateState.selected.length })"
                 :placeholder="t('admin.settings.features.affiliate.batchModal.placeholder')"
-              />
-              <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+              >
+                <template #suffix>%</template>
+              </UiTextField>
             </div>
             <p class="mt-2 text-xs text-gray-400">
               {{ t('admin.settings.features.affiliate.batchModal.clearHint') }}
             </p>
-            <div class="mt-6 flex justify-end gap-2">
-              <button type="button" class="btn btn-secondary" @click="affiliateBatchModal.open = false">
+            <template #footer>
+              <UiButton type="button" variant="secondary" density="compact" @click="affiliateBatchModal.open = false">
                 {{ t('common.cancel') }}
-              </button>
-              <button
+              </UiButton>
+              <UiButton
                 type="button"
-                class="btn btn-primary"
+                variant="primary"
+                density="compact"
+                :loading="affiliateBatchModal.saving"
                 :disabled="affiliateBatchModal.saving"
                 @click="submitAffiliateBatchModal"
               >
                 {{ affiliateBatchModal.saving ? t('common.saving') : t('common.save') }}
-              </button>
-            </div>
-          </div>
-        </div>
+              </UiButton>
+            </template>
+        </UiDialog>
 
         </div><!-- /Tab: Features -->
 
         <!-- Tab: Email -->
         <!-- Tab: Payment -->
-        <div v-show="activeTab === 'payment'" class="settings-panel">
+        <div
+          id="settings-panel-payment"
+          v-show="activeTab === 'payment'"
+          class="settings-panel"
+          role="tabpanel"
+          aria-labelledby="settings-tab-payment"
+        >
           <!-- Payment System Settings -->
           <div class="settings-section">
             <div
@@ -7623,19 +6814,7 @@
                   rel="noopener noreferrer"
                   class="ml-2 inline-flex items-center text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
                 >
-                  <svg
-                    class="mr-0.5 h-3.5 w-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                    />
-                  </svg>
+                  <Icon name="externalLink" size="xs" class="mr-0.5" />
                   {{ t("admin.settings.payment.configGuide") }}
                 </a>
               </p>
@@ -7657,29 +6836,25 @@
                 <!-- Row 1: Product name -->
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div>
-                    <label class="input-label">{{
-                      t("admin.settings.payment.productNamePrefix")
-                    }}</label
-                    ><input
+                    <UiTextField
                       v-model="form.payment_product_name_prefix"
                       type="text"
-                      class="input"
+                      density="compact"
+                      :label="t('admin.settings.payment.productNamePrefix')"
                       placeholder="Sub2API"
                     />
                   </div>
                   <div>
-                    <label class="input-label">{{
-                      t("admin.settings.payment.productNameSuffix")
-                    }}</label
-                    ><input
+                    <UiTextField
                       v-model="form.payment_product_name_suffix"
                       type="text"
-                      class="input"
+                      density="compact"
+                      :label="t('admin.settings.payment.productNameSuffix')"
                       placeholder="CNY"
                     />
                   </div>
                   <div>
-                    <label class="input-label">{{
+                    <label class="ui-field-label">{{
                       t("admin.settings.payment.preview")
                     }}</label>
                     <div
@@ -7696,11 +6871,8 @@
                 <!-- Row 2: Balance toggle + amounts -->
                 <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
                   <div>
-                    <label class="input-label">{{
-                      t("admin.settings.payment.minAmount")
-                    }}</label
-                    ><input
-                      :value="form.payment_min_amount || ''"
+                    <UiTextField
+                      :model-value="form.payment_min_amount || ''"
                       @input="
                         form.payment_min_amount =
                           parseFloat(
@@ -7710,16 +6882,14 @@
                       type="number"
                       step="0.01"
                       min="0"
-                      class="input"
+                      density="compact"
+                      :label="t('admin.settings.payment.minAmount')"
                       :placeholder="t('admin.settings.payment.noLimit')"
                     />
                   </div>
                   <div>
-                    <label class="input-label">{{
-                      t("admin.settings.payment.maxAmount")
-                    }}</label
-                    ><input
-                      :value="form.payment_max_amount || ''"
+                    <UiTextField
+                      :model-value="form.payment_max_amount || ''"
                       @input="
                         form.payment_max_amount =
                           parseFloat(
@@ -7729,16 +6899,14 @@
                       type="number"
                       step="0.01"
                       min="0"
-                      class="input"
+                      density="compact"
+                      :label="t('admin.settings.payment.maxAmount')"
                       :placeholder="t('admin.settings.payment.noLimit')"
                     />
                   </div>
                   <div>
-                    <label class="input-label">{{
-                      t("admin.settings.payment.dailyLimit")
-                    }}</label
-                    ><input
-                      :value="form.payment_daily_limit || ''"
+                    <UiTextField
+                      :model-value="form.payment_daily_limit || ''"
                       @input="
                         form.payment_daily_limit =
                           parseFloat(
@@ -7748,16 +6916,14 @@
                       type="number"
                       step="0.01"
                       min="0"
-                      class="input"
+                      density="compact"
+                      :label="t('admin.settings.payment.dailyLimit')"
                       :placeholder="t('admin.settings.payment.noLimit')"
                     />
                   </div>
                   <div>
-                    <label class="input-label">{{
-                      t("admin.settings.payment.balanceRechargeMultiplier")
-                    }}</label>
-                    <input
-                      :value="form.payment_balance_recharge_multiplier || ''"
+                    <UiTextField
+                      :model-value="form.payment_balance_recharge_multiplier || ''"
                       @input="
                         form.payment_balance_recharge_multiplier =
                           parseFloat(
@@ -7767,7 +6933,8 @@
                       type="number"
                       step="0.01"
                       min="0.01"
-                      class="input"
+                      density="compact"
+                      :label="t('admin.settings.payment.balanceRechargeMultiplier')"
                     />
                     <p class="mt-0.5 text-xs text-gray-400">
                       {{
@@ -7790,11 +6957,8 @@
                     </p>
                   </div>
                   <div>
-                    <label class="input-label">{{
-                      t("admin.settings.payment.subscriptionUsdToCnyRate")
-                    }}</label>
-                    <input
-                      :value="form.payment_subscription_usd_to_cny_rate || ''"
+                    <UiTextField
+                      :model-value="form.payment_subscription_usd_to_cny_rate || ''"
                       @input="
                         form.payment_subscription_usd_to_cny_rate =
                           parseFloat(
@@ -7804,7 +6968,8 @@
                       type="number"
                       step="0.01"
                       min="0"
-                      class="input"
+                      density="compact"
+                      :label="t('admin.settings.payment.subscriptionUsdToCnyRate')"
                       :placeholder="
                         t(
                           'admin.settings.payment.subscriptionUsdToCnyRateDisabled',
@@ -7818,37 +6983,31 @@
                     </p>
                   </div>
                   <div>
-                    <label class="input-label">{{
-                      t("admin.settings.payment.rechargeFeeRate")
-                    }}</label>
-                    <div class="relative">
-                      <input
-                        :value="form.payment_recharge_fee_rate ?? ''"
-                        @input="
-                          form.payment_recharge_fee_rate = Math.min(
-                            100,
-                            Math.max(
-                              0,
-                              Math.round(
-                                parseFloat(
-                                  ($event.target as HTMLInputElement).value ||
-                                    '0',
-                                ) * 100,
-                              ) / 100,
-                            ),
-                          )
-                        "
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        class="input pr-8"
-                      />
-                      <span
-                        class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400"
-                        >%</span
-                      >
-                    </div>
+                    <UiTextField
+                      :model-value="form.payment_recharge_fee_rate ?? ''"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      density="compact"
+                      :label="t('admin.settings.payment.rechargeFeeRate')"
+                      @input="
+                        form.payment_recharge_fee_rate = Math.min(
+                          100,
+                          Math.max(
+                            0,
+                            Math.round(
+                              parseFloat(
+                                ($event.target as HTMLInputElement).value ||
+                                  '0',
+                              ) * 100,
+                            ) / 100,
+                          ),
+                        )
+                      "
+                    >
+                      <template #suffix>%</template>
+                    </UiTextField>
                     <p class="mt-0.5 text-xs text-gray-400">
                       {{ t("admin.settings.payment.rechargeFeeRateHint") }}
                     </p>
@@ -7866,15 +7025,13 @@
                     </p>
                   </div>
                   <div>
-                    <label class="input-label"
-                      >{{ t("admin.settings.payment.orderTimeout") }}
-                      <span class="text-red-500">*</span></label
-                    ><input
+                    <UiTextField
                       v-model.number="form.payment_order_timeout_minutes"
                       type="number"
                       min="1"
-                      class="input"
+                      density="compact"
                       required
+                      :label="t('admin.settings.payment.orderTimeout')"
                     />
                     <p class="mt-0.5 text-xs text-gray-400">
                       {{ t("admin.settings.payment.orderTimeoutHint") }}
@@ -7884,56 +7041,39 @@
                 <!-- Row 3: Pending orders + load balance + cancel rate limit (all in one row) -->
                 <div class="flex flex-wrap items-end gap-4">
                   <div class="w-28">
-                    <label class="input-label">{{
-                      t("admin.settings.payment.maxPendingOrders")
-                    }}</label
-                    ><input
+                    <UiTextField
                       v-model.number="form.payment_max_pending_orders"
                       type="number"
                       min="1"
-                      class="input"
+                      density="compact"
+                      :label="t('admin.settings.payment.maxPendingOrders')"
                     />
                   </div>
                   <div>
-                    <label class="input-label">{{
+                    <label class="ui-field-label">{{
                       t("admin.settings.payment.loadBalanceStrategy")
                     }}</label>
                     <Select
                       v-model="form.payment_load_balance_strategy"
                       :options="loadBalanceOptions"
+                      density="compact"
                       class="w-40"
                     />
                   </div>
                   <div>
-                    <label class="input-label">{{
+                    <label class="ui-field-label">{{
                       t("admin.settings.payment.cancelRateLimit")
                     }}</label>
                     <div class="flex items-center gap-2">
-                      <button
-                        type="button"
-                        :class="[
-                          'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                          form.payment_cancel_rate_limit_enabled
-                            ? 'bg-primary-500'
-                            : 'bg-gray-300 dark:bg-dark-600',
-                        ]"
-                        @click="
-                          form.payment_cancel_rate_limit_enabled =
-                            !form.payment_cancel_rate_limit_enabled
-                        "
-                      >
-                        <span
-                          :class="[
-                            'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                            form.payment_cancel_rate_limit_enabled
-                              ? 'translate-x-5'
-                              : 'translate-x-0',
-                          ]"
-                        />
-                      </button>
+                      <Toggle
+                        v-model="form.payment_cancel_rate_limit_enabled"
+                        :label="t('admin.settings.payment.cancelRateLimit')"
+                        :native-input="false"
+                      />
                       <Select
                         v-model="form.payment_cancel_rate_limit_window_mode"
                         :options="cancelRateLimitModeOptions"
+                        density="compact"
                         class="w-24"
                         :disabled="!form.payment_cancel_rate_limit_enabled"
                       />
@@ -7948,17 +7088,21 @@
                           t("admin.settings.payment.cancelRateLimitEvery")
                         }}</span
                       >
-                      <input
+                      <UiTextField
                         v-model.number="form.payment_cancel_rate_limit_window"
                         type="number"
                         min="1"
                         required
-                        class="input w-14 text-center"
+                        class="w-14"
+                        density="compact"
+                        text-align="center"
                         :disabled="!form.payment_cancel_rate_limit_enabled"
+                        :input-attrs="{ 'aria-label': t('admin.settings.payment.cancelRateLimitEvery') }"
                       />
                       <Select
                         v-model="form.payment_cancel_rate_limit_unit"
                         :options="cancelRateLimitUnitOptions"
+                        density="compact"
                         class="w-28"
                         :disabled="!form.payment_cancel_rate_limit_enabled"
                       />
@@ -7973,13 +7117,16 @@
                           t("admin.settings.payment.cancelRateLimitAllowMax")
                         }}</span
                       >
-                      <input
+                      <UiTextField
                         v-model.number="form.payment_cancel_rate_limit_max"
                         type="number"
                         min="1"
                         required
-                        class="input w-14 text-center"
+                        class="w-14"
+                        density="compact"
+                        text-align="center"
                         :disabled="!form.payment_cancel_rate_limit_enabled"
+                        :input-attrs="{ 'aria-label': t('admin.settings.payment.cancelRateLimitAllowMax') }"
                       />
                       <span
                         :class="[
@@ -7995,64 +7142,32 @@
                     </div>
                   </div>
                   <div>
-                    <label class="input-label">{{
+                    <label class="ui-field-label">{{
                       t("admin.settings.payment.alipayForceQRCode")
                     }}</label>
                     <div class="flex items-center gap-2">
-                      <button
-                        type="button"
-                        :class="[
-                          'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                          form.payment_alipay_force_qrcode
-                            ? 'bg-primary-500'
-                            : 'bg-gray-300 dark:bg-dark-600',
-                        ]"
-                        @click="
-                          form.payment_alipay_force_qrcode =
-                            !form.payment_alipay_force_qrcode
-                        "
-                      >
-                        <span
-                          :class="[
-                            'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                            form.payment_alipay_force_qrcode
-                              ? 'translate-x-5'
-                              : 'translate-x-0',
-                          ]"
-                        />
-                      </button>
+                      <Toggle
+                        :model-value="!!form.payment_alipay_force_qrcode"
+                        @update:model-value="form.payment_alipay_force_qrcode = $event"
+                        :label="t('admin.settings.payment.alipayForceQRCode')"
+                        :native-input="false"
+                      />
                       <span class="text-sm text-gray-500 dark:text-gray-400">{{
                         t("admin.settings.payment.alipayForceQRCodeHint")
                       }}</span>
                     </div>
                   </div>
                   <div>
-                    <label class="input-label">{{
+                    <label class="ui-field-label">{{
                       t("admin.settings.payment.alipayMobilePrecreateDeepLink")
                     }}</label>
                     <div class="flex items-center gap-2">
-                      <button
-                        type="button"
-                        :class="[
-                          'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                          form.payment_alipay_mobile_precreate_deep_link
-                            ? 'bg-primary-500'
-                            : 'bg-gray-300 dark:bg-dark-600',
-                        ]"
-                        @click="
-                          form.payment_alipay_mobile_precreate_deep_link =
-                            !form.payment_alipay_mobile_precreate_deep_link
-                        "
-                      >
-                        <span
-                          :class="[
-                            'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                            form.payment_alipay_mobile_precreate_deep_link
-                              ? 'translate-x-5'
-                              : 'translate-x-0',
-                          ]"
-                        />
-                      </button>
+                      <Toggle
+                        :model-value="!!form.payment_alipay_mobile_precreate_deep_link"
+                        @update:model-value="form.payment_alipay_mobile_precreate_deep_link = $event"
+                        :label="t('admin.settings.payment.alipayMobilePrecreateDeepLink')"
+                        :native-input="false"
+                      />
                       <span class="text-sm text-gray-500 dark:text-gray-400">{{
                         t("admin.settings.payment.alipayMobilePrecreateDeepLinkHint")
                       }}</span>
@@ -8061,24 +7176,21 @@
                 </div>
                 <!-- Row 4: Enabled payment types (provider badges like sub2apipay) -->
                 <div>
-                  <label class="input-label">{{
+                  <label class="ui-field-label">{{
                     t("admin.settings.payment.enabledPaymentTypes")
                   }}</label>
                   <div class="mt-1.5 flex flex-wrap gap-2">
-                    <button
+                    <UiButton
                       v-for="pt in allPaymentTypes"
                       :key="pt.value"
                       type="button"
+                      :aria-pressed="isPaymentTypeEnabled(pt.value)"
+                      :variant="isPaymentTypeEnabled(pt.value) ? 'primary' : 'secondary'"
+                      density="compact"
                       @click="togglePaymentType(pt.value)"
-                      :class="[
-                        'rounded-lg border px-3 py-1.5 text-sm font-medium transition-all',
-                        isPaymentTypeEnabled(pt.value)
-                          ? 'border-primary-500 bg-primary-500 text-white shadow-sm'
-                          : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300 dark:hover:border-dark-500',
-                      ]"
                     >
                       {{ pt.label }}
-                    </button>
+                    </UiButton>
                   </div>
                   <p class="mt-2 text-xs text-gray-400 dark:text-gray-500">
                     {{ t("admin.settings.payment.enabledPaymentTypesHint") }}
@@ -8089,26 +7201,14 @@
                       class="ml-1 text-primary-500 hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300"
                     >
                       {{ t("admin.settings.payment.findProvider") }}
-                      <svg
-                        class="mb-0.5 ml-0.5 inline h-3 w-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                        />
-                      </svg>
+                      <Icon name="externalLink" size="xs" class="mb-0.5 ml-0.5 inline" />
                     </a>
                   </p>
                 </div>
                 <!-- Row 5: Help image + text -->
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label class="input-label">{{
+                    <label class="ui-field-label">{{
                       t("admin.settings.payment.helpImage")
                     }}</label>
                     <ImageUpload
@@ -8121,17 +7221,14 @@
                     />
                   </div>
                   <div>
-                    <label class="input-label">{{
-                      t("admin.settings.payment.helpText")
-                    }}</label>
-                    <textarea
+                    <UiTextArea
                       v-model="form.payment_help_text"
-                      rows="3"
-                      class="input"
+                      :rows="3"
+                      :label="t('admin.settings.payment.helpText')"
                       :placeholder="
                         t('admin.settings.payment.helpTextPlaceholder')
                       "
-                    ></textarea>
+                    />
                   </div>
                 </div>
               </template>
@@ -8157,7 +7254,13 @@
           />
         </div>
 
-        <div v-show="activeTab === 'email'" class="settings-panel">
+        <div
+          id="settings-panel-email"
+          v-show="activeTab === 'email'"
+          class="settings-panel"
+          role="tabpanel"
+          aria-labelledby="settings-tab-email"
+        >
           <!-- Email disabled hint - show when email_verify_enabled is off -->
           <div v-if="!form.email_verify_enabled" class="settings-section">
             <div class="p-6">
@@ -8192,102 +7295,58 @@
                   {{ t("admin.settings.smtp.description") }}
                 </p>
               </div>
-              <button
+              <UiButton
                 type="button"
                 @click="testSmtpConnection"
-                :disabled="testingSmtp || loadFailed"
-                class="btn btn-secondary btn-sm"
+                :disabled="loadFailed"
+                :loading="testingSmtp"
+                variant="secondary"
+                density="compact"
               >
-                <svg
-                  v-if="testingSmtp"
-                  class="h-4 w-4 animate-spin"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    class="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    stroke-width="4"
-                  ></circle>
-                  <path
-                    class="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
                 {{
                   testingSmtp
                     ? t("admin.settings.smtp.testing")
                     : t("admin.settings.smtp.testConnection")
                 }}
-              </button>
+              </UiButton>
             </div>
             <div class="space-y-6 p-6">
               <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div>
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.smtp.host") }}
-                  </label>
-                  <input
+                  <UiTextField
                     v-model="form.smtp_host"
-                    type="text"
-                    class="input"
+                    density="compact"
+                    :label="t('admin.settings.smtp.host')"
                     :placeholder="t('admin.settings.smtp.hostPlaceholder')"
                   />
                 </div>
                 <div>
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.smtp.port") }}
-                  </label>
-                  <input
+                  <UiTextField
                     v-model.number="form.smtp_port"
                     type="number"
+                    density="compact"
                     min="1"
                     max="65535"
-                    class="input"
+                    :label="t('admin.settings.smtp.port')"
                     :placeholder="t('admin.settings.smtp.portPlaceholder')"
                   />
                 </div>
                 <div>
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.smtp.username") }}
-                  </label>
-                  <input
+                  <UiTextField
                     v-model="form.smtp_username"
-                    type="text"
-                    class="input"
+                    density="compact"
+                    :label="t('admin.settings.smtp.username')"
                     :placeholder="t('admin.settings.smtp.usernamePlaceholder')"
                   />
                 </div>
                 <div>
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.smtp.password") }}
-                  </label>
-                  <input
-                    v-model="form.smtp_password"
-                    type="password"
-                    class="input"
+                  <UiPasswordField
+                    :model-value="form.smtp_password"
                     autocomplete="new-password"
-                    autocapitalize="off"
-                    spellcheck="false"
-                    @keydown="smtpPasswordManuallyEdited = true"
-                    @paste="smtpPasswordManuallyEdited = true"
-                    :placeholder="
-                      form.smtp_password_configured
-                        ? t('admin.settings.smtp.passwordConfiguredPlaceholder')
-                        : t('admin.settings.smtp.passwordPlaceholder')
-                    "
+                    :label="t('admin.settings.smtp.password')"
+                    :input-attrs="{ autocapitalize: 'off', spellcheck: false }"
+                    :placeholder="form.smtp_password_configured ? t('admin.settings.smtp.passwordConfiguredPlaceholder') : t('admin.settings.smtp.passwordPlaceholder')"
+                    @update:model-value="form.smtp_password = $event; smtpPasswordManuallyEdited = true"
                   />
                   <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                     {{
@@ -8298,28 +7357,19 @@
                   </p>
                 </div>
                 <div>
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.smtp.fromEmail") }}
-                  </label>
-                  <input
+                  <UiTextField
                     v-model="form.smtp_from_email"
                     type="email"
-                    class="input"
+                    density="compact"
+                    :label="t('admin.settings.smtp.fromEmail')"
                     :placeholder="t('admin.settings.smtp.fromEmailPlaceholder')"
                   />
                 </div>
                 <div>
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.smtp.fromName") }}
-                  </label>
-                  <input
+                  <UiTextField
                     v-model="form.smtp_from_name"
-                    type="text"
-                    class="input"
+                    density="compact"
+                    :label="t('admin.settings.smtp.fromName')"
                     :placeholder="t('admin.settings.smtp.fromNamePlaceholder')"
                   />
                 </div>
@@ -8357,54 +7407,28 @@
             <div class="p-6">
               <div class="flex items-end gap-4">
                 <div class="flex-1">
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.testEmail.recipientEmail") }}
-                  </label>
-                  <input
+                  <UiTextField
                     v-model="testEmailAddress"
                     type="email"
-                    class="input"
-                    :placeholder="
-                      t('admin.settings.testEmail.recipientEmailPlaceholder')
-                    "
+                    density="compact"
+                    :label="t('admin.settings.testEmail.recipientEmail')"
+                    :placeholder="t('admin.settings.testEmail.recipientEmailPlaceholder')"
                   />
                 </div>
-                <button
+                <UiButton
                   type="button"
                   @click="sendTestEmail"
-                  :disabled="
-                    sendingTestEmail || !testEmailAddress || loadFailed
-                  "
-                  class="btn btn-secondary"
+                  :disabled="!testEmailAddress || loadFailed"
+                  :loading="sendingTestEmail"
+                  variant="secondary"
+                  density="compact"
                 >
-                  <svg
-                    v-if="sendingTestEmail"
-                    class="h-4 w-4 animate-spin"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      class="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      stroke-width="4"
-                    ></circle>
-                    <path
-                      class="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
                   {{
                     sendingTestEmail
                       ? t("admin.settings.testEmail.sending")
                       : t("admin.settings.testEmail.sendTestEmail")
                   }}
-                </button>
+                </UiButton>
               </div>
             </div>
           </div>
@@ -8461,41 +7485,27 @@
                 <Toggle v-model="form.balance_low_notify_enabled" />
               </div>
               <div v-if="form.balance_low_notify_enabled">
-                <label
-                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >{{ t("admin.settings.balanceNotify.threshold") }}</label
+                <UiTextField
+                  v-model.number="form.balance_low_notify_threshold"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  density="compact"
+                  :label="t('admin.settings.balanceNotify.threshold')"
+                  :description="t('admin.settings.balanceNotify.thresholdHint')"
                 >
-                <div class="relative">
-                  <span
-                    class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                    >$</span
-                  >
-                  <input
-                    v-model.number="form.balance_low_notify_threshold"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    class="input pl-7"
-                  />
-                </div>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t("admin.settings.balanceNotify.thresholdHint") }}
-                </p>
+                  <template #prefix>$</template>
+                </UiTextField>
               </div>
               <div>
-                <label
-                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >{{ t("admin.settings.balanceNotify.rechargeUrl") }}</label
-                >
-                <input
+                <UiTextField
                   v-model="form.balance_low_notify_recharge_url"
                   type="url"
-                  class="input"
+                  density="compact"
+                  :label="t('admin.settings.balanceNotify.rechargeUrl')"
+                  :description="t('admin.settings.balanceNotify.rechargeUrlHint')"
                   :placeholder="currentOrigin"
                 />
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t("admin.settings.balanceNotify.rechargeUrlHint") }}
-                </p>
               </div>
             </div>
           </div>
@@ -8532,42 +7542,40 @@
                     :key="index"
                     class="flex items-center gap-2"
                   >
-                    <label
-                      class="relative inline-flex items-center cursor-pointer shrink-0"
-                    >
-                      <input
-                        type="checkbox"
-                        :checked="!entry.disabled"
-                        @change="entry.disabled = !entry.disabled"
-                        class="sr-only peer"
-                      />
-                      <div
-                        class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:after:border-gray-500 peer-checked:bg-primary-600"
-                      ></div>
-                    </label>
-                    <input
+                    <Toggle
+                      :model-value="!entry.disabled"
+                      :label="t('admin.settings.quotaNotify.enabled')"
+                      @update:model-value="entry.disabled = !$event"
+                    />
+                    <UiTextField
                       v-model="entry.email"
                       type="email"
-                      class="input flex-1"
+                      density="compact"
+                      class="flex-1"
+                      :input-attrs="{
+                        'aria-label': t('admin.settings.quotaNotify.emailPlaceholder'),
+                      }"
                       :placeholder="
                         t('admin.settings.quotaNotify.emailPlaceholder')
                       "
                     />
-                    <button
+                    <UiIconButton
                       @click="form.account_quota_notify_emails.splice(index, 1)"
-                      class="btn btn-secondary px-2"
+                      variant="danger"
+                      density="compact"
+                      :label="t('common.delete')"
+                      icon="x"
                       type="button"
-                    >
-                      <Icon name="x" size="xs" class="h-4 w-4" />
-                    </button>
+                    />
                   </div>
-                  <button
+                  <UiButton
                     @click="addQuotaNotifyEmail"
-                    class="btn btn-secondary btn-sm"
+                    variant="secondary"
+                    density="compact"
                     type="button"
                   >
                     + {{ t("admin.settings.quotaNotify.addEmail") }}
-                  </button>
+                  </UiButton>
                 </div>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   {{ t("admin.settings.quotaNotify.emailsHint") }}
@@ -8579,43 +7587,30 @@
         <!-- /Tab: Email -->
 
         <!-- Tab: Backup -->
-        <div v-show="activeTab === 'backup'" class="settings-panel settings-panel-embedded">
+        <div
+          id="settings-panel-backup"
+          v-show="activeTab === 'backup'"
+          class="settings-panel settings-panel-embedded"
+          role="tabpanel"
+          aria-labelledby="settings-tab-backup"
+        >
           <BackupSettings />
         </div>
 
         <!-- Save Button -->
         <div v-show="activeTab !== 'backup'" class="flex justify-end">
-          <button
+          <UiButton
             type="submit"
             :disabled="saving || loadFailed"
-            class="btn btn-primary"
+            variant="primary"
+            :loading="saving"
           >
-            <svg
-              v-if="saving"
-              class="h-4 w-4 animate-spin"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              ></circle>
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
             {{
               saving
                 ? t("admin.settings.saving")
                 : t("admin.settings.saveSettings")
             }}
-          </button>
+          </UiButton>
         </div>
       </form>
 
@@ -8649,6 +7644,16 @@
         danger
         @confirm="handleAffiliateConfirm"
         @cancel="cancelAffiliateConfirm"
+      />
+      <ConfirmDialog
+        :show="settingsConfirmDialog.show"
+        :title="settingsConfirmDialog.title"
+        :message="settingsConfirmDialog.message"
+        :confirm-text="settingsConfirmDialog.confirmText"
+        :danger="settingsConfirmDialog.danger"
+        :pending="settingsConfirmDialog.pending"
+        @confirm="handleSettingsConfirm"
+        @cancel="cancelSettingsConfirm"
       />
       <!-- 关闭 step-up 开关等敏感保存操作触发的 TOTP 二次验证 -->
       <TotpStepUpDialog :controller="settingsStepUp" />
@@ -8694,11 +7699,24 @@ import type {
 import type { ProviderInstance, SubscriptionPlan } from "@/types/payment";
 import AppLayout from "@/components/layout/AppLayout.vue";
 import Icon from "@/components/icons/Icon.vue";
-import Select from "@/components/common/Select.vue";
-import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
+import {
+  UiButton,
+  UiCheckbox,
+  UiConfirmDialog as ConfirmDialog,
+  UiDialog,
+  UiIconButton,
+  UiPasswordField,
+  UiProgressBar,
+  UiRadioGroup,
+  UiSelect as Select,
+  UiSpinner,
+  UiSwitch as Toggle,
+  UiTabs,
+  UiTextArea,
+  UiTextField,
+} from "@/components/ui";
 import PaymentProviderList from "@/components/payment/PaymentProviderList.vue";
 import PaymentProviderDialog from "@/components/payment/PaymentProviderDialog.vue";
-import Toggle from "@/components/common/Toggle.vue";
 import ProxySelector from "@/components/common/ProxySelector.vue";
 import ImageUpload from "@/components/common/ImageUpload.vue";
 import BackupSettings from "@/views/admin/BackupView.vue";
@@ -8775,15 +7793,20 @@ const settingsTabs = [
   { key: "email" as SettingsTab, icon: "mail" as const },
   { key: "backup" as SettingsTab, icon: "database" as const },
 ];
-
-const settingsTabKeyboardActions = {
-  ArrowLeft: -1,
-  ArrowUp: -1,
-  ArrowRight: 1,
-  ArrowDown: 1,
-  Home: "first",
-  End: "last",
-} as const;
+const settingsTabOptions = computed(() =>
+  settingsTabs.map((tab) => ({
+    value: tab.key,
+    label: t(`admin.settings.tabs.${tab.key}`),
+    icon: tab.icon,
+    id: `settings-tab-${tab.key}`,
+    controls:
+      tab.key === "security"
+        ? "settings-panel-security settings-panel-security-details"
+        : tab.key === "gateway"
+          ? "settings-panel-gateway settings-panel-gateway-details"
+          : `settings-panel-${tab.key}`,
+  })),
+);
 
 function selectSettingsTab(tab: SettingsTab): void {
   activeTab.value = tab;
@@ -8792,43 +7815,6 @@ function selectSettingsTab(tab: SettingsTab): void {
       .getElementById(`settings-tab-${tab}`)
       ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   });
-}
-
-function focusSettingsTab(tab: SettingsTab): void {
-  window.requestAnimationFrame(() => {
-    document.getElementById(`settings-tab-${tab}`)?.focus();
-  });
-}
-
-function handleSettingsTabKeydown(event: KeyboardEvent, tab: SettingsTab): void {
-  const action =
-    settingsTabKeyboardActions[
-      event.key as keyof typeof settingsTabKeyboardActions
-    ];
-  if (action === undefined) {
-    return;
-  }
-
-  event.preventDefault();
-  const currentIndex = settingsTabs.findIndex((item) => item.key === tab);
-  let nextIndex = currentIndex < 0 ? 0 : currentIndex;
-
-  if (action === "first") {
-    nextIndex = 0;
-  } else if (action === "last") {
-    nextIndex = settingsTabs.length - 1;
-  } else {
-    nextIndex =
-      (nextIndex + action + settingsTabs.length) % settingsTabs.length;
-  }
-
-  const nextTab = settingsTabs[nextIndex]?.key;
-  if (!nextTab) {
-    return;
-  }
-
-  selectSettingsTab(nextTab);
-  focusSettingsTab(nextTab);
 }
 
 const { copyToClipboard } = useClipboard();
@@ -8852,6 +7838,62 @@ const adminApiKeyMasked = ref("");
 const adminApiKeyOperating = ref(false);
 const newAdminApiKey = ref("");
 const subscriptionPlans = ref<SubscriptionPlan[]>([]);
+
+type SettingsConfirmAction = () => Promise<boolean>;
+const settingsConfirmDialog = reactive<{
+  show: boolean;
+  title: string;
+  message: string;
+  confirmText: string;
+  danger: boolean;
+  pending: boolean;
+  action: SettingsConfirmAction | null;
+}>({
+  show: false,
+  title: "",
+  message: "",
+  confirmText: "",
+  danger: true,
+  pending: false,
+  action: null,
+});
+
+function openSettingsConfirm(
+  title: string,
+  message: string,
+  confirmText: string,
+  action: SettingsConfirmAction,
+  danger = true,
+) {
+  settingsConfirmDialog.title = title;
+  settingsConfirmDialog.message = message;
+  settingsConfirmDialog.confirmText = confirmText;
+  settingsConfirmDialog.action = action;
+  settingsConfirmDialog.danger = danger;
+  settingsConfirmDialog.pending = false;
+  settingsConfirmDialog.show = true;
+}
+
+function cancelSettingsConfirm() {
+  if (settingsConfirmDialog.pending) return;
+  settingsConfirmDialog.show = false;
+  settingsConfirmDialog.action = null;
+}
+
+async function handleSettingsConfirm() {
+  const action = settingsConfirmDialog.action;
+  if (!action || settingsConfirmDialog.pending) return;
+  settingsConfirmDialog.pending = true;
+  try {
+    const succeeded = await action();
+    if (succeeded) {
+      settingsConfirmDialog.show = false;
+      settingsConfirmDialog.action = null;
+    }
+  } finally {
+    settingsConfirmDialog.pending = false;
+  }
+}
 
 // Upstream billing probe state
 const upstreamBillingProbeLoading = ref(true);
@@ -8906,6 +7948,11 @@ const streamTimeoutForm = reactive({
   threshold_count: 3,
   threshold_window_minutes: 10,
 });
+const streamTimeoutActionOptions = computed(() => [
+  { value: "temp_unsched", label: t("admin.settings.streamTimeout.actionTempUnsched") },
+  { value: "error", label: t("admin.settings.streamTimeout.actionError") },
+  { value: "none", label: t("admin.settings.streamTimeout.actionNone") },
+]);
 
 // Rectifier 状态
 const rectifierLoading = ref(true);
@@ -9452,6 +8499,7 @@ const form = reactive<SettingsForm>({
   default_user_rpm_limit: 0,
   site_name: "Sub2API",
   site_logo: "",
+  site_icon: "",
   site_subtitle: "Subscription to API Conversion Platform",
   api_base_url: "",
   contact_info: "",
@@ -9987,11 +9035,20 @@ function quotaPercentage(provider: WebSearchProviderConfig): number {
   return ((provider.quota_used ?? 0) / provider.quota_limit) * 100;
 }
 
-async function resetWebSearchUsage(idx: number) {
+function resetWebSearchUsage(idx: number) {
   const provider = webSearchConfig.providers[idx];
   if (!provider) return;
-  if (!confirm(t("admin.settings.webSearchEmulation.resetUsageConfirm")))
-    return;
+  openSettingsConfirm(
+    t("admin.settings.webSearchEmulation.title"),
+    t("admin.settings.webSearchEmulation.resetUsageConfirm"),
+    t("admin.settings.webSearchEmulation.resetUsage"),
+    () => performResetWebSearchUsage(idx),
+  );
+}
+
+async function performResetWebSearchUsage(idx: number) {
+  const provider = webSearchConfig.providers[idx];
+  if (!provider) return false;
   try {
     await adminAPI.settings.resetWebSearchUsage({
       provider_type: provider.type,
@@ -10000,8 +9057,10 @@ async function resetWebSearchUsage(idx: number) {
     appStore.showSuccess(
       t("admin.settings.webSearchEmulation.resetUsageSuccess"),
     );
+    return true;
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, t("common.error")));
+    return false;
   }
 }
 
@@ -10886,6 +9945,7 @@ function findDuplicateDefaultSubscription(
 }
 
 async function saveSettings() {
+  if (saving.value) return;
   saving.value = true;
   try {
     const normalizedTableDefaultPageSize = Math.floor(
@@ -11074,6 +10134,7 @@ async function saveSettings() {
       default_user_rpm_limit: form.default_user_rpm_limit,
       site_name: form.site_name,
       site_logo: form.site_logo,
+      site_icon: form.site_icon,
       site_subtitle: form.site_subtitle,
       api_base_url: form.api_base_url,
       contact_info: form.contact_info,
@@ -11578,20 +10639,34 @@ async function createAdminApiKey() {
     adminApiKeyMasked.value =
       result.key.substring(0, 10) + "..." + result.key.slice(-4);
     appStore.showSuccess(t("admin.settings.adminApiKey.keyGenerated"));
+    return true;
   } catch (error: unknown) {
     appStore.showError(extractApiErrorMessage(error, t("common.error")));
+    return false;
   } finally {
     adminApiKeyOperating.value = false;
   }
 }
 
-async function regenerateAdminApiKey() {
-  if (!confirm(t("admin.settings.adminApiKey.regenerateConfirm"))) return;
-  await createAdminApiKey();
+function regenerateAdminApiKey() {
+  openSettingsConfirm(
+    t("admin.settings.adminApiKey.title"),
+    t("admin.settings.adminApiKey.regenerateConfirm"),
+    t("admin.settings.adminApiKey.regenerate"),
+    createAdminApiKey,
+  );
 }
 
-async function deleteAdminApiKey() {
-  if (!confirm(t("admin.settings.adminApiKey.deleteConfirm"))) return;
+function deleteAdminApiKey() {
+  openSettingsConfirm(
+    t("admin.settings.adminApiKey.title"),
+    t("admin.settings.adminApiKey.deleteConfirm"),
+    t("admin.settings.adminApiKey.delete"),
+    performDeleteAdminApiKey,
+  );
+}
+
+async function performDeleteAdminApiKey() {
   adminApiKeyOperating.value = true;
   try {
     await adminAPI.settings.deleteAdminApiKey();
@@ -11599,8 +10674,10 @@ async function deleteAdminApiKey() {
     adminApiKeyMasked.value = "";
     newAdminApiKey.value = "";
     appStore.showSuccess(t("admin.settings.adminApiKey.keyDeleted"));
+    return true;
   } catch (error: unknown) {
     appStore.showError(extractApiErrorMessage(error, t("common.error")));
+    return false;
   } finally {
     adminApiKeyOperating.value = false;
   }
@@ -12600,12 +11677,11 @@ function changeAffiliatePage(page: number) {
   loadAffiliateUsers();
 }
 
-function toggleAffiliateSelectAll(e: Event) {
-  const checked = (e.target as HTMLInputElement).checked;
+function toggleAffiliateSelectAll(checked: boolean) {
   affiliateState.selected = checked ? affiliateState.entries.map((entry) => entry.user_id) : [];
 }
 
-function toggleAffiliateSelect(userId: number) {
+function toggleAffiliateSelect(userId: number, _checked?: boolean) {
   const idx = affiliateState.selected.indexOf(userId);
   if (idx >= 0) affiliateState.selected.splice(idx, 1);
   else affiliateState.selected.push(userId);
@@ -12796,14 +11872,6 @@ watch(
 </script>
 
 <style scoped>
-.default-sub-plan-select :deep(.select-trigger) {
-  @apply h-[42px];
-}
-
-.default-sub-delete-btn {
-  @apply h-[42px];
-}
-
 /* One settings surface per logical tab block. Individual settings remain
    sections separated by rules instead of independent nested cards. */
 .settings-panel {
@@ -12824,100 +11892,7 @@ watch(
 
 /* ============ 系统设置 Tab 导航 ============ */
 .settings-tabs-shell {
-  @apply sticky z-20 -mx-1 max-w-full min-w-0 rounded-[4px] border border-gray-200 bg-white/95 p-1.5 backdrop-blur-sm dark:border-dark-700 dark:bg-dark-900/95;
+  @apply sticky z-20 -mx-1 max-w-full min-w-0 bg-white/95 px-1 backdrop-blur-sm dark:bg-dark-900/95;
   top: calc(var(--app-header-height, 4rem) + 0.75rem);
-}
-
-.settings-tabs-scroll {
-  @apply w-full max-w-full min-w-0 overflow-x-auto;
-  scrollbar-width: thin;
-  scrollbar-gutter: stable;
-}
-
-.settings-tabs {
-  @apply flex min-w-max items-center gap-1;
-}
-
-.settings-tab {
-  @apply relative isolate flex h-10 min-w-[6.75rem] shrink-0 scroll-mx-4 items-center justify-center gap-1.5 whitespace-nowrap rounded-[3px] border border-transparent px-3 text-sm font-medium text-gray-600 outline-none transition-colors duration-150 dark:text-gray-300;
-  scroll-margin-top: calc(var(--app-header-height, 4rem) + 1rem);
-}
-
-@media (min-width: 1280px) {
-  .settings-tabs {
-    @apply min-w-full;
-  }
-
-  .settings-tab {
-    @apply min-w-0 flex-1 basis-0 overflow-hidden px-2 text-[13px];
-  }
-
-  .settings-tab-icon {
-    @apply h-6 w-6;
-  }
-}
-
-.settings-tab::before {
-  @apply absolute inset-0 -z-10 rounded-[3px] bg-gray-50 opacity-0 transition-opacity duration-150 dark:bg-dark-800;
-  content: "";
-}
-
-.settings-tab:hover::before,
-.settings-tab:focus-visible::before {
-  opacity: 1;
-}
-
-.settings-tab:focus-visible {
-  @apply ring-2 ring-primary-500/40 ring-offset-2 ring-offset-white dark:ring-offset-dark-900;
-}
-
-.settings-tab-active {
-  @apply border-primary-200 bg-primary-50 text-primary-700 dark:border-primary-700 dark:bg-primary-950/40 dark:text-primary-200;
-}
-
-.settings-tab-active::before {
-  opacity: 0;
-}
-
-.settings-tab-active::after {
-  position: absolute;
-  right: 0.75rem;
-  bottom: 0.25rem;
-  left: 0.75rem;
-  height: 2px;
-  border-radius: 9999px;
-  content: "";
-  background: rgb(37 99 235);
-}
-
-.settings-tab-icon {
-  @apply flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px] text-gray-500 transition-colors duration-150 dark:text-gray-400;
-}
-
-.settings-tab:hover .settings-tab-icon,
-.settings-tab:focus-visible .settings-tab-icon {
-  @apply text-gray-700 dark:text-gray-200;
-}
-
-.settings-tab-active .settings-tab-icon {
-  @apply bg-primary-50 text-primary-600 dark:bg-primary-400/10 dark:text-primary-300;
-}
-
-.settings-tab-label {
-  @apply min-w-0 overflow-hidden text-ellipsis whitespace-nowrap leading-none;
-}
-</style>
-
-<style>
-/* Dark-mode overrides for the settings tabs shell. Kept in an UNSCOPED block
-   because Vue's scoped-CSS compiler was dropping the `:global(.dark) ...`
-   rules in the production build, leaving inactive tabs unreadable on dark. */
-.dark .settings-tabs-shell {
-  border-color: rgb(51 65 85 / 0.65);
-  background: rgb(15 23 42 / 0.95);
-}
-
-.dark .settings-tab::before {
-  background: rgb(30 41 59 / 0.9);
 }
 </style>

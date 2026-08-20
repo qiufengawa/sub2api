@@ -1,9 +1,9 @@
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-    <div class="card flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div class="ui-panel flex min-h-0 flex-1 flex-col overflow-hidden">
       <IpGeoBatchToolbar :ips="rows.map((r) => r.client_ip)" @failed="emit('ipGeoBatchFailed')" />
 
-      <DataTable
+      <UiDataTable
         :columns="columns"
         :data="rows"
         :loading="loading"
@@ -101,12 +101,12 @@
           <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
         </template>
 
-        <template #empty><EmptyState :message="t('usage.errors.empty')" /></template>
-      </DataTable>
+        <template #empty><UiEmptyState :title="t('usage.errors.empty')" /></template>
+      </UiDataTable>
     </div>
 
     <div class="flex-shrink-0">
-      <Pagination
+      <UiPagination
         v-if="total > 0"
         :page="page"
         :page-size="pageSize"
@@ -123,12 +123,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import DataTable from '@/components/common/DataTable.vue'
-import EmptyState from '@/components/common/EmptyState.vue'
-import Pagination from '@/components/common/Pagination.vue'
 import UserErrorDetailModal from '@/components/user/UserErrorDetailModal.vue'
 import IpGeoCell from '@/components/common/IpGeoCell.vue'
 import IpGeoBatchToolbar from '@/components/common/IpGeoBatchToolbar.vue'
+import { UiDataTable, UiEmptyState, UiPagination, type Column } from '@/components/ui'
 import { formatDateTime } from '@/utils/format'
 import {
   mapErrorSortKey,
@@ -138,7 +136,6 @@ import {
   statusCodeBadgeClass,
 } from '@/utils/errorBadges'
 import type { UserErrorRequest } from '@/types'
-import type { Column } from '@/components/common/types'
 
 const props = defineProps<{
   rows: UserErrorRequest[]

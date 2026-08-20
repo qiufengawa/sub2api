@@ -52,3 +52,8 @@
 - Search, result count, refresh, error, and retry controls were visible and non-overlapping at all three viewports.
 - The local channel endpoint returned `internal error`, so live row rendering could not be browser-validated in this pass. Expand/collapse, complete details, custom rates, peak rates, placeholders, initial loading, retained-row refresh, refresh failure, stale response protection, and unmount cancellation are covered by the component tests above and remain a final fixture-browser gate.
 - The temporary preview administrator password hash was restored byte-for-byte after browser verification.
+
+## 2026-08-19 Disclosure Relationship Addendum
+
+- The expand/collapse icon button now exposes `aria-controls` pointing at the stable details cell id; the existing component test asserts the target is absent while collapsed and present while expanded.
+- `AvailableChannelsTable.spec.ts` remains 4 tests passing. Live rows and refresh-overlay browser evidence remain required because the preview endpoint still returned `internal error` in the recorded browser pass.

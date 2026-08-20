@@ -22,4 +22,4 @@ background:var(--ui-surface-strong)}.ui-progress__track span{display:block;
 height:100%;
 border-radius:inherit;
 background:var(--ui-text);
-transition:width var(--ui-motion-base)}.ui-progress__track .is-success{background:var(--ui-success)}.ui-progress__track .is-warning{background:var(--ui-warning)}.ui-progress__track .is-danger{background:var(--ui-danger)}.ui-progress__track .is-info{background:var(--ui-info)}@media(prefers-reduced-motion:reduce){.ui-progress__track span{transition:none}}</style>
+}.ui-progress__track .is-success{background:var(--ui-success)}.ui-progress__track .is-warning{background:var(--ui-warning)}.ui-progress__track .is-danger{background:var(--ui-danger)}.ui-progress__track .is-info{background:var(--ui-info)}</style>

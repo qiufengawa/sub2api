@@ -16,7 +16,7 @@
 
       <UiServerTableWorkspace
         :loading="loadingKeys || loadingJobs"
-        :empty="!loadingKeys && !loadingJobs && visibleBatchJobs.length === 0"
+        :empty="!loadingKeys && !loadingJobs && !initialListError && visibleBatchJobs.length === 0"
         :loading-text="t('common.loading')"
         :empty-title="t('batchImage.list.empty')"
         :empty-description="t('batchImage.list.emptyHint')"
@@ -101,6 +101,22 @@
           </UiButton>
         </UiBulkActionBar>
 
+        <UiErrorState
+          v-if="initialListError"
+          :title="listErrorTitle"
+          :description="initialListError"
+          :retry-text="t('common.retry')"
+          data-testid="batch-image-list-error"
+          @retry="refreshPage"
+        />
+        <template v-else>
+        <UiAlert
+          v-if="listRefreshError"
+          tone="danger"
+          :title="listErrorTitle"
+          :message="listRefreshError"
+          data-testid="batch-image-refresh-error"
+        />
         <UiDataTable
           :columns="columns"
           :data="visibleBatchJobs"
@@ -222,6 +238,7 @@
             </div>
           </template>
         </UiDataTable>
+        </template>
 
         <template #pagination>
           <div v-if="visibleBatchJobs.length > 0 || pagination.page > 1" class="batch-pagination">
@@ -298,8 +315,8 @@
             <table class="batch-detail-table">
               <thead>
                 <tr>
-                  <th>Custom ID</th>
-                  <th>Prompt</th>
+                  <th>{{ t('batchImage.detail.customId') }}</th>
+                  <th>{{ t('batchImage.detail.prompt') }}</th>
                   <th>{{ t('common.status') }}</th>
                   <th>{{ t('batchImage.detail.preview') }}</th>
                   <th>{{ t('batchImage.detail.result') }}</th>
@@ -370,7 +387,7 @@
           </UiButton>
           <UiButton
             variant="primary"
-            :disabled="!currentJob || !canDownload(currentJob)"
+            :disabled="!currentDisplayJob || !canDownload(currentDisplayJob)"
             :loading="downloading"
             @click="downloadSelected"
           >
@@ -477,12 +494,16 @@
           />
 
           <div v-if="referenceImageDrafts.length" class="batch-reference-list">
-            <UiBadge v-for="(ref, refIndex) in referenceImageDrafts" :key="`${ref.name}-${refIndex}`" :label="ref.name">
+              <UiBadge v-for="(ref, refIndex) in referenceImageDrafts" :key="`${ref.name}-${refIndex}`" :label="ref.name">
               <template #default>
                 <span :title="ref.name">{{ ref.name }}</span>
-                <button type="button" :aria-label="t('batchImage.create.removeReferenceImage')" @click="removeReferenceImageDraft(refIndex)">
-                  <Icon name="x" size="xs" />
-                </button>
+                <UiIconButton
+                  icon="x"
+                  variant="ghost"
+                  density="mini"
+                  :label="t('batchImage.create.removeReferenceImage')"
+                  @click="removeReferenceImageDraft(refIndex)"
+                />
               </template>
             </UiBadge>
           </div>
@@ -576,6 +597,7 @@ import {
   UiDataTable,
   UiDialog,
   UiEmptyState,
+  UiErrorState,
   UiFileUpload,
   UiFilterBar,
   UiIconButton,
@@ -622,6 +644,18 @@ type BatchImageJobRow = Pick<BatchImageJob, 'id' | 'task_name' | 'parent_batch_i
   api_key_name: string
   child_count: number
   is_child?: boolean
+}
+
+type CachedBatchImageJobRow = {
+  row: BatchImageJobRow
+  apiKeyOrder: number
+  sourceRank: number
+}
+
+type BatchImageKeyJobState = {
+  rows: CachedBatchImageJobRow[]
+  rawOffset: number
+  exhausted: boolean
 }
 
 type BatchImageDetailItem = BatchImageItem & {
@@ -726,6 +760,8 @@ const pagination = reactive({
 const apiKeys = ref<ApiKey[]>([])
 const loadingKeys = ref(false)
 const loadingJobs = ref(false)
+const apiKeysLoadError = ref('')
+const jobsLoadError = ref('')
 const submitting = ref(false)
 const refreshing = ref(false)
 const cancelling = ref(false)
@@ -745,6 +781,15 @@ const selectedBatchApiKeyId = ref(0)
 const items = ref<BatchImageDetailItem[]>([])
 const detailFailedItems = computed(() => items.value.filter(item => item.status === 'failed' || !!item.error))
 const batchJobs = ref<BatchImageJobRow[]>([])
+const initialListError = computed(() => visibleBatchJobs.value.length === 0
+  ? apiKeysLoadError.value || jobsLoadError.value
+  : '')
+const listRefreshError = computed(() => visibleBatchJobs.value.length > 0
+  ? apiKeysLoadError.value || jobsLoadError.value
+  : '')
+const listErrorTitle = computed(() => apiKeysLoadError.value
+  ? batchImageText('loadKeysFailed')
+  : batchImageText('loadJobsFailed'))
 const selectedJobIds = ref(new Set<string>())
 const expandedParentIds = ref(new Set<string>())
 const promptRows = ref<PromptRow[]>([])
@@ -763,10 +808,17 @@ let modelRequestSeq = 0
 let jobsRequestSeq = 0
 let detailRequestSeq = 0
 let itemsRequestSeq = 0
+let apiKeysRequestSeq = 0
+let apiKeysRequestController: AbortController | null = null
+let apiKeysLoadPromise: Promise<void> | null = null
+let jobsCacheGeneration = 0
+let jobsCacheSignature = ''
+let jobsCacheByKey = new Map<number, BatchImageKeyJobState>()
 let previewSessionSeq = 0
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let previewCacheDBPromise: Promise<IDBDatabase | null> | null = null
 let previewCacheCleanupTimer: ReturnType<typeof setInterval> | null = null
+let disposed = false
 
 const geminiApiKeys = computed(() =>
   apiKeys.value.filter((key) =>
@@ -854,11 +906,15 @@ const childrenByParent = computed(() => {
 
 const visibleBatchJobs = computed(() => {
   const rows: BatchImageJobRow[] = []
+  const pageIds = new Set(batchJobs.value.map(job => job.id))
   for (const job of batchJobs.value.filter(item => !item.parent_batch_id)) {
     rows.push(job)
     if (expandedParentIds.value.has(job.id)) {
       rows.push(...(childrenByParent.value.get(job.id) || []).map(child => ({ ...child, is_child: true })))
     }
+  }
+  for (const job of batchJobs.value.filter(item => item.parent_batch_id && !pageIds.has(item.parent_batch_id))) {
+    rows.push({ ...job, is_child: true })
   }
   return rows
 })
@@ -1112,26 +1168,55 @@ function readFileAsBase64(file: File): Promise<string> {
   })
 }
 
-async function loadApiKeys() {
+function isApiKeysAbortError(error: unknown): boolean {
+  const candidate = error as { name?: string; code?: string } | null
+  return candidate?.name === 'AbortError' || candidate?.name === 'CanceledError' || candidate?.code === 'ERR_CANCELED'
+}
+
+function loadApiKeys(): Promise<void> {
+  if (apiKeysLoadPromise) return apiKeysLoadPromise
+
+  const requestID = ++apiKeysRequestSeq
+  const controller = new AbortController()
+  apiKeysRequestController = controller
   loadingKeys.value = true
-  try {
-    const response = await keysAPI.list(1, 100, { status: 'active', sort_by: 'created_at', sort_order: 'desc' })
-    apiKeys.value = response.items || []
-    if (!selectedApiKey.value && geminiApiKeys.value.length > 0) {
-      form.apiKeyId = geminiApiKeys.value[0].id
+  apiKeysLoadError.value = ''
+
+  const request = (async () => {
+    try {
+      const response = await keysAPI.list(
+        1,
+        100,
+        { status: 'active', sort_by: 'created_at', sort_order: 'desc' },
+        { signal: controller.signal },
+      )
+      if (requestID !== apiKeysRequestSeq || controller.signal.aborted) return
+      apiKeys.value = response.items || []
+      apiKeysLoadError.value = ''
+      if (!selectedApiKey.value && geminiApiKeys.value.length > 0) {
+        form.apiKeyId = geminiApiKeys.value[0].id
+      }
+      if (filters.apiKeyId && !geminiApiKeys.value.some(key => String(key.id) === filters.apiKeyId)) {
+        filters.apiKeyId = ''
+      }
+      if (!selectedApiKey.value) {
+        availableBatchImageModels.value = []
+        form.model = ''
+      }
+    } catch (error: unknown) {
+      if (requestID !== apiKeysRequestSeq || controller.signal.aborted || isApiKeysAbortError(error)) return
+      apiKeysLoadError.value = batchImageErrorMessage(error, batchImageText('loadKeysFailed'))
+      appStore.showError(apiKeysLoadError.value)
+    } finally {
+      if (requestID === apiKeysRequestSeq && apiKeysRequestController === controller) {
+        loadingKeys.value = false
+        apiKeysRequestController = null
+        apiKeysLoadPromise = null
+      }
     }
-    if (filters.apiKeyId && !geminiApiKeys.value.some(key => String(key.id) === filters.apiKeyId)) {
-      filters.apiKeyId = ''
-    }
-    if (!selectedApiKey.value) {
-      availableBatchImageModels.value = []
-      form.model = ''
-    }
-  } catch (error: any) {
-    appStore.showError(batchImageErrorMessage(error, batchImageText('loadKeysFailed')))
-  } finally {
-    loadingKeys.value = false
-  }
+  })()
+  apiKeysLoadPromise = request
+  return request
 }
 
 async function loadAvailableModels() {
@@ -1168,12 +1253,15 @@ async function loadAvailableModels() {
 
 async function refreshPage() {
   await loadApiKeys()
+  if (disposed) return
+  invalidateJobsCache()
   await loadBatchJobs()
 }
 
 function applyFilters() {
   pagination.page = 1
   selectedJobIds.value = new Set()
+  invalidateJobsCache()
   void loadBatchJobs()
 }
 
@@ -1185,15 +1273,70 @@ function resetFilters() {
   applyFilters()
 }
 
-function listOptions(): BatchImageJobsListOptions {
+function listOptions(cursor: number, limit: number): BatchImageJobsListOptions {
   const options: BatchImageJobsListOptions = {
-    limit: pagination.page_size,
-    cursor: String((pagination.page - 1) * pagination.page_size),
+    limit,
+    cursor: String(cursor),
   }
   if (filters.taskName.trim()) options.taskName = filters.taskName.trim()
   if (filters.status) options.status = filters.status
   if (filters.downloaded) options.downloaded = filters.downloaded
   return options
+}
+
+function invalidateJobsCache() {
+  jobsCacheGeneration += 1
+  jobsCacheSignature = ''
+  jobsCacheByKey = new Map()
+}
+
+function currentJobsCacheSignature(keys: ApiKey[]): string {
+  return JSON.stringify({
+    keys: keys.map(key => key.id),
+    taskName: filters.taskName.trim(),
+    status: filters.status,
+    downloaded: filters.downloaded,
+    pageSize: pagination.page_size,
+  })
+}
+
+function cloneJobsCache(keys: ApiKey[]): Map<number, BatchImageKeyJobState> {
+  return new Map(keys.map(key => {
+    const current = jobsCacheByKey.get(key.id)
+    return [key.id, current
+      ? { rows: [...current.rows], rawOffset: current.rawOffset, exhausted: current.exhausted }
+      : { rows: [], rawOffset: 0, exhausted: false }]
+  }))
+}
+
+async function extendKeyJobState(
+  key: ApiKey,
+  keyOrder: number,
+  state: BatchImageKeyJobState,
+  targetCount: number,
+) {
+  while (!state.exhausted && state.rows.length < targetCount) {
+    const limit = Math.min(100, targetCount - state.rows.length)
+    const result = await listBatchImageJobs(key.key, listOptions(state.rawOffset, limit))
+    const jobs = result.data || []
+    const sourceStart = state.rawOffset
+    state.rows.push(...jobs.map((job, index) => ({
+      row: toJobRow(job, key),
+      apiKeyOrder: keyOrder,
+      sourceRank: sourceStart + index,
+    })))
+    state.rawOffset += jobs.length
+    if (!result.has_more || jobs.length === 0) state.exhausted = true
+  }
+}
+
+function mergedCachedJobs(cache: Map<number, BatchImageKeyJobState>) {
+  return [...cache.values()]
+    .flatMap(state => state.rows)
+    .sort((a, b) =>
+      b.row.created_at - a.row.created_at
+      || a.apiKeyOrder - b.apiKeyOrder
+      || a.sourceRank - b.sourceRank)
 }
 
 function toJobRow(job: BatchImageJob, key = selectedApiKey.value): BatchImageJobRow {
@@ -1267,7 +1410,9 @@ function toggleChildRows(batchId: string) {
 
 
 async function loadBatchJobs() {
+  if (disposed) return
   const requestID = ++jobsRequestSeq
+  jobsLoadError.value = ''
   const keys = filteredApiKeys.value
   if (!keys.length) {
     batchJobs.value = []
@@ -1275,32 +1420,37 @@ async function loadBatchJobs() {
     loadingJobs.value = false
     return
   }
+  const signature = currentJobsCacheSignature(keys)
+  if (signature !== jobsCacheSignature) {
+    invalidateJobsCache()
+    jobsCacheSignature = signature
+  }
+  const generation = jobsCacheGeneration
+  const targetCount = pagination.page * pagination.page_size + 1
+  const stagedCache = cloneJobsCache(keys)
   loadingJobs.value = true
   try {
-    const options = listOptions()
-    const results = await Promise.all(keys.map(async (key) => {
-      const result = await listBatchImageJobs(key.key, options)
-      return {
-        hasMore: Boolean(result.has_more),
-        rows: (result.data || []).map(job => toJobRow(job, key)),
-      }
-    }))
-    if (requestID !== jobsRequestSeq) return
-    batchJobs.value = applyChildCounts(results
-      .flatMap(result => result.rows)
-      .sort((a, b) => b.created_at - a.created_at)
-      .slice(0, pagination.page_size))
-    pagination.has_more = results.some(result => result.hasMore)
+    await Promise.all(keys.map((key, keyOrder) =>
+      extendKeyJobState(key, keyOrder, stagedCache.get(key.id)!, targetCount)))
+    if (requestID !== jobsRequestSeq || generation !== jobsCacheGeneration) return
+    jobsCacheByKey = stagedCache
+    const merged = mergedCachedJobs(stagedCache)
+    const start = (pagination.page - 1) * pagination.page_size
+    const end = start + pagination.page_size
+    batchJobs.value = applyChildCounts(merged.slice(start, end).map(item => item.row))
+    pagination.has_more = merged.length > end
     selectedJobIds.value = new Set([...selectedJobIds.value].filter(id => visibleBatchJobs.value.some(job => job.id === id)))
   } catch (error: any) {
     if (requestID !== jobsRequestSeq) return
-    appStore.showError(batchImageErrorMessage(error, batchImageText('loadJobsFailed')))
+    jobsLoadError.value = batchImageErrorMessage(error, batchImageText('loadJobsFailed'))
+    appStore.showError(jobsLoadError.value)
   } finally {
     if (requestID === jobsRequestSeq) loadingJobs.value = false
   }
 }
 
 function upsertJob(job: BatchImageJob) {
+  invalidateJobsCache()
   const next = toJobRow(job)
   const index = batchJobs.value.findIndex(item => item.id === job.id)
   if (index >= 0) {
@@ -1326,6 +1476,7 @@ function handlePageSizeChange(value: string | number | boolean | null) {
   pagination.page = 1
   setPersistedPageSize(nextSize)
   selectedJobIds.value = new Set()
+  invalidateJobsCache()
   void loadBatchJobs()
 }
 
@@ -1465,6 +1616,8 @@ async function refreshDetail() {
 }
 
 function selectJob(batchId: string) {
+  detailRequestSeq += 1
+  itemsRequestSeq += 1
   const row = batchJobs.value.find(job => job.id === batchId)
   if (row?.api_key_id && geminiApiKeys.value.some(key => key.id === row.api_key_id)) {
     form.apiKeyId = row.api_key_id
@@ -1572,15 +1725,19 @@ async function confirmPendingAction() {
 
 async function cancelSelected() {
   if (!currentJob.value) return
+  const batchId = currentJob.value.id
+  const requestID = ++detailRequestSeq
   const key = keyForSelectedBatch() || requireApiKey()
   if (!key) return
   cancelling.value = true
   try {
-    const job = await cancelBatchImageJob(key.key, currentJob.value.id)
+    const job = await cancelBatchImageJob(key.key, batchId)
+    if (requestID !== detailRequestSeq || selectedBatchId.value !== batchId) return
     currentJob.value = job
     upsertJob(job)
     appStore.showSuccess(batchImageText('cancelled'))
   } catch (error: any) {
+    if (requestID !== detailRequestSeq || selectedBatchId.value !== batchId) return
     appStore.showError(batchImageErrorMessage(error, batchImageText('cancelFailed')))
   } finally {
     cancelling.value = false
@@ -1740,6 +1897,7 @@ async function deleteSelectedJobs() {
 }
 
 function markJobDownloaded(batchId: string) {
+  invalidateJobsCache()
   const downloadedAt = Math.floor(Date.now() / 1000)
   batchJobs.value = batchJobs.value.map(job => job.id === batchId ? { ...job, downloaded_at: job.downloaded_at || downloadedAt } : job)
   if (currentJob.value?.id === batchId && !currentJob.value.downloaded_at) {
@@ -1748,6 +1906,7 @@ function markJobDownloaded(batchId: string) {
 }
 
 function removeJobFromList(batchId: string) {
+  invalidateJobsCache()
   batchJobs.value = batchJobs.value.filter(job => job.id !== batchId)
   toggleJobSelection(batchId, false)
   if (currentJob.value?.id === batchId) closeDetail()
@@ -2426,6 +2585,15 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  disposed = true
+  modelRequestSeq += 1
+  jobsRequestSeq += 1
+  detailRequestSeq += 1
+  itemsRequestSeq += 1
+  apiKeysRequestSeq += 1
+  apiKeysRequestController?.abort()
+  apiKeysRequestController = null
+  apiKeysLoadPromise = null
   stopPolling()
   if (previewCacheCleanupTimer) {
     clearInterval(previewCacheCleanupTimer)

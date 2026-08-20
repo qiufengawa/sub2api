@@ -5,8 +5,17 @@
     >
 
       <transition name="fade">
+        <div v-if="isProcessing" class="oauth-callback__processing" aria-live="polite">
+          <UiSpinner size="lg" :label="t('auth.linuxdo.callbackProcessing')" />
+        </div>
+        <div v-else-if="errorMessage" class="oauth-callback-flow">
+          <UiAlert tone="danger" :message="errorMessage" />
+          <UiButton type="button" variant="secondary" density="compact" block @click="router.replace('/login')">
+            {{ t('auth.linuxdo.backToLogin') }}
+          </UiButton>
+        </div>
         <div
-          v-if="
+          v-else-if="
             needsInvitation ||
             needsAdoptionConfirmation ||
             needsChooser ||
@@ -220,7 +229,7 @@ import OAuthProfileAdoptionPanel from '@/components/auth/OAuthProfileAdoptionPan
 import PendingOAuthCreateAccountForm, {
   type PendingOAuthCreateAccountPayload
 } from '@/components/auth/PendingOAuthCreateAccountForm.vue'
-import { UiButton } from '@/components/ui'
+import { UiAlert, UiButton, UiSpinner } from '@/components/ui'
 import { apiClient } from '@/api/client'
 import { useAuthStore, useAppStore } from '@/stores'
 import {

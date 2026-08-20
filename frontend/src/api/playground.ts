@@ -95,16 +95,20 @@ export class SSEDataDecoder {
   }
 }
 
-export async function listPlaygroundKeys(): Promise<PlaygroundKeyList> {
-  const { data } = await apiClient.get<PlaygroundKeyList>('/playground/keys')
+export async function listPlaygroundKeys(signal?: AbortSignal): Promise<PlaygroundKeyList> {
+  const { data } = signal
+    ? await apiClient.get<PlaygroundKeyList>('/playground/keys', { signal })
+    : await apiClient.get<PlaygroundKeyList>('/playground/keys')
   return {
     items: Array.isArray(data?.items) ? data.items : [],
     truncated: data?.truncated === true,
   }
 }
 
-export async function listPlaygroundModels(keyId: number): Promise<PlaygroundModelOption[]> {
-  const { data } = await apiClient.get<ModelListResponse>(`/playground/keys/${keyId}/models`)
+export async function listPlaygroundModels(keyId: number, signal?: AbortSignal): Promise<PlaygroundModelOption[]> {
+  const { data } = signal
+    ? await apiClient.get<ModelListResponse>(`/playground/keys/${keyId}/models`, { signal })
+    : await apiClient.get<ModelListResponse>(`/playground/keys/${keyId}/models`)
   return Array.isArray(data?.data) ? data.data : []
 }
 

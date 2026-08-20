@@ -35,14 +35,62 @@ describe('UiDateRangePicker', () => {
   })
 
   it('does not emit draft changes before Apply and supports Escape', async () => {
-    const wrapper = mount(UiDateRangePicker, { props: { startDate: '2026-08-01', endDate: '2026-08-02' } })
+    const wrapper = mount(UiDateRangePicker, {
+      attachTo: document.body,
+      props: { startDate: '2026-08-01', endDate: '2026-08-02' }
+    })
     await wrapper.get('.date-picker-trigger').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(document.activeElement).toBe(wrapper.get('.date-picker-preset').element)
     const start = wrapper.get('input[type="date"]')
     await start.setValue('2026-08-03')
     expect(wrapper.emitted('update:startDate')).toBeUndefined()
-    await wrapper.get('.date-picker-trigger').trigger('keydown', { key: 'Escape' })
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     await wrapper.vm.$nextTick()
     await new Promise(resolve => setTimeout(resolve, 250))
     expect(wrapper.find('.date-picker-dropdown').exists()).toBe(false)
+    expect(document.activeElement).toBe(wrapper.get('.date-picker-trigger').element)
+    wrapper.unmount()
+  })
+
+  it('uses native button keyboard activation and restores focus after Apply', async () => {
+    const wrapper = mount(UiDateRangePicker, {
+      attachTo: document.body,
+      props: {
+        id: 'usage-range',
+        ariaLabel: 'Usage date range',
+        startDate: '2026-08-01',
+        endDate: '2026-08-02'
+      }
+    })
+    const trigger = wrapper.get('.date-picker-trigger')
+    expect(trigger.attributes('aria-haspopup')).toBe('dialog')
+    expect(trigger.attributes('aria-controls')).toBe('usage-range-popup')
+
+    await trigger.trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('[role="dialog"]').attributes('id')).toBe('usage-range-popup')
+    expect(document.activeElement).toBe(wrapper.get('.date-picker-preset').element)
+
+    await wrapper.get('.date-picker-apply').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(document.activeElement).toBe(trigger.element)
+    wrapper.unmount()
+  })
+
+  it('restores focus after clicking outside to dismiss', async () => {
+    const wrapper = mount(UiDateRangePicker, { attachTo: document.body, props: { startDate: '2026-08-01', endDate: '2026-08-02' } })
+    const trigger = wrapper.get('.date-picker-trigger')
+    await trigger.trigger('click')
+    await wrapper.vm.$nextTick()
+    const outside = document.createElement('button')
+    document.body.append(outside)
+    outside.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await wrapper.vm.$nextTick()
+    await new Promise(resolve => setTimeout(resolve, 250))
+    expect(wrapper.find('.date-picker-dropdown').exists()).toBe(false)
+    expect(document.activeElement).toBe(trigger.element)
+    outside.remove()
+    wrapper.unmount()
   })
 })

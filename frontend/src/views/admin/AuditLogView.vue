@@ -3,9 +3,15 @@
     <AppPage density="compact">
       <AppPageHeader :title="t('admin.audit.title')" :description="t('admin.audit.description')">
         <template #actions>
-          <UiButton density="compact" variant="danger" @click="openClearDialog">
+          <UiButton
+            density="compact"
+            variant="danger"
+            :loading="checkingTotpStatus"
+            :disabled="checkingTotpStatus"
+            @click="openClearDialog"
+          >
             <template #icon><Icon name="trash" size="sm" /></template>
-            {{ t('admin.audit.clearAll') }}
+            {{ checkingTotpStatus ? t('common.loading') : t('admin.audit.clearAll') }}
           </UiButton>
         </template>
       </AppPageHeader>

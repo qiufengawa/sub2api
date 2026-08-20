@@ -51,5 +51,17 @@ git diff --check
 
 ## 未完成范围
 
-- 管理员订阅页仍待下一批迁移。
+- `/admin/orders/plans` 管理员支付套餐实现与自动化验证见 R58，真实浏览器验收仍 pending；`/admin/subscriptions` 是独立 R6 页面，不在本批结论内。
 - `AppLayout` 本身仍属于高影响布局壳，按 R2/R9 计划统一收口，不在本批次局部改写。
+
+## 2026-08-19 Mutation single-flight 补充
+
+- 取消订单与充值重试按订单 ID 分别进入 pending Set，重复调用同一订单 handler 不再产生并发请求；对应行操作同步 disabled。
+- 管理员退款提交使用现有 `refundSubmitting` 做函数入口 guard，退款状态查询按订单 ID guard；列表刷新完成前保持 pending。
+- `AdminOrdersView.spec.ts` 扩展为 6 tests，覆盖取消、重试、退款提交和退款查询的重复触发；typecheck 与定向 ESLint 通过。真实供应商退款与管理员浏览器矩阵仍 pending。
+
+## 2026-08-19 隔离后端真实浏览器复验
+
+- 真实 `admin@admin.com` 登录后，`/admin/orders` 在 1440/900/390、dark、`prefers-reduced-motion: reduce` 下均加载目标路由；无横向溢出，Tab 可到达筛选、表格和订单操作，console/pageerror 清洁。
+- 截图索引：`/tmp/sub2api-clean-admin-admin-orders-1440.png`、`/tmp/sub2api-clean-admin-admin-orders-900.png`、`/tmp/sub2api-clean-admin-admin-orders-390.png`。
+- 本次未执行真实退款/取消 mutation；credential-free provider shell 不构成供应商退款 sandbox 证据。

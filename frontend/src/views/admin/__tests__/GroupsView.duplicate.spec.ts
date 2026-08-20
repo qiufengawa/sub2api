@@ -8,6 +8,9 @@ import GroupsView from '@/views/admin/GroupsView.vue'
 const {
   listGroups,
   duplicateGroup,
+  deleteGroup,
+  listCompositeRoutes,
+  deleteCompositeRoute,
   getModelsListCandidates,
   getUsageSummary,
   getCapacitySummary,
@@ -17,6 +20,9 @@ const {
 } = vi.hoisted(() => ({
   listGroups: vi.fn(),
   duplicateGroup: vi.fn(),
+  deleteGroup: vi.fn(),
+  listCompositeRoutes: vi.fn(),
+  deleteCompositeRoute: vi.fn(),
   getModelsListCandidates: vi.fn(),
   getUsageSummary: vi.fn(),
   getCapacitySummary: vi.fn(),
@@ -37,7 +43,9 @@ vi.mock('@/api/admin', () => ({
       getAll: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
-      delete: vi.fn(),
+      delete: deleteGroup,
+      listCompositeRoutes,
+      deleteCompositeRoute,
       updateSortOrder: vi.fn()
     },
     accounts: {
@@ -146,6 +154,11 @@ function mountView() {
         Pagination: true,
         BaseDialog: true,
         ConfirmDialog: true,
+        UiConfirmDialog: {
+          props: ['show', 'pending'],
+          emits: ['confirm', 'cancel'],
+          template: '<div v-if="show"><button data-test="confirm-delete" :disabled="pending" @click="$emit(\'confirm\')">confirm</button><button data-test="cancel-delete" :disabled="pending" @click="$emit(\'cancel\')">cancel</button></div>'
+        },
         EmptyState: true,
         Select: true,
         PlatformIcon: true,
@@ -166,6 +179,9 @@ describe('GroupsView duplicate action', () => {
     for (const fn of [
       listGroups,
       duplicateGroup,
+      deleteGroup,
+      listCompositeRoutes,
+      deleteCompositeRoute,
       getModelsListCandidates,
       getUsageSummary,
       getCapacitySummary,
@@ -189,6 +205,9 @@ describe('GroupsView duplicate action', () => {
       name: 'Primary (Copy)',
       status: 'inactive'
     })
+    deleteGroup.mockResolvedValue(undefined)
+    listCompositeRoutes.mockResolvedValue([])
+    deleteCompositeRoute.mockResolvedValue({ message: 'deleted' })
     getModelsListCandidates.mockResolvedValue([])
     getUsageSummary.mockResolvedValue([])
     getCapacitySummary.mockResolvedValue([])
@@ -269,5 +288,71 @@ describe('GroupsView duplicate action', () => {
     expect(showError).toHaveBeenCalledWith('admin.groups.failedToLoad')
     expect(showError).not.toHaveBeenCalledWith('admin.groups.duplicateFailed')
     wrapper.unmount()
+  })
+
+  it('single-flight guards group deletion and preserves confirmation on failure', async () => {
+    let resolveDelete!: () => void
+    deleteGroup.mockImplementationOnce(() => new Promise<void>((resolve) => { resolveDelete = resolve }))
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.deletingGroup = sourceGroup
+    vm.showDeleteDialog = true
+
+    const first = vm.confirmDelete()
+    const second = vm.confirmDelete()
+    expect(deleteGroup).toHaveBeenCalledTimes(1)
+    expect(vm.deletePending).toBe(true)
+    resolveDelete()
+    await Promise.all([first, second])
+    expect(vm.deletePending).toBe(false)
+    expect(vm.showDeleteDialog).toBe(false)
+
+    deleteGroup.mockRejectedValueOnce(new Error('delete failed'))
+    vm.deletingGroup = sourceGroup
+    vm.showDeleteDialog = true
+    await vm.confirmDelete()
+    expect(vm.showDeleteDialog).toBe(true)
+    expect(showError).toHaveBeenCalledWith('admin.groups.failedToDelete')
+  })
+
+  it('ignores stale composite-route loads after switching groups', async () => {
+    const groupA = { ...sourceGroup, id: 100, platform: 'composite' as const }
+    const groupB = { ...sourceGroup, id: 200, platform: 'composite' as const }
+    let resolveA!: (value: any[]) => void
+    let resolveB!: (value: any[]) => void
+    listCompositeRoutes
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveA = resolve }))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveB = resolve }))
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    const first = vm.handleCompositeRoutes(groupA)
+    const second = vm.handleCompositeRoutes(groupB)
+    resolveB([{ id: 22, group_id: 200, public_model: 'b', priority: 1 }])
+    await flushPromises()
+    resolveA([{ id: 11, group_id: 100, public_model: 'a', priority: 1 }])
+    await Promise.all([first, second])
+    expect(vm.compositeRoutes.map((route: any) => route.id)).toEqual([22])
+  })
+
+  it('single-flight guards composite-route deletion with a captured group target', async () => {
+    let resolveDelete!: () => void
+    deleteCompositeRoute.mockImplementationOnce(() => new Promise<void>((resolve) => { resolveDelete = resolve }))
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.compositeRoutesGroup = { ...sourceGroup, id: 300, platform: 'composite' }
+    vm.showCompositeRoutesModal = true
+    vm.compositeRoutePendingDelete = { id: 31, group_id: 300, public_model: 'a', priority: 1 }
+
+    const first = vm.confirmDeleteCompositeRoute()
+    const second = vm.confirmDeleteCompositeRoute()
+    expect(deleteCompositeRoute).toHaveBeenCalledTimes(1)
+    expect(deleteCompositeRoute).toHaveBeenCalledWith(300, 31)
+    expect(vm.compositeRouteDeleting).toBe(true)
+    resolveDelete()
+    await Promise.all([first, second])
+    expect(vm.compositeRouteDeleting).toBe(false)
   })
 })

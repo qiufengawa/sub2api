@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog
+  <UiDialog
     :show="visible"
     :title="t('adminCompliance.title')"
     width="wide"
@@ -10,15 +10,11 @@
     @close="noop"
   >
     <div class="space-y-5">
-      <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
-        <div class="flex gap-3">
-          <Icon name="exclamationTriangle" size="md" class="mt-0.5 flex-shrink-0" />
-          <div class="space-y-2">
-            <p class="font-semibold">{{ t('adminCompliance.blockingNotice') }}</p>
-            <p class="leading-6">{{ t('adminCompliance.riskNotice') }}</p>
-          </div>
-        </div>
-      </div>
+      <UiAlert
+        tone="warning"
+        :title="t('adminCompliance.blockingNotice')"
+        :message="t('adminCompliance.riskNotice')"
+      />
 
       <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_240px]">
         <section class="min-h-[320px] max-h-[46vh] overflow-y-auto rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-900">
@@ -56,7 +52,7 @@
         <div class="rounded-lg bg-gray-100 px-3 py-2 font-mono text-sm text-gray-900 dark:bg-dark-800 dark:text-dark-100">
           {{ expectedPhrase }}
         </div>
-        <Input
+        <UiTextField
           id="admin-compliance-phrase"
           v-model="typedPhrase"
           :placeholder="t('adminCompliance.inputPlaceholder')"
@@ -74,26 +70,24 @@
 
     <template #footer>
       <div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
-        <button
-          type="button"
-          class="btn btn-secondary"
+        <UiButton
+          variant="secondary"
           :disabled="complianceStore.submitting"
           @click="logout"
         >
           {{ t('adminCompliance.logout') }}
-        </button>
-        <button
-          type="button"
-          class="btn btn-primary"
+        </UiButton>
+        <UiButton
+          variant="primary"
           :disabled="!canSubmit || complianceStore.submitting"
+          :loading="complianceStore.submitting"
           @click="submit"
         >
-          <span v-if="complianceStore.submitting">{{ t('common.submitting') }}</span>
-          <span v-else>{{ t('adminCompliance.accept') }}</span>
-        </button>
+          {{ t('adminCompliance.accept') }}
+        </UiButton>
       </div>
     </template>
-  </BaseDialog>
+  </UiDialog>
 </template>
 
 <script setup lang="ts">
@@ -101,9 +95,8 @@ import { computed, ref, watch } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useI18n } from 'vue-i18n'
-import BaseDialog from '@/components/common/BaseDialog.vue'
-import Input from '@/components/common/Input.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { UiAlert, UiButton, UiDialog, UiTextField } from '@/components/ui'
 import { useAdminComplianceStore, useAppStore, useAuthStore } from '@/stores'
 import { getLocale } from '@/i18n'
 import zhDocument from '../../../../docs/legal/admin-compliance.zh.md?raw'

@@ -16,11 +16,11 @@ required?:boolean;
 rows?:number;
 maxlength?:number;
 monospace?:boolean}>(),{rows:3,monospace:false});
-const emit=defineEmits<{ 'update:modelValue':[string];change:[string];blur:[FocusEvent];focus:[FocusEvent]}>();
+const emit=defineEmits<{ 'update:modelValue':[string];input:[Event];change:[string];blur:[FocusEvent];focus:[FocusEvent]}>();
 const textarea=ref<HTMLTextAreaElement>();
 const attrs=useAttrs();
 const nativeAttrs=computed(()=>Object.fromEntries(Object.entries(attrs).filter(([key])=>key!=='class'&&key!=='style')));
-function onInput(event:Event){emit('update:modelValue',(event.target as HTMLTextAreaElement).value)}
+function onInput(event:Event){emit('update:modelValue',(event.target as HTMLTextAreaElement).value);emit('input',event)}
 defineExpose({focus:()=>textarea.value?.focus(),select:()=>textarea.value?.select()})
 
 </script>

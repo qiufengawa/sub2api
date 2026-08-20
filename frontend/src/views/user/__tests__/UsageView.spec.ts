@@ -112,6 +112,7 @@ vi.mock('vue-i18n', async () => {
 
 const simpleStub = { template: '<div><slot /></div>' }
 const chartStub = { template: '<div />' }
+const usageStatsStub = { name: 'UsageStatsCards', template: '<div data-testid="usage-stats-cards-stub" />' }
 const usageTableStub = {
   name: 'UsageTable',
   props: {
@@ -175,7 +176,7 @@ function mountUsageView() {
         Select: true,
         UiDateRangePicker: dateRangePickerStub,
         Icon: true,
-        UsageStatsCards: chartStub,
+        UsageStatsCards: usageStatsStub,
         UsageTable: usageTableStub,
         ModelDistributionChart: chartStub,
         GroupDistributionChart: chartStub,
@@ -255,6 +256,48 @@ describe('user UsageView', () => {
     expect(getAvailable).toHaveBeenCalled()
   })
 
+  it('keeps initial stats loading distinct from a real zero-usage response', async () => {
+    let resolveStats!: (value: Record<string, unknown>) => void
+    getStats.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveStats = resolve
+    }))
+
+    const wrapper = mountUsageView()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.get('[data-testid="usage-stats-loading"]').attributes('aria-busy')).toBeUndefined()
+    expect(wrapper.get('.usage-stats-region').attributes('aria-busy')).toBe('true')
+    expect(wrapper.findComponent({ name: 'UsageStatsCards' }).exists()).toBe(false)
+
+    resolveStats({
+      total_requests: 0,
+      total_input_tokens: 0,
+      total_output_tokens: 0,
+      total_cache_tokens: 0,
+      total_tokens: 0,
+      total_cost: 0,
+      total_actual_cost: 0,
+      average_duration_ms: 0,
+      endpoints: [],
+      upstream_endpoints: [],
+      endpoint_paths: [],
+    })
+    await flushPromises()
+
+    expect(wrapper.get('.usage-stats-region').attributes('aria-busy')).toBe('false')
+    expect(wrapper.findComponent({ name: 'UsageStatsCards' }).exists()).toBe(true)
+  })
+
+  it('associates the date-range label with a stable accessible trigger', async () => {
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    const label = wrapper.get('label[for="usage-time-range"]')
+    const trigger = wrapper.get('#usage-time-range')
+    expect(label.text()).toBe('Time range')
+    expect(trigger.attributes('aria-label')).toBe('Time range')
+  })
+
   it('keeps draft filters local until the query action applies them to every data request', async () => {
     const wrapper = mountUsageView()
     await flushPromises()
@@ -276,6 +319,19 @@ describe('user UsageView', () => {
     expect(getStats).toHaveBeenCalledWith(expect.objectContaining({ model: 'gpt-draft-model' }))
     expect(getDashboardModels).toHaveBeenCalledWith(expect.objectContaining({ model: 'gpt-draft-model' }))
     expect(getDashboardSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({ model: 'gpt-draft-model' }))
+  })
+
+  it('exposes the mobile advanced-filter disclosure relationship', async () => {
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    const toggle = wrapper.get('[data-testid="usage-advanced-filter-toggle"]')
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+    expect(toggle.attributes('aria-controls')).toBe('usage-advanced-filters')
+    expect(wrapper.get('#usage-advanced-filters').exists()).toBe(true)
+
+    await toggle.trigger('click')
+    expect(toggle.attributes('aria-expanded')).toBe('true')
   })
 
   it('queries all usage surfaces when the date picker applies a range', async () => {

@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import ChannelsView from '../ChannelsView.vue'
 
-const { list, getAllGroups, getWebSearchEmulationConfig, showError, showSuccess } = vi.hoisted(() => ({
+const { list, remove, getAllGroups, getWebSearchEmulationConfig, showError, showSuccess } = vi.hoisted(() => ({
   list: vi.fn(),
+  remove: vi.fn(),
   getAllGroups: vi.fn(),
   getWebSearchEmulationConfig: vi.fn(),
   showError: vi.fn(),
@@ -13,7 +14,7 @@ const { list, getAllGroups, getWebSearchEmulationConfig, showError, showSuccess 
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
-    channels: { list },
+    channels: { list, remove },
     groups: { getAll: getAllGroups },
     settings: { getWebSearchEmulationConfig },
   },
@@ -52,7 +53,11 @@ const mountView = () => mount(ChannelsView, {
       UiCheckbox: true,
       UiTabs: true,
       UiDialog: { props: ['show'], template: '<div v-if="show"><slot/><slot name="footer"/></div>' },
-      UiConfirmDialog: true,
+      UiConfirmDialog: {
+        props: ['show', 'pending'],
+        emits: ['confirm', 'cancel'],
+        template: '<div v-if="show"><button data-test="confirm-delete" :disabled="pending" @click="$emit(\'confirm\')">confirm</button><button data-test="cancel-delete" :disabled="pending" @click="$emit(\'cancel\')">cancel</button></div>'
+      },
       UiEmptyState: { template: '<div data-test="empty"><slot name="action"/></div>' },
       UiBadge: true,
       UiTextField: true,
@@ -67,6 +72,7 @@ const mountView = () => mount(ChannelsView, {
 describe('admin ChannelsView', () => {
   beforeEach(() => {
     list.mockReset().mockResolvedValue({ items: [channel], total: 1, page: 1, page_size: 20 })
+    remove.mockReset().mockResolvedValue(undefined)
     getAllGroups.mockReset().mockResolvedValue([])
     getWebSearchEmulationConfig.mockReset().mockResolvedValue({ enabled: false, providers: [] })
     showError.mockReset()
@@ -98,5 +104,31 @@ describe('admin ChannelsView', () => {
 
     expect(list).toHaveBeenLastCalledWith(1, 20, expect.objectContaining({ search: 'secondary' }), expect.anything())
     vi.useRealTimers()
+  })
+
+  it('single-flight guards channel deletion and preserves confirmation on failure', async () => {
+    let resolveRemove!: () => void
+    remove.mockImplementationOnce(() => new Promise<void>((resolve) => { resolveRemove = resolve }))
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.deletingChannel = channel
+    vm.showDeleteDialog = true
+
+    const first = vm.confirmDelete()
+    const second = vm.confirmDelete()
+    expect(remove).toHaveBeenCalledTimes(1)
+    expect(vm.deletePending).toBe(true)
+    resolveRemove()
+    await Promise.all([first, second])
+    expect(vm.deletePending).toBe(false)
+    expect(vm.showDeleteDialog).toBe(false)
+
+    remove.mockRejectedValueOnce(new Error('delete failed'))
+    vm.deletingChannel = channel
+    vm.showDeleteDialog = true
+    await vm.confirmDelete()
+    expect(vm.showDeleteDialog).toBe(true)
+    expect(showError).toHaveBeenCalled()
   })
 })

@@ -2,8 +2,8 @@
   <AppLayout>
     <UiServerTableWorkspace>
       <template #filters>
-        <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
-          <div class="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-[minmax(240px,1fr)_160px_144px]">
+        <UiFilterBar>
+          <div class="proxies-filter-grid">
             <UiSearchInput
               v-model="searchQuery"
               density="compact"
@@ -28,14 +28,15 @@
             />
           </div>
 
-          <div class="flex w-full items-center gap-2 overflow-x-auto pb-1 xl:w-auto xl:justify-end xl:overflow-visible xl:pb-0">
+          <template #actions>
+            <div class="proxies-toolbar-actions">
             <UiIconButton
               @click="loadProxies"
               :disabled="loading"
               :label="t('common.refresh')"
               density="compact"
             >
-              <Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" />
+              <Icon name="refresh" size="sm" :class="{ 'proxies-spin': loading }" />
             </UiIconButton>
             <UiButton
               @click="handleBatchTest"
@@ -77,11 +78,12 @@
               <template #icon><Icon name="plus" size="sm" /></template>
               {{ t('admin.proxies.createProxy') }}
             </UiButton>
-          </div>
-        </div>
+            </div>
+          </template>
+        </UiFilterBar>
       </template>
 
-      <div ref="proxyTableRef" class="min-w-0 overflow-hidden">
+      <div ref="proxyTableRef" class="proxies-table-shell">
         <UiDataTable
           :columns="columns"
           :data="proxies"
@@ -108,20 +110,20 @@
           </template>
 
           <template #cell-name="{ value }">
-            <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
+            <span class="proxy-cell-strong">{{ value }}</span>
           </template>
 
           <template #cell-protocol="{ value }">
             <UiBadge v-if="value" :tone="value.startsWith('socks5') ? 'info' : 'neutral'">
               {{ value.toUpperCase() }}
             </UiBadge>
-            <span v-else class="text-sm text-gray-400">-</span>
+            <span v-else class="proxy-cell-empty">-</span>
           </template>
 
           <template #cell-address="{ row }">
-            <div class="flex items-center gap-1.5">
-              <code class="code text-xs">{{ row.host }}:{{ row.port }}</code>
-              <div class="relative flex items-center">
+            <div class="proxy-cell-inline">
+              <code class="proxy-cell-code">{{ row.host }}:{{ row.port }}</code>
+              <div class="proxy-cell-inline">
                 <UiIconButton
                   type="button"
                   variant="ghost"
@@ -153,10 +155,10 @@
           </template>
 
           <template #cell-auth="{ row }">
-            <div v-if="row.username || row.password" class="flex items-center gap-1.5">
-              <div class="flex flex-col text-xs">
-                <span v-if="row.username" class="text-gray-700 dark:text-gray-200">{{ row.username }}</span>
-                <span v-if="row.password" class="font-mono text-gray-500 dark:text-gray-400">
+            <div v-if="row.username || row.password" class="proxy-cell-inline">
+              <div class="proxy-auth-value">
+                <span v-if="row.username">{{ row.username }}</span>
+                <span v-if="row.password" class="proxy-auth-password">
                   {{ visiblePasswordIds.has(row.id) ? row.password : '••••••' }}
                 </span>
               </div>
@@ -171,21 +173,21 @@
                 <Icon :name="visiblePasswordIds.has(row.id) ? 'eyeOff' : 'eye'" size="sm" />
               </UiIconButton>
             </div>
-            <span v-else class="text-sm text-gray-400">-</span>
+            <span v-else class="proxy-cell-empty">-</span>
           </template>
 
           <template #cell-location="{ row }">
-            <div class="flex items-center gap-2">
+            <div class="proxy-cell-inline proxy-location">
               <img
                 v-if="row.country_code"
                 :src="flagUrl(row.country_code)"
                 :alt="row.country || row.country_code"
-                class="h-4 w-6 rounded-sm"
+                class="proxy-location-flag"
               />
-              <span v-if="formatLocation(row)" class="text-sm text-gray-700 dark:text-gray-200">
+              <span v-if="formatLocation(row)" class="proxy-location-value">
                 {{ formatLocation(row) }}
               </span>
-              <span v-else class="text-sm text-gray-400">-</span>
+              <span v-else class="proxy-cell-empty">-</span>
             </div>
           </template>
 
@@ -205,7 +207,7 @@
           </template>
 
           <template #cell-latency="{ row }">
-            <div class="flex flex-col gap-1">
+            <div class="proxy-cell-stack">
               <UiStatusBadge
                 v-if="row.latency_status === 'failed'"
                 status="failed"
@@ -218,10 +220,10 @@
               >
                 {{ row.latency_ms }}ms
               </UiBadge>
-              <span v-else class="text-sm text-gray-400">-</span>
+              <span v-else class="proxy-cell-empty">-</span>
               <div
                 v-if="typeof row.quality_checked === 'number'"
-                class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"
+                class="proxy-quality-inline"
                 :title="row.quality_summary || undefined"
               >
                 <span>{{ t('admin.proxies.qualityInline', { grade: row.quality_grade || '-', score: row.quality_score ?? '-' }) }}</span>
@@ -231,15 +233,15 @@
           </template>
 
           <template #cell-expiry="{ row }">
-            <span v-if="!row.expires_at" class="text-sm text-gray-400">{{ t('admin.proxies.neverExpires') }}</span>
-            <div v-else class="flex flex-col text-xs">
-              <span class="text-gray-700 dark:text-gray-200">{{ formatDateTime(row.expires_at) }}</span>
-              <UiBadge class="mt-1 self-start" :tone="expiryBadgeTone(row)">{{ expiryLabel(row) }}</UiBadge>
+            <span v-if="!row.expires_at" class="proxy-cell-empty">{{ t('admin.proxies.neverExpires') }}</span>
+            <div v-else class="proxy-cell-stack">
+              <span class="proxy-expiry-value">{{ formatDateTime(row.expires_at) }}</span>
+              <UiBadge :tone="expiryBadgeTone(row)">{{ expiryLabel(row) }}</UiBadge>
             </div>
           </template>
 
           <template #cell-created_at="{ row }">
-            <span class="text-xs text-gray-600 dark:text-gray-300">{{ formatDateTime(row.created_at) }}</span>
+            <span class="proxy-created-at">{{ formatDateTime(row.created_at) }}</span>
           </template>
 
           <template #cell-status="{ value }">
@@ -247,7 +249,7 @@
           </template>
 
           <template #cell-actions="{ row }">
-            <div class="flex items-center gap-1">
+            <div class="proxy-row-actions">
               <UiIconButton
                 @click="handleTestConnection(row)"
                 :disabled="testingProxyIds.has(row.id)"
@@ -255,7 +257,7 @@
                 variant="success"
                 density="compact"
               >
-                <Icon v-if="testingProxyIds.has(row.id)" name="refresh" size="sm" class="animate-spin" />
+                <Icon v-if="testingProxyIds.has(row.id)" name="refresh" size="sm" class="proxies-spin" />
                 <Icon v-else name="checkCircle" size="sm" />
               </UiIconButton>
               <UiIconButton
@@ -265,7 +267,7 @@
                 variant="ghost"
                 density="compact"
               >
-                <Icon v-if="qualityCheckingProxyIds.has(row.id)" name="refresh" size="sm" class="animate-spin" />
+                <Icon v-if="qualityCheckingProxyIds.has(row.id)" name="refresh" size="sm" class="proxies-spin" />
                 <Icon v-else name="shield" size="sm" />
               </UiIconButton>
               <UiIconButton
@@ -324,7 +326,7 @@
       width="normal"
       @close="closeCreateModal"
     >
-      <div class="mb-5">
+      <div class="proxy-form-tabs">
         <UiTabs
           :model-value="createMode"
           :tabs="createModeTabs"
@@ -338,25 +340,25 @@
         v-if="createMode === 'standard'"
         id="create-proxy-form"
         @submit.prevent="handleCreateProxy"
-        class="space-y-5"
+        class="proxy-form"
       >
         <UiTextField v-model="createForm.name" required density="compact" :label="t('admin.proxies.name')" :placeholder="t('admin.proxies.enterProxyName')" />
         <UiSelect v-model="createForm.protocol" :options="protocolSelectOptions" density="compact" :label="t('admin.proxies.protocol')" />
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="proxy-form-grid">
           <UiTextField v-model="createForm.host" required density="compact" :label="t('admin.proxies.host')" :placeholder="t('admin.proxies.form.hostPlaceholder')" />
           <UiTextField v-model.number="createForm.port" type="number" required min="1" max="65535" density="compact" :label="t('admin.proxies.port')" :placeholder="t('admin.proxies.form.portPlaceholder')" />
         </div>
         <UiTextField v-model="createForm.username" density="compact" :label="t('admin.proxies.username')" :placeholder="t('admin.proxies.optionalAuth')" />
         <UiPasswordField v-model="createForm.password" density="compact" :label="t('admin.proxies.password')" :placeholder="t('admin.proxies.optionalAuth')" />
-        <div>
-          <div class="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">{{ t('admin.proxies.expiresAt') }}</div>
+        <div class="proxy-form-section">
+          <div class="proxy-form-label">{{ t('admin.proxies.expiresAt') }}</div>
           <UiSegmentedControl
             :model-value="createExpiresDays ?? -1"
             :options="expiryPresetOptions"
             :label="t('admin.proxies.expiresAt')"
             @update:model-value="createExpiresDays = Number($event)"
           />
-          <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div class="proxy-expiry-grid">
             <UiTextField v-model.number="createExpiresDays" type="number" min="0" density="compact" :label="t('admin.proxies.expiryDaysPlaceholder')" />
             <UiDateInput v-model="createForm.expires_at" :label="t('admin.proxies.expiresAt')" />
           </div>
@@ -371,7 +373,7 @@
       </form>
 
       <!-- Batch Add Form -->
-      <div v-else class="space-y-5">
+      <div v-else class="proxy-form">
         <UiTextArea
           :model-value="batchInput"
           :rows="10"
@@ -383,28 +385,27 @@
         />
 
         <!-- Parse Result -->
-        <div v-if="batchParseResult.total > 0" class="rounded-lg bg-gray-50 p-4 dark:bg-dark-700">
-            <div class="flex items-center gap-4 text-sm">
-              <div class="flex items-center gap-1.5">
-              <Icon name="checkCircle" size="sm" :stroke-width="2" class="text-primary-500" />
-              <span class="text-gray-700 dark:text-gray-300">
+        <div v-if="batchParseResult.total > 0" class="proxy-batch-summary">
+            <div class="proxy-batch-summary__rows">
+              <div class="proxy-batch-summary__row proxy-batch-summary__row--success">
+              <Icon name="checkCircle" size="sm" :stroke-width="2" />
+              <span>
                 {{ t('admin.proxies.parsedCount', { count: batchParseResult.valid }) }}
               </span>
             </div>
-            <div v-if="batchParseResult.invalid > 0" class="flex items-center gap-1.5">
+            <div v-if="batchParseResult.invalid > 0" class="proxy-batch-summary__row proxy-batch-summary__row--warning">
               <Icon
                 name="exclamationCircle"
                 size="sm"
                 :stroke-width="2"
-                class="text-amber-500"
               />
-              <span class="text-amber-600 dark:text-amber-400">
+              <span>
                 {{ t('admin.proxies.invalidCount', { count: batchParseResult.invalid }) }}
               </span>
             </div>
-            <div v-if="batchParseResult.duplicate > 0" class="flex items-center gap-1.5">
-              <Icon name="copy" size="sm" class="text-gray-400" />
-              <span class="text-gray-500 dark:text-gray-400">
+            <div v-if="batchParseResult.duplicate > 0" class="proxy-batch-summary__row">
+              <Icon name="copy" size="sm" />
+              <span>
                 {{ t('admin.proxies.duplicateCount', { count: batchParseResult.duplicate }) }}
               </span>
             </div>
@@ -414,7 +415,7 @@
       </div>
 
       <template #footer>
-        <div class="flex justify-end gap-3">
+        <div class="proxy-dialog-actions">
           <UiButton @click="closeCreateModal" type="button" density="compact">
             {{ t('common.cancel') }}
           </UiButton>
@@ -459,11 +460,11 @@
         v-if="editingProxy"
         id="edit-proxy-form"
         @submit.prevent="handleUpdateProxy"
-        class="space-y-5"
+        class="proxy-form"
       >
         <UiTextField v-model="editForm.name" required density="compact" :label="t('admin.proxies.name')" />
         <UiSelect v-model="editForm.protocol" :options="protocolSelectOptions" density="compact" :label="t('admin.proxies.protocol')" />
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="proxy-form-grid">
           <UiTextField v-model="editForm.host" required density="compact" :label="t('admin.proxies.host')" />
           <UiTextField v-model.number="editForm.port" type="number" required min="1" max="65535" density="compact" :label="t('admin.proxies.port')" />
         </div>
@@ -476,15 +477,15 @@
           @update:model-value="editForm.password = $event; editPasswordDirty = true"
         />
         <UiSelect v-model="editForm.status" :options="editStatusOptions" density="compact" :label="t('admin.proxies.status')" />
-        <div>
-          <div class="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">{{ t('admin.proxies.expiresAt') }}</div>
+        <div class="proxy-form-section">
+          <div class="proxy-form-label">{{ t('admin.proxies.expiresAt') }}</div>
           <UiSegmentedControl
             :model-value="editExpiresDays ?? -1"
             :options="expiryPresetOptions"
             :label="t('admin.proxies.expiresAt')"
             @update:model-value="editExpiresDays = Number($event)"
           />
-          <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div class="proxy-expiry-grid">
             <UiTextField v-model.number="editExpiresDays" type="number" min="0" density="compact" :label="t('admin.proxies.expiryDaysPlaceholder')" />
             <UiDateInput v-model="editForm.expires_at" :label="t('admin.proxies.expiresAt')" />
           </div>
@@ -499,7 +500,7 @@
       </form>
 
       <template #footer>
-        <div class="flex justify-end gap-3">
+        <div class="proxy-dialog-actions">
           <UiButton @click="closeEditModal" type="button" density="compact">
             {{ t('common.cancel') }}
           </UiButton>
@@ -526,6 +527,7 @@
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
       :danger="true"
+      :pending="deletingProxyPending"
       @confirm="confirmDelete"
       @cancel="showDeleteDialog = false"
     />
@@ -538,6 +540,7 @@
       :confirm-text="t('common.delete')"
       :cancel-text="t('common.cancel')"
       :danger="true"
+      :pending="batchDeletingPending"
       @confirm="confirmBatchDelete"
       @cancel="showBatchDeleteDialog = false"
     />
@@ -547,6 +550,7 @@
       :message="t('admin.proxies.dataExportConfirmMessage')"
       :confirm-text="t('admin.proxies.dataExportConfirm')"
       :cancel-text="t('common.cancel')"
+      :pending="exportingData"
       @confirm="handleExportData"
       @cancel="showExportDataDialog = false"
     />
@@ -563,7 +567,7 @@
       width="normal"
       @close="closeQualityReportDialog"
     >
-      <div v-if="qualityReport" class="space-y-4">
+      <div v-if="qualityReport" class="proxy-dialog-stack">
         <UiDescriptionList :items="qualityReportFacts" :columns="2" />
         <UiDataTable
           :columns="qualityReportColumns"
@@ -579,12 +583,12 @@
           <template #cell-latency_ms="{ value }">{{ typeof value === 'number' ? `${value}ms` : '-' }}</template>
           <template #cell-message="{ row }">
             <span>{{ row.message || '-' }}</span>
-            <span v-if="row.cf_ray" class="ml-1 text-xs text-gray-400">(cf-ray: {{ row.cf_ray }})</span>
+            <span v-if="row.cf_ray" class="proxy-cf-ray">(cf-ray: {{ row.cf_ray }})</span>
           </template>
         </UiDataTable>
       </div>
       <template #footer>
-        <div class="flex justify-end">
+        <div class="proxy-dialog-actions">
           <UiButton density="compact" @click="closeQualityReportDialog">
             {{ t('common.close') }}
           </UiButton>
@@ -599,11 +603,11 @@
       width="normal"
       @close="closeAccountsModal"
     >
-      <div v-if="accountsLoading" class="flex items-center justify-center py-8 text-sm text-gray-500">
-        <Icon name="refresh" size="md" class="mr-2 animate-spin" />
+      <div v-if="accountsLoading" class="proxy-dialog-state">
+        <Icon name="refresh" size="md" class="proxies-spin" />
         {{ t('common.loading') }}
       </div>
-      <div v-else-if="proxyAccounts.length === 0" class="py-6 text-center text-sm text-gray-500">
+      <div v-else-if="proxyAccounts.length === 0" class="proxy-dialog-state">
         {{ t('admin.proxies.accountsEmpty') }}
       </div>
       <UiDataTable
@@ -613,12 +617,12 @@
         row-key="id"
         :aria-label="t('admin.proxies.accountsTitle', { name: accountsProxy?.name || '' })"
       >
-        <template #cell-name="{ value }"><span class="font-medium">{{ value }}</span></template>
+        <template #cell-name="{ value }"><span class="proxy-cell-strong">{{ value }}</span></template>
         <template #cell-platform="{ row }"><PlatformTypeBadge :platform="row.platform" :type="row.type" /></template>
         <template #cell-notes="{ value }">{{ value || '-' }}</template>
       </UiDataTable>
       <template #footer>
-        <div class="flex justify-end">
+        <div class="proxy-dialog-actions">
           <UiButton density="compact" @click="closeAccountsModal">
             {{ t('common.close') }}
           </UiButton>
@@ -649,6 +653,7 @@ import {
   UiDialog,
   UiDropdownMenu,
   UiEmptyState,
+  UiFilterBar,
   UiIconButton,
   UiPasswordField,
   UiPagination,
@@ -764,6 +769,8 @@ const showBatchDeleteDialog = ref(false)
 const showExportDataDialog = ref(false)
 const showAccountsModal = ref(false)
 const submitting = ref(false)
+const deletingProxyPending = ref(false)
+const batchDeletingPending = ref(false)
 const exportingData = ref(false)
 const testingProxyIds = ref<Set<number>>(new Set())
 const qualityCheckingProxyIds = ref<Set<number>>(new Set())
@@ -1646,11 +1653,11 @@ const handleExportData = async () => {
     link.click()
     URL.revokeObjectURL(url)
     appStore.showSuccess(t('admin.proxies.dataExported'))
+    showExportDataDialog.value = false
   } catch (error: any) {
     appStore.showError(error?.message || t('admin.proxies.dataExportFailed'))
   } finally {
     exportingData.value = false
-    showExportDataDialog.value = false
   }
 }
 
@@ -1671,27 +1678,33 @@ const openBatchDelete = () => {
 }
 
 const confirmDelete = async () => {
-  if (!deletingProxy.value) return
+  const target = deletingProxy.value
+  if (!target || deletingProxyPending.value) return
+  deletingProxyPending.value = true
 
   try {
-    await adminAPI.proxies.delete(deletingProxy.value.id)
+    await adminAPI.proxies.delete(target.id)
     appStore.showSuccess(t('admin.proxies.proxyDeleted'))
     showDeleteDialog.value = false
-    removeSelectedProxies([deletingProxy.value.id])
+    removeSelectedProxies([target.id])
     deletingProxy.value = null
     loadProxies()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.proxies.failedToDelete'))
     console.error('Error deleting proxy:', error)
+  } finally {
+    deletingProxyPending.value = false
   }
 }
 
 const confirmBatchDelete = async () => {
+  if (batchDeletingPending.value) return
   const ids = Array.from(selectedProxyIds.value)
   if (ids.length === 0) {
     showBatchDeleteDialog.value = false
     return
   }
+  batchDeletingPending.value = true
 
   try {
     const result = await adminAPI.proxies.batchDelete(ids)
@@ -1710,6 +1723,8 @@ const confirmBatchDelete = async () => {
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.proxies.batchDeleteFailed'))
     console.error('Error batch deleting proxies:', error)
+  } finally {
+    batchDeletingPending.value = false
   }
 }
 
@@ -1781,3 +1796,46 @@ onUnmounted(() => {
   abortController?.abort()
 })
 </script>
+
+<style scoped>
+.proxies-filter-grid { display: grid; min-width: 0; flex: 1; grid-template-columns: minmax(240px, 1fr) 160px 144px; gap: 8px; }
+.proxies-toolbar-actions { display: flex; width: 100%; align-items: center; gap: 8px; overflow-x: auto; padding-bottom: 1px; }
+.proxies-table-shell { min-width: 0; overflow: hidden; }
+.proxy-cell-strong { color: var(--ui-text); font-weight: 600; }
+.proxy-cell-empty { color: var(--ui-text-soft); font-size: 12px; }
+.proxy-cell-inline { display: inline-flex; min-width: 0; align-items: center; gap: 6px; }
+.proxy-cell-code { color: var(--ui-text); font-family: var(--ui-font-mono); font-size: 11px; }
+.proxy-auth-value { display: grid; min-width: 0; gap: 2px; color: var(--ui-text-muted); font-size: 12px; }
+.proxy-auth-password { color: var(--ui-text-soft); font-family: var(--ui-font-mono); }
+.proxy-location { gap: 8px; }
+.proxy-location-flag { width: 24px; height: 16px; border-radius: 3px; object-fit: cover; }
+.proxy-location-value { color: var(--ui-text-muted); font-size: 12px; }
+.proxy-cell-stack { display: grid; min-width: 0; gap: 4px; }
+.proxy-quality-inline { display: inline-flex; align-items: center; gap: 5px; color: var(--ui-text-muted); font-size: 11px; }
+.proxy-expiry-value, .proxy-created-at { color: var(--ui-text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.proxy-row-actions { display: inline-flex; align-items: center; gap: 4px; }
+.proxies-spin { animation: proxies-spin 900ms linear infinite; }
+.proxy-form-tabs { margin-bottom: 18px; }
+.proxy-form { display: grid; gap: 16px; }
+.proxy-form-grid, .proxy-expiry-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.proxy-form-section { display: grid; gap: 8px; }
+.proxy-form-label { color: var(--ui-text-muted); font-size: 11px; font-weight: 600; }
+.proxy-batch-summary { padding: 12px; border: 1px solid var(--ui-border-soft); border-radius: var(--ui-radius-panel); background: var(--ui-surface-muted); }
+.proxy-batch-summary__rows { display: flex; flex-wrap: wrap; gap: 14px; color: var(--ui-text-muted); font-size: 12px; }
+.proxy-batch-summary__row { display: inline-flex; align-items: center; gap: 6px; }
+.proxy-batch-summary__row--success { color: var(--ui-success); }
+.proxy-batch-summary__row--warning { color: var(--ui-warning); }
+.proxy-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.proxy-dialog-stack { display: grid; gap: 16px; }
+.proxy-dialog-state { display: flex; min-height: 112px; align-items: center; justify-content: center; gap: 8px; color: var(--ui-text-muted); font-size: 12px; text-align: center; }
+.proxy-cf-ray { margin-left: 4px; color: var(--ui-text-soft); font-size: 10px; }
+@keyframes proxies-spin { to { transform: rotate(360deg); } }
+@media (max-width: 900px) {
+  .proxies-filter-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .proxies-toolbar-actions { flex-wrap: nowrap; }
+  .proxy-form-grid, .proxy-expiry-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { .proxies-spin { animation: none; } }
+</style>

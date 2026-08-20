@@ -1,5 +1,5 @@
 <template>
-  <section class="card flex h-full min-h-[360px] flex-col xl:h-[470px] xl:min-h-[470px]" data-testid="dashboard-activity-card">
+  <section class="ui-panel flex h-full min-h-[360px] flex-col xl:h-[470px] xl:min-h-[470px]" data-testid="dashboard-activity-card">
     <div class="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-dark-700">
       <div>
         <h2 class="text-sm font-semibold text-gray-950 dark:text-white">{{ t('dashboard.overview.recentActivity') }}</h2>
@@ -9,7 +9,7 @@
 
     <div class="min-h-[268px] flex-1 px-4 py-2">
       <div v-if="loading" class="flex min-h-[252px] items-center justify-center">
-        <LoadingSpinner size="md" />
+        <UiSpinner size="md" />
       </div>
       <div v-else-if="activities.length === 0" class="flex min-h-[252px] flex-col items-center justify-center text-center">
         <div class="flex h-9 w-9 items-center justify-center rounded-[3px] bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
@@ -59,7 +59,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { UiSpinner } from '@/components/ui'
 import Icon from '@/components/icons/Icon.vue'
 import { formatRelativeTime } from '@/utils/format'
 import type { UsageLog, UserErrorRequest } from '@/types'

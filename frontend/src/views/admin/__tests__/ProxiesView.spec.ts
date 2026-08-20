@@ -4,9 +4,22 @@ import { flushPromises, mount } from '@vue/test-utils'
 import type { Proxy } from '@/types'
 import ProxiesView from '../ProxiesView.vue'
 
-const { copyToClipboard, create, getAllWithCount, list, showError, showSuccess } = vi.hoisted(() => ({
+const {
+  batchDelete,
+  copyToClipboard,
+  create,
+  deleteProxy,
+  exportData,
+  getAllWithCount,
+  list,
+  showError,
+  showSuccess
+} = vi.hoisted(() => ({
+  batchDelete: vi.fn(),
   copyToClipboard: vi.fn(),
   create: vi.fn(),
+  deleteProxy: vi.fn(),
+  exportData: vi.fn(),
   getAllWithCount: vi.fn(),
   list: vi.fn(),
   showError: vi.fn(),
@@ -16,7 +29,10 @@ const { copyToClipboard, create, getAllWithCount, list, showError, showSuccess }
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     proxies: {
+      batchDelete,
       create,
+      delete: deleteProxy,
+      exportData,
       getAllWithCount,
       list
     }
@@ -80,6 +96,19 @@ const mountView = () => mount(ProxiesView, {
       Pagination: true,
       BaseDialog: { props: ['show'], template: '<div v-if="show"><slot/><slot name="footer"/></div>' },
       ConfirmDialog: true,
+      UiConfirmDialog: {
+        props: ['show', 'pending', 'title'],
+        emits: ['confirm', 'cancel'],
+        template: `
+          <div
+            v-if="show"
+            :data-test="title === 'admin.proxies.deleteProxy' ? 'confirm-delete-proxy' : 'confirm-delete-batch'"
+          >
+            <button data-test="confirm" :disabled="pending" @click="$emit('confirm')">confirm</button>
+            <button data-test="cancel" :disabled="pending" @click="$emit('cancel')">cancel</button>
+          </div>
+        `
+      },
       ImportDataModal: true,
       ProxyAdBanner: true,
       PlatformTypeBadge: true,
@@ -91,7 +120,10 @@ const mountView = () => mount(ProxiesView, {
 describe('ProxiesView workspace', () => {
   beforeEach(() => {
     list.mockReset()
+    batchDelete.mockReset()
     create.mockReset()
+    deleteProxy.mockReset()
+    exportData.mockReset()
     getAllWithCount.mockReset()
     showError.mockReset()
     showSuccess.mockReset()
@@ -99,6 +131,9 @@ describe('ProxiesView workspace', () => {
     list.mockResolvedValue({ items: [proxy], total: 1, pages: 1, page: 1, page_size: 20 })
     getAllWithCount.mockResolvedValue([proxy])
     create.mockResolvedValue(proxy)
+    deleteProxy.mockResolvedValue(undefined)
+    batchDelete.mockResolvedValue({ deleted_ids: [proxy.id], skipped: [] })
+    exportData.mockResolvedValue({ items: [] })
   })
 
   afterEach(() => {
@@ -174,5 +209,78 @@ describe('ProxiesView workspace', () => {
 
     expect(copyToClipboard).toHaveBeenCalledWith('127.0.0.1:1080', 'admin.proxies.urlCopied')
     wrapper.unmount()
+  })
+
+  it('single-flight guards proxy deletion and keeps the confirmation locked while pending', async () => {
+    let resolveDelete!: () => void
+    deleteProxy.mockImplementationOnce(() => new Promise<void>((resolve) => { resolveDelete = resolve }))
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('button[aria-label="common.delete"]').trigger('click')
+    const dialog = wrapper.get('[data-test="confirm-delete-proxy"]')
+    const confirm = dialog.get('[data-test="confirm"]')
+    const cancel = dialog.get('[data-test="cancel"]')
+
+    await confirm.trigger('click')
+    await confirm.trigger('click')
+    expect(deleteProxy).toHaveBeenCalledTimes(1)
+    expect(confirm.attributes('disabled')).toBeDefined()
+    expect(cancel.attributes('disabled')).toBeDefined()
+
+    resolveDelete()
+    await flushPromises()
+    expect(wrapper.find('[data-test="confirm-delete-proxy"]').exists()).toBe(false)
+  })
+
+  it('keeps a failed proxy deletion confirmation open for retry', async () => {
+    deleteProxy.mockRejectedValueOnce(new Error('delete failed'))
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('button[aria-label="common.delete"]').trigger('click')
+    await wrapper.get('[data-test="confirm-delete-proxy"] [data-test="confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="confirm-delete-proxy"]').exists()).toBe(true)
+    expect(showError).toHaveBeenCalled()
+  })
+
+  it('keeps the export confirmation open after a failed export', async () => {
+    exportData.mockRejectedValueOnce(new Error('export failed'))
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.showExportDataDialog = true
+
+    await vm.handleExportData()
+
+    expect(vm.showExportDataDialog).toBe(true)
+    expect(vm.exportingData).toBe(false)
+    expect(showError).toHaveBeenCalledWith('export failed')
+    wrapper.unmount()
+  })
+
+  it('single-flight guards batch proxy deletion and keeps failed selection context', async () => {
+    let resolveDelete!: (value: { deleted_ids: number[]; skipped: unknown[] }) => void
+    batchDelete.mockImplementationOnce(() => new Promise((resolve) => { resolveDelete = resolve }))
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('input[type="checkbox"]')[1].setValue(true)
+    await wrapper.get('[data-test="batch-delete-proxies"]').trigger('click')
+    const dialog = wrapper.get('[data-test="confirm-delete-batch"]')
+    const confirm = dialog.get('[data-test="confirm"]')
+    const cancel = dialog.get('[data-test="cancel"]')
+
+    await confirm.trigger('click')
+    await confirm.trigger('click')
+    expect(batchDelete).toHaveBeenCalledTimes(1)
+    expect(confirm.attributes('disabled')).toBeDefined()
+    expect(cancel.attributes('disabled')).toBeDefined()
+
+    resolveDelete({ deleted_ids: [proxy.id], skipped: [] })
+    await flushPromises()
+    expect(wrapper.find('[data-test="confirm-delete-batch"]').exists()).toBe(false)
   })
 })

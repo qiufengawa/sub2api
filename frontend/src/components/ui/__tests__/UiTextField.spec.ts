@@ -67,4 +67,17 @@ describe('UiTextField model modifiers', () => {
     const event = wrapper.emitted('enter')?.[0]?.[0] as KeyboardEvent
     expect(event.defaultPrevented).toBe(true)
   })
+
+  it('forwards non-Enter keydown and paste events for tokenized inputs', async () => {
+    const wrapper = mount(UiTextField, { props: { modelValue: '' } })
+    const input = wrapper.get('input')
+
+    await input.trigger('keydown', { key: ',' })
+    await input.trigger('paste', {
+      clipboardData: { getData: () => 'example.com' },
+    })
+
+    expect((wrapper.emitted('keydown')?.[0]?.[0] as KeyboardEvent).key).toBe(',')
+    expect(wrapper.emitted('paste')).toHaveLength(1)
+  })
 })

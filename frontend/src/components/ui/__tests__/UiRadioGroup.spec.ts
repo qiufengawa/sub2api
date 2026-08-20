@@ -39,4 +39,22 @@ describe('UiRadioGroup', () => {
     expect(wrapper.classes()).toContain('ui-radio-group--grid')
     expect(wrapper.text()).toContain('Every route')
   })
+
+  it('preserves option metadata and custom option content through the shared slot', () => {
+    const wrapper = mount(UiRadioGroup, {
+      props: {
+        modelValue: 1,
+        name: 'routing-group',
+        ariaLabel: 'Routing group',
+        options: [{ value: 1, label: 'GPT-1', title: 'Primary route' }],
+      },
+      slots: {
+        option: '<span data-custom-option>GPT-1 ×0.1</span>',
+      },
+    })
+
+    expect(wrapper.get('fieldset').attributes('aria-label')).toBe('Routing group')
+    expect(wrapper.get('label').attributes('title')).toBe('Primary route')
+    expect(wrapper.get('[data-custom-option]').text()).toBe('GPT-1 ×0.1')
+  })
 })

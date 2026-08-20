@@ -8,6 +8,7 @@
       <UiSwitch
         :model-value="state.enabled"
         :label="t('admin.groups.modelsList.title')"
+        :native-input="false"
         @update:model-value="setEnabled"
       />
     </header>

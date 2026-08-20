@@ -53,6 +53,7 @@ export default {
       noGroup: '未分组',
       stream: '流式',
       nonStream: '非流式',
+      enabledParameterCount: '已启用 {count} 个参数',
     },
     image: {
       mode: '图片生成',

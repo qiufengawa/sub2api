@@ -192,7 +192,11 @@ describe('usePlayground', () => {
     let resolveSecond!: (value: Array<{ id: string }>) => void
     const first = new Promise<Array<{ id: string }>>((resolve) => { resolveFirst = resolve })
     const second = new Promise<Array<{ id: string }>>((resolve) => { resolveSecond = resolve })
-    apiMocks.listModels.mockImplementation((keyId: number) => keyId === 1 ? first : second)
+    const signals: AbortSignal[] = []
+    apiMocks.listModels.mockImplementation((keyId: number, signal: AbortSignal) => {
+      signals.push(signal)
+      return keyId === 1 ? first : second
+    })
     const state = mountComposable()
     state.keys.value = [activeKey(1), activeKey(2)]
 
@@ -206,6 +210,30 @@ describe('usePlayground', () => {
     expect(state.config.value.keyId).toBe(2)
     expect(state.models.value.map((item) => item.id)).toEqual(['model-b'])
     expect(state.config.value.model).toBe('model-b')
+    expect(signals[0]?.aborted).toBe(true)
+    expect(signals[1]?.aborted).toBe(false)
+  })
+
+  it('cancels an in-flight key refresh before starting the latest refresh', async () => {
+    let resolveFirst!: (value: { items: ReturnType<typeof activeKey>[]; truncated: boolean }) => void
+    const first = new Promise<{ items: ReturnType<typeof activeKey>[]; truncated: boolean }>((resolve) => { resolveFirst = resolve })
+    const signals: AbortSignal[] = []
+    apiMocks.listKeys.mockImplementation((signal: AbortSignal) => {
+      signals.push(signal)
+      return signals.length === 1 ? first : Promise.resolve({ items: [activeKey(2)], truncated: false })
+    })
+    const state = mountComposable()
+
+    const firstRequest = state.loadKeys()
+    const secondRequest = state.loadKeys()
+    await secondRequest
+    resolveFirst({ items: [activeKey(1)], truncated: false })
+    await firstRequest
+
+    expect(signals[0]?.aborted).toBe(true)
+    expect(signals[1]?.aborted).toBe(false)
+    expect(state.keys.value[0]?.id).toBe(2)
+    expect(state.isLoadingKeys.value).toBe(false)
   })
 
   it('sends only enabled parameters and separates request and response ids', async () => {

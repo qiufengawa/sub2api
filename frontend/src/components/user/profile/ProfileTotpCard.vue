@@ -1,5 +1,5 @@
 <template>
-  <div :class="props.embedded ? 'border-t border-gray-100 dark:border-dark-700' : 'card'">
+  <div :class="props.embedded ? 'border-t border-gray-100 dark:border-dark-700' : 'ui-panel'">
     <div :class="props.embedded ? 'px-4 pt-3' : 'border-b border-gray-100 px-6 py-4 dark:border-dark-700'">
       <h2 :class="props.embedded ? 'text-sm font-medium text-gray-900 dark:text-white' : 'text-lg font-medium text-gray-900 dark:text-white'">
         {{ t('profile.totp.title') }}
@@ -11,15 +11,13 @@
     <div :class="props.embedded ? 'px-4 pb-3 pt-2' : 'px-6 py-6'">
       <!-- Loading state -->
       <div v-if="loading" :class="props.embedded ? 'flex items-center justify-center py-3' : 'flex items-center justify-center py-8'">
-        <div :class="props.embedded ? 'h-5 w-5' : 'h-8 w-8'" class="animate-spin rounded-full border-b-2 border-primary-500"></div>
+        <UiSpinner :size="props.embedded ? 'sm' : 'md'" :label="t('common.loading')" />
       </div>
 
       <!-- Feature disabled globally -->
       <div v-else-if="status && !status.feature_enabled" :class="props.embedded ? 'flex items-center gap-3' : 'flex items-center gap-4 py-4'">
         <div :class="props.embedded ? 'rounded p-1.5' : 'rounded-full p-3'" class="flex-shrink-0 bg-gray-100 dark:bg-dark-700">
-          <svg :class="props.embedded ? 'h-5 w-5' : 'h-6 w-6'" class="text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-          </svg>
+          <Icon name="exclamationTriangle" :size="props.embedded ? 'sm' : 'md'" class="text-gray-400" />
         </div>
         <div>
           <p class="font-medium text-gray-700 dark:text-gray-300">
@@ -34,10 +32,8 @@
       <!-- 2FA Enabled -->
       <div v-else-if="status?.enabled" class="flex items-center justify-between gap-3">
         <div :class="props.embedded ? 'flex items-center gap-3' : 'flex items-center gap-4'">
-          <div :class="props.embedded ? 'rounded p-1.5' : 'rounded-full p-3'" class="flex-shrink-0 bg-green-100 dark:bg-green-900/30">
-            <svg :class="props.embedded ? 'h-5 w-5' : 'h-6 w-6'" class="text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-            </svg>
+        <div :class="props.embedded ? 'rounded p-1.5' : 'rounded-full p-3'" class="flex-shrink-0 bg-green-100 dark:bg-green-900/30">
+            <Icon name="shield" :size="props.embedded ? 'sm' : 'md'" class="text-green-600 dark:text-green-400" />
           </div>
           <div>
             <p class="font-medium text-gray-900 dark:text-white">
@@ -48,22 +44,21 @@
             </p>
           </div>
         </div>
-        <button
+        <UiButton
           type="button"
-          :class="props.embedded ? 'btn btn-outline-danger btn-sm' : 'btn btn-outline-danger'"
+          variant="danger"
+          :density="props.embedded ? 'compact' : 'default'"
           @click="showDisableDialog = true"
         >
           {{ t('profile.totp.disable') }}
-        </button>
+        </UiButton>
       </div>
 
       <!-- 2FA Not Enabled -->
       <div v-else class="flex items-center justify-between gap-3">
         <div :class="props.embedded ? 'flex items-center gap-3' : 'flex items-center gap-4'">
-          <div :class="props.embedded ? 'rounded p-1.5' : 'rounded-full p-3'" class="flex-shrink-0 bg-gray-100 dark:bg-dark-700">
-            <svg :class="props.embedded ? 'h-5 w-5' : 'h-6 w-6'" class="text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-            </svg>
+        <div :class="props.embedded ? 'rounded p-1.5' : 'rounded-full p-3'" class="flex-shrink-0 bg-gray-100 dark:bg-dark-700">
+            <Icon name="shield" :size="props.embedded ? 'sm' : 'md'" class="text-gray-400" />
           </div>
           <div>
             <p class="font-medium text-gray-700 dark:text-gray-300">
@@ -74,13 +69,14 @@
             </p>
           </div>
         </div>
-        <button
+        <UiButton
           type="button"
-          :class="props.embedded ? 'btn btn-primary btn-sm' : 'btn btn-primary'"
+          variant="primary"
+          :density="props.embedded ? 'compact' : 'default'"
           @click="showSetupModal = true"
         >
           {{ t('profile.totp.enable') }}
-        </button>
+        </UiButton>
       </div>
     </div>
 
@@ -105,6 +101,8 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { totpAPI } from '@/api'
 import type { TotpStatus } from '@/types'
+import { Icon } from '@/components/icons'
+import { UiButton, UiSpinner } from '@/components/ui'
 import TotpSetupModal from './TotpSetupModal.vue'
 import TotpDisableDialog from './TotpDisableDialog.vue'
 

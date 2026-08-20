@@ -17,9 +17,9 @@ import {
   ChevronRight, ChevronUp, CircleAlert, CircleCheck, CircleDollarSign,
   CircleHelp, CircleUser, CircleX, Clipboard, Clock3, Cloud, Copy, Cpu,
   CreditCard, Database, Download, ExternalLink, Eye, EyeOff, FileText,
-  Filter, Flame, FlaskConical, Gift, Github, Globe2, Headphones, House, Inbox, Info, KeyRound,
-  LayoutGrid, Lightbulb, Link2, Lock, LogIn, LogOut, Mail, Menu, MessageCircle, Moon,
-  MessageSquare, Minus, MoreHorizontal, Pencil, Play, Plus, RefreshCcw,
+  Filter, Flame, FlaskConical, Gift, Github, Globe2, GripVertical, Headphones, House, Inbox, Info, KeyRound,
+  Image, Laptop, LayoutGrid, Lightbulb, Link2, Lock, LogIn, LogOut, Mail, Menu, MessageCircle, Moon,
+  MessageSquare, Minus, MoreHorizontal, Pencil, Play, Plus, RefreshCcw, LoaderCircle,
   RefreshCw, Search, Server, Settings, ShieldCheck, Sparkles, Sun,
   Terminal, Trash2, TrendingUp, TriangleAlert, Trophy, Upload, User,
   UserPlus, Users, X, Zap
@@ -28,6 +28,7 @@ import {
 const iconMap = {
   play: Play,
   refresh: RefreshCw,
+  loader: LoaderCircle,
   edit: Pencil,
   trash: Trash2,
   plus: Plus,
@@ -83,6 +84,7 @@ const iconMap = {
   calendar: CalendarDays,
   home: House,
   terminal: Terminal,
+  laptop: Laptop,
   gift: Gift,
   creditCard: CreditCard,
   mail: Mail,
@@ -110,6 +112,8 @@ const iconMap = {
   badge: BadgeCheck,
   brain: Brain,
   github: Github,
+  image: Image,
+  gripVertical: GripVertical,
   headphones: Headphones,
   logout: LogOut
 } as const

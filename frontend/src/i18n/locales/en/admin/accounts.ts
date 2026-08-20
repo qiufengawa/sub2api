@@ -151,6 +151,7 @@ export default {
       inactive: "Inactive",
       disabled: "Disabled",
       error: "Error",
+      errorDetails: "Error details",
       cooldown: "Cooldown",
       paused: "Paused",
       limited: "Limited",
@@ -372,6 +373,8 @@ export default {
       notice:
         "Rules are evaluated in order and require both error code and keyword match.",
       addRule: "Add Rule",
+      moveUp: "Move rule up",
+      moveDown: "Move rule down",
       ruleOrder: "Rule Order",
       multipleErrorTrigger:
         "{count} matching errors in {minutes} minutes reached the trigger threshold ({threshold}).",

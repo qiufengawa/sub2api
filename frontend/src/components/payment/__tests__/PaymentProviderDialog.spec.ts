@@ -80,10 +80,10 @@ function mountDialog(options: { editing?: ProviderInstance | null } = {}) {
     },
     global: {
       stubs: {
-        BaseDialog: {
+        UiDialog: {
           template: '<div><slot /><slot name="footer" /></div>',
         },
-        Select: {
+        UiSelect: {
           props: ['modelValue', 'options', 'disabled'],
           template: '<div />',
         },
@@ -184,7 +184,7 @@ describe('PaymentProviderDialog payment guide', () => {
     ;(wrapper.vm as unknown as { loadProvider: (provider: ProviderInstance) => void }).loadProvider(provider)
     await nextTick()
 
-    await wrapper.find('button.btn-sm').trigger('click')
+    await wrapper.get('[data-testid="payment-add-custom-method"]').trigger('click')
     await nextTick()
 
     const inputs = wrapper.findAll('input[type="text"]')
@@ -227,7 +227,7 @@ describe('PaymentProviderDialog payment guide', () => {
     ;(wrapper.vm as unknown as { loadProvider: (provider: ProviderInstance) => void }).loadProvider(provider)
     await nextTick()
 
-    await wrapper.find('button.btn-sm').trigger('click')
+    await wrapper.get('[data-testid="payment-add-custom-method"]').trigger('click')
     await nextTick()
 
     const inputs = wrapper.findAll('input[type="text"]')

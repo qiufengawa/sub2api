@@ -1,5 +1,5 @@
 <template>
-  <div class="card p-4">
+  <div class="ui-panel p-4">
     <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
       {{ t('payment.admin.paymentDistribution') }}
     </h3>
@@ -31,7 +31,7 @@
           <span class="w-10 text-xs text-gray-500 dark:text-gray-400">{{ currency }}</span>
           <div class="h-2 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-700">
             <div
-              :class="['h-full rounded-full transition-all', barColorMap[method.type] || 'bg-gray-400']"
+              :class="['h-full rounded-full', barColorMap[method.type] || 'bg-gray-400']"
               :style="{ width: barWidth(currency, amount) + '%' }"
             ></div>
           </div>

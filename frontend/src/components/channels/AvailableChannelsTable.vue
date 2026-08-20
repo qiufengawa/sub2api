@@ -70,13 +70,14 @@
                     : t('availableChannels.expandDetails')
                 "
                 :aria-expanded="isExpanded(channelKey(channel, channelIndex))"
+                :aria-controls="`available-channel-details-${channelIndex}`"
                 @click="toggleChannel(channelKey(channel, channelIndex))"
               />
             </td>
           </tr>
 
           <tr v-if="isExpanded(channelKey(channel, channelIndex))" class="channels-table__details">
-            <td colspan="5">
+            <td :id="`available-channel-details-${channelIndex}`" colspan="5">
               <section
                 v-for="section in channel.platforms"
                 :key="`${channel.name}-${section.platform}-detail`"
@@ -436,9 +437,11 @@ function peakRateTitle(group: UserAvailableGroup): string {
 }
 
 .sr-only {
-  position: absolute;
+  position: static;
+  display: block;
   width: 1px;
   height: 1px;
+  margin: -1px;
   padding: 0;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);

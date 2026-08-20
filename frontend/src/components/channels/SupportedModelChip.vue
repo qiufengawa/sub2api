@@ -1,13 +1,9 @@
 <template>
-  <div class="relative inline-block">
+  <div class="model-chip">
     <span
       ref="triggerEl"
-      :class="[
-        'inline-flex cursor-help items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium transition-colors',
-        effectivePlatform
-          ? platformBadgeClass(effectivePlatform)
-          : 'border-gray-200 bg-gray-50 text-gray-700 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300',
-      ]"
+      class="model-chip__trigger"
+      :data-platform="effectivePlatform || undefined"
       @mouseenter="onEnter"
       @mouseleave="onLeave"
       @focusin="onEnter"
@@ -21,7 +17,7 @@
       />
       <span
         v-if="showPlatform && model.platform"
-        class="rounded bg-gray-200/60 px-1 text-[10px] uppercase text-gray-600 dark:bg-dark-700 dark:text-gray-400"
+        class="model-chip__platform"
       >
         {{ model.platform }}
       </span>
@@ -36,33 +32,32 @@
         v-show="show"
         ref="popoverEl"
         role="tooltip"
-        class="pointer-events-none fixed z-[99999] w-80 max-w-[min(22rem,calc(100vw-1rem))] rounded-lg border bg-white text-xs shadow-xl dark:bg-dark-800"
-        :class="[popoverBorderClass]"
+        class="model-chip__popover"
         :style="popoverStyle"
       >
         <!-- Header：平台主题色背景，含模型名 + 平台徽章 -->
         <div
-          class="flex items-center justify-between gap-2 rounded-t-lg border-b px-3 py-2"
+          class="model-chip__popover-header"
           :class="[popoverHeaderClass, popoverBorderClass]"
         >
-          <span class="truncate font-semibold">{{ model.name }}</span>
+          <span class="model-chip__popover-title">{{ model.name }}</span>
           <span
             v-if="model.platform"
-            class="flex-shrink-0 rounded bg-white/70 px-1.5 py-0.5 text-[10px] uppercase tracking-wide dark:bg-dark-900/60"
+            class="model-chip__popover-platform"
           >
             {{ model.platform }}
           </span>
         </div>
 
-        <div class="p-3">
-          <div v-if="!model.pricing" class="text-gray-500 dark:text-gray-400">
+        <div class="model-chip__popover-body">
+          <div v-if="!model.pricing" class="model-chip__muted">
             {{ noPricingLabel }}
           </div>
 
-          <div v-else class="space-y-2 text-gray-700 dark:text-gray-300">
-            <div class="flex justify-between">
-              <span class="text-gray-500 dark:text-gray-400">{{ t(prefixKey('billingMode')) }}</span>
-              <span>{{ billingModeLabel }}</span>
+          <div v-else class="model-chip__pricing">
+            <div class="model-chip__row">
+              <span class="model-chip__muted">{{ t(prefixKey('billingMode')) }}</span>
+              <span class="model-chip__value">{{ billingModeLabel }}</span>
             </div>
 
             <template v-if="model.pricing.billing_mode === BILLING_MODE_TOKEN">
@@ -130,23 +125,22 @@
 
             <div
               v-if="model.pricing.intervals && model.pricing.intervals.length > 0"
-              class="mt-2 border-t pt-2"
-              :class="[popoverBorderClass]"
+              class="model-chip__intervals"
             >
-              <div class="mb-1 font-medium text-gray-600 dark:text-gray-400">
+              <div class="model-chip__interval-title">
                 {{ t(prefixKey('intervals')) }}
               </div>
-              <div class="space-y-1">
+              <div class="model-chip__interval-list">
                 <div
                   v-for="(iv, idx) in model.pricing.intervals"
                   :key="idx"
-                  class="flex justify-between text-[11px]"
+                  class="model-chip__row model-chip__interval-row"
                 >
-                  <span class="text-gray-500 dark:text-gray-400">
+                  <span class="model-chip__muted">
                     <template v-if="iv.tier_label">{{ iv.tier_label }}</template>
                     <template v-else>{{ formatRange(iv.min_tokens, iv.max_tokens) }}</template>
                   </span>
-                  <span>{{ formatInterval(iv, model.pricing.billing_mode) }}</span>
+                  <span class="model-chip__value">{{ formatInterval(iv, model.pricing.billing_mode) }}</span>
                 </div>
               </div>
             </div>
@@ -173,7 +167,6 @@ import {
 import type { UserPricingInterval, UserSupportedModel } from '@/api/channels'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import type { GroupPlatform } from '@/types'
-import { platformBadgeClass, platformBorderClass, platformBadgeLightClass } from '@/utils/platformColors'
 
 const props = withDefaults(
   defineProps<{
@@ -203,18 +196,8 @@ const { t } = useI18n()
 /** 按 token 定价展示时的换算单位：每百万 token。 */
 const perMillionScale = 1_000_000
 
-// Popover border + header classes echo the platform theme so each card reads
-// at a glance which model family it belongs to.
-const popoverBorderClass = computed(() =>
-  effectivePlatform.value
-    ? platformBorderClass(effectivePlatform.value)
-    : 'border-gray-200 dark:border-dark-600',
-)
-const popoverHeaderClass = computed(() =>
-  effectivePlatform.value
-    ? platformBadgeLightClass(effectivePlatform.value)
-    : 'bg-gray-50 text-gray-700 dark:bg-dark-700/60 dark:text-gray-300',
-)
+const popoverBorderClass = 'model-chip__popover-header--border'
+const popoverHeaderClass = 'model-chip__popover-header--platform'
 
 function prefixKey(k: string): string {
   return `${props.pricingKeyPrefix}.${k}`
@@ -306,3 +289,46 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', updatePosition)
 })
 </script>
+
+<style scoped>
+.model-chip { position: relative; display: inline-block; min-width: 0; }
+.model-chip__trigger {
+  display: inline-flex;
+  max-width: 100%;
+  min-height: 24px;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  padding: 2px 7px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  color: var(--ui-text-muted);
+  background: var(--ui-surface-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: help;
+  transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
+}
+.model-chip__trigger:hover,
+.model-chip__trigger:focus-visible { border-color: var(--ui-text-soft); color: var(--ui-text); background: var(--ui-surface); outline: none; }
+.model-chip__platform,
+.model-chip__popover-platform { flex: none; padding: 1px 4px; border-radius: 3px; color: var(--ui-text-soft); background: var(--ui-border-soft); font-size: 9px; font-weight: 700; letter-spacing: .04em; line-height: 14px; text-transform: uppercase; }
+.model-chip__popover { position: fixed; z-index: 99999; width: 320px; max-width: calc(100vw - 16px); overflow: hidden; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-panel); color: var(--ui-text); background: var(--ui-surface); box-shadow: 0 12px 30px color-mix(in srgb, var(--ui-text) 16%, transparent); font-size: 12px; pointer-events: none; }
+.model-chip__popover-header { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--ui-border-soft); }
+.model-chip__popover-header--platform { color: var(--ui-text); background: var(--ui-surface-muted); }
+.model-chip__popover-header--border { border-color: var(--ui-border-soft); }
+.model-chip__popover-title { min-width: 0; overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.model-chip__popover-body { padding: 12px; }
+.model-chip__pricing { display: grid; gap: 8px; color: var(--ui-text); }
+.model-chip__row { display: flex; min-width: 0; align-items: baseline; justify-content: space-between; gap: 12px; }
+.model-chip__muted { color: var(--ui-text-muted); }
+.model-chip__value { min-width: 0; color: var(--ui-text); font-family: var(--ui-font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.model-chip__intervals { display: grid; gap: 6px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--ui-border-soft); }
+.model-chip__interval-title { color: var(--ui-text-muted); font-weight: 600; }
+.model-chip__interval-list { display: grid; gap: 5px; }
+.model-chip__interval-row { font-size: 11px; }
+@media (prefers-reduced-motion: reduce) { .model-chip__trigger { transition: none; } }
+</style>
