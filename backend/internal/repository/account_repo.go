@@ -1083,14 +1083,16 @@ func accountListOrder(params pagination.PaginationParams) []func(*entsql.Selecto
 	}
 	if sortBy == "upstream_billing_rate" {
 		direction := "ASC"
+		tieOrder := entsql.Asc
 		if sortOrder == pagination.SortOrderDesc {
 			direction = "DESC"
+			tieOrder = entsql.Desc
 		}
 		return []func(*entsql.Selector){func(s *entsql.Selector) {
 			extra := s.C(dbaccount.FieldExtra)
 			expression := upstreamBillingRateSortExpression(extra)
 			s.OrderExpr(entsql.Expr(expression + " " + direction + " NULLS LAST"))
-			s.OrderBy(entsql.Asc(s.C(dbaccount.FieldID)))
+			s.OrderBy(tieOrder(s.C(dbaccount.FieldID)))
 		}}
 	}
 
@@ -1162,7 +1164,7 @@ func upstreamBillingRateSortExpression(extra string) string {
 		" THEN " + peakMultiplierValue + " ELSE 1 END ELSE NULL END"
 	legacySnapshot := "jsonb_typeof(" + resolvedJSON + ") IS NULL AND jsonb_typeof(" + peakEnabledJSON + ") IS NULL"
 
-	return "CASE WHEN " + status + " IN ('ok', 'failed', 'unsupported') AND (jsonb_typeof(" + resolvedJSON + ") = 'number' OR jsonb_typeof(" + effectiveJSON + ") = 'number') THEN CASE WHEN jsonb_typeof(" +
+	return "CASE WHEN " + status + " IN ('ok', 'failed') AND (jsonb_typeof(" + resolvedJSON + ") = 'number' OR jsonb_typeof(" + effectiveJSON + ") = 'number') THEN CASE WHEN jsonb_typeof(" +
 		resolvedJSON + ") = 'number' AND jsonb_typeof(" + peakEnabledJSON + ") = 'boolean' THEN CASE WHEN " + billingScope + " = 'token' THEN " + dynamicRate + " ELSE NULL END WHEN " + legacySnapshot +
 		" AND jsonb_typeof(" + effectiveJSON + ") = 'number' THEN (" + effective + ")::numeric END END"
 }
@@ -3083,7 +3085,7 @@ func (r *accountRepository) queryAccountsByGroup(ctx context.Context, groupID in
 		Order(
 			dbaccountgroup.ByPriority(),
 			dbaccountgroup.ByAccountField(dbaccount.FieldPriority, entsql.OrderDesc()),
-			dbaccountgroup.ByAccountField(dbaccount.FieldID),
+			dbaccountgroup.ByAccountID(),
 		).
 		WithAccount().
 		All(ctx)
