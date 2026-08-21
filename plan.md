@@ -1970,3 +1970,22 @@ Review 必须按严重度记录：
   重复退款拒绝和无交易号的管理员离线退款。
 - 本批仍不宣称总目标完成：原生 screen-reader、credentialed external sandbox settlement/
   refund、其余管理员 mutation 逐页 slow/error/empty 状态和最终 Code Review 仍开放。
+
+### 2026-08-21：状态矩阵、键盘 overlay、双标签与 Accounts 错误边界继续推进
+
+- 新增 `admin-state-matrix-summary.json`：8 个高优先级管理员路由 48 组
+  empty/slow/error；新增 `admin-state-remaining-summary.json`：10 个额外管理员路由
+  60 组状态探针，其中 54 组命中 page-specific API，Dashboard 的 6 组 feature-guard
+  单独记录。已命中组合均为 0 overflow、0 navigation error、0 failed request，fixture
+  的 console/error 诊断保留在原始统计中。
+- 新增 `keyboard-overlay-summary.json`：真实 Chromium `390×844` dark/reduced-motion
+  下 10 个管理员/用户入口的 Enter、Space、Escape、focus-return 全部通过；新增
+  `payment-double-tab.json`：同一 BrowserContext 中 A/B 恢复 token 隔离通过。
+- `AccountsView` 初始列表失败现在有统一 toast/catch；首载 `lite` 参数在拒绝时清理，
+  sequence token 防止并发/晚到请求污染。Accounts 46 项定向套件、全量 Vitest
+  `359 files / 2431 tests`、static audit 13、typecheck、lint、build（3103 modules）和
+  diff-check 均已复验。
+- 证据与 SHA-256 索引写入 `docs/frontend-rebuild/evidence/20260821/`；最新提交链为
+  `0be0adb3e`、`7a29c753c`、`30ba61e78`、`b1513e24d`、`b7e682e61`、`fc3e9a6a8`。
+  原生读屏、credentialed 外部 provider、完整逐页状态/late-response 和最终
+  severity-signed Code Review 仍保持 active。
