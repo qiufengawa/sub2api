@@ -143,7 +143,7 @@ describe('AdminAffiliateRecordsTable', () => {
     const wrapper = mountView(type)
     await flushPromises()
 
-    expect(wrapper.get('main.app-page').classes()).toContain('app-page--compact')
+    expect(wrapper.get('div.app-page').classes()).toContain('app-page--compact')
     expect(wrapper.get('h1').text()).toBe(title)
     expect(api).toHaveBeenCalledWith(expect.objectContaining({
       page: 1,

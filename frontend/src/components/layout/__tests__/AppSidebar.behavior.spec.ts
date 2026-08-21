@@ -137,6 +137,41 @@ describe('AppSidebar runtime behavior', () => {
     expect(setMobileOpen).not.toHaveBeenCalled()
   })
 
+  it('removes the closed mobile sidebar from the accessibility and focus trees', async () => {
+    const originalMatchMedia = window.matchMedia
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: () => ({
+        matches: true,
+        media: '(max-width: 1023px)',
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }),
+    })
+
+    appStore.mobileOpen = false
+    const closed = mountSidebar()
+    await flushPromises()
+    expect(['', 'true']).toContain(closed.get('aside').attributes('inert'))
+    expect(closed.get('aside').attributes('aria-hidden')).toBe('true')
+    closed.unmount()
+
+    appStore.mobileOpen = true
+    const open = mountSidebar()
+    await flushPromises()
+    expect(open.get('aside').attributes('inert')).toBeUndefined()
+    expect(open.get('aside').attributes('aria-hidden')).toBeUndefined()
+    open.unmount()
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: originalMatchMedia,
+    })
+  })
+
   it('restores and saves the navigation scroll position across mounts', async () => {
     appStore.sidebarScrollTop = 96
     const wrapper = mountSidebar()

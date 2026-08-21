@@ -6,6 +6,33 @@
         <UiSpinner size="lg" :label="t('common.loading')" />
       </div>
 
+      <!-- Keep the editable form hidden until the authoritative settings payload loads. -->
+      <div
+        v-else-if="loadFailed"
+        class="settings-load-error flex flex-col items-center justify-center gap-4 py-12 text-center"
+        role="alert"
+        aria-live="assertive"
+        data-testid="settings-load-error"
+      >
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+            {{ t("admin.settings.failedToLoad") }}
+          </h2>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            {{ t("legal.retryLater") }}
+          </p>
+        </div>
+        <UiButton
+          type="button"
+          variant="secondary"
+          density="compact"
+          data-testid="settings-load-retry"
+          @click="loadSettings"
+        >
+          {{ t("common.retry") }}
+        </UiButton>
+      </div>
+
       <!-- Settings Form -->
       <form v-else @submit.prevent="saveSettings" class="min-w-0 space-y-6" novalidate>
         <!-- Tab Navigation -->
@@ -207,7 +234,7 @@
                       {{ t("admin.settings.overloadCooldown.enabledHint") }}
                     </p>
                   </div>
-                  <Toggle v-model="overloadCooldownForm.enabled" />
+                  <Toggle v-model="overloadCooldownForm.enabled" :label="t('admin.settings.overloadCooldown.enabled')" />
                 </div>
 
                 <div
@@ -279,7 +306,7 @@
                       {{ t("admin.settings.rateLimit429Cooldown.enabledHint") }}
                     </p>
                   </div>
-                  <Toggle v-model="rateLimit429CooldownForm.enabled" />
+                  <Toggle v-model="rateLimit429CooldownForm.enabled" :label="t('admin.settings.rateLimit429Cooldown.enabled')" />
                 </div>
 
                 <div
@@ -355,7 +382,7 @@
                       {{ t("admin.settings.streamTimeout.enabledHint") }}
                     </p>
                   </div>
-                  <Toggle v-model="streamTimeoutForm.enabled" />
+                  <Toggle v-model="streamTimeoutForm.enabled" :label="t('admin.settings.streamTimeout.enabled')" />
                 </div>
 
                 <!-- Settings - Only show when enabled -->
@@ -469,7 +496,7 @@
                       {{ t("admin.settings.rectifier.enabledHint") }}
                     </p>
                   </div>
-                  <Toggle v-model="rectifierForm.enabled" />
+                  <Toggle v-model="rectifierForm.enabled" :label="t('admin.settings.rectifier.enabled')" />
                 </div>
 
                 <!-- Sub-toggles (only show when master is enabled) -->
@@ -494,6 +521,7 @@
                     </div>
                     <Toggle
                       v-model="rectifierForm.thinking_signature_enabled"
+                      :label="t('admin.settings.rectifier.thinkingSignature')"
                     />
                   </div>
 
@@ -510,7 +538,7 @@
                         {{ t("admin.settings.rectifier.thinkingBudgetHint") }}
                       </p>
                     </div>
-                    <Toggle v-model="rectifierForm.thinking_budget_enabled" />
+                    <Toggle v-model="rectifierForm.thinking_budget_enabled" :label="t('admin.settings.rectifier.thinkingBudget')" />
                   </div>
 
                   <!-- API Key Signature Rectifier -->
@@ -526,7 +554,7 @@
                         {{ t("admin.settings.rectifier.apikeySignatureHint") }}
                       </p>
                     </div>
-                    <Toggle v-model="rectifierForm.apikey_signature_enabled" />
+                    <Toggle v-model="rectifierForm.apikey_signature_enabled" :label="t('admin.settings.rectifier.apikeySignature')" />
                   </div>
 
                   <!-- Custom Patterns (only when apikey_signature_enabled) -->
@@ -1113,7 +1141,7 @@
                     }}
                   </p>
                 </div>
-                <Toggle v-model="form.registration_enabled" />
+                <Toggle v-model="form.registration_enabled" :label="t('admin.settings.registration.enableRegistration')" />
               </div>
 
               <!-- Email Verification -->
@@ -1128,7 +1156,7 @@
                     {{ t("admin.settings.registration.emailVerificationHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.email_verify_enabled" />
+                <Toggle v-model="form.email_verify_enabled" :label="t('admin.settings.registration.emailVerification')" />
               </div>
 
               <!-- Email Suffix Whitelist -->
@@ -1200,6 +1228,7 @@
                 </div>
                 <Toggle
                   v-model="form.registration_email_domain_quota_enabled"
+                  :label="t('admin.settings.registration.emailDomainQuota')"
                 />
               </div>
 
@@ -1215,7 +1244,7 @@
                     {{ t("admin.settings.registration.promoCodeHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.promo_code_enabled" />
+                <Toggle v-model="form.promo_code_enabled" :label="t('admin.settings.registration.promoCode')" />
               </div>
 
               <!-- Invitation Code -->
@@ -1230,7 +1259,7 @@
                     {{ t("admin.settings.registration.invitationCodeHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.invitation_code_enabled" />
+                <Toggle v-model="form.invitation_code_enabled" :label="t('admin.settings.registration.invitationCode')" />
               </div>
               <!-- Password Reset - Only show when email verification is enabled -->
               <div
@@ -1245,7 +1274,7 @@
                     {{ t("admin.settings.registration.passwordResetHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.password_reset_enabled" />
+                <Toggle v-model="form.password_reset_enabled" :label="t('admin.settings.registration.passwordReset')" />
               </div>
               <!-- Frontend URL - Only show when password reset is enabled -->
               <div
@@ -1285,6 +1314,7 @@
                 </div>
                 <Toggle
                   v-model="form.totp_enabled"
+                  :label="t('admin.settings.registration.totp')"
                   :disabled="!form.totp_encryption_key_configured"
                 />
               </div>
@@ -1305,6 +1335,7 @@
                   </div>
                   <Toggle
                     v-model="form.passkey_enabled"
+                    :label="t('admin.settings.security.passkey')"
                     data-testid="passkey-toggle"
                     :disabled="!form.passkey_configured"
                   />
@@ -1360,7 +1391,7 @@
                     {{ t("admin.settings.security.stepUpHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.step_up_enabled" />
+                <Toggle v-model="form.step_up_enabled" :label="t('admin.settings.security.stepUp')" />
               </div>
 
               <!-- 会话 IP/UA 绑定 -->
@@ -1375,7 +1406,7 @@
                     {{ t("admin.settings.security.sessionBindingHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.session_binding_enabled" />
+                <Toggle v-model="form.session_binding_enabled" :label="t('admin.settings.security.sessionBinding')" />
               </div>
 
               <!-- 审计日志保留天数 -->
@@ -1418,7 +1449,7 @@
                     {{ t("admin.settings.apiKeyAcl.trustForwardedIpHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.api_key_acl_trust_forwarded_ip" />
+                <Toggle v-model="form.api_key_acl_trust_forwarded_ip" :label="t('admin.settings.apiKeyAcl.trustForwardedIp')" />
               </div>
 
               <div
@@ -1532,7 +1563,7 @@
                       {{ t("admin.settings.panelRateLimit.enabledHint") }}
                     </p>
                   </div>
-                  <Toggle v-model="panelRateLimitForm.enabled" />
+                  <Toggle v-model="panelRateLimitForm.enabled" :label="t('admin.settings.panelRateLimit.enabled')" />
                 </div>
 
                 <div
@@ -1613,7 +1644,7 @@
                         {{ t("admin.settings.panelRateLimit.exemptAdminHint") }}
                       </p>
                     </div>
-                    <Toggle v-model="panelRateLimitForm.exempt_admin" />
+                    <Toggle v-model="panelRateLimitForm.exempt_admin" :label="t('admin.settings.panelRateLimit.exemptAdmin')" />
                   </div>
                 </div>
 
@@ -1664,6 +1695,7 @@
                 </div>
                 <Toggle
                   v-model="captchaMasterEnabled"
+                  :label="t('admin.settings.captcha.enable')"
                   data-testid="captcha-enabled-toggle"
                 />
               </div>
@@ -2017,7 +2049,7 @@
                     {{ t("admin.settings.linuxdo.enableHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.linuxdo_connect_enabled" />
+                    <Toggle v-model="form.linuxdo_connect_enabled" :label="t('admin.settings.linuxdo.enable')" />
               </div>
 
               <div
@@ -2138,7 +2170,7 @@
                         }}
                       </p>
                     </div>
-                    <Toggle v-model="form.github_oauth_enabled" />
+                    <Toggle v-model="form.github_oauth_enabled" :label="localText('启用 GitHub 登录', 'Enable GitHub sign-in')" />
                   </div>
 
                   <div v-if="form.github_oauth_enabled" class="mt-4 space-y-4">
@@ -2248,7 +2280,7 @@
                         }}
                       </p>
                     </div>
-                    <Toggle v-model="form.google_oauth_enabled" />
+                    <Toggle v-model="form.google_oauth_enabled" :label="localText('启用 Google 登录', 'Enable Google sign-in')" />
                   </div>
 
                   <div v-if="form.google_oauth_enabled" class="mt-4 space-y-4">
@@ -2354,6 +2386,7 @@
                 </div>
                 <Toggle
                   v-model="form.wechat_connect_enabled"
+                  :label="t('admin.settings.wechatConnect.enabledLabel')"
                   data-testid="wechat-connect-enabled"
                 />
               </div>
@@ -2382,6 +2415,7 @@
                       </div>
                       <Toggle
                         :model-value="form.wechat_connect_open_enabled"
+                        :label="localText('启用 PC 应用', 'Enable PC App')"
                         data-testid="wechat-connect-open-enabled"
                         @update:model-value="handleWeChatOpenEnabledChange"
                       />
@@ -2448,6 +2482,7 @@
                       </div>
                       <Toggle
                         :model-value="form.wechat_connect_mp_enabled"
+                        :label="localText('启用公众号', 'Enable Official Account')"
                         data-testid="wechat-connect-mp-enabled"
                         @update:model-value="handleWeChatMPEnabledChange"
                       />
@@ -2514,6 +2549,7 @@
                       </div>
                       <Toggle
                         :model-value="form.wechat_connect_mobile_enabled"
+                        :label="localText('启用移动应用', 'Enable Mobile App')"
                         data-testid="wechat-connect-mobile-enabled"
                         @update:model-value="handleWeChatMobileEnabledChange"
                       />
@@ -2659,7 +2695,7 @@
                     {{ t("admin.settings.dingtalk.enableHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.dingtalk_connect_enabled" />
+                <Toggle v-model="form.dingtalk_connect_enabled" :label="t('admin.settings.dingtalk.enable')" />
               </div>
 
               <div
@@ -2756,7 +2792,7 @@
                         {{ t("admin.settings.dingtalk.bypassRegistrationHint") }}
                       </p>
                     </div>
-                    <Toggle v-model="form.dingtalk_connect_bypass_registration" />
+                    <Toggle v-model="form.dingtalk_connect_bypass_registration" :label="t('admin.settings.dingtalk.bypassRegistration')" />
                   </div>
 
                   <!-- 身份同步开关（仅 internal_only 模式下可见） -->
@@ -2773,7 +2809,7 @@
                           {{ t("admin.settings.dingtalk.syncDisplayNameHint") }}
                         </p>
                       </div>
-                      <Toggle v-model="form.dingtalk_connect_sync_display_name" />
+                      <Toggle v-model="form.dingtalk_connect_sync_display_name" :label="t('admin.settings.dingtalk.syncDisplayName')" />
                     </div>
                     <div v-if="form.dingtalk_connect_sync_display_name" class="space-y-2">
                       <div class="flex items-center gap-2">
@@ -2817,7 +2853,7 @@
                           {{ t("admin.settings.dingtalk.syncCorpEmailPermissionHint") }}
                         </p>
                       </div>
-                      <Toggle v-model="form.dingtalk_connect_sync_corp_email" />
+                      <Toggle v-model="form.dingtalk_connect_sync_corp_email" :label="t('admin.settings.dingtalk.syncCorpEmail')" />
                     </div>
                     <div v-if="form.dingtalk_connect_sync_corp_email" class="space-y-2">
                       <div class="flex items-center gap-2">
@@ -2861,7 +2897,7 @@
                           {{ t("admin.settings.dingtalk.syncDeptPermissionHint") }}
                         </p>
                       </div>
-                      <Toggle v-model="form.dingtalk_connect_sync_dept" />
+                      <Toggle v-model="form.dingtalk_connect_sync_dept" :label="t('admin.settings.dingtalk.syncDept')" />
                     </div>
                     <div v-if="form.dingtalk_connect_sync_dept" class="space-y-2">
                       <div class="flex items-center gap-2">
@@ -2916,7 +2952,7 @@
                     {{ t("admin.settings.oidc.enableHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.oidc_connect_enabled" />
+                <Toggle v-model="form.oidc_connect_enabled" :label="t('admin.settings.oidc.enable')" />
               </div>
 
               <div
@@ -3169,6 +3205,7 @@
                     </div>
                     <Toggle
                       v-model="form.oidc_connect_use_pkce"
+                      :label="t('admin.settings.oidc.usePkce')"
                       data-testid="oidc-connect-use-pkce"
                     />
                   </div>
@@ -3183,6 +3220,7 @@
                     </div>
                     <Toggle
                       v-model="form.oidc_connect_validate_id_token"
+                      :label="t('admin.settings.oidc.validateIdToken')"
                       data-testid="oidc-connect-validate-id-token"
                     />
                   </div>
@@ -3197,6 +3235,7 @@
                     </div>
                     <Toggle
                       v-model="form.oidc_connect_require_email_verified"
+                      :label="t('admin.settings.oidc.requireEmailVerified')"
                     />
                   </div>
                 </div>
@@ -3525,7 +3564,7 @@
                     {{ t("admin.settings.authSourceDefaults.requireEmailHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.force_email_on_third_party_signup" />
+                <Toggle v-model="form.force_email_on_third_party_signup" :label="t('admin.settings.authSourceDefaults.requireEmailLabel')" />
               </div>
 
               <div class="space-y-4">
@@ -3547,6 +3586,7 @@
                       v-model="
                         authSourceDefaults[authSource.source].grant_on_signup
                       "
+                      :label="`${authSource.title} ${t('admin.settings.authSourceDefaults.enabledHint')}`"
                       :data-testid="`auth-source-${authSource.source}-enabled`"
                     />
                   </div>
@@ -3608,6 +3648,7 @@
                           authSourceDefaults[authSource.source]
                             .grant_on_first_bind
                         "
+                        :label="t('admin.settings.authSourceDefaults.grantOnFirstBindLabel')"
                       />
                     </div>
 
@@ -4024,6 +4065,7 @@
                   </div>
                   <Toggle
                     v-model="form.codex_cli_only_allow_app_server_clients"
+                    :label="t('admin.settings.gatewayForwarding.codexAllowAppServer')"
                   />
                 </div>
 
@@ -4185,7 +4227,7 @@
                   </div>
                   <Toggle
                     v-model="upstreamBillingProbeForm.enabled"
-                    :aria-label="t('admin.settings.upstreamBillingProbe.enabled')"
+                    :label="t('admin.settings.upstreamBillingProbe.enabled')"
                     data-testid="upstream-billing-probe-enabled"
                   />
                 </div>
@@ -4254,7 +4296,7 @@
                   </div>
                   <Toggle
                     v-model="ollamaCloudUsageForm.enabled"
-                    :aria-label="t('admin.settings.ollamaCloudUsage.enabled')"
+                    :label="t('admin.settings.ollamaCloudUsage.enabled')"
                     data-testid="ollama-cloud-usage-global-enabled"
                   />
                 </div>
@@ -4332,7 +4374,7 @@
                     {{ t("admin.settings.scheduling.allowUngroupedKeyHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.allow_ungrouped_key_scheduling" />
+                <Toggle v-model="form.allow_ungrouped_key_scheduling" :label="t('admin.settings.scheduling.allowUngroupedKey')" />
               </div>
 
               <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
@@ -4405,6 +4447,7 @@
                 </div>
                 <Toggle
                   v-model="form.openai_low_upstream_rate_priority_enabled"
+                  :label="t('admin.settings.openaiExperimentalScheduler.lowRatePriorityTitle')"
                   data-testid="openai-low-rate-priority-toggle"
                 />
               </div>
@@ -4449,6 +4492,7 @@
                 </div>
                 <Toggle
                   v-model="form.openai_advanced_scheduler_enabled"
+                  :label="t('admin.settings.openaiExperimentalScheduler.title')"
                   data-testid="openai-advanced-scheduler-toggle"
                 />
               </div>
@@ -4469,7 +4513,7 @@
                     }}
                   </p>
                 </div>
-                <Toggle v-model="form.openai_advanced_scheduler_sticky_weighted_enabled" />
+                <Toggle v-model="form.openai_advanced_scheduler_sticky_weighted_enabled" :label="t('admin.settings.openaiExperimentalScheduler.stickyWeightedTitle')" />
               </div>
 
               <div
@@ -4488,7 +4532,7 @@
                     }}
                   </p>
                 </div>
-                <Toggle v-model="form.openai_advanced_scheduler_subscription_priority_enabled" />
+                <Toggle v-model="form.openai_advanced_scheduler_subscription_priority_enabled" :label="t('admin.settings.openaiExperimentalScheduler.subscriptionPriorityTitle')" />
               </div>
 
               <div
@@ -4606,6 +4650,7 @@
                   </div>
                   <Toggle
                     v-model="form.grok_cross_client_model_map_enabled"
+                    :label="t('admin.settings.gatewayForwarding.grokCrossClientMap')"
                     data-testid="grok-cross-client-model-map-toggle"
                   />
                 </div>
@@ -4651,7 +4696,7 @@
                     }}
                   </p>
                 </div>
-                <Toggle v-model="form.enable_fingerprint_unification" />
+                <Toggle v-model="form.enable_fingerprint_unification" :label="t('admin.settings.gatewayForwarding.fingerprintUnification')" />
               </div>
 
               <!-- Metadata Passthrough -->
@@ -4672,7 +4717,7 @@
                     }}
                   </p>
                 </div>
-                <Toggle v-model="form.enable_metadata_passthrough" />
+                <Toggle v-model="form.enable_metadata_passthrough" :label="t('admin.settings.gatewayForwarding.metadataPassthrough')" />
               </div>
 
               <!-- CCH Signing -->
@@ -4687,7 +4732,7 @@
                     {{ t("admin.settings.gatewayForwarding.cchSigningHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.enable_cch_signing" />
+                <Toggle v-model="form.enable_cch_signing" :label="t('admin.settings.gatewayForwarding.cchSigning')" />
               </div>
 
               <!-- Claude OAuth System Prompt Injection -->
@@ -4712,6 +4757,7 @@
                 </div>
                 <Toggle
                   v-model="form.enable_claude_oauth_system_prompt_injection"
+                  :label="t('admin.settings.gatewayForwarding.claudeOAuthSystemPromptInjection')"
                 />
               </div>
 
@@ -4796,7 +4842,10 @@
                           "
                           @click="moveClaudeOAuthSystemPromptBlock(index, 1)"
                         />
-                        <Toggle v-model="block.enabled" />
+                        <Toggle
+                          v-model="block.enabled"
+                          :label="t('admin.settings.gatewayForwarding.systemBlockTitle', { index: index + 1 })"
+                        />
                         <UiIconButton
                           type="button"
                           variant="danger"
@@ -4873,7 +4922,10 @@
                               }}
                             </label>
                           </div>
-                          <Toggle v-model="block.cacheControlEnabled" />
+                          <Toggle
+                            v-model="block.cacheControlEnabled"
+                            :label="t('admin.settings.gatewayForwarding.systemBlockCacheControl')"
+                          />
                         </div>
                         <div v-if="block.cacheControlEnabled">
                           <Select
@@ -4940,6 +4992,7 @@
                 </div>
                 <Toggle
                   v-model="form.enable_anthropic_cache_ttl_1h_injection"
+                  :label="t('admin.settings.gatewayForwarding.anthropicCacheTTL1hInjection')"
                 />
               </div>
 
@@ -4963,7 +5016,7 @@
                     }}
                   </p>
                 </div>
-                <Toggle v-model="form.rewrite_message_cache_control" />
+                <Toggle v-model="form.rewrite_message_cache_control" :label="t('admin.settings.gatewayForwarding.rewriteMessageCacheControl')" />
               </div>
 
               <!-- 客户端 dateline 归一化（仅 Anthropic OAuth/SetupToken） -->
@@ -4988,6 +5041,7 @@
                 </div>
                 <Toggle
                   v-model="form.enable_client_dateline_normalization"
+                  :label="t('admin.settings.gatewayForwarding.clientDatelineNormalization')"
                 />
               </div>
 
@@ -5111,7 +5165,7 @@
                     {{ codexSyncedVersionLabel }}
                   </p>
                 </div>
-                <Toggle v-model="form.openai_codex_version_auto_sync_enabled" />
+                <Toggle v-model="form.openai_codex_version_auto_sync_enabled" :label="t('admin.settings.gatewayForwarding.openaiCodexVersionAutoSync')" />
               </div>
 
             </div>
@@ -5142,7 +5196,7 @@
                     {{ t("admin.settings.webSearchEmulation.enabledHint") }}
                   </p>
                 </div>
-                <Toggle v-model="webSearchConfig.enabled" />
+                <Toggle v-model="webSearchConfig.enabled" :label="t('admin.settings.webSearchEmulation.enabled')" />
               </div>
 
               <!-- Providers -->
@@ -5485,7 +5539,7 @@
               </div>
               <Toggle
                 v-model="form.allow_user_view_error_requests"
-                :aria-label="t('admin.settings.user_error_view.label')"
+                :label="t('admin.settings.user_error_view.label')"
               />
             </div>
           </div>
@@ -5526,7 +5580,7 @@
                     {{ t("admin.settings.site.backendModeDescription") }}
                   </p>
 	                </div>
-	                <Toggle v-model="form.backend_mode_enabled" />
+	                <Toggle v-model="form.backend_mode_enabled" :label="t('admin.settings.site.backendMode')" />
 	              </div>
 
 	              <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -5770,7 +5824,7 @@
                     {{ t("admin.settings.site.compactHomeHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.compact_home_enabled" data-testid="compact-home-toggle" />
+                <Toggle v-model="form.compact_home_enabled" :label="t('admin.settings.site.compactHome')" data-testid="compact-home-toggle" />
               </div>
 
               <!-- Hide CCS Import Button -->
@@ -5785,7 +5839,7 @@
                     {{ t("admin.settings.site.hideCcsImportButtonHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.hide_ccs_import_button" />
+                <Toggle v-model="form.hide_ccs_import_button" :label="t('admin.settings.site.hideCcsImportButton')" />
               </div>
             </div>
           </div>
@@ -5952,7 +6006,7 @@
 	                  <span class="text-sm text-gray-600 dark:text-gray-300">
 	                    {{ form.login_agreement_enabled ? localText("已启用", "Enabled") : localText("未启用", "Disabled") }}
 	                  </span>
-	                  <Toggle v-model="form.login_agreement_enabled" />
+	                  <Toggle v-model="form.login_agreement_enabled" :label="localText('登录条款确认', 'Login agreement')" />
 	                </div>
 	              </div>
 	            </div>
@@ -6149,7 +6203,7 @@
                   {{ t('admin.settings.features.channelMonitor.enabledHint') }}
                 </p>
               </div>
-              <Toggle v-model="form.channel_monitor_enabled" />
+              <Toggle v-model="form.channel_monitor_enabled" :label="t('admin.settings.features.channelMonitor.enabled')" />
             </div>
 
             <div v-if="form.channel_monitor_enabled" class="space-y-5">
@@ -6215,7 +6269,7 @@
                     {{ t('admin.settings.features.channelMonitor.hideThroughputHint') }}
                   </p>
                 </div>
-                <Toggle v-model="form.channel_monitor_hide_throughput" />
+                <Toggle v-model="form.channel_monitor_hide_throughput" :label="t('admin.settings.features.channelMonitor.hideThroughput')" />
               </div>
             </div>
           </div>
@@ -6249,7 +6303,7 @@
                   {{ t('admin.settings.features.availableChannels.enabledHint') }}
                 </p>
               </div>
-              <Toggle v-model="form.available_channels_enabled" />
+              <Toggle v-model="form.available_channels_enabled" :label="t('admin.settings.features.availableChannels.enabled')" />
             </div>
           </div>
         </div>
@@ -6273,7 +6327,7 @@
                   {{ t('admin.settings.features.modelPlaza.enabledHint') }}
                 </p>
               </div>
-              <Toggle v-model="form.model_plaza_enabled" />
+              <Toggle v-model="form.model_plaza_enabled" :label="t('admin.settings.features.modelPlaza.enabled')" />
             </div>
 
             <div v-if="form.model_plaza_enabled" class="flex items-center justify-between">
@@ -6285,7 +6339,7 @@
                   {{ t('admin.settings.features.modelPlaza.requireAuthHint') }}
                 </p>
               </div>
-              <Toggle v-model="form.model_plaza_require_auth" />
+              <Toggle v-model="form.model_plaza_require_auth" :label="t('admin.settings.features.modelPlaza.requireAuth')" />
             </div>
 
             <div v-if="form.model_plaza_enabled">
@@ -6319,7 +6373,7 @@
                   {{ t('admin.settings.features.playground.enabledHint') }}
                 </p>
               </div>
-              <Toggle v-model="form.playground_enabled" data-testid="playground-enabled-toggle" />
+              <Toggle v-model="form.playground_enabled" :label="t('admin.settings.features.playground.enabled')" data-testid="playground-enabled-toggle" />
             </div>
           </div>
         </div>
@@ -6352,7 +6406,7 @@
                   {{ t('admin.settings.features.riskControl.enabledHint') }}
                 </p>
               </div>
-              <Toggle v-model="form.risk_control_enabled" />
+              <Toggle v-model="form.risk_control_enabled" :label="t('admin.settings.features.riskControl.enabled')" />
             </div>
 
             <div class="flex items-center justify-between">
@@ -6364,7 +6418,7 @@
                   {{ t('admin.settings.features.riskControl.cyberSessionBlockHint') }}
                 </p>
               </div>
-              <Toggle v-model="form.cyber_session_block_enabled" />
+              <Toggle v-model="form.cyber_session_block_enabled" :label="t('admin.settings.features.riskControl.cyberSessionBlock')" />
             </div>
 
             <div v-if="form.cyber_session_block_enabled">
@@ -6400,7 +6454,7 @@
                   {{ t('admin.settings.features.affiliate.enabledHint') }}
                 </p>
               </div>
-              <Toggle v-model="form.affiliate_enabled" />
+              <Toggle v-model="form.affiliate_enabled" :label="t('admin.settings.features.affiliate.enabled')" />
             </div>
 
             <div v-if="form.affiliate_enabled" class="space-y-6">
@@ -6413,7 +6467,7 @@
                     {{ t('admin.settings.features.affiliate.adminRechargeRebateHint') }}
                   </p>
                 </div>
-                <Toggle v-model="form.affiliate_admin_recharge_enabled" />
+                <Toggle v-model="form.affiliate_admin_recharge_enabled" :label="t('admin.settings.features.affiliate.adminRechargeRebate')" />
               </div>
 
               <div>
@@ -6830,7 +6884,7 @@
                     {{ t("admin.settings.payment.enabledHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.payment_enabled" />
+                <Toggle v-model="form.payment_enabled" :label="t('admin.settings.payment.enabled')" />
               </div>
               <template v-if="form.payment_enabled">
                 <!-- Row 1: Product name -->
@@ -7387,7 +7441,7 @@
                     {{ t("admin.settings.smtp.useTlsHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.smtp_use_tls" />
+                <Toggle v-model="form.smtp_use_tls" :label="t('admin.settings.smtp.useTls')" />
               </div>
             </div>
           </div>
@@ -7457,7 +7511,7 @@
                     {{ t("admin.settings.subscriptionExpiryNotify.enabledHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.subscription_expiry_notify_enabled" />
+                <Toggle v-model="form.subscription_expiry_notify_enabled" :label="t('admin.settings.subscriptionExpiryNotify.enabled')" />
               </div>
             </div>
           </div>
@@ -7482,7 +7536,7 @@
                   class="mb-0 block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >{{ t("admin.settings.balanceNotify.enabled") }}</label
                 >
-                <Toggle v-model="form.balance_low_notify_enabled" />
+                <Toggle v-model="form.balance_low_notify_enabled" :label="t('admin.settings.balanceNotify.enabled')" />
               </div>
               <div v-if="form.balance_low_notify_enabled">
                 <UiTextField
@@ -7528,7 +7582,7 @@
                   class="mb-0 block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >{{ t("admin.settings.quotaNotify.enabled") }}</label
                 >
-                <Toggle v-model="form.account_quota_notify_enabled" />
+                <Toggle v-model="form.account_quota_notify_enabled" :label="t('admin.settings.quotaNotify.enabled')" />
               </div>
               <div v-if="form.account_quota_notify_enabled">
                 <label

@@ -70,3 +70,12 @@ The final gate remains open for native screen-reader execution, credentialed
 external provider settlement/refund and two-tab return, a complete per-page
 slow/empty/error/late-response matrix, and severity-signed review of all
 exception pages. The single R0-R9 task remains active.
+
+## 2026-08-22 follow-up pointer
+
+The next continuation is recorded in
+[`R2-R8-CONTINUATION-20260822.md`](R2-R8-CONTINUATION-20260822.md). It adds the
+Settings error boundary, native-control labeling, mobile-sidebar inerting and
+single-main landmark fixes, with isolated Chromium AX/state evidence under
+`evidence/20260822/`. Those artifacts narrow the open findings but do not
+replace native screen-reader or credentialed external-provider evidence.

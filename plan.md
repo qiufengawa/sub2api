@@ -1992,3 +1992,21 @@ Review 必须按严重度记录：
   HEAD 以 `git log`/`git rev-parse HEAD` 为准。
   原生读屏、credentialed 外部 provider、完整逐页状态/late-response 和最终
   severity-signed Code Review 仍保持 active。
+
+### 2026-08-22：AX/失败态复核与真实无障碍缺陷修复
+
+- 真实 Chrome AX 复核发现并修复四类问题：Settings 主请求失败时表单仍可见、
+  Settings 开关使用通用 `切换` 名称、UiCheckbox/UiTextArea 原生控件未稳定关联
+  accessible name，以及移动端关闭侧栏仍进入 Tab 顺序；同时移除 AppPage 与
+  AppLayout 的嵌套 `main` landmark。
+- SettingsView 全部九个标签在 light、dark+reduced-motion、1440/390 下共 36
+  个 AX case：0 unnamed interactive、0 default switch name、0 overflow、每例
+  一个 main；6 组 empty/slow/error fixture 记录 1.6s 请求、错误空态、Retry
+  后恢复表单和既有 sandbox iframe 边界。
+- 代表性受保护页 AX/Tab 32 cases 达到 0 overflow、0 navigation/failed request、
+  0 unnamed interactive、单一 main；16 个移动关闭侧栏 case 均 inert+aria-hidden，
+  Tab 首停留在页面头部。证据与 SHA-256 见
+  `docs/frontend-rebuild/R2-R8-CONTINUATION-20260822.md` 和
+  `docs/frontend-rebuild/evidence/20260822/`。
+- 这些 AX/键盘证据仍不等价原生 VoiceOver/NVDA；credentialed 外部支付结算/退款、
+  完整逐页状态/late-response、剩余管理员 mutation 与最终 Code Review 继续 active。

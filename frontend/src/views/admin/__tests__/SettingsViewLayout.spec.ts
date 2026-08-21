@@ -73,4 +73,15 @@ describe('admin SettingsView layout hierarchy', () => {
     expect(componentSource).toContain('class="text-gray-400 motion-safe:transition-transform"')
     expect(componentSource).not.toContain('class="text-gray-400 transition-transform"')
   })
+
+  it('gives every settings switch a semantic accessible name', () => {
+    const switches = [...componentSource.matchAll(/<Toggle\b[\s\S]*?\/>/g)].map(
+      (match) => match[0],
+    )
+
+    expect(switches.length).toBeGreaterThan(0)
+    expect(
+      switches.every((switchSource) => /(?:\:label|\baria-label)=/.test(switchSource)),
+    ).toBe(true)
+  })
 })

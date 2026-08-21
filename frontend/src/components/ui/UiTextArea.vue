@@ -1,10 +1,10 @@
-<template><UiFormField :for-id="id" :label="label" :description="description" :error="error" :required="required"><div class="ui-textarea-shell"><textarea ref="textarea" v-bind="nativeAttrs" :id="id" :value="modelValue ?? ''" :rows="rows" :maxlength="maxlength" :placeholder="placeholder" :disabled="disabled" :readonly="readonly" :required="required" class="ui-textarea ui-focus-ring" :class="{'ui-textarea--mono':monospace}" @input="onInput" @change="emit('change',($event.target as HTMLTextAreaElement).value)" @blur="emit('blur',$event)" @focus="emit('focus',$event)"/><span v-if="maxlength" class="ui-textarea__count ui-numeric">{{ String(modelValue??'').length }}/{{ maxlength }}</span></div></UiFormField></template>
+<template><UiFormField :for-id="resolvedId" :label="label" :description="description" :error="error" :required="required"><div class="ui-textarea-shell"><textarea ref="textarea" v-bind="nativeAttrs" :id="resolvedId" :value="modelValue ?? ''" :rows="rows" :maxlength="maxlength" :placeholder="placeholder" :disabled="disabled" :readonly="readonly" :required="required" :aria-describedby="description||error?`${resolvedId}-message`:undefined" :aria-invalid="error?true:undefined" class="ui-textarea ui-focus-ring" :class="{'ui-textarea--mono':monospace}" @input="onInput" @change="emit('change',($event.target as HTMLTextAreaElement).value)" @blur="emit('blur',$event)" @focus="emit('focus',$event)"/><span v-if="maxlength" class="ui-textarea__count ui-numeric">{{ String(modelValue??'').length }}/{{ maxlength }}</span></div></UiFormField></template>
 <script setup lang="ts">
 
 import { computed, ref, useAttrs } from 'vue';
 import UiFormField from './UiFormField.vue';
 defineOptions({ inheritAttrs: false });
-withDefaults(defineProps<{modelValue?:string|null;
+const props=withDefaults(defineProps<{modelValue?:string|null;
 id?:string;
 label?:string;
 description?:string;
@@ -16,6 +16,7 @@ required?:boolean;
 rows?:number;
 maxlength?:number;
 monospace?:boolean}>(),{rows:3,monospace:false});
+const resolvedId=props.id||`ui-textarea-${Math.random().toString(36).slice(2,9)}`;
 const emit=defineEmits<{ 'update:modelValue':[string];input:[Event];change:[string];blur:[FocusEvent];focus:[FocusEvent]}>();
 const textarea=ref<HTMLTextAreaElement>();
 const attrs=useAttrs();

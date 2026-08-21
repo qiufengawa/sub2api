@@ -5,6 +5,8 @@
       'app-sidebar--collapsed': sidebarCollapsed,
       'app-sidebar--mobile-closed': !mobileOpen
     }"
+    :inert="isMobileViewport && !mobileOpen ? true : undefined"
+    :aria-hidden="isMobileViewport && !mobileOpen ? 'true' : undefined"
   >
     <!-- Brand -->
     <div class="sidebar-header" :class="{ 'sidebar-header-collapsed': sidebarCollapsed }">
@@ -256,9 +258,19 @@ const { canUseBatchImage, refreshBatchImageAccess } = useBatchImageAccess()
 
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
+const isMobileViewport = ref(
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(max-width: 1023px)').matches
+    : false,
+)
 const isAdmin = computed(() => authStore.isAdmin)
 const sidebarNavRef = ref<HTMLElement | null>(null)
 const isDark = ref(document.documentElement.classList.contains('dark'))
+let mobileViewportMediaQuery: MediaQueryList | null = null
+
+function syncMobileViewport(event?: MediaQueryListEvent): void {
+  isMobileViewport.value = event?.matches ?? mobileViewportMediaQuery?.matches ?? false
+}
 
 const homePath = computed(() => (isAdmin.value ? '/admin/dashboard' : '/dashboard'))
 
@@ -558,6 +570,15 @@ function handleGlobalKeydown(event: KeyboardEvent) {
 
 onMounted(() => {
   document.addEventListener('keydown', handleGlobalKeydown)
+  if (typeof window.matchMedia === 'function') {
+    mobileViewportMediaQuery = window.matchMedia('(max-width: 1023px)')
+    syncMobileViewport()
+    if (mobileViewportMediaQuery.addEventListener) {
+      mobileViewportMediaQuery.addEventListener('change', syncMobileViewport)
+    } else {
+      mobileViewportMediaQuery.addListener?.(syncMobileViewport)
+    }
+  }
   void refreshBatchImageAccess()
   if (isAdmin.value) {
     adminSettingsStore.fetch()
@@ -574,6 +595,12 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleGlobalKeydown)
+  if (mobileViewportMediaQuery?.removeEventListener) {
+    mobileViewportMediaQuery.removeEventListener('change', syncMobileViewport)
+  } else {
+    mobileViewportMediaQuery?.removeListener?.(syncMobileViewport)
+  }
+  mobileViewportMediaQuery = null
   document.body.classList.remove('sidebar-open')
   if (sidebarNavRef.value) {
     appStore.sidebarScrollTop = sidebarNavRef.value.scrollTop

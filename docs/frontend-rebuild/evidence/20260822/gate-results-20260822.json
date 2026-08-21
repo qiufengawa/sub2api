@@ -1,0 +1,59 @@
+{
+  "date": "2026-08-22",
+  "source_fixes": {
+    "settings_error_boundary": "passed",
+    "settings_switch_labels": "passed",
+    "ui_checkbox_native_label": "passed",
+    "ui_textarea_generated_label_id": "passed",
+    "app_sidebar_mobile_inert": "passed",
+    "app_page_single_main_landmark": "passed"
+  },
+  "focused": {
+    "full_frontend_test_run": {"status": "passed", "test_files": 360, "tests": 2438},
+    "static_audit": {"status": "passed", "tests": 13},
+    "typecheck": {"status": "passed"},
+    "lint": {"status": "passed"},
+    "build": {"status": "passed", "modules": 3103},
+    "diff_check": {"status": "passed"},
+    "SettingsView_and_layout": {"status": "passed", "tests": 46},
+    "AppSidebar_behavior": {"status": "passed", "tests": 4},
+    "AppPage": {"status": "passed", "tests": 1},
+    "UiCheckbox": {"status": "passed", "tests": 2},
+    "UiTextArea_and_primitives": {"status": "passed", "tests": 15}
+  },
+  "browser": {
+    "settings_state": {
+      "runs": 6,
+      "empty_slow_error": true,
+      "slow_request_timings_ms": [1654, 1665],
+      "error_form_hidden": true,
+      "error_retry_recovered": 2,
+      "overflow": 0,
+      "navigation_errors": 0,
+      "failed_requests": 0,
+      "expected_sandbox_errors": 6,
+      "unexpected_page_errors": 0
+    },
+    "settings_ax_tabs": {
+      "cases": 36,
+      "tabs_per_viewport": 9,
+      "viewports": ["1440x1000", "390x844"],
+      "modes": ["light", "dark-reduced"],
+      "overflow": 0,
+      "unnamed_interactive_nodes": 0,
+      "default_switch_names": 0,
+      "non_single_main_cases": 0
+    },
+    "protected_ax_matrix": {
+      "runs": 32,
+      "overflow": 0,
+      "navigation_errors": 0,
+      "failed_requests": 0,
+      "console_messages": 0,
+      "unnamed_interactive_nodes": 0,
+      "single_main_landmark_all_cases": true,
+      "mobile_closed_sidebar_inert_cases": 16
+    }
+  },
+  "boundary": "Chrome AX tree and keyboard traces supplement, but do not replace, native VoiceOver/NVDA execution. Sandbox iframe SecurityErrors are expected security-boundary diagnostics. External credentialed provider settlement/refund remains open."
+}

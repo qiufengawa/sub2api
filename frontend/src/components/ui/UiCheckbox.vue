@@ -1,13 +1,16 @@
-<template><label class="ui-check" :class="{'ui-check--disabled':disabled,'ui-check--full':fullWidth}"><input v-bind="$attrs" type="checkbox" :checked="modelValue" :disabled="disabled" :indeterminate="indeterminate" @change="onChange"/><span class="ui-check__box"><Icon name="check" size="xs"/></span><span v-if="label||$slots.default" class="ui-check__content"><slot>{{ label }}</slot></span></label></template>
+<template><label class="ui-check" :class="{'ui-check--disabled':disabled,'ui-check--full':fullWidth}"><input v-bind="$attrs" :aria-label="inputAriaLabel" type="checkbox" :checked="modelValue" :disabled="disabled" :indeterminate="indeterminate" @change="onChange"/><span class="ui-check__box"><Icon name="check" size="xs"/></span><span v-if="label||$slots.default" class="ui-check__content"><slot>{{ label }}</slot></span></label></template>
 <script setup lang="ts">
 
+import { computed, useAttrs } from 'vue';
 import Icon from '@/components/icons/Icon.vue';
 defineOptions({inheritAttrs:false});
-defineProps<{modelValue:boolean;
+const attrs = useAttrs();
+const props = defineProps<{modelValue:boolean;
 label?:string;
 disabled?:boolean;
 indeterminate?:boolean;
 fullWidth?:boolean}>();
+const inputAriaLabel = computed(() => props.label || (typeof attrs['aria-label'] === 'string' ? attrs['aria-label'] : undefined));
 const emit=defineEmits<{
   'update:modelValue':[boolean]
   change:[boolean, Event]

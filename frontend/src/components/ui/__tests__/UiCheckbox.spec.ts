@@ -19,4 +19,17 @@ describe('UiCheckbox', () => {
     expect(change?.[0]).toBe(false)
     expect(change?.[1]).toBeInstanceOf(Event)
   })
+
+  it('mirrors its visible label onto the native input accessible name', () => {
+    const labeled = mount(UiCheckbox, {
+      props: { modelValue: false, label: 'Capability' },
+    })
+    expect(labeled.get('input').attributes('aria-label')).toBe('Capability')
+
+    const ariaOnly = mount(UiCheckbox, {
+      props: { modelValue: false },
+      attrs: { 'aria-label': 'Select all capabilities' },
+    })
+    expect(ariaOnly.get('input').attributes('aria-label')).toBe('Select all capabilities')
+  })
 })

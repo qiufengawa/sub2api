@@ -101,7 +101,7 @@ describe('AuditLogView contracts', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    expect(wrapper.get('main.app-page').classes()).toContain('app-page--compact')
+    expect(wrapper.get('div.app-page').classes()).toContain('app-page--compact')
     expect(wrapper.get('h1').text()).toBe('admin.audit.title')
     expect(list).toHaveBeenCalledWith(
       {

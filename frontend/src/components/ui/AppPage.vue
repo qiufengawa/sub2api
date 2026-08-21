@@ -1,4 +1,4 @@
-<template><main class="app-page" :class="[`app-page--${width}`,`app-page--${density}`]"><slot/></main></template>
+<template><div class="app-page" :class="[`app-page--${width}`,`app-page--${density}`]"><slot/></div></template>
 <script setup lang="ts">
 withDefaults(defineProps<{width?:'normal'|'wide'|'full';
 density?:'comfortable'|'compact'}>(),{width:'wide',density:'comfortable'})

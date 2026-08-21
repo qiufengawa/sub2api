@@ -1,0 +1,1093 @@
+{
+  "date": "2026-08-22",
+  "method": "Chrome DevTools Accessibility.getFullAXTree after activating every Settings tab; supplemental to native screen-reader testing",
+  "cases": [
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-general",
+        "text": "General"
+      },
+      "data": {
+        "activeTab": "General",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Backend Mode",
+        "Compact Home Page",
+        "Hide CCS Import Button"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-agreement",
+        "text": "Agreement"
+      },
+      "data": {
+        "activeTab": "Agreement",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Login agreement"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-features",
+        "text": "Feature Switches"
+      },
+      "data": {
+        "activeTab": "Feature Switches",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Channel Monitor",
+        "Enable Available Channels",
+        "Enable Model Plaza",
+        "Require sign-in to access",
+        "Enable Playground",
+        "Enable Risk Control",
+        "Cyber session auto-block",
+        "Enable Affiliate",
+        "Rebate Admin Deposits"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-security",
+        "text": "Security"
+      },
+      "data": {
+        "activeTab": "Security",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Registration",
+        "Email Verification",
+        "Non-allowlist Domain Quota",
+        "Promo Code",
+        "Invitation Code Registration",
+        "Two-Factor Authentication (2FA)",
+        "Passkey Sign-in",
+        "Step-up 2FA for Sensitive Operations",
+        "Session IP/UA Binding",
+        "Trust forwarded client IP",
+        "Enable panel rate limiting",
+        "Exempt administrators",
+        "Enable CAPTCHA",
+        "Enable LinuxDo Login",
+        "Enable GitHub sign-in",
+        "Enable Google sign-in",
+        "Enable WeChat Connect",
+        "Enable DingTalk Login (Internal Corporate App)",
+        "Enable OIDC Login"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-users",
+        "text": "Users"
+      },
+      "data": {
+        "activeTab": "Users",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Require email on third-party signup",
+        "Email signup These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "Linux DO signup These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "OIDC signup These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "WeChat signup These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "GitHub These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "Google These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "DingTalk These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source."
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-gateway",
+        "text": "Gateway"
+      },
+      "data": {
+        "activeTab": "Gateway",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Overload Cooldown",
+        "Enable 429 Default Cooldown",
+        "Enable Stream Timeout Handling",
+        "Enable Request Rectifier",
+        "Thinking Signature Rectifier",
+        "Thinking Budget Rectifier",
+        "API Key Signature Rectifier",
+        "Codex app-server",
+        "Enable global auto detection",
+        "Enable global automatic refresh",
+        "Allow Ungrouped Key Scheduling",
+        "Prefer lower rates",
+        "OpenAI experimental scheduler policy",
+        "Map other clients to Grok",
+        "Fingerprint Unification",
+        "Metadata Passthrough",
+        "CCH Signing",
+        "Claude OAuth System Blocks",
+        "System Block 1",
+        "Cache control",
+        "System Block 2",
+        "Cache control",
+        "System Block 3",
+        "Cache control",
+        "Anthropic Cache TTL Injection",
+        "Rewrite Message Cache Breakpoints",
+        "Client Dateline Normalization",
+        "Auto-sync Codex version",
+        "Enable Web Search Emulation",
+        "Allow users to view their own error requests"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-payment",
+        "text": "Payment"
+      },
+      "data": {
+        "activeTab": "Payment",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Payment",
+        "Limit Cancel Rate",
+        "Force Alipay QR Code",
+        "Mobile Alipay Precreate Handoff",
+        "Enabled",
+        "Allow Refund",
+        "Allow User Refund",
+        "Enabled",
+        "Allow Refund",
+        "Allow User Refund",
+        "Enabled",
+        "Allow Refund",
+        "Allow User Refund"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-email",
+        "text": "Email"
+      },
+      "data": {
+        "activeTab": "Email",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Subscription Expiry Reminder",
+        "Enable Balance Low Notification",
+        "Enable Account Quota Notification"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-backup",
+        "text": "Backup"
+      },
+      "data": {
+        "activeTab": "Backup",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Force Path Style",
+        "Enable async image tasks",
+        "Reuse the backup S3 configuration above (different bucket/prefix only)",
+        "Force Path Style",
+        "Enable Scheduled Backup"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-general",
+        "text": "General"
+      },
+      "data": {
+        "activeTab": "General",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Backend Mode",
+        "Compact Home Page",
+        "Hide CCS Import Button"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-agreement",
+        "text": "Agreement"
+      },
+      "data": {
+        "activeTab": "Agreement",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Login agreement"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-features",
+        "text": "Feature Switches"
+      },
+      "data": {
+        "activeTab": "Feature Switches",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Channel Monitor",
+        "Enable Available Channels",
+        "Enable Model Plaza",
+        "Require sign-in to access",
+        "Enable Playground",
+        "Enable Risk Control",
+        "Cyber session auto-block",
+        "Enable Affiliate",
+        "Rebate Admin Deposits"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-security",
+        "text": "Security"
+      },
+      "data": {
+        "activeTab": "Security",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Registration",
+        "Email Verification",
+        "Non-allowlist Domain Quota",
+        "Promo Code",
+        "Invitation Code Registration",
+        "Two-Factor Authentication (2FA)",
+        "Passkey Sign-in",
+        "Step-up 2FA for Sensitive Operations",
+        "Session IP/UA Binding",
+        "Trust forwarded client IP",
+        "Enable panel rate limiting",
+        "Exempt administrators",
+        "Enable CAPTCHA",
+        "Enable LinuxDo Login",
+        "Enable GitHub sign-in",
+        "Enable Google sign-in",
+        "Enable WeChat Connect",
+        "Enable DingTalk Login (Internal Corporate App)",
+        "Enable OIDC Login"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-users",
+        "text": "Users"
+      },
+      "data": {
+        "activeTab": "Users",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Require email on third-party signup",
+        "Email signup These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "Linux DO signup These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "OIDC signup These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "WeChat signup These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "GitHub These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "Google These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "DingTalk These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source."
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-gateway",
+        "text": "Gateway"
+      },
+      "data": {
+        "activeTab": "Gateway",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Overload Cooldown",
+        "Enable 429 Default Cooldown",
+        "Enable Stream Timeout Handling",
+        "Enable Request Rectifier",
+        "Thinking Signature Rectifier",
+        "Thinking Budget Rectifier",
+        "API Key Signature Rectifier",
+        "Codex app-server",
+        "Enable global auto detection",
+        "Enable global automatic refresh",
+        "Allow Ungrouped Key Scheduling",
+        "Prefer lower rates",
+        "OpenAI experimental scheduler policy",
+        "Map other clients to Grok",
+        "Fingerprint Unification",
+        "Metadata Passthrough",
+        "CCH Signing",
+        "Claude OAuth System Blocks",
+        "System Block 1",
+        "Cache control",
+        "System Block 2",
+        "Cache control",
+        "System Block 3",
+        "Cache control",
+        "Anthropic Cache TTL Injection",
+        "Rewrite Message Cache Breakpoints",
+        "Client Dateline Normalization",
+        "Auto-sync Codex version",
+        "Enable Web Search Emulation",
+        "Allow users to view their own error requests"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-payment",
+        "text": "Payment"
+      },
+      "data": {
+        "activeTab": "Payment",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Payment",
+        "Limit Cancel Rate",
+        "Force Alipay QR Code",
+        "Mobile Alipay Precreate Handoff",
+        "Enabled",
+        "Allow Refund",
+        "Allow User Refund",
+        "Enabled",
+        "Allow Refund",
+        "Allow User Refund",
+        "Enabled",
+        "Allow Refund",
+        "Allow User Refund"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-email",
+        "text": "Email"
+      },
+      "data": {
+        "activeTab": "Email",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Subscription Expiry Reminder",
+        "Enable Balance Low Notification",
+        "Enable Account Quota Notification"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-backup",
+        "text": "Backup"
+      },
+      "data": {
+        "activeTab": "Backup",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Force Path Style",
+        "Enable async image tasks",
+        "Reuse the backup S3 configuration above (different bucket/prefix only)",
+        "Force Path Style",
+        "Enable Scheduled Backup"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-general",
+        "text": "General"
+      },
+      "data": {
+        "activeTab": "General",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Backend Mode",
+        "Compact Home Page",
+        "Hide CCS Import Button"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-agreement",
+        "text": "Agreement"
+      },
+      "data": {
+        "activeTab": "Agreement",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Login agreement"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-features",
+        "text": "Feature Switches"
+      },
+      "data": {
+        "activeTab": "Feature Switches",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Channel Monitor",
+        "Enable Available Channels",
+        "Enable Model Plaza",
+        "Require sign-in to access",
+        "Enable Playground",
+        "Enable Risk Control",
+        "Cyber session auto-block",
+        "Enable Affiliate",
+        "Rebate Admin Deposits"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-security",
+        "text": "Security"
+      },
+      "data": {
+        "activeTab": "Security",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Registration",
+        "Email Verification",
+        "Non-allowlist Domain Quota",
+        "Promo Code",
+        "Invitation Code Registration",
+        "Two-Factor Authentication (2FA)",
+        "Passkey Sign-in",
+        "Step-up 2FA for Sensitive Operations",
+        "Session IP/UA Binding",
+        "Trust forwarded client IP",
+        "Enable panel rate limiting",
+        "Exempt administrators",
+        "Enable CAPTCHA",
+        "Enable LinuxDo Login",
+        "Enable GitHub sign-in",
+        "Enable Google sign-in",
+        "Enable WeChat Connect",
+        "Enable DingTalk Login (Internal Corporate App)",
+        "Enable OIDC Login"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-users",
+        "text": "Users"
+      },
+      "data": {
+        "activeTab": "Users",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Require email on third-party signup",
+        "Email signup These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "Linux DO signup These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "OIDC signup These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "WeChat signup These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "GitHub These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "Google These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "DingTalk These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source."
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-gateway",
+        "text": "Gateway"
+      },
+      "data": {
+        "activeTab": "Gateway",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Overload Cooldown",
+        "Enable 429 Default Cooldown",
+        "Enable Stream Timeout Handling",
+        "Enable Request Rectifier",
+        "Thinking Signature Rectifier",
+        "Thinking Budget Rectifier",
+        "API Key Signature Rectifier",
+        "Codex app-server",
+        "Enable global auto detection",
+        "Enable global automatic refresh",
+        "Allow Ungrouped Key Scheduling",
+        "Prefer lower rates",
+        "OpenAI experimental scheduler policy",
+        "Map other clients to Grok",
+        "Fingerprint Unification",
+        "Metadata Passthrough",
+        "CCH Signing",
+        "Claude OAuth System Blocks",
+        "System Block 1",
+        "Cache control",
+        "System Block 2",
+        "Cache control",
+        "System Block 3",
+        "Cache control",
+        "Anthropic Cache TTL Injection",
+        "Rewrite Message Cache Breakpoints",
+        "Client Dateline Normalization",
+        "Auto-sync Codex version",
+        "Enable Web Search Emulation",
+        "Allow users to view their own error requests"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-payment",
+        "text": "Payment"
+      },
+      "data": {
+        "activeTab": "Payment",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Payment",
+        "Limit Cancel Rate",
+        "Force Alipay QR Code",
+        "Mobile Alipay Precreate Handoff",
+        "Enabled",
+        "Allow Refund",
+        "Allow User Refund",
+        "Enabled",
+        "Allow Refund",
+        "Allow User Refund",
+        "Enabled",
+        "Allow Refund",
+        "Allow User Refund"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-email",
+        "text": "Email"
+      },
+      "data": {
+        "activeTab": "Email",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Subscription Expiry Reminder",
+        "Enable Balance Low Notification",
+        "Enable Account Quota Notification"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "tab": {
+        "key": "settings-tab-backup",
+        "text": "Backup"
+      },
+      "data": {
+        "activeTab": "Backup",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Force Path Style",
+        "Enable async image tasks",
+        "Reuse the backup S3 configuration above (different bucket/prefix only)",
+        "Force Path Style",
+        "Enable Scheduled Backup"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-general",
+        "text": "General"
+      },
+      "data": {
+        "activeTab": "General",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Backend Mode",
+        "Compact Home Page",
+        "Hide CCS Import Button"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-agreement",
+        "text": "Agreement"
+      },
+      "data": {
+        "activeTab": "Agreement",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Login agreement"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-features",
+        "text": "Feature Switches"
+      },
+      "data": {
+        "activeTab": "Feature Switches",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Channel Monitor",
+        "Enable Available Channels",
+        "Enable Model Plaza",
+        "Require sign-in to access",
+        "Enable Playground",
+        "Enable Risk Control",
+        "Cyber session auto-block",
+        "Enable Affiliate",
+        "Rebate Admin Deposits"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-security",
+        "text": "Security"
+      },
+      "data": {
+        "activeTab": "Security",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Registration",
+        "Email Verification",
+        "Non-allowlist Domain Quota",
+        "Promo Code",
+        "Invitation Code Registration",
+        "Two-Factor Authentication (2FA)",
+        "Passkey Sign-in",
+        "Step-up 2FA for Sensitive Operations",
+        "Session IP/UA Binding",
+        "Trust forwarded client IP",
+        "Enable panel rate limiting",
+        "Exempt administrators",
+        "Enable CAPTCHA",
+        "Enable LinuxDo Login",
+        "Enable GitHub sign-in",
+        "Enable Google sign-in",
+        "Enable WeChat Connect",
+        "Enable DingTalk Login (Internal Corporate App)",
+        "Enable OIDC Login"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-users",
+        "text": "Users"
+      },
+      "data": {
+        "activeTab": "Users",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Require email on third-party signup",
+        "Email signup These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "Linux DO signup These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "OIDC signup These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "WeChat signup These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "GitHub These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "Google These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source.",
+        "DingTalk These defaults apply when a new user registers through this source. Grant on first bind only applies when an existing user binds this source."
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-gateway",
+        "text": "Gateway"
+      },
+      "data": {
+        "activeTab": "Gateway",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Overload Cooldown",
+        "Enable 429 Default Cooldown",
+        "Enable Stream Timeout Handling",
+        "Enable Request Rectifier",
+        "Thinking Signature Rectifier",
+        "Thinking Budget Rectifier",
+        "API Key Signature Rectifier",
+        "Codex app-server",
+        "Enable global auto detection",
+        "Enable global automatic refresh",
+        "Allow Ungrouped Key Scheduling",
+        "Prefer lower rates",
+        "OpenAI experimental scheduler policy",
+        "Map other clients to Grok",
+        "Fingerprint Unification",
+        "Metadata Passthrough",
+        "CCH Signing",
+        "Claude OAuth System Blocks",
+        "System Block 1",
+        "Cache control",
+        "System Block 2",
+        "Cache control",
+        "System Block 3",
+        "Cache control",
+        "Anthropic Cache TTL Injection",
+        "Rewrite Message Cache Breakpoints",
+        "Client Dateline Normalization",
+        "Auto-sync Codex version",
+        "Enable Web Search Emulation",
+        "Allow users to view their own error requests"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-payment",
+        "text": "Payment"
+      },
+      "data": {
+        "activeTab": "Payment",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Payment",
+        "Limit Cancel Rate",
+        "Force Alipay QR Code",
+        "Mobile Alipay Precreate Handoff",
+        "Enabled",
+        "Allow Refund",
+        "Allow User Refund",
+        "Enabled",
+        "Allow Refund",
+        "Allow User Refund",
+        "Enabled",
+        "Allow Refund",
+        "Allow User Refund"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-email",
+        "text": "Email"
+      },
+      "data": {
+        "activeTab": "Email",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Enable Subscription Expiry Reminder",
+        "Enable Balance Low Notification",
+        "Enable Account Quota Notification"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "tab": {
+        "key": "settings-tab-backup",
+        "text": "Backup"
+      },
+      "data": {
+        "activeTab": "Backup",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true
+      },
+      "switchNames": [
+        "Force Path Style",
+        "Enable async image tasks",
+        "Reuse the backup S3 configuration above (different bucket/prefix only)",
+        "Force Path Style",
+        "Enable Scheduled Backup"
+      ],
+      "defaultSwitchNames": 0,
+      "unnamedInteractiveNodes": 0,
+      "mainLandmarks": 1
+    }
+  ],
+  "tabsPerViewport": 9,
+  "overflow": 0,
+  "unnamedInteractiveNodes": 0,
+  "defaultSwitchNames": 0,
+  "nonSingleMainCases": 0,
+  "diagnostics": [
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "tabCount": 9,
+      "consoleMessages": 0,
+      "pageErrors": 1,
+      "failedRequests": 0
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "tabCount": 9,
+      "consoleMessages": 0,
+      "pageErrors": 1,
+      "failedRequests": 0
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "tabCount": 9,
+      "consoleMessages": 0,
+      "pageErrors": 1,
+      "failedRequests": 0
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "tabCount": 9,
+      "consoleMessages": 0,
+      "pageErrors": 1,
+      "failedRequests": 0
+    }
+  ]
+}

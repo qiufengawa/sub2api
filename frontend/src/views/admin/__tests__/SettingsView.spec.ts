@@ -844,6 +844,23 @@ describe("admin SettingsView payment visible method controls", () => {
     clearAffiliateUserSettings.mockResolvedValue(undefined);
   });
 
+  it('keeps the editable form hidden after the primary settings request fails and retries cleanly', async () => {
+    getSettings.mockRejectedValueOnce(new Error('fixture settings unavailable'));
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="settings-load-error"]').attributes('role')).toBe('alert');
+    expect(wrapper.find('form').exists()).toBe(false);
+    expect(showError).toHaveBeenCalled();
+
+    getSettings.mockResolvedValueOnce({ ...baseSettingsResponse });
+    await wrapper.get('[data-testid="settings-load-retry"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="settings-load-error"]').exists()).toBe(false);
+    expect(wrapper.find('form').exists()).toBe(true);
+  });
+
   it("submits the compact home page toggle", async () => {
     const wrapper = mountView();
     await flushPromises();

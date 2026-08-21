@@ -127,6 +127,17 @@ describe('Qiu UI primitive contracts', () => {
     expect(wrapper.get('.ui-form-field').attributes('autocomplete')).toBeUndefined()
   })
 
+  it('associates a labeled textarea with a generated native id', () => {
+    const wrapper = mount(UiTextArea, {
+      props: { modelValue: '', label: 'Prompt', description: 'Enter text' },
+    })
+
+    const textarea = wrapper.get('textarea')
+    expect(textarea.attributes('id')).toMatch(/^ui-textarea-/)
+    expect(wrapper.get('label').attributes('for')).toBe(textarea.attributes('id'))
+    expect(textarea.attributes('aria-describedby')).toBe(`${textarea.attributes('id')}-message`)
+  })
+
   it('emits the selected segmented value', async () => {
     const wrapper = mount(UiSegmentedControl, { props: { modelValue: 'list', label: '视图', options: [{ label: '列表', value: 'list' }, { label: '图表', value: 'chart' }] } })
     await wrapper.findAll('button')[1].trigger('click')

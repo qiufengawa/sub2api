@@ -1,0 +1,2221 @@
+{
+  "date": "2026-08-22",
+  "method": "Chrome DevTools Accessibility.getFullAXTree plus real Tab focus trace; supplemental to native screen-reader testing",
+  "runs": 32,
+  "overflow": 0,
+  "navigationErrors": 0,
+  "failedRequests": 0,
+  "consoleMessages": 0,
+  "pageErrors": 4,
+  "unnamedInteractiveNodes": 0,
+  "rows": [
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "target": "/dashboard",
+      "role": "user",
+      "data": {
+        "url": "http://127.0.0.1:3001/dashboard",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": false,
+          "ariaHidden": null,
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Sub2API"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Dashboard"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "API Keys"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Playground"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Model Plaza"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Channel Status"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Profile"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Dark Mode"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "target": "/keys",
+      "role": "user",
+      "data": {
+        "url": "http://127.0.0.1:3001/keys",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": false,
+          "ariaHidden": null,
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Sub2API"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Dashboard"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "API Keys"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Playground"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Model Plaza"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Channel Status"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Profile"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Dark Mode"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "target": "/playground",
+      "role": "user",
+      "data": {
+        "url": "http://127.0.0.1:3001/playground",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": false,
+          "ariaHidden": null,
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Sub2API"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Dashboard"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "API Keys"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Playground"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Model Plaza"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Channel Status"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Profile"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Dark Mode"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "target": "/purchase",
+      "role": "user",
+      "data": {
+        "url": "http://127.0.0.1:3001/purchase",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": false,
+          "ariaHidden": null,
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Sub2API"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Dashboard"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "API Keys"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Playground"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Model Plaza"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Channel Status"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Profile"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Dark Mode"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "target": "/admin/dashboard",
+      "role": "admin",
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/dashboard",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": false,
+          "ariaHidden": null,
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Sub2API"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Dashboard"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Ops"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Accounts"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Announcements"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Proxies"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Usage"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Model Plaza"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "target": "/admin/settings",
+      "role": "admin",
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/settings",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": false,
+          "ariaHidden": null,
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Sub2API"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Dashboard"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Ops"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Accounts"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Announcements"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Proxies"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Usage"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Model Plaza"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "target": "/admin/audit-logs",
+      "role": "admin",
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/audit-logs",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": false,
+          "ariaHidden": null,
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Sub2API"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Dashboard"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Ops"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Accounts"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Announcements"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Proxies"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Usage"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Model Plaza"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "light",
+      "viewport": "desktop",
+      "target": "/admin/orders/plans",
+      "role": "admin",
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/orders/plans",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": false,
+          "ariaHidden": null,
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Sub2API"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Dashboard"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Ops"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Accounts"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Announcements"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Proxies"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Usage"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Model Plaza"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "target": "/dashboard",
+      "role": "user",
+      "data": {
+        "url": "http://127.0.0.1:3001/dashboard",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": true,
+          "ariaHidden": "true",
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Toggle menu",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Announcements",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "English",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "User menu",
+          "text": "TtestUser"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Create API Key"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "View usage"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "View usage"
+        },
+        {
+          "tag": "BUTTON",
+          "role": "radio",
+          "aria": null,
+          "text": "Last 7 days"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "target": "/keys",
+      "role": "user",
+      "data": {
+        "url": "http://127.0.0.1:3001/keys",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": true,
+          "ariaHidden": "true",
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Toggle menu",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Announcements",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "English",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "User menu",
+          "text": "TtestUser"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Refresh",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Column Settings"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Create API Key"
+        },
+        {
+          "tag": "INPUT",
+          "role": null,
+          "aria": "Search name or key...",
+          "text": ""
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "target": "/playground",
+      "role": "user",
+      "data": {
+        "url": "http://127.0.0.1:3001/playground",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": true,
+          "ariaHidden": "true",
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Toggle menu",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Announcements",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "English",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "User menu",
+          "text": "TtestUser"
+        },
+        {
+          "tag": "BUTTON",
+          "role": "combobox",
+          "aria": "Select API key",
+          "text": "TEST-UI-KEY-生产环境TEST-UI-SUB-企业版"
+        },
+        {
+          "tag": "BUTTON",
+          "role": "combobox",
+          "aria": "Select model",
+          "text": "codex-auto-review"
+        },
+        {
+          "tag": "BUTTON",
+          "role": "switch",
+          "aria": "Stream",
+          "text": ""
+        },
+        {
+          "tag": "TEXTAREA",
+          "role": null,
+          "aria": "Message the model…",
+          "text": ""
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "target": "/purchase",
+      "role": "user",
+      "data": {
+        "url": "http://127.0.0.1:3001/purchase",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": true,
+          "ariaHidden": "true",
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Toggle menu",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Announcements",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "English",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "User menu",
+          "text": "TtestUser"
+        },
+        {
+          "tag": "BUTTON",
+          "role": "tab",
+          "aria": null,
+          "text": "Top Up"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "10"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "20"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "50"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "target": "/admin/dashboard",
+      "role": "admin",
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/dashboard",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": true,
+          "ariaHidden": "true",
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Toggle menu",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Announcements",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "English",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "User menu",
+          "text": "AadminAdministrator"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Refresh"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Group Pricing"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Time Range",
+          "text": "Last 24 Hours"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Refresh"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "target": "/admin/settings",
+      "role": "admin",
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/settings",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": true,
+          "ariaHidden": "true",
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Toggle menu",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Announcements",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "English",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "User menu",
+          "text": "AadminAdministrator"
+        },
+        {
+          "tag": "BUTTON",
+          "role": "tab",
+          "aria": null,
+          "text": "General"
+        },
+        {
+          "tag": "BUTTON",
+          "role": "switch",
+          "aria": "Backend Mode",
+          "text": ""
+        },
+        {
+          "tag": "INPUT",
+          "role": null,
+          "aria": null,
+          "text": ""
+        },
+        {
+          "tag": "INPUT",
+          "role": null,
+          "aria": null,
+          "text": ""
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "target": "/admin/audit-logs",
+      "role": "admin",
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/audit-logs",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": true,
+          "ariaHidden": "true",
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Toggle menu",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Announcements",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "English",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "User menu",
+          "text": "AadminAdministrator"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Clear All"
+        },
+        {
+          "tag": "INPUT",
+          "role": null,
+          "aria": "Path / action / actor email",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Advanced filters"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Refresh",
+          "text": ""
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "light",
+      "viewport": "mobile",
+      "target": "/admin/orders/plans",
+      "role": "admin",
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/orders/plans",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": true,
+          "ariaHidden": "true",
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Toggle menu",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Announcements",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "English",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "User menu",
+          "text": "AadminAdministrator"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Import JSON"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Download Template"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Export Current"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Refresh",
+          "text": ""
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "target": "/dashboard",
+      "role": "user",
+      "data": {
+        "url": "http://127.0.0.1:3001/dashboard",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": false,
+          "ariaHidden": null,
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Sub2API"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Dashboard"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "API Keys"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Playground"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Model Plaza"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Channel Status"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Profile"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Light Mode"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "target": "/keys",
+      "role": "user",
+      "data": {
+        "url": "http://127.0.0.1:3001/keys",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": false,
+          "ariaHidden": null,
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Sub2API"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Dashboard"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "API Keys"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Playground"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Model Plaza"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Channel Status"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Profile"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Light Mode"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "target": "/playground",
+      "role": "user",
+      "data": {
+        "url": "http://127.0.0.1:3001/playground",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": false,
+          "ariaHidden": null,
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Sub2API"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Dashboard"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "API Keys"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Playground"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Model Plaza"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Channel Status"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Profile"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Light Mode"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "target": "/purchase",
+      "role": "user",
+      "data": {
+        "url": "http://127.0.0.1:3001/purchase",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": false,
+          "ariaHidden": null,
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Sub2API"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Dashboard"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "API Keys"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Playground"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Model Plaza"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Channel Status"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Profile"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Light Mode"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "target": "/admin/dashboard",
+      "role": "admin",
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/dashboard",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": false,
+          "ariaHidden": null,
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Sub2API"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Dashboard"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Ops"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Accounts"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Announcements"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Proxies"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Usage"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Model Plaza"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "target": "/admin/settings",
+      "role": "admin",
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/settings",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": false,
+          "ariaHidden": null,
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Sub2API"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Dashboard"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Ops"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Accounts"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Announcements"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Proxies"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Usage"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Model Plaza"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "target": "/admin/audit-logs",
+      "role": "admin",
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/audit-logs",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": false,
+          "ariaHidden": null,
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Sub2API"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Dashboard"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Ops"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Accounts"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Announcements"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Proxies"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Usage"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Model Plaza"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "desktop",
+      "target": "/admin/orders/plans",
+      "role": "admin",
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/orders/plans",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": false,
+          "ariaHidden": null,
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Sub2API"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Dashboard"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Ops"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Accounts"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Announcements"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Proxies"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Close",
+          "text": "×"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Start Setup"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "target": "/dashboard",
+      "role": "user",
+      "data": {
+        "url": "http://127.0.0.1:3001/dashboard",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": true,
+          "ariaHidden": "true",
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Toggle menu",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Announcements",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "English",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "User menu",
+          "text": "TtestUser"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Create API Key"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "View usage"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "View usage"
+        },
+        {
+          "tag": "BUTTON",
+          "role": "radio",
+          "aria": null,
+          "text": "Last 7 days"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "target": "/keys",
+      "role": "user",
+      "data": {
+        "url": "http://127.0.0.1:3001/keys",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": true,
+          "ariaHidden": "true",
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Toggle menu",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Announcements",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "English",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "User menu",
+          "text": "TtestUser"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Refresh",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Column Settings"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Create API Key"
+        },
+        {
+          "tag": "INPUT",
+          "role": null,
+          "aria": "Search name or key...",
+          "text": ""
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "target": "/playground",
+      "role": "user",
+      "data": {
+        "url": "http://127.0.0.1:3001/playground",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": true,
+          "ariaHidden": "true",
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Toggle menu",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Announcements",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "English",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "User menu",
+          "text": "TtestUser"
+        },
+        {
+          "tag": "BUTTON",
+          "role": "combobox",
+          "aria": "Select API key",
+          "text": "TEST-UI-KEY-生产环境TEST-UI-SUB-企业版"
+        },
+        {
+          "tag": "BUTTON",
+          "role": "combobox",
+          "aria": "Select model",
+          "text": "codex-auto-review"
+        },
+        {
+          "tag": "BUTTON",
+          "role": "switch",
+          "aria": "Stream",
+          "text": ""
+        },
+        {
+          "tag": "TEXTAREA",
+          "role": null,
+          "aria": "Message the model…",
+          "text": ""
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "target": "/purchase",
+      "role": "user",
+      "data": {
+        "url": "http://127.0.0.1:3001/purchase",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": true,
+          "ariaHidden": "true",
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Toggle menu",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Announcements",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "English",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "User menu",
+          "text": "TtestUser"
+        },
+        {
+          "tag": "BUTTON",
+          "role": "tab",
+          "aria": null,
+          "text": "Top Up"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "10"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "20"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "50"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "target": "/admin/dashboard",
+      "role": "admin",
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/dashboard",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": true,
+          "ariaHidden": "true",
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Toggle menu",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Announcements",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "English",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "User menu",
+          "text": "AadminAdministrator"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Refresh"
+        },
+        {
+          "tag": "A",
+          "role": null,
+          "aria": null,
+          "text": "Group Pricing"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Time Range",
+          "text": "Last 24 Hours"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Refresh"
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "target": "/admin/settings",
+      "role": "admin",
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/settings",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": true,
+          "ariaHidden": "true",
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Toggle menu",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Announcements",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "English",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "User menu",
+          "text": "AadminAdministrator"
+        },
+        {
+          "tag": "BUTTON",
+          "role": "tab",
+          "aria": null,
+          "text": "General"
+        },
+        {
+          "tag": "BUTTON",
+          "role": "switch",
+          "aria": "Backend Mode",
+          "text": ""
+        },
+        {
+          "tag": "INPUT",
+          "role": null,
+          "aria": null,
+          "text": ""
+        },
+        {
+          "tag": "INPUT",
+          "role": null,
+          "aria": null,
+          "text": ""
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "target": "/admin/audit-logs",
+      "role": "admin",
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/audit-logs",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": true,
+          "ariaHidden": "true",
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Toggle menu",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Announcements",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "English",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "User menu",
+          "text": "AadminAdministrator"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Clear All"
+        },
+        {
+          "tag": "INPUT",
+          "role": null,
+          "aria": "Path / action / actor email",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Advanced filters"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Refresh",
+          "text": ""
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    },
+    {
+      "mode": "dark-reduced",
+      "viewport": "mobile",
+      "target": "/admin/orders/plans",
+      "role": "admin",
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/orders/plans",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "mainLandmarks": 1,
+        "sidebar": {
+          "inert": true,
+          "ariaHidden": "true",
+          "mobileClosed": true
+        }
+      },
+      "switchNames": null,
+      "focusTrace": [
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Toggle menu",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Announcements",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "English",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "User menu",
+          "text": "AadminAdministrator"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Import JSON"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Download Template"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": null,
+          "text": "Export Current"
+        },
+        {
+          "tag": "BUTTON",
+          "role": null,
+          "aria": "Refresh",
+          "text": ""
+        }
+      ],
+      "unnamedInteractiveNodes": null
+    }
+  ]
+}

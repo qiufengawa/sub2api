@@ -204,7 +204,7 @@ describe('admin RedeemView batch update', () => {
 
     await flushPromises()
 
-    expect(wrapper.get('main.app-page').classes()).toContain('app-page--compact')
+    expect(wrapper.get('div.app-page').classes()).toContain('app-page--compact')
     expect(wrapper.get('h1').text()).toBe('admin.redeem.title')
     expect(wrapper.text()).toContain('admin.redeem.description')
     expect(wrapper.find('.ui-bulk').exists()).toBe(false)

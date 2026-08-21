@@ -1,0 +1,614 @@
+{
+  "date": "2026-08-22",
+  "route": "/admin/settings",
+  "states": [
+    "empty",
+    "slow",
+    "error"
+  ],
+  "viewports": [
+    "1440x1000",
+    "390x844"
+  ],
+  "runs": 6,
+  "interceptedMainSettings": 6,
+  "overflow": 0,
+  "navigationErrors": 0,
+  "failedRequests": 0,
+  "consoleMessages": 6,
+  "expectedSandboxErrors": 6,
+  "unexpectedPageErrors": 0,
+  "recoveredErrorCases": 2,
+  "rows": [
+    {
+      "state": "empty",
+      "viewport": "desktop",
+      "width": 1440,
+      "height": 1000,
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/settings",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true,
+        "loadErrorPresent": false,
+        "retryPresent": false,
+        "visibleErrors": []
+      },
+      "recovery": null,
+      "settingsRequests": [
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/admin-api-key"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/overload-cooldown"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/rate-limit-429-cooldown"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/panel-rate-limit"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/stream-timeout"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/rectifier"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/beta-policy"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/web-search-emulation"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/email-templates"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/email-templates/auth.verify_code/en"
+        },
+        {
+          "method": "POST",
+          "pathname": "/api/v1/admin/settings/email-template-preview"
+        }
+      ],
+      "settingsTimings": [
+        {
+          "state": "empty",
+          "durationMs": 43,
+          "status": 200
+        },
+        {
+          "state": "empty",
+          "durationMs": 40,
+          "status": 200
+        }
+      ],
+      "consoleMessages": [],
+      "pageErrors": [
+        "SecurityError: Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+      ],
+      "expectedSandboxCount": 1,
+      "unexpectedPageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "state": "empty",
+      "viewport": "mobile",
+      "width": 390,
+      "height": 844,
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/settings",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true,
+        "loadErrorPresent": false,
+        "retryPresent": false,
+        "visibleErrors": []
+      },
+      "recovery": null,
+      "settingsRequests": [
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/admin-api-key"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/overload-cooldown"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/rate-limit-429-cooldown"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/panel-rate-limit"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/stream-timeout"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/rectifier"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/beta-policy"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/web-search-emulation"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/email-templates"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/email-templates/auth.verify_code/en"
+        },
+        {
+          "method": "POST",
+          "pathname": "/api/v1/admin/settings/email-template-preview"
+        }
+      ],
+      "settingsTimings": [
+        {
+          "state": "empty",
+          "durationMs": 31,
+          "status": 200
+        },
+        {
+          "state": "empty",
+          "durationMs": 33,
+          "status": 200
+        }
+      ],
+      "consoleMessages": [],
+      "pageErrors": [
+        "SecurityError: Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+      ],
+      "expectedSandboxCount": 1,
+      "unexpectedPageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "state": "slow",
+      "viewport": "desktop",
+      "width": 1440,
+      "height": 1000,
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/settings",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": true,
+        "loadErrorPresent": false,
+        "retryPresent": false,
+        "visibleErrors": []
+      },
+      "recovery": null,
+      "settingsRequests": [
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/admin-api-key"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/overload-cooldown"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/rate-limit-429-cooldown"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/panel-rate-limit"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/stream-timeout"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/rectifier"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/beta-policy"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/web-search-emulation"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/email-templates"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/email-templates/auth.verify_code/en"
+        },
+        {
+          "method": "POST",
+          "pathname": "/api/v1/admin/settings/email-template-preview"
+        }
+      ],
+      "settingsTimings": [
+        {
+          "state": "slow",
+          "durationMs": 1654,
+          "status": 200
+        },
+        {
+          "state": "slow",
+          "durationMs": 1654,
+          "status": 200
+        }
+      ],
+      "consoleMessages": [],
+      "pageErrors": [
+        "SecurityError: Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+      ],
+      "expectedSandboxCount": 1,
+      "unexpectedPageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "state": "slow",
+      "viewport": "mobile",
+      "width": 390,
+      "height": 844,
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/settings",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": true,
+        "loadErrorPresent": false,
+        "retryPresent": false,
+        "visibleErrors": []
+      },
+      "recovery": null,
+      "settingsRequests": [
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/admin-api-key"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/overload-cooldown"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/rate-limit-429-cooldown"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/panel-rate-limit"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/stream-timeout"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/rectifier"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/beta-policy"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/web-search-emulation"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/email-templates"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/email-templates/auth.verify_code/en"
+        },
+        {
+          "method": "POST",
+          "pathname": "/api/v1/admin/settings/email-template-preview"
+        }
+      ],
+      "settingsTimings": [
+        {
+          "state": "slow",
+          "durationMs": 1665,
+          "status": 200
+        },
+        {
+          "state": "slow",
+          "durationMs": 1665,
+          "status": 200
+        }
+      ],
+      "consoleMessages": [],
+      "pageErrors": [
+        "SecurityError: Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+      ],
+      "expectedSandboxCount": 1,
+      "unexpectedPageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "state": "error",
+      "viewport": "desktop",
+      "width": 1440,
+      "height": 1000,
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/settings",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "formPresent": false,
+        "loadErrorPresent": true,
+        "retryPresent": true,
+        "visibleErrors": [
+          "Failed to load settingsRefresh the page and try again later.Retry",
+          "Fixture settings unavailable"
+        ]
+      },
+      "recovery": {
+        "formPresent": true,
+        "loadErrorPresent": false
+      },
+      "settingsRequests": [
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/admin-api-key"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/overload-cooldown"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/rate-limit-429-cooldown"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/panel-rate-limit"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/stream-timeout"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/rectifier"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/beta-policy"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/web-search-emulation"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/email-templates"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/email-templates/auth.verify_code/en"
+        },
+        {
+          "method": "POST",
+          "pathname": "/api/v1/admin/settings/email-template-preview"
+        }
+      ],
+      "settingsTimings": [
+        {
+          "state": "error",
+          "durationMs": 5,
+          "status": 503
+        },
+        {
+          "state": "error",
+          "durationMs": 5,
+          "status": 503
+        },
+        {
+          "state": "error",
+          "durationMs": 12,
+          "status": 200
+        }
+      ],
+      "consoleMessages": [
+        {
+          "type": "error",
+          "text": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+        },
+        {
+          "type": "error",
+          "text": "[adminSettings] Failed to fetch settings: {status: 503, code: 503, reason: FIXTURE_SETTINGS_ERROR, error: undefined, message: Fixture settings unavailable}"
+        },
+        {
+          "type": "error",
+          "text": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+        }
+      ],
+      "pageErrors": [
+        "SecurityError: Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+      ],
+      "expectedSandboxCount": 1,
+      "unexpectedPageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "state": "error",
+      "viewport": "mobile",
+      "width": 390,
+      "height": 844,
+      "data": {
+        "url": "http://127.0.0.1:3001/admin/settings",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "formPresent": false,
+        "loadErrorPresent": true,
+        "retryPresent": true,
+        "visibleErrors": [
+          "Failed to load settingsRefresh the page and try again later.Retry",
+          "Fixture settings unavailable"
+        ]
+      },
+      "recovery": {
+        "formPresent": true,
+        "loadErrorPresent": false
+      },
+      "settingsRequests": [
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/admin-api-key"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/overload-cooldown"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/rate-limit-429-cooldown"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/panel-rate-limit"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/stream-timeout"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/rectifier"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/beta-policy"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/web-search-emulation"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/email-templates"
+        },
+        {
+          "method": "GET",
+          "pathname": "/api/v1/admin/settings/email-templates/auth.verify_code/en"
+        },
+        {
+          "method": "POST",
+          "pathname": "/api/v1/admin/settings/email-template-preview"
+        }
+      ],
+      "settingsTimings": [
+        {
+          "state": "error",
+          "durationMs": 4,
+          "status": 503
+        },
+        {
+          "state": "error",
+          "durationMs": 4,
+          "status": 503
+        },
+        {
+          "state": "error",
+          "durationMs": 11,
+          "status": 200
+        }
+      ],
+      "consoleMessages": [
+        {
+          "type": "error",
+          "text": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+        },
+        {
+          "type": "error",
+          "text": "[adminSettings] Failed to fetch settings: {status: 503, code: 503, reason: FIXTURE_SETTINGS_ERROR, error: undefined, message: Fixture settings unavailable}"
+        },
+        {
+          "type": "error",
+          "text": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+        }
+      ],
+      "pageErrors": [
+        "SecurityError: Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+      ],
+      "expectedSandboxCount": 1,
+      "unexpectedPageErrors": [],
+      "failedRequests": []
+    }
+  ]
+}
