@@ -307,7 +307,7 @@ const saveRuntimeConfig = async () => {
   }
 }
 
-const resetRuntimeConfig = async () => {
+const resetRuntimeConfig = async (): Promise<boolean> => {
   runtimeSaving.value = true
   try {
     const saved = await opsAPI.resetRuntimeLogConfig()
@@ -320,15 +320,17 @@ const resetRuntimeConfig = async () => {
     runtimeConfig.retention_days = saved.retention_days
     appStore.showSuccess(t('admin.ops.systemLogs.runtimeConfigReset'))
     await fetchHealth()
+    return true
   } catch (err: any) {
     console.error('[OpsSystemLogTable] Failed to reset runtime log config', err)
     appStore.showError(err?.response?.data?.detail || t('admin.ops.systemLogs.runtimeConfigResetFailed'))
+    return false
   } finally {
     runtimeSaving.value = false
   }
 }
 
-const cleanupCurrentFilter = async () => {
+const cleanupCurrentFilter = async (): Promise<boolean> => {
   cleanupLoading.value = true
   try {
     const payload = {
@@ -350,6 +352,7 @@ const cleanupCurrentFilter = async () => {
     appStore.showSuccess(t('admin.ops.systemLogs.cleanupSuccess', { count: res.deleted || 0 }))
     page.value = 1
     await Promise.all([fetchLogs(), fetchHealth()])
+    return true
   } catch (err: any) {
     console.error('[OpsSystemLogTable] Failed to cleanup logs', err)
     appStore.showError(
@@ -357,6 +360,7 @@ const cleanupCurrentFilter = async () => {
         OPS_SYSTEM_LOG_CLEANUP_FILTER_REQUIRED: t('admin.ops.systemLogs.cleanupFilterRequired')
       })
     )
+    return false
   } finally {
     cleanupLoading.value = false
   }
@@ -392,10 +396,13 @@ const confirmMessage = computed(() =>
 
 const handleConfirm = async () => {
   const action = confirmAction.value
-  if (!action) return
-  if (action === 'cleanup') await cleanupCurrentFilter()
-  else await resetRuntimeConfig()
-  confirmAction.value = null
+  if (!action || confirmPending.value) return
+  const succeeded = action === 'cleanup'
+    ? await cleanupCurrentFilter()
+    : await resetRuntimeConfig()
+  // Keep the confirmation context open after a failed mutation so the
+  // operator can inspect the error and retry without rebuilding filters.
+  if (succeeded) confirmAction.value = null
 }
 
 const resetFilters = () => {

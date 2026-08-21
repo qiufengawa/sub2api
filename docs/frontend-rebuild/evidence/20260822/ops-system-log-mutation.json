@@ -1,0 +1,16 @@
+{
+  "date": "2026-08-22",
+  "scope": "OpsSystemLogTable destructive controls",
+  "test_file": "frontend/src/views/admin/ops/components/__tests__/OpsSystemLogTable.spec.ts",
+  "test_command": "pnpm exec vitest run src/views/admin/ops/components/__tests__/OpsSystemLogTable.spec.ts",
+  "tests": 7,
+  "status": "passed",
+  "assertions": {
+    "cleanup_filter_payload": true,
+    "cleanup_cancel_without_mutation": true,
+    "cleanup_failure_keeps_confirmation_for_retry": true,
+    "cleanup_pending_locks_confirm_and_cancel": true,
+    "runtime_reset_failure_keeps_confirmation_for_retry": true
+  },
+  "boundary": "Vitest uses local API mocks; this is not external provider or production settlement evidence."
+}

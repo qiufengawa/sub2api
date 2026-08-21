@@ -50,9 +50,14 @@ Durable artifacts and SHA-256 entries are under
   `inert=true` and `aria-hidden=true`; the first eight real Tab stops begin at
   the page header rather than off-canvas sidebar links.
 - `gate-results-20260822.json`: focused Vitest and browser gate counts for this
-  follow-up. The full frontend run is 360 test files / 2,438 tests; static
+  follow-up. The full frontend run is 360 test files / 2,441 tests; static
   audit (13), typecheck, ESLint, production build (3,103 modules) and
   `git diff --check` also passed.
+- `ops-system-log-mutation.json`: the Ops system-log cleanup and runtime-reset
+  confirmations now retain their filter/config context after a failed request,
+  reject duplicate confirmation while pending, and close only after success.
+  The focused suite passes 7 tests using local API mocks; it is a unit fixture,
+  not evidence of an external provider or production settlement.
 
 The AX tree and Tab traces are browser accessibility evidence, not native
 VoiceOver/NVDA execution. The native reader gate, credentialed external

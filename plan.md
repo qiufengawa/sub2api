@@ -2010,3 +2010,9 @@ Review 必须按严重度记录：
   `docs/frontend-rebuild/evidence/20260822/`。
 - 这些 AX/键盘证据仍不等价原生 VoiceOver/NVDA；credentialed 外部支付结算/退款、
   完整逐页状态/late-response、剩余管理员 mutation 与最终 Code Review 继续 active。
+
+### 2026-08-22：Ops 系统日志破坏性确认重试边界
+
+- `OpsSystemLogTable` 的系统日志清理与 runtime reset 现在只有在 mutation 成功后才关闭确认框；失败时保留当前筛选/配置上下文，并在请求 pending 期间锁定确认和取消入口，避免重复提交。
+- `OpsSystemLogTable.spec.ts` 新增失败重试、pending duplicate guard 与 runtime reset 失败保留上下文覆盖；定向 7 tests、全量前端 360 files / 2441 tests、static audit 13、typecheck、lint、3103-module build 和 diff-check 均通过。
+- 该证据使用本地 API mocks，不扩大为外部 provider settlement/refund 或真实生产 mutation；native screen-reader、credentialed external provider、完整逐页状态/late-response 和最终 severity-signed Code Review 仍 active。

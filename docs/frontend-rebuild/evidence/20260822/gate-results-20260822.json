@@ -9,7 +9,7 @@
     "app_page_single_main_landmark": "passed"
   },
   "focused": {
-    "full_frontend_test_run": {"status": "passed", "test_files": 360, "tests": 2438},
+    "full_frontend_test_run": {"status": "passed", "test_files": 360, "tests": 2441},
     "static_audit": {"status": "passed", "tests": 13},
     "typecheck": {"status": "passed"},
     "lint": {"status": "passed"},
@@ -19,7 +19,8 @@
     "AppSidebar_behavior": {"status": "passed", "tests": 4},
     "AppPage": {"status": "passed", "tests": 1},
     "UiCheckbox": {"status": "passed", "tests": 2},
-    "UiTextArea_and_primitives": {"status": "passed", "tests": 15}
+    "UiTextArea_and_primitives": {"status": "passed", "tests": 15},
+    "OpsSystemLogTable_mutation": {"status": "passed", "tests": 7}
   },
   "browser": {
     "settings_state": {
