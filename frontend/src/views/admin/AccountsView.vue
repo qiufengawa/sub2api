@@ -1523,6 +1523,7 @@ const resetAutoRefreshCache = () => {
 };
 
 const isFirstLoad = ref(true);
+let accountLoadSequence = 0;
 
 function markUpstreamBillingSortRefresh() {
   if (sortState.sort_by === "upstream_billing_rate") {
@@ -1531,21 +1532,30 @@ function markUpstreamBillingSortRefresh() {
 }
 
 const load = async () => {
+  const loadSequence = ++accountLoadSequence;
+  const shouldUseLite = isFirstLoad.value;
   const requestParams = params as any;
   markUpstreamBillingSortRefresh();
   syncAccountListDerivedParams();
   hasPendingListSync.value = false;
   resetAutoRefreshCache();
   pendingAccountMetricsRefresh.value = false;
-  if (isFirstLoad.value) {
+  if (shouldUseLite) {
     requestParams.lite = "1";
   }
-  await baseLoad();
-  if (isFirstLoad.value) {
-    isFirstLoad.value = false;
-    delete requestParams.lite;
+  try {
+    await baseLoad();
+    if (shouldUseLite && loadSequence === accountLoadSequence) {
+      isFirstLoad.value = false;
+      delete requestParams.lite;
+    }
+    await refreshAccountPageMetrics();
+  } catch (error) {
+    if (shouldUseLite && loadSequence === accountLoadSequence) {
+      delete requestParams.lite;
+    }
+    throw error;
   }
-  await refreshAccountPageMetrics();
 };
 
 const handleAccountListLoadError = (error: unknown) => {

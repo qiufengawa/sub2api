@@ -18,7 +18,8 @@ the pre-existing ignored final-review working file.
   message used by the account table.
 - `frontend/src/views/admin/AccountsView.vue`: initial table-load rejection is
   now caught and surfaced through the localized error toast instead of becoming
-  an unhandled page error.
+  an unhandled page error; the first-load `lite` parameter is cleaned on
+  rejection and overlapping loads are fenced by a sequence token.
 - `frontend/src/components/ui/__tests__/UiConsumerInventory.spec.ts` and
   `UI.MD`: synchronized the runtime consumer reference gate to 1,884 after the
   real `UiTabs` import was restored.

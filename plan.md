@@ -490,7 +490,8 @@ Review 必须按严重度记录：
   `1440×1000/390×844` 下各跑 empty/slow/error，48 个 page-specific 请求全部被
   fixture 控制；0 overflow/navigation/failed request。Ops 的 snapshot 失败会回退到
   split endpoints；Accounts 初始列表拒绝已补 catch、错误 toast 和回归测试，避免真实
-  Chromium 的 unhandled pageerror。该矩阵仍把 fixture 503 的 console/pageerror 计入，
+  Chromium 的 unhandled pageerror；同时清理首载 `lite` 参数并用 sequence token 防止
+  乱序加载污染。该矩阵仍把 fixture 503 的 console/pageerror 计入，
   不扩大为 console-clean。
 - `keyboard-overlay-summary.json` 另以 `390×844` dark/reduced-motion 真实验证
   10 个管理员/用户入口的 Enter、Space、Escape 和 focus-return，10/10 全部通过且

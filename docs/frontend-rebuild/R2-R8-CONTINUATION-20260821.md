@@ -275,7 +275,9 @@ split endpoints, so its expected console error is a resilience signal rather
 than a blank page. Accounts now catches the initial table rejection and shows
 the localized error toast without an unhandled page error; the focused
 `AccountsView.schedulerScore.spec.ts` regression and the post-fix account
-recheck recorded in the summary cover that boundary. The
+recheck recorded in the summary cover that boundary. The same load path now
+cleans the first-load `lite` parameter on rejection and fences overlapping
+loads with a sequence token. The
 fixture's 24 expected resource/console errors and two pre-fix account page
 errors remain counted in the durable summary rather than being called
 console-clean.

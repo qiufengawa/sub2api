@@ -224,6 +224,7 @@ describe('admin AccountsView scheduler score column', () => {
 
     expect(wrapper.exists()).toBe(true)
     expect(showError).toHaveBeenCalledWith('fixture list failure')
+    expect(listAccounts.mock.calls[0]?.[2]).not.toHaveProperty('lite')
   })
 
   it('places priority after name and service status and requests global descending order', async () => {
