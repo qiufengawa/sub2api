@@ -1602,7 +1602,7 @@ const handlePageChange = (page: number) => {
   hasPendingListSync.value = false;
   resetAutoRefreshCache();
   pendingAccountMetricsRefresh.value = true;
-  baseHandlePageChange(page);
+  void baseHandlePageChange(page).catch(handleAccountListLoadError);
 };
 
 const handlePageSizeChange = (size: number) => {
@@ -1610,7 +1610,7 @@ const handlePageSizeChange = (size: number) => {
   hasPendingListSync.value = false;
   resetAutoRefreshCache();
   pendingAccountMetricsRefresh.value = true;
-  baseHandlePageSizeChange(size);
+  void baseHandlePageSizeChange(size).catch(handleAccountListLoadError);
 };
 
 const handleSort = (key: string, order: AccountSortOrder) => {

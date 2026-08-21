@@ -282,6 +282,10 @@ fixture's 24 expected resource/console errors and two pre-fix account page
 errors remain counted in the durable summary rather than being called
 console-clean.
 
+The shared table-loader pagination/size handlers now return their load promise;
+Accounts catches those paths with the same error handler. The composable plus
+all six Accounts suites pass (`58` focused tests in this follow-up run).
+
 `evidence/20260821/keyboard-overlay-summary.json` adds a real Chromium keyboard
 pass at `390×844`, dark and reduced-motion: ten admin/user entry points opened
 their dialog with Enter and Space, Escape closed each overlay, focus returned to

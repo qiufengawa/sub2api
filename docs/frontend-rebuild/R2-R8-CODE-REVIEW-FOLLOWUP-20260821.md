@@ -20,6 +20,9 @@ the pre-existing ignored final-review working file.
   now caught and surfaced through the localized error toast instead of becoming
   an unhandled page error; the first-load `lite` parameter is cleaned on
   rejection and overlapping loads are fenced by a sequence token.
+- `frontend/src/composables/useTableLoader.ts`: pagination and page-size actions
+  now return the underlying load promise, allowing Accounts to surface those
+  failures instead of leaving detached requests.
 - `frontend/src/components/ui/__tests__/UiConsumerInventory.spec.ts` and
   `UI.MD`: synchronized the runtime consumer reference gate to 1,884 after the
   real `UiTabs` import was restored.
@@ -50,6 +53,8 @@ The durable gate record is
   backend routes/service/repository tests passed.
 - The focused Accounts scheduler/error-recovery suite passed 8 tests; the
   local error fixture now has zero page errors after the catch boundary.
+- The composable plus six Accounts suites passed 58 focused tests after the
+  pagination promise boundary was added.
 - `keyboard-overlay-summary.json` records ten real Chromium Enter/Space/Escape
   overlay checks with 10/10 focus restoration and zero console/page errors.
 - `payment-double-tab.json` verifies scoped recovery cleanup across two pages in
