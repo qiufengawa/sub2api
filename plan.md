@@ -1983,7 +1983,8 @@ Review 必须按严重度记录：
   `payment-double-tab.json`：同一 BrowserContext 中 A/B 恢复 token 隔离通过。
 - `AccountsView` 初始列表失败现在有统一 toast/catch；首载 `lite` 参数在拒绝时清理，
   Accounts load sequence 管理首载清理，shared table-loader sequence fences 旧响应写入；
-  table-loader 分页/分页大小返回 promise，由 Accounts 统一捕获。Accounts/useTableLoader
+  table-loader 分页/分页大小返回 promise，由 Accounts 统一捕获；搜索/筛选 debounce
+  也通过同一 catch 边界。Accounts/useTableLoader
   59 项定向套件（含旧响应回归）、全量 Vitest
   `359 files / 2431 tests`、static audit 13、typecheck、lint、build（3103 modules）和
   diff-check 均已复验。

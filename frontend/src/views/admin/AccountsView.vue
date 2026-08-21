@@ -763,7 +763,7 @@ import {
   toRaw,
   watch,
 } from "vue";
-import { useIntervalFn } from "@vueuse/core";
+import { useDebounceFn, useIntervalFn } from "@vueuse/core";
 import { useI18n } from "vue-i18n";
 import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
@@ -1439,7 +1439,6 @@ const {
   pagination,
   load: baseLoad,
   reload: baseReload,
-  debouncedReload: baseDebouncedReload,
   handlePageChange: baseHandlePageChange,
   handlePageSizeChange: baseHandlePageSizeChange,
 } = useTableLoader<Account, any>({
@@ -1575,6 +1574,10 @@ const reload = async () => {
   await refreshAccountPageMetrics();
 };
 
+const scheduleAccountReload = useDebounceFn(() => {
+  void reload().catch(handleAccountListLoadError);
+}, 300);
+
 const refreshUpstreamBillingSortedList = async (force = false) => {
   if (sortState.sort_by !== "upstream_billing_rate") return;
 
@@ -1594,7 +1597,7 @@ const debouncedReload = () => {
   hasPendingListSync.value = false;
   resetAutoRefreshCache();
   pendingAccountMetricsRefresh.value = true;
-  baseDebouncedReload();
+  scheduleAccountReload();
 };
 
 const handlePageChange = (page: number) => {

@@ -22,7 +22,8 @@ the pre-existing ignored final-review working file.
   rejection and overlapping loads are fenced by a sequence token.
 - `frontend/src/composables/useTableLoader.ts`: pagination and page-size actions
   now return the underlying load promise, allowing Accounts to surface those
-  failures instead of leaving detached requests.
+  failures instead of leaving detached requests; Accounts' debounced reload
+  also uses the same catch boundary.
 - `frontend/src/components/ui/__tests__/UiConsumerInventory.spec.ts` and
   `UI.MD`: synchronized the runtime consumer reference gate to 1,884 after the
   real `UiTabs` import was restored.

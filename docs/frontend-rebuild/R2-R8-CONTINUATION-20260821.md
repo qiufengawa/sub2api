@@ -285,7 +285,9 @@ console-clean.
 The shared table-loader pagination/size handlers now return their load promise;
 Accounts catches those paths with the same error handler. The composable plus
 all six Accounts suites pass (`59` focused tests in this follow-up run),
-including a deferred old-response regression.
+including a deferred old-response regression. Accounts search/filter debounce
+now schedules `reload()` through the same catch boundary rather than dropping
+its rejection.
 
 `evidence/20260821/keyboard-overlay-summary.json` adds a real Chromium keyboard
 pass at `390×844`, dark and reduced-motion: ten admin/user entry points opened
