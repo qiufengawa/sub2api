@@ -8,6 +8,11 @@
     "build": {"status": "passed", "modules": 3103},
     "git_diff_check": {"status": "passed"}
   },
+  "focused_regressions": {
+    "AccountsView.schedulerScore.spec.ts": {"status": "passed", "tests": 8},
+    "keyboard_overlay": {"status": "passed", "runs": 10, "focus_restored": 10},
+    "payment_double_tab": {"status": "passed", "scoped_cleanup": true, "second_tab_retained": true}
+  },
   "backend": {
     "command": "go test ./internal/server/routes ./internal/service ./internal/repository -count=1",
     "status": "passed",
