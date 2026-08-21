@@ -1988,8 +1988,7 @@ Review 必须按严重度记录：
   59 项定向套件（含旧响应回归）、全量 Vitest
   `359 files / 2431 tests`、static audit 13、typecheck、lint、build（3103 modules）和
   diff-check 均已复验。
-- 证据与 SHA-256 索引写入 `docs/frontend-rebuild/evidence/20260821/`；相关提交链为
-  `0be0adb3e`、`7a29c753c`、`30ba61e78`、`b1513e24d`、`b7e682e61`、`fc3e9a6a8`、
-  `71140d05e`、`2e6f665af`、`cc8fe0bd6`、`b49e19f37`，当前 HEAD 为 `b49e19f37`。
+- 证据与 SHA-256 索引写入 `docs/frontend-rebuild/evidence/20260821/`；完整提交链以
+  `git log` 为准，当前 HEAD 为 `64f5f0e7f`。
   原生读屏、credentialed 外部 provider、完整逐页状态/late-response 和最终
   severity-signed Code Review 仍保持 active。
