@@ -10,7 +10,7 @@
   },
   "focused_regressions": {
     "AccountsView.schedulerScore.spec.ts": {"status": "passed", "tests": 8},
-    "AccountsView_and_useTableLoader": {"status": "passed", "tests": 58},
+    "AccountsView_and_useTableLoader": {"status": "passed", "tests": 59},
     "keyboard_overlay": {"status": "passed", "runs": 10, "focus_restored": 10},
     "payment_double_tab": {"status": "passed", "scoped_cleanup": true, "second_tab_retained": true}
   },

@@ -53,8 +53,8 @@ The durable gate record is
   backend routes/service/repository tests passed.
 - The focused Accounts scheduler/error-recovery suite passed 8 tests; the
   local error fixture now has zero page errors after the catch boundary.
-- The composable plus six Accounts suites passed 58 focused tests after the
-  pagination promise boundary was added.
+- The composable plus six Accounts suites passed 59 focused tests after the
+  pagination promise and stale-response boundaries were added.
 - `keyboard-overlay-summary.json` records ten real Chromium Enter/Space/Escape
   overlay checks with 10/10 focus restoration and zero console/page errors.
 - `payment-double-tab.json` verifies scoped recovery cleanup across two pages in

@@ -228,6 +228,24 @@ describe('useTableLoader', () => {
       // 第二次请求的结果生效
       expect(fetchFn).toHaveBeenCalledTimes(2)
     })
+
+    it('忽略 abort 后才到达的旧响应', async () => {
+      const resolvers: Array<(value: any) => void> = []
+      const fetchFn = vi.fn(() => new Promise(resolve => resolvers.push(resolve)))
+      const { load, items, pagination } = useTableLoader({ fetchFn })
+
+      const first = load()
+      const second = load()
+
+      resolvers[1]({ items: [{ id: 2 }], total: 2, pages: 2 })
+      await second
+      resolvers[0]({ items: [{ id: 1 }], total: 1, pages: 1 })
+      await first
+
+      expect(items.value).toEqual([{ id: 2 }])
+      expect(pagination.total).toBe(2)
+      expect(pagination.pages).toBe(2)
+    })
   })
 
   // --- 错误处理 ---

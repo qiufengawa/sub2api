@@ -1982,11 +1982,13 @@ Review 必须按严重度记录：
   下 10 个管理员/用户入口的 Enter、Space、Escape、focus-return 全部通过；新增
   `payment-double-tab.json`：同一 BrowserContext 中 A/B 恢复 token 隔离通过。
 - `AccountsView` 初始列表失败现在有统一 toast/catch；首载 `lite` 参数在拒绝时清理，
-  sequence token 防止并发/晚到请求污染；table-loader 分页/分页大小返回 promise，
-  由 Accounts 统一捕获。Accounts/useTableLoader 58 项定向套件、全量 Vitest
+  Accounts load sequence 管理首载清理，shared table-loader sequence fences 旧响应写入；
+  table-loader 分页/分页大小返回 promise，由 Accounts 统一捕获。Accounts/useTableLoader
+  59 项定向套件（含旧响应回归）、全量 Vitest
   `359 files / 2431 tests`、static audit 13、typecheck、lint、build（3103 modules）和
   diff-check 均已复验。
-- 证据与 SHA-256 索引写入 `docs/frontend-rebuild/evidence/20260821/`；最新提交链为
-  `0be0adb3e`、`7a29c753c`、`30ba61e78`、`b1513e24d`、`b7e682e61`、`fc3e9a6a8`。
+- 证据与 SHA-256 索引写入 `docs/frontend-rebuild/evidence/20260821/`；相关提交链为
+  `0be0adb3e`、`7a29c753c`、`30ba61e78`、`b1513e24d`、`b7e682e61`、`fc3e9a6a8`、
+  `71140d05e`、`2e6f665af`，当前 HEAD 为 `2e6f665af`。
   原生读屏、credentialed 外部 provider、完整逐页状态/late-response 和最终
   severity-signed Code Review 仍保持 active。
