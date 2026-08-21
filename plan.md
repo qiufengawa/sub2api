@@ -480,7 +480,7 @@ Review 必须按严重度记录：
 - 本轮源码修复为 `AppHeader` 长标题 flex 约束、Channels 缺失 `UiTabs` 导入、
   accounts `expired` 中英文 locale，以及 Accounts 初始列表拒绝的 catch/toast；UI
   consumer inventory 因真实导入修复更新为 `114 / 276 / 1884`。定向测试、全量
-  Vitest（`359` files / `2431` tests）、
+  Vitest（`359` files / `2432` tests）、
   static audit（`13` tests）、typecheck、lint、生产 build 和 `git diff --check` 已复验；
   backend routes/service/repository 选定包也已复验通过。
 - 本地 provider fixture 和隔离数据库 webhook/refund 证据已写入
@@ -1986,7 +1986,7 @@ Review 必须按严重度记录：
   table-loader 分页/分页大小返回 promise，由 Accounts 统一捕获；搜索/筛选 debounce
   也通过同一 catch 边界。Accounts/useTableLoader
   59 项定向套件（含旧响应回归）、全量 Vitest
-  `359 files / 2431 tests`、static audit 13、typecheck、lint、build（3103 modules）和
+  `359 files / 2432 tests`、static audit 13、typecheck、lint、build（3103 modules）和
   diff-check 均已复验。
 - 证据与 SHA-256 索引写入 `docs/frontend-rebuild/evidence/20260821/`；完整提交链以
   `git log` 为准，当前 HEAD 为 `64f5f0e7f`。
