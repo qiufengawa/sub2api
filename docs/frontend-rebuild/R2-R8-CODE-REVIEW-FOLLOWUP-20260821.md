@@ -53,6 +53,9 @@ The durable gate record is
   overlay checks with 10/10 focus restoration and zero console/page errors.
 - `payment-double-tab.json` verifies scoped recovery cleanup across two pages in
   one BrowserContext; tab A succeeds without removing tab B's recovery state.
+- `admin-state-remaining-summary.json` adds 54 page-specific empty/slow/error
+  probes across ten more administrator routes, with six dashboard guard cases
+  explicitly kept separate.
 
 ## Open findings
 

@@ -286,6 +286,15 @@ their dialog with Enter and Space, Escape closed each overlay, focus returned to
 the trigger in all ten cases, and the pass had zero console/page errors. The
 flow dismissed every dialog before any destructive confirmation or form submit.
 
+`evidence/20260821/admin-state-remaining-summary.json` extends the same
+empty/slow/503 fixture to ten additional administrator routes (60 cases at
+1440×1000 and 390×844). Fifty-four page-specific requests were intercepted with
+zero overflow, navigation errors or failed requests; the six dashboard cases
+are retained as an explicit feature/guard shell because no page-specific
+request was issued. Users, Groups, Announcements, Channels pricing, Usage,
+Affiliate records and Orders now have recorded state probes; fixture console
+diagnostics remain counted rather than relabeled as clean.
+
 Remaining administrator work is the deeper mutation/error matrix (for example
 failed retries, Ops log cleanup, provider refund query, and concurrent/late
 responses), rather than the primary mutation entry points above. Their

@@ -1,0 +1,452 @@
+{
+  "date": "2026-08-21",
+  "runs": 60,
+  "routes": [
+    "/admin/dashboard",
+    "/admin/users",
+    "/admin/groups",
+    "/admin/announcements",
+    "/admin/channels/pricing",
+    "/admin/usage",
+    "/admin/affiliates/invites",
+    "/admin/affiliates/rebates",
+    "/admin/affiliates/transfers",
+    "/admin/orders"
+  ],
+  "states": [
+    "empty",
+    "slow",
+    "error"
+  ],
+  "viewports": [
+    "1440x1000",
+    "390x844"
+  ],
+  "intercepted_cases": 54,
+  "guard_cases": 6,
+  "overflow_cases": 0,
+  "navigation_errors": 0,
+  "failed_requests": 0,
+  "console_messages": 32,
+  "page_errors": 0,
+  "cases": [
+    {
+      "route": "/admin/dashboard",
+      "state": "empty",
+      "target_paths": [],
+      "intercepted_cases": 0,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/dashboard",
+      "state": "slow",
+      "target_paths": [],
+      "intercepted_cases": 0,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/dashboard",
+      "state": "error",
+      "target_paths": [],
+      "intercepted_cases": 0,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/users",
+      "state": "empty",
+      "target_paths": [
+        "/api/v1/admin/users"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/users",
+      "state": "slow",
+      "target_paths": [
+        "/api/v1/admin/users"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/users",
+      "state": "error",
+      "target_paths": [
+        "/api/v1/admin/users"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 2,
+      "console_messages": 4,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/groups",
+      "state": "empty",
+      "target_paths": [
+        "/api/v1/admin/groups"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/groups",
+      "state": "slow",
+      "target_paths": [
+        "/api/v1/admin/groups"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/groups",
+      "state": "error",
+      "target_paths": [
+        "/api/v1/admin/groups"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 2,
+      "console_messages": 4,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/announcements",
+      "state": "empty",
+      "target_paths": [
+        "/api/v1/admin/announcements"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/announcements",
+      "state": "slow",
+      "target_paths": [
+        "/api/v1/admin/announcements"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/announcements",
+      "state": "error",
+      "target_paths": [
+        "/api/v1/admin/announcements"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 2,
+      "console_messages": 2,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/channels/pricing",
+      "state": "empty",
+      "target_paths": [
+        "/api/v1/admin/channels"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/channels/pricing",
+      "state": "slow",
+      "target_paths": [
+        "/api/v1/admin/channels"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/channels/pricing",
+      "state": "error",
+      "target_paths": [
+        "/api/v1/admin/channels"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 2,
+      "console_messages": 2,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/usage",
+      "state": "empty",
+      "target_paths": [
+        "/api/v1/admin/usage"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/usage",
+      "state": "slow",
+      "target_paths": [
+        "/api/v1/admin/usage"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/usage",
+      "state": "error",
+      "target_paths": [
+        "/api/v1/admin/usage"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 4,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/affiliates/invites",
+      "state": "empty",
+      "target_paths": [
+        "/api/v1/admin/affiliates/invites"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/affiliates/invites",
+      "state": "slow",
+      "target_paths": [
+        "/api/v1/admin/affiliates/invites"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/affiliates/invites",
+      "state": "error",
+      "target_paths": [
+        "/api/v1/admin/affiliates/invites"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 2,
+      "console_messages": 4,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/affiliates/rebates",
+      "state": "empty",
+      "target_paths": [
+        "/api/v1/admin/affiliates/rebates"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/affiliates/rebates",
+      "state": "slow",
+      "target_paths": [
+        "/api/v1/admin/affiliates/rebates"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/affiliates/rebates",
+      "state": "error",
+      "target_paths": [
+        "/api/v1/admin/affiliates/rebates"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 2,
+      "console_messages": 4,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/affiliates/transfers",
+      "state": "empty",
+      "target_paths": [
+        "/api/v1/admin/affiliates/transfers"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/affiliates/transfers",
+      "state": "slow",
+      "target_paths": [
+        "/api/v1/admin/affiliates/transfers"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/affiliates/transfers",
+      "state": "error",
+      "target_paths": [
+        "/api/v1/admin/affiliates/transfers"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 2,
+      "console_messages": 4,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/orders",
+      "state": "empty",
+      "target_paths": [
+        "/api/v1/admin/payment/orders"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/orders",
+      "state": "slow",
+      "target_paths": [
+        "/api/v1/admin/payment/orders"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    },
+    {
+      "route": "/admin/orders",
+      "state": "error",
+      "target_paths": [
+        "/api/v1/admin/payment/orders"
+      ],
+      "intercepted_cases": 2,
+      "loading_signal_cases": 0,
+      "visible_error_cases": 2,
+      "console_messages": 4,
+      "page_errors": 0,
+      "overflow_cases": 0,
+      "navigation_errors": 0
+    }
+  ],
+  "notes": {
+    "dashboard": "The dashboard route remained on its feature/guard shell and issued no page-specific request; those 6 cases are retained as guard behavior, not counted as intercepted state coverage.",
+    "scope": "local isolated Chromium fixture; no external provider or production backend claim."
+  }
+}
