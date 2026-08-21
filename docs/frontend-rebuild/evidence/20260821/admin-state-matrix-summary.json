@@ -1,0 +1,334 @@
+{
+  "date": "2026-08-21",
+  "runs": 48,
+  "routes": [
+    "/admin/audit-logs",
+    "/admin/redeem",
+    "/admin/orders/plans",
+    "/admin/channels/monitor",
+    "/admin/ops",
+    "/admin/subscriptions",
+    "/admin/accounts",
+    "/admin/proxies"
+  ],
+  "states": [
+    "empty",
+    "slow",
+    "error"
+  ],
+  "viewports": [
+    "1440x1000",
+    "390x844"
+  ],
+  "total_intercepted": 48,
+  "total_overflow_cases": 0,
+  "total_navigation_errors": 0,
+  "total_failed_requests": 0,
+  "total_console_messages": 24,
+  "total_page_errors": 2,
+  "cases": [
+    {
+      "route": "/admin/audit-logs",
+      "state": "empty",
+      "intercepted_paths": [
+        "/api/v1/admin/audit-logs"
+      ],
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/audit-logs",
+      "state": "slow",
+      "intercepted_paths": [
+        "/api/v1/admin/audit-logs"
+      ],
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/audit-logs",
+      "state": "error",
+      "intercepted_paths": [
+        "/api/v1/admin/audit-logs"
+      ],
+      "loading_signal_cases": 0,
+      "visible_error_cases": 2,
+      "console_messages": 2,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/redeem",
+      "state": "empty",
+      "intercepted_paths": [
+        "/api/v1/admin/redeem-codes"
+      ],
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/redeem",
+      "state": "slow",
+      "intercepted_paths": [
+        "/api/v1/admin/redeem-codes"
+      ],
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/redeem",
+      "state": "error",
+      "intercepted_paths": [
+        "/api/v1/admin/redeem-codes"
+      ],
+      "loading_signal_cases": 0,
+      "visible_error_cases": 2,
+      "console_messages": 2,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/orders/plans",
+      "state": "empty",
+      "intercepted_paths": [
+        "/api/v1/admin/payment/plans"
+      ],
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/orders/plans",
+      "state": "slow",
+      "intercepted_paths": [
+        "/api/v1/admin/payment/plans"
+      ],
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/orders/plans",
+      "state": "error",
+      "intercepted_paths": [
+        "/api/v1/admin/payment/plans"
+      ],
+      "loading_signal_cases": 0,
+      "visible_error_cases": 2,
+      "console_messages": 4,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/channels/monitor",
+      "state": "empty",
+      "intercepted_paths": [
+        "/api/v1/admin/channel-monitors"
+      ],
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/channels/monitor",
+      "state": "slow",
+      "intercepted_paths": [
+        "/api/v1/admin/channel-monitors"
+      ],
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/channels/monitor",
+      "state": "error",
+      "intercepted_paths": [
+        "/api/v1/admin/channel-monitors"
+      ],
+      "loading_signal_cases": 0,
+      "visible_error_cases": 2,
+      "console_messages": 2,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/ops",
+      "state": "empty",
+      "intercepted_paths": [
+        "/api/v1/admin/ops/dashboard/snapshot-v2"
+      ],
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/ops",
+      "state": "slow",
+      "intercepted_paths": [
+        "/api/v1/admin/ops/dashboard/snapshot-v2"
+      ],
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/ops",
+      "state": "error",
+      "intercepted_paths": [
+        "/api/v1/admin/ops/dashboard/snapshot-v2"
+      ],
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 2,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/subscriptions",
+      "state": "empty",
+      "intercepted_paths": [
+        "/api/v1/admin/subscriptions"
+      ],
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/subscriptions",
+      "state": "slow",
+      "intercepted_paths": [
+        "/api/v1/admin/subscriptions"
+      ],
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/subscriptions",
+      "state": "error",
+      "intercepted_paths": [
+        "/api/v1/admin/subscriptions"
+      ],
+      "loading_signal_cases": 0,
+      "visible_error_cases": 2,
+      "console_messages": 4,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/accounts",
+      "state": "empty",
+      "intercepted_paths": [
+        "/api/v1/admin/accounts"
+      ],
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/accounts",
+      "state": "slow",
+      "intercepted_paths": [
+        "/api/v1/admin/accounts"
+      ],
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/accounts",
+      "state": "error",
+      "intercepted_paths": [
+        "/api/v1/admin/accounts"
+      ],
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 4,
+      "page_errors": 2,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/proxies",
+      "state": "empty",
+      "intercepted_paths": [
+        "/api/v1/admin/proxies"
+      ],
+      "loading_signal_cases": 0,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/proxies",
+      "state": "slow",
+      "intercepted_paths": [
+        "/api/v1/admin/proxies"
+      ],
+      "loading_signal_cases": 2,
+      "visible_error_cases": 0,
+      "console_messages": 0,
+      "page_errors": 0,
+      "overflow_cases": 0
+    },
+    {
+      "route": "/admin/proxies",
+      "state": "error",
+      "intercepted_paths": [
+        "/api/v1/admin/proxies"
+      ],
+      "loading_signal_cases": 0,
+      "visible_error_cases": 2,
+      "console_messages": 4,
+      "page_errors": 0,
+      "overflow_cases": 0
+    }
+  ],
+  "notes": {
+    "empty": "first page-specific GET transformed to empty arrays/counts; global bootstrap requests continued",
+    "slow": "first page-specific GET delayed 1600 ms and loading signal sampled before completion",
+    "error": "first page-specific GET returned local 503; resource/console errors are expected fixture output; account error serializes one rejected request as an Object pageerror and remains a follow-up",
+    "scope": "local isolated Chromium fixture; no external provider or production backend claim"
+  },
+  "post_fix_recheck": {
+    "route": "/admin/accounts",
+    "viewport": "1440x1000",
+    "fixture_status": 503,
+    "page_errors": 0,
+    "visible_error_text": "Fixture admin load failed",
+    "console_messages": 5,
+    "note": "Fresh recheck after AccountsView catch boundary; console resource/log errors are expected fixture diagnostics."
+  }
+}

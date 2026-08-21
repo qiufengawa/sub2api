@@ -1548,6 +1548,13 @@ const load = async () => {
   await refreshAccountPageMetrics();
 };
 
+const handleAccountListLoadError = (error: unknown) => {
+  console.error("Failed to load accounts:", error);
+  appStore.showError(
+    extractApiErrorMessage(error, t("admin.accounts.failedToLoad")),
+  );
+};
+
 const reload = async () => {
   markUpstreamBillingSortRefresh();
   syncAccountListDerivedParams();
@@ -1607,7 +1614,7 @@ const handleSort = (key: string, order: AccountSortOrder) => {
   hasPendingListSync.value = false;
   resetAutoRefreshCache();
   pendingAccountMetricsRefresh.value = true;
-  load();
+  void load().catch(handleAccountListLoadError);
 };
 
 watch(loading, (isLoading, wasLoading) => {
@@ -1765,9 +1772,13 @@ const refreshAccountsIncrementally = async () => {
 };
 
 const handleManualRefresh = async () => {
-  await Promise.all([load(), loadUpstreamBillingProbeGlobalState()]);
-  // Force usage cells to refetch /usage on explicit user refresh.
-  usageManualRefreshToken.value += 1;
+  try {
+    await Promise.all([load(), loadUpstreamBillingProbeGlobalState()]);
+    // Force usage cells to refetch /usage on explicit user refresh.
+    usageManualRefreshToken.value += 1;
+  } catch (error) {
+    handleAccountListLoadError(error);
+  }
 };
 
 const loadUpstreamBillingProbeGlobalState = async () => {
@@ -3125,7 +3136,7 @@ const handleScroll = () => {
 };
 
 onMounted(async () => {
-  load();
+  void load().catch(handleAccountListLoadError);
   loadUpstreamBillingProbeGlobalState();
   try {
     const [p, g] = await Promise.all([

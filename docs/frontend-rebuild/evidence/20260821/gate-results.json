@@ -1,7 +1,7 @@
 {
   "date": "2026-08-21",
   "frontend": {
-    "test:run": {"status": "passed", "test_files": 359, "tests": 2430},
+    "test:run": {"status": "passed", "test_files": 359, "tests": 2431},
     "test:audit": {"status": "passed", "tests": 13},
     "typecheck": {"status": "passed"},
     "lint:check": {"status": "passed"},

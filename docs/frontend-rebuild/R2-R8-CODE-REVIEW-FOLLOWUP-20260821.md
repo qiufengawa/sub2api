@@ -16,6 +16,9 @@ the pre-existing ignored final-review working file.
 - `frontend/src/i18n/locales/en/admin/accounts.ts` and
   `frontend/src/i18n/locales/zh/admin/accounts.ts`: added the `expired` status
   message used by the account table.
+- `frontend/src/views/admin/AccountsView.vue`: initial table-load rejection is
+  now caught and surfaced through the localized error toast instead of becoming
+  an unhandled page error.
 - `frontend/src/components/ui/__tests__/UiConsumerInventory.spec.ts` and
   `UI.MD`: synchronized the runtime consumer reference gate to 1,884 after the
   real `UiTabs` import was restored.
@@ -41,9 +44,11 @@ The durable gate record is
   Batch Image create/cancel/retry/delete, and WeChat/Stripe/Airwallex browser
   contracts. Isolated signed callbacks and refund mutations are recorded as
   local fixtures, not external settlement claims.
-- Frontend Vitest (`359` files / `2,430` tests), static audit (`13` tests),
+- Frontend Vitest (`359` files / `2,431` tests), static audit (`13` tests),
   typecheck, ESLint, production build (3,103 modules), `git diff --check`, and
   backend routes/service/repository tests passed.
+- The focused Accounts scheduler/error-recovery suite passed 8 tests; the
+  local error fixture now has zero page errors after the catch boundary.
 
 ## Open findings
 

@@ -9,14 +9,16 @@ const {
   getBatchTodayStats,
   getServiceStatus,
   getAllProxies,
-  getAllGroups
+  getAllGroups,
+  showError
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   listWithEtag: vi.fn(),
   getBatchTodayStats: vi.fn(),
   getServiceStatus: vi.fn(),
   getAllProxies: vi.fn(),
-  getAllGroups: vi.fn()
+  getAllGroups: vi.fn(),
+  showError: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -43,7 +45,7 @@ vi.mock('@/api/admin', () => ({
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
-    showError: vi.fn(),
+    showError,
     showSuccess: vi.fn(),
     showInfo: vi.fn()
   })
@@ -142,6 +144,7 @@ describe('admin AccountsView scheduler score column', () => {
     getServiceStatus.mockReset()
     getAllProxies.mockReset()
     getAllGroups.mockReset()
+    showError.mockReset()
 
     listAccounts.mockResolvedValue({
       items: [
@@ -211,6 +214,16 @@ describe('admin AccountsView scheduler score column', () => {
     expect(ungroupedCell.text()).toContain('1.234567')
     expect(ungroupedCell.text()).toContain('admin.accounts.schedulerScore.ungrouped')
     expect(ungroupedCell.text()).not.toBe('-')
+  })
+
+  it('surfaces an initial list failure without creating an unhandled rejection', async () => {
+    listAccounts.mockRejectedValue(new Error('fixture list failure'))
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.exists()).toBe(true)
+    expect(showError).toHaveBeenCalledWith('fixture list failure')
   })
 
   it('places priority after name and service status and requests global descending order', async () => {

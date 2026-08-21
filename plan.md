@@ -485,6 +485,12 @@ Review 必须按严重度记录：
 - 本地 provider fixture 和隔离数据库 webhook/refund 证据已写入
   `docs/frontend-rebuild/R2-R8-CONTINUATION-20260821.md` 及其
   `evidence/20260821/` 索引；它们不冒充外部 Stripe/WeChat/Airwallex 凭据或真实结算。
+- 新增 `admin-state-matrix-summary.json`：8 个高优先级管理员路由在
+  `1440×1000/390×844` 下各跑 empty/slow/error，48 个 page-specific 请求全部被
+  fixture 控制；0 overflow/navigation/failed request。Ops 的 snapshot 失败会回退到
+  split endpoints；Accounts 初始列表拒绝已补 catch、错误 toast 和回归测试，避免真实
+  Chromium 的 unhandled pageerror。该矩阵仍把 fixture 503 的 console/pageerror 计入，
+  不扩大为 console-clean。
 - 仍未完成：原生 screen-reader（当前环境无 VoiceOver/NVDA 可控会话）；credentialed
   external provider settlement/refund、双标签外部回跳；逐页 slow/empty/error/late-response
   状态矩阵；剩余例外页面的完整 Enter/Space/Escape/focus-return 读屏证据；最终按严重度签署

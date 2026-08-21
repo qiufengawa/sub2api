@@ -243,6 +243,25 @@ Additional local browser mutation fixtures:
   explicit force resubmission, pending-refund query, pending-order cancel, and
   failed-order retry; all payload/state transitions passed with empty console.
 
+### Slow, empty and error-state continuation
+
+`evidence/20260821/admin-state-matrix-summary.json` records 48 local Chromium
+fixture cases for eight previously high-priority administrator routes at
+1440×1000 and 390×844. Each route exercised an empty response, a 1.6-second
+delay and a page-specific HTTP 503. All 48 target requests were intercepted;
+overflow, navigation errors and failed requests were zero. All 16 slow
+route/viewport cases exposed loading signals, and the primary list errors
+rendered visible error text on the audit, redeem, plans, monitor, subscriptions
+and proxies pages. Ops deliberately falls back from the failed snapshot to its
+split endpoints, so its expected console error is a resilience signal rather
+than a blank page. Accounts now catches the initial table rejection and shows
+the localized error toast without an unhandled page error; the focused
+`AccountsView.schedulerScore.spec.ts` regression and the post-fix account
+recheck recorded in the summary cover that boundary. The
+fixture's 24 expected resource/console errors and two pre-fix account page
+errors remain counted in the durable summary rather than being called
+console-clean.
+
 Remaining administrator work is the deeper mutation/error matrix (for example
 failed retries, Ops log cleanup, provider refund query, and concurrent/late
 responses), rather than the primary mutation entry points above. Their
