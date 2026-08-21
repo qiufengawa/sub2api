@@ -276,6 +276,12 @@ fixture's 24 expected resource/console errors and two pre-fix account page
 errors remain counted in the durable summary rather than being called
 console-clean.
 
+`evidence/20260821/keyboard-overlay-summary.json` adds a real Chromium keyboard
+pass at `390×844`, dark and reduced-motion: ten admin/user entry points opened
+their dialog with Enter and Space, Escape closed each overlay, focus returned to
+the trigger in all ten cases, and the pass had zero console/page errors. The
+flow dismissed every dialog before any destructive confirmation or form submit.
+
 Remaining administrator work is the deeper mutation/error matrix (for example
 failed retries, Ops log cleanup, provider refund query, and concurrent/late
 responses), rather than the primary mutation entry points above. Their

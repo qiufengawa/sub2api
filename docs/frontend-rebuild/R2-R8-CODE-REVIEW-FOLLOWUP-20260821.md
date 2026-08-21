@@ -49,6 +49,8 @@ The durable gate record is
   backend routes/service/repository tests passed.
 - The focused Accounts scheduler/error-recovery suite passed 8 tests; the
   local error fixture now has zero page errors after the catch boundary.
+- `keyboard-overlay-summary.json` records ten real Chromium Enter/Space/Escape
+  overlay checks with 10/10 focus restoration and zero console/page errors.
 
 ## Open findings
 

@@ -491,6 +491,9 @@ Review 必须按严重度记录：
   split endpoints；Accounts 初始列表拒绝已补 catch、错误 toast 和回归测试，避免真实
   Chromium 的 unhandled pageerror。该矩阵仍把 fixture 503 的 console/pageerror 计入，
   不扩大为 console-clean。
+- `keyboard-overlay-summary.json` 另以 `390×844` dark/reduced-motion 真实验证
+  10 个管理员/用户入口的 Enter、Space、Escape 和 focus-return，10/10 全部通过且
+  无 console/pageerror；这仍是代表性 overlay 证据，不替代原生 screen-reader。
 - 仍未完成：原生 screen-reader（当前环境无 VoiceOver/NVDA 可控会话）；credentialed
   external provider settlement/refund、双标签外部回跳；逐页 slow/empty/error/late-response
   状态矩阵；剩余例外页面的完整 Enter/Space/Escape/focus-return 读屏证据；最终按严重度签署

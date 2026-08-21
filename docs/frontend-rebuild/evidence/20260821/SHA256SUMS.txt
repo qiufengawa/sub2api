@@ -16,5 +16,6 @@
 8f8293a9d52973d26763ff0b820d14e3913e41acf0cf3c9c4c65ae1a44cbba7a  docs/frontend-rebuild/evidence/20260821/gate-results.json
 a7a8746626f8f91b4c73e39c801985b2f528351e1d8fd3bd7e7f6b45f40d8346  docs/frontend-rebuild/evidence/20260821/audit-clear.json
 bf74e244e57f903e789c65d3a21af277b585e7143290a1329a8b73acf409d387  docs/frontend-rebuild/evidence/20260821/risk-control-mutation.json
+c63e262b11c82d4687333e0e5cd9d3d2adf95dac3af2f30b3b53bd36ad4568fc  docs/frontend-rebuild/evidence/20260821/keyboard-overlay-summary.json
 e490e9fa05f6eed46de8421eec5b1129006920d0fd30906f1bd0e2abc37ac0cd  docs/frontend-rebuild/evidence/20260821/playground-fixture.json
 f4fc573ff6bb99e73ec52faccd711a10f062f64a4d33fb712a4a6648e8ae571f  docs/frontend-rebuild/evidence/20260821/batch-live-route.json
