@@ -178,6 +178,10 @@ The route fixture covers all three visible methods:
 - Airwallex recovery-storage denial, which correctly renders
   `Missing Airwallex payment parameters` because the secret is intentionally
   not placed in the URL.
+- `evidence/20260821/payment-double-tab.json` covers two pages in one browser
+  context with independent resume tokens: completing tab A clears only A's
+  scoped recovery key while tab B's key and compatibility alias remain, and
+  tab A reaches the signed successful result state.
 
 ## Isolated backend payment mutations
 

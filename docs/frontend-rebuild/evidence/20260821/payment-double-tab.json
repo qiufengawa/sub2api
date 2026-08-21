@@ -1,0 +1,24 @@
+{
+  "before": {
+    "a": "{\"orderId\":601,\"amount\":20,\"payAmount\":20,\"qrCode\":\"\",\"expiresAt\":\"2026-08-21T15:36:56.921Z\",\"paymentType\":\"stripe\",\"outTradeNo\":\"FIX-TAB-A\",\"payUrl\":\"\",\"clientSecret\":\"secret-resume-tab-a\",\"intentId\":\"\",\"currency\":\"USD\",\"countryCode\":\"US\",\"paymentEnv\":\"demo\",\"paymentMode\":\"redirect\",\"resumeToken\":\"resume-tab-a\",\"createdAt\":1787324816921}",
+    "b": "{\"orderId\":602,\"amount\":20,\"payAmount\":20,\"qrCode\":\"\",\"expiresAt\":\"2026-08-21T15:36:56.921Z\",\"paymentType\":\"stripe\",\"outTradeNo\":\"FIX-TAB-B\",\"payUrl\":\"\",\"clientSecret\":\"secret-resume-tab-b\",\"intentId\":\"\",\"currency\":\"USD\",\"countryCode\":\"US\",\"paymentEnv\":\"demo\",\"paymentMode\":\"redirect\",\"resumeToken\":\"resume-tab-b\",\"createdAt\":1787324816921}",
+    "alias": "{\"orderId\":602,\"amount\":20,\"payAmount\":20,\"qrCode\":\"\",\"expiresAt\":\"2026-08-21T15:36:56.921Z\",\"paymentType\":\"stripe\",\"outTradeNo\":\"FIX-TAB-B\",\"payUrl\":\"\",\"clientSecret\":\"secret-resume-tab-b\",\"intentId\":\"\",\"currency\":\"USD\",\"countryCode\":\"US\",\"paymentEnv\":\"demo\",\"paymentMode\":\"redirect\",\"resumeToken\":\"resume-tab-b\",\"createdAt\":1787324816921}"
+  },
+  "afterA": {
+    "a": null,
+    "b": "{\"orderId\":602,\"amount\":20,\"payAmount\":20,\"qrCode\":\"\",\"expiresAt\":\"2026-08-21T15:36:56.921Z\",\"paymentType\":\"stripe\",\"outTradeNo\":\"FIX-TAB-B\",\"payUrl\":\"\",\"clientSecret\":\"secret-resume-tab-b\",\"intentId\":\"\",\"currency\":\"USD\",\"countryCode\":\"US\",\"paymentEnv\":\"demo\",\"paymentMode\":\"redirect\",\"resumeToken\":\"resume-tab-b\",\"createdAt\":1787324816921}",
+    "alias": "{\"orderId\":602,\"amount\":20,\"payAmount\":20,\"qrCode\":\"\",\"expiresAt\":\"2026-08-21T15:36:56.921Z\",\"paymentType\":\"stripe\",\"outTradeNo\":\"FIX-TAB-B\",\"payUrl\":\"\",\"clientSecret\":\"secret-resume-tab-b\",\"intentId\":\"\",\"currency\":\"USD\",\"countryCode\":\"US\",\"paymentEnv\":\"demo\",\"paymentMode\":\"redirect\",\"resumeToken\":\"resume-tab-b\",\"createdAt\":1787324816921}"
+  },
+  "afterB": {
+    "a": null,
+    "b": "{\"orderId\":602,\"amount\":20,\"payAmount\":20,\"qrCode\":\"\",\"expiresAt\":\"2026-08-21T15:36:56.921Z\",\"paymentType\":\"stripe\",\"outTradeNo\":\"FIX-TAB-B\",\"payUrl\":\"\",\"clientSecret\":\"secret-resume-tab-b\",\"intentId\":\"\",\"currency\":\"USD\",\"countryCode\":\"US\",\"paymentEnv\":\"demo\",\"paymentMode\":\"redirect\",\"resumeToken\":\"resume-tab-b\",\"createdAt\":1787324816921}",
+    "alias": "{\"orderId\":602,\"amount\":20,\"payAmount\":20,\"qrCode\":\"\",\"expiresAt\":\"2026-08-21T15:36:56.921Z\",\"paymentType\":\"stripe\",\"outTradeNo\":\"FIX-TAB-B\",\"payUrl\":\"\",\"clientSecret\":\"secret-resume-tab-b\",\"intentId\":\"\",\"currency\":\"USD\",\"countryCode\":\"US\",\"paymentEnv\":\"demo\",\"paymentMode\":\"redirect\",\"resumeToken\":\"resume-tab-b\",\"createdAt\":1787324816921}"
+  },
+  "pageA": {
+    "url": "http://127.0.0.1:3001/payment/result?order_id=601&resume_token=resume-tab-a",
+    "success": true
+  },
+  "isolatedCleanup": true,
+  "secondTabRetainsB": true,
+  "scope": "same BrowserContext two-page local fixture; no external provider or payment credentials"
+}

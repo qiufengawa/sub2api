@@ -1,6 +1,7 @@
 02f912f93362edb6a3eb66436980c5f03f7ab2dcd645fc9b248b21ae7259b4af  docs/frontend-rebuild/evidence/20260821/prompt-audit-mutation.json
 1f76dff7fb2290fd6975926cdab347988edfd9509c367d49a1c156be6faa42ea  docs/frontend-rebuild/evidence/20260821/payment-fixtures.json
 39e9f530358d4f0b44988510113ecc93d8bc7248a755407093380bc2b5d4b16f  docs/frontend-rebuild/evidence/20260821/admin-state-matrix-summary.json
+3a7728e4f98832418fae60600b0cb0ea9a02ea547aaf0999f20858467c7158eb  docs/frontend-rebuild/evidence/20260821/payment-double-tab.json
 3ec2d7cc1ebbc5e8bfeefa0953d8fb3eaa9f1fc1498c991588edad49667c06f2  docs/frontend-rebuild/evidence/20260821/playground-storage-stop.json
 4fecc164de70bf7e81449efc1653066e9b3a4c90fed7cde9684abe5b456f8b5f  docs/frontend-rebuild/evidence/20260821/risk-prompt-matrix-summary.json
 546a039e3632b0ee2afc8855bc5a464a576a75e26ce123a1ed82d367b095dc4e  docs/frontend-rebuild/evidence/20260821/redeem-plans.json

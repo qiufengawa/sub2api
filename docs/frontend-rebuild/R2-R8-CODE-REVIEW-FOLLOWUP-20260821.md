@@ -51,6 +51,8 @@ The durable gate record is
   local error fixture now has zero page errors after the catch boundary.
 - `keyboard-overlay-summary.json` records ten real Chromium Enter/Space/Escape
   overlay checks with 10/10 focus restoration and zero console/page errors.
+- `payment-double-tab.json` verifies scoped recovery cleanup across two pages in
+  one BrowserContext; tab A succeeds without removing tab B's recovery state.
 
 ## Open findings
 

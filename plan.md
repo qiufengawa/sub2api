@@ -494,6 +494,9 @@ Review 必须按严重度记录：
 - `keyboard-overlay-summary.json` 另以 `390×844` dark/reduced-motion 真实验证
   10 个管理员/用户入口的 Enter、Space、Escape 和 focus-return，10/10 全部通过且
   无 console/pageerror；这仍是代表性 overlay 证据，不替代原生 screen-reader。
+- `payment-double-tab.json` 在同一真实 Chromium context 复验两页支付恢复：A 完成后
+  仅清除 A 的 scoped token，B 的 token/兼容 alias 保留。credentialed 外部回跳仍开放，
+  但本地双标签存储竞态已有可复核 fixture。
 - 仍未完成：原生 screen-reader（当前环境无 VoiceOver/NVDA 可控会话）；credentialed
   external provider settlement/refund、双标签外部回跳；逐页 slow/empty/error/late-response
   状态矩阵；剩余例外页面的完整 Enter/Space/Escape/focus-return 读屏证据；最终按严重度签署
