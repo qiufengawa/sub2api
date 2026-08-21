@@ -1,0 +1,20 @@
+{
+  "runs": 216,
+  "viewports": [
+    "desktop",
+    "mobile",
+    "tablet"
+  ],
+  "widths": [
+    390,
+    900,
+    1440
+  ],
+  "overflow": 0,
+  "navigation_errors": 0,
+  "console_messages": 0,
+  "unexpected_page_errors": 0,
+  "expected_sandbox_errors": 3537,
+  "failed_requests": 0,
+  "route_labels": 24
+}

@@ -1,0 +1,148 @@
+{
+  "wxpay": {
+    "url": "http://127.0.0.1:3001/purchase",
+    "body": "Sub2API\nDashboard\nAPI Keys\nPlayground\nModel Plaza\nChannel Status\nProfile\nCurrent Version\nv0.1.179-qiu.2\nDark Mode\nCollapse\nRecharge / Subscription\n\nRecharge balance or purchase subscription via the embedded page\n\n$112.36\nAvailable balance\n3\nActive subscriptions\nT\ntest\nUser\nRecharge / Subscription\nProcessing...\nWeChat QR Payment\n\nOpen WeChat on your phone and scan the QR code to pay\n\nReopen Payment Page\nWaiting for payment...\n29:58\nCancel Order",
+    "errors": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      }
+    ],
+    "overflow": false,
+    "createBody": {
+      "amount": 20,
+      "payment_type": "wxpay",
+      "order_type": "balance",
+      "is_mobile": false,
+      "payment_source": "hosted_redirect",
+      "return_url": "http://127.0.0.1:3001/payment/result"
+    },
+    "createData": {
+      "order_id": 101,
+      "amount": 20,
+      "pay_amount": 20,
+      "fee_rate": 0,
+      "status": "PENDING",
+      "result_type": "success",
+      "payment_type": "wxpay",
+      "out_trade_no": "FIX-WX-101",
+      "pay_url": "http://127.0.0.1:3001/fixture-provider/wxpay?order_id=101",
+      "qr_code": "weixin://wxpay/fixture-101",
+      "client_secret": "",
+      "intent_id": "",
+      "currency": "CNY",
+      "country_code": "US",
+      "payment_env": "demo",
+      "payment_mode": "qrcode",
+      "resume_token": "resume-wxpay-fixture",
+      "expires_at": "2026-08-21T14:08:41.581Z"
+    },
+    "qrVisible": false,
+    "canvasCount": 1,
+    "afterPollUrl": "http://127.0.0.1:3001/payment/result?order_id=101&out_trade_no=FIX-WX-101&resume_token=resume-wxpay-fixture",
+    "afterPollBody": "Payment Successful\nPayment Successful\n\nPayment confirmed. The balance has been credited to your account.\n\nCredited Amount\n$20.00\nPaid ¥20.00\nOrder Receipt\nCompleted\nOrder No.\nFIX-WX-101\nOrder ID\n#101\nPayment Method\nWeChat Pay\nBase Amount\n¥20.00\nPaid\n¥20.00\nCredited Amount\n$20.00\nView Orders\nBack to Dashboard"
+  },
+  "stripe": {
+    "url": "http://127.0.0.1:3001/payment/stripe?order_id=102&client_secret=secret-stripe-fixture&resume_token=resume-stripe-fixture",
+    "body": "Sub2API\nDashboard\nAPI Keys\nPlayground\nModel Plaza\nChannel Status\nProfile\nCurrent Version\nv0.1.179-qiu.2\nDark Mode\nCollapse\nPay Now\n$112.36\nAvailable balance\n3\nActive subscriptions\nT\ntest\nUser\nPay Now\nPayment Processing\n\nActual Payment: $20.00\n\nBack to Recharge\nStripe\nPay Now\nOrder details\n\nActual Payment\n\n$20.00\n\nOrder ID\n#102\nOrder No.\nFIX-ST-102\nBase Amount\n$20.00\nPayment Method\nStripe",
+    "errors": [
+      {
+        "type": "warning",
+        "text": "Stripe.js@fixture was loaded on the page, but @stripe/stripe-js@9.0.1 expected Stripe.js@dahlia. This may result in unexpected behavior. For more information, see https://docs.stripe.com/sdks/stripejs-versioning"
+      }
+    ],
+    "overflow": false,
+    "createBody": {
+      "amount": 20,
+      "payment_type": "stripe",
+      "order_type": "balance",
+      "is_mobile": false,
+      "payment_source": "hosted_redirect",
+      "return_url": "http://127.0.0.1:3001/payment/result"
+    },
+    "createData": {
+      "order_id": 102,
+      "amount": 20,
+      "pay_amount": 20,
+      "fee_rate": 0,
+      "status": "PENDING",
+      "result_type": "success",
+      "payment_type": "stripe",
+      "out_trade_no": "FIX-ST-102",
+      "pay_url": "http://127.0.0.1:3001/fixture-provider/stripe?order_id=102",
+      "qr_code": "",
+      "client_secret": "secret-stripe-fixture",
+      "intent_id": "",
+      "currency": "USD",
+      "country_code": "US",
+      "payment_env": "demo",
+      "payment_mode": "redirect",
+      "resume_token": "resume-stripe-fixture",
+      "expires_at": "2026-08-21T14:08:51.190Z"
+    },
+    "stripeBody": "Sub2API\nDashboard\nAPI Keys\nPlayground\nModel Plaza\nChannel Status\nProfile\nCurrent Version\nv0.1.179-qiu.2\nDark Mode\nCollapse\nPay Now\n$112.36\nAvailable balance\n3\nActive subscriptions\nT\ntest\nUser\nPay Now\nPayment Processing\n\nActual Payment: $20.00\n\nBack to Recharge\nStripe\nPay Now\nOrder details\n\nActual Payment\n\n$20.00\n\nOrder ID\n#102\nOrder No.\nFIX-ST-102\nBase Amount\n$20.00\nPayment Method\nStripe",
+    "stripeReady": true,
+    "stripeSuccess": true
+  },
+  "airwallex": {
+    "url": "http://127.0.0.1:3001/payment/airwallex?order_id=103&out_trade_no=FIX-AW-103&resume_token=resume-airwallex-fixture",
+    "body": "Sub2API\nDashboard\nAPI Keys\nPlayground\nModel Plaza\nChannel Status\nProfile\nCurrent Version\nv0.1.179-qiu.2\nDark Mode\nCollapse\nAirwallex Payment\n$112.36\nAvailable balance\n3\nActive subscriptions\nT\ntest\nUser\nAirwallex\nPayment Processing",
+    "errors": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: net::ERR_FAILED"
+      },
+      {
+        "type": "error",
+        "text": "error [controller] Instance does not have init method"
+      }
+    ],
+    "overflow": false,
+    "createBody": {
+      "amount": 20,
+      "payment_type": "airwallex",
+      "order_type": "balance",
+      "is_mobile": false,
+      "payment_source": "hosted_redirect",
+      "return_url": "http://127.0.0.1:3001/payment/result"
+    },
+    "createData": {
+      "order_id": 103,
+      "amount": 20,
+      "pay_amount": 20,
+      "fee_rate": 0,
+      "status": "PENDING",
+      "result_type": "success",
+      "payment_type": "airwallex",
+      "out_trade_no": "FIX-AW-103",
+      "pay_url": "http://127.0.0.1:3001/fixture-provider/airwallex?order_id=103",
+      "qr_code": "",
+      "client_secret": "secret-airwallex-fixture",
+      "intent_id": "intent-fixture-103",
+      "currency": "USD",
+      "country_code": "US",
+      "payment_env": "demo",
+      "payment_mode": "redirect",
+      "resume_token": "resume-airwallex-fixture",
+      "expires_at": "2026-08-21T14:09:07.824Z"
+    },
+    "sdkUrl": "http://127.0.0.1:3001/payment/result?order_id=103&resume_token=resume-airwallex-fixture",
+    "airwallexBody": "Payment Successful\nPayment Successful\n\nPayment confirmed. The balance has been credited to your account.\n\nCredited Amount\n$20.00\nPaid $20.00\nOrder Receipt\nCompleted\nOrder No.\nFIX-AW-103\nOrder ID\n#103\nPayment Method\nAirwallex\nBase Amount\n$20.00\nPaid\n$20.00\nCredited Amount\n$20.00\nView Orders\nBack to Dashboard",
+    "sdkRedirected": true
+  },
+  "result": {
+    "url": "http://127.0.0.1:3001/payment/result?order_id=101&resume_token=resume-wxpay-fixture&status=success",
+    "body": "Payment Successful\nPayment Successful\n\nPayment confirmed. The balance has been credited to your account.\n\nCredited Amount\n$20.00\nPaid ¥20.00\nOrder Receipt\nCompleted\nOrder No.\nFIX-WX-101\nOrder ID\n#101\nPayment Method\nWeChat Pay\nBase Amount\n¥20.00\nPaid\n¥20.00\nCredited Amount\n$20.00\nView Orders\nBack to Dashboard",
+    "successText": true
+  },
+  "failedResult": {
+    "url": "http://127.0.0.1:3001/payment/result?order_id=101&resume_token=resume-wxpay-fixture-failed",
+    "body": "Payment Failed\nPayment Failed\n\nThis payment has not been confirmed. You can retry or review the order status.\n\nPaid\n¥20.00\nOrder Receipt\nFailed\nOrder No.\nFIX-WX-101\nOrder ID\n#101\nPayment Method\nWeChat Pay\nBase Amount\n¥20.00\nPaid\n¥20.00\nExpected Credit\n$20.00\nView Orders\nTry Payment Again",
+    "failedText": true
+  },
+  "airwallexStorage": {
+    "url": "http://127.0.0.1:3001/payment/airwallex?order_id=103&out_trade_no=FIX-AW-103&resume_token=resume-airwallex-fixture",
+    "body": "Sub2API\nDashboard\nAPI Keys\nPlayground\nModel Plaza\nChannel Status\nProfile\nCurrent Version\nv0.1.179-qiu.2\nDark Mode\nCollapse\nAirwallex Payment\n$112.36\nAvailable balance\n3\nActive subscriptions\nT\ntest\nUser\nAirwallex\nPayment Failed\nFailed to load Airwallex payment component. Please refresh and try again.\n\nMissing Airwallex payment parameters",
+    "missing": true
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "baseline": "Sub2API\nDashboard\nOps\nAccounts\nAnnouncements\nProxies\nUsage\nModel Plaza\nAPI Keys\nPlayground\nSettings\nCurrent Version\nv0.1.179-qiu.2\nLight Mode\nCollapse\nChannel Monitor\n\nMonitor channel availability, latency and status\n\n$0.00\nAvailable balance\n1\nActive subscriptions\nA\nadmin\nAdministrator\nChannel Monitor\n\nSystem mode is V1 active probes: manage probe monitors and run checks now; V2 aggregation does not run.\n\nV2 data monitor config\nV1 active probes\nAll Providers\nAll Status\nTemplates\nCreate Monitor\nNAME\n\t\nPROVIDER\n\t\nPRIMARY MODEL\n\t\n7D AVAILABILITY\n\t\nLATENCY (MS)\n\t\nENABLED\n\t\nACTIONS\n\n\nFixture Monitor\n\tOpenAI\t\ngpt-fixture\nOperational\n\t\n99.90%\n\t\n12\n\t\n\t\n1-1 / 1\nPer page\n10\n20\n50\n100\n1",
+  "runOk": true,
+  "duplicate": {
+    "name": "duplicate",
+    "path": "/api/v1/admin/channel-monitors/1/duplicate",
+    "idempotency": "channel-monitor-duplicate-1-1-8fdf6f27-7ac7-47f4-89be-19e48a905a27"
+  },
+  "duplicateOk": true,
+  "updateOk": true,
+  "confirmation": true,
+  "before": 0,
+  "after": 1,
+  "deleteOk": true,
+  "errors": [],
+  "calls": [
+    {
+      "name": "run",
+      "path": "/api/v1/admin/channel-monitors/1/run"
+    },
+    {
+      "name": "duplicate",
+      "path": "/api/v1/admin/channel-monitors/1/duplicate",
+      "idempotency": "channel-monitor-duplicate-1-1-8fdf6f27-7ac7-47f4-89be-19e48a905a27"
+    },
+    {
+      "name": "update",
+      "path": "/api/v1/admin/channel-monitors/1",
+      "body": {
+        "enabled": false
+      }
+    },
+    {
+      "name": "delete",
+      "path": "/api/v1/admin/channel-monitors/1"
+    }
+  ]
+}

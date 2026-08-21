@@ -1,0 +1,23 @@
+{
+  "environment": "isolated sub2api_browser_continue_20260821",
+  "endpoint": "/v1/images/batches/models",
+  "authentication": "eligible local fixture API key (secret omitted)",
+  "status": 200,
+  "response": {
+    "object": "list",
+    "data": [
+      {
+        "id": "gemini-2.5-flash-image",
+        "object": "image.batch.model",
+        "provider": "gemini_api"
+      },
+      {
+        "id": "gemini-3.1-flash-image",
+        "object": "image.batch.model",
+        "provider": "gemini_api"
+      }
+    ]
+  },
+  "route_registration": "backend/internal/server/routes/gateway.go:249-258",
+  "notes": "Static models route is registered before the dynamic :id route; the earlier 404 was caused by the feature-disabled configuration."
+}

@@ -382,6 +382,7 @@ export default {
     status: {
       active: "正常",
       inactive: "停用",
+      expired: "已过期",
       disabled: "已禁用",
       error: "错误",
       errorDetails: "错误详情",

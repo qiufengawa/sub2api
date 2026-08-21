@@ -1,0 +1,58 @@
+{
+  "baseline": {
+    "url": "http://127.0.0.1:3001/playground",
+    "aria": "- complementary:\n  - link \"Sub2API\":\n    - /url: /dashboard\n  - navigation:\n    - link \"Dashboard\":\n      - /url: /dashboard\n    - link \"API Keys\":\n      - /url: /keys\n    - link \"Playground\":\n      - /url: /playground\n    - link \"Model Plaza\":\n      - /url: /model-plaza?embedded=1\n    - link \"Channel Status\":\n      - /url: /monitor\n    - link \"Profile\":\n      - /url: /profile\n  - text: Current Version v0.1.179-qiu.2\n  - button \"Dark Mode\"\n  - button \"Collapse\"\n- banner:\n  - heading \"Playground\" [level=1]\n  - paragraph: Model chat and request testing\n  - button \"Announcements\"\n  - button \"English\"\n  - button \"Available balance\":\n    - strong: $82.36\n    - text: Available balance\n  - button \"3 Active subscriptions\"\n  - button \"User menu\":\n    - text: T\n    - strong: test\n    - text: User\n- main:\n  - paragraph: No messages yet\n  - region \"Playground\":\n    - combobox \"Select API key\": Fixture Playground Key Fixture OpenAI\n    - combobox \"Select model\": gpt-fixture\n    - text: Fixture OpenAI / openai\n    - switch \"Stream\" [checked]\n    - text: Stream\n    - textbox \"Message the model…\"\n    - text: Ready\n    - button \"Parameters\"\n    - button \"Request JSON\"\n    - button \"New conversation\" [disabled]\n    - button \"Send\" [disabled]",
+    "body": "Sub2API\nDashboard\nAPI Keys\nPlayground\nModel Plaza\nChannel Status\nProfile\nCurrent Version\nv0.1.179-qiu.2\nDark Mode\nCollapse\nPlayground\n\nModel chat and request testing\n\n$82.36\nAvailable balance\n3\nActive subscriptions\nT\ntest\nUser\n\nNo messages yet\n\nFixture Playground Key\nFixture OpenAI\ngpt-fixture\nFixture OpenAI / openai\nStream\nReady\nSend"
+  },
+  "stream": {
+    "body": "Sub2API\nDashboard\nAPI Keys\nPlayground\nModel Plaza\nChannel Status\nProfile\nCurrent Version\nv0.1.179-qiu.2\nDark Mode\nCollapse\nPlayground\n\nModel chat and request testing\n\n$82.36\nAvailable balance\n3\nActive subscriptions\nT\ntest\nUser\nYou\n\nSay hello\n\nModel\n\nHello from fixture\n\nModel\ngpt-fixture\nFirst token\n57ms\nDuration\n67ms\nSpeed\n396 tok/s\nRequest time\n2026-08-21 21:10:04\nInput 3\nOutput 4\nTotal 7\nDetails\nFixture Playground Key\nFixture OpenAI\ngpt-fixture\nFixture OpenAI / openai\nStream\nReady\nSend",
+    "request": {
+      "model": "gpt-fixture",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Say hello"
+        }
+      ],
+      "stream": true
+    },
+    "ok": true
+  },
+  "interrupted": {
+    "body": "Sub2API\nDashboard\nAPI Keys\nPlayground\nModel Plaza\nChannel Status\nProfile\nCurrent Version\nv0.1.179-qiu.2\nDark Mode\nCollapse\nPlayground\n\nModel chat and request testing\n\n$82.36\nAvailable balance\n3\nActive subscriptions\nT\ntest\nUser\nYou\n\nTrigger interrupted\n\nModel\n\npartial\n\nStreaming response ended before completion\n\nModel\ngpt-fixture\nFirst token\n50ms\nDuration\n51ms\nSpeed\n--\nRequest time\n2026-08-21 21:10:06\nDetails\nFixture Playground Key\nFixture OpenAI\ngpt-fixture\nFixture OpenAI / openai\nStream\nReady\nSend",
+    "ok": true
+  },
+  "error": {
+    "body": "Sub2API\nDashboard\nAPI Keys\nPlayground\nModel Plaza\nChannel Status\nProfile\nCurrent Version\nv0.1.179-qiu.2\nDark Mode\nCollapse\nPlayground\n\nModel chat and request testing\n\n$82.36\nAvailable balance\n3\nActive subscriptions\nT\ntest\nUser\nYou\n\nTrigger error\n\nModel\n\nFixture provider unavailable\n\nModel\ngpt-fixture\nFirst token\n--\nDuration\n33ms\nSpeed\n--\nRequest time\n2026-08-21 21:10:07\nDetails\nFixture Playground Key\nFixture OpenAI\ngpt-fixture\nFixture OpenAI / openai\nStream\nReady\nSend",
+    "ok": true
+  },
+  "image": {
+    "body": "Sub2API\nDashboard\nAPI Keys\nPlayground\nModel Plaza\nChannel Status\nProfile\nCurrent Version\nv0.1.179-qiu.2\nDark Mode\nCollapse\nPlayground\n\nModel chat and request testing\n\n$82.36\nAvailable balance\n3\nActive subscriptions\nT\ntest\nUser\nYou\n\nTrigger error\n\nModel\n\nFixture provider unavailable\n\nModel\ngpt-fixture\nFirst token\n--\nDuration\n33ms\nSpeed\n--\nRequest time\n2026-08-21 21:10:07\nDetails\nYou\nImage generation\n\nA fixture sunset\n\nModel\nImage generation\n1024 × 1024\nAuto\nPNG\n1 image(s)\nModel\ngpt-image-2\nFirst token\n--\nDuration\n15ms\nSpeed\n--\nRequest time\n2026-08-21 21:10:09\nTotal 20\nDetails\nFixture Playground Key\nFixture OpenAI\ngpt-image-2\nFixture OpenAI / openai\nImage generation\nReady\n4\n1024x1024 · Auto · PNG · 1 image(s)\nSend",
+    "request": {
+      "model": "gpt-image-2",
+      "prompt": "A fixture sunset",
+      "n": 1,
+      "size": "1024x1024",
+      "quality": "auto",
+      "output_format": "png",
+      "response_format": "b64_json"
+    },
+    "imgCount": 1,
+    "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+    "ok": true,
+    "errorBody": "Sub2API\nDashboard\nAPI Keys\nPlayground\nModel Plaza\nChannel Status\nProfile\nCurrent Version\nv0.1.179-qiu.2\nDark Mode\nCollapse\nPlayground\n\nModel chat and request testing\n\n$82.36\nAvailable balance\n3\nActive subscriptions\nT\ntest\nUser\nYou\n\nTrigger error\n\nModel\n\nFixture provider unavailable\n\nModel\ngpt-fixture\nFirst token\n--\nDuration\n33ms\nSpeed\n--\nRequest time\n2026-08-21 21:10:07\nDetails\nYou\nImage generation\n\nA fixture sunset\n\nModel\nImage generation\n1024 × 1024\nAuto\nPNG\n1 image(s)\nModel\ngpt-image-2\nFirst token\n--\nDuration\n15ms\nSpeed\n--\nRequest time\n2026-08-21 21:10:09\nTotal 20\nDetails\nYou\nImage generation\n\nTrigger image error\n\nModel\nImage generation\n\nImage generation is not enabled for this group\n\n1024 × 1024\nAuto\nPNG\nModel\ngpt-image-2\nFirst token\n--\nDuration\n24ms\nSpeed\n--\nRequest time\n2026-08-21 21:10:11\nDetails\nFixture Playground Key\nFixture OpenAI\ngpt-image-2\nFixture OpenAI / openai\nImage generation\nReady\n4\n1024x1024 · Auto · PNG · 1 image(s)\nSend",
+    "errorOk": true
+  },
+  "storage": {},
+  "stop": {},
+  "consoleMessages": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 502 (Bad Gateway)"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+    }
+  ]
+}

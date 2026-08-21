@@ -793,7 +793,7 @@ Business components remain in their domain folders and compose this layer. For e
 - Interactive fixture: implemented at `/admin/ui-system`.
 - Inventory and primitive contract tests: implemented in `frontend/src/components/ui/__tests__/`.
 - Consumer inventory: `docs/frontend-rebuild/CONSUMER-INVENTORY.md` records 114 contracts,
-  276 distinct production consumer files and 1,880 runtime component references.
+  276 distinct production consumer files and 1,884 runtime component references.
   Twenty contracts currently have no external direct consumer: two are composed by
   another public component (`UiFieldError`, `UiTimeInput`) and 18 are explicitly
   reference-only/staged contracts retained for low-frequency pages, tests and showcase.

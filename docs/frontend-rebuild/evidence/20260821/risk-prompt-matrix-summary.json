@@ -1,0 +1,11 @@
+{
+  "runs": 18,
+  "urls": [
+    "http://127.0.0.1:3001/admin/prompt-audit",
+    "http://127.0.0.1:3001/admin/risk-control"
+  ],
+  "overflow": 0,
+  "console_messages": 0,
+  "page_errors": 0,
+  "failed_requests": 0
+}

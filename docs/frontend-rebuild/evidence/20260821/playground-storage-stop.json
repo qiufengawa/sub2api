@@ -1,0 +1,7 @@
+{
+  "storageBody": "Sub2API\nDashboard\nAPI Keys\nPlayground\nModel Plaza\nChannel Status\nProfile\nCurrent Version\nv0.1.179-qiu.2\nDark Mode\nCollapse\nPlayground\n\nModel chat and request testing\n\n$82.36\nAvailable balance\n3\nActive subscriptions\nT\ntest\nUser\n\nThis browser cannot save the session. Content may be lost after a refresh.\n\nNo messages yet\n\nFixture Key\nFixture\ngpt-fixture\nFixture / openai\nStream\nReady\nSend",
+  "storageWarning": true,
+  "stopBefore": "Sub2API\nDashboard\nAPI Keys\nPlayground\nModel Plaza\nChannel Status\nProfile\nCurrent Version\nv0.1.179-qiu.2\nDark Mode\nCollapse\nPlayground\n\nModel chat and request testing\n\n$82.36\nAvailable balance\n3\nActive subscriptions\nT\ntest\nUser\nYou\n\nwait for provider\n\nModel\nGenerating response\nModel\ngpt-fixture\nFirst token\n--\nDuration\n--\nSpeed\n--\nRequest time\n2026-08-21 21:11:08\nDetails\nFixture Key\nFixture\ngpt-fixture\nFixture / openai\nStream\nGenerating",
+  "stopAfter": "Sub2API\nDashboard\nAPI Keys\nPlayground\nModel Plaza\nChannel Status\nProfile\nCurrent Version\nv0.1.179-qiu.2\nDark Mode\nCollapse\nPlayground\n\nModel chat and request testing\n\n$82.36\nAvailable balance\n3\nActive subscriptions\nT\ntest\nUser\nYou\n\nwait for provider\n\nModel\nModel\ngpt-fixture\nFirst token\n--\nDuration\n89ms\nSpeed\n--\nRequest time\n2026-08-21 21:11:08\nStopped\nDetails\nFixture Key\nFixture\ngpt-fixture\nFixture / openai\nStream\nReady\nSend",
+  "stopOk": true
+}

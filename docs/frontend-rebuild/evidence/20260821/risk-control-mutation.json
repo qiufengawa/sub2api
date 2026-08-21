@@ -1,0 +1,14 @@
+{
+  "baseline": "Sub2API\nDashboard\nOps\nAccounts\nAnnouncements\nProxies\nSecurity Audit\nContent Moderation\nPrompt Audit\nUsage\nModel Plaza\nAPI Keys\nPlayground\nSettings\nCurrent Version\nv0.1.179-qiu.2\nLight Mode\nCollapse\nRisk Control\n\nConfigure content moderation and review audit records\n\n$0.00\nAvailable balance\n1\nActive subscriptions\nA\nadmin\nAdministrator\nRisk Control\n\nConfigure content moderation and review audit records\n\nRefresh Status\nModeration Settings\nStatus\nSystem switch off\nDisabled\nPre-Block\nAPI Key\nNot configured\nomni-moderation-latest\nScope\nAll Groups\nApplies to all models\nAudit Records\n0\nCurrent filter\nPre-Block Sync Status\n\nLive counters for the synchronous moderation path, excluding async record tasks.\n\nPre-Block\nSync Processing\n0\nCurrently checking\nChecked\n0\nEntered pre-block path\nAllowed\n0\nNo block triggered\nBlocked\n0\nRejected after hit\nAudit Errors\n0\nFailed or no usable key\nAvg Latency\n0 ms\nSynchronous path average\nAudit Key Load\n\nSynchronous pre-block checks round-robin usable audit keys directly.\n\nSync active 0 / usable keys 0, 0 total, worker: 0 / 4\nNo audit key load data yet\nAudit Records\n\nShows hits, blocks, errors, and sampled records.\n\nRefresh\nModel scope\nApplies to all models\nAll Results\nAll Groups\nAll Endpoints\nFrom\nTo\nTIME\n\t\nGROUP\n\t\nUSER\n\t\nAPI KEY\n\t\nENDPOINT\n\t\nRESULT\n\t\nHIGHEST\n\t\nACTION\n\t\nLATENCY\n\t\nINPUT SUMMARY\n\n\nNo audit records",
+  "confirmation": true,
+  "before": 0,
+  "after": 1,
+  "ok": true,
+  "errors": [],
+  "calls": [
+    {
+      "name": "clear",
+      "method": "DELETE"
+    }
+  ]
+}

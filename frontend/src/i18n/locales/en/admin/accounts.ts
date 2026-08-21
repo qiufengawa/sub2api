@@ -149,6 +149,7 @@ export default {
     status: {
       active: "Active",
       inactive: "Inactive",
+      expired: "Expired",
       disabled: "Disabled",
       error: "Error",
       errorDetails: "Error details",

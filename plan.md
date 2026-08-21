@@ -465,6 +465,31 @@ Review 必须按严重度记录：
 - R8：public settings 后端成功/空/慢/失败 console-clean；剩余公共/例外路由及 admin exception routes；screen-reader/provider/OAuth。
 - 全局剩余门禁：最终 ownership/Code Review 口径、受保护页面完整浏览器矩阵、screen-reader、provider sandbox、破坏性操作和未覆盖路由的 slow/error/console 证据。Release、六平台 checksum、GHCR/latest、旧版 updater 发现/比较和新版本线上检查已由 `RELEASE-VERIFICATION-20260820.md` 关闭。
 
+### 2026-08-21 继续执行后的当前状态与未完成清单
+
+- 本轮真实 Chromium 证据已把用户端 `19` 条路由（`171` 组合）和管理员
+  `24` 个路由标签（`216` 组合）固化到三视口 `1440/900/390`、light/dark、
+  reduced-motion、ARIA snapshot、Tab 轨迹和 console/request 捕获。用户矩阵为
+  `0` overflow、navigation error、console/pageerror、failed request；管理员矩阵为
+  `0` overflow、navigation error、console、unexpected pageerror、failed request。
+  Risk Control/Prompt Audit 另以 feature-enabled fixture 精确复验 `18` 组合。
+- 管理员原始矩阵的邮件预览 sandbox 保留 `3537` 条预期
+  `SecurityError`；这属于 iframe 安全边界，不通过放宽 `allow-same-origin` 来“清零”。
+  `/admin/backups` 是历史标签而非生产路由，Backup 已按 Settings 内嵌面板完成 step-up、
+  创建轮询和删除确认证据。
+- 本轮源码修复为 `AppHeader` 长标题 flex 约束、Channels 缺失 `UiTabs` 导入、
+  accounts `expired` 中英文 locale；UI consumer inventory 因真实导入修复更新为
+  `114 / 276 / 1884`。定向测试、全量 Vitest（`359` files / `2430` tests）、
+  static audit（`13` tests）、typecheck、lint、生产 build 和 `git diff --check` 已复验；
+  backend routes/service/repository 选定包也已复验通过。
+- 本地 provider fixture 和隔离数据库 webhook/refund 证据已写入
+  `docs/frontend-rebuild/R2-R8-CONTINUATION-20260821.md` 及其
+  `evidence/20260821/` 索引；它们不冒充外部 Stripe/WeChat/Airwallex 凭据或真实结算。
+- 仍未完成：原生 screen-reader（当前环境无 VoiceOver/NVDA 可控会话）；credentialed
+  external provider settlement/refund、双标签外部回跳；逐页 slow/empty/error/late-response
+  状态矩阵；剩余例外页面的完整 Enter/Space/Escape/focus-return 读屏证据；最终按严重度签署
+  Code Review。唯一长任务保持 active，不得标记完成。
+
 ## 18. 执行日志
 
 ### 2026-08-20 ProxiesView 破坏性删除防重入收口
@@ -1618,7 +1643,7 @@ Review 必须按严重度记录：
 
 ### 2026-08-20：消费者统计口径复核
 
-- 权威 `CONSUMER-INVENTORY.md` 与最终门禁/R9 历史快照已统一标注：当前为 114 contracts / 276 production consumer files / 1883 runtime references，1869/1880 仅保留为历史快照。
+- 权威 `CONSUMER-INVENTORY.md` 与最终门禁/R9 历史快照已统一标注：当前为 114 contracts / 276 production consumer files / 1884 runtime references，1869/1880/1883 仅保留为历史快照。
 - `UiConsumerInventory` 与 `UiSlider` 定向回归 3 tests 通过，`git diff --check` 通过。
 - 当前总进度更新为 87%；R7 Settings、R10 Channels、R6 Admin Usage 的剩余领域迁移，以及受保护浏览器、provider sandbox、远端 CI/Security、Release/GHCR/updater 仍未闭环。
 
@@ -1907,3 +1932,23 @@ Review 必须按严重度记录：
 - 该批关闭版本/Release/GHCR/checksum/updater 门禁，但不关闭 R0-R9 剩余的
   受保护浏览器、screen-reader、provider sandbox、破坏性操作和最终 Code Review；
   唯一长任务继续 active。
+
+### 2026-08-21：R2-R8 受保护矩阵与本地 provider 回调继续执行
+
+- 修正浏览器矩阵 runner 的视口设置：用户 `171` 条、管理员 `216` 条均真正执行
+  `1440/900/390`，而不是只改变截图文件名。用户矩阵达到 0 overflow、0 navigation
+  error、0 console/pageerror/failed request；管理员矩阵达到 0 overflow、0 navigation
+  error、0 console、0 unexpected pageerror、0 failed request。管理员原始矩阵保留
+  `3537` 条 sandbox iframe `SecurityError`，并明确标记为安全边界，不放宽 iframe sandbox。
+- 修复 `AppHeader` 长标题/描述下的 flex 溢出；补齐 Channels `UiTabs` 导入和 accounts
+  `expired` 中英文 locale。真实 Chromium 复验后 `/admin/audit-logs` 的 1556/1107px
+  横向溢出归零，Channels pricing console warning 归零。
+- 本地 Playwright provider fixture 实测 Playground SSE 成功/截断 EOF/错误/图片成功与
+  错误/Abort/Storage 拒绝；Batch Image 模型列表、创建、取消确认、失败项重试、删除确认；
+  Stripe Element、WeChat QR、Airwallex SDK redirect、签名结果和 Airwallex Storage 缺参。
+  证据索引见 `docs/frontend-rebuild/R2-R8-CONTINUATION-20260821.md`。
+- 隔离 PostgreSQL 上用本地签名 payload 实测 EasyPay-WeChat、Stripe、Airwallex 三条
+  webhook 成功履约；错误签名均 `400 verify failed` 且不改变已完成订单。实测用户退款请求、
+  重复退款拒绝和无交易号的管理员离线退款。
+- 本批仍不宣称总目标完成：原生 screen-reader、credentialed external sandbox settlement/
+  refund、其余管理员 mutation 逐页 slow/error/empty 状态和最终 Code Review 仍开放。

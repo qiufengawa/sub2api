@@ -225,6 +225,7 @@ import {
   UiServerTableWorkspace,
   UiSwitch,
   UiTableToolbar,
+  UiTabs,
   UiTextArea,
   UiTextField,
 } from '@/components/ui'

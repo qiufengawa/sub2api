@@ -1,0 +1,83 @@
+{
+  "baseline": "Sub2API\nDashboard\nOps\nAccounts\nAnnouncements\nProxies\nSecurity Audit\nContent Moderation\nPrompt Audit\nUsage\nModel Plaza\nAPI Keys\nPlayground\nSettings\nCurrent Version\nv0.1.179-qiu.2\nLight Mode\nCollapse\nPrompt Audit\n\nReview user input asynchronously or block it synchronously through OpenAI-compatible Qwen3Guard nodes. Full prompts are stored with events for admin review.\n\n$0.00\nAvailable balance\n1\nActive subscriptions\nA\nadmin\nAdministrator\nPrompt Audit\nConfig version v4\n\nReview user input asynchronously or block it synchronously through OpenAI-compatible Qwen3Guard nodes. Full prompts are stored with events for admin review.\n\nAug 21, 2026, 9:48:24 PM\nEvents\nConfiguration\nAudit events\n\nReview events by identity, route, risk, hash, and time; the detail view shows the full prompt.\n\nDelete selected (0)\nDelete by filter\nDecision\nAll\nRisk level\nAll\nEndpoint\nGroup ID\nUser ID\nAPI Key ID\nRequest ID\nPrompt SHA-256\nKeyword\nStart time\nEnd time\nSearch\n\t\nTIME\n\t\nUSER / EMAIL / API KEY\n\t\nGROUP\n\t\nENDPOINT / MODEL\n\t\nDECISION / RISK\n\t\nREDACTED PREVIEW\n\t\nACTIONS\n\n\t8/21/26, 9:48:24 PM\t\nUsername\ntest\nUser email\ntest@test.com\nAPI Key name\nfixture\n\tFixture\t\nfixture\ngpt-fixture · openai_compatible · http\n\tFlag · Medium\nPII\n\t\n\nfixture prompt\n\n\t\nView\nDelete\nEvents1-1 / 1\nPer page\n10\n20\n50\n100\n1",
+  "blockingConfirm": true,
+  "beforeSave": 0,
+  "saveBody": {
+    "expected_config_version": 4,
+    "enabled": true,
+    "blocking_enabled": true,
+    "blocking_latest_turn_only": false,
+    "store_pass_events": true,
+    "strategy": "priority",
+    "worker_count": 2,
+    "queue_capacity": 50,
+    "scanners": [
+      "pii"
+    ],
+    "all_groups": true,
+    "group_ids": [],
+    "endpoints": []
+  },
+  "saveOk": true,
+  "previewOk": true,
+  "filterDeleteBody": {
+    "filter": {
+      "start_at": "1970-01-01T00:00:00.000Z",
+      "end_at": "2026-08-14T13:48:30.312Z"
+    },
+    "snapshot_max_id": 42,
+    "filter_hash": "fixture-hash",
+    "confirmation_token": "fixture-token",
+    "confirm": true
+  },
+  "filterDeleteOk": true,
+  "errors": [],
+  "calls": [
+    {
+      "name": "save-config",
+      "body": {
+        "expected_config_version": 4,
+        "enabled": true,
+        "blocking_enabled": true,
+        "blocking_latest_turn_only": false,
+        "store_pass_events": true,
+        "strategy": "priority",
+        "worker_count": 2,
+        "queue_capacity": 50,
+        "scanners": [
+          "pii"
+        ],
+        "all_groups": true,
+        "group_ids": [],
+        "endpoints": []
+      }
+    },
+    {
+      "name": "preview",
+      "body": {
+        "start_at": "1970-01-01T00:00:00.000Z",
+        "end_at": "2026-08-14T13:48:29.838Z"
+      }
+    },
+    {
+      "name": "preview",
+      "body": {
+        "start_at": "1970-01-01T00:00:00.000Z",
+        "end_at": "2026-08-14T13:48:30.312Z"
+      }
+    },
+    {
+      "name": "delete-by-filter",
+      "body": {
+        "filter": {
+          "start_at": "1970-01-01T00:00:00.000Z",
+          "end_at": "2026-08-14T13:48:30.312Z"
+        },
+        "snapshot_max_id": 42,
+        "filter_hash": "fixture-hash",
+        "confirmation_token": "fixture-token",
+        "confirm": true
+      }
+    }
+  ]
+}

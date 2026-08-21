@@ -1,0 +1,14 @@
+{
+  "baseline": "Sub2API\nDashboard\nOps\nAccounts\nAnnouncements\nProxies\nUsage\nModel Plaza\nAPI Keys\nPlayground\nSettings\nCurrent Version\nv0.1.179-qiu.2\nLight Mode\nCollapse\nOps Monitoring\n\nOperational monitoring and troubleshooting\n\n$0.00\nAvailable balance\n1\nActive subscriptions\nA\nadmin\nAdministrator\nready\n8/21/2026, 9:58:23 PM\nAll\nAll\nLast 1 hour\nManage Alert Rules\nSettings\nSystem is currently idle\n\nNo active traffic\n\nIdle\nHealth\nHealth Condition\nOverall system health score based on SLA, error rate, and resource usage\nTraffic overview\nwindow\n1min\n5min\n30min\n1h\nQPS\n实时\n实时\n0.0\npeak 0.0\naverage 0.0\nTPS\n实时\n实时\n0.0\npeak 0.0\naverage 0.0\nTotal Requests\n0\nAvg QPS 0.0\nTokens\n0\nAvg TPS 0.0\nDetails\nStability\nSLA (excl business limits)\nNo data.\n-\nThreshold 99.5%\n0 / 0\nRequest Errors\nNormal\n0\n%\nThreshold 5%\nError Count 0\nUpstream Errors\nNormal\n0\n%\nThreshold 5%\nError Count (excl 429/529) 0\nLatency experience\nRequest Duration\n-ms\nP99 · avg: - ms\nP95\n-\nP90\n-\nP50\n-\nMax\n-\nTTFT (first_token_ms)\nNo data.\n-\nThreshold 500ms\nP99 · avg: - ms\nP95\n-\nP90\n-\nP50\n-\nMax\n-\nSystem Health\nCollected at:9:57:00 PM\nok\nCPU\nCPU\n40%\nWarning 80% · Critical 95%\nMemory\nMemory\n73%\n11.7 GB / 16 GB\nDB\nok\nconns\n0%\nactive - · idle 7 · waiting -\nRedis\n13%\nconns\n13%\nactive 0 · idle 134\nGoroutines\nok\n150\nWarning 8000 · Critical 15000 · queue -\nJobs\n5\nok\nWarning 0\nTraffic and capacity\n\nTrack request throughput, account switching, and live capacity to spot congestion and queues.\n\nThroughput Trend\nQPS\nTPS (K)\nNo data\n\nNo requests in this window.\n\nAvg Account Switches\nNo data\n\nNo requests in this window.\n\nConcurrency / Queue\nSwitch to user view\nBy Pl",
+  "confirmation": true,
+  "before": 0,
+  "after": 1,
+  "ok": true,
+  "errors": [],
+  "calls": [
+    {
+      "name": "delete",
+      "path": "/api/v1/admin/ops/alert-rules/901"
+    }
+  ]
+}

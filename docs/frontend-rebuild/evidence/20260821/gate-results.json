@@ -1,0 +1,25 @@
+{
+  "date": "2026-08-21",
+  "frontend": {
+    "test:run": {"status": "passed", "test_files": 359, "tests": 2430},
+    "test:audit": {"status": "passed", "tests": 13},
+    "typecheck": {"status": "passed"},
+    "lint:check": {"status": "passed"},
+    "build": {"status": "passed", "modules": 3103},
+    "git_diff_check": {"status": "passed"}
+  },
+  "backend": {
+    "command": "go test ./internal/server/routes ./internal/service ./internal/repository -count=1",
+    "status": "passed",
+    "packages": [
+      "internal/server/routes",
+      "internal/service",
+      "internal/repository"
+    ]
+  },
+  "known_warnings": [
+    "Browserslist database is stale",
+    "existing vendor/eval and large-chunk build warnings"
+  ],
+  "scope": "local isolated verification; integration/testcontainers and external provider credentials remain open"
+}

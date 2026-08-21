@@ -1,0 +1,46 @@
+{
+  "redeem": {
+    "baseline": "Sub2API\nDashboard\nOps\nAccounts\nAnnouncements\nProxies\nUsage\nModel Plaza\nAPI Keys\nPlayground\nSettings\nCurrent Version\nv0.1.179-qiu.2\nLight Mode\nCollapse\nRedeem Code Management\n\nGenerate and manage redeem codes\n\n$0.00\nAvailable balance\n1\nActive subscriptions\nA\nadmin\nAdministrator\nRedeem Code Management\n\nGenerate and manage redeem codes\n\nAll Types\nAll Status\nExport CSV\nGenerate Codes\nSELECT ALL\n\t\nCODE\n\t\nType\n\t\nValue\n\t\nStatus\n\t\nUSED BY\n\t\nUsed At\n\t\nExpires At\n\t\nACTIONS\n\n\nSelect redeem code FIX-UNUSED-001\n\t\nFIX-UNUSED-001\n\tBalance\t\n$25.00\n\t\nUnused\t\n-\n\t\n-\n\t\nNever expires\n\t\n\n\nSelect redeem code FIX-USED-002\n\t\nFIX-USED-002\n\tBalance\t\n$10.00\n\t\nUsed\t\ntest@test.com\n\t\n08/21/2026, 21:43:02\n\t\nNever expires\n\t\nShowing1-2 / 2\nPer page\n10\n20\n50\n100\n1",
+    "confirmation": true,
+    "before": 0,
+    "after": 1,
+    "singleDeleteOk": true,
+    "generateOk": true,
+    "body": "Sub2API\nDashboard\nOps\nAccounts\nAnnouncements\nProxies\nUsage\nModel Plaza\nAPI Keys\nPlayground\nSettings\nCurrent Version\nv0.1.179-qiu.2\nLight Mode\nCollapse\nRedeem Code Management\n\nGenerate and manage redeem codes\n\n$0.00\nAvailable balance\n1\nActive subscriptions\nA\nadmin\nAdministrator\nRedeem Code Management\n\nGenerate and manage redeem codes\n\nAll Types\nAll Status\nExport CSV\nGenerate Codes\nSELECT ALL\n\t\nCODE\n\t\nType\n\t\nValue\n\t\nStatus\n\t\nUSED BY\n\t\nUsed At\n\t\nExpires At\n\t\nACTIONS\n\n\nSelect redeem code FIX-UNUSED-001\n\t\nFIX-UNUSED-001\n\tBalance\t\n$25.00\n\t\nUnused\t\n-\n\t\n-\n\t\nNever expires\n\t\n\n\nSelect redeem code FIX-USED-002\n\t\nFIX-USED-002\n\tBalance\t\n$10.00\n\t\nUsed\t\ntest@test.com\n\t\n08/21/2026, 21:43:02\n\t\nNever expires\n\t\nShowing1-2 / 2\nPer page\n10\n20\n50\n100\n1\nGenerated Successfully\n\n1 redeem code(s) created\n\nCopy All\nDownload\nRedeem code deleted successfully",
+    "errors": []
+  },
+  "plans": {
+    "baseline": "Sub2API\nDashboard\nOps\nAccounts\nAnnouncements\nProxies\nUsage\nModel Plaza\nAPI Keys\nPlayground\nSettings\nCurrent Version\nv0.1.179-qiu.2\nLight Mode\nCollapse\nPlans\n$0.00\nAvailable balance\n1\nActive subscriptions\nA\nadmin\nAdministrator\nSubscription Plans\n\nManage subscription plan configuration\n\nImport JSON\nDownload Template\nExport Current\nCreate Plan\nPLAN NAME\n\t\nAPPLICABLE GROUPS\n\t\nCREDITS PER 5 HOURS\n\t\nCREDITS PER CYCLE\n\t\nTERM TOTAL CREDITS\n\t\nPRICE\n\t\nVALIDITY\n\t\nMAX SUBSCRIPTIONS PER USER\n\t\nFOR SALE\n\t\nSORT ORDER\n\t\nACTIONS\n\n\nFixture Plan\n\t\nFixture Group · 1x\n\tNo 5-hour cap\t\n$10.00\nResets every 1 days\n\t\n$50.00\n\t\n$20.00USD\n$25.00\n\t\n30 days\n\t\n1\n\t\n\t1\t",
+    "confirmation": true,
+    "before": 0,
+    "after": 1,
+    "deleteOk": true,
+    "updateOk": true,
+    "errors": []
+  },
+  "calls": [
+    {
+      "name": "delete",
+      "path": "/api/v1/admin/redeem-codes/1"
+    },
+    {
+      "name": "generate",
+      "body": {
+        "count": 1,
+        "type": "balance",
+        "value": 10
+      }
+    },
+    {
+      "name": "plan-delete",
+      "path": "/api/v1/admin/payment/plans/701"
+    },
+    {
+      "name": "plan-update",
+      "path": "/api/v1/admin/payment/plans/701",
+      "body": {
+        "for_sale": false
+      }
+    }
+  ]
+}

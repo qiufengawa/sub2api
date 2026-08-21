@@ -1,0 +1,39 @@
+{
+  "baseline": "Sub2API\nDashboard\nOps\nAccounts\nAnnouncements\nProxies\nUsage\nModel Plaza\nAPI Keys\nPlayground\nSettings\nCurrent Version\nv0.1.179-qiu.2\nLight Mode\nCollapse\nSubscription Management\n\nManage user plans, cycle quotas, and covered routing groups\n\n$0.00\nAvailable balance\n1\nActive subscriptions\nA\nadmin\nAdministrator\nSubscription Management\n\nManage user plans, cycle quotas, and covered routing groups\n\nActive\nAdvanced filters\nEmail\nUsername\nColumn Settings\nAssign Subscription\nUSER\n\t\nPLAN\n\t\nUSAGE\n\t\nExpires\n\t\nStatus\n\t\nACTIONS\n\n\nT\ntest@test.com\n#13\n\t\n\nActive Fixture Plan\n\nFixture Group ·\n×1\n\t\n5 hours\n$1.00 / $10.00\nResets every 5 hours\nCycle\n$2.00 / $20.00\nResets every 1 days\nTerm total\n$3.00 / $100.00\nValid until 09/20/2026, 22:00\n\t\n09/20/2026, 22:00\n30 days remaining\n\t\nActive\t\n\n\nT\ntest@test.com\n#13\n\t\n\nRevoked Fixture Plan\n\nFixture Group ·\n×1\n\t\n5 hours\n$1.00 / $10.00\nResets every 5 hours\nCycle\n$2.00 / $20.00\nResets every 1 days\nTerm total\n$3.00 / $100.00\nValid until 09/20/2026, 22:00\n\t\n09/20/2026, 22:00\n30 days remaining\n\t\nRevoked\t\n1-2 / 2\nPer page\n10\n20\n50\n100\n1",
+  "resetBefore": 0,
+  "resetOk": true,
+  "revokeBefore": 0,
+  "revokeOk": true,
+  "restoreBefore": 0,
+  "restoreOk": true,
+  "extendOk": true,
+  "errors": [],
+  "calls": [
+    {
+      "name": "reset-quota",
+      "id": 801,
+      "body": {
+        "daily": true,
+        "weekly": true,
+        "monthly": true
+      }
+    },
+    {
+      "name": "revoke",
+      "id": 801,
+      "body": null
+    },
+    {
+      "name": "restore",
+      "id": 802,
+      "body": null
+    },
+    {
+      "name": "extend",
+      "id": 801,
+      "body": {
+        "days": 30
+      }
+    }
+  ]
+}
