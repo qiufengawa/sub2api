@@ -13,6 +13,20 @@ the original browser run directories.
 The local automation gate summary is `evidence/20260821/gate-results.json`.
 The scoped source review is `R2-R8-CODE-REVIEW-FOLLOWUP-20260821.md`.
 
+## Workspace context audit
+
+Before continuing, the workspace records were checked in `AGENTS.md`,
+`docs/FRONTEND_REFACTOR_GOAL_PROMPT.md`, `plan.md`, the existing
+`docs/frontend-rebuild/*ACCEPTANCE.md` records, and the untracked
+`.playwright-cli/` captures. No separate authoritative chat transcript or
+system-state export exists in the repository; `plan.md` and the acceptance
+records are the current hand-off source. The active state remains one
+continuous R0-R9 goal: release verification is closed, while native
+screen-reader, credentialed external providers, complete per-page state
+coverage and final Code Review remain open. Existing untracked `data/`,
+`docs/reference/` and `.playwright-cli/` materials were preserved and were not
+staged.
+
 ## Protected-page browser matrices
 
 ### User routes
