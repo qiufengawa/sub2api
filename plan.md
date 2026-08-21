@@ -478,8 +478,9 @@ Review 必须按严重度记录：
   `/admin/backups` 是历史标签而非生产路由，Backup 已按 Settings 内嵌面板完成 step-up、
   创建轮询和删除确认证据。
 - 本轮源码修复为 `AppHeader` 长标题 flex 约束、Channels 缺失 `UiTabs` 导入、
-  accounts `expired` 中英文 locale；UI consumer inventory 因真实导入修复更新为
-  `114 / 276 / 1884`。定向测试、全量 Vitest（`359` files / `2430` tests）、
+  accounts `expired` 中英文 locale，以及 Accounts 初始列表拒绝的 catch/toast；UI
+  consumer inventory 因真实导入修复更新为 `114 / 276 / 1884`。定向测试、全量
+  Vitest（`359` files / `2431` tests）、
   static audit（`13` tests）、typecheck、lint、生产 build 和 `git diff --check` 已复验；
   backend routes/service/repository 选定包也已复验通过。
 - 本地 provider fixture 和隔离数据库 webhook/refund 证据已写入
