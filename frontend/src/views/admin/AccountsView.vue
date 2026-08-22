@@ -197,7 +197,7 @@
               <UiCheckbox
                 class="accounts-checkbox"
                 :model-value="allVisibleSelected"
-                :label="t('common.selectAll')"
+                :aria-label="t('common.selectAll')"
                 @click.stop
                 @update:model-value="toggleVisible"
               />
@@ -206,7 +206,7 @@
               <UiCheckbox
                 class="accounts-checkbox"
                 :model-value="isSelected(row.id)"
-                :label="t('common.selectOption')"
+                :aria-label="t('common.selectOption')"
                 @click.stop
                 @update:model-value="toggleSel(row.id)"
               />

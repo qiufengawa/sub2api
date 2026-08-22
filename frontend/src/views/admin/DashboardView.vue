@@ -38,7 +38,7 @@
         </UiAlert>
 
         <!-- Dashboard Stats -->
-        <AppGrid min="210px" :gap="8">
+        <AppGrid class="dashboard-stat-grid" min="210px" :gap="8">
           <UiStatMetric
             :label="t('admin.dashboard.apiKeys')"
             :value="formatNumber(stats.total_api_keys)"
@@ -624,4 +624,7 @@ onMounted(() => {
 
 <style scoped>
 .dashboard-page{display:grid;gap:16px}.dashboard-action{justify-content:flex-start;width:100%}.dashboard-user-trend{height:288px}
+.dashboard-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(min-width:1280px){.dashboard-stat-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:640px){.dashboard-stat-grid{grid-template-columns:1fr}}
 </style>

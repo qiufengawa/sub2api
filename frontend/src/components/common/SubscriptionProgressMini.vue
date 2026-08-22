@@ -1,9 +1,7 @@
 <template>
   <div v-if="hasActiveSubscriptions" ref="containerRef" class="subscription-progress">
-    <UiButton
+    <button
       type="button"
-      variant="quiet"
-      density="default"
       class="subscription-progress__trigger"
       :aria-expanded="tooltipOpen"
       :title="t('subscriptionProgress.viewDetails')"
@@ -17,7 +15,7 @@
         </span>
         <span class="subscription-progress__label">{{ t('subscriptionProgress.activeLabel') }}</span>
       </span>
-    </UiButton>
+    </button>
 
     <transition name="dropdown">
       <div v-if="tooltipOpen" class="subscription-progress__popover">
@@ -76,7 +74,7 @@ import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import { useSubscriptionStore } from '@/stores'
 import type { UserSubscription } from '@/types'
-import { UiButton, UiProgressBar, UiStatusBadge } from '@/components/ui'
+import { UiProgressBar, UiStatusBadge } from '@/components/ui'
 
 const { t } = useI18n()
 
@@ -171,7 +169,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .subscription-progress { position:relative; min-width:0; }
-.subscription-progress__trigger { display:flex; min-height:36px; align-items:center; gap:7px; padding:0 6px; border:0; border-radius:var(--ui-radius); color:var(--ui-text); background:transparent; cursor:pointer; }
+.subscription-progress__trigger { display:flex; min-height:36px; align-items:center; gap:7px; padding:0 6px; border:0; border-radius:var(--ui-radius); color:var(--ui-text); background:transparent; font:inherit; cursor:pointer; }
 .subscription-progress__trigger:hover { background:var(--ui-surface-muted); }
 .subscription-progress__icon { color:var(--ui-text-muted); }
 .subscription-progress__summary { display:grid; grid-template-columns:auto auto; align-items:center; column-gap:6px; line-height:16px; }

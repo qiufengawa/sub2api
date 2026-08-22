@@ -290,8 +290,8 @@
                     type="button"
                     variant="quiet"
                     density="dense"
+                    class="version-rollback-trigger group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-xs text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600 dark:text-dark-500 dark:hover:bg-dark-700/50 dark:hover:text-dark-300"
                     @click="toggleRollbackPanel"
-                    class="group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-xs text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600 dark:text-dark-500 dark:hover:bg-dark-700/50 dark:hover:text-dark-300"
                   >
                     <span class="flex items-center gap-1.5">
                       <Icon name="clock" size="xs" :stroke-width="2" />
@@ -836,4 +836,6 @@ onBeforeUnmount(() => {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+.version-badge :deep(.version-rollback-trigger) { justify-content: space-between; }
 </style>

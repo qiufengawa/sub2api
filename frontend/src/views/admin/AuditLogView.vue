@@ -96,13 +96,14 @@
         />
 
         <!-- Table -->
-        <UiDataTable
-          :columns="columns"
-          :data="logs"
-          :loading="initialLoading"
-          row-key="id"
-          :aria-label="t('admin.audit.title')"
-        >
+        <UiMobileTableScroller :label="t('admin.audit.title')" min-width="1080px">
+          <UiDataTable
+            :columns="columns"
+            :data="logs"
+            :loading="initialLoading"
+            row-key="id"
+            :aria-label="t('admin.audit.title')"
+          >
           <template #cell-created_at="{ value }">
             <time class="ui-numeric">{{ formatTime(value) }}</time>
           </template>
@@ -150,7 +151,8 @@
             />
             <UiEmptyState v-else :title="emptyStateTitle" />
           </template>
-        </UiDataTable>
+          </UiDataTable>
+        </UiMobileTableScroller>
       </AppStack>
 
       <!-- Pagination -->
@@ -332,6 +334,7 @@ import {
   UiErrorState,
   UiFilterBar,
   UiIconButton,
+  UiMobileTableScroller,
   UiPagination,
   UiSearchInput,
   UiSelect,

@@ -47,12 +47,10 @@
         </div>
 
         <div v-else-if="announcements.length > 0" class="announcement-center__list">
-          <UiButton
+          <button
             v-for="item in announcements"
             :key="item.id"
             type="button"
-            variant="quiet"
-            density="default"
             class="announcement-center__item ui-focus-ring"
             @click="openDetail(item)"
           >
@@ -80,7 +78,7 @@
               class="announcement-center__chevron"
               aria-hidden="true"
             />
-          </UiButton>
+          </button>
         </div>
 
         <UiEmptyState v-else :title="t('announcements.empty')" :description="t('announcements.emptyDescription')" />
@@ -175,7 +173,7 @@ async function markAllAsRead() {
 .announcement-center__summary p { margin: 0; color: var(--ui-text-soft); font-size: 12px; }
 .announcement-center__loading { display: grid; min-height: 160px; place-items: center; }
 .announcement-center__list { display: grid; }
-.announcement-center__item { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 11px 12px; border: 0; border-bottom: 1px solid var(--ui-border-soft); color: var(--ui-text); background: transparent; text-align: left; cursor: pointer; transition: background var(--ui-motion-fast); }
+.announcement-center__item { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 11px 12px; border: 0; border-bottom: 1px solid var(--ui-border-soft); color: var(--ui-text); background: transparent; font: inherit; text-align: left; cursor: pointer; transition: background var(--ui-motion-fast); }
 .announcement-center__item:hover { background: var(--ui-surface-muted); }
 .announcement-center__copy { min-width: 0; }
 .announcement-center__title { display: flex; min-width: 0; align-items: center; gap: 7px; }

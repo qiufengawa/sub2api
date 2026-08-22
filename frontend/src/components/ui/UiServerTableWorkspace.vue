@@ -103,6 +103,16 @@ withDefaults(defineProps<{
   flex-direction: column;
 }
 
+.ui-table-workspace > :deep(.ui-table-toolbar),
+.ui-table-workspace > :deep(.ui-filter-bar) {
+  padding-inline: 12px;
+}
+
+.ui-table-workspace > :deep(.ui-table-toolbar .ui-filter-bar) {
+  padding-inline: 0;
+  border-block: 0;
+}
+
 @media (max-width: 640px) {
   .ui-table-workspace > header {
     align-items: flex-start;

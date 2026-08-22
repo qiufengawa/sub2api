@@ -1,8 +1,9 @@
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-    <div class="ui-panel flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div class="ui-panel flex min-h-0 flex-1 flex-col">
       <IpGeoBatchToolbar :ips="rows.map((r) => r.client_ip)" @failed="emit('ipGeoBatchFailed')" />
 
+      <UiMobileTableScroller :label="t('usage.errors.title')" min-width="920px">
       <UiDataTable
         :columns="columns"
         :data="rows"
@@ -103,6 +104,7 @@
 
         <template #empty><UiEmptyState :title="t('usage.errors.empty')" /></template>
       </UiDataTable>
+      </UiMobileTableScroller>
     </div>
 
     <div class="flex-shrink-0">
@@ -126,7 +128,7 @@ import { useI18n } from 'vue-i18n'
 import UserErrorDetailModal from '@/components/user/UserErrorDetailModal.vue'
 import IpGeoCell from '@/components/common/IpGeoCell.vue'
 import IpGeoBatchToolbar from '@/components/common/IpGeoBatchToolbar.vue'
-import { UiDataTable, UiEmptyState, UiPagination, type Column } from '@/components/ui'
+import { UiDataTable, UiEmptyState, UiMobileTableScroller, UiPagination, type Column } from '@/components/ui'
 import { formatDateTime } from '@/utils/format'
 import {
   mapErrorSortKey,

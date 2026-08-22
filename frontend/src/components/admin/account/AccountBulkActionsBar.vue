@@ -1,6 +1,6 @@
 <template>
-  <div class="mb-3 flex flex-wrap items-center justify-between gap-3 border-block border-[var(--ui-border-soft)] py-2" :aria-busy="pending">
-    <div class="flex flex-wrap items-center gap-2">
+  <div class="account-bulk-actions" :aria-busy="pending">
+    <div class="account-bulk-actions__summary">
       <span v-if="allResultsSelected" class="text-sm font-medium text-primary-900 dark:text-primary-100">
         {{ t('admin.accounts.bulkActions.selectedAll', { count: selectedIds.length }) }}
       </span>
@@ -47,7 +47,7 @@
         </UiButton>
       </template>
     </div>
-    <div class="flex gap-2">
+    <div class="account-bulk-actions__commands">
       <template v-if="selectedIds.length > 0">
         <UiButton density="compact" variant="danger" :disabled="pending" @click="$emit('delete')">{{ t('admin.accounts.bulkActions.delete') }}</UiButton>
         <UiButton density="compact" variant="secondary" :disabled="pending" @click="$emit('reset-status')">{{ t('admin.accounts.bulkActions.resetStatus') }}</UiButton>
@@ -91,3 +91,11 @@ defineEmits([
 
 const { t } = useI18n()
 </script>
+
+<style scoped>
+.account-bulk-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;margin-bottom:12px;padding:8px 0;border-block:1px solid var(--ui-border-soft)}
+.account-bulk-actions__summary,.account-bulk-actions__commands{display:flex;min-width:0;flex-wrap:wrap;align-items:center;gap:6px}
+.account-bulk-actions__commands{justify-content:flex-end}
+@media(max-width:1100px){.account-bulk-actions{grid-template-columns:1fr}.account-bulk-actions__commands{justify-content:flex-start}}
+@media(max-width:640px){.account-bulk-actions__commands :deep(.ui-button){flex:1 1 auto}}
+</style>

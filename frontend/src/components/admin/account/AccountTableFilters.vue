@@ -1,18 +1,18 @@
 <template>
-  <div class="flex flex-wrap items-center gap-3">
+  <div class="account-table-filters">
     <UiSearchInput
       :model-value="searchQuery"
       :placeholder="t('admin.accounts.searchAccounts')"
       density="compact"
-      class="w-full sm:w-64"
+      class="account-table-filters__search"
       @update:model-value="$emit('update:searchQuery', $event)"
       @search="$emit('change')"
     />
-    <UiSelect :model-value="filters.platform" density="compact" class="w-40" :options="pOpts" @update:model-value="updatePlatform" @change="$emit('change')" />
-    <UiSelect :model-value="filters.type" density="compact" class="w-40" :options="tOpts" @update:model-value="updateType" @change="$emit('change')" />
-    <UiSelect :model-value="filters.status" density="compact" class="w-40" :options="sOpts" @update:model-value="updateStatus" @change="$emit('change')" />
-    <UiSelect :model-value="filters.privacy_mode" density="compact" class="w-40" :options="privacyOpts" @update:model-value="updatePrivacyMode" @change="$emit('change')" />
-    <UiSelect :model-value="filters.group" density="compact" class="w-40" :options="gOpts" @update:model-value="updateGroup" @change="$emit('change')" />
+    <UiSelect :model-value="filters.platform" density="compact" class="account-table-filters__field" :options="pOpts" @update:model-value="updatePlatform" @change="$emit('change')" />
+    <UiSelect :model-value="filters.type" density="compact" class="account-table-filters__field" :options="tOpts" @update:model-value="updateType" @change="$emit('change')" />
+    <UiSelect :model-value="filters.status" density="compact" class="account-table-filters__field" :options="sOpts" @update:model-value="updateStatus" @change="$emit('change')" />
+    <UiSelect :model-value="filters.privacy_mode" density="compact" class="account-table-filters__field" :options="privacyOpts" @update:model-value="updatePrivacyMode" @change="$emit('change')" />
+    <UiSelect :model-value="filters.group" density="compact" class="account-table-filters__field" :options="gOpts" @update:model-value="updateGroup" @change="$emit('change')" />
   </div>
 </template>
 
@@ -42,3 +42,10 @@ const gOpts = computed(() => [
   ...(props.groups || []).map(g => ({ value: String(g.id), label: g.name }))
 ])
 </script>
+<style scoped>
+.account-table-filters{display:grid;width:100%;min-width:0;grid-template-columns:minmax(200px,1.6fr) repeat(5,minmax(128px,1fr));align-items:center;gap:8px}
+.account-table-filters__search,.account-table-filters__field{min-width:0;width:100%}
+@media(max-width:1100px){.account-table-filters{grid-template-columns:minmax(200px,1.6fr) repeat(3,minmax(128px,1fr))}}
+@media(max-width:720px){.account-table-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.account-table-filters__search{grid-column:1/-1}}
+@media(max-width:480px){.account-table-filters{grid-template-columns:1fr}}
+</style>

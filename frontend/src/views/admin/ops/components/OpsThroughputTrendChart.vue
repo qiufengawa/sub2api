@@ -60,15 +60,21 @@ const colors = computed(() => ({
 }))
 
 const totalRequests = computed(() => sumNumbers(props.points.map((p) => p.request_count)))
+const chartPoints = computed(() => {
+  const points = props.points
+  if (points.length <= 240) return points
+  const step = (points.length - 1) / 239
+  return Array.from({ length: 240 }, (_, index) => points[Math.round(index * step)])
+})
 
 const chartData = computed(() => {
-  if (!props.points.length || totalRequests.value <= 0) return null
+  if (!chartPoints.value.length || totalRequests.value <= 0) return null
   return {
-    labels: props.points.map((p) => formatHistoryLabel(p.bucket_start, props.timeRange)),
+    labels: chartPoints.value.map((p) => formatHistoryLabel(p.bucket_start, props.timeRange)),
     datasets: [
       {
         label: 'QPS',
-        data: props.points.map((p) => p.qps ?? 0),
+        data: chartPoints.value.map((p) => p.qps ?? 0),
         borderColor: colors.value.blue,
         backgroundColor: colors.value.blueAlpha,
         fill: true,
@@ -78,7 +84,7 @@ const chartData = computed(() => {
       },
       {
         label: t('admin.ops.tpsK'),
-        data: props.points.map((p) => (p.tps ?? 0) / 1000),
+        data: chartPoints.value.map((p) => (p.tps ?? 0) / 1000),
         borderColor: colors.value.cyan,
         backgroundColor: colors.value.cyanAlpha,
         fill: true,

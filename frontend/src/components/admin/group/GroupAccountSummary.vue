@@ -39,7 +39,7 @@ const formatCount = (value: number) => value.toLocaleString();
 <style scoped>
 .group-account-summary {
   display: grid;
-  min-width: 116px;
+  min-width: 108px;
   gap: 4px;
 }
 
@@ -48,7 +48,7 @@ const formatCount = (value: number) => value.toLocaleString();
   min-height: 20px;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 4px;
   color: var(--ui-text-soft);
   font-size: 11px;
 }

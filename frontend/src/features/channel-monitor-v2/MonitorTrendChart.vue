@@ -69,6 +69,9 @@ const props = defineProps<{
 const chartRef = ref<HTMLElement | null>(null)
 const zoom = ref<ZoomState>(resetZoom())
 const zoomed = computed(() => isZoomed(zoom.value))
+const dateFormatter = computed(() => new Intl.DateTimeFormat(locale.value || undefined, {
+  month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+}))
 
 function colorToken(name: string, fallback: string): string {
   if (typeof document === 'undefined') return fallback
@@ -106,14 +109,7 @@ const bucketLabel = computed(() => {
 const chartData = computed(() => {
   const points = visibleTrend.value
   if (!points.length) return null
-  const labels = points.map((p) =>
-    new Intl.DateTimeFormat(locale.value || undefined, {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(p.bucket_start))
-  )
+  const labels = points.map((p) => dateFormatter.value.format(new Date(p.bucket_start)))
   const errorRates = smoothTrend(points.map((p) => (p.metrics.error_rate || 0) * 100))
   const cacheRates = smoothTrend(points.map((p) => (p.metrics.cache_rate || 0) * 100))
   const ttftP50 = smoothTrend(points.map((p) => p.metrics.ttft?.p50_ms ?? null))
@@ -168,7 +164,14 @@ const chartData = computed(() => {
 })
 
 /** Window the series by zoom state around the cursor — not always the last N points. */
-const visibleTrend = computed(() => sliceByZoom(props.trend || [], zoom.value))
+const visibleTrend = computed(() => downsampleTrend(sliceByZoom(props.trend || [], zoom.value), 240))
+
+/** Keep Chart.js responsive even when an API returns thousands of buckets. */
+function downsampleTrend(points: Array<{ bucket_start: string; metrics: MonitorMetric; health: MonitorHealth }>, maxPoints: number) {
+  if (points.length <= maxPoints) return points
+  const step = (points.length - 1) / (maxPoints - 1)
+  return Array.from({ length: maxPoints }, (_, index) => points[Math.round(index * step)])
+}
 
 function onChartWheel(event: WheelEvent) {
   // Plain vertical wheel zooms X (narrower time range); shift/horizontal pans.

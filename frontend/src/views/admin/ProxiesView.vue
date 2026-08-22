@@ -96,7 +96,7 @@
           <template #header-select>
             <UiCheckbox
               :model-value="allVisibleSelected"
-              :label="t('common.selectAll')"
+              :aria-label="t('common.selectAll')"
               @update:model-value="toggleSelectAllVisible"
             />
           </template>
@@ -104,7 +104,7 @@
           <template #cell-select="{ row }">
             <UiCheckbox
               :model-value="selectedProxyIds.has(row.id)"
-              :label="t('admin.proxies.selectProxy', { name: row.name })"
+              :aria-label="t('admin.proxies.selectProxy', { name: row.name })"
               @update:model-value="toggleSelectRow(row.id, $event)"
             />
           </template>

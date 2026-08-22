@@ -75,7 +75,7 @@
             <UiCheckbox
               data-test="select-all-codes"
               :model-value="allVisibleSelected"
-              :label="t('common.selectAll')"
+              :aria-label="t('common.selectAll')"
               @update:model-value="toggleSelectAllVisible"
             />
           </template>
@@ -84,7 +84,7 @@
             <UiCheckbox
               data-test="select-code"
               :model-value="selectedCodeIds.has(row.id)"
-              :label="t('admin.redeem.selectCode', { code: row.code })"
+              :aria-label="t('admin.redeem.selectCode', { code: row.code })"
               @update:model-value="toggleSelectRow(row, $event)"
             />
           </template>
