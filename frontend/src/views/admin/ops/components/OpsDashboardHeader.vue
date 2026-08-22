@@ -792,8 +792,9 @@ function handleToolbarRefresh() {
       </span>
     </UiAlert>
 
-    <div v-if="overview" class="ops-overview">
-      <UiPopover placement="bottom-start" panel-role="dialog" :aria-label="t('admin.ops.diagnosis.title')" width="320px">
+    <div v-if="overview" class="ops-kpi-layout">
+      <div class="ops-overview">
+      <UiPopover class="ops-health-card" placement="bottom-start" panel-role="dialog" :aria-label="t('admin.ops.diagnosis.title')" width="320px">
         <template #trigger>
           <UiButton type="button" variant="quiet" density="default" class="ops-health" data-overview-section="health">
             <UiProgressRing
@@ -836,9 +837,9 @@ function handleToolbarRefresh() {
           <template #icon><Icon name="eye" size="sm" /></template>{{ t('admin.ops.requestDetails.details') }}
         </UiButton>
       </div>
-    </div>
+      </div>
 
-    <div v-if="overview" class="ops-quality">
+      <div class="ops-quality">
       <section data-overview-section="stability">
         <header class="ops-section-heading"><strong>{{ t('admin.ops.overviewSections.stability') }}</strong></header>
         <div class="ops-quality__grid">
@@ -899,9 +900,9 @@ function handleToolbarRefresh() {
           </div>
         </div>
       </section>
-    </div>
+      </div>
 
-    <section v-if="overview" class="ops-resources">
+      <section class="ops-resources">
       <header class="ops-section-heading">
         <div><strong>{{ t('admin.ops.systemHealth') }}</strong><small>{{ t('admin.ops.collectedAt') }}{{ systemMetrics?.created_at ? formatTimeShort(systemMetrics.created_at) : '-' }}</small></div>
         <UiStatusBadge :status="systemMetrics ? 'healthy' : 'neutral'" :label="systemMetrics ? t('admin.ops.ok') : t('admin.ops.noData')" />
@@ -938,7 +939,8 @@ function handleToolbarRefresh() {
           <small>{{ t('common.warning') }} {{ jobsWarnCount }}</small>
         </article>
       </div>
-    </section>
+      </section>
+    </div>
 
     <UiDialog :show="showJobsDetails" :title="t('admin.ops.jobs')" width="wide" @close="showJobsDetails = false">
       <UiEmptyState v-if="!jobHeartbeats.length" :title="t('admin.ops.noData')" icon="inbox" />
@@ -980,7 +982,14 @@ function handleToolbarRefresh() {
 .ops-toolbar__status-line{flex-wrap:wrap;color:var(--ui-text-soft);font-size:11px}
 .ops-toolbar__controls{justify-content:flex-end}.ops-filter{min-width:132px}.ops-filter--group{min-width:156px}
 .ops-diagnosis__action{display:block;margin-top:4px;color:var(--ui-text)}.ops-diagnosis__action b{margin-left:6px}
-.ops-overview{display:grid;min-width:0;grid-template-columns:minmax(180px,.45fr) minmax(0,1.55fr);gap:12px}
+.ops-kpi-layout{display:grid;min-width:0;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:16px;align-items:stretch}
+.ops-kpi-layout>.ops-overview,.ops-kpi-layout>.ops-quality{display:contents}
+.ops-health-card{grid-column:1/-1;grid-row:1;min-width:0}
+.ops-kpi-layout>.ops-traffic{grid-column:1;grid-row:2}
+.ops-kpi-layout>.ops-quality>section[data-overview-section="stability"]{grid-column:2;grid-row:2}
+.ops-kpi-layout>.ops-quality>section[data-overview-section="latency"]{grid-column:1;grid-row:3}
+.ops-kpi-layout>.ops-resources{grid-column:2;grid-row:3}
+.ops-kpi-layout>.ops-quality>section{padding-top:4px;border-top:1px solid var(--ui-border-soft)}
 .ops-health{display:flex;width:100%;min-height:196px;align-items:center;justify-content:center;gap:18px;padding:20px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius-panel);color:var(--ui-text);background:var(--ui-surface);text-align:left;cursor:pointer}
 .ops-health:hover{border-color:var(--ui-border);background:var(--ui-surface-muted)}
 .ops-health__copy{display:grid;max-width:150px;gap:4px}.ops-health__copy strong{font-size:14px}.ops-health__copy small{color:var(--ui-text-soft);font-size:11px;line-height:17px}
@@ -996,15 +1005,15 @@ function handleToolbarRefresh() {
 .ops-metric-with-action{position:relative;min-width:0}.ops-metric-with-action>.ui-icon-button{position:absolute;z-index:1;top:6px;right:6px;width:20px;height:20px}.ops-metric-with-action>.ui-icon-button :deep(svg){width:12px;height:12px}.ops-metric-with-action>:deep(.ui-threshold),.ops-metric-with-action>:deep(.ui-stat){padding-right:34px}
 .ops-latency-grid{display:grid;min-width:0;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ops-latency{display:grid;min-width:0;gap:6px}
 .ops-percentiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;color:var(--ui-text-soft);font-size:10px}.ops-percentiles span{display:flex;min-width:0;justify-content:space-between;gap:4px;padding:0 4px}.ops-percentiles b{color:var(--ui-text);font-weight:500;font-variant-numeric:tabular-nums}
-.ops-resources{display:grid;min-width:0;gap:8px;padding-top:4px;border-top:1px solid var(--ui-border-soft)}.ops-resources__grid{display:grid;min-width:0;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.ops-resources{display:grid;min-width:0;gap:8px;padding-top:4px;border-top:1px solid var(--ui-border-soft)}.ops-resources__grid{display:grid;min-width:0;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .ops-resource{display:grid;min-width:0;min-height:112px;align-content:start;gap:9px;padding:10px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius);background:var(--ui-surface)}
 .ops-resource>header,.ops-resource__status-value{display:flex;min-width:0;align-items:center;justify-content:space-between;gap:8px}.ops-resource>header>span{color:var(--ui-text-muted);font-size:11px;font-weight:600}
 .ops-resource>small{overflow:hidden;color:var(--ui-text-soft);font-size:10px;line-height:16px;text-overflow:ellipsis;white-space:nowrap}.ops-resource--status>strong,.ops-resource__status-value>strong{font-size:22px;font-weight:500;line-height:28px}
 .ops-job{display:grid;gap:10px;padding:12px 0;border-bottom:1px solid var(--ui-border-soft)}.ops-job:last-child{border-bottom:0}.ops-job>header{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .ops-job dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;gap:8px 16px}.ops-job dl>div{display:grid;grid-template-columns:minmax(80px,.6fr) minmax(0,1fr);gap:8px}
 .ops-job dt{color:var(--ui-text-soft);font-size:11px}.ops-job dd{min-width:0;margin:0;overflow-wrap:anywhere;font-family:var(--ui-font-mono);font-size:11px}
-@media(max-width:1199px){.ops-overview{grid-template-columns:minmax(160px,.4fr) minmax(0,1.6fr)}.ops-traffic__grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ops-quality{grid-template-columns:1fr}.ops-resources__grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:767px){.ops-toolbar__controls{width:100%;flex-wrap:wrap}.ops-filter{min-width:min(100%,140px);flex:1 1 140px}.ops-overview{grid-template-columns:1fr}.ops-health{min-height:150px}.ops-quality__grid{grid-template-columns:1fr}.ops-resources__grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1199px){.ops-kpi-layout{grid-template-columns:1fr}.ops-health-card,.ops-kpi-layout>.ops-traffic,.ops-kpi-layout>.ops-quality>section[data-overview-section="stability"],.ops-kpi-layout>.ops-quality>section[data-overview-section="latency"],.ops-kpi-layout>.ops-resources{grid-column:1;grid-row:auto}.ops-traffic__grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ops-quality{grid-template-columns:1fr}.ops-resources__grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:767px){.ops-toolbar__controls{width:100%;flex-wrap:wrap}.ops-filter{min-width:min(100%,140px);flex:1 1 140px}.ops-health{min-height:150px}.ops-quality__grid{grid-template-columns:1fr}.ops-resources__grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:479px){.ops-command{gap:12px}.ops-command--fullscreen{padding:16px}.ops-toolbar__button-label{display:none}.ops-health{justify-content:flex-start}.ops-traffic__grid,.ops-latency-grid,.ops-resources__grid{grid-template-columns:1fr}.ops-percentiles{grid-template-columns:repeat(2,minmax(0,1fr))}.ops-job dl{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.ops-health{transition:none}}
 </style>
