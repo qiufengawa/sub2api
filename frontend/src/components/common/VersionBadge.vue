@@ -1,5 +1,5 @@
 <template>
-  <div class="relative flex-shrink-0">
+  <div class="version-badge relative flex-shrink-0">
     <!-- Admin: Full version badge with dropdown -->
     <template v-if="isAdmin">
       <UiButton
@@ -837,5 +837,29 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
-.version-badge :deep(.version-rollback-trigger) { justify-content: space-between; }
+.version-badge :deep(.ui-button > span:not(.ui-button__spinner)) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.version-badge :deep(.version-rollback-trigger) {
+  justify-content: flex-start;
+}
+
+.version-badge :deep(.version-rollback-trigger > span) {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.version-badge :deep(.version-rollback-trigger > span > span:first-child) {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
 </style>
