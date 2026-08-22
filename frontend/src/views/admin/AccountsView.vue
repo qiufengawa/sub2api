@@ -3234,6 +3234,16 @@ onUnmounted(() => {
   gap: 12px;
 }
 
+/* Keep the filter grid and account actions on separate rows before the
+ * filters reach their three-column breakpoint; this prevents the refresh
+ * action from being covered by a minimum-width select. */
+@media (max-width: 1100px) {
+  .accounts-workspace :deep(.ui-table-toolbar) { align-items: flex-start; flex-wrap: wrap; }
+  .accounts-workspace :deep(.ui-table-toolbar__primary),
+  .accounts-workspace :deep(.ui-table-toolbar__actions) { width: 100%; flex-basis: 100%; }
+  .accounts-workspace :deep(.ui-table-toolbar__actions) { justify-content: flex-end; }
+}
+
 .accounts-workspace {
   display: flex;
   min-height: 0;
