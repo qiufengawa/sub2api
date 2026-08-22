@@ -343,4 +343,27 @@ describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
     expect(wrapper.emitted('account-updated')).toBeUndefined()
     wrapper.unmount()
   })
+
+  it('keeps the reset confirmation open after a failed reset request', async () => {
+    vi.mocked(resetOpenAIQuota).mockRejectedValueOnce(new Error('reset fixture failure'))
+    const account = makeAccount({
+      parent_account_id: null,
+      extra: {
+        codex_reset_credit_snapshot: {
+          available_count: 1,
+          credits: [{ expires_at: FUTURE_EXPIRY_EARLY }],
+        },
+      },
+    })
+    const wrapper = mount(OpenAIQuotaResetCell, { props: { account } })
+
+    await resetButton(wrapper).trigger('click')
+    const dialog = wrapper.findComponent(UiConfirmDialog)
+    dialog.vm.$emit('confirm')
+    await flushPromises()
+
+    expect(dialog.props('show')).toBe(true)
+    expect(dialog.props('pending')).toBe(false)
+    expect(wrapper.text()).toContain('reset fixture failure')
+  })
 })

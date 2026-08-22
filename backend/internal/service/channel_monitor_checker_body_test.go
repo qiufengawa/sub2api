@@ -54,9 +54,12 @@ func (h *captureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func setupFakeAnthropic(t *testing.T, handler *captureHandler) string {
 	t.Helper()
 	swapMonitorHTTPClient(t)
-	srv := httptest.NewServer(handler)
-	t.Cleanup(srv.Close)
-	return srv.URL
+	monitorHTTPClient.Transport = monitorFixtureRoundTripper(func(r *http.Request) (*http.Response, error) {
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, r)
+		return recorder.Result(), nil
+	})
+	return "https://monitor-anthropic-fixture.test"
 }
 
 type openAICaptureHandler struct {
@@ -116,9 +119,18 @@ func (h *openAICaptureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 func setupFakeOpenAI(t *testing.T, handler *openAICaptureHandler) string {
 	t.Helper()
 	swapMonitorHTTPClient(t)
-	srv := httptest.NewServer(handler)
-	t.Cleanup(srv.Close)
-	return srv.URL
+	monitorHTTPClient.Transport = monitorFixtureRoundTripper(func(r *http.Request) (*http.Response, error) {
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, r)
+		return recorder.Result(), nil
+	})
+	return "https://monitor-openai-fixture.test"
+}
+
+type monitorFixtureRoundTripper func(*http.Request) (*http.Response, error)
+
+func (f monitorFixtureRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }
 
 func answerFromOpenAIRequest(body map[string]any) string {

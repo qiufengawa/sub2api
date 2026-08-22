@@ -196,6 +196,25 @@ describe('UserPlatformQuotaModal', () => {
     expect(apiMocks.resetPlatformQuotaWindow).toHaveBeenCalledWith(99, 'anthropic', 'daily')
   })
 
+  it('重置失败时保留确认上下文以便重试', async () => {
+    apiMocks.resetPlatformQuotaWindow.mockRejectedValueOnce(new Error('reset fixture failure'))
+    const w = await mountAndOpen()
+    const resetBtns = w.findAll('button[aria-label="admin.users.platformQuota.reset.button"]')
+    await resetBtns[0].trigger('click')
+    await w.get('[data-test="confirm-dialog-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(w.get('[data-test="confirm-dialog"]').exists()).toBe(true)
+    expect(w.get('[data-test="confirm-dialog-confirm"]').attributes('disabled')).toBeUndefined()
+    expect(apiMocks.resetPlatformQuotaWindow).toHaveBeenCalledTimes(1)
+
+    apiMocks.resetPlatformQuotaWindow.mockResolvedValueOnce({ platform_quotas: [] })
+    await w.get('[data-test="confirm-dialog-confirm"]').trigger('click')
+    await flushPromises()
+    expect(apiMocks.resetPlatformQuotaWindow).toHaveBeenCalledTimes(2)
+    expect(w.find('[data-test="confirm-dialog"]').exists()).toBe(false)
+  })
+
   describe('subscription warning banner', () => {
     it('displays subscription warning when user has active subscription', async () => {
       const w = mount(UserPlatformQuotaModal, {

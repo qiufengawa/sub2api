@@ -2014,5 +2014,591 @@ Review 必须按严重度记录：
 ### 2026-08-22：Ops 系统日志破坏性确认重试边界
 
 - `OpsSystemLogTable` 的系统日志清理与 runtime reset 现在只有在 mutation 成功后才关闭确认框；失败时保留当前筛选/配置上下文，并在请求 pending 期间锁定确认和取消入口，避免重复提交。
-- `OpsSystemLogTable.spec.ts` 新增失败重试、pending duplicate guard 与 runtime reset 失败保留上下文覆盖；定向 7 tests、全量前端 360 files / 2441 tests、static audit 13、typecheck、lint、3103-module build 和 diff-check 均通过。
+- `OpsSystemLogTable.spec.ts` 新增失败重试、pending duplicate guard 与 runtime reset 失败保留上下文覆盖；该 checkpoint 的定向 7 tests 与全量前端 360 files / 2441 tests 已通过，随后支付/退款 pending guard 复验将全量计数更新为 2445。
 - 该证据使用本地 API mocks，不扩大为外部 provider settlement/refund 或真实生产 mutation；native screen-reader、credentialed external provider、完整逐页状态/late-response 和最终 severity-signed Code Review 仍 active。
+
+### 2026-08-22：支付与退款破坏性流程 pending/失败重试边界
+
+- SettingsView 的邀请返利用户 reset 与 payment provider 删除确认现在只在
+  mutation 成功后关闭；失败保留目标与确认上下文，pending 期间禁止重复确认、
+  取消和 Escape/close。`AdminRefundDialog` 在退款请求进行中锁定取消按钮、
+  Escape 与关闭按钮，`AdminOrdersView` 同时守卫父级 close callback，成功/待处理
+  响应改走内部完成路径，避免 pending guard 阻止正常收尾。
+- 新增 SettingsView 2、AdminRefundDialog 1、AdminOrdersView 1 个失败/重复/取消
+  fixture；与 OpsSystemLogTable 7 项合并后的全量前端门禁为 `360 files / 2445 tests`，
+  static audit 13、typecheck、lint、3103-module build、diff-check 均通过。
+- 证据 `docs/frontend-rebuild/evidence/20260822/payment-mutation-guards.json` 明确
+  标注所有请求均为本地 Vitest API mocks；credentialed 外部 Stripe/WeChat/Airwallex
+  settlement/refund、native screen-reader、完整逐页状态/late-response 与最终
+  severity-signed Code Review 仍未闭环。
+
+### 2026-08-22：其余破坏性确认失败重试边界
+
+- 继续按“失败保留上下文、成功才关闭、pending 锁定重复/取消”的规则覆盖七条
+  前端破坏性路径：Batch Image 删除、affiliate quota transfer、Ollama Cloud session
+  删除、scheduled test plan 删除、OpenAI quota reset、platform quota reset 和
+  Accounts export。对应组件/视图现在不会在异步失败时丢失目标或用户已选配置；
+  Step-up 主动取消仍按既有交互静默关闭。
+- 新增八个本地 Vitest fixture（Batch Image 同时覆盖删除与取消失败重试），连同前述
+  支付/退款与 Ops mutation 复验后，全量前端门禁为 `360 files / 2453 tests`；
+  static audit 13、typecheck、lint、3103-module build、diff-check 均通过。证据与
+  测试套件清单见
+  `docs/frontend-rebuild/evidence/20260822/payment-mutation-guards.json`。
+- `ax-tree-summary.json` 的 4 个 pageErrors 已显式分类为四个
+  `/admin/settings` sandbox iframe `localStorage` SecurityError；Settings state
+  matrix 的 6 个 expected sandbox errors 是另一组 6-case fixture，不能合并计数。
+  两者都不计入 unexpected page errors，也不放宽 iframe sandbox。
+- native VoiceOver/NVDA、credentialed 外部 Stripe/WeChat/Airwallex settlement/refund
+  与 external return、完整逐页 slow/empty/error/late-response、剩余管理员 mutation
+  边缘和最终 severity-signed Code Review 仍保持 active。
+
+### 2026-08-22：移动菜单焦点范围与重复开关名称复核
+
+- `AppHeader` 移动菜单触发器现在提供 `aria-expanded`/`aria-controls`；移动侧栏
+  打开后将焦点移入并循环 Tab，Escape/关闭后恢复触发器焦点；`AppLayout` 在移动
+  overlay 活跃时将 workspace 标记为 `inert`。关闭侧栏的原有
+  `inert`/`aria-hidden` 边界保持不变。
+- Settings 重复行开关（Claude system block、quota notification 邮箱）和支付
+  provider 开关增加上下文 accessible name；provider 保留紧凑可见 caption，避免
+  横向布局膨胀。Settings 主请求重试成功后焦点移到首个 tab。
+- 新增/扩展 AppHeader、ProviderCard、ToggleSwitch、Settings layout 合同测试；全量前端
+  门禁复验为 `361 files / 2466 tests`，static audit 13、typecheck、lint、3103-module
+  build、diff-check 均通过。源级契约索引见
+  `docs/frontend-rebuild/evidence/20260822/a11y-focus-contracts.json`。
+- 本轮没有新的真实受保护 Chromium 矩阵运行（当前 shell 预览服务绑定返回
+  `EPERM`、shell Chrome 在导航前 SIGABRT；in-app browser 虽可到达本地 Vite
+  登录页但没有认证 fixture session），因此不把源级焦点合同扩大为浏览器或原生
+  读屏证据；native VoiceOver/NVDA、
+  credentialed 外部 provider settlement/refund、完整逐页状态/late-response、
+  未覆盖管理员 mutation 与最终 severity-signed Code Review 仍 active。
+- 随后使用 in-app Chromium 对未认证 `/home` 做了独立 smoke check（1280×720，
+  单一 `main`、无横向溢出、无 error/warning console）；该记录位于
+  `docs/frontend-rebuild/evidence/20260822/public-home-browser-20260822.json`，
+  不扩大为受保护页面证据。
+- 继续审计管理员破坏性边界：Accounts 部分成功批量 delete/reset/refresh 现在只保留
+  `failed_ids` 供重试，Proxies 批量 delete 只保留 skipped IDs；Monitor Template
+  删除与 Risk Control flagged-hash 清理均在 mutation 成功后先清除确认目标，再执行
+  列表/状态刷新。新增 6 个本地 fixture tests；这关闭了已确认的重复 mutation 缺陷，
+  但未覆盖的逐页 mutation/slow/error 仍保持 active。
+
+### 2026-08-22：补录完整受保护 Chromium 基线捕获
+
+- 复核隔离 Chromium 原始矩阵并生成
+  `docs/frontend-rebuild/evidence/20260822/protected-browser-matrix-20260822.json`：
+  用户 19 路由 × 3 视口 × 3 模式 = 171 runs，管理员 24 个矩阵标签 × 3
+  视口 × 3 模式 = 216 runs。两组均为 0 overflow、0 navigation error、0
+  failed request、0 console error/warning；管理员保留 3537 个已分类的 sandbox
+  iframe `SecurityError`，unexpected pageerror 为 0。
+- 该 artifact 嵌入脱敏逐 run manifest（视口、主题、几何、诊断、AX snapshot
+  hash、8 次 Tab 样本）并记录原始矩阵 SHA-256。它闭合了隔离环境的完整基础几何/
+  console/键盘捕获证据，但不等价原生 VoiceOver/NVDA，也不回溯验证本 checkpoint
+  之后新增的焦点源代码改动。
+- 因此当前仍需：最新焦点改动后的 fresh protected rerun、四条管理员缺失状态路由
+  （`/admin/promo-codes`、`/admin/risk-control`、`/admin/prompt-audit`、
+  `/admin/orders/dashboard`）及 900 宽状态补测、完整逐页 late-response、原生
+  screen-reader、credentialed 外部 provider settlement/refund/return、未覆盖
+  administrator mutation 和 severity-signed Code Review。
+
+### 2026-08-22：补齐移动断点与 Accounts 部分失败回退
+
+- `AppSidebar` 在移动抽屉打开时跨过 1023px 断点会主动关闭抽屉、清理待恢复
+  焦点引用和 focus request，避免桌面元素在随后移动端重开时被错误聚焦；新增
+  断点回归测试。
+- Accounts 批量 reset-status/refresh-token 的旧 API 响应不带 `failed_ids` 时，
+  现在从 `errors`/`results` 逐项记录中提取失败账号，再回退到原始选择；成功账号
+  不会因兼容性响应而被重复轮换或重复清理。新增 2 个 fixture tests。
+- Batch Image 取消确认现在快照 batch/API-key identity；即使详情选择在确认前变化，
+  请求仍只会作用于原始任务。新增 1 个回归 fixture。
+- 全量前端门禁复验为 **361 files / 2470 tests**；当前仍未闭合的门禁为最新源代码
+  后的受保护浏览器重跑、缺失逐页状态与 late-response、原生 VoiceOver/NVDA、
+  credentialed 外部 provider settlement/refund/return、未覆盖管理员 mutation 和
+  severity-signed Code Review。
+- 后端补充 `TestGatewayRoutesBatchImageModelsStaticRoutePrecedesIDRoute`，确认
+  `/v1/images/batches/models` 静态路由保持在 `:id` 动态路由之前；该测试只覆盖
+  Gin 注册/优先级，不扩大为真实批量生图下载或外部 provider 证据。
+- in-app Chromium 追加匿名 `/admin/dashboard` 守卫 smoke：重定向到
+  `/login?redirect=/admin/dashboard`，证据为
+  `docs/frontend-rebuild/evidence/20260822/auth-guard-smoke-20260822.json`；未尝试
+  登录，不计入受保护页面覆盖。
+
+### 2026-08-22：最新本地门禁复跑与后端 provider 限制记录
+
+- 在当前工作树再次运行 `pnpm run test:run`，结果为 **361 test files / 2470 tests
+  passed**；`pnpm run test:audit` 为 13 tests passed，`pnpm run typecheck`、
+  `pnpm run lint:check`、`pnpm run build`（3103 modules）和 `git diff --check` 均通过。
+- `GOCACHE=/tmp/sub2api-gocache go test ./internal/server/routes -count=1` 通过，包含
+  Batch Image `models` 静态路由回归。`go test ./internal/payment/provider -count=1`
+  当前不能记为绿色：EasyPay 查询映射子用例报告失败，随后 `httptest.NewServer` 在
+  当前沙箱因 `listen tcp6 [::1]:0: bind: operation not permitted` panic；这需要在允许
+  本地监听的环境复核，不能扩大为 provider package 通过。
+- system 相关后端单元检查也已复跑：`go test -tags unit ./internal/handler/admin
+  -run 'TestSystemHandler' -count=1` 通过；`go test ./internal/service
+  -run 'TestSystemOperationLockService|TestOpsSystemLog' -count=1` 通过，覆盖更新/
+  回滚幂等、客户端断开后的有界上下文、系统锁租约恢复和 Ops 系统日志行为。
+- system 文件只读审计还发现 `GetVersion` 忽略 `CheckUpdate` 错误后直接读取返回值；
+  backend 明确不在本轮允许修改范围，已记录为后续后端 review 项，未改动该文件。
+- 受保护页面 fresh rerun、逐页 slow/empty/error/late-response、原生 VoiceOver/NVDA、
+  credentialed 外部支付结算/退款/回跳、未覆盖管理员 mutation 和 severity-signed
+  final Code Review 继续 active；system handler 的 version error-boundary review
+  作为 backend-owned follow-up 保持开放。
+
+### 2026-08-22：支付服务商并发切换与刷新失败边界
+
+- SettingsView 的 provider 字段/支持类型 mutation 现在按 provider 共享单一异步
+  task fence。关闭支付类型时会等待该类型 provider 的既有 mutation，再发送
+  `enabled=false`，不再因 pending 状态跳过 provider；支付类型按钮在级联期间锁定。
+- provider mutation 成功后先同步本地 provider 状态，再执行可失败的列表刷新，避免
+  刷新失败时界面保留旧值、用户重试反向覆盖已经成功的服务端 mutation。
+- 新增 3 个 SettingsView 本地 API-mock fixture：重复字段切换、字段 mutation 与
+  支付类型关闭的串行化、刷新失败后的本地状态保留；ProviderCard/ToggleSwitch
+  pending 与 accessible-label 定向测试也通过。
+- 当前工作树复验：`pnpm run test:run` 为 **361 test files / 2474 tests passed**；
+  SettingsView/layout 定向计数 52，`pnpm run typecheck`、`pnpm run lint:check`、
+  `pnpm run build`（3103 modules）和 `git diff --check` 继续作为复验门禁。
+- 以上仍是前端本地 fixture/单元证据，不闭合最新受保护 Chromium 重跑、逐页
+  slow/empty/error/late-response、原生 VoiceOver/NVDA、credentialed Stripe/WeChat/
+  Airwallex settlement/refund/return、未覆盖管理员 mutation、backend-owned system
+  version error-boundary review 或 severity-signed final Code Review。
+
+### 2026-08-22：provider mutation 全局队列与列表读取边界
+
+- SettingsView 的 provider API mutation 现在通过全局异步队列串行执行，同时保留
+  provider-id 级 single-flight 防重复点击；支付类型级联会等待既有字段/类型更新，
+  禁用失败时恢复 payment type 并显示可重试错误。保存期间以及 provider
+  create/edit/delete/reorder/toggle 进行中，支付控件、刷新、创建和拖拽入口均锁定，
+  避免 save-vs-toggle 与 cross-provider visible-method 冲突竞态。
+- Provider 列表 GET 带 request sequence/state-version fence；旧的乱序响应会被丢弃，
+  成功删除先从本地移除卡片再执行 best-effort refresh，刷新失败不会留下可再次删除
+  的 stale card。新增五个 SettingsView 本地 API-mock fixtures：cascade rejection
+  restore、save lock、out-of-order response、delete+refresh failure、cross-provider
+  conflict serialization。
+- 当前复验：`pnpm run test:run` 为 **361 test files / 2479 tests passed**；
+  SettingsView 52 tests、SettingsView/layout 57 tests、static audit 13 tests；
+  `pnpm run typecheck`、`pnpm run lint:check`、生产 build（3103 modules）和
+  `git diff --check` 均通过。`payment-mutation-guards.json` 现记录 32 个新增
+  本地 fixture tests，SHA-256 索引已重算并验证。
+- 这些是本地 Vitest/API-mock 与源码合同证据，不扩大为最新受保护 Chromium 重跑、
+  原生 VoiceOver/NVDA、credentialed Stripe/WeChat/Airwallex settlement/refund/return、
+  完整逐页 slow/empty/error/late-response、未覆盖管理员 mutation、backend-owned
+  system version error-boundary 或 severity-signed final Code Review；这些门禁仍 active。
+
+### 2026-08-22：provider eventual-consistency refresh保护
+
+- Provider mutation成功后记录局部 optimistic patch；列表 GET 若仍返回旧快照，会在
+  sequence/state-version 检查后重新应用该 patch，直到服务端响应确认，避免 eventual
+  consistency 让用户重复反向切换。新增 SettingsView stale-refresh fixture。
+- 编辑 provider 时 optimistic patch 仅保留非敏感列表字段，排除提交 payload 中的
+  `config`（API key/secret）；provider 列表为空时的创建入口同样在 mutation/save
+  pending 期间锁定。
+- 当前 SettingsView 为 53 tests，SettingsView/layout 为 58，完整前端门禁为
+  **361 files / 2480 tests passed**；`payment-mutation-guards.json` 记录 33 个新增
+  本地 fixture tests，`vue-tsc`、lint、build（3103 modules）与 diff-check 继续通过。
+- 该保护仍属于本地源码/Vitest 证据，不替代 fresh protected Chromium、native
+  VoiceOver/NVDA、credentialed 外部支付 settlement/refund/return、完整逐页状态与
+  late-response、未覆盖管理员 mutation、backend-owned system version error-boundary
+  或 severity-signed final Code Review。
+
+### 2026-08-22：Batch Image API 合约与 iframe 隔离补强
+
+- 新增 `frontend/src/api/__tests__/batchImage.spec.ts`（8 项）及持久化证据
+  `docs/frontend-rebuild/evidence/20260822/batch-image-api-contract-20260822.json`。
+  覆盖 Batch Image 的 create/list/models/detail/items/cancel/download/content，
+  编码后的 batch/custom ID、分页 `status`/`limit`/`cursor`、`image_index`、
+  `X-Request-Id` 错误、记录删除与 outputs 删除的独立语义，以及下载 URL 延迟回收。
+  测试只 stub `window.fetch`，不宣称真实后端、provider、object storage、ZIP 内容
+  或外部结算通过。
+- `batchImage.ts` 增加 `deleteBatchImageOutputs`，页面生成的 agent instruction
+  补齐 item content、record/output delete 和失败项-only retry + `parent_batch_id`
+  端点，并说明 UI 固定 8 秒刷新仅是显示节流；真实任务仍应尊重服务端
+  `Retry-After` 与恢复记录。
+- Home/Custom Page 外部 URL iframe 增加
+  `sandbox="allow-scripts allow-forms allow-popups allow-presentation"` 与
+  `referrerpolicy="no-referrer"`，并在组件 fixture 中锁定该隔离边界。省略
+  `allow-same-origin` 是刻意安全策略；依赖同源存储的外部页面需改用 HTML 模式。
+  真实跨域 iframe 成功/失败/存储拒绝矩阵仍 pending。
+- Provider imperative callback 增加与渲染控件一致的 save/mutation fence；编辑
+  provider 的 optimistic patch 继续排除 `config` 敏感字段。新增 2 个 SettingsView
+  fixture（敏感配置不进入列表状态、save-race callback 被拦截）。当前本地门禁为
+  **362 test files / 2,502 tests passed**，SettingsView 58、SettingsView/layout 63，
+  static audit 13、typecheck、lint、3103-module build、diff-check 均通过；后续
+  Batch 分页与 affiliate refresh 边界见下一节。
+- 仍未关闭：最新源码后的受保护浏览器重跑、四条管理员缺失状态路由与 900 宽状态、
+  完整逐页 late-response、native VoiceOver/NVDA、credentialed 外部支付结算/退款/
+  回跳、listener-capable backend provider rerun、backend-owned system version
+  error boundary、未覆盖 administrator mutation 和 severity-signed Code Review。
+
+### 2026-08-22：Batch Image retry pagination and final local rerun
+
+- `listBatchImageItems` now supports optional `status`/`limit`/`cursor` options
+  without breaking the existing status-string call form. `ensureItemsForRetry`
+  traverses all failed-item pages (and stops on an empty repeated page) before
+  submitting a retry child batch, closing the >100-item first-page omission
+  identified in the Batch Image audit. A two-page fixture asserts all four
+  failed prompts reach the retry payload.
+- `saveBlob` now defers object-URL revocation until after the download anchor
+  click. The Batch Image API contract artifact is updated to 8 tests, with a
+  separate retry/detail-pagination fixture (2 tests); both are local
+  Vitest/fetch mocks, not live provider/storage/ZIP evidence.
+- The latest local frontend gate is **362 test files / 2,502 tests passed**;
+  SettingsView plus layout is 63, RiskControlView is 14, BatchImageGuideView is
+  22, AffiliateView is 7, and the static audit is 13. A successful affiliate
+  transfer also updates local quota before a best-effort refresh, preventing a
+  stale retry action after a refresh failure; the local destructive-flow index
+  now records two AffiliateView mutation cases. Typecheck, lint, production build (3,103
+  modules), `git diff --check`, and the 13-file evidence SHA-256 index pass.
+- R0-R9 remains open at the evidence boundary: fresh authenticated protected
+  Chromium after source edits, missing administrator state/mutation and
+  late-response cases, native VoiceOver/NVDA, credentialed external payment
+  settlement/refund/return, listener-capable provider rerun, backend-owned
+  version error handling, live Batch Image provider/storage/download/destructive
+  evidence, live iframe matrix, and severity-signed final Code Review.
+
+### 2026-08-22 latest local hardening checkpoint
+
+- Current frontend verification is **362 test files / 2,512 tests passed**;
+  static audit 13/13, typecheck, lint, 3,103-module build and diff-check also
+  pass. Earlier 2,502-test entries are historical checkpoints, not the latest
+  run.
+- Added function-level single-flight guards for Channels status, Groups
+  create/update/sort and Proxies create/update/batch-create mutations.
+- Batch Image now protects retry/detail state across navigation, filters
+  recovered retry-child inputs, paginates API keys/items, supports confirmed
+  output deletion with cache invalidation, and preserves another detail's
+  previews when a delete response arrives late. Retry-generated item IDs also
+  remain unique when source IDs sanitize to the same base. These are local
+  fixtures only.
+- Hardened the admin system-version endpoint for update-check errors and nil
+  responses; tagged handler tests cover both success and failure responses.
+- Open gates remain fresh protected browser evidence, native VoiceOver/NVDA,
+  listener-capable provider/EasyPay rerun, credentialed external payment
+  settlement/refund/return, live Batch/iframe/provider-storage matrices,
+  complete per-page state/late-response and mutation coverage, and the final
+  severity-signed Code Review.
+
+### 2026-08-22：Batch Image 后端契约硬化与本地复验
+
+- Batch Image 单项预览不再写入 `downloaded_at`；该字段只由成功 ZIP 响应
+  标记，预览响应改为 `private, no-store`，避免输出清理/过期后被中间缓存继续
+  提供。
+- ZIP 下载按 `status=all/success/failed` 选择导出集合，并先写入私有临时文件，
+  只有完整 ZIP 成功后才提交 HTTP 响应头；provider/JSONL/大小错误不会再伪装成
+  HTTP 200 的空/截断归档。
+- `queued` 查询现在覆盖 `created`、`uploading`、`submitted` 三个生命周期状态，
+  repository 使用 `status IN (...)`；新提交的 `custom_id` 限制为单一 Gin 路径段可
+  安全寻址的 ASCII 字符及 255 字符上限，拒绝 slash/过长 ID。
+- 新增 owner/API-key/idempotency-key 的部分唯一索引迁移，并在读后创建竞争遇到
+  唯一冲突时回读并复用同一请求（请求哈希不同则返回冲突），避免重复任务与重复
+  billing hold。生产迁移前仍需执行历史重复数据预检。
+- Batch Image 前端批量下载/删除逐项继续处理；部分失败时报告完成/失败计数，且
+  只保留失败 ID 供重试。该项仍是本地 API/Vitest 合同，不宣称真实 provider、
+  object storage、ZIP 字节、并发或破坏性流程闭环。
+- 本地复验通过：`go test -tags=unit ./internal/service` 的 Batch Image
+  service/download/cleanup 定向集合、`go test ./migrations -count=1`、
+  `go test ./internal/server/routes -count=1`；前端全量为 **362 files / 2,512
+  tests passed**，typecheck、lint、3103-module build、static audit 与 diff-check
+  继续通过。
+- 仍 active：最新源码后的受保护 Chromium 重跑、缺失管理员状态/late-response/
+  mutation、native VoiceOver/NVDA、credentialed 外部支付结算/退款/回跳、live
+  Batch provider/storage/download/concurrency/destructive、live iframe 矩阵、
+  listener-capable provider/EasyPay 复验和最终 severity-signed Code Review。
+
+### 2026-08-22：本轮本地闭环复核
+
+- 最新前端全量门禁为 **362 test files / 2,515 tests passed**；static audit
+  13/13、`vue-tsc --noEmit`、lint、3,103-module build 与
+  `git diff --check` 均通过。该计数已同步到 2026-08-22 evidence JSON，13
+  个 JSON 的 SHA-256 校验全部通过。
+- Batch Image 根任务详情现在会发现当前分页之外的 retry children，并在
+  聚合、详情 item 请求和状态切换时使用序列保护；`BatchImageGuideView.spec.ts`
+  定向运行 30/30。该证据仍是本地 Vitest/API fixture，不等同于真实 provider、
+  object storage、ZIP 或破坏性流程。
+- Stripe webhook 在候选 provider 查找前提取
+  `data.object.metadata.orderId`，支持多 Stripe 实例按订单绑定；provider 查找
+  的未配置、歧义和瞬时错误改为不同 HTTP 边界，避免把可重试错误静默确认。新增
+  handler 合同测试覆盖 metadata、畸形 payload 与 lookup 状态。
+- Batch idempotency 唯一索引迁移加入重复数据预检和可诊断错误，clean/duplicate
+  sqlmock fixture 均通过；真实生产库迁移仍需 listener-capable 环境演练。
+- 仍未满足停止条件：fresh authenticated protected-browser（含当前
+  `/admin/ui-system` 与缺失状态路由）、原生 VoiceOver/NVDA、credentialed
+  Stripe/WeChat/Airwallex settlement/refund/return、listener-capable provider
+  rerun、完整管理员状态/mutation/late-response、live Batch/iframe 矩阵及最终
+  severity-signed Code Review。
+
+### 2026-08-22：Batch root/retry-child 下载闭环
+
+- 后端 ZIP 现在按 owner/API key 构造 root 与 direct retry-child source set；
+  failed/cancelled root 只有在已完成 child 输出覆盖全部 root items 时才可下载，
+  每个 source 独立解析 provider/account，最终合并到 root manifest。
+- 聚合 item 上限在打开 provider 输出前检查；foreign、pending、output-deleted
+  child 不会被静默纳入。手动 root output delete 会预检并清理 eligible child
+  outputs，避免只删除父记录而残留 provider 对象。
+- Batch download/cleanup 定向单测和 repository migration preflight 通过；证据
+  已写入 `gate-results-20260822.json`、`coverage-manifest.json` 并重算 13 项
+  SHA。仍需真实 provider/storage/ZIP、三视口受保护浏览器和 destructive-flow
+  运行证据，不能把本地 fake 结果升级为 live gate。
+
+### 2026-08-22：最新本地回归计数
+
+Prompt Audit criteria-generation fencing、Batch retry ID 长度约束、跨页 child 删除清理、预览缓存删除代际、失败 root/terminal retry child 输出清理完成；前端全量 Vitest **362 files / 2,516 tests passed**，`vue-tsc`、lint、静态审计和聚焦 Go 测试通过。受保护认证浏览器、native VoiceOver/NVDA、真实支付 provider、live Batch provider/storage/ZIP 仍是开放门禁。
+
+### 2026-08-22：Batch HTTP route-mock 证据
+
+新增 `docs/frontend-rebuild/evidence/20260822/batch-image-route-mock-20260822.json` 与 `frontend/src/api/__tests__/batchImage.route-mock.spec.ts`。无监听器、无凭据的状态化 `fetch` fixture 已闭环 models、submit/idempotency replay/conflict、owner 隔离、分页、content/ZIP Blob、cancel、outputs 与 record delete；证据明确不替代 Gin/provider/storage/live ZIP/destructive gate。旧 2,502/2,512/2,515 记录保留为历史 checkpoint，当前全量为 362 files / 2,516 tests。
+
+### 2026-08-22：Batch route-mock 后最新本地回归
+
+新增 route-mock fixture 后，前端全量 Vitest 为 **363 files / 2,519 tests
+passed**；`vue-tsc`、ESLint、13 项静态审计、3,103-module build 与
+`git diff --check` 均通过。证据目录当前含 14 个 JSON（新增
+`batch-image-route-mock-20260822.json`），`SHA256SUMS.txt` 已重算并全部校验通过。
+该 fixture 仍明确是无凭据、无监听器的前端 API 合同，不替代受保护浏览器、native
+VoiceOver/NVDA、真实支付、live Batch/provider/storage/ZIP 或 iframe 门禁。
+
+同一轮还加入 RiskControl `loadAll` 代际 fence 与当前管理员路由元数据契约（UI
+system、promo codes、risk/prompt audit、payment orders）。这些是本地
+Vitest/source contracts，不替代受保护认证三视口状态与 AX 采集。
+
+同一轮还加入 RiskControl `loadAll` 代际 fence 与 out-of-order 回归（1 条
+新增 fixture）：旧的初始 config/groups/proxies/logs 响应不会覆盖新页面加载，手动
+status 刷新仍保留最新 runtime snapshot。该项是本地 Vitest 证据，不替代受保护
+认证三视口状态矩阵。
+
+### 2026-08-22：listener-free provider/storage 回归
+
+- 未缓存运行的支付 provider 包在 default 与 `unit` 两种构建下均通过：
+  EasyPay/Airwallex 测试改用进程内 `http.RoundTripper` + recorder，Stripe
+  继续使用内存 backend，WeChat 继续使用 SDK stubs。该项消除了受限沙箱中
+  `httptest` loopback bind 对本地 provider gate 的阻塞，但不等价于真实凭据或
+  外部支付 sandbox。
+- S3 backup upload 测试注入 AWS SDK HTTP client，通过进程内请求 fixture
+  验证 PutObject 方法、长度与内容；定向 unit 测试通过。真实 S3/object
+  storage 仍保持开放门禁。
+- gate/evidence JSON 已记录上述命令与 fixture-only 边界，SHA256SUMS 已重算。
+
+### 2026-08-22：Payment Dashboard late-response 与最新前端计数
+
+- Payment Dashboard 增加旧请求 reject/新日期范围成功的 generation-fence 回归，
+  旧错误不会覆盖新统计或触发过期提示。
+- 前端全量 Vitest 最新结果为 **363 files / 2,520 tests passed**；
+  `vue-tsc`、ESLint、13 项 static audit、3,103-module build 与 diff-check 均通过。
+  该计数与 evidence JSON/SHA256SUMS 已同步。
+- Image result uploader 的远程 URL fixture 也改为进程内 recorder，定向
+  `TestImageResultUploader` 通过；仅证明本地改写/假存储契约，不替代真实对象存储。
+
+### 2026-08-22：本地门禁最终复验（当前工作树）
+
+- 前端全量 Vitest **363 files / 2,520 tests passed**；`vue-tsc`、ESLint、
+  `test:audit`（13/13）、3,103-module production build 与 `git diff --check`
+  均通过。
+- 后端 `go test -tags=unit ./internal/handler ./internal/service -count=1`、
+  `go test -tags=unit ./internal/repository -count=1`、
+  `go test -tags=unit ./internal/payment/provider -count=1` 与 route tests
+  均通过。受限环境中 listener-backed SMTP/Redis/websocket fixtures 显式
+  `SKIP` 并记录原因；`go test -tags=unit ./... -run '^$'` 全仓编译通过。
+- 这些是本地/进程内 fixture 证据，不关闭真实外部支付、对象存储、受保护
+  authenticated browser、native VoiceOver/NVDA、live Batch/iframe 或最终
+  severity-signed Code Review 门禁；完整 `go test -tags=unit ./...` 仍会在
+  未转换的 listener-dependent pkg tests 上受沙箱拒绝绑定影响。
+
+### 2026-08-22：支付 SDK 本地合同与管理员路由清单复核
+
+- 新增 Stripe typed-SDK 生命周期合同（创建/查询/退款/退款查询/取消）及
+  PaymentIntent webhook 签名映射/拒签测试；新增 WeChat Pay APIv3 RSA 签名与
+  AES-GCM 交易通知解密合同测试。两者均使用进程内密钥/backend，不读取凭据、
+  不访问外网；未缓存 `go test -tags=unit ./internal/payment/provider -count=1`
+  通过。
+- 管理员路由静态合同扩展到当前 24 个页面路由，确认每页保留
+  `requiresAuth`/`requiresAdmin`，并保留 risk/prompt/payment feature gates；
+  路由清单测试 5/5 通过。
+- 前端全量 Vitest 最新为 **363 files / 2,521 tests passed**，typecheck 与
+  lint 通过；evidence/20260822 三份索引计数及 SHA256SUMS 已同步并校验通过。
+- 以上仍是本地合同与静态证据；fresh authenticated protected-browser、native
+  VoiceOver/NVDA、credentialed 外部支付、live Batch/provider/storage/ZIP、
+  live iframe 以及 severity-signed final Code Review 继续保持开放。
+
+### 2026-08-22：Batch 重试源 ID 回退解析
+
+- 重试子任务从服务端重新载入、失去浏览器内映射时，回退解析现在只移除一个
+  `_retry_<timestamp>_<index>`（兼容旧的单段后缀），保留源 ID 中合法的
+  `_retry_` 片段；BatchImageGuideView 定向 30/30 与全量 363/2,521 通过。
+- 该修复仅覆盖本地 UI 解析合同；真实 Batch provider/storage 与跨会话重试
+  端到端仍在 live 门禁中。
+
+### 2026-08-22：最新管理员 mutation/状态边界复验
+
+- Backup、AuditLog、Usage、Admin Orders 与 Email Template Editor 增加函数级
+  single-flight、代际响应与可感知错误边界；新增 6 条本地回归 fixture。
+- 当前前端全量 Vitest 为 **363 test files / 2,528 tests passed**；
+  `vue-tsc --noEmit`、ESLint、14 项 static audit、3,103-module production
+  build、后端 handler/service/repository/provider 定向单测及全仓 tagged
+  compile（`go test -tags=unit ./... -run '^$'`）通过。
+- 证据 JSON 计数与 SHA-256 索引已更新。以上仍是本地代码/fixture 证据，
+  不关闭 fresh authenticated protected-browser、native VoiceOver/NVDA、
+  credentialed external payment、live Batch/provider/storage/ZIP、iframe
+  cross-origin matrix 或 severity-signed final Code Review 门禁。
+
+### 2026-08-22：fresh public/guard 浏览器补充证据
+
+- Codex in-app browser 在当前本地 Vite 上以 1440×1000、900×900、390×844
+  复核 `/home`、`/login` 与匿名 `/admin/dashboard` guard，共 9 个运行；均无
+  横向溢出或 console error/warning，登录控件有可访问名称，admin 路由重定向到
+  login。`/home` light/dark 主题也记录了稳定背景与宽度。
+- 证据写入 `docs/frontend-rebuild/evidence/20260822/fresh-public-guard-matrix-20260822.json`
+  并纳入 `SHA256SUMS.txt`（当前 15 个 JSON 全部校验通过）。该运行未建立认证
+  fixture，未读取 token/cookie/storage，Tab trace 未宣称，因此只补充 public/guard
+  证据，不关闭 protected browser、AX/native reader、逐页状态或真实 provider 门禁。
+
+### 2026-08-22：tagged backend 全量边界记录
+
+- `GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./...` 已完成扫描；handler、service、
+  repository、payment/provider、server/routes 与 migrations 定向包通过，剩余少数
+  legacy `httptest`/miniredis/HTTP listener 测试在受管沙箱收到
+  `listen ... operation not permitted`。失败包清单与命令已写入
+  `gate-results-20260822.json`/`coverage-manifest.json`，不把 listener 测试误报为绿，
+  也不改变真实 provider、storage、protected browser 等开放门禁。
+
+### 2026-08-22：当前工作树最终本地回归（最新）
+
+- 当前前端全量 Vitest 为 **363 test files / 2,531 tests passed**；
+  `vue-tsc --noEmit`、ESLint、3,103-module production build 与
+  `git diff --check` 均通过。较早段落中的 2,502/2,512/2,515/2,516/2,519/2,520/
+  2,521/2,528 均保留为历史 checkpoint，不代表当前计数。
+- `GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./... -run '^$'` 全仓编译通过；
+  payment/provider default+unit、S3 in-process upload、Batch Image
+  service/repository hardening 与 image-storage SSRF/redirect fixture 定向通过。
+- 本轮新增本地合同覆盖 terminal output retention/preview、active retry-child
+  TTL、child-first cleanup retry、idempotency loser re-enqueue、取消上下文释放
+  download permit、ZIP filename collision 以及私网/重定向私网 URL 拒绝。上述均为
+  fake/in-process 证据，仍不等价于真实 provider、对象存储、外部支付、受保护
+  浏览器、native reader、live Batch/iframe 或 destructive-flow 门禁。
+
+### 2026-08-22：支付回调与 Batch 破坏性边界补强
+
+- 多 Stripe 实例且事件缺少 `metadata.orderId` 时，webhook lookup 返回全部已启用
+  候选并逐一验签，避免非支付事件被 ambiguity 500 无限重试；单实例旧 fallback
+  保持不变。仅有本地配置/签名合同，真实 sandbox 仍未运行。
+- Batch record delete 现在拒绝 settling 根和 active retry child，并先软删除
+  terminal direct children 再处理 root，避免 orphan retry。新增 service fake 回归，
+  不替代真实 HTTP/destructive route 证据。
+
+### 2026-08-22：Vertex 输出引用信任边界
+
+- Vertex batch `Get/OpenResult` 在访问对象存储前校验 output prefix 必须属于当前
+  managed batch/job 路径，拒绝 provider/DB 返回的任意 `gs://` 前缀；新增 fake
+  object-store 回归。真实 GCS/S3 访问仍在 live storage 门禁中。
+
+### 2026-08-22：Batch 结果读取与额度状态
+
+- API-key middleware 对 Batch Image GET 结果路径（列表、详情、items、content、
+  download、models）跳过额度/过期计费拦截，保留 owner scope；POST/cancel/delete
+  仍执行正常限制。新增 middleware fixture 验证 quota-exhausted read 放行、mutation
+  拒绝及 subscription lookup 跳过；真实 HTTP route/auth 矩阵仍开放。
+
+### 2026-08-22：受保护浏览器 runner 与存储/取消竞态补强
+
+- 新增 `tools/protected-browser-matrix.mjs`，可在安装 Playwright 的执行环境中以
+  合成认证/API 拦截运行当前 user/admin 全路由、三视口、主题/动效及
+  success/empty/slow/error/late 状态，采集 overflow、console、AX 与键盘轨迹。
+  runner 输出显式标记 `fixture_only`，不替代真实账号、native reader 或 live gate。
+- 当前受限沙箱运行入口已记录为 blocked（仓库缺少 Playwright；外部缓存模块的
+  Chromium 也在 MachPortRendezvous `Permission denied (1100)` 阶段退出，预览服务
+  绑定同样受权限限制），结构化记录见
+  `docs/frontend-rebuild/evidence/20260822/protected-browser-runner-20260822.json`。
+- ImageResultUploader 对多图部分失败增加可选 Delete 补偿，S3 适配器实现删除；
+  Batch processor 对 provider output ref 使用非终态条件写，取消与 provider 轮询
+  并发时丢弃迟到引用。新增本地 fake/in-process 回归，live storage/provider 门禁
+  继续开放。
+
+### 2026-08-22：tagged backend 全量复验修正
+
+- 重新执行 `GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./... -count=1`，所有
+  tagged backend packages 退出码为 0。此前“listener-backed package 失败”的描述
+  属于转换前历史 checkpoint，已由 `gate-results-20260822.json` 与
+  `coverage-manifest.json` 的最新记录取代。
+- 受限沙箱仍使 42 个 listener/miniredis 用例显式 `SKIP`（antigravity 31、
+  redissession 1、xai 1、securityaudit 9）；其余 package/tests 实际执行通过。
+  这不等于 listener-capable、真实外部 provider/storage 或 destructive 证据。
+- open-gates 清单新增 listener-capable 环境下执行这 42 个 skipped cases；本地命令的
+  退出码为 0 不把这些 skip 伪装成真实 listener 覆盖。
+- 当前前端复验保持 **363 test files / 2,531 tests passed**；typecheck、lint、
+  3,103-module build、14 项静态审计与 diff-check 均通过。受保护认证浏览器、
+  native VoiceOver/NVDA、credentialed external payment、live Batch/provider/
+  storage/ZIP、iframe matrix 与 severity-signed final Code Review 仍是开放门禁。
+
+### 2026-08-22：认证会话代际与索引失败输出保留修复（当前最新）
+
+- `frontend/src/stores/auth.ts` 为登录/登出、checkAuth、refreshUser、主动 token
+  refresh 和 OAuth setToken 增加会话代际校验；`authAPI.logout` 对持久化快照做条件
+  清理，避免旧请求覆盖新账号。`adminCompliance` fetch/accept/reset 与 App 认证
+  watcher 同步加代际防护。新增 auth/compliance/session race fixtures 共 9 tests，
+  针对性运行通过。
+- `backend/internal/service/batch_image_processor.go` 在索引失败转 terminal 后为
+  已保存 provider output ref 设置 expiry，避免失败输出无法进入 cleanup；provider
+  轮询在有/无 output ref 的迟到取消场景均有定向 processor regression。
+- 随后再次执行 `GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./... -count=1`，
+  全部 tagged backend packages 退出码仍为 0；42 个受限 listener/miniredis 用例
+  保持显式 skip 边界。
+- 当前前端全量回归为 **365 files / 2,540 tests passed**；`vue-tsc`、ESLint、
+  3,103-module build、14 项 static audit、`git diff --check` 和 evidence
+  `sha256sum -c` 均通过。该计数替代此前 2,531 及更早 checkpoint。
+- 仍不可停止：最新源码后的 authenticated protected Chromium 全矩阵、native
+  VoiceOver/NVDA、listener-capable 的 42 个显式 skip、credentialed Stripe/
+  WeChat/Airwallex settlement/refund/return、live Batch/provider/storage/ZIP 与
+  destructive flow、cross-origin iframe、完整逐页状态/late-response 及
+  severity-signed final Code Review。
+
+### 2026-08-22：当前工作树增量回归（最新）
+
+- 前端全量 Vitest 为 **365 test files / 2,543 tests passed**；新增 Axios 401
+  会话保护（旧请求与 auth endpoint 均不清理当前会话）和 RiskControl
+  `loadAll` stale-rejection fence，typecheck、lint、build、diff-check 均通过。
+- Wxpay webhook provider lookup 将 transient DB/config 错误留给 500 重试，仅未配置
+  provider 返回 200；ImageResultUploader 对可替换的非 `*http.Transport`
+  `http.DefaultTransport` 使用安全 fallback，避免构造期 panic。
+- protected-browser runner 修正了精确主端点匹配、按角色的 `/auth/me` fixture、
+  HTTP 503/expected page-error 记录和 slow/late in-flight 观测；runner 仍为
+  fixture-only，fresh authenticated Chromium、native VoiceOver/NVDA、42 个
+  listener skip、credentialed 外部支付、live Batch/storage/iframe 与最终
+  severity-signed Code Review 继续开放。
+
+### 2026-08-22：认证/支付可用性与管理员异步边界（当前最新）
+
+- refresh token 在写入用户索引或 family 索引失败时会删除主 token 并失败关闭；
+  已配置 refresh-token cache 的登录流程不再在 cache 故障时回退为不可撤销的
+  stateless access JWT。原子 token consume、索引失败和 handler fallback 均有本地
+  回归覆盖。
+- Payment provider registry 改为离线构建后原子替换，数据库、解密或 provider
+  构造失败会保留当前可用 registry，并允许后续初始化重试；退款重试在扣款或网关
+  失败时保留原始 `REFUND_PENDING`/`REFUND_FAILED` 状态，避免被错误恢复为可重新
+  发起退款的 `COMPLETED`。
+- Users、Groups 与 Admin Orders 的旧请求拒绝/弹窗切换增加 request-generation
+  fence；CSV/JSON 导出下载的 Blob URL 改为下一任务再回收，避免浏览器尚未接管
+  下载即同步失效。
+- 最新前端全量 Vitest 为 **365 test files / 2,544 tests passed**；typecheck、
+  lint、3,103-module build、`git diff --check` 通过。最新后端
+  `GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./... -count=1` 全包退出码为 0，
+  42 个 listener/miniredis 用例仍保持显式 sandbox skip。
+- durable evidence JSON 与 16 项 SHA-256 索引已同步。上述仍是本地 fixture/
+  in-process 证据；fresh authenticated protected Chromium、native VoiceOver/NVDA、
+  listener-capable 42 cases、credentialed Stripe/WeChat/Airwallex、live Batch/
+  storage/destructive、cross-origin iframe、完整逐页状态/late-response 与最终
+  severity-signed Code Review 继续开放。
+
+### 2026-08-22：最后一轮后端会话与调度硬化
+
+- `/auth/revoke-all-sessions` 新增 `users.revocation_version` 持久化代际（迁移
+  `223_user_revocation_version.sql`）。新 access/refresh token 携带代际，JWT
+  middleware、admin/OAuth 绑定校验代际；代际为 0 时兼容旧 token，首次原子 bump
+  后旧 access/refresh token 均失效。repository atomic bump、legacy claim 兼容和
+  handler contract 已有本地回归。
+- DingTalk OAuth identity/compat-email 查询的数据库错误不再被当作“未命中”，会停止
+  signup/bind fallback；scheduled-test result limit capped at 500，失败运行推进
+  `next_run_at`，并在单进程内跳过同一 plan 的重叠 tick。
+- 最新 backend tagged 全量命令 `GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./... -count=1`
+  退出码为 0；42 个 listener/miniredis 用例仍显式 sandbox skip。前端最新全量为
+  **365 files / 2,544 tests passed**。证据 JSON 与 16 项 SHA-256 索引已同步。
+- 仍开放且需在你的环境执行：fresh authenticated protected-browser 全矩阵、native
+  VoiceOver/NVDA、42 个 listener-capable cases、credentialed Stripe/WeChat/Airwallex
+  sandbox、live Batch/provider/storage/destructive、cross-origin iframe、完整逐页
+  slow/empty/error/late-response、管理员剩余跨模块 settings 原子提交审查与最终
+  severity-signed Code Review。

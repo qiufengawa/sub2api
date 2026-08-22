@@ -155,7 +155,7 @@ func startPassthroughLifecycleServer(
 ) (*httptest.Server, <-chan error) {
 	t.Helper()
 	serverErr := make(chan error, 1)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := coderws.Accept(w, r, &coderws.AcceptOptions{CompressionMode: coderws.CompressionContextTakeover})
 		if err != nil {
 			serverErr <- err

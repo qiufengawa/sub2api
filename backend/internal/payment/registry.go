@@ -83,3 +83,22 @@ func (r *Registry) Clear() {
 	defer r.mu.Unlock()
 	r.providers = make(map[PaymentType]Provider)
 }
+
+// Replace atomically replaces the registry contents with the supplied
+// providers.  Callers that rebuild a provider set off to the side can publish
+// it without exposing a transient empty/partially populated registry to
+// payment requests.
+func (r *Registry) Replace(providers []Provider) {
+	next := make(map[PaymentType]Provider)
+	for _, p := range providers {
+		if p == nil {
+			continue
+		}
+		for _, t := range p.SupportedTypes() {
+			next[t] = p
+		}
+	}
+	r.mu.Lock()
+	r.providers = next
+	r.mu.Unlock()
+}

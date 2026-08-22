@@ -964,6 +964,8 @@ const moderationTestImages = ref<string[]>([])
 const moderationTestResult = ref<ContentModerationTestAuditResult | null>(null)
 const inputDetailRow = ref<ContentModerationLog | null>(null)
 let statusTimer: number | null = null
+let statusRequestId = 0
+let loadAllRequestId = 0
 
 const configForm = reactive({
   enabled: false,
@@ -1487,6 +1489,8 @@ function applyConfig(config: ContentModerationConfig) {
 }
 
 async function loadAll() {
+  const requestId = ++loadAllRequestId
+  const statusRequestAtStart = ++statusRequestId
   loading.value = true
   try {
     const [config, groupItems, runtimeStatus, proxyItems] = await Promise.all([
@@ -1496,41 +1500,49 @@ async function loadAll() {
       // 代理列表加载失败不阻塞风控页面（仅影响下拉可选项）
       adminAPI.proxies.getAll().catch(() => [] as Proxy[]),
     ])
+    if (requestId !== loadAllRequestId) return
     applyConfig(config)
     groups.value = groupItems
-    status.value = runtimeStatus
+    // A manual/timer status refresh owns the runtime snapshot once it starts;
+    // the slower initial load must not overwrite that newer status.  The other
+    // page data still belongs to this loadAll generation and is safe to apply.
+    if (statusRequestAtStart === statusRequestId) applyRuntimeStatus(runtimeStatus)
     proxies.value = proxyItems
-    if (Array.isArray(runtimeStatus.api_key_statuses)) {
-      configForm.api_key_statuses = [...runtimeStatus.api_key_statuses]
-      prunePendingDeleteAPIKeyHashes()
-    }
     await loadLogs()
   } catch (err: unknown) {
+    if (requestId !== loadAllRequestId) return
     appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.loadFailed')))
   } finally {
-    loading.value = false
+    if (requestId === loadAllRequestId) loading.value = false
+  }
+}
+
+function applyRuntimeStatus(runtimeStatus: ContentModerationRuntimeStatus) {
+  status.value = runtimeStatus
+  if (Array.isArray(runtimeStatus.api_key_statuses)) {
+    configForm.api_key_statuses = [...runtimeStatus.api_key_statuses]
+    prunePendingDeleteAPIKeyHashes()
   }
 }
 
 async function loadStatus(silent = true) {
   statusLoading.value = true
+  const requestId = ++statusRequestId
   try {
     const runtimeStatus = await adminAPI.riskControl.getStatus()
-    status.value = runtimeStatus
-    if (Array.isArray(runtimeStatus.api_key_statuses)) {
-      configForm.api_key_statuses = [...runtimeStatus.api_key_statuses]
-      prunePendingDeleteAPIKeyHashes()
-    }
+    if (requestId !== statusRequestId) return
+    applyRuntimeStatus(runtimeStatus)
   } catch (err: unknown) {
-    if (!silent) {
+    if (requestId === statusRequestId && !silent) {
       appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.statusFailed')))
     }
   } finally {
-    statusLoading.value = false
+    if (requestId === statusRequestId) statusLoading.value = false
   }
 }
 
 async function saveConfig() {
+  if (saving.value) return
   saving.value = true
   try {
     const modelFilterPayload = buildModelFilterPayload()
@@ -1679,9 +1691,11 @@ async function clearFlaggedHashes() {
   hashActionLoading.value = true
   try {
     const result = await adminAPI.riskControl.clearFlaggedHashes()
-    await loadStatus(true)
     clearHashesConfirmOpen.value = false
     appStore.showSuccess(t('admin.riskControl.flaggedHashesCleared', { count: result.deleted }))
+    // The clear mutation is authoritative; close the confirmation before the
+    // best-effort status refresh so a refresh failure cannot repeat the clear.
+    await loadStatus(true)
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.flaggedHashesClearFailed')))
   } finally {
@@ -2109,6 +2123,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   logsRequestId++
+  loadAllRequestId++
+  statusRequestId++
   if (statusTimer !== null) {
     window.clearInterval(statusTimer)
     statusTimer = null

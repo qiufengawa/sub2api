@@ -6,13 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAPIKeyCacheSubscriber_BlocksUntilContextCancellation(t *testing.T) {
-	server := miniredis.RunT(t)
+	server := newRepositoryMiniRedis(t)
 	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
 	defer func() { _ = client.Close() }()
 	cache := NewAPIKeyCache(client)

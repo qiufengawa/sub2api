@@ -143,6 +143,25 @@ func TestGatewayRoutesAsyncImagesPathsAreRegistered(t *testing.T) {
 	}
 }
 
+func TestGatewayRoutesBatchImageModelsStaticRoutePrecedesIDRoute(t *testing.T) {
+	router := newGatewayRoutesTestRouter()
+
+	registered := make(map[string]int)
+	for index, route := range router.Routes() {
+		if route.Method == http.MethodGet {
+			registered[route.Path] = index
+		}
+	}
+
+	modelsPath := "/v1/images/batches/models"
+	idPath := "/v1/images/batches/:id"
+	modelsIndex, modelsOK := registered[modelsPath]
+	idIndex, idOK := registered[idPath]
+	require.True(t, modelsOK, "GET %s should be registered", modelsPath)
+	require.True(t, idOK, "GET %s should be registered", idPath)
+	require.Less(t, modelsIndex, idIndex, "static models route should remain ahead of the dynamic id route")
+}
+
 func TestGatewayRoutesGrokImagesAndVideosPathsAreRegistered(t *testing.T) {
 	router := newGatewayRoutesTestRouter(service.PlatformGrok)
 

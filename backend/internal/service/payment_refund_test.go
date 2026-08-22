@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -258,6 +259,46 @@ func TestExecuteRefundUsesActualAvailableBalanceDeduction(t *testing.T) {
 		Only(ctx)
 	require.NoError(t, err)
 	require.Contains(t, audit.Detail, `"balanceDeducted":25`)
+}
+
+func TestExecuteRefundRestoresOriginalRetryStatusAfterDeductionFailure(t *testing.T) {
+	ctx := context.Background()
+	for _, originalStatus := range []string{OrderStatusRefundPending, OrderStatusRefundFailed} {
+		t.Run(originalStatus, func(t *testing.T) {
+			client := newPaymentConfigServiceTestClient(t)
+			order := createPendingRefundOrderForTest(t, ctx, client, "restore-"+strings.ToLower(originalStatus))
+			if originalStatus != OrderStatusRefundPending {
+				_, err := client.PaymentOrder.UpdateOneID(order.ID).SetStatus(originalStatus).Save(ctx)
+				require.NoError(t, err)
+			}
+			order, err := client.PaymentOrder.Get(ctx, order.ID)
+			require.NoError(t, err)
+
+			injected := errors.New("balance deduction unavailable")
+			svc := &PaymentService{
+				entClient: client,
+				userRepo: &mockUserRepo{deductAvailableBalanceFn: func(context.Context, int64, float64) (float64, error) {
+					return 0, injected
+				}},
+			}
+			plan := &RefundPlan{
+				OrderID:         order.ID,
+				Order:           order,
+				RefundAmount:    order.Amount,
+				GatewayAmount:   order.PayAmount,
+				DeductionType:   payment.DeductionTypeBalance,
+				BalanceToDeduct: order.Amount,
+			}
+
+			result, err := svc.ExecuteRefund(ctx, plan)
+			require.Nil(t, result)
+			require.ErrorIs(t, err, injected)
+
+			reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+			require.NoError(t, err)
+			require.Equal(t, originalStatus, reloaded.Status)
+		})
+	}
 }
 
 func TestGwRefundRejectsAlipayMerchantIdentitySnapshotMismatch(t *testing.T) {

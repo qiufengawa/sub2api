@@ -67,6 +67,16 @@ describe('Playground API', () => {
     expect(decoder.finish()).toEqual(['tail'])
   })
 
+  it('decodes SSE events that use bare CR line endings, including split CRLF', () => {
+    const decoder = new SSEDataDecoder()
+    expect(decoder.push('data: first\r\rdata: second\r')).toEqual(['first'])
+    expect(decoder.push('\r')).toEqual(['second'])
+
+    const split = new SSEDataDecoder()
+    expect(split.push('data: done\r')).toEqual([])
+    expect(split.push('\n\r\n')).toEqual(['done'])
+  })
+
   it('uses the bounded key-list response contract', async () => {
     clientMocks.get.mockResolvedValue({ data: { items: [{ id: 1, name: 'Key' }], truncated: true } })
     await expect(listPlaygroundKeys()).resolves.toEqual({ items: [{ id: 1, name: 'Key' }], truncated: true })

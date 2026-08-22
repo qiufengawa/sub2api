@@ -376,6 +376,7 @@ const copyToClipboard = async (text: string) => {
 
 // Create
 const handleCreate = async () => {
+  if (creating.value) return
   creating.value = true
   try {
     await adminAPI.promo.create({
@@ -424,7 +425,7 @@ const closeEditDialog = () => {
 }
 
 const handleUpdate = async () => {
-  if (!editingCode.value) return
+  if (!editingCode.value || updating.value) return
 
   updating.value = true
   try {

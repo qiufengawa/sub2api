@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"reflect"
 	"strings"
 	"sync"
@@ -125,7 +124,7 @@ func TestCreateGeminiReqClient_ForceHTTP2Disabled(t *testing.T) {
 }
 
 func TestInstrumentReqClientRecordsDependency(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := newRepositoryHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()

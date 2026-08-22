@@ -47,15 +47,23 @@ export class PlaygroundStreamInterruptedError extends Error {
 export class SSEDataDecoder {
   private buffer = ''
   private dataLines: string[] = []
+  // A CR at the end of a chunk is already a valid SSE line ending, but the
+  // next chunk may begin with LF (forming CRLF).  Consume the CR now and
+  // discard only that optional LF on the next push.
+  private discardNextLF = false
 
   push(chunk: string): string[] {
-    this.buffer += chunk
+    if (this.discardNextLF) {
+      this.discardNextLF = false
+      if (chunk.startsWith('\n')) chunk = chunk.slice(1)
+    }
+    if (chunk.endsWith('\r')) this.discardNextLF = true
+    this.buffer += chunk.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
     const events: string[] = []
     let newline = this.buffer.indexOf('\n')
     while (newline >= 0) {
-      let line = this.buffer.slice(0, newline)
+      const line = this.buffer.slice(0, newline)
       this.buffer = this.buffer.slice(newline + 1)
-      if (line.endsWith('\r')) line = line.slice(0, -1)
       this.consumeLine(line, events)
       newline = this.buffer.indexOf('\n')
     }

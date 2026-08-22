@@ -171,6 +171,7 @@ vi.mock("@/composables/useClipboard", () => ({
 
 vi.mock("@/utils/apiError", () => ({
   extractApiErrorMessage: () => "error",
+  extractI18nErrorMessage: () => "error",
 }));
 
 vi.mock("vue-i18n", async () => {
@@ -638,8 +639,9 @@ const baseSettingsResponse = {
   },
 };
 
-function mountView() {
+function mountView(options: { attachTo?: Element } = {}) {
   return mount(SettingsView, {
+    attachTo: options.attachTo,
     global: {
       stubs: {
         AppLayout: AppLayoutStub,
@@ -846,7 +848,7 @@ describe("admin SettingsView payment visible method controls", () => {
 
   it('keeps the editable form hidden after the primary settings request fails and retries cleanly', async () => {
     getSettings.mockRejectedValueOnce(new Error('fixture settings unavailable'));
-    const wrapper = mountView();
+    const wrapper = mountView({ attachTo: document.body });
     await flushPromises();
 
     expect(wrapper.get('[data-testid="settings-load-error"]').attributes('role')).toBe('alert');
@@ -859,6 +861,9 @@ describe("admin SettingsView payment visible method controls", () => {
 
     expect(wrapper.find('[data-testid="settings-load-error"]').exists()).toBe(false);
     expect(wrapper.find('form').exists()).toBe(true);
+    expect(wrapper.find('[role="tab"]').exists()).toBe(true);
+    expect(document.activeElement).toBe(wrapper.find('[role="tab"]').element);
+    wrapper.unmount();
   });
 
   it("submits the compact home page toggle", async () => {
@@ -1305,6 +1310,102 @@ describe("admin SettingsView payment visible method controls", () => {
     );
   });
 
+  it("keeps a failed affiliate reset confirmation open and prevents duplicate requests", async () => {
+    const entry = {
+      user_id: 88,
+      email: "affiliate-reset@example.com",
+      username: "affiliate-reset",
+      aff_code: "AFF88",
+      aff_code_custom: true,
+      aff_rebate_rate_percent: 15,
+      aff_count: 3,
+    };
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      affiliate_enabled: true,
+    });
+    listAffiliateUsers.mockResolvedValue({ items: [entry], total: 1 });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await openFeaturesTab(wrapper);
+
+    const vm = wrapper.vm as unknown as {
+      askResetAffiliateUser: (value: typeof entry) => void;
+      handleAffiliateConfirm: () => Promise<void>;
+      affiliateConfirmDialog: { running: boolean; show: boolean };
+    };
+    vm.askResetAffiliateUser(entry);
+    await wrapper.vm.$nextTick();
+    expect(wrapper.get('[data-testid="confirm-dialog-stub"]').exists()).toBe(true);
+
+    let rejectReset!: (error: unknown) => void;
+    clearAffiliateUserSettings.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectReset = reject;
+      }),
+    );
+    const firstAttempt = vm.handleAffiliateConfirm();
+    const secondAttempt = vm.handleAffiliateConfirm();
+    await flushPromises();
+
+    expect(clearAffiliateUserSettings).toHaveBeenCalledTimes(1);
+    expect(vm.affiliateConfirmDialog.running).toBe(true);
+    expect(wrapper.get('[data-testid="confirm-dialog-confirm"]').attributes("disabled")).toBeDefined();
+
+    rejectReset(new Error("affiliate reset fixture failure"));
+    await Promise.all([firstAttempt, secondAttempt]);
+    expect(vm.affiliateConfirmDialog.running).toBe(false);
+    expect(vm.affiliateConfirmDialog.show).toBe(true);
+
+    clearAffiliateUserSettings.mockResolvedValueOnce(undefined);
+    await vm.handleAffiliateConfirm();
+    await flushPromises();
+    expect(clearAffiliateUserSettings).toHaveBeenCalledTimes(2);
+    expect(wrapper.find('[data-testid="confirm-dialog-stub"]').exists()).toBe(false);
+  });
+
+  it("removes a successfully reset affiliate row before a stale refresh can restore it", async () => {
+    const entry = {
+      user_id: 89,
+      email: "affiliate-reset-stale@example.com",
+      username: "affiliate-reset-stale",
+      aff_code: "AFF89",
+      aff_code_custom: true,
+      aff_rebate_rate_percent: 15,
+      aff_count: 1,
+    };
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      affiliate_enabled: true,
+    });
+    listAffiliateUsers.mockResolvedValue({ items: [entry], total: 1 });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await openFeaturesTab(wrapper);
+
+    const vm = wrapper.vm as unknown as {
+      askResetAffiliateUser: (value: typeof entry) => void;
+      handleAffiliateConfirm: () => Promise<void>;
+      affiliateState: { entries: typeof entry[]; total: number };
+      affiliateConfirmDialog: { show: boolean };
+    };
+    vm.askResetAffiliateUser(entry);
+    clearAffiliateUserSettings.mockResolvedValueOnce(undefined);
+    // The follow-up GET fails; the local tombstone must still prevent the
+    // already-successful destructive action from remaining retryable.
+    listAffiliateUsers.mockRejectedValueOnce(new Error("refresh unavailable"));
+
+    await vm.handleAffiliateConfirm();
+    await flushPromises();
+
+    expect(clearAffiliateUserSettings).toHaveBeenCalledWith(entry.user_id);
+    expect(vm.affiliateState.entries).toEqual([]);
+    expect(vm.affiliateState.total).toBe(0);
+    expect(vm.affiliateConfirmDialog.show).toBe(false);
+  });
+
   it("submits Anthropic cache TTL injection gateway setting", async () => {
     getSettings.mockResolvedValueOnce({
       ...baseSettingsResponse,
@@ -1463,6 +1564,540 @@ describe("admin SettingsView payment visible method controls", () => {
 
     expect(updateProvider).toHaveBeenCalledWith(7, { enabled: true });
     expect(getProviders).toHaveBeenCalledTimes(2);
+  });
+
+  it("guards duplicate provider field toggles while the update is pending", async () => {
+    const provider = {
+      id: 8,
+      provider_key: "stripe",
+      name: "Stripe pending fixture",
+      config: {},
+      supported_types: ["stripe"],
+      enabled: false,
+      payment_mode: "",
+      refund_enabled: false,
+      allow_user_refund: false,
+      limits: "",
+      sort_order: 0,
+    };
+    getProviders.mockReset().mockResolvedValue({ data: [provider] });
+    let resolveUpdate!: (value?: unknown) => void;
+    updateProvider.mockReturnValueOnce(new Promise((resolve) => { resolveUpdate = resolve; }));
+
+    const wrapper = mountView();
+    await flushPromises();
+    await openPaymentTab(wrapper);
+
+    const vm = wrapper.vm as any;
+    const first = vm.handleToggleField(provider, "enabled");
+    const second = vm.handleToggleField(provider, "enabled");
+    await flushPromises();
+
+    expect(updateProvider).toHaveBeenCalledTimes(1);
+    expect(vm.providerTogglePendingIds).toContain(provider.id);
+
+    resolveUpdate();
+    await first;
+    await second;
+    await flushPromises();
+    expect(vm.providerTogglePendingIds).not.toContain(provider.id);
+  });
+
+  it("waits for a provider field mutation before disabling its payment type", async () => {
+    const provider = {
+      id: 18,
+      provider_key: "stripe",
+      name: "Stripe serialization fixture",
+      config: {},
+      supported_types: ["stripe"],
+      enabled: true,
+      payment_mode: "",
+      refund_enabled: false,
+      allow_user_refund: false,
+      limits: "",
+      sort_order: 0,
+    };
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      payment_enabled_types: ["stripe"],
+    });
+    getProviders.mockReset();
+    getProviders
+      .mockResolvedValueOnce({ data: [provider] })
+      .mockResolvedValueOnce({ data: [{ ...provider, refund_enabled: true }] });
+    let resolveField!: (value?: unknown) => void;
+    updateProvider
+      .mockReturnValueOnce(new Promise((resolve) => { resolveField = resolve; }))
+      .mockResolvedValueOnce({ data: { ...provider, enabled: false, refund_enabled: true } });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await openPaymentTab(wrapper);
+
+    const vm = wrapper.vm as any;
+    const fieldMutation = vm.handleToggleField(provider, "refund_enabled");
+    await flushPromises();
+    vm.togglePaymentType("stripe");
+    await flushPromises();
+
+    expect(updateProvider).toHaveBeenCalledTimes(1);
+    expect(vm.form.payment_enabled_types).not.toContain("stripe");
+
+    resolveField();
+    await fieldMutation;
+    await vi.waitFor(() => expect(updateProvider).toHaveBeenCalledTimes(2));
+    expect(updateProvider).toHaveBeenNthCalledWith(2, 18, { enabled: false });
+    expect(vm.providers[0].enabled).toBe(false);
+  });
+
+  it("keeps the successful provider toggle in local state when refresh fails", async () => {
+    const provider = {
+      id: 19,
+      provider_key: "stripe",
+      name: "Stripe refresh fixture",
+      config: {},
+      supported_types: ["stripe"],
+      enabled: false,
+      payment_mode: "",
+      refund_enabled: false,
+      allow_user_refund: false,
+      limits: "",
+      sort_order: 0,
+    };
+    getProviders.mockReset();
+    getProviders
+      .mockResolvedValueOnce({ data: [provider] })
+      .mockRejectedValueOnce(new Error("provider refresh unavailable"));
+    updateProvider.mockResolvedValueOnce({ data: { ...provider, enabled: true } });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await openPaymentTab(wrapper);
+
+    const vm = wrapper.vm as any;
+    await vm.handleToggleField(provider, "enabled");
+    await flushPromises();
+
+    expect(updateProvider).toHaveBeenCalledWith(19, { enabled: true });
+    expect(vm.providers[0].enabled).toBe(true);
+  });
+
+  it("does not let an eventually-consistent stale refresh undo a provider toggle", async () => {
+    const provider = {
+      id: 27,
+      provider_key: "stripe",
+      name: "Stripe eventually-consistent fixture",
+      config: {},
+      supported_types: ["stripe"],
+      enabled: false,
+      payment_mode: "",
+      refund_enabled: false,
+      allow_user_refund: false,
+      limits: "",
+      sort_order: 0,
+    };
+    getProviders.mockReset()
+      .mockResolvedValueOnce({ data: [provider] })
+      .mockResolvedValueOnce({ data: [{ ...provider, enabled: false }] });
+    updateProvider.mockResolvedValueOnce({ data: { ...provider, enabled: true } });
+
+    const wrapper = mountView();
+    await flushPromises();
+    const vm = wrapper.vm as any;
+    await vm.handleToggleField(provider, "enabled");
+    await flushPromises();
+
+    expect(updateProvider).toHaveBeenCalledWith(27, { enabled: true });
+    expect(vm.providers[0].enabled).toBe(true);
+  });
+
+  it("keeps sensitive provider config out of optimistic list reconciliation", async () => {
+    const provider = {
+      id: 28,
+      provider_key: "stripe",
+      name: "Stripe redacted fixture",
+      config: {},
+      supported_types: ["stripe"],
+      enabled: true,
+      payment_mode: "",
+      refund_enabled: false,
+      allow_user_refund: false,
+      limits: "",
+      sort_order: 0,
+    };
+    getProviders.mockReset()
+      .mockResolvedValueOnce({ data: [provider] })
+      .mockResolvedValueOnce({ data: [provider] });
+    updateProvider.mockResolvedValueOnce({ data: { ...provider, name: "Stripe renamed" } });
+
+    const wrapper = mountView();
+    await flushPromises();
+    const vm = wrapper.vm as any;
+    vm.editingProvider = provider;
+    await vm.handleSaveProvider({
+      name: "Stripe renamed",
+      config: { api_key: "fixture-secret-must-not-enter-list-state" },
+    });
+    await flushPromises();
+
+    expect(updateProvider).toHaveBeenCalledWith(28, expect.objectContaining({
+      name: "Stripe renamed",
+    }));
+    expect(vm.providers[0].name).toBe("Stripe renamed");
+    expect(JSON.stringify(vm.providers[0])).not.toContain(
+      "fixture-secret-must-not-enter-list-state",
+    );
+  });
+
+  it("fences imperative provider callbacks while the main settings save is pending", async () => {
+    const provider = {
+      id: 29,
+      provider_key: "stripe",
+      name: "Stripe save-race fixture",
+      config: {},
+      supported_types: ["stripe"],
+      enabled: false,
+      payment_mode: "",
+      refund_enabled: false,
+      allow_user_refund: false,
+      limits: "",
+      sort_order: 0,
+    };
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      payment_enabled_types: ["stripe"],
+    });
+    getProviders.mockReset().mockResolvedValue({ data: [provider] });
+
+    const wrapper = mountView();
+    await flushPromises();
+    const vm = wrapper.vm as any;
+    vm.saving = true;
+
+    await vm.handleToggleField(provider, "enabled");
+    await vm.handleToggleType(provider, "stripe");
+    vm.togglePaymentType("stripe");
+    await vm.handleSaveProvider({ enabled: true });
+
+    expect(updateProvider).not.toHaveBeenCalled();
+    expect(createProvider).not.toHaveBeenCalled();
+    expect(vm.form.payment_enabled_types).toEqual(["stripe"]);
+    expect(showError).toHaveBeenCalled();
+  });
+
+  it("restores a payment type when cascading provider disable fails", async () => {
+    const provider = {
+      id: 20,
+      provider_key: "stripe",
+      name: "Stripe cascade failure fixture",
+      config: {},
+      supported_types: ["stripe"],
+      enabled: true,
+      payment_mode: "",
+      refund_enabled: false,
+      allow_user_refund: false,
+      limits: "",
+      sort_order: 0,
+    };
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      payment_enabled_types: ["stripe"],
+    });
+    getProviders.mockReset().mockResolvedValue({ data: [provider] });
+    updateProvider.mockRejectedValueOnce(new Error("provider disable failed"));
+
+    const wrapper = mountView();
+    await flushPromises();
+    await openPaymentTab(wrapper);
+
+    const vm = wrapper.vm as any;
+    vm.togglePaymentType("stripe");
+    await vi.waitFor(() => expect(updateProvider).toHaveBeenCalledWith(20, { enabled: false }));
+    await vi.waitFor(() => expect(vm.paymentTypeTogglePending.size).toBe(0));
+
+    expect(vm.form.payment_enabled_types).toContain("stripe");
+    expect(showError).toHaveBeenCalled();
+  });
+
+  it("disables EasyPay providers that expose the toggled visible payment type", async () => {
+    const provider = {
+      id: 30,
+      provider_key: "easypay",
+      name: "EasyPay visible-method fixture",
+      config: {},
+      supported_types: ["alipay"],
+      enabled: true,
+      payment_mode: "",
+      refund_enabled: false,
+      allow_user_refund: false,
+      limits: "",
+      sort_order: 0,
+    };
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      payment_enabled_types: ["alipay"],
+    });
+    getProviders.mockReset().mockResolvedValue({ data: [provider] });
+    updateProvider.mockResolvedValueOnce({
+      data: { ...provider, enabled: false },
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await openPaymentTab(wrapper);
+
+    const vm = wrapper.vm as any;
+    vm.togglePaymentType("alipay");
+    await vi.waitFor(() =>
+      expect(updateProvider).toHaveBeenCalledWith(30, { enabled: false }),
+    );
+    await vi.waitFor(() => expect(vm.paymentTypeTogglePending.size).toBe(0));
+
+    expect(vm.providers[0].enabled).toBe(false);
+    expect(vm.form.payment_enabled_types).not.toContain("alipay");
+  });
+
+  it("disables the settings save action while a provider mutation is pending", async () => {
+    const provider = {
+      id: 21,
+      provider_key: "stripe",
+      name: "Stripe save fence fixture",
+      config: {},
+      supported_types: ["stripe"],
+      enabled: false,
+      payment_mode: "",
+      refund_enabled: false,
+      allow_user_refund: false,
+      limits: "",
+      sort_order: 0,
+    };
+    getProviders.mockReset().mockResolvedValue({ data: [provider] });
+    let resolveUpdate!: (value?: unknown) => void;
+    updateProvider.mockReturnValueOnce(new Promise((resolve) => { resolveUpdate = resolve; }));
+
+    const wrapper = mountView();
+    await flushPromises();
+    const vm = wrapper.vm as any;
+    const mutation = vm.handleToggleField(provider, "enabled");
+    await flushPromises();
+
+    expect(wrapper.get('button[type="submit"]').attributes("disabled")).toBeDefined();
+    resolveUpdate();
+    await mutation;
+    await flushPromises();
+    expect(wrapper.get('button[type="submit"]').attributes("disabled")).toBeUndefined();
+  });
+
+  it("keeps the newest provider list response when refreshes resolve out of order", async () => {
+    const initial = [
+      {
+        id: 22,
+        provider_key: "stripe",
+        name: "Stripe stale-response fixture",
+        config: {},
+        supported_types: ["stripe"],
+        enabled: false,
+        payment_mode: "",
+        refund_enabled: false,
+        allow_user_refund: false,
+        limits: "",
+        sort_order: 0,
+      },
+      {
+        id: 23,
+        provider_key: "airwallex",
+        name: "Airwallex newest-response fixture",
+        config: {},
+        supported_types: ["airwallex"],
+        enabled: false,
+        payment_mode: "",
+        refund_enabled: false,
+        allow_user_refund: false,
+        limits: "",
+        sort_order: 1,
+      },
+    ];
+    getProviders.mockReset().mockResolvedValueOnce({ data: initial });
+    const wrapper = mountView();
+    await flushPromises();
+
+    let resolveOlder!: (value: { data: typeof initial }) => void;
+    let resolveNewer!: (value: { data: typeof initial }) => void;
+    getProviders
+      .mockReturnValueOnce(new Promise((resolve) => { resolveOlder = resolve; }))
+      .mockReturnValueOnce(new Promise((resolve) => { resolveNewer = resolve; }));
+    const vm = wrapper.vm as any;
+    const older = vm.loadProviders();
+    const newer = vm.loadProviders();
+    const newest = initial.map((provider) => ({ ...provider, enabled: true }));
+    const stale = initial.map((provider) => ({ ...provider, enabled: false }));
+
+    resolveNewer({ data: newest });
+    await newer;
+    expect(vm.providers.every((provider: typeof initial[number]) => provider.enabled)).toBe(true);
+    resolveOlder({ data: stale });
+    await older;
+    expect(vm.providers.every((provider: typeof initial[number]) => provider.enabled)).toBe(true);
+  });
+
+  it("removes a provider locally when delete succeeds but refresh fails", async () => {
+    const provider = {
+      id: 24,
+      provider_key: "stripe",
+      name: "Stripe delete refresh fixture",
+      config: {},
+      supported_types: ["stripe"],
+      enabled: true,
+      payment_mode: "",
+      refund_enabled: false,
+      allow_user_refund: false,
+      limits: "",
+      sort_order: 0,
+    };
+    getProviders.mockReset()
+      .mockResolvedValueOnce({ data: [provider] })
+      .mockRejectedValueOnce(new Error("provider refresh failed"));
+    deleteProvider.mockResolvedValueOnce(undefined);
+
+    const wrapper = mountView();
+    await flushPromises();
+    const vm = wrapper.vm as any;
+    vm.confirmDeleteProvider(provider);
+    const deletion = vm.handleDeleteProvider();
+    await deletion;
+    await flushPromises();
+
+    expect(deleteProvider).toHaveBeenCalledWith(24);
+    expect(vm.providers).toEqual([]);
+    expect(vm.showDeleteProviderDialog).toBe(false);
+  });
+
+  it("does not resurrect a deleted provider from an eventually-consistent refresh", async () => {
+    const provider = {
+      id: 31,
+      provider_key: "stripe",
+      name: "Stripe stale-delete fixture",
+      config: {},
+      supported_types: ["stripe"],
+      enabled: true,
+      payment_mode: "",
+      refund_enabled: false,
+      allow_user_refund: false,
+      limits: "",
+      sort_order: 0,
+    };
+    getProviders.mockReset()
+      .mockResolvedValueOnce({ data: [provider] })
+      .mockResolvedValueOnce({ data: [provider] });
+    deleteProvider.mockResolvedValueOnce(undefined);
+
+    const wrapper = mountView();
+    await flushPromises();
+    const vm = wrapper.vm as any;
+    vm.confirmDeleteProvider(provider);
+    await vm.handleDeleteProvider();
+    await flushPromises();
+
+    expect(deleteProvider).toHaveBeenCalledWith(31);
+    expect(vm.providers).toEqual([]);
+  });
+
+  it("serializes provider enablement checks across providers sharing a visible method", async () => {
+    const first = {
+      id: 25,
+      provider_key: "alipay",
+      name: "Alipay first fixture",
+      config: {},
+      supported_types: ["alipay"],
+      enabled: false,
+      payment_mode: "",
+      refund_enabled: false,
+      allow_user_refund: false,
+      limits: "",
+      sort_order: 0,
+    };
+    const second = {
+      ...first,
+      id: 26,
+      name: "Alipay second fixture",
+      sort_order: 1,
+    };
+    getProviders.mockReset()
+      .mockResolvedValueOnce({ data: [first, second] })
+      .mockResolvedValueOnce({ data: [{ ...first, enabled: true }, second] });
+    updateProvider.mockResolvedValue({ data: { ...first, enabled: true } });
+
+    const wrapper = mountView();
+    await flushPromises();
+    const vm = wrapper.vm as any;
+    const firstToggle = vm.handleToggleField(first, "enabled");
+    const secondToggle = vm.handleToggleField(second, "enabled");
+    await Promise.all([firstToggle, secondToggle]);
+    await flushPromises();
+
+    expect(updateProvider).toHaveBeenCalledTimes(1);
+    expect(updateProvider).toHaveBeenCalledWith(25, { enabled: true });
+    expect(showError).toHaveBeenCalled();
+  });
+
+  it("keeps a failed provider delete confirmation open and prevents duplicate requests", async () => {
+    const provider = {
+      id: 17,
+      provider_key: "stripe",
+      name: "Stripe fixture",
+      config: {},
+      supported_types: ["stripe"],
+      enabled: true,
+      payment_mode: "",
+      refund_enabled: false,
+      allow_user_refund: false,
+      limits: "",
+      sort_order: 0,
+    };
+    getProviders.mockReset();
+    getProviders.mockResolvedValue({ data: [provider] });
+
+    const wrapper = mountView();
+    await flushPromises();
+    await openPaymentTab(wrapper);
+
+    const vm = wrapper.vm as unknown as {
+      confirmDeleteProvider: (value: typeof provider) => void;
+      handleDeleteProvider: () => Promise<void>;
+      cancelDeleteProvider: () => void;
+      deletingProviderPending: boolean;
+      showDeleteProviderDialog: boolean;
+    };
+    vm.confirmDeleteProvider(provider);
+    await wrapper.vm.$nextTick();
+    expect(wrapper.get('[data-testid="confirm-dialog-stub"]').exists()).toBe(true);
+
+    let rejectDelete!: (error: unknown) => void;
+    deleteProvider.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectDelete = reject;
+      }),
+    );
+    const firstAttempt = vm.handleDeleteProvider();
+    const secondAttempt = vm.handleDeleteProvider();
+    await flushPromises();
+
+    expect(deleteProvider).toHaveBeenCalledTimes(1);
+    expect(vm.deletingProviderPending).toBe(true);
+    expect(wrapper.get('[data-testid="confirm-dialog-confirm"]').attributes("disabled")).toBeDefined();
+    vm.cancelDeleteProvider();
+    expect(vm.showDeleteProviderDialog).toBe(true);
+
+    rejectDelete(new Error("provider delete fixture failure"));
+    await Promise.all([firstAttempt, secondAttempt]);
+    expect(vm.deletingProviderPending).toBe(false);
+    expect(wrapper.get('[data-testid="confirm-dialog-stub"]').exists()).toBe(true);
+
+    deleteProvider.mockResolvedValueOnce(undefined);
+    await vm.handleDeleteProvider();
+    await flushPromises();
+    expect(deleteProvider).toHaveBeenCalledTimes(2);
+    expect(wrapper.find('[data-testid="confirm-dialog-stub"]').exists()).toBe(false);
   });
 
   it("renders advanced scheduler copy as local experimental gateway policy", async () => {

@@ -78,3 +78,22 @@ func (s *S3ImageStorage) Save(ctx context.Context, key, contentType string, data
 	}
 	return result.URL, nil
 }
+
+// Delete removes an object previously written by Save.  ImageResultUploader
+// uses this as a compensating action when a multi-image rewrite fails after
+// one or more earlier uploads succeeded.
+func (s *S3ImageStorage) Delete(ctx context.Context, key string) error {
+	if s == nil || s.client == nil {
+		return fmt.Errorf("S3 DeleteObject: storage client is not configured")
+	}
+	finish := servertiming.ObserveDependency(ctx, "s3")
+	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: &s.bucket,
+		Key:    &key,
+	})
+	finish()
+	if err != nil {
+		return fmt.Errorf("S3 DeleteObject: %w", err)
+	}
+	return nil
+}

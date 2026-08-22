@@ -19,6 +19,7 @@ import (
 	servermiddleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
+	"github.com/imroc/req/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -198,7 +199,7 @@ func TestLinuxDoOAuthStartOmitsPKCEWhenDisabled(t *testing.T) {
 }
 
 func TestLinuxDoOAuthCallbackAllowsMissingVerifierWhenPKCEDisabled(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newLinuxDoFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/token":
 			require.NoError(t, r.ParseForm())
@@ -227,6 +228,7 @@ func TestLinuxDoOAuthCallbackAllowsMissingVerifierWhenPKCEDisabled(t *testing.T)
 		TokenAuthMethod:     "client_secret_post",
 		UsePKCE:             false,
 	})
+	handler.linuxDoHTTPClient = upstream.client
 	t.Cleanup(func() { _ = client.Close() })
 
 	recorder := httptest.NewRecorder()
@@ -335,7 +337,7 @@ func TestPrepareOAuthBindAccessTokenCookieSetsHttpOnlyCookie(t *testing.T) {
 }
 
 func TestLinuxDoOAuthCallbackCreatesLoginPendingSessionForExistingIdentityUser(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newLinuxDoFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/token":
 			w.Header().Set("Content-Type", "application/json")
@@ -362,6 +364,7 @@ func TestLinuxDoOAuthCallbackCreatesLoginPendingSessionForExistingIdentityUser(t
 		TokenAuthMethod:     "client_secret_post",
 		UsePKCE:             true,
 	})
+	handler.linuxDoHTTPClient = upstream.client
 	t.Cleanup(func() { _ = client.Close() })
 
 	ctx := context.Background()
@@ -421,7 +424,7 @@ func TestLinuxDoOAuthCallbackCreatesLoginPendingSessionForExistingIdentityUser(t
 }
 
 func TestLinuxDoOAuthCallbackRejectsDisabledExistingIdentityUser(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newLinuxDoFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/token":
 			w.Header().Set("Content-Type", "application/json")
@@ -448,6 +451,7 @@ func TestLinuxDoOAuthCallbackRejectsDisabledExistingIdentityUser(t *testing.T) {
 		TokenAuthMethod:     "client_secret_post",
 		UsePKCE:             true,
 	})
+	handler.linuxDoHTTPClient = upstream.client
 	t.Cleanup(func() { _ = client.Close() })
 
 	ctx := context.Background()
@@ -489,7 +493,7 @@ func TestLinuxDoOAuthCallbackRejectsDisabledExistingIdentityUser(t *testing.T) {
 }
 
 func TestLinuxDoOAuthCallbackCreatesBindPendingSessionForCompatEmailUser(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newLinuxDoFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/token":
 			w.Header().Set("Content-Type", "application/json")
@@ -516,6 +520,7 @@ func TestLinuxDoOAuthCallbackCreatesBindPendingSessionForCompatEmailUser(t *test
 		TokenAuthMethod:     "client_secret_post",
 		UsePKCE:             true,
 	})
+	handler.linuxDoHTTPClient = upstream.client
 	t.Cleanup(func() { _ = client.Close() })
 
 	ctx := context.Background()
@@ -569,7 +574,7 @@ func TestLinuxDoOAuthCallbackCreatesBindPendingSessionForCompatEmailUser(t *test
 }
 
 func TestLinuxDoOAuthCallbackCreatesChoicePendingSessionWhenSignupRequiresInvite(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newLinuxDoFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/token":
 			w.Header().Set("Content-Type", "application/json")
@@ -596,6 +601,7 @@ func TestLinuxDoOAuthCallbackCreatesChoicePendingSessionWhenSignupRequiresInvite
 		TokenAuthMethod:     "client_secret_post",
 		UsePKCE:             true,
 	})
+	handler.linuxDoHTTPClient = upstream.client
 	t.Cleanup(func() { _ = client.Close() })
 
 	recorder := httptest.NewRecorder()
@@ -632,7 +638,7 @@ func TestLinuxDoOAuthCallbackCreatesChoicePendingSessionWhenSignupRequiresInvite
 }
 
 func TestLinuxDoOAuthCallbackEmailVerificationCompletesWithBoundEmail(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newLinuxDoFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/token":
 			w.Header().Set("Content-Type", "application/json")
@@ -659,6 +665,7 @@ func TestLinuxDoOAuthCallbackEmailVerificationCompletesWithBoundEmail(t *testing
 		TokenAuthMethod:     "client_secret_post",
 		UsePKCE:             true,
 	})
+	handler.linuxDoHTTPClient = upstream.client
 	t.Cleanup(func() { _ = client.Close() })
 
 	recorder := httptest.NewRecorder()
@@ -734,7 +741,7 @@ func TestLinuxDoOAuthCallbackEmailVerificationCompletesWithBoundEmail(t *testing
 }
 
 func TestLinuxDoOAuthCallbackDirectlyLogsInNewUserWhenEmailVerificationDisabled(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newLinuxDoFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/token":
 			w.Header().Set("Content-Type", "application/json")
@@ -761,6 +768,7 @@ func TestLinuxDoOAuthCallbackDirectlyLogsInNewUserWhenEmailVerificationDisabled(
 		TokenAuthMethod:     "client_secret_post",
 		UsePKCE:             true,
 	})
+	handler.linuxDoHTTPClient = upstream.client
 	t.Cleanup(func() { _ = client.Close() })
 
 	recorder := httptest.NewRecorder()
@@ -810,7 +818,7 @@ func TestLinuxDoOAuthCallbackDirectlyLogsInNewUserWhenEmailVerificationDisabled(
 }
 
 func TestLinuxDoOAuthCallbackCreatesBindPendingSessionForCurrentUser(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newLinuxDoFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/token":
 			w.Header().Set("Content-Type", "application/json")
@@ -837,6 +845,7 @@ func TestLinuxDoOAuthCallbackCreatesBindPendingSessionForCurrentUser(t *testing.
 		TokenAuthMethod:     "client_secret_post",
 		UsePKCE:             true,
 	})
+	handler.linuxDoHTTPClient = upstream.client
 	t.Cleanup(func() { _ = client.Close() })
 
 	ctx := context.Background()
@@ -1233,4 +1242,30 @@ func configureLinuxDoOAuthTestHandler(handler *AuthHandler, oauthCfg config.Linu
 		},
 		LinuxDo: oauthCfg,
 	}
+}
+
+// linuxDoFixture keeps OAuth callback tests entirely in-process. The URL is
+// synthetic, while req's transport dispatches each request to the handler
+// through an httptest recorder without opening a listener.
+type linuxDoFixture struct {
+	URL    string
+	client *req.Client
+}
+
+func newLinuxDoFixture(handler http.Handler) *linuxDoFixture {
+	client := req.C()
+	client.GetClient().Transport = linuxDoFixtureRoundTripper(func(r *http.Request) (*http.Response, error) {
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, r)
+		return recorder.Result(), nil
+	})
+	return &linuxDoFixture{URL: "https://linuxdo-fixture.test", client: client}
+}
+
+func (f *linuxDoFixture) Close() {}
+
+type linuxDoFixtureRoundTripper func(*http.Request) (*http.Response, error)
+
+func (f linuxDoFixtureRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }

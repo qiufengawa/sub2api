@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -55,7 +54,7 @@ func buildCRSPriorityExport(priority *int, semantics string, pivot *int) map[str
 
 func runCRSPrioritySync(t *testing.T, repo AccountRepository, data map[string]any) *SyncFromCRSResult {
 	t.Helper()
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+	server := newUnitHTTPServer(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
 		if request.URL.Path == "/web/auth/login" {
 			_, _ = response.Write([]byte(`{"success":true,"token":"admin-token"}`))
@@ -74,7 +73,7 @@ func runCRSPrioritySync(t *testing.T, repo AccountRepository, data map[string]an
 
 func newCRSPriorityRawService(t *testing.T, rawData string) (*CRSSyncService, SyncFromCRSInput) {
 	t.Helper()
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+	server := newUnitHTTPServer(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
 		if request.URL.Path == "/web/auth/login" {
 			_, _ = response.Write([]byte(`{"success":true,"token":"admin-token"}`))

@@ -11,7 +11,8 @@ const {
   listEnabledDefinitions,
   getBatchUserAttributes,
   toggleStatus,
-  deleteUser
+  deleteUser,
+  showError
 } = vi.hoisted(() => ({
   listUsers: vi.fn(),
   getAllGroups: vi.fn(),
@@ -19,7 +20,8 @@ const {
   listEnabledDefinitions: vi.fn(),
   getBatchUserAttributes: vi.fn(),
   toggleStatus: vi.fn(),
-  deleteUser: vi.fn()
+  deleteUser: vi.fn(),
+  showError: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -44,7 +46,7 @@ vi.mock('@/api/admin', () => ({
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
-    showError: vi.fn(),
+    showError,
     showSuccess: vi.fn()
   })
 }))
@@ -135,6 +137,7 @@ describe('admin UsersView', () => {
     getBatchUserAttributes.mockReset()
     toggleStatus.mockReset()
     deleteUser.mockReset()
+    showError.mockReset()
 
     listUsers.mockResolvedValue({
       items: [createAdminUser()],
@@ -203,6 +206,65 @@ describe('admin UsersView', () => {
       }),
       expect.any(Object)
     )
+  })
+
+  it('does not surface a generic rejection from a superseded users request', async () => {
+    let rejectFirst!: (error: Error) => void
+    let requestCount = 0
+    const firstRequest = new Promise<never>((_, reject) => {
+      rejectFirst = reject
+    })
+    listUsers.mockImplementation(() => {
+      requestCount += 1
+      if (requestCount === 1) return firstRequest
+      return Promise.resolve({
+        items: [createAdminUser({ email: 'fresh-user@example.com' })],
+        total: 1,
+        page: 1,
+        page_size: 20,
+        pages: 1
+      })
+    })
+
+    const wrapper = mount(UsersView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: {
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+          },
+          UiDataTable: DataTableStub,
+          UiPagination: true,
+          UiConfirmDialog: true,
+          EmptyState: true,
+          GroupBadge: true,
+          Select: true,
+          UserAttributesConfigModal: true,
+          UserConcurrencyCell: true,
+          UserCreateModal: true,
+          UserEditModal: true,
+          BulkEditUserModal: BulkEditUserModalStub,
+          UserPlatformQuotaModal: true,
+          UserApiKeysModal: true,
+          UserAllowedGroupsModal: true,
+          UserBalanceModal: true,
+          UserBalanceHistoryModal: true,
+          GroupReplaceModal: true,
+          Icon: true,
+          Teleport: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await (wrapper.vm as any).loadUsers()
+    await flushPromises()
+
+    rejectFirst(new Error('stale users request'))
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="row-order"]').text()).toBe('fresh-user@example.com')
+    expect(showError).not.toHaveBeenCalledWith('stale users request')
   })
 
   it('clears usage current-page sort when switching to last_used_at server sort', async () => {

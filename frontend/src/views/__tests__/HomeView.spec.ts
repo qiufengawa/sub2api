@@ -139,5 +139,9 @@ describe('HomeView', () => {
     wrapper = await mountHome()
     expect(wrapper.get('iframe').attributes('src')).toBe('https://pages.example.test/home')
     expect(wrapper.get('iframe').classes()).toContain('h-screen')
+    expect(wrapper.get('iframe').attributes('sandbox')).toBe(
+      'allow-scripts allow-forms allow-popups allow-presentation',
+    )
+    expect(wrapper.get('iframe').attributes('referrerpolicy')).toBe('no-referrer')
   })
 })

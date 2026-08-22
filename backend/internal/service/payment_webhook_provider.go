@@ -64,10 +64,40 @@ func (s *PaymentService) GetWebhookProviders(ctx context.Context, providerKey, o
 			}
 			return []payment.Provider{prov}, nil
 		}
+		// Only a genuine missing order may use the legacy registry fallback.
+		// Treat context/DB failures as transient so webhook handlers return an
+		// error and the provider retries instead of acknowledging a payment that
+		// was never verified or fulfilled.
+		if !dbent.IsNotFound(err) {
+			return nil, fmt.Errorf("lookup webhook order: %w", err)
+		}
 	}
 
 	if strings.TrimSpace(providerKey) == payment.TypeWxpay {
 		return s.getEnabledWebhookProvidersByKey(ctx, providerKey)
+	}
+	// Stripe and Airwallex emit valid, signed non-payment events that do not
+	// contain a Sub2API order identifier (for example charge/account lifecycle
+	// events).  With multiple enabled instances there is no safe registry
+	// singleton to use, but each configured instance can still independently
+	// verify the signature.  Return all candidates so the handler can try them
+	// and acknowledge an irrelevant-but-authentic event instead of returning a
+	// retryable "ambiguous" error forever.  Preserve the legacy registry
+	// fallback for zero/one configured instance, including tests and deployments
+	// that keep provider configuration in the registry only.
+	if (providerKey == payment.TypeStripe || providerKey == payment.TypeAirwallex) && s != nil && s.entClient != nil {
+		count, countErr := s.entClient.PaymentProviderInstance.Query().
+			Where(
+				paymentproviderinstance.ProviderKeyEQ(providerKey),
+				paymentproviderinstance.EnabledEQ(true),
+			).
+			Count(ctx)
+		if countErr != nil {
+			return nil, fmt.Errorf("count webhook provider instances: %w", countErr)
+		}
+		if count > 1 {
+			return s.getEnabledWebhookProvidersByKey(ctx, providerKey)
+		}
 	}
 
 	if !s.webhookRegistryFallbackAllowed(ctx, providerKey) {

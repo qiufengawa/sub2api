@@ -25,7 +25,7 @@
           <UiDataTable :columns="columns" :data="channels" :loading="loading" :mobile-table="true" :aria-label="t('admin.channels.title', 'Channels')" :server-side-sort="true" default-sort-key="created_at" default-sort-order="desc" @sort="handleSort">
           <template #cell-name="{ value }"><UiDataCell :value="String(value)" /></template>
           <template #cell-description="{ value }"><UiDataCell :value="value || '-'" /></template>
-          <template #cell-status="{ row }"><UiSwitch :model-value="row.status === 'active'" :label="row.name" @update:model-value="toggleChannelStatus(row)" /></template>
+          <template #cell-status="{ row }"><UiSwitch :model-value="row.status === 'active'" :label="row.name" :disabled="channelStatusPendingIds.has(row.id)" @update:model-value="toggleChannelStatus(row)" /></template>
           <template #cell-group_count="{ row }"><UiBadge :label="`${(row.group_ids || []).length} ${t('admin.channels.groupsUnit', 'groups')}`" /></template>
           <template #cell-pricing_count="{ row }"><UiBadge :label="`${(row.model_pricing || []).length} ${t('admin.channels.pricingUnit', 'pricing rules')}`" /></template>
           <template #cell-created_at="{ value }"><UiDataCell :value="formatDate(value)" mono /></template>
@@ -317,6 +317,7 @@ const sortState = reactive({
 const showDialog = ref(false)
 const editingChannel = ref<Channel | null>(null)
 const submitting = ref(false)
+const channelStatusPendingIds = ref(new Set<number>())
 const showDeleteDialog = ref(false)
 const deletingChannel = ref<Channel | null>(null)
 const deletePending = ref(false)
@@ -858,7 +859,7 @@ async function loadChannels() {
     pagination.total = response.total
   } catch (error: unknown) {
     const e = error as { name?: string; code?: string }
-    if (e?.name === 'AbortError' || e?.code === 'ERR_CANCELED') return
+    if (ctrl.signal.aborted || abortController !== ctrl || e?.name === 'AbortError' || e?.code === 'ERR_CANCELED') return
     appStore.showError(extractApiErrorMessage(error, t('admin.channels.loadError', 'Failed to load channels')))
   } finally {
     if (abortController === ctrl) {
@@ -1178,7 +1179,9 @@ async function handleSubmit() {
 
 // ── Toggle status ──
 async function toggleChannelStatus(channel: Channel) {
+  if (channelStatusPendingIds.value.has(channel.id)) return
   const newStatus = channel.status === 'active' ? 'disabled' : 'active'
+  channelStatusPendingIds.value = new Set([...channelStatusPendingIds.value, channel.id])
   try {
     await adminAPI.channels.update(channel.id, { status: newStatus })
     if (filters.status && filters.status !== newStatus) {
@@ -1190,6 +1193,10 @@ async function toggleChannelStatus(channel: Channel) {
   } catch (error) {
     appStore.showError(t('admin.channels.updateError', 'Failed to update channel'))
     console.error('Error toggling channel status:', error)
+  } finally {
+    const next = new Set(channelStatusPendingIds.value)
+    next.delete(channel.id)
+    channelStatusPendingIds.value = next
   }
 }
 

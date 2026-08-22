@@ -103,7 +103,7 @@ func TestWeChatOAuthCallbackCreatesPendingSessionForUnifiedFlow(t *testing.T) {
 		wechatOAuthUserInfoURL = originalUserInfoURL
 	})
 
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newWeChatOAuthFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/sns/oauth2/access_token"):
 			w.Header().Set("Content-Type", "application/json")
@@ -120,6 +120,7 @@ func TestWeChatOAuthCallbackCreatesPendingSessionForUnifiedFlow(t *testing.T) {
 	wechatOAuthUserInfoURL = upstream.URL + "/sns/userinfo"
 
 	handler, client := newWeChatOAuthTestHandler(t, false)
+	handler.wechatHTTPClient = upstream.client
 	defer client.Close()
 
 	recorder := httptest.NewRecorder()
@@ -163,7 +164,7 @@ func TestWeChatOAuthCallbackFallsBackToOpenIDWhenUnionIDMissingInSingleChannelMo
 		wechatOAuthUserInfoURL = originalUserInfoURL
 	})
 
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newWeChatOAuthFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/sns/oauth2/access_token"):
 			w.Header().Set("Content-Type", "application/json")
@@ -180,6 +181,7 @@ func TestWeChatOAuthCallbackFallsBackToOpenIDWhenUnionIDMissingInSingleChannelMo
 	wechatOAuthUserInfoURL = upstream.URL + "/sns/userinfo"
 
 	handler, client := newWeChatOAuthTestHandlerWithSettings(t, false, wechatOAuthTestSettings("open", "wx-open-app", "wx-open-secret", "https://app.example.com/auth/wechat/callback"))
+	handler.wechatHTTPClient = upstream.client
 	defer client.Close()
 
 	recorder := httptest.NewRecorder()
@@ -221,7 +223,7 @@ func TestWeChatOAuthCallbackCreatesLoginPendingSessionForExistingIdentityUserWit
 		wechatOAuthUserInfoURL = originalUserInfoURL
 	})
 
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newWeChatOAuthFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/sns/oauth2/access_token"):
 			w.Header().Set("Content-Type", "application/json")
@@ -238,6 +240,7 @@ func TestWeChatOAuthCallbackCreatesLoginPendingSessionForExistingIdentityUserWit
 	wechatOAuthUserInfoURL = upstream.URL + "/sns/userinfo"
 
 	handler, client := newWeChatOAuthTestHandlerWithSettings(t, false, wechatOAuthTestSettings("open", "wx-open-app", "wx-open-secret", "https://app.example.com/auth/wechat/callback"))
+	handler.wechatHTTPClient = upstream.client
 	defer client.Close()
 
 	ctx := context.Background()
@@ -301,7 +304,7 @@ func TestWeChatOAuthCallbackRejectsDisabledExistingIdentityUser(t *testing.T) {
 		wechatOAuthUserInfoURL = originalUserInfoURL
 	})
 
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newWeChatOAuthFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/sns/oauth2/access_token"):
 			w.Header().Set("Content-Type", "application/json")
@@ -318,6 +321,7 @@ func TestWeChatOAuthCallbackRejectsDisabledExistingIdentityUser(t *testing.T) {
 	wechatOAuthUserInfoURL = upstream.URL + "/sns/userinfo"
 
 	handler, client := newWeChatOAuthTestHandler(t, false)
+	handler.wechatHTTPClient = upstream.client
 	defer client.Close()
 
 	ctx := context.Background()
@@ -364,7 +368,7 @@ func TestWeChatPaymentOAuthCallbackRedirectsWithOpaqueResumeToken(t *testing.T) 
 		wechatOAuthAccessTokenURL = originalAccessTokenURL
 	})
 
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newWeChatOAuthFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/sns/oauth2/access_token") {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"access_token":"wechat-access","openid":"openid-123","scope":"snsapi_base"}`))
@@ -376,6 +380,7 @@ func TestWeChatPaymentOAuthCallbackRedirectsWithOpaqueResumeToken(t *testing.T) 
 	wechatOAuthAccessTokenURL = upstream.URL + "/sns/oauth2/access_token"
 
 	handler, client := newWeChatOAuthTestHandlerWithSettings(t, false, wechatOAuthTestSettings("mp", "wx-mp-app", "wx-mp-secret", "/auth/wechat/callback"))
+	handler.wechatHTTPClient = upstream.client
 	defer client.Close()
 	handler.cfg.Totp.EncryptionKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	handler.cfg.Totp.EncryptionKeyConfigured = true
@@ -422,7 +427,7 @@ func TestWeChatPaymentOAuthCallbackUsesExplicitPaymentResumeSigningKeyWhenMixedK
 		wechatOAuthAccessTokenURL = originalAccessTokenURL
 	})
 
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newWeChatOAuthFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/sns/oauth2/access_token") {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"access_token":"wechat-access","openid":"openid-mixed-key","scope":"snsapi_base"}`))
@@ -434,6 +439,7 @@ func TestWeChatPaymentOAuthCallbackUsesExplicitPaymentResumeSigningKeyWhenMixedK
 	wechatOAuthAccessTokenURL = upstream.URL + "/sns/oauth2/access_token"
 
 	handler, client := newWeChatOAuthTestHandlerWithSettings(t, false, wechatOAuthTestSettings("mp", "wx-mp-app", "wx-mp-secret", "/auth/wechat/callback"))
+	handler.wechatHTTPClient = upstream.client
 	defer client.Close()
 
 	legacyKeyHex := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -510,7 +516,7 @@ func TestWeChatOAuthCallbackBindUsesUnionCanonicalIdentityAcrossChannels(t *test
 				wechatOAuthUserInfoURL = originalUserInfoURL
 			})
 
-			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			upstream := newWeChatOAuthFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				switch {
 				case strings.Contains(r.URL.Path, "/sns/oauth2/access_token"):
 					w.Header().Set("Content-Type", "application/json")
@@ -527,6 +533,7 @@ func TestWeChatOAuthCallbackBindUsesUnionCanonicalIdentityAcrossChannels(t *test
 			wechatOAuthUserInfoURL = upstream.URL + "/sns/userinfo"
 
 			handler, client := newWeChatOAuthTestHandlerWithSettings(t, false, wechatOAuthTestSettings(tc.mode, tc.appID, tc.appSecret, "/auth/wechat/callback"))
+			handler.wechatHTTPClient = upstream.client
 			defer client.Close()
 
 			currentUser, err := client.User.Create().
@@ -590,7 +597,7 @@ func TestWeChatOAuthCallbackBindRejectsCanonicalOwnershipConflict(t *testing.T) 
 		wechatOAuthUserInfoURL = originalUserInfoURL
 	})
 
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newWeChatOAuthFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/sns/oauth2/access_token"):
 			w.Header().Set("Content-Type", "application/json")
@@ -607,6 +614,7 @@ func TestWeChatOAuthCallbackBindRejectsCanonicalOwnershipConflict(t *testing.T) 
 	wechatOAuthUserInfoURL = upstream.URL + "/sns/userinfo"
 
 	handler, client := newWeChatOAuthTestHandler(t, false)
+	handler.wechatHTTPClient = upstream.client
 	defer client.Close()
 
 	ctx := context.Background()
@@ -668,7 +676,7 @@ func TestWeChatOAuthCallbackBindRejectsChannelOwnershipConflict(t *testing.T) {
 		wechatOAuthUserInfoURL = originalUserInfoURL
 	})
 
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newWeChatOAuthFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/sns/oauth2/access_token"):
 			w.Header().Set("Content-Type", "application/json")
@@ -685,6 +693,7 @@ func TestWeChatOAuthCallbackBindRejectsChannelOwnershipConflict(t *testing.T) {
 	wechatOAuthUserInfoURL = upstream.URL + "/sns/userinfo"
 
 	handler, client := newWeChatOAuthTestHandler(t, false)
+	handler.wechatHTTPClient = upstream.client
 	defer client.Close()
 
 	ctx := context.Background()
@@ -757,7 +766,7 @@ func TestWeChatOAuthCallbackBindRejectsLegacyProviderKeyOwnershipConflict(t *tes
 		wechatOAuthUserInfoURL = originalUserInfoURL
 	})
 
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newWeChatOAuthFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/sns/oauth2/access_token"):
 			w.Header().Set("Content-Type", "application/json")
@@ -774,6 +783,7 @@ func TestWeChatOAuthCallbackBindRejectsLegacyProviderKeyOwnershipConflict(t *tes
 	wechatOAuthUserInfoURL = upstream.URL + "/sns/userinfo"
 
 	handler, client := newWeChatOAuthTestHandler(t, false)
+	handler.wechatHTTPClient = upstream.client
 	defer client.Close()
 
 	ctx := context.Background()
@@ -835,7 +845,7 @@ func TestCompleteWeChatOAuthRegistrationAfterInvitationPendingSessionReturnsPend
 		wechatOAuthUserInfoURL = originalUserInfoURL
 	})
 
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newWeChatOAuthFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/sns/oauth2/access_token"):
 			w.Header().Set("Content-Type", "application/json")
@@ -852,6 +862,7 @@ func TestCompleteWeChatOAuthRegistrationAfterInvitationPendingSessionReturnsPend
 	wechatOAuthUserInfoURL = upstream.URL + "/sns/userinfo"
 
 	handler, client := newWeChatOAuthTestHandler(t, true)
+	handler.wechatHTTPClient = upstream.client
 	defer client.Close()
 
 	ctx := context.Background()
@@ -1019,7 +1030,7 @@ func TestWeChatOAuthCallbackRepairsLegacyOpenIDOnlyIdentity(t *testing.T) {
 		wechatOAuthUserInfoURL = originalUserInfoURL
 	})
 
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newWeChatOAuthFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/sns/oauth2/access_token"):
 			w.Header().Set("Content-Type", "application/json")
@@ -1036,6 +1047,7 @@ func TestWeChatOAuthCallbackRepairsLegacyOpenIDOnlyIdentity(t *testing.T) {
 	wechatOAuthUserInfoURL = upstream.URL + "/sns/userinfo"
 
 	handler, client := newWeChatOAuthTestHandler(t, false)
+	handler.wechatHTTPClient = upstream.client
 	defer client.Close()
 
 	ctx := context.Background()
@@ -1234,7 +1246,7 @@ func TestWeChatOAuthCallbackRepairsLegacyProviderKeyCanonicalIdentity(t *testing
 		wechatOAuthUserInfoURL = originalUserInfoURL
 	})
 
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newWeChatOAuthFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/sns/oauth2/access_token"):
 			w.Header().Set("Content-Type", "application/json")
@@ -1251,6 +1263,7 @@ func TestWeChatOAuthCallbackRepairsLegacyProviderKeyCanonicalIdentity(t *testing
 	wechatOAuthUserInfoURL = upstream.URL + "/sns/userinfo"
 
 	handler, client := newWeChatOAuthTestHandler(t, false)
+	handler.wechatHTTPClient = upstream.client
 	defer client.Close()
 
 	ctx := context.Background()
@@ -1334,6 +1347,33 @@ func TestWeChatOAuthCallbackRepairsLegacyProviderKeyCanonicalIdentity(t *testing
 
 func newWeChatOAuthTestHandler(t *testing.T, invitationEnabled bool) (*AuthHandler, *dbent.Client) {
 	return newWeChatOAuthTestHandlerWithSettings(t, invitationEnabled, nil)
+}
+
+// newWeChatOAuthFixture avoids opening a loopback listener in OAuth tests.
+// Requests retain their synthetic URL while the transport dispatches them to
+// an httptest recorder-backed handler.
+type wechatOAuthFixture struct {
+	URL    string
+	client *http.Client
+}
+
+func newWeChatOAuthFixture(handler http.Handler) *wechatOAuthFixture {
+	return &wechatOAuthFixture{
+		URL: "https://wechat-oauth-fixture.test",
+		client: &http.Client{Transport: wechatOAuthFixtureRoundTripper(func(r *http.Request) (*http.Response, error) {
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, r)
+			return recorder.Result(), nil
+		})},
+	}
+}
+
+func (f *wechatOAuthFixture) Close() {}
+
+type wechatOAuthFixtureRoundTripper func(*http.Request) (*http.Response, error)
+
+func (f wechatOAuthFixtureRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }
 
 func wechatOAuthTestSettings(mode, appID, secret, frontendRedirect string) map[string]string {

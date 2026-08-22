@@ -173,4 +173,23 @@ describe('MonitorTemplateManagerDialog state handling', () => {
     expect(vm.confirmDelete.show).toBe(false)
     wrapper.unmount()
   })
+
+  it('clears a successful delete target before a list refresh failure', async () => {
+    const wrapper = mountDialog()
+    await flushPromises()
+    listTemplates.mockRejectedValueOnce(new Error('refresh after delete failed'))
+    const vm = wrapper.vm as any
+    vm.handleDelete(template)
+
+    await vm.doDelete()
+    await flushPromises()
+
+    expect(deleteTemplate).toHaveBeenCalledWith(template.id)
+    expect(vm.confirmDelete.show).toBe(false)
+    expect(vm.confirmDelete.tpl).toBeNull()
+    expect(vm.templates).toEqual([])
+    expect(wrapper.text()).not.toContain('Default headers')
+    expect(showError).toHaveBeenCalledWith('refresh after delete failed')
+    wrapper.unmount()
+  })
 })

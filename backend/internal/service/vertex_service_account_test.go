@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -103,7 +102,7 @@ func TestVertexServiceAccountProxyURL(t *testing.T) {
 }
 
 func TestVertexServiceAccountHTTPClientRecordsDependency(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
@@ -129,7 +128,7 @@ func TestExchangeVertexServiceAccountTokenUsesProxy(t *testing.T) {
 	})
 
 	seenProxyRequest := make(chan string, 1)
-	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	proxy := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		seenProxyRequest <- r.URL.String()
 		require.Equal(t, "oauth2.googleapis.com", r.URL.Host)
 		require.Equal(t, "/token", r.URL.Path)

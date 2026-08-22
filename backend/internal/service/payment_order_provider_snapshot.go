@@ -127,7 +127,11 @@ func expectedNotificationProviderKeyForOrder(registry *payment.Registry, order *
 }
 
 func validateProviderSnapshotMetadata(order *dbent.PaymentOrder, providerKey string, metadata map[string]string) error {
-	if order == nil || len(metadata) == 0 {
+	// A nil/empty notification metadata map is not a successful validation when
+	// the order carries a provider snapshot.  The snapshot binds the callback
+	// to the merchant instance/currency; silently skipping checks here would let
+	// an otherwise valid amount transition an order from a different merchant.
+	if order == nil {
 		return nil
 	}
 

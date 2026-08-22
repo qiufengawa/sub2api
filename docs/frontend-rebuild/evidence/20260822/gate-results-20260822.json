@@ -6,27 +6,569 @@
     "ui_checkbox_native_label": "passed",
     "ui_textarea_generated_label_id": "passed",
     "app_sidebar_mobile_inert": "passed",
-    "app_page_single_main_landmark": "passed"
+    "app_page_single_main_landmark": "passed",
+    "mobile_sidebar_focus_scope": "passed",
+    "repeated_switch_accessible_names": "passed",
+    "settings_retry_focus": "passed",
+    "accounts_partial_result_fallback": "passed",
+    "mobile_viewport_focus_reset": "passed",
+    "provider_toggle_pending_guard": "passed",
+    "provider_toggle_refresh_fallback": "passed",
+    "provider_mutation_queue": "passed",
+    "payment_type_cascade_failure_restore": "passed",
+    "provider_save_pending_fence": "passed",
+    "provider_load_sequence": "passed",
+    "provider_delete_refresh_boundary": "passed",
+    "provider_optimistic_refresh_patch": "passed",
+    "batch_retry_item_pagination": "passed",
+    "batch_preview_download_semantics": "passed",
+    "batch_preview_no_store_cache": "passed",
+    "batch_queued_status_filter": "passed",
+    "batch_custom_id_route_safe_validation": "passed",
+    "batch_idempotency_unique_index": "passed",
+    "batch_zip_status_filter": "passed",
+    "batch_zip_atomic_error_boundary": "passed",
+    "batch_bulk_partial_recovery": "passed",
+    "batch_cross_page_detail_aggregation": "passed",
+    "playground_sse_bare_cr": "passed",
+    "prompt_audit_filter_delete_session_fence": "passed",
+    "payment_snapshot_empty_metadata_guard": "passed",
+    "payment_webhook_order_lookup_error": "passed",
+    "payment_webhook_stripe_metadata_binding": "passed",
+    "payment_webhook_lookup_status_boundary": "passed",
+    "easypay_pending_apibase_guard": "passed",
+    "batch_idempotency_migration_preflight": "passed",
+    "payment_provider_sdk_contracts": "passed",
+    "batch_retry_custom_id_suffix_fence": "passed",
+    "admin_backup_mutation_guards": "passed",
+    "admin_audit_clear_single_flight": "passed",
+    "admin_usage_stale_rejection_fence": "passed",
+    "admin_orders_detail_error_boundary": "passed",
+    "admin_email_template_generation_fence": "passed",
+    "batch_failed_output_retention": "passed",
+    "batch_ttl_active_child_guard": "passed",
+    "batch_zip_filename_collision_guard": "passed",
+    "batch_failed_root_preview_guard": "passed",
+    "batch_idempotency_loser_reenqueue": "passed",
+    "batch_download_permit_release_guard": "passed",
+    "image_storage_ssrf_redirect_guard": "passed",
+    "payment_webhook_multi_instance_candidate_fallback": "passed",
+    "batch_record_delete_child_guard": "passed",
+    "batch_settling_action_guard": "passed",
+    "vertex_output_ref_trust_boundary": "passed",
+    "batch_read_after_quota_guard": "passed",
+    "payment_webhook_wxpay_lookup_status": "passed",
+    "risk_control_loadall_rejection_fence": "passed",
+    "auth_client_401_session_fence": "passed",
+    "image_storage_default_transport_fallback": "passed",
+    "auth_refresh_index_fail_closed": "passed",
+    "auth_handler_cache_failure_no_stateless_fallback": "passed",
+    "payment_refund_retry_status_preservation": "passed",
+    "payment_registry_atomic_refresh": "passed",
+    "admin_async_fences_and_blob_revoke": "passed",
+    "auth_durable_revocation_generation": "passed",
+    "dingtalk_oauth_lookup_fail_closed": "passed",
+    "scheduled_test_result_limit_cap": "passed",
+    "scheduled_test_runner_failure_reschedule_guard": "passed"
+  },
+  "coverage_manifest": {
+    "file": "coverage-manifest.json",
+    "admin_state_cases": 108,
+    "admin_state_intercepted_cases": 102,
+    "admin_state_guard_cases": 6
   },
   "focused": {
-    "full_frontend_test_run": {"status": "passed", "test_files": 360, "tests": 2441},
-    "static_audit": {"status": "passed", "tests": 13},
-    "typecheck": {"status": "passed"},
-    "lint": {"status": "passed"},
-    "build": {"status": "passed", "modules": 3103},
-    "diff_check": {"status": "passed"},
-    "SettingsView_and_layout": {"status": "passed", "tests": 46},
-    "AppSidebar_behavior": {"status": "passed", "tests": 4},
-    "AppPage": {"status": "passed", "tests": 1},
-    "UiCheckbox": {"status": "passed", "tests": 2},
-    "UiTextArea_and_primitives": {"status": "passed", "tests": 15},
-    "OpsSystemLogTable_mutation": {"status": "passed", "tests": 7}
+    "full_frontend_test_run": {
+      "status": "passed",
+      "test_files": 365,
+      "tests": 2544,
+      "command": "pnpm run test:run -- --reporter=dot"
+    },
+    "static_audit": {
+      "status": "passed",
+      "tests": 14
+    },
+    "typecheck": {
+      "status": "passed"
+    },
+    "lint": {
+      "status": "passed"
+    },
+    "build": {
+      "status": "passed",
+      "modules": 3103
+    },
+    "diff_check": {
+      "status": "passed"
+    },
+    "SettingsView_and_layout": {
+      "status": "passed",
+      "tests": 63
+    },
+    "AppSidebar_behavior": {
+      "status": "passed",
+      "tests": 6
+    },
+    "AppPage": {
+      "status": "passed",
+      "tests": 1
+    },
+    "UiCheckbox": {
+      "status": "passed",
+      "tests": 2
+    },
+    "UiTextArea_and_primitives": {
+      "status": "passed",
+      "tests": 15
+    },
+    "OpsSystemLogTable_mutation": {
+      "status": "passed",
+      "tests": 7
+    },
+    "payment_mutation_guards": {
+      "status": "passed",
+      "tests": 4
+    },
+    "additional_destructive_mutation_guards": {
+      "status": "passed",
+      "tests": 8,
+      "scope": "Batch Image, affiliate transfer, Ollama session, scheduled test plan, quota reset, platform quota, account export"
+    },
+    "additional_admin_mutation_guards": {
+      "status": "passed",
+      "tests": 11,
+      "scope": "Accounts partial bulk results and legacy error-detail fallback, Proxies skipped batch results and function-level create/update guards, Monitor template delete refresh boundary, Risk Control flagged-hash clear refresh boundary, Channels status single-flight, Groups create/update/sort single-flight"
+    },
+    "AppHeader_mobile_menu_relationship": {
+      "status": "passed",
+      "tests": 3
+    },
+    "ProviderCard_accessible_names": {
+      "status": "passed",
+      "tests": 2
+    },
+    "ProviderToggle_pending_guards": {
+      "status": "passed",
+      "tests": 11,
+      "scope": "SettingsView duplicate provider field guard, payment-type serialization, cascade failure restore, save fence, out-of-order refresh ordering, eventual-consistency stale refresh protection, delete-refresh boundary, cross-provider visible-method serialization, refresh-failure local-state fallback, sensitive-config optimistic patch exclusion, and imperative save-race fencing"
+    },
+    "ToggleSwitch_accessible_labels": {
+      "status": "passed",
+      "tests": 2
+    },
+    "batch_image_api_contract": {
+      "status": "passed",
+      "file": "batch-image-api-contract-20260822.json",
+      "tests": 8,
+      "fixture_only": true,
+      "assertions": [
+        "POST /v1/images/batches sends Authorization, JSON and Idempotency-Key",
+        "GET /v1/images/batches encodes cursor/status/task_name/date filters",
+        "GET /v1/images/batches/models remains distinct from the dynamic :id route",
+        "GET detail/items and POST cancel encode batch and custom identifiers",
+        "GET item pagination encodes status, limit and cursor options",
+        "GET download/content return Blob values and preserve image_index",
+        "DELETE /outputs and DELETE /{id} remain separate authenticated operations",
+        "JSON and text error envelopes retain status, code and X-Request-Id",
+        "download object URLs are revoked after the anchor click completes"
+      ]
+    },
+    "iframe_sandbox_contract": {
+      "status": "passed",
+      "scope": "HomeView and CustomPageView component fixtures assert restrictive sandbox/referrerpolicy attributes",
+      "fixture_only": true
+    },
+    "a11y_focus_contracts": {
+      "status": "passed",
+      "file": "a11y-focus-contracts.json",
+      "source_level_only": true
+    },
+    "batch_image_models_route_regression": {
+      "status": "passed",
+      "command": "GOCACHE=/tmp/sub2api-gocache go test ./internal/server/routes -count=1",
+      "scope": "route package including static/dynamic batch-image precedence; no provider or database call"
+    },
+    "batch_image_retry_pagination": {
+      "status": "passed",
+      "tests": 3,
+      "scope": "BatchImageGuideView traverses failed-item pages, all detail-item pages, and cross-page retry-child detail aggregation; local API mocks only"
+    },
+    "batch_image_backend_contract": {
+      "status": "passed",
+      "tests": "targeted unit suites passed",
+      "commands": [
+        "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/service -run 'TestBatchImagePublicService_(Submit|List)|TestBatchImageDownloadService|TestBatchImageDownloadAfterOutputDeleted|TestBatchImageCleanupService' -count=1",
+        "GOCACHE=/tmp/sub2api-gocache go test ./migrations -count=1",
+        "GOCACHE=/tmp/sub2api-gocache go test ./internal/server/routes -count=1"
+      ],
+      "scope": "queued status alias, route-safe custom IDs, idempotency conflict recovery, ZIP status selection/limit handling, output lifecycle; local fakes only; root/retry-child aggregate source planning and output cleanup",
+      "fixture_only": true
+    },
+    "batch_image_handler_error_boundary": {
+      "status": "passed",
+      "scope": "ZIP responses are assembled in a private temporary file before committing headers; preview responses use no-store and do not mark ZIP downloaded_at",
+      "fixture_only": true,
+      "note": "No live provider/object-storage stream was exercised"
+    },
+    "playground_sse_bare_cr": {
+      "status": "passed",
+      "tests": 1,
+      "command": "pnpm exec vitest run src/api/__tests__/playground.spec.ts -t 'bare CR' --reporter=dot",
+      "scope": "SSE decoder accepts bare CR and split CRLF line endings; local stream fixture only"
+    },
+    "prompt_audit_filter_delete_session_fence": {
+      "status": "passed",
+      "tests": 1,
+      "command": "pnpm exec vitest run src/features/prompt-audit/__tests__/PromptAuditView.spec.ts -t 'stale filter delete' --reporter=dot",
+      "scope": "Late rejection after dialog/session close cannot surface stale error or clear a newer busy state"
+    },
+    "payment_webhook_local_contracts": {
+      "status": "passed",
+      "tests": "targeted unit suites passed",
+      "commands": [
+        "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/handler -run 'TestWebhookProviderLookupStatus|TestExtractOutTradeNo|TestVerifyNotificationWithProviders' -count=1",
+        "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/service -run 'TestValidateProviderNotificationMetadata|TestGetWebhookProvidersPropagatesOrderLookupFailure|TestUpdateProviderInstanceRejectsProtectedConfigChangesWhilePendingOrders' -count=1"
+      ],
+      "scope": "Stripe metadata order binding, transient lookup retry boundary, empty snapshot metadata rejection, and EasyPay apiBase pending protection; no external provider calls",
+      "fixture_only": true
+    },
+    "batch_idempotency_migration_preflight": {
+      "status": "passed",
+      "tests": 2,
+      "command": "GOCACHE=/tmp/sub2api-gocache go test ./internal/repository -run 'TestApplyMigrationsFS_BatchImageIdempotencyMigration' -count=1",
+      "scope": "Duplicate owner/API-key/idempotency rows fail with an actionable preflight before unique-index creation; clean migration proceeds in a transaction",
+      "fixture_only": true
+    },
+    "batch_image_retry_child_aggregate_download": {
+      "status": "passed",
+      "tests": "targeted unit suites passed",
+      "commands": [
+        "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/service -run 'TestBatchImageDownloadService_StreamZip|TestBatchImageCleanupService_DeleteOutputsForOwner|TestBatchImageDownloadAfterOutputDeletedReturnsGone' -count=1",
+        "GOCACHE=/tmp/sub2api-gocache go test ./internal/repository -run 'TestApplyMigrationsFS_BatchImageIdempotencyMigration' -count=1"
+      ],
+      "scope": "Owner-scoped root/retry-child ZIP aggregation, aggregate item limits, pending/foreign child isolation, and root/child output cleanup",
+      "fixture_only": true,
+      "note": "Local fakes only; no live provider, object storage, ZIP transport, or external destructive run"
+    },
+    "batch_image_route_mock": {
+      "status": "passed",
+      "file": "batch-image-route-mock-20260822.json",
+      "tests": 1,
+      "command": "pnpm exec vitest run src/api/__tests__/batchImage.route-mock.spec.ts --reporter=dot",
+      "fixture_only": true,
+      "scope": "Stateful fetch dispatcher exercises submit/idempotency, owner isolation, pagination, item content, ZIP Blob, cancel, output delete and record delete route contracts",
+      "does_not_close_live_batch_gate": true
+    },
+    "risk_control_loadall_generation": {
+      "status": "passed",
+      "tests": 1,
+      "command": "pnpm exec vitest run src/views/admin/__tests__/RiskControlView.spec.ts -t 'older loadAll' --reporter=dot",
+      "scope": "A newer RiskControl page load fences config/groups/proxies/log application while a manual status refresh retains the newest runtime snapshot",
+      "fixture_only": true
+    },
+    "admin_route_metadata_contract": {
+      "status": "passed",
+      "tests": 1,
+      "command": "pnpm exec vitest run src/router/__tests__/route-inventory.spec.ts -t 'privileged admin feature gates' --reporter=dot",
+      "scope": "Current UI-system, promo-code, risk/prompt-audit and payment-order routes retain their auth/admin/feature guards",
+      "fixture_only": true
+    },
+    "payment_provider_listener_free": {
+      "status": "passed",
+      "tests": "full provider package passed uncached",
+      "commands": [
+        "GOCACHE=/tmp/sub2api-gocache go test ./internal/payment/provider -count=1",
+        "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/payment/provider -count=1"
+      ],
+      "scope": "Stripe in-memory backend, WeChat SDK stubs, and EasyPay/Airwallex in-process HTTP RoundTripper fixtures; no external credentials or network",
+      "fixture_only": true
+    },
+    "s3_backup_listener_free": {
+      "status": "passed",
+      "tests": 1,
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/repository -run TestS3BackupStore_UploadFile -count=1",
+      "scope": "AWS S3 PutObject contract through injected in-process HTTP client; no external object storage",
+      "fixture_only": true
+    },
+    "admin_payment_dashboard_late_rejection": {
+      "status": "passed",
+      "tests": 1,
+      "command": "pnpm exec vitest run src/views/admin/orders/__tests__/AdminPaymentDashboardView.spec.ts -t 'older request rejection' --reporter=dot",
+      "scope": "A stale dashboard request rejection cannot replace the newer day-range result or surface stale error feedback",
+      "fixture_only": true
+    },
+    "image_storage_listener_free": {
+      "status": "passed",
+      "tests": "targeted uploader suite passed",
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/service -run 'TestImageResultUploader' -count=1",
+      "scope": "Image URL ingestion uses an in-process HTTP recorder and fake object storage; no external URL or object storage",
+      "fixture_only": true
+    },
+    "payment_provider_sdk_contracts": {
+      "status": "passed",
+      "tests": 2,
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/payment/provider -run 'TestStripePaymentLifecycleUsesTypedSDKContract|TestStripeVerifyNotificationChecksSignatureAndMapsPaymentIntent|TestWxpayVerifyNotificationChecksAPIV3SignatureAndDecryptsTransaction' -count=1",
+      "scope": "Stripe typed SDK create/query/refund/cancel plus webhook signature mapping; WeChat Pay APIv3 RSA signature and AES-GCM transaction notification; in-process keys only",
+      "fixture_only": true
+    },
+    "batch_retry_custom_id_suffix_fence": {
+      "status": "passed",
+      "tests": 1,
+      "command": "pnpm exec vitest run src/views/user/__tests__/BatchImageGuideView.spec.ts -t 'retry custom IDs' --reporter=dot",
+      "scope": "Fallback retry-source parsing strips one generated suffix while preserving a legitimate source _retry_ segment",
+      "fixture_only": true
+    },
+    "latest_admin_mutation_guards": {
+      "status": "passed",
+      "tests": 6,
+      "scope": "Backup configuration/connection/creation/download single-flight, AuditLog TOTP clear single-flight, Usage stale rejection fencing, AdminOrders detail retryable error boundary, Email template save/preview single-flight and late-response fencing",
+      "fixture_only": true
+    },
+    "batch_image_hardening_regressions": {
+      "status": "passed",
+      "tests": "targeted unit suites passed",
+      "commands": [
+        "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/service -run 'TestBatchImage(DownloadService|CleanupService|PublicService|ProviderProcessor)|TestImageResultUploader' -count=1",
+        "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/repository -run 'TestBatchImage' -count=1"
+      ],
+      "scope": "failed/cancelled output retention and preview, active retry-child TTL deferral, child-first output cleanup retry, unique-conflict idempotency re-enqueue, canceled-context permit release, ZIP filename collision suffixing, and image URL private/redirect SSRF guards",
+      "fixture_only": true,
+      "does_not_close_live_batch_or_storage_gate": true
+    },
+    "payment_webhook_multi_instance_candidates": {
+      "status": "passed",
+      "tests": 1,
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/service -run 'TestGetWebhookProvidersUsesAllStripeCandidatesWithoutOrderID' -count=1",
+      "scope": "Multiple enabled Stripe instances are returned as verification candidates for signed non-payment events without orderId; single-instance legacy registry fallback remains unchanged",
+      "fixture_only": true,
+      "does_not_close_external_payment_gate": true
+    },
+    "auth_session_generation": {
+      "status": "passed",
+      "tests": 9,
+      "command": "pnpm exec vitest run src/stores/__tests__/auth.spec.ts src/stores/__tests__/adminCompliance.spec.ts src/api/__tests__/auth.session-race.spec.ts --reporter=dot",
+      "scope": "session-generation fences for stale user/token refresh, logout/login replacement, and admin compliance fetch/accept responses"
+    },
+    "batch_processor_index_failure_retention": {
+      "status": "passed",
+      "tests": 1,
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/service -run 'TestBatchImageProviderProcessor_StatusFlow' -count=1",
+      "scope": "indexing failure assigns terminal output expiry for cleanup"
+    },
+    "payment_webhook_wxpay_lookup_status": {
+      "status": "passed",
+      "tests": 2,
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/handler -run 'TestWebhookProviderLookupStatus' -count=1",
+      "scope": "Wxpay provider lookup maps transient database/configuration failures to 500 for retry and unconfigured providers to 200 acknowledgement",
+      "fixture_only": true
+    },
+    "risk_control_loadall_rejection_fence": {
+      "status": "passed",
+      "tests": 1,
+      "command": "pnpm exec vitest run src/views/admin/__tests__/RiskControlView.spec.ts -t 'stale loadAll rejection' --reporter=dot",
+      "scope": "An older rejected loadAll cannot surface an error after a newer page load generation starts",
+      "fixture_only": true
+    },
+    "auth_client_401_session_fence": {
+      "status": "passed",
+      "tests": 2,
+      "command": "pnpm exec vitest run src/api/__tests__/client.spec.ts -t '401' --reporter=dot",
+      "scope": "Stale no-refresh 401 responses and authentication-endpoint 401 responses do not clear a replacement/current session",
+      "fixture_only": true
+    },
+    "image_storage_default_transport_fallback": {
+      "status": "passed",
+      "tests": "targeted uploader suite passed",
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/service -run 'Test(NewImageResultUploader|ImageResultUploader)' -count=1",
+      "scope": "A replaceable non-*http.Transport http.DefaultTransport no longer panics uploader construction; URL safety contracts remain local-only",
+      "fixture_only": true
+    },
+    "auth_refresh_index_fail_closed": {
+      "status": "passed",
+      "tests": 2,
+      "scope": "refresh-token user/family index failures clean up the primary token and fail closed"
+    },
+    "auth_handler_cache_failure_no_stateless_fallback": {
+      "status": "passed",
+      "tests": 1,
+      "scope": "configured refresh-token cache outage returns service error instead of an untracked access JWT"
+    },
+    "payment_refund_retry_status_preservation": {
+      "status": "passed",
+      "tests": 2,
+      "scope": "deduction/gateway failure preserves REFUND_PENDING and REFUND_FAILED retry states"
+    },
+    "payment_registry_atomic_refresh": {
+      "status": "passed",
+      "tests": 1,
+      "scope": "failed provider refresh preserves the serving registry and initialization remains retryable"
+    },
+    "admin_async_fences_and_blob_revoke": {
+      "status": "passed",
+      "tests": 41,
+      "scope": "Users/Groups/Admin Orders stale rejection fences and deferred export URL revocation"
+    },
+    "auth_durable_revocation_generation": {
+      "status": "passed",
+      "tests": 4,
+      "scope": "durable user generation claim, legacy-token compatibility, middleware checks and repository atomic bump"
+    },
+    "dingtalk_oauth_lookup_fail_closed": {
+      "status": "passed",
+      "tests": 1,
+      "scope": "identity and compat-email lookup errors stop signup/bind fallback"
+    },
+    "scheduled_test_bounds_and_failure_reschedule": {
+      "status": "passed",
+      "tests": 2,
+      "scope": "result LIMIT cap and failure next-run advancement/overlap guard"
+    }
+  },
+  "backend": {
+    "server_routes": {
+      "status": "passed",
+      "command": "GOCACHE=/tmp/sub2api-gocache go test ./internal/server/routes -count=1"
+    },
+    "system_handler_unit": {
+      "status": "passed",
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags unit ./internal/handler/admin -run 'TestSystemHandler' -count=1",
+      "scope": "system version/update/rollback handlers, idempotency, detached client-disconnect context, and rollback-version handlers"
+    },
+    "system_operation_and_ops_log_unit": {
+      "status": "passed",
+      "command": "GOCACHE=/tmp/sub2api-gocache go test ./internal/service -run 'TestSystemOperationLockService|TestOpsSystemLog' -count=1",
+      "scope": "system operation lock lease/recovery and Ops system-log service/runtime behavior"
+    },
+    "payment_provider_package": {
+      "status": "passed",
+      "commands": [
+        "GOCACHE=/tmp/sub2api-gocache go test ./internal/payment/provider -count=1",
+        "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/payment/provider -count=1"
+      ],
+      "scope": "Stripe in-memory backend, Stripe webhook contract, WeChat APIv3 signed/encrypted notification contract, WeChat SDK stubs, and EasyPay/Airwallex in-process HTTP RoundTripper fixtures; no external credentials or network",
+      "fixture_only": true,
+      "does_not_close_external_payment_gate": true
+    },
+    "batch_image_local_hardening": {
+      "status": "passed",
+      "checks": [
+        "queued status maps created/uploading/submitted to one repository IN query",
+        "route-safe custom_id validation rejects slash/oversize IDs before queueing",
+        "unique owner/API-key/idempotency index plus create-conflict recovery prevents duplicate jobs",
+        "ZIP status selection and temp-file response boundary avoid misleading partial 200 archives",
+        "preview no longer updates ZIP downloaded_at and is no-store",
+        "idempotency unique-index migration preflight reports duplicate owner/API-key/key rows before startup failure"
+      ],
+      "fixture_only": true,
+      "does_not_close_live_batch_gate": true
+    },
+    "payment_webhook_local_contracts": {
+      "status": "passed",
+      "scope": "Offline handler/service contracts for Stripe metadata binding, provider lookup failure propagation, snapshot metadata requirements, and EasyPay pending apiBase protection",
+      "fixture_only": true,
+      "does_not_close_external_payment_gate": true
+    },
+    "s3_backup_listener_free": {
+      "status": "passed",
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/repository -run TestS3BackupStore_UploadFile -count=1",
+      "scope": "In-process AWS SDK HTTP client fixture for S3 backup upload",
+      "fixture_only": true,
+      "does_not_close_live_storage_gate": true
+    },
+    "image_storage_local_contracts": {
+      "status": "passed",
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/service -run 'TestImageResultUploader' -count=1",
+      "scope": "B64/data-URL, in-process remote image upload/rewrite, and compensating rollback of earlier objects after a later save failure",
+      "fixture_only": true,
+      "does_not_close_live_storage_gate": true
+    },
+    "batch_image_hardening_regressions": {
+      "status": "passed",
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/service -run 'TestBatchImage(DownloadService|CleanupService|PublicService|ProviderProcessor)|TestImageResultUploader' -count=1",
+      "scope": "Terminal output retention/preview, active-child TTL protection, child-first cleanup retry, idempotency loser re-enqueue, canceled permit release, ZIP filename collision handling and image URL SSRF redirect guards; late provider output-ref writes are discarded after a concurrent terminal cancellation",
+      "fixture_only": true,
+      "does_not_close_live_batch_or_storage_gate": true
+    },
+    "batch_record_delete_and_settling_guards": {
+      "status": "passed",
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/service -run 'TestBatchImagePublicService_StatusItemsAndCancel' -count=1",
+      "scope": "Record deletion refuses active retry children/settling and cascades terminal children; cancel does not report settling as a successful no-op",
+      "fixture_only": true,
+      "does_not_close_live_batch_destructive_gate": true
+    },
+    "vertex_output_ref_trust_boundary": {
+      "status": "passed",
+      "tests": 1,
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/service -run 'TestVertexProvider_OpenResultRejectsUnsafeManagedPrefix' -count=1",
+      "scope": "Vertex Get/OpenResult reject provider or persisted GCS output prefixes outside the managed batch/job prefix before listing or reading objects",
+      "fixture_only": true,
+      "does_not_close_live_storage_gate": true
+    },
+    "batch_read_after_quota_guard": {
+      "status": "passed",
+      "tests": 1,
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/server/middleware -run 'TestAPIKeyAuthBatchImageReadsSkipBillingButMutationsDoNot' -count=1",
+      "scope": "Quota-exhausted/expired API keys can read owner-scoped Batch Image routes without billing checks while POST mutations remain blocked",
+      "fixture_only": true,
+      "does_not_close_live_batch_auth_gate": true
+    },
+    "full_tagged_test_run": {
+      "status": "passed",
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./... -count=1",
+      "exit_code": 0,
+      "scope": "All tagged backend packages completed locally; listener-free HTTP/SDK fixtures execute in-process.",
+      "sandbox_skipped_tests": 42,
+      "sandbox_skipped_packages": [
+        "internal/pkg/antigravity (31 real-call listener cases)",
+        "internal/pkg/redissession (1 miniredis case)",
+        "internal/pkg/xai (1 miniredis case)",
+        "internal/securityaudit (9 probe/Redis listener cases)"
+      ],
+      "boundary": "The command is green with only explicit EPERM listener/miniredis skips; skipped cases still require a listener-capable environment. This does not close external payment, storage, protected-browser, native-reader, or live Batch gates.",
+      "fixture_only": false,
+      "does_not_close_external_or_listener_capable_gate": true
+    },
+    "batch_processor_cancel_race": {
+      "status": "passed",
+      "tests": 4,
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/service -run 'TestBatchImageProviderProcessor_(StatusFlow|DropsLateOutputRefAfterCancellation|DropsLateStatusWithoutOutputRefAfterCancellation|RechecksTerminalStateWhenOutputRefIsUnchanged)' -count=1",
+      "scope": "Conditional provider_output_ref write and empty-ref state recheck prevent late provider polls from advancing a concurrently cancelled terminal job",
+      "fixture_only": true,
+      "does_not_close_live_batch_gate": true
+    },
+    "image_storage_partial_rollback": {
+      "status": "passed",
+      "command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./internal/service -run 'TestImageResultUploader' -count=1",
+      "scope": "Optional storage deleter compensates previously saved image objects when a later image upload or response rewrite fails",
+      "fixture_only": true,
+      "does_not_close_live_storage_gate": true
+    },
+    "full_tagged_test_run_history": {
+      "previous_status": "blocked_by_sandbox_listener_bind",
+      "previous_command": "GOCACHE=/tmp/sub2api-gocache go test -tags=unit ./...",
+      "resolution": "listener-backed tests were converted to in-process transports or explicit EPERM skips; the latest command exits 0."
+    },
+    "auth_refresh_and_payment_registry_hardening": {
+      "status": "passed",
+      "scope": "Refresh-token index fail-closed issuance, configured-cache handler fallback prevention, refund retry-state preservation, and atomic provider registry refresh",
+      "fixture_only": true,
+      "does_not_close_external_auth_or_payment_gate": true
+    },
+    "auth_and_scheduled_test_hardening": {
+      "status": "passed",
+      "scope": "user revocation generation migration/repository/middleware contracts, OAuth lookup fail-closed, scheduled result bounds and failure rescheduling",
+      "fixture_only": true,
+      "does_not_close_external_or_browser_gates": true
+    }
   },
   "browser": {
     "settings_state": {
       "runs": 6,
       "empty_slow_error": true,
-      "slow_request_timings_ms": [1654, 1665],
+      "slow_request_timings_ms": [
+        1654,
+        1665
+      ],
       "error_form_hidden": true,
       "error_retry_recovered": 2,
       "overflow": 0,
@@ -38,8 +580,14 @@
     "settings_ax_tabs": {
       "cases": 36,
       "tabs_per_viewport": 9,
-      "viewports": ["1440x1000", "390x844"],
-      "modes": ["light", "dark-reduced"],
+      "viewports": [
+        "1440x1000",
+        "390x844"
+      ],
+      "modes": [
+        "light",
+        "dark-reduced"
+      ],
       "overflow": 0,
       "unnamed_interactive_nodes": 0,
       "default_switch_names": 0,
@@ -51,10 +599,101 @@
       "navigation_errors": 0,
       "failed_requests": 0,
       "console_messages": 0,
+      "page_errors": 4,
+      "expected_sandbox_errors": 4,
+      "unexpected_page_errors": 0,
       "unnamed_interactive_nodes": 0,
       "single_main_landmark_all_cases": true,
       "mobile_closed_sidebar_inert_cases": 16
+    },
+    "protected_browser_matrix": {
+      "file": "protected-browser-matrix-20260822.json",
+      "capture_date": "2026-08-21",
+      "user_runs": 171,
+      "admin_runs": 216,
+      "user_route_count": 19,
+      "admin_route_label_count": 24,
+      "viewports": [
+        "1440x1000",
+        "900x900",
+        "390x844"
+      ],
+      "modes": [
+        "light",
+        "dark",
+        "reduced-motion"
+      ],
+      "overflow": 0,
+      "navigation_errors": 0,
+      "failed_requests": 0,
+      "console_messages": 0,
+      "expected_sandbox_errors": 3537,
+      "unexpected_page_errors": 0,
+      "keyboard_tab_samples": 3096,
+      "latest_source_changes_rechecked": false,
+      "native_reader_equivalent": false
+    },
+    "fresh_public_smoke": {
+      "file": "public-home-browser-20260822.json",
+      "runs": 1,
+      "target": "/home",
+      "authenticated": false,
+      "viewport": "1280x720",
+      "overflow": 0,
+      "main_landmarks": 1,
+      "console_error_or_warning_entries": 0,
+      "does_not_close_protected_gate": true
+    },
+    "anonymous_guard_smoke": {
+      "file": "auth-guard-smoke-20260822.json",
+      "requested_path": "/admin/dashboard",
+      "redirected_to_login": true,
+      "main_landmarks": 1,
+      "does_not_close_protected_gate": true
+    },
+    "fresh_public_guard_matrix": {
+      "file": "fresh-public-guard-matrix-20260822.json",
+      "status": "passed",
+      "runs": 9,
+      "scope": "fresh in-app browser public home/login and anonymous admin guard at 1440/900/390",
+      "authenticated": false,
+      "keyboard_tab_trace": "not_claimed",
+      "does_not_close_protected_gate": true
+    },
+    "protected_browser_runner": {
+      "file": "protected-browser-runner-20260822.json",
+      "status": "blocked",
+      "runner": "tools/protected-browser-matrix.mjs",
+      "fixture_only": true,
+      "does_not_close_protected_gate": true
     }
   },
-  "boundary": "Chrome AX tree and keyboard traces supplement, but do not replace, native VoiceOver/NVDA execution. Sandbox iframe SecurityErrors are expected security-boundary diagnostics. External credentialed provider settlement/refund remains open."
+  "open_gates": [
+    "fresh protected rerun after the latest source-level focus changes and missing state routes",
+    "listener-capable execution of 42 sandbox-skipped backend cases",
+    "native VoiceOver/NVDA execution",
+    "credentialed external Stripe/WeChat/Airwallex settlement, refund and external return",
+    "live Batch Image provider/storage/download/concurrency and destructive-flow evidence",
+    "live cross-origin iframe success/error/storage matrix after sandbox hardening",
+    "complete per-page slow/empty/error/late-response coverage",
+    "uncovered administrator mutation edge cases",
+    "severity-signed final Code Review"
+  ],
+  "boundary": "Chrome AX tree and keyboard traces supplement, but do not replace, native VoiceOver/NVDA execution. Sandbox iframe SecurityErrors are expected security-boundary diagnostics. External credentialed provider settlement/refund remains open.",
+  "a11y_contracts": {
+    "file": "a11y-focus-contracts.json",
+    "status": "passed",
+    "source_level_only": true
+  },
+  "native_reader_probe": {
+    "file": "native-reader-probe.json",
+    "status": "recorded_but_gate_open"
+  },
+  "source_contracts": {
+    "full_frontend_test_run": {
+      "test_files": 365,
+      "tests": 2544,
+      "status": "passed"
+    }
+  }
 }

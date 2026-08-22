@@ -2,7 +2,10 @@
   <div class="app-shell" :class="{ 'app-shell--collapsed': sidebarCollapsed }">
     <AppSidebar />
 
-    <div class="app-shell__workspace">
+    <div
+      class="app-shell__workspace"
+      :inert="mobileOverlayActive ? true : undefined"
+    >
       <AppHeader />
 
       <main class="app-main-content app-shell__main">
@@ -16,7 +19,7 @@
 
 <script setup lang="ts">
 import '@/styles/onboarding.css'
-import { computed, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useAppStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
 import { useOnboardingTour } from '@/composables/useOnboardingTour'
@@ -27,6 +30,18 @@ import AppHeader from './AppHeader.vue'
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
+const mobileOpen = computed(() => appStore.mobileOpen)
+const isMobileViewport = ref(
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(max-width: 1023px)').matches
+    : false,
+)
+const mobileOverlayActive = computed(() => mobileOpen.value && isMobileViewport.value)
+let mobileViewportMediaQuery: MediaQueryList | null = null
+
+function syncMobileViewport(event?: MediaQueryListEvent): void {
+  isMobileViewport.value = event?.matches ?? mobileViewportMediaQuery?.matches ?? false
+}
 const isAdmin = computed(() => authStore.user?.role === 'admin')
 
 const { replayTour } = useOnboardingTour({
@@ -38,6 +53,25 @@ const onboardingStore = useOnboardingStore()
 
 onMounted(() => {
   onboardingStore.setReplayCallback(replayTour)
+  if (typeof window.matchMedia === 'function') {
+    mobileViewportMediaQuery = window.matchMedia('(max-width: 1023px)')
+    if (mobileViewportMediaQuery.addEventListener) {
+      mobileViewportMediaQuery.addEventListener('change', syncMobileViewport)
+    } else {
+      mobileViewportMediaQuery.addListener?.(syncMobileViewport)
+    }
+    // Keep the initial value in sync in browsers that report the media query late.
+    syncMobileViewport()
+  }
+})
+
+onBeforeUnmount(() => {
+  if (mobileViewportMediaQuery?.removeEventListener) {
+    mobileViewportMediaQuery.removeEventListener('change', syncMobileViewport)
+  } else {
+    mobileViewportMediaQuery?.removeListener?.(syncMobileViewport)
+  }
+  mobileViewportMediaQuery = null
 })
 
 defineExpose({ replayTour })

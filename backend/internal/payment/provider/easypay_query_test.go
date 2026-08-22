@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"testing"
 
@@ -83,7 +82,7 @@ func TestEasyPayQueryOrderStatusMapping(t *testing.T) {
 			t.Parallel()
 
 			var gotForm url.Values
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != http.MethodPost {
 					t.Errorf("method = %q, want %q", r.Method, http.MethodPost)
 				}
@@ -99,10 +98,10 @@ func TestEasyPayQueryOrderStatusMapping(t *testing.T) {
 				}
 				w.Header().Set("Content-Type", "application/json")
 				_, _ = w.Write([]byte(tt.body))
-			}))
-			defer server.Close()
+			})
 
-			provider := newTestEasyPay(t, server.URL)
+			provider := newTestEasyPay(t, "https://zpayz.cn")
+			provider.httpClient = newInProcessHTTPClient(handler)
 			resp, err := provider.QueryOrder(context.Background(), orderID)
 			if err != nil {
 				t.Fatalf("QueryOrder returned error: %v", err)

@@ -394,6 +394,16 @@
             <template #icon><Icon name="download" size="sm" /></template>
             {{ t('batchImage.actions.downloadZip') }}
           </UiButton>
+          <UiButton
+            v-if="currentJob && canDeleteOutputs(currentJob)"
+            variant="danger"
+            :loading="deletingOutputs"
+            :disabled="deletingOutputs"
+            @click="requestDeleteOutputs"
+          >
+            <template #icon><Icon name="trash" size="sm" /></template>
+            {{ t('batchImage.actions.deleteOutputs') }}
+          </UiButton>
         </div>
       </template>
     </UiDialog>
@@ -573,7 +583,7 @@
       :danger="pendingConfirmation?.kind !== 'cancel'"
       :pending="confirmationPending"
       @confirm="confirmPendingAction"
-      @cancel="pendingConfirmation = null"
+      @cancel="cancelPendingConfirmation"
     />
   </AppLayout>
 </template>
@@ -622,6 +632,7 @@ import { keysAPI } from '@/api'
 import {
   cancelBatchImageJob,
   deleteBatchImageJobRecord,
+  deleteBatchImageOutputs,
   downloadBatchImageZip,
   getBatchImageItemContent,
   getBatchImageJob,
@@ -639,7 +650,7 @@ import {
 } from '@/api/batchImage'
 import type { ApiKey } from '@/types'
 
-type BatchImageJobRow = Pick<BatchImageJob, 'id' | 'task_name' | 'parent_batch_id' | 'status' | 'model' | 'provider' | 'item_count' | 'success_count' | 'fail_count' | 'estimated_cost' | 'hold_amount' | 'actual_cost' | 'created_at' | 'downloaded_at'> & {
+type BatchImageJobRow = Pick<BatchImageJob, 'id' | 'task_name' | 'parent_batch_id' | 'status' | 'model' | 'provider' | 'item_count' | 'success_count' | 'fail_count' | 'estimated_cost' | 'hold_amount' | 'actual_cost' | 'created_at' | 'downloaded_at' | 'output_deleted_at'> & {
   api_key_id: number
   api_key_name: string
   child_count: number
@@ -687,9 +698,10 @@ type PreviewCacheRecord = {
 type PreviewImageSource = ImageBitmap | HTMLImageElement
 
 type PendingConfirmation =
-  | { kind: 'cancel' }
+  | { kind: 'cancel'; batchId: string; apiKeyId: number }
+  | { kind: 'delete-outputs'; batchId: string; apiKeyId: number }
   | { kind: 'delete'; job: BatchImageJobRow }
-  | { kind: 'delete-selected' }
+  | { kind: 'delete-selected'; jobs: BatchImageJobRow[] }
 
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled', 'output_deleted'])
 const PREVIEW_CACHE_DB_NAME = 'sub2api-batch-image-preview-cache'
@@ -768,6 +780,7 @@ const cancelling = ref(false)
 const downloading = ref(false)
 const downloadingBatchId = ref('')
 const retryingBatchId = ref('')
+const deletingOutputs = ref(false)
 const bulkDownloading = ref(false)
 const bulkDeleting = ref(false)
 const deletingBatchId = ref('')
@@ -778,6 +791,11 @@ const showGuideModal = ref(false)
 const currentJob = ref<BatchImageJob | null>(null)
 const selectedBatchId = ref('')
 const selectedBatchApiKeyId = ref(0)
+// Children can fall outside the currently visible global page (or belong to a
+// different API-key partition). Keep discovered children separate from the
+// paginated list so detail aggregation can be complete without changing page
+// ordering or selection semantics.
+const detailRelatedJobs = ref<BatchImageJobRow[]>([])
 const items = ref<BatchImageDetailItem[]>([])
 const detailFailedItems = computed(() => items.value.filter(item => item.status === 'failed' || !!item.error))
 const batchJobs = ref<BatchImageJobRow[]>([])
@@ -808,13 +826,16 @@ let modelRequestSeq = 0
 let jobsRequestSeq = 0
 let detailRequestSeq = 0
 let itemsRequestSeq = 0
+let detailRelatedRequestSeq = 0
 let apiKeysRequestSeq = 0
 let apiKeysRequestController: AbortController | null = null
 let apiKeysLoadPromise: Promise<void> | null = null
 let jobsCacheGeneration = 0
 let jobsCacheSignature = ''
 let jobsCacheByKey = new Map<number, BatchImageKeyJobState>()
+const retrySourceByGeneratedID = new Map<string, string>()
 let previewSessionSeq = 0
+const previewInvalidationGeneration = new Map<string, number>()
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let previewCacheDBPromise: Promise<IDBDatabase | null> | null = null
 let previewCacheCleanupTimer: ReturnType<typeof setInterval> | null = null
@@ -872,23 +893,21 @@ const activeFilterCount = computed(() => [
 ].filter(Boolean).length)
 
 const confirmationPending = computed(() =>
-  cancelling.value || bulkDeleting.value || Boolean(deletingBatchId.value),
+  cancelling.value || deletingOutputs.value || bulkDeleting.value || Boolean(deletingBatchId.value),
 )
 
 const confirmationTitle = computed(() => {
   if (pendingConfirmation.value?.kind === 'cancel') return t('batchImage.actions.cancelJob')
+  if (pendingConfirmation.value?.kind === 'delete-outputs') return t('batchImage.actions.deleteOutputs')
   return t('batchImage.actions.deleteRecords')
 })
 
 const confirmationMessage = computed(() => {
   if (pendingConfirmation.value?.kind === 'cancel') return batchImageText('cancelConfirm')
+  if (pendingConfirmation.value?.kind === 'delete-outputs') return batchImageText('deleteOutputsConfirm')
   if (pendingConfirmation.value?.kind === 'delete-selected') return batchImageText('deleteSelectedConfirm')
   return batchImageText('deleteConfirm')
 })
-
-const selectedRows = computed(() =>
-  batchJobs.value.filter(job => selectedJobIds.value.has(job.id)),
-)
 
 const childrenByParent = computed(() => {
   const groups = new Map<string, BatchImageJobRow[]>()
@@ -904,19 +923,48 @@ const childrenByParent = computed(() => {
   return groups
 })
 
+function childrenForParent(batchId: string): BatchImageJobRow[] {
+  const seen = new Set<string>()
+  const rows: BatchImageJobRow[] = []
+  const candidates = [
+    ...(childrenByParent.value.get(batchId) || []),
+    ...detailRelatedJobs.value.filter(job => job.parent_batch_id === batchId),
+  ]
+  for (const row of candidates) {
+    if (seen.has(row.id)) continue
+    seen.add(row.id)
+    rows.push(row)
+  }
+  return rows.sort((a, b) => a.created_at - b.created_at)
+}
+
 const visibleBatchJobs = computed(() => {
   const rows: BatchImageJobRow[] = []
   const pageIds = new Set(batchJobs.value.map(job => job.id))
   for (const job of batchJobs.value.filter(item => !item.parent_batch_id)) {
     rows.push(job)
     if (expandedParentIds.value.has(job.id)) {
-      rows.push(...(childrenByParent.value.get(job.id) || []).map(child => ({ ...child, is_child: true })))
+      rows.push(...childrenForParent(job.id).map(child => ({ ...child, is_child: true })))
     }
   }
   for (const job of batchJobs.value.filter(item => item.parent_batch_id && !pageIds.has(item.parent_batch_id))) {
     rows.push({ ...job, is_child: true })
   }
   return rows
+})
+
+// Action selection must use the same expanded row set rendered by the table.
+// Retry children discovered outside the current page live in
+// detailRelatedJobs/visibleBatchJobs rather than batchJobs; filtering only the
+// paginated root array made their checked rows look selected while bulk
+// download/delete silently ignored them.
+const selectedRows = computed(() => {
+  const seen = new Set<string>()
+  return visibleBatchJobs.value.filter((job) => {
+    if (!selectedJobIds.value.has(job.id) || seen.has(job.id)) return false
+    seen.add(job.id)
+    return true
+  })
 })
 
 const selectedDownloadableRows = computed(() =>
@@ -1017,8 +1065,15 @@ API 调用规范：
 - 提交：POST ${joinEndpointPath(endpointBase.value, '/v1/images/batches')}
 - 查询：GET ${joinEndpointPath(endpointBase.value, '/v1/images/batches/{id}')}
 - 明细：GET ${joinEndpointPath(endpointBase.value, '/v1/images/batches/{id}/items')}
+- 单项预览：GET ${joinEndpointPath(endpointBase.value, '/v1/images/batches/{id}/items/{custom_id}/content?image_index=0')}
 - 下载：GET ${joinEndpointPath(endpointBase.value, '/v1/images/batches/{id}/download')}
 - 取消：POST ${joinEndpointPath(endpointBase.value, '/v1/images/batches/{id}/cancel')}
+- 删除记录：DELETE ${joinEndpointPath(endpointBase.value, '/v1/images/batches/{id}')}
+- 删除输出：DELETE ${joinEndpointPath(endpointBase.value, '/v1/images/batches/{id}/outputs')}
+
+轮询与恢复：提交或重试后页面每 8 秒刷新一次当前任务；这是 UI 刷新节流，
+不是服务端 SLA。长时间 queued/running 时应尊重服务端 Retry-After（若返回），
+并按恢复记录中的 status_url 继续查询，不要高频并发请求。
 
 提交请求体：
 {
@@ -1056,6 +1111,9 @@ API 调用规范：
 - 任务完成后报告任务名、任务 id、成功数、失败数、实际扣费和保存路径。
 - 只下载成功图片。部分失败时，先展示失败 custom_id、错误码、错误来源和简要原因。
 - 重试只能重试失败项，不能重复提交已成功项。若历史任务没有保存失败项 prompt，必须告诉用户无法自动重试，并询问用户是否提供原 prompt。
+- 重试流程先读取 /items，只提交 status=failed 且仍有 prompt_preview 的项，
+  使用新的 custom_id 和 parent_batch_id 指向原任务；成功项不会被再次提交。
+- 删除记录前必须确认任务已进入终态；删除输出是独立操作，不能把它当作删除任务记录。
 - 取消任务前必须提醒：已被系统索引为成功的图片仍会按成功项结算扣费，其余冻结金额会释放。
 - 图片预览按需加载；不要为了查看列表自动批量加载图片内容。`)
 
@@ -1184,14 +1242,28 @@ function loadApiKeys(): Promise<void> {
 
   const request = (async () => {
     try {
-      const response = await keysAPI.list(
-        1,
-        100,
-        { status: 'active', sort_by: 'created_at', sort_order: 'desc' },
-        { signal: controller.signal },
-      )
-      if (requestID !== apiKeysRequestSeq || controller.signal.aborted) return
-      apiKeys.value = response.items || []
+      const loadedKeys: ApiKey[] = []
+      let page = 1
+      for (;;) {
+        const response = await keysAPI.list(
+          page,
+          100,
+          { status: 'active', sort_by: 'created_at', sort_order: 'desc' },
+          { signal: controller.signal },
+        )
+        if (requestID !== apiKeysRequestSeq || controller.signal.aborted) return
+        const pageItems = response.items || []
+        loadedKeys.push(...pageItems)
+        const pages = Math.max(1, Number(response.pages || 1))
+        if (page >= pages || pageItems.length === 0) break
+        page += 1
+      }
+      const seen = new Set<number>()
+      apiKeys.value = loadedKeys.filter((key) => {
+        if (seen.has(key.id)) return false
+        seen.add(key.id)
+        return true
+      })
       apiKeysLoadError.value = ''
       if (!selectedApiKey.value && geminiApiKeys.value.length > 0) {
         form.apiKeyId = geminiApiKeys.value[0].id
@@ -1355,6 +1427,7 @@ function toJobRow(job: BatchImageJob, key = selectedApiKey.value): BatchImageJob
     actual_cost: job.actual_cost,
     created_at: job.created_at,
     downloaded_at: job.downloaded_at,
+    output_deleted_at: job.output_deleted_at,
     api_key_id: key?.id || 0,
     api_key_name: key?.name || '',
     child_count: 0,
@@ -1372,7 +1445,7 @@ function applyChildCounts(rows: BatchImageJobRow[]) {
 
 function displayJob<T extends Pick<BatchImageJob, 'id' | 'parent_batch_id' | 'status' | 'item_count' | 'success_count' | 'fail_count' | 'estimated_cost' | 'hold_amount' | 'actual_cost'>>(job: T): T {
   if (job.parent_batch_id) return job
-  const children = childrenByParent.value.get(job.id) || []
+  const children = childrenForParent(job.id)
   if (!children.length) return job
 
   const childSuccess = children.reduce((sum, child) => sum + child.success_count, 0)
@@ -1398,7 +1471,7 @@ function displayJob<T extends Pick<BatchImageJob, 'id' | 'parent_batch_id' | 'st
 }
 
 function hasChildJobs(batchId: string) {
-  return (childrenByParent.value.get(batchId) || []).length > 0
+  return childrenForParent(batchId).length > 0
 }
 
 function toggleChildRows(batchId: string) {
@@ -1449,10 +1522,14 @@ async function loadBatchJobs() {
   }
 }
 
-function upsertJob(job: BatchImageJob) {
+function upsertJob(job: BatchImageJob, key?: ApiKey | null) {
   invalidateJobsCache()
-  const next = toJobRow(job)
   const index = batchJobs.value.findIndex(item => item.id === job.id)
+  const existing = index >= 0 ? batchJobs.value[index] : null
+  const existingKey = existing?.api_key_id
+    ? geminiApiKeys.value.find(item => item.id === existing.api_key_id) || null
+    : null
+  const next = toJobRow(job, key || existingKey || selectedApiKey.value)
   if (index >= 0) {
     const rows = [...batchJobs.value]
     rows[index] = { ...next, is_child: rows[index].is_child }
@@ -1506,9 +1583,11 @@ function resetCreateDraft() {
 function closeDetail() {
   detailRequestSeq += 1
   itemsRequestSeq += 1
+  detailRelatedRequestSeq += 1
   currentJob.value = null
   selectedBatchId.value = ''
   selectedBatchApiKeyId.value = 0
+  detailRelatedJobs.value = []
   items.value = []
   clearItemPreviews()
 }
@@ -1557,29 +1636,36 @@ async function submitJob() {
   if (!validateForm()) return
   const key = requireApiKey()
   if (!key) return
-	  submitting.value = true
-	  try {
-	    const job = await submitBatchImageJob(
-	      key.key,
-	      {
-	        model: form.model,
+  submitting.value = true
+  const detailSequenceAtSubmit = detailRequestSeq
+  try {
+    const job = await submitBatchImageJob(
+      key.key,
+      {
+        model: form.model,
         task_name: form.taskName.trim() || defaultTaskName(),
         image_size: '1K',
         response_mime_type: form.responseMimeType,
         items: parsedItems.value,
-	      },
-	      `sub2api-ui-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-	    )
-	    currentJob.value = job
-	    selectedBatchId.value = job.id
-	    selectedBatchApiKeyId.value = key.id
-	    items.value = []
-	    upsertJob(job)
-	    showCreateModal.value = false
-	    resetCreateDraft()
-	    appStore.showSuccess(batchImageText('submitted'))
-	    void loadItems()
-	    startPolling()
+      },
+      `sub2api-ui-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    )
+    // Keep the key used for submission attached to the row even if the
+    // create-form selection changes before the list refresh completes.
+    upsertJob(job, key)
+    if (detailRequestSeq === detailSequenceAtSubmit) {
+      currentJob.value = job
+      selectedBatchId.value = job.id
+      selectedBatchApiKeyId.value = key.id
+      items.value = []
+    }
+    showCreateModal.value = false
+    resetCreateDraft()
+    appStore.showSuccess(batchImageText('submitted'))
+    if (detailRequestSeq === detailSequenceAtSubmit) {
+      void loadItems()
+      startPolling()
+    }
   } catch (error: any) {
     appStore.showError(batchImageErrorMessage(error, batchImageText('submitFailed')))
   } finally {
@@ -1598,7 +1684,7 @@ async function refreshSelected() {
     const job = await getBatchImageJob(key.key, batchId)
     if (requestID !== detailRequestSeq || selectedBatchId.value !== batchId) return
     currentJob.value = job
-    upsertJob(job)
+    upsertJob(job, key)
     if (TERMINAL_STATUSES.has(job.status)) stopPolling()
   } catch (error: any) {
     if (requestID !== detailRequestSeq || selectedBatchId.value !== batchId) return
@@ -1618,7 +1704,9 @@ async function refreshDetail() {
 function selectJob(batchId: string) {
   detailRequestSeq += 1
   itemsRequestSeq += 1
+  detailRelatedRequestSeq += 1
   const row = batchJobs.value.find(job => job.id === batchId)
+    || detailRelatedJobs.value.find(job => job.id === batchId)
   if (row?.api_key_id && geminiApiKeys.value.some(key => key.id === row.api_key_id)) {
     form.apiKeyId = row.api_key_id
     selectedBatchApiKeyId.value = row.api_key_id
@@ -1627,8 +1715,22 @@ function selectJob(batchId: string) {
   }
   selectedBatchId.value = batchId
   currentJob.value = null
+  // Keep a discovered child row as a temporary detail anchor until its full
+  // GET response arrives.  Clearing it here made loadItems() race with
+  // refreshSelected(): detailJobsForBatch saw neither batchJobs nor a current
+  // job, so an out-of-page child opened with no items (and could fall back to
+  // the mutable create-form API key).
+  detailRelatedJobs.value = row?.parent_batch_id ? [row] : []
   items.value = []
-  void refreshSelected()
+  void refreshSelected().then(() => {
+    if (
+      selectedBatchId.value === batchId &&
+      currentJob.value &&
+      !TERMINAL_STATUSES.has(currentJob.value.status)
+    ) {
+      startPolling()
+    }
+  })
   void loadItems()
 }
 
@@ -1654,11 +1756,47 @@ function canCancel(job: Pick<BatchImageJob, 'status'>) {
   return !TERMINAL_STATUSES.has(job.status)
 }
 
-function canDownload(job: Pick<BatchImageJob, 'status' | 'success_count'>) {
-  return job.status === 'completed' && job.success_count > 0
+type AggregateActionJob = Pick<BatchImageJob, 'id' | 'parent_batch_id' | 'status' | 'item_count' | 'success_count' | 'output_deleted_at'>
+
+function aggregateActionJob(job: AggregateActionJob): AggregateActionJob | null {
+  // Once a source is output-deleted the backend must return a typed Gone
+  // response, even if a stale retry-child count would make the display row look
+  // completed.  The same applies to a child or to any pending child source.
+  if (job.status === 'output_deleted' || ('output_deleted_at' in job && job.output_deleted_at)) return null
+  if (job.parent_batch_id) return job
+
+  const children = childrenForParent(job.id)
+  if (children.some(child => child.status === 'output_deleted' || !TERMINAL_STATUSES.has(child.status))) {
+    return null
+  }
+  return displayJob(job as BatchImageJob) as AggregateActionJob
+}
+
+function canDownload(job: AggregateActionJob) {
+  const effective = aggregateActionJob(job)
+  if (!effective || effective.status !== 'completed' || effective.success_count <= 0) return false
+  const children = childrenForParent(job.id)
+  return children.length === 0 || effective.success_count >= effective.item_count
+}
+
+function canDeleteOutputs(job: AggregateActionJob) {
+  const effective = aggregateActionJob(job)
+  if (effective && effective.status === 'completed' && effective.success_count > 0) {
+    const children = childrenForParent(job.id)
+    if (children.length === 0 || effective.success_count >= effective.item_count) return true
+  }
+  // Failed/cancelled roots can retain a successful provider subset.  The
+  // backend now accepts output cleanup for that terminal source, so expose the
+  // action when it has data instead of leaking an unreachable provider ref.
+  return Boolean(
+    !('output_deleted_at' in job && job.output_deleted_at)
+      && (job.status === 'failed' || job.status === 'cancelled')
+      && job.success_count > 0,
+  )
 }
 
 function canRetry(job: Pick<BatchImageJob, 'status' | 'fail_count'>) {
+  if ('output_deleted_at' in job && job.output_deleted_at) return false
   const display = 'id' in job ? displayJob(job as BatchImageJob) : job
   return TERMINAL_STATUSES.has(display.status) && display.fail_count > 0
 }
@@ -1672,6 +1810,12 @@ function applyJobApiKey(job: BatchImageJobRow | Pick<BatchImageJob, 'id'>) {
 function apiKeyForJob(job: BatchImageJobRow | Pick<BatchImageJob, 'id'>): ApiKey | null {
   if ('api_key_id' in job && job.api_key_id) {
     return geminiApiKeys.value.find(key => key.id === job.api_key_id) || null
+  }
+  // Detail jobs do not carry api_key_id in the API payload. Once a row is
+  // selected, keep using the key captured for that batch instead of the
+  // mutable create-form selection (which may have changed in the meantime).
+  if (selectedBatchId.value === job.id) {
+    return keyForSelectedBatch()
   }
   return selectedApiKey.value
 }
@@ -1697,8 +1841,27 @@ function canDeleteRecord(job: Pick<BatchImageJob, 'status'>) {
 }
 
 function requestCancelSelected() {
-  if (!currentJob.value || !canCancel(currentJob.value) || cancelling.value) return
-  pendingConfirmation.value = { kind: 'cancel' }
+  const job = currentJob.value
+  if (!job || !canCancel(job) || cancelling.value) return
+  // Snapshot both identifiers.  The detail view can change while a dialog is
+  // open (for example through a route transition or a scripted keyboard
+  // action); a retry must never cancel whichever job happens to be current
+  // later.
+  pendingConfirmation.value = {
+    kind: 'cancel',
+    batchId: job.id,
+    apiKeyId: selectedBatchApiKeyId.value || selectedApiKey.value?.id || 0,
+  }
+}
+
+function requestDeleteOutputs() {
+  const job = currentJob.value
+  if (!job || !canDeleteOutputs(job) || deletingOutputs.value) return
+  pendingConfirmation.value = {
+    kind: 'delete-outputs',
+    batchId: job.id,
+    apiKeyId: selectedBatchApiKeyId.value || selectedApiKey.value?.id || 0,
+  }
 }
 
 function requestDeleteJob(job: BatchImageJobRow) {
@@ -1707,38 +1870,98 @@ function requestDeleteJob(job: BatchImageJobRow) {
 }
 
 function requestDeleteSelectedJobs() {
-  if (bulkDeleting.value || !selectedRows.value.some(job => canDeleteRecord(job))) return
-  pendingConfirmation.value = { kind: 'delete-selected' }
+  if (bulkDeleting.value) return
+  const jobs = selectedRows.value
+    .filter(job => canDeleteRecord(job))
+    .map(job => ({ ...job }))
+  if (!jobs.length) return
+  // Snapshot the exact rows/API-key IDs shown in the confirmation.  A user can
+  // change selection or pagination while the dialog is open; the eventual
+  // destructive request must not retarget a different batch.
+  pendingConfirmation.value = { kind: 'delete-selected', jobs }
+}
+
+function cancelPendingConfirmation() {
+  if (confirmationPending.value) return
+  pendingConfirmation.value = null
 }
 
 async function confirmPendingAction() {
   const action = pendingConfirmation.value
   if (!action || confirmationPending.value) return
+  let succeeded = false
   try {
-    if (action.kind === 'cancel') await cancelSelected()
-    else if (action.kind === 'delete') await deleteJob(action.job)
-    else await deleteSelectedJobs()
+    if (action.kind === 'cancel') succeeded = await cancelSelected(action.batchId, action.apiKeyId)
+    else if (action.kind === 'delete-outputs') succeeded = await deleteOutputs(action.batchId, action.apiKeyId)
+    else if (action.kind === 'delete') succeeded = await deleteJob(action.job)
+    else succeeded = await deleteSelectedJobs(action.jobs)
   } finally {
-    pendingConfirmation.value = null
+    if (succeeded) pendingConfirmation.value = null
   }
 }
 
-async function cancelSelected() {
-  if (!currentJob.value) return
-  const batchId = currentJob.value.id
+async function deleteOutputs(batchId: string, apiKeyId: number): Promise<boolean> {
+  if (!batchId || deletingOutputs.value) return false
+  const detailSequenceAtDelete = detailRequestSeq
+  const key = apiKeyId
+    ? geminiApiKeys.value.find(item => item.id === apiKeyId) || null
+    : keyForSelectedBatch()
+  if (!key) {
+    appStore.showError(batchImageText('selectApiKey'))
+    return false
+  }
+  deletingOutputs.value = true
+  try {
+    await deleteBatchImageOutputs(key.key, batchId)
+    previewInvalidationGeneration.set(batchId, (previewInvalidationGeneration.get(batchId) || 0) + 1)
+    const deletedAt = Math.floor(Date.now() / 1000)
+    invalidateJobsCache()
+    batchJobs.value = batchJobs.value.map(row => row.id === batchId
+      ? { ...row, status: 'output_deleted', downloaded_at: row.downloaded_at }
+      : row)
+    if (currentJob.value?.id === batchId) {
+      currentJob.value = { ...currentJob.value, status: 'output_deleted', output_deleted_at: deletedAt }
+    }
+    // A delete can finish after the user has navigated to another detail.
+    // Never revoke the newly selected batch's preview URLs in that case.
+    if (detailRequestSeq === detailSequenceAtDelete && selectedBatchId.value === batchId) {
+      clearItemPreviews()
+    }
+    await deleteCachedPreviewsForBatch(batchId)
+    appStore.showSuccess(batchImageText('outputsDeleted'))
+    return true
+  } catch (error: any) {
+    appStore.showError(batchImageErrorMessage(error, batchImageText('deleteOutputsFailed')))
+    return false
+  } finally {
+    deletingOutputs.value = false
+  }
+}
+
+async function cancelSelected(batchId: string, apiKeyId: number): Promise<boolean> {
+  if (!batchId) return false
   const requestID = ++detailRequestSeq
-  const key = keyForSelectedBatch() || requireApiKey()
-  if (!key) return
+  const key = apiKeyId
+    ? geminiApiKeys.value.find(item => item.id === apiKeyId) || null
+    : keyForSelectedBatch()
+  if (!key) {
+    appStore.showError(batchImageText('selectApiKey'))
+    return false
+  }
   cancelling.value = true
   try {
     const job = await cancelBatchImageJob(key.key, batchId)
-    if (requestID !== detailRequestSeq || selectedBatchId.value !== batchId) return
-    currentJob.value = job
-    upsertJob(job)
-    appStore.showSuccess(batchImageText('cancelled'))
+    if (requestID === detailRequestSeq && selectedBatchId.value === batchId) {
+      currentJob.value = job
+      upsertJob(job, key)
+      appStore.showSuccess(batchImageText('cancelled'))
+    }
+    return true
   } catch (error: any) {
-    if (requestID !== detailRequestSeq || selectedBatchId.value !== batchId) return
-    appStore.showError(batchImageErrorMessage(error, batchImageText('cancelFailed')))
+    if (requestID === detailRequestSeq && selectedBatchId.value === batchId) {
+      appStore.showError(batchImageErrorMessage(error, batchImageText('cancelFailed')))
+    }
+    return false
   } finally {
     cancelling.value = false
   }
@@ -1758,12 +1981,15 @@ async function retryFailedJob(job: BatchImageJobRow | BatchImageJob) {
   if (!canRetry(job) || retryingBatchId.value) return
   const key = apiKeyForJob(job) || keyForSelectedBatch() || requireApiKey()
   if (!key) return
+  const detailSequenceAtStart = detailRequestSeq
+  const rootBatchId = rootBatchIdForRetry(job)
   retryingBatchId.value = job.id
   try {
-    const sourceItems = await ensureItemsForRetry(key.key, job.id)
+    const retryContext = await ensureRetryContext(key.key, job)
+    const sourceItems = retryContext.sourceItems
     const failedItems = sourceItems
-      .filter(item => item.status === 'failed')
-      .map(item => ({ custom_id: retryCustomID(item.custom_id), prompt: String(item.prompt_preview || '').trim() }))
+      .filter(item => item.status === 'failed' && !retryContext.recoveredOriginalCustomIds.has(item.custom_id))
+      .map((item, index) => ({ custom_id: retryCustomID(item.custom_id, index), prompt: String(item.prompt_preview || '').trim() }))
       .filter(item => item.prompt)
     if (failedItems.length === 0) {
       appStore.showError(batchImageText('retryMissingPrompts'))
@@ -1774,7 +2000,7 @@ async function retryFailedJob(job: BatchImageJobRow | BatchImageJob) {
       {
         model: job.model,
         task_name: `${job.task_name || defaultTaskName()} ${t('batchImage.messages.retryTaskNameSuffix')}`,
-        parent_batch_id: rootBatchIdForRetry(job),
+        parent_batch_id: rootBatchId,
         provider: job.provider,
         image_size: '1K',
         response_mime_type: form.responseMimeType,
@@ -1782,35 +2008,138 @@ async function retryFailedJob(job: BatchImageJobRow | BatchImageJob) {
       },
       `sub2api-ui-retry-${job.id}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     )
-    currentJob.value = retryJob
-    selectedBatchId.value = retryJob.id
-    selectedBatchApiKeyId.value = key.id
-    items.value = []
-    upsertJob(retryJob)
+    upsertJob(retryJob, key)
     if (retryJob.parent_batch_id) {
       expandedParentIds.value = new Set([...expandedParentIds.value, retryJob.parent_batch_id])
     }
+    // A retry may outlive a detail navigation. Keep the late response in the
+    // list, but do not steal the user's newly selected detail panel.
+    const selectionStillMatches = detailRequestSeq === detailSequenceAtStart
+    if (selectionStillMatches) {
+      currentJob.value = retryJob
+      selectedBatchId.value = retryJob.id
+      selectedBatchApiKeyId.value = key.id
+      items.value = []
+      void loadItems()
+      startPolling()
+    }
     appStore.showSuccess(batchImageText('retrySubmitted'))
-    void loadItems()
-    startPolling()
   } catch (error: any) {
-    appStore.showError(batchImageErrorMessage(error, batchImageText('retryFailed')))
+    // A retry request can finish after the user has selected another batch.
+    // Do not surface a stale error toast in the new detail context.
+    if (detailRequestSeq === detailSequenceAtStart) {
+      appStore.showError(batchImageErrorMessage(error, batchImageText('retryFailed')))
+    }
   } finally {
     retryingBatchId.value = ''
   }
 }
 
 async function ensureItemsForRetry(apiKey: string, batchId: string) {
-  if (selectedBatchId.value === batchId && items.value.length > 0) {
-    return items.value
-  }
-  const result = await listBatchImageItems(apiKey, batchId)
-  return result.data || []
+  return listAllBatchImageItems(apiKey, batchId, 'failed')
 }
 
-function retryCustomID(customID: string) {
-  const base = String(customID || 'item').replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '') || 'item'
-  return `${base}_retry_${Date.now().toString(36)}`
+async function ensureRetryContext(apiKey: string, job: BatchImageJobRow | BatchImageJob) {
+  const sourceBatchId = job.parent_batch_id ? job.id : rootBatchIdForRetry(job)
+  // Snapshot detail items before the first await. A retry may remain in
+  // flight while the user navigates to another batch; reading the mutable
+  // `items` ref later would mix that batch's child IDs into this request.
+  const detailItemsAtStart = selectedBatchId.value === sourceBatchId ? [...items.value] : []
+  const sourceItems = await ensureItemsForRetry(apiKey, sourceBatchId)
+  const recoveredOriginalCustomIds = new Set<string>()
+  if (job.parent_batch_id) return { sourceItems, recoveredOriginalCustomIds }
+
+  // Retry children can be outside the currently visible table page. Discover
+  // all child jobs before constructing the payload so a successful earlier
+  // retry is never submitted again.
+  const allJobs = await listAllBatchImageJobsForRetry(apiKey)
+  const childIDs = new Set(
+    allJobs
+      .filter(candidate => candidate.parent_batch_id === sourceBatchId)
+      .map(candidate => candidate.id),
+  )
+  for (const item of detailItemsAtStart) {
+    if (item.batch_id && item.batch_id !== sourceBatchId) childIDs.add(item.batch_id)
+  }
+  await Promise.all([...childIDs].map(async (childID) => {
+    const childItems = await listAllBatchImageItems(apiKey, childID)
+    for (const item of childItems) {
+      if (!isSuccessfulImageItem(item)) continue
+      const sourceCustomID = retrySourceCustomID(item.custom_id)
+      if (sourceCustomID) recoveredOriginalCustomIds.add(sourceCustomID)
+    }
+  }))
+  return { sourceItems, recoveredOriginalCustomIds }
+}
+
+async function listAllBatchImageJobsForRetry(apiKey: string) {
+  const allJobs: BatchImageJob[] = []
+  const seenCursors = new Set<string>()
+  const seenPages = new Set<string>()
+  let cursor = ''
+  for (let pageIndex = 0; pageIndex < 1000; pageIndex += 1) {
+    if (seenCursors.has(cursor)) break
+    seenCursors.add(cursor)
+    const result = await listBatchImageJobs(apiKey, {
+      limit: 100,
+      ...(cursor ? { cursor } : {}),
+    })
+    const page = result.data || []
+    const signature = page.map(job => job.id).join('\u0000')
+    if (signature && seenPages.has(signature)) break
+    if (signature) seenPages.add(signature)
+    allJobs.push(...page)
+    if (!result.has_more || page.length === 0) break
+    cursor = String(allJobs.length)
+  }
+  return allJobs
+}
+
+async function listAllBatchImageItems(apiKey: string, batchId: string, status = '') {
+  const allItems: BatchImageItem[] = []
+  let cursor = ''
+  const seenCursors = new Set<string>()
+  const seenPages = new Set<string>()
+
+  // The backend defaults to 100 items. Walk every page for both detail views
+  // and retries so large batches do not silently lose rows or failed inputs.
+  for (let pageIndex = 0; pageIndex < 1000; pageIndex += 1) {
+    if (seenCursors.has(cursor)) break
+    seenCursors.add(cursor)
+    const result = await listBatchImageItems(apiKey, batchId, {
+      ...(status ? { status } : {}),
+      limit: 100,
+      ...(cursor ? { cursor } : {}),
+    })
+    const page = result.data || []
+    const signature = page.map(item => `${item.custom_id}:${item.status}`).join('\u0000')
+    if (signature && seenPages.has(signature)) break
+    if (signature) seenPages.add(signature)
+    allItems.push(...page)
+    if (!result.has_more || page.length === 0) break
+
+    // Guard against a malformed fixture/server repeating a cursor so a retry
+    // or detail refresh cannot spin forever.
+    cursor = String(allItems.length)
+  }
+
+  return allItems
+}
+
+function retryCustomID(customID: string, index = 0) {
+  const source = String(customID || 'item')
+  const base = source.replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '') || 'item'
+  const suffix = `_retry_${Date.now().toString(36)}_${index.toString(36)}`
+  // Reserve room for the generated suffix under the 255-character API/DB
+  // custom_id limit so long source IDs remain retryable.
+  const boundedBase = base.slice(0, Math.max(1, 255 - suffix.length)) || 'item'
+  const generated = `${boundedBase}${suffix}`
+  retrySourceByGeneratedID.set(generated, source)
+  if (retrySourceByGeneratedID.size > 5000) {
+    const oldest = retrySourceByGeneratedID.keys().next().value
+    if (oldest) retrySourceByGeneratedID.delete(oldest)
+  }
+  return generated
 }
 
 function rootBatchIdForRetry(job: BatchImageJobRow | BatchImageJob) {
@@ -1839,19 +2168,34 @@ async function downloadJob(job: (BatchImageJobRow | Pick<BatchImageJob, 'id'>)) 
 async function downloadSelectedJobs() {
   if (bulkDownloading.value || selectedDownloadableRows.value.length === 0) return
   bulkDownloading.value = true
+  let completed = 0
+  let failed = 0
   try {
     for (const row of selectedDownloadableRows.value) {
       const key = apiKeyForJob(row)
-      if (!key) continue
+      if (!key) {
+        failed += 1
+        continue
+      }
       downloading.value = true
       downloadingBatchId.value = row.id
-      const blob = await downloadBatchImageZip(key.key, row.id)
-      saveBlob(blob, `${row.id}.zip`)
-      markJobDownloaded(row.id)
+      try {
+        const blob = await downloadBatchImageZip(key.key, row.id)
+        saveBlob(blob, `${row.id}.zip`)
+        markJobDownloaded(row.id)
+        completed += 1
+      } catch {
+        failed += 1
+      } finally {
+        downloading.value = false
+        downloadingBatchId.value = ''
+      }
     }
-    appStore.showSuccess(batchImageText('batchDownloadStarted'))
-  } catch (error: any) {
-    appStore.showError(batchImageErrorMessage(error, batchImageText('downloadFailed')))
+    if (failed > 0) {
+      appStore.showError(batchImageText('batchDownloadPartial', { completed, failed }))
+    } else if (completed > 0) {
+      appStore.showSuccess(batchImageText('batchDownloadStarted'))
+    }
   } finally {
     bulkDownloading.value = false
     downloading.value = false
@@ -1859,37 +2203,55 @@ async function downloadSelectedJobs() {
   }
 }
 
-async function deleteJob(job: BatchImageJobRow) {
-  if (!canDeleteRecord(job) || deletingBatchId.value) return
+async function deleteJob(job: BatchImageJobRow): Promise<boolean> {
+  if (!canDeleteRecord(job) || deletingBatchId.value) return false
   const key = apiKeyForJob(job)
-  if (!key) return
+  if (!key) return false
   deletingBatchId.value = job.id
   try {
     await deleteBatchImageJobRecord(key.key, job.id)
     removeJobFromList(job.id)
     appStore.showSuccess(batchImageText('deleted'))
+    return true
   } catch (error: any) {
     appStore.showError(batchImageErrorMessage(error, batchImageText('deleteFailed')))
+    return false
   } finally {
     deletingBatchId.value = ''
   }
 }
 
-async function deleteSelectedJobs() {
-  const rows = selectedRows.value.filter(job => canDeleteRecord(job))
-  if (bulkDeleting.value || rows.length === 0) return
+async function deleteSelectedJobs(snapshot?: BatchImageJobRow[]): Promise<boolean> {
+  const rows = (snapshot || selectedRows.value).filter(job => canDeleteRecord(job))
+  if (bulkDeleting.value || rows.length === 0) return false
   bulkDeleting.value = true
+  let deletedCount = 0
+  const failedIds: string[] = []
   try {
     for (const row of rows) {
       const key = apiKeyForJob(row)
-      if (!key) continue
+      if (!key) {
+        failedIds.push(row.id)
+        continue
+      }
       deletingBatchId.value = row.id
-      await deleteBatchImageJobRecord(key.key, row.id)
-      removeJobFromList(row.id)
+      try {
+        await deleteBatchImageJobRecord(key.key, row.id)
+        removeJobFromList(row.id)
+        deletedCount += 1
+      } catch {
+        failedIds.push(row.id)
+      }
     }
-    appStore.showSuccess(batchImageText('deleted'))
-  } catch (error: any) {
-    appStore.showError(batchImageErrorMessage(error, batchImageText('deleteFailed')))
+    selectedJobIds.value = new Set(failedIds)
+    if (failedIds.length > 0) {
+      appStore.showError(batchImageText('deletePartial', { deleted: deletedCount, failed: failedIds.length }))
+    } else if (deletedCount > 0) {
+      appStore.showSuccess(batchImageText('deleted'))
+    }
+    // Close the confirmation after at least one destructive request
+    // succeeded; failed IDs remain selected so the user can retry only them.
+    return deletedCount > 0
   } finally {
     bulkDeleting.value = false
     deletingBatchId.value = ''
@@ -1908,12 +2270,19 @@ function markJobDownloaded(batchId: string) {
 function removeJobFromList(batchId: string) {
   invalidateJobsCache()
   batchJobs.value = batchJobs.value.filter(job => job.id !== batchId)
+  const removedRelated = detailRelatedJobs.value.some(job => job.id === batchId)
+  if (removedRelated) {
+    detailRelatedJobs.value = detailRelatedJobs.value.filter(job => job.id !== batchId)
+  }
   toggleJobSelection(batchId, false)
   if (currentJob.value?.id === batchId) closeDetail()
+  else if (removedRelated && currentJob.value) void loadItems()
 }
 
 function canLoadItemPreview(item: BatchImageItem) {
-  return (item.status === 'succeeded' || item.status === 'success') && item.image_count > 0
+  return currentJob.value?.status !== 'output_deleted'
+    && (item.status === 'succeeded' || item.status === 'success')
+    && item.image_count > 0
 }
 
 function isSuccessfulImageItem(item: Pick<BatchImageItem, 'status' | 'image_count'>) {
@@ -1930,7 +2299,14 @@ function isChildDetailItem(item: Pick<BatchImageDetailItem, 'batch_id'>) {
 }
 
 function retrySourceCustomID(customID: string) {
-  return String(customID || '').replace(/(?:_retry_[a-z0-9]+)+$/i, '')
+  const generated = String(customID || '')
+  const mapped = retrySourceByGeneratedID.get(generated)
+  if (mapped) return mapped
+  // Strip exactly the suffix generated by retryCustomID.  A user supplied
+  // route-safe ID may itself contain `_retry_`; a repeated-group regex would
+  // erase that legitimate source segment after a reload when the in-memory
+  // mapping is unavailable.
+  return generated.replace(/_retry_[a-z0-9]+(?:_[a-z0-9]+)?$/i, '')
 }
 
 function isRecoveredOriginalFailure(item: BatchImageDetailItem) {
@@ -2008,15 +2384,18 @@ async function hydrateCachedItemPreviews(detailItems: BatchImageDetailItem[]) {
     const batchId = item.batch_id || selectedBatchId.value || currentJob.value?.id || ''
     const previewKey = itemPreviewKey(item)
     if (!batchId || itemPreviewUrls[previewKey] || previewErrorIds.value.has(previewKey)) return
+    const invalidationGeneration = previewInvalidationGeneration.get(batchId) || 0
     const cached = await getCachedPreviewBlob(previewCacheKey(batchId, item.custom_id, 0)).catch(() => null)
-    if (!cached || itemPreviewUrls[previewKey] || sessionID !== previewSessionSeq) return
+    if (!cached || itemPreviewUrls[previewKey] || sessionID !== previewSessionSeq || invalidationGeneration !== (previewInvalidationGeneration.get(batchId) || 0)) return
     itemPreviewUrls[previewKey] = URL.createObjectURL(cached)
   }))
 }
 
-async function putCachedPreviewBlob(cacheKey: string, blob: Blob) {
+async function putCachedPreviewBlob(cacheKey: string, blob: Blob, batchId = '', generation = 0) {
+  if (batchId && generation !== (previewInvalidationGeneration.get(batchId) || 0)) return
   const db = await openPreviewCacheDB()
   if (!db) return
+  if (batchId && generation !== (previewInvalidationGeneration.get(batchId) || 0)) return
   const now = Date.now()
   const record: PreviewCacheRecord = {
     key: cacheKey,
@@ -2044,6 +2423,25 @@ async function deleteCachedPreview(cacheKey: string) {
   const db = await openPreviewCacheDB()
   if (!db) return
   await idbRequest(db.transaction(PREVIEW_CACHE_STORE_NAME, 'readwrite').objectStore(PREVIEW_CACHE_STORE_NAME).delete(cacheKey)).catch(() => null)
+}
+
+async function deleteCachedPreviewsForBatch(batchId: string) {
+  const db = await openPreviewCacheDB()
+  if (!db) return
+  const records = await idbRequest<PreviewCacheRecord[]>(
+    db.transaction(PREVIEW_CACHE_STORE_NAME, 'readonly').objectStore(PREVIEW_CACHE_STORE_NAME).getAll(),
+  ).catch(() => [])
+  const prefix = `${encodeURIComponent(batchId)}:`
+  await new Promise<void>((resolve) => {
+    const transaction = db.transaction(PREVIEW_CACHE_STORE_NAME, 'readwrite')
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = () => resolve()
+    transaction.onabort = () => resolve()
+    const store = transaction.objectStore(PREVIEW_CACHE_STORE_NAME)
+    for (const record of records) {
+      if (record.key.startsWith(prefix)) store.delete(record.key)
+    }
+  })
 }
 
 async function cleanupPreviewCache() {
@@ -2145,10 +2543,11 @@ async function loadItems() {
   if (!key) return
   loadingItems.value = true
   try {
-    const jobs = detailJobsForBatch(batchId)
+    const jobs = await resolveDetailJobsForBatch(batchId, key, requestID)
+    if (requestID !== itemsRequestSeq || selectedBatchId.value !== batchId) return
     const results = await Promise.all(jobs.map(async (job) => {
-      const result = await listBatchImageItems(key.key, job.id)
-      return (result.data || []).map(item => ({
+      const detailItems = await listAllBatchImageItems(key.key, job.id)
+      return detailItems.map(item => ({
         ...item,
         batch_id: job.id,
         source_task_name: detailSourceName(job, batchId),
@@ -2167,12 +2566,54 @@ async function loadItems() {
   }
 }
 
+async function resolveDetailJobsForBatch(batchId: string, key: ApiKey, itemsRequestID: number): Promise<BatchImageJobRow[]> {
+  const jobs = detailJobsForBatch(batchId)
+  const base = jobs[0]
+  if (!base || base.parent_batch_id) return jobs
+
+  const relatedRequestID = ++detailRelatedRequestSeq
+  try {
+    // The visible table is intentionally paginated. Discover all jobs for the
+    // selected key so a retry child on a later page is included in detail
+    // aggregation and item loading.
+    const allJobs = await listAllBatchImageJobsForRetry(key.key)
+    if (
+      relatedRequestID !== detailRelatedRequestSeq
+      || itemsRequestID !== itemsRequestSeq
+      || selectedBatchId.value !== batchId
+    ) {
+      return jobs
+    }
+    const discovered = allJobs
+      .filter(job => job.parent_batch_id === batchId)
+      .map(job => toJobRow(job, key))
+    const existing = detailRelatedJobs.value.filter(job => job.parent_batch_id === batchId)
+    const merged = new Map<string, BatchImageJobRow>()
+    for (const child of [...existing, ...discovered]) merged.set(child.id, child)
+    detailRelatedJobs.value = [...merged.values()].sort((a, b) => a.created_at - b.created_at)
+    const childCount = detailRelatedJobs.value.filter(job => job.parent_batch_id === batchId).length
+    batchJobs.value = batchJobs.value.map(row => row.id === batchId
+      ? { ...row, child_count: Math.max(row.child_count, childCount) }
+      : row)
+    return detailJobsForBatch(batchId)
+  } catch {
+    // The root detail remains useful when the optional cross-page discovery
+    // request fails; the normal item request below still reports its own error.
+    return jobs
+  }
+}
+
 function detailJobsForBatch(batchId: string): BatchImageJobRow[] {
+  // A child discovered while resolving a root can live outside the current
+  // page. Keep that temporary detail row as a valid base as well; otherwise a
+  // direct click on the child briefly has neither a paginated row nor a
+  // currentJob anchor and loadItems() resolves to an empty list.
   const row = batchJobs.value.find(job => job.id === batchId)
+    || detailRelatedJobs.value.find(job => job.id === batchId)
   const base = row || (currentJob.value && currentJob.value.id === batchId ? toJobRow(currentJob.value, keyForSelectedBatch() || selectedApiKey.value) : null)
   if (!base) return []
   if (base.parent_batch_id) return [base]
-  return [base, ...(childrenByParent.value.get(base.id) || [])]
+  return [base, ...childrenForParent(base.id)]
 }
 
 function detailSourceName(job: Pick<BatchImageJobRow, 'id' | 'task_name' | 'parent_batch_id'>, rootBatchId: string) {
@@ -2188,6 +2629,7 @@ async function loadItemPreview(item: BatchImageItem) {
   const key = keyForSelectedBatch() || requireApiKey()
   if (!key) return
   const sessionID = previewSessionSeq
+  const invalidationGeneration = previewInvalidationGeneration.get(batchId) || 0
   const cacheKey = previewCacheKey(batchId, item.custom_id, 0)
   previewLoadingIds.value = new Set([...previewLoadingIds.value, previewKey])
   try {
@@ -2198,19 +2640,23 @@ async function loadItemPreview(item: BatchImageItem) {
     }
     const cached = await getCachedPreviewBlob(cacheKey)
     if (cached) {
-      if (sessionID !== previewSessionSeq || selectedBatchId.value !== batchId) return
+      if (sessionID !== previewSessionSeq || selectedBatchId.value !== batchId || invalidationGeneration !== (previewInvalidationGeneration.get(batchId) || 0)) return
       itemPreviewUrls[previewKey] = URL.createObjectURL(cached)
       return
     }
     const blob = await getBatchImageItemContent(key.key, batchId, item.custom_id, 0)
     const thumbnail = await createThumbnailBlob(blob).catch(() => blob)
-    if (sessionID !== previewSessionSeq || selectedBatchId.value !== batchId) return
+    if (sessionID !== previewSessionSeq || selectedBatchId.value !== batchId || invalidationGeneration !== (previewInvalidationGeneration.get(batchId) || 0)) return
     itemPreviewUrls[previewKey] = URL.createObjectURL(thumbnail)
     if (thumbnail !== blob || thumbnail.size <= 1024 * 1024) {
-      void putCachedPreviewBlob(cacheKey, thumbnail)
+      void putCachedPreviewBlob(cacheKey, thumbnail, batchId, invalidationGeneration)
     }
   } catch (error: any) {
-    if (sessionID !== previewSessionSeq || selectedBatchId.value !== batchId) return
+    if (
+      sessionID !== previewSessionSeq
+      || selectedBatchId.value !== batchId
+      || invalidationGeneration !== (previewInvalidationGeneration.get(batchId) || 0)
+    ) return
     previewErrorIds.value = new Set([...previewErrorIds.value, previewKey])
     appStore.showError(batchImageErrorMessage(error, batchImageText('loadPreviewFailed')))
   } finally {
@@ -2366,9 +2812,13 @@ type BatchImageTextKey =
   | 'submitFailed'
   | 'refreshFailed'
   | 'cancelConfirm'
+  | 'deleteOutputsConfirm'
   | 'cancelled'
   | 'cancelFailed'
+  | 'outputsDeleted'
+  | 'deleteOutputsFailed'
   | 'batchDownloadStarted'
+	  | 'batchDownloadPartial'
 	  | 'downloadFailed'
 	  | 'retrySubmitted'
 	  | 'retryFailed'
@@ -2377,6 +2827,7 @@ type BatchImageTextKey =
   | 'deleteSelectedConfirm'
   | 'deleted'
   | 'deleteFailed'
+	  | 'deletePartial'
 	  | 'loadItemsFailed'
 	  | 'loadPreviewFailed'
   | 'copiedInstruction'
@@ -2418,8 +2869,8 @@ function isZhLocale() {
   return String(locale.value || '').toLowerCase().startsWith('zh')
 }
 
-function batchImageText(key: BatchImageTextKey) {
-  return t(`batchImage.messages.${key}`)
+function batchImageText(key: BatchImageTextKey, params?: Record<string, unknown>) {
+	return t(`batchImage.messages.${key}`, params || {})
 }
 
 function batchImageErrorReference(error: any) {

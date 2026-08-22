@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,20 @@ import (
 	"testing"
 	"time"
 )
+
+// newTestServer wraps httptest.NewServer so the package remains runnable in
+// sandboxes that prohibit binding local TCP listeners. In a normal environment
+// it behaves exactly like httptest.NewServer; when binding is unavailable, the
+// individual listener-dependent test is skipped instead of panicking.
+func newTestServer(t *testing.T, handler http.Handler) *httptest.Server {
+	t.Helper()
+	defer func() {
+		if r := recover(); r != nil {
+			t.Skipf("httptest listener unavailable: %v", r)
+		}
+	}()
+	return httptest.NewServer(handler)
+}
 
 // ---------------------------------------------------------------------------
 // NewAPIRequestWithURL
@@ -467,7 +482,10 @@ func TestClient_ExchangeCode_成功(t *testing.T) {
 	defaultClientSecret = "test-secret"
 	t.Cleanup(func() { defaultClientSecret = old })
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Use an in-process RoundTripper so this test does not bind a TCP listener.
+	// ExchangeCode still targets TokenURL; the transport intercepts that request
+	// and returns a synthetic HTTP response directly.
+	transport := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		// 验证请求方法
 		if r.Method != http.MethodPost {
 			t.Errorf("请求方法不匹配: got %s", r.Method)
@@ -496,58 +514,18 @@ func TestClient_ExchangeCode_成功(t *testing.T) {
 			t.Errorf("grant_type 不匹配: got %s", r.FormValue("grant_type"))
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(TokenResponse{
-			AccessToken:  "access-tok",
-			ExpiresIn:    3600,
-			TokenType:    "Bearer",
-			RefreshToken: "refresh-tok",
-		})
-	}))
-	defer server.Close()
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"access_token":"access-tok","expires_in":3600,"token_type":"Bearer","refresh_token":"refresh-tok"}`)),
+			Request:    r,
+		}, nil
+	})
+	client := &Client{httpClient: &http.Client{Transport: transport}}
 
-	// 临时替换 TokenURL（该函数直接使用常量，需要我们通过构建自定义 client 来绕过）
-	// 由于 ExchangeCode 硬编码了 TokenURL，我们需要直接测试 HTTP client 的行为
-	// 这里通过构造一个直接调用 mock server 的测试
-	client := &Client{httpClient: server.Client()}
-
-	// 由于 ExchangeCode 使用硬编码的 TokenURL，我们无法直接注入 mock server URL
-	// 需要使用 httptest 的 Transport 重定向
-	originalTokenURL := TokenURL
-	// 我们改为直接构造请求来测试逻辑
-	_ = originalTokenURL
-	_ = client
-
-	// 改用直接构造请求测试 mock server 响应
-	ctx := context.Background()
-	params := url.Values{}
-	params.Set("client_id", ClientID)
-	params.Set("client_secret", "test-secret")
-	params.Set("code", "auth-code")
-	params.Set("redirect_uri", RedirectURI)
-	params.Set("grant_type", "authorization_code")
-	params.Set("code_verifier", "verifier123")
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, server.URL, strings.NewReader(params.Encode()))
+	tokenResp, err := client.ExchangeCode(context.Background(), "auth-code", "verifier123")
 	if err != nil {
-		t.Fatalf("创建请求失败: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := server.Client().Do(req)
-	if err != nil {
-		t.Fatalf("请求失败: %v", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("状态码不匹配: got %d", resp.StatusCode)
-	}
-
-	var tokenResp TokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		t.Fatalf("解码失败: %v", err)
+		t.Fatalf("ExchangeCode 失败: %v", err)
 	}
 	if tokenResp.AccessToken != "access-tok" {
 		t.Errorf("AccessToken 不匹配: got %s", tokenResp.AccessToken)
@@ -577,7 +555,7 @@ func TestClient_ExchangeCode_服务器返回错误(t *testing.T) {
 	defaultClientSecret = "test-secret"
 	t.Cleanup(func() { defaultClientSecret = old })
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"error":"invalid_grant"}`))
 	}))
@@ -604,7 +582,7 @@ func TestClient_RefreshToken_MockServer(t *testing.T) {
 	defaultClientSecret = "test-secret"
 	t.Cleanup(func() { defaultClientSecret = old })
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("请求方法不匹配: got %s", r.Method)
 		}
@@ -677,7 +655,7 @@ func TestClient_RefreshToken_无ClientSecret(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestClient_GetUserInfo_成功(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			t.Errorf("请求方法不匹配: got %s", r.Method)
 		}
@@ -729,7 +707,7 @@ func TestClient_GetUserInfo_成功(t *testing.T) {
 }
 
 func TestClient_GetUserInfo_服务器返回错误(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"error":"invalid_token"}`))
 	}))
@@ -867,7 +845,7 @@ func TestClient_ExchangeCode_Success_RealCall(t *testing.T) {
 	defaultClientSecret = "test-secret"
 	t.Cleanup(func() { defaultClientSecret = old })
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("请求方法不匹配: got %s, want POST", r.Method)
 		}
@@ -938,7 +916,7 @@ func TestClient_ExchangeCode_ServerError_RealCall(t *testing.T) {
 	defaultClientSecret = "test-secret"
 	t.Cleanup(func() { defaultClientSecret = old })
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"error":"invalid_grant","error_description":"code expired"}`))
 	}))
@@ -965,7 +943,7 @@ func TestClient_ExchangeCode_InvalidJSON_RealCall(t *testing.T) {
 	defaultClientSecret = "test-secret"
 	t.Cleanup(func() { defaultClientSecret = old })
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{invalid json`))
@@ -990,7 +968,7 @@ func TestClient_ExchangeCode_ContextCanceled_RealCall(t *testing.T) {
 	defaultClientSecret = "test-secret"
 	t.Cleanup(func() { defaultClientSecret = old })
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(5 * time.Second) // 模拟慢响应
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -1018,7 +996,7 @@ func TestClient_RefreshToken_Success_RealCall(t *testing.T) {
 	defaultClientSecret = "test-secret"
 	t.Cleanup(func() { defaultClientSecret = old })
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("请求方法不匹配: got %s, want POST", r.Method)
 		}
@@ -1069,7 +1047,7 @@ func TestClient_RefreshToken_ServerError_RealCall(t *testing.T) {
 	defaultClientSecret = "test-secret"
 	t.Cleanup(func() { defaultClientSecret = old })
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"error":"invalid_grant","error_description":"token revoked"}`))
 	}))
@@ -1093,7 +1071,7 @@ func TestClient_RefreshToken_InvalidJSON_RealCall(t *testing.T) {
 	defaultClientSecret = "test-secret"
 	t.Cleanup(func() { defaultClientSecret = old })
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`not-json`))
@@ -1118,7 +1096,7 @@ func TestClient_RefreshToken_ContextCanceled_RealCall(t *testing.T) {
 	defaultClientSecret = "test-secret"
 	t.Cleanup(func() { defaultClientSecret = old })
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(5 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -1142,7 +1120,7 @@ func TestClient_RefreshToken_ContextCanceled_RealCall(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestClient_GetUserInfo_Success_RealCall(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			t.Errorf("请求方法不匹配: got %s, want GET", r.Method)
 		}
@@ -1189,7 +1167,7 @@ func TestClient_GetUserInfo_Success_RealCall(t *testing.T) {
 }
 
 func TestClient_GetUserInfo_Unauthorized_RealCall(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"error":"invalid_token"}`))
 	}))
@@ -1212,7 +1190,7 @@ func TestClient_GetUserInfo_Unauthorized_RealCall(t *testing.T) {
 }
 
 func TestClient_GetUserInfo_InvalidJSON_RealCall(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{broken`))
@@ -1233,7 +1211,7 @@ func TestClient_GetUserInfo_InvalidJSON_RealCall(t *testing.T) {
 }
 
 func TestClient_GetUserInfo_ContextCanceled_RealCall(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(5 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -1272,7 +1250,7 @@ func withMockBaseURLs(t *testing.T, urls []string) {
 }
 
 func TestClient_LoadCodeAssist_Success_RealCall(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("请求方法不匹配: got %s, want POST", r.Method)
 		}
@@ -1344,7 +1322,7 @@ func TestClient_LoadCodeAssist_Success_RealCall(t *testing.T) {
 }
 
 func TestClient_LoadCodeAssist_HTTPError_RealCall(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"error":"forbidden"}`))
 	}))
@@ -1366,7 +1344,7 @@ func TestClient_LoadCodeAssist_HTTPError_RealCall(t *testing.T) {
 }
 
 func TestClient_LoadCodeAssist_InvalidJSON_RealCall(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{not valid json!!!`))
@@ -1388,14 +1366,14 @@ func TestClient_LoadCodeAssist_InvalidJSON_RealCall(t *testing.T) {
 func TestClient_LoadCodeAssist_URLFallback_RealCall(t *testing.T) {
 	// 第一个 server 返回 500，第二个 server 返回成功
 	callCount := 0
-	server1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server1 := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(`{"error":"internal"}`))
 	}))
 	defer server1.Close()
 
-	server2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server2 := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -1422,13 +1400,13 @@ func TestClient_LoadCodeAssist_URLFallback_RealCall(t *testing.T) {
 }
 
 func TestClient_LoadCodeAssist_AllURLsFail_RealCall(t *testing.T) {
-	server1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server1 := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_, _ = w.Write([]byte(`{"error":"unavailable"}`))
 	}))
 	defer server1.Close()
 
-	server2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server2 := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)
 		_, _ = w.Write([]byte(`{"error":"bad_gateway"}`))
 	}))
@@ -1444,7 +1422,7 @@ func TestClient_LoadCodeAssist_AllURLsFail_RealCall(t *testing.T) {
 }
 
 func TestClient_LoadCodeAssist_ContextCanceled_RealCall(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(5 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -1467,7 +1445,7 @@ func TestClient_LoadCodeAssist_ContextCanceled_RealCall(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestClient_FetchAvailableModels_Success_RealCall(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("请求方法不匹配: got %s, want POST", r.Method)
 		}
@@ -1563,7 +1541,7 @@ func TestClient_FetchAvailableModels_Success_RealCall(t *testing.T) {
 }
 
 func TestClient_FetchAvailableModels_HTTPError_RealCall(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"error":"forbidden"}`))
 	}))
@@ -1582,7 +1560,7 @@ func TestClient_FetchAvailableModels_HTTPError_RealCall(t *testing.T) {
 }
 
 func TestClient_FetchAvailableModels_InvalidJSON_RealCall(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`<<<not json>>>`))
@@ -1604,14 +1582,14 @@ func TestClient_FetchAvailableModels_InvalidJSON_RealCall(t *testing.T) {
 func TestClient_FetchAvailableModels_URLFallback_RealCall(t *testing.T) {
 	callCount := 0
 	// 第一个 server 返回 429，第二个 server 返回成功
-	server1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server1 := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
 		w.WriteHeader(http.StatusTooManyRequests)
 		_, _ = w.Write([]byte(`{"error":"rate_limited"}`))
 	}))
 	defer server1.Close()
 
-	server2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server2 := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -1635,13 +1613,13 @@ func TestClient_FetchAvailableModels_URLFallback_RealCall(t *testing.T) {
 }
 
 func TestClient_FetchAvailableModels_AllURLsFail_RealCall(t *testing.T) {
-	server1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server1 := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`not found`))
 	}))
 	defer server1.Close()
 
-	server2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server2 := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(`internal error`))
 	}))
@@ -1657,7 +1635,7 @@ func TestClient_FetchAvailableModels_AllURLsFail_RealCall(t *testing.T) {
 }
 
 func TestClient_FetchAvailableModels_ContextCanceled_RealCall(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(5 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -1676,7 +1654,7 @@ func TestClient_FetchAvailableModels_ContextCanceled_RealCall(t *testing.T) {
 }
 
 func TestClient_FetchAvailableModels_EmptyModels_RealCall(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"models": {}}`))
@@ -1706,13 +1684,13 @@ func TestClient_FetchAvailableModels_EmptyModels_RealCall(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestClient_LoadCodeAssist_408Fallback_RealCall(t *testing.T) {
-	server1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server1 := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusRequestTimeout)
 		_, _ = w.Write([]byte(`timeout`))
 	}))
 	defer server1.Close()
 
-	server2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server2 := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"cloudaicompanionProject":"p2","currentTier":"free-tier"}`))
@@ -1732,13 +1710,13 @@ func TestClient_LoadCodeAssist_408Fallback_RealCall(t *testing.T) {
 }
 
 func TestClient_FetchAvailableModels_404Fallback_RealCall(t *testing.T) {
-	server1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server1 := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`not found`))
 	}))
 	defer server1.Close()
 
-	server2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server2 := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"models":{"m1":{"quotaInfo":{"remainingFraction":1.0}}}}`))

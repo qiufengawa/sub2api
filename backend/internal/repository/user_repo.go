@@ -202,6 +202,20 @@ func (r *userRepository) GetByIDIncludeDeleted(ctx context.Context, id int64) (*
 	return out, nil
 }
 
+// IncrementRevocationVersion atomically advances the durable user-wide
+// access-session generation.  It intentionally uses an SQL UPDATE expression
+// rather than read-modify-write so concurrent revoke-all requests cannot lose
+// a bump across application instances.
+func (r *userRepository) IncrementRevocationVersion(ctx context.Context, userID int64) (int64, error) {
+	updated, err := r.client.User.UpdateOneID(userID).
+		AddRevocationVersion(1).
+		Save(ctx)
+	if err != nil {
+		return 0, translatePersistenceError(err, service.ErrUserNotFound, nil)
+	}
+	return updated.RevocationVersion, nil
+}
+
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*service.User, error) {
 	matches, err := r.client.User.Query().
 		Where(userEmailLookupPredicate(email)).

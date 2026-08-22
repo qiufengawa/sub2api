@@ -4,6 +4,7 @@
       'group relative rounded-lg border transition-[border-color,background-color,opacity]',
       enabled ? 'border-gray-200 dark:border-dark-600' : 'border-gray-200 bg-gray-50 opacity-50 dark:border-dark-700 dark:bg-dark-800/50',
     ]"
+    :aria-busy="pending || undefined"
     :title="!enabled ? t('admin.settings.payment.typeDisabled') + ' — ' + t('admin.settings.payment.enableTypesFirst') : undefined"
   >
     <div :class="[
@@ -34,6 +35,7 @@
             :variant="isSelected(pt.value) ? 'primary' : 'secondary'"
             density="mini"
             :aria-pressed="isSelected(pt.value)"
+            :disabled="pending"
             @click="emit('toggleType', pt.value)"
           >{{ pt.label }}</UiButton>
         </div>
@@ -41,15 +43,15 @@
 
       <!-- Right: toggles + actions -->
       <div class="flex items-center gap-4">
-        <ToggleSwitch :label="t('common.enabled')" :checked="provider.enabled" @toggle="emit('toggleField', 'enabled')" />
-        <ToggleSwitch :label="t('admin.settings.payment.refundEnabled')" :checked="provider.refund_enabled" @toggle="emit('toggleField', 'refund_enabled')" />
-        <ToggleSwitch v-if="provider.refund_enabled" :label="t('admin.settings.payment.allowUserRefund')" :checked="provider.allow_user_refund" @toggle="emit('toggleField', 'allow_user_refund')" />
+        <ToggleSwitch :label="t('common.enabled')" :accessible-label="providerToggleLabel('common.enabled')" :checked="provider.enabled" :disabled="pending" @toggle="emit('toggleField', 'enabled')" />
+        <ToggleSwitch :label="t('admin.settings.payment.refundEnabled')" :accessible-label="providerToggleLabel('admin.settings.payment.refundEnabled')" :checked="provider.refund_enabled" :disabled="pending" @toggle="emit('toggleField', 'refund_enabled')" />
+        <ToggleSwitch v-if="provider.refund_enabled" :label="t('admin.settings.payment.allowUserRefund')" :accessible-label="providerToggleLabel('admin.settings.payment.allowUserRefund')" :checked="provider.allow_user_refund" :disabled="pending" @toggle="emit('toggleField', 'allow_user_refund')" />
         <div class="flex items-center gap-2 border-l border-gray-200 pl-3 dark:border-dark-600">
-          <UiButton type="button" variant="quiet" density="compact" @click="emit('edit')">
+          <UiButton type="button" variant="quiet" density="compact" :disabled="pending" @click="emit('edit')">
             <template #icon><Icon name="edit" size="sm" /></template>
             {{ t('common.edit') }}
           </UiButton>
-          <UiButton type="button" variant="danger" density="compact" @click="emit('delete')">
+          <UiButton type="button" variant="danger" density="compact" :disabled="pending" @click="emit('delete')">
             <template #icon><Icon name="trash" size="sm" /></template>
             {{ t('common.delete') }}
           </UiButton>
@@ -81,6 +83,7 @@ const props = defineProps<{
   provider: ProviderInstance
   enabled: boolean
   availableTypes: TypeOption[]
+  pending?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -100,6 +103,10 @@ const modeLabel = computed(() => {
   if (props.provider.payment_mode === PAYMENT_MODE_REDIRECT) return t('admin.settings.payment.modeRedirect')
   return ''
 })
+
+function providerToggleLabel(key: string): string {
+  return `${props.provider.name}: ${t(key)}`
+}
 
 function isSelected(type: string): boolean {
   return Array.isArray(props.provider.supported_types) && props.provider.supported_types.includes(type)

@@ -35,6 +35,15 @@ type refreshTokenCache struct {
 	rdb *redis.Client
 }
 
+var consumeRefreshTokenScript = redis.NewScript(`
+local value = redis.call("GET", KEYS[1])
+if not value then
+  return false
+end
+redis.call("DEL", KEYS[1])
+return value
+`)
+
 // NewRefreshTokenCache creates a new RefreshTokenCache implementation.
 func NewRefreshTokenCache(rdb *redis.Client) service.RefreshTokenCache {
 	return &refreshTokenCache{rdb: rdb}
@@ -68,6 +77,37 @@ func (c *refreshTokenCache) GetRefreshToken(ctx context.Context, tokenHash strin
 func (c *refreshTokenCache) DeleteRefreshToken(ctx context.Context, tokenHash string) error {
 	key := refreshTokenKey(tokenHash)
 	return c.rdb.Del(ctx, key).Err()
+}
+
+// ConsumeRefreshToken atomically reads and deletes a refresh token.  A Lua
+// script is used instead of a separate GET followed by DEL so concurrent
+// refresh requests cannot both rotate the same token.
+func (c *refreshTokenCache) ConsumeRefreshToken(ctx context.Context, tokenHash string) (*service.RefreshTokenData, error) {
+	result, err := consumeRefreshTokenScript.Run(ctx, c.rdb, []string{refreshTokenKey(tokenHash)}).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, service.ErrRefreshTokenNotFound
+		}
+		return nil, err
+	}
+	if result == nil || result == false {
+		return nil, service.ErrRefreshTokenNotFound
+	}
+
+	var raw []byte
+	switch value := result.(type) {
+	case string:
+		raw = []byte(value)
+	case []byte:
+		raw = value
+	default:
+		return nil, fmt.Errorf("unexpected refresh token value type %T", result)
+	}
+	var data service.RefreshTokenData
+	if err := json.Unmarshal(raw, &data); err != nil {
+		return nil, fmt.Errorf("unmarshal refresh token data: %w", err)
+	}
+	return &data, nil
 }
 
 func (c *refreshTokenCache) DeleteUserRefreshTokens(ctx context.Context, userID int64) error {

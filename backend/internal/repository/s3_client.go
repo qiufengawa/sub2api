@@ -18,6 +18,10 @@ type s3ClientParams struct {
 	AccessKeyID     string
 	SecretAccessKey string
 	ForcePathStyle  bool
+	// HTTPClient is optional and is intended for deterministic in-process
+	// fixtures. Production callers leave it nil so the AWS SDK default client
+	// is used.
+	HTTPClient aws.HTTPClient
 }
 
 // newS3Client 构造一个 S3 兼容客户端，兼容 AWS S3 / Cloudflare R2 / 阿里云 OSS / MinIO。
@@ -30,12 +34,16 @@ func newS3Client(ctx context.Context, p s3ClientParams) (*s3.Client, error) {
 		region = "auto" // Cloudflare R2 默认 region
 	}
 
-	awsCfg, err := awsconfig.LoadDefaultConfig(ctx,
+	loadOptions := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithRegion(region),
 		awsconfig.WithCredentialsProvider(
 			credentials.NewStaticCredentialsProvider(p.AccessKeyID, p.SecretAccessKey, ""),
 		),
-	)
+	}
+	if p.HTTPClient != nil {
+		loadOptions = append(loadOptions, awsconfig.WithHTTPClient(p.HTTPClient))
+	}
+	awsCfg, err := awsconfig.LoadDefaultConfig(ctx, loadOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("load aws config: %w", err)
 	}

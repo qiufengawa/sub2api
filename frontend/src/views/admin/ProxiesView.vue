@@ -782,6 +782,7 @@ const {
   selectedCount,
   allVisibleSelected,
   isSelected,
+  setSelectedIds,
   select,
   deselect,
   clear: clearSelectedProxies,
@@ -934,7 +935,7 @@ const loadProxies = async () => {
     pagination.total = response.total
     pagination.pages = response.pages
   } catch (error) {
-    if (isAbortError(error)) {
+    if (currentAbortController.signal.aborted || abortController !== currentAbortController || isAbortError(error)) {
       return
     }
     appStore.showError(t('admin.proxies.failedToLoad'))
@@ -1066,6 +1067,7 @@ const parseBatchInput = () => {
 }
 
 const handleBatchCreate = async () => {
+  if (submitting.value) return
   if (batchParseResult.valid === 0) return
 
   submitting.value = true
@@ -1091,6 +1093,7 @@ const handleBatchCreate = async () => {
 }
 
 const handleCreateProxy = async () => {
+  if (submitting.value) return
   if (!createForm.name.trim()) {
     appStore.showError(t('admin.proxies.nameRequired'))
     return
@@ -1152,6 +1155,7 @@ const closeEditModal = () => {
 }
 
 const handleUpdateProxy = async () => {
+  if (submitting.value) return
   if (!editingProxy.value) return
   if (!editForm.name.trim()) {
     appStore.showError(t('admin.proxies.nameRequired'))
@@ -1651,7 +1655,9 @@ const handleExportData = async () => {
     link.href = url
     link.download = filename
     link.click()
-    URL.revokeObjectURL(url)
+    window.setTimeout(() => {
+      if (typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url)
+    }, 0)
     appStore.showSuccess(t('admin.proxies.dataExported'))
     showExportDataDialog.value = false
   } catch (error: any) {
@@ -1717,7 +1723,15 @@ const confirmBatchDelete = async () => {
       appStore.showInfo(t('admin.proxies.batchDeleteSkipped', { skipped }))
     }
 
-    clearSelectedProxies()
+    const skippedIds = (result.skipped || []).map((item) => item.id)
+    if (skippedIds.length > 0) {
+      // Keep only recoverable targets selected after a partial delete. This
+      // avoids asking the user to reselect skipped/in-use proxies and prevents
+      // a retry from repeating already successful deletions.
+      setSelectedIds(skippedIds)
+    } else {
+      clearSelectedProxies()
+    }
     showBatchDeleteDialog.value = false
     loadProxies()
   } catch (error: any) {

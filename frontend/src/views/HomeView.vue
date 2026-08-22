@@ -6,6 +6,8 @@
       :src="homeContent.trim()"
       :title="siteName"
       class="h-screen w-full border-0"
+      sandbox="allow-scripts allow-forms allow-popups allow-presentation"
+      referrerpolicy="no-referrer"
       allowfullscreen
     ></iframe>
     <!-- SECURITY: homeContent is an administrator-controlled setting. -->

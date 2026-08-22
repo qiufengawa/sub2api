@@ -102,7 +102,7 @@
       danger
       :pending="resetting"
       @confirm="confirmReset"
-      @cancel="showResetConfirm = false"
+      @cancel="cancelResetConfirm"
     />
   </div>
 </template>
@@ -325,8 +325,12 @@ const openResetConfirm = () => {
   showResetConfirm.value = true
 }
 
-const confirmReset = async () => {
+const cancelResetConfirm = () => {
+  if (resetting.value) return
   showResetConfirm.value = false
+}
+
+const confirmReset = async () => {
   if (resetting.value) return
   if (!canReset.value) {
     error.value = t('admin.accounts.openaiQuotaReset.noCreditsAvailable')
@@ -361,6 +365,7 @@ const confirmReset = async () => {
         windows: result.windows_reset
       })
     }
+    showResetConfirm.value = false
   } catch (e) {
     error.value = extractErrorMessage(e)
   } finally {

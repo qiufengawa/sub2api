@@ -211,7 +211,7 @@
       :danger="true"
       :pending="deleting"
       @confirm="handleDelete"
-      @cancel="showDeleteConfirm = false"
+      @cancel="cancelDelete"
     />
   </UiDialog>
 </template>
@@ -414,8 +414,15 @@ const handleEdit = async () => {
 }
 
 const confirmDeletePlan = (plan: ScheduledTestPlan) => {
+  if (deleting.value) return
   deletingPlan.value = plan
   showDeleteConfirm.value = true
+}
+
+const cancelDelete = () => {
+  if (deleting.value) return
+  showDeleteConfirm.value = false
+  deletingPlan.value = null
 }
 
 const handleDelete = async () => {
@@ -430,12 +437,12 @@ const handleDelete = async () => {
       expandedPlanId.value = null
       results.value = []
     }
+    showDeleteConfirm.value = false
+    deletingPlan.value = null
   } catch (error: any) {
     appStore.showError(error?.message || 'Failed to delete plan')
   } finally {
     deleting.value = false
-    showDeleteConfirm.value = false
-    deletingPlan.value = null
   }
 }
 

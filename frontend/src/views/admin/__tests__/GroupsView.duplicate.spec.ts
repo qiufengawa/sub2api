@@ -7,6 +7,9 @@ import GroupsView from '@/views/admin/GroupsView.vue'
 
 const {
   listGroups,
+  createGroup,
+  updateGroup,
+  updateSortOrder,
   duplicateGroup,
   deleteGroup,
   listCompositeRoutes,
@@ -19,6 +22,9 @@ const {
   showError
 } = vi.hoisted(() => ({
   listGroups: vi.fn(),
+  createGroup: vi.fn(),
+  updateGroup: vi.fn(),
+  updateSortOrder: vi.fn(),
   duplicateGroup: vi.fn(),
   deleteGroup: vi.fn(),
   listCompositeRoutes: vi.fn(),
@@ -41,12 +47,12 @@ vi.mock('@/api/admin', () => ({
       getCapacitySummary,
       getLiveCapability,
       getAll: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
+      create: createGroup,
+      update: updateGroup,
       delete: deleteGroup,
       listCompositeRoutes,
       deleteCompositeRoute,
-      updateSortOrder: vi.fn()
+      updateSortOrder
     },
     accounts: {
       list: vi.fn(),
@@ -178,6 +184,9 @@ describe('GroupsView duplicate action', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     for (const fn of [
       listGroups,
+      createGroup,
+      updateGroup,
+      updateSortOrder,
       duplicateGroup,
       deleteGroup,
       listCompositeRoutes,
@@ -354,5 +363,23 @@ describe('GroupsView duplicate action', () => {
     resolveDelete()
     await Promise.all([first, second])
     expect(vm.compositeRouteDeleting).toBe(false)
+  })
+
+  it('guards create, update, and sort mutations at the function boundary', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+
+    vm.submitting = true
+    await vm.handleCreateGroup()
+    vm.editingGroup = sourceGroup
+    await vm.handleUpdateGroup()
+    expect(createGroup).not.toHaveBeenCalled()
+    expect(updateGroup).not.toHaveBeenCalled()
+
+    vm.sortSubmitting = true
+    await vm.saveSortOrder()
+    expect(updateSortOrder).not.toHaveBeenCalled()
+    wrapper.unmount()
   })
 })

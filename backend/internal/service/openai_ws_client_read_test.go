@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -53,7 +52,7 @@ func TestReadOpenAIWSClientMessage_ControlCloseFrames(t *testing.T) {
 			defer cancelControl(context.Canceled)
 			serverResult := make(chan error, 1)
 			readStarted := make(chan struct{})
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			server := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				conn, err := coderws.Accept(w, r, nil)
 				if err != nil {
 					serverResult <- err
@@ -107,7 +106,7 @@ func TestReadOpenAIWSClientMessage_ParentCancellationStillJoinsRead(t *testing.T
 	controlCtx, cancelControl := context.WithCancelCause(context.Background())
 	serverResult := make(chan error, 1)
 	readStarted := make(chan struct{})
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := coderws.Accept(w, r, nil)
 		if err != nil {
 			serverResult <- err

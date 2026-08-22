@@ -494,6 +494,48 @@ func TestAuthServiceBindEmailIdentity_RevokesExistingAccessAndRefreshTokens(t *t
 	require.True(t, errors.Is(err, service.ErrTokenRevoked) || errors.Is(err, service.ErrRefreshTokenInvalid))
 }
 
+func TestAuthServiceGenerateTokenPairFailsClosedWhenRefreshTokenUserIndexFails(t *testing.T) {
+	cache := newEmailBindRefreshTokenCacheStub()
+	cache.addUserErr = errors.New("user index unavailable")
+	svc, _, _ := newAuthServiceForEmailBindWithRefreshCache(t, nil, nil, nil, cache)
+	user := &service.User{
+		ID:           51,
+		Email:        "refresh-index-user@example.com",
+		Role:         service.RoleUser,
+		Status:       service.StatusActive,
+		TokenVersion: 1,
+	}
+
+	pair, err := svc.GenerateTokenPair(context.Background(), user, "")
+	require.Error(t, err)
+	require.Nil(t, pair)
+
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	require.Empty(t, cache.tokens, "a token must not remain usable when its revocation index is unavailable")
+}
+
+func TestAuthServiceGenerateTokenPairFailsClosedWhenRefreshTokenFamilyIndexFails(t *testing.T) {
+	cache := newEmailBindRefreshTokenCacheStub()
+	cache.addFamilyErr = errors.New("family index unavailable")
+	svc, _, _ := newAuthServiceForEmailBindWithRefreshCache(t, nil, nil, nil, cache)
+	user := &service.User{
+		ID:           52,
+		Email:        "refresh-family-user@example.com",
+		Role:         service.RoleUser,
+		Status:       service.StatusActive,
+		TokenVersion: 1,
+	}
+
+	pair, err := svc.GenerateTokenPair(context.Background(), user, "family-1")
+	require.Error(t, err)
+	require.Nil(t, pair)
+
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	require.Empty(t, cache.tokens, "a token must not remain usable when its family index is unavailable")
+}
+
 func TestAuthServiceEmailIdentityBinding_RejectsEmailOutsideRegistrationSuffixWhitelist(t *testing.T) {
 	ctx := context.Background()
 	cache := &emailBindCacheStub{
@@ -733,10 +775,14 @@ func (s *emailBindCacheStub) IncrNotifyCodeUserRate(context.Context, int64, time
 }
 
 type emailBindRefreshTokenCacheStub struct {
-	mu       sync.Mutex
-	tokens   map[string]*service.RefreshTokenData
-	userSets map[int64]map[string]struct{}
-	families map[string]map[string]struct{}
+	mu           sync.Mutex
+	tokens       map[string]*service.RefreshTokenData
+	userSets     map[int64]map[string]struct{}
+	families     map[string]map[string]struct{}
+	storeErr     error
+	addUserErr   error
+	addFamilyErr error
+	deleteErr    error
 }
 
 func newEmailBindRefreshTokenCacheStub() *emailBindRefreshTokenCacheStub {
@@ -750,6 +796,9 @@ func newEmailBindRefreshTokenCacheStub() *emailBindRefreshTokenCacheStub {
 func (s *emailBindRefreshTokenCacheStub) StoreRefreshToken(_ context.Context, tokenHash string, data *service.RefreshTokenData, _ time.Duration) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.storeErr != nil {
+		return s.storeErr
+	}
 	cloned := *data
 	s.tokens[tokenHash] = &cloned
 	return nil
@@ -769,6 +818,9 @@ func (s *emailBindRefreshTokenCacheStub) GetRefreshToken(_ context.Context, toke
 func (s *emailBindRefreshTokenCacheStub) DeleteRefreshToken(_ context.Context, tokenHash string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
 	delete(s.tokens, tokenHash)
 	for _, tokenSet := range s.userSets {
 		delete(tokenSet, tokenHash)
@@ -808,6 +860,9 @@ func (s *emailBindRefreshTokenCacheStub) DeleteTokenFamily(_ context.Context, fa
 func (s *emailBindRefreshTokenCacheStub) AddToUserTokenSet(_ context.Context, userID int64, tokenHash string, _ time.Duration) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.addUserErr != nil {
+		return s.addUserErr
+	}
 	if s.userSets[userID] == nil {
 		s.userSets[userID] = make(map[string]struct{})
 	}
@@ -818,6 +873,9 @@ func (s *emailBindRefreshTokenCacheStub) AddToUserTokenSet(_ context.Context, us
 func (s *emailBindRefreshTokenCacheStub) AddToFamilyTokenSet(_ context.Context, familyID string, tokenHash string, _ time.Duration) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.addFamilyErr != nil {
+		return s.addFamilyErr
+	}
 	if s.families[familyID] == nil {
 		s.families[familyID] = make(map[string]struct{})
 	}

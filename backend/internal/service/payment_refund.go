@@ -735,9 +735,17 @@ func (s *PaymentService) RollbackRefund(ctx context.Context, p *RefundPlan, gErr
 }
 
 func (s *PaymentService) restoreStatus(ctx context.Context, p *RefundPlan) {
+	// Preserve the state that was atomically claimed before the deduction or
+	// gateway attempt.  In particular, a retry that started from
+	// REFUND_PENDING/REFUND_FAILED must not be rolled back to COMPLETED: doing
+	// so makes the order look freshly refundable and can trigger a duplicate
+	// gateway refund.  PrepareRefund/ExecuteRefund only admit these four states;
+	// retain a defensive completed fallback for callers constructing a plan by
+	// hand with an older/unknown snapshot.
 	rs := OrderStatusCompleted
-	if p.Order.Status == OrderStatusRefundRequested {
-		rs = OrderStatusRefundRequested
+	switch p.Order.Status {
+	case OrderStatusRefundRequested, OrderStatusRefundPending, OrderStatusRefundFailed:
+		rs = p.Order.Status
 	}
 	_, _ = s.entClient.PaymentOrder.UpdateOneID(p.OrderID).SetStatus(rs).Save(ctx)
 }

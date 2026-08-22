@@ -579,6 +579,46 @@ func TestValidateProviderNotificationMetadataRejectsStripeCurrencyMismatch(t *te
 	assert.ErrorContains(t, err, "stripe currency mismatch")
 }
 
+func TestValidateProviderNotificationMetadataRejectsEmptySnapshotMetadata(t *testing.T) {
+	t.Parallel()
+
+	wxOrder := &dbent.PaymentOrder{
+		PaymentType: payment.TypeWxpay,
+		ProviderSnapshot: map[string]any{
+			"schema_version":  2,
+			"merchant_app_id": "wx-app",
+			"merchant_id":     "mch",
+			"currency":        "CNY",
+		},
+	}
+	assert.ErrorContains(t,
+		validateProviderNotificationMetadata(wxOrder, payment.TypeWxpay, nil),
+		"wxpay notification missing appid")
+
+	stripeOrder := &dbent.PaymentOrder{
+		PaymentType: payment.TypeStripe,
+		ProviderSnapshot: map[string]any{
+			"schema_version": 2,
+			"currency":       "HKD",
+		},
+	}
+	assert.ErrorContains(t,
+		validateProviderNotificationMetadata(stripeOrder, payment.TypeStripe, map[string]string{}),
+		"stripe notification missing currency")
+
+	airwallexOrder := &dbent.PaymentOrder{
+		PaymentType: payment.TypeAirwallex,
+		ProviderSnapshot: map[string]any{
+			"schema_version": 2,
+			"merchant_id":    "acct",
+			"currency":       "USD",
+		},
+	}
+	assert.ErrorContains(t,
+		validateProviderNotificationMetadata(airwallexOrder, payment.TypeAirwallex, nil),
+		"airwallex account_id missing")
+}
+
 func TestPaymentAmountToleranceForThreeDecimalCurrency(t *testing.T) {
 	t.Parallel()
 

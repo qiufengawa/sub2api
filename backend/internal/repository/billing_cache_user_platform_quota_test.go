@@ -15,7 +15,7 @@ import (
 
 func newMiniRedisCache(t *testing.T) (*billingCache, *miniredis.Miniredis) {
 	t.Helper()
-	mr := miniredis.RunT(t)
+	mr := newRepositoryMiniRedis(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	return &billingCache{rdb: rdb}, mr
 }

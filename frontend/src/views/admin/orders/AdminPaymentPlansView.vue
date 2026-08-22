@@ -299,7 +299,9 @@ function saveCatalogFile(catalog: unknown, filename: string) {
   document.body.appendChild(link)
   link.click()
   link.remove()
-  URL.revokeObjectURL(url)
+  window.setTimeout(() => {
+    if (typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url)
+  }, 0)
 }
 
 async function downloadCatalogTemplate() {

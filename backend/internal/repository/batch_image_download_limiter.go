@@ -93,7 +93,12 @@ func (p *batchImageDownloadPermit) Release(ctx context.Context) error {
 		return nil
 	}
 	p.once.Do(func() {
-		_, p.err = batchImageDownloadReleaseScript.Run(ctx, p.rdb, []string{p.key}).Result()
+		// Release is compensating cleanup.  A request/client disconnect commonly
+		// cancels ctx, but consuming the once guard while the Redis script never
+		// runs would strand the active counter until its TTL expires.  Detach the
+		// release from request cancellation; the Redis client still applies its
+		// own bounded command timeout.
+		_, p.err = batchImageDownloadReleaseScript.Run(context.Background(), p.rdb, []string{p.key}).Result()
 	})
 	return p.err
 }

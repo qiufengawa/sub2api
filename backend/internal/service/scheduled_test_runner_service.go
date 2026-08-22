@@ -23,6 +23,12 @@ type ScheduledTestRunnerService struct {
 	cron      *cron.Cron
 	startOnce sync.Once
 	stopOnce  sync.Once
+	// runningPlans prevents overlapping executions for the same plan within a
+	// process when a test runs longer than the one-minute cron interval.  The
+	// database's next_run_at remains the cross-process source of truth; this
+	// guard closes the common single-instance overlap window without changing
+	// the repository interface.
+	runningPlans sync.Map // map[int64]struct{}
 }
 
 // NewScheduledTestRunnerService creates a new runner.
@@ -120,9 +126,22 @@ func (s *ScheduledTestRunnerService) runScheduled() {
 }
 
 func (s *ScheduledTestRunnerService) runOnePlan(ctx context.Context, plan *ScheduledTestPlan) {
+	if plan == nil {
+		return
+	}
+	if _, loaded := s.runningPlans.LoadOrStore(plan.ID, struct{}{}); loaded {
+		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d already running; skipping overlapping tick", plan.ID)
+		return
+	}
+	defer s.runningPlans.Delete(plan.ID)
+
 	result, err := s.accountTestSvc.RunTestBackground(ctx, plan.AccountID, plan.ModelID)
 	if err != nil {
 		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d RunTestBackground error: %v", plan.ID, err)
+		// A failed run must still advance next_run_at.  Leaving a due plan in
+		// place causes every subsequent minute to launch the same failing test,
+		// multiplying upstream calls and making recovery impossible.
+		s.advancePlanAfterRun(ctx, plan)
 		return
 	}
 
@@ -135,6 +154,10 @@ func (s *ScheduledTestRunnerService) runOnePlan(ctx context.Context, plan *Sched
 		s.tryRecoverAccount(ctx, plan.AccountID, plan.ID)
 	}
 
+	s.advancePlanAfterRun(ctx, plan)
+}
+
+func (s *ScheduledTestRunnerService) advancePlanAfterRun(ctx context.Context, plan *ScheduledTestPlan) {
 	nextRun, err := computeNextRun(plan.CronExpression, time.Now())
 	if err != nil {
 		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d computeNextRun error: %v", plan.ID, err)

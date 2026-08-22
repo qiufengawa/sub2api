@@ -35,6 +35,18 @@ export async function refreshAccessToken(): Promise<string> {
   const tokens = await refreshAuthTokens()
   return tokens.access_token
 }
+
+function readHeader(headers: unknown, name: string): unknown {
+  if (!headers || typeof headers !== 'object') return undefined
+  const candidate = headers as {
+    get?: (headerName: string) => unknown
+    [key: string]: unknown
+  }
+  if (typeof candidate.get === 'function') {
+    return candidate.get(name) ?? candidate.get(name.toLowerCase())
+  }
+  return candidate[name] ?? candidate[name.toLowerCase()]
+}
 // ==================== Request Interceptor ====================
 
 // Get user's timezone
@@ -182,7 +194,7 @@ apiClient.interceptors.response.use(
 
           try {
             const headers = originalRequest.headers as Record<string, unknown> | undefined
-            const authHeader = headers?.Authorization ?? headers?.authorization
+            const authHeader = readHeader(headers, 'Authorization')
             const failedAccessToken =
               typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
                 ? authHeader.slice('Bearer '.length)
@@ -229,14 +241,47 @@ apiClient.interceptors.response.use(
 
         // No refresh token or is auth endpoint - clear auth and redirect
         const hasToken = !!localStorage.getItem('auth_token')
-        const headers = error.config?.headers as Record<string, unknown> | undefined
-        const authHeader = headers?.Authorization ?? headers?.authorization
+        const headers = error.config?.headers
+        const authHeader = readHeader(headers, 'Authorization')
+        const sentAccessToken =
+          typeof authHeader === 'string' && authHeader.trim().toLowerCase().startsWith('bearer ')
+            ? authHeader.trim().slice('Bearer '.length).trim()
+            : null
+        const currentAccessToken = localStorage.getItem('auth_token')
+
+        // A request made with an older access token can reach this branch
+        // after logout/login replaced the session.  Do not let that stale 401
+        // clear or redirect the replacement session.
+        if (sentAccessToken && sentAccessToken !== currentAccessToken) {
+          return Promise.reject({
+            status: 401,
+            code: 'AUTH_SESSION_CHANGED',
+            message: 'Authentication session changed while handling an expired request.'
+          })
+        }
+
         const sentAuth =
           typeof authHeader === 'string'
             ? authHeader.trim() !== ''
             : Array.isArray(authHeader)
               ? authHeader.length > 0
               : !!authHeader
+
+        // Authentication endpoints are often called while an existing session
+        // is still active (for example, a second-tab login or a rotated
+        // refresh request).  Their 401 response describes that operation,
+        // not the current session, so never clear/redirect the current auth
+        // state from this branch.
+        if (isAuthEndpoint) {
+          return Promise.reject({
+            status,
+            code: apiData.code,
+            reason: apiData.reason,
+            message: apiData.message || error.message,
+            data: apiData.data,
+            url,
+          })
+        }
 
         localStorage.removeItem('auth_token')
         localStorage.removeItem('refresh_token')

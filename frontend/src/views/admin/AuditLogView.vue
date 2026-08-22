@@ -719,6 +719,7 @@ function cancelClearTotp() {
 }
 
 async function submitClear() {
+  if (clearing.value) return
   if (clearTotpCode.value.length !== 6) return
   clearing.value = true
   try {

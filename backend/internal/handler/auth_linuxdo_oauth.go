@@ -223,7 +223,7 @@ func (h *AuthHandler) LinuxDoOAuthCallback(c *gin.Context) {
 		return
 	}
 
-	tokenResp, err := linuxDoExchangeCode(c.Request.Context(), cfg, code, redirectURI, codeVerifier)
+	tokenResp, err := linuxDoExchangeCode(c.Request.Context(), cfg, code, redirectURI, codeVerifier, h.linuxDoHTTPClient)
 	if err != nil {
 		description := ""
 		var exchangeErr *linuxDoTokenExchangeError
@@ -244,7 +244,7 @@ func (h *AuthHandler) LinuxDoOAuthCallback(c *gin.Context) {
 		return
 	}
 
-	email, username, subject, displayName, avatarURL, err := linuxDoFetchUserInfo(c.Request.Context(), cfg, tokenResp)
+	email, username, subject, displayName, avatarURL, err := linuxDoFetchUserInfo(c.Request.Context(), cfg, tokenResp, h.linuxDoHTTPClient)
 	if err != nil {
 		log.Printf("[LinuxDo OAuth] userinfo fetch failed: %v", err)
 		redirectOAuthError(c, frontendCallback, "userinfo_failed", "failed to fetch user info", "")
@@ -635,8 +635,13 @@ func linuxDoExchangeCode(
 	code string,
 	redirectURI string,
 	codeVerifier string,
+	clients ...*req.Client,
 ) (*linuxDoTokenResponse, error) {
-	client := req.C().SetTimeout(30 * time.Second)
+	client := req.C()
+	if len(clients) > 0 && clients[0] != nil {
+		client = clients[0]
+	}
+	client.SetTimeout(30 * time.Second)
 
 	form := url.Values{}
 	form.Set("grant_type", "authorization_code")
@@ -693,8 +698,13 @@ func linuxDoFetchUserInfo(
 	ctx context.Context,
 	cfg config.LinuxDoConnectConfig,
 	token *linuxDoTokenResponse,
+	clients ...*req.Client,
 ) (email string, username string, subject string, displayName string, avatarURL string, err error) {
-	client := req.C().SetTimeout(30 * time.Second)
+	client := req.C()
+	if len(clients) > 0 && clients[0] != nil {
+		client = clients[0]
+	}
+	client.SetTimeout(30 * time.Second)
 	authorization, err := buildBearerAuthorization(token.TokenType, token.AccessToken)
 	if err != nil {
 		return "", "", "", "", "", fmt.Errorf("invalid token for userinfo request: %w", err)
@@ -1213,7 +1223,7 @@ func (h *AuthHandler) resolveOAuthBindTargetUserID(c *gin.Context) (*int64, erro
 	if err != nil {
 		return nil, err
 	}
-	if user == nil || !user.IsActive() || claims.TokenVersion != user.TokenVersion {
+	if user == nil || !user.IsActive() || claims.TokenVersion != user.TokenVersion || !service.RevocationVersionMatches(claims, user) {
 		return nil, service.ErrInvalidToken
 	}
 	return &user.ID, nil

@@ -79,6 +79,10 @@ describe('CustomPageView', () => {
     expect(wrapper.text()).toContain('Embedded page')
     expect(wrapper.get('iframe').attributes('src')).toContain('https://docs.example.test/guide')
     expect(wrapper.get('iframe').attributes('src')).not.toContain('token=')
+    expect(wrapper.get('iframe').attributes('sandbox')).toBe(
+      'allow-scripts allow-forms allow-popups allow-presentation',
+    )
+    expect(wrapper.get('iframe').attributes('referrerpolicy')).toBe('no-referrer')
     expect(wrapper.get('a').attributes('target')).toBe('_blank')
     wrapper.unmount()
   })

@@ -76,7 +76,7 @@ func TestAccountTestServiceOpenAICompactAgentIdentityRecoversInvalidTaskOnce(t *
 	}
 	repo := &accountTestAgentIdentityRepo{account: account}
 	registerCalls := 0
-	registerServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	registerServer := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		registerCalls++
 		_, _ = io.WriteString(w, `{"task_id":"task-compact-new"}`)
 	}))
@@ -310,7 +310,7 @@ func TestOpenAIAgentIdentityTaskInvalidRetriesExactlyOnce(t *testing.T) {
 	}
 	repo := &agentIdentityForwardRepo{account: account}
 	registerCalls := 0
-	registerServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	registerServer := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		registerCalls++
 		_, _ = io.WriteString(w, `{"task_id":"task-new"}`)
 	}))
@@ -414,7 +414,7 @@ func TestOpenAIAgentIdentityCompatRoutesRecoverInvalidTaskOnce(t *testing.T) {
 			}
 			repo := &agentIdentityForwardRepo{account: account}
 			registerCalls := 0
-			registerServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			registerServer := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				registerCalls++
 				_, _ = io.WriteString(w, `{"task_id":"task-compat-new"}`)
 			}))

@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -157,7 +156,7 @@ func TestQueryUsageResetCreditCountPrecedence(t *testing.T) {
 			tokenProvider := NewOpenAITokenProvider(repo, tokenCache, nil)
 
 			var detailCalls int
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			srv := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("content-type", "application/json")
 				switch r.URL.Path {
 				case "/backend-api/wham/usage":

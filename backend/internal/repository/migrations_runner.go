@@ -64,6 +64,7 @@ const latestAPIKeyIPIndexMigration = "174_add_usage_logs_api_key_latest_ip_index
 const latestAPIKeyIPIndex = "idx_usage_logs_api_key_latest_ip"
 const usageLogsUpstreamModelMismatchIndexMigration = "195_add_usage_log_upstream_model_mismatch_index_notx.sql"
 const usageLogsUpstreamModelMismatchIndex = "idx_usage_logs_upstream_model_mismatch_created_at"
+const batchImageIdempotencyUniqueMigration = "222_batch_image_idempotency_unique.sql"
 
 type migrationChecksumCompatibilityRule struct {
 	fileChecksum       string
@@ -284,6 +285,9 @@ func applyMigrationsFSWithPreflight(ctx context.Context, db *sql.DB, fsys fs.FS,
 		if err != nil {
 			return fmt.Errorf("validate migration %s: %w", name, err)
 		}
+		if err := prepareMigrationPreflight(ctx, lockConn, name); err != nil {
+			return fmt.Errorf("preflight migration %s: %w", name, err)
+		}
 
 		if nonTx {
 			if err := prepareNonTransactionalMigration(ctx, lockConn, name); err != nil {
@@ -337,6 +341,61 @@ func applyMigrationsFSWithPreflight(ctx context.Context, db *sql.DB, fsys fs.FS,
 	}
 
 	return nil
+}
+
+// prepareMigrationPreflight performs read-only checks that must happen while
+// the migration advisory lock is held, but before a uniqueness constraint is
+// attempted.  Without this check a legacy duplicate can make the migration
+// fail with an opaque PostgreSQL unique-index error during startup.
+func prepareMigrationPreflight(ctx context.Context, db migrationConnection, name string) error {
+	switch name {
+	case batchImageIdempotencyUniqueMigration:
+		duplicates, err := findDuplicateBatchImageIdempotencyKeys(ctx, db)
+		if err != nil {
+			return fmt.Errorf("check duplicate batch idempotency keys: %w", err)
+		}
+		if len(duplicates) > 0 {
+			return fmt.Errorf(
+				"duplicate batch idempotency keys block %s; remediate duplicates before retrying: %s",
+				batchImageIdempotencyUniqueMigration,
+				strings.Join(duplicates, ", "),
+			)
+		}
+	}
+	return nil
+}
+
+func findDuplicateBatchImageIdempotencyKeys(ctx context.Context, db migrationConnection) ([]string, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT user_id, api_key_id, idempotency_key, COUNT(*) AS duplicate_count
+		FROM batch_image_jobs
+		WHERE api_key_id IS NOT NULL
+		  AND idempotency_key IS NOT NULL
+		  AND idempotency_key <> ''
+		GROUP BY user_id, api_key_id, idempotency_key
+		HAVING COUNT(*) > 1
+		ORDER BY duplicate_count DESC, user_id, api_key_id, idempotency_key
+		LIMIT 5
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	duplicates := make([]string, 0, 5)
+	for rows.Next() {
+		var userID, apiKeyID int64
+		var idempotencyKey string
+		var duplicateCount int
+		if err := rows.Scan(&userID, &apiKeyID, &idempotencyKey, &duplicateCount); err != nil {
+			return nil, err
+		}
+		duplicates = append(duplicates, fmt.Sprintf("user_id=%d api_key_id=%d key=%q count=%d", userID, apiKeyID, idempotencyKey, duplicateCount))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return duplicates, nil
 }
 
 func validateSetupMigrationTarget(ctx context.Context, conn *sql.Conn) error {

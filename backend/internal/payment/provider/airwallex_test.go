@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
@@ -21,8 +20,6 @@ import (
 )
 
 func TestNewAirwallexValidatesConfig(t *testing.T) {
-	t.Parallel()
-
 	_, err := NewAirwallex("1", map[string]string{
 		"clientId":      "cid",
 		"apiKey":        "key",
@@ -54,10 +51,8 @@ func TestNewAirwallexValidatesConfig(t *testing.T) {
 }
 
 func TestAirwallexCreatePaymentUsesServerAmountAndStableRequestID(t *testing.T) {
-	t.Parallel()
-
 	var createRequests []airwallexCreatePaymentIntentRequest
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/authentication/login":
 			require.Equal(t, "cid", r.Header.Get("x-client-id"))
@@ -75,10 +70,9 @@ func TestAirwallexCreatePaymentUsesServerAmountAndStableRequestID(t *testing.T) 
 		default:
 			http.NotFound(w, r)
 		}
-	}))
-	defer server.Close()
+	})
 
-	prov := mustTestAirwallexProvider(t, server)
+	prov := mustTestAirwallexProvider(t, handler)
 	resp, err := prov.CreatePayment(context.Background(), payment.CreatePaymentRequest{
 		OrderID:   "sub2_order",
 		Amount:    "12.34",
@@ -99,10 +93,8 @@ func TestAirwallexCreatePaymentUsesServerAmountAndStableRequestID(t *testing.T) 
 }
 
 func TestAirwallexCreatePaymentUsesConfiguredCurrency(t *testing.T) {
-	t.Parallel()
-
 	var createRequest airwallexCreatePaymentIntentRequest
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/authentication/login":
 			_, _ = w.Write([]byte(`{"token":"token-1","expires_at":"2099-01-01T00:00:00Z"}`))
@@ -114,8 +106,7 @@ func TestAirwallexCreatePaymentUsesConfiguredCurrency(t *testing.T) {
 		default:
 			http.NotFound(w, r)
 		}
-	}))
-	defer server.Close()
+	})
 
 	prov, err := NewAirwallex("1", map[string]string{
 		"clientId":      "cid",
@@ -126,8 +117,8 @@ func TestAirwallexCreatePaymentUsesConfiguredCurrency(t *testing.T) {
 		"countryCode":   "HK",
 	})
 	require.NoError(t, err)
-	prov.config["apiBase"] = server.URL + "/api/v1"
-	prov.httpClient = server.Client()
+	prov.httpClient = newInProcessHTTPClient(handler)
+	airwallexAccessTokens.Delete(prov.tokenCacheKey())
 
 	resp, err := prov.CreatePayment(context.Background(), payment.CreatePaymentRequest{
 		OrderID:   "sub2_order",
@@ -142,10 +133,8 @@ func TestAirwallexCreatePaymentUsesConfiguredCurrency(t *testing.T) {
 }
 
 func TestAirwallexRequestsUseConfiguredAccountID(t *testing.T) {
-	t.Parallel()
-
 	paRequestCount := 0
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/authentication/login":
 			require.Equal(t, "acct_123", r.Header.Get("x-login-as"))
@@ -169,8 +158,7 @@ func TestAirwallexRequestsUseConfiguredAccountID(t *testing.T) {
 		default:
 			http.NotFound(w, r)
 		}
-	}))
-	defer server.Close()
+	})
 
 	prov, err := NewAirwallex("1", map[string]string{
 		"clientId":      "cid",
@@ -180,8 +168,8 @@ func TestAirwallexRequestsUseConfiguredAccountID(t *testing.T) {
 		"accountId":     "acct_123",
 	})
 	require.NoError(t, err)
-	prov.config["apiBase"] = server.URL + "/api/v1"
-	prov.httpClient = server.Client()
+	prov.httpClient = newInProcessHTTPClient(handler)
+	airwallexAccessTokens.Delete(prov.tokenCacheKey())
 
 	_, err = prov.CreatePayment(context.Background(), payment.CreatePaymentRequest{
 		OrderID: "sub2_order",
@@ -202,13 +190,9 @@ func TestAirwallexRequestsUseConfiguredAccountID(t *testing.T) {
 }
 
 func TestAirwallexRefundRejectsUnsettledStatus(t *testing.T) {
-	t.Parallel()
-
 	for _, status := range []string{"RECEIVED", "ACCEPTED", "FAILED"} {
 		t.Run(status, func(t *testing.T) {
-			t.Parallel()
-
-			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
 				case "/api/v1/authentication/login":
 					_, _ = w.Write([]byte(`{"token":"token-1","expires_at":"2099-01-01T00:00:00Z"}`))
@@ -217,10 +201,9 @@ func TestAirwallexRefundRejectsUnsettledStatus(t *testing.T) {
 				default:
 					http.NotFound(w, r)
 				}
-			}))
-			defer server.Close()
+			})
 
-			prov := mustTestAirwallexProvider(t, server)
+			prov := mustTestAirwallexProvider(t, handler)
 			resp, err := prov.Refund(context.Background(), payment.RefundRequest{
 				TradeNo: "int_123",
 				Amount:  "12.34",
@@ -240,16 +223,13 @@ func TestAirwallexRefundRejectsUnsettledStatus(t *testing.T) {
 }
 
 func TestAirwallexAuthErrorIncludesCredentialGuidance(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/v1/authentication/login", r.URL.Path)
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"code":"credentials_invalid","details":["Access Denied"],"message":"UNAUTHORIZED","source":""}`))
-	}))
-	defer server.Close()
+	})
 
-	prov := mustTestAirwallexProvider(t, server)
+	prov := mustTestAirwallexProvider(t, handler)
 	_, err := prov.CreatePayment(context.Background(), payment.CreatePaymentRequest{
 		OrderID: "sub2_order",
 		Amount:  "12.34",
@@ -263,8 +243,6 @@ func TestAirwallexAuthErrorIncludesCredentialGuidance(t *testing.T) {
 }
 
 func TestAirwallexVerifyNotificationRequiresValidSignatureAndCurrency(t *testing.T) {
-	t.Parallel()
-
 	prov, err := NewAirwallex("1", map[string]string{
 		"clientId":      "cid",
 		"apiKey":        "key",
@@ -294,8 +272,6 @@ func TestAirwallexVerifyNotificationRequiresValidSignatureAndCurrency(t *testing
 }
 
 func TestVerifyAirwallexWebhookSignatureRejectsReplay(t *testing.T) {
-	t.Parallel()
-
 	raw := `{"id":"evt_1"}`
 	timestamp := "1778241600000"
 	headers := signedAirwallexHeaders(raw, timestamp, "whsec")
@@ -304,9 +280,7 @@ func TestVerifyAirwallexWebhookSignatureRejectsReplay(t *testing.T) {
 }
 
 func TestAirwallexQueryOrderMapsSucceeded(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/authentication/login":
 			_, _ = w.Write([]byte(`{"token":"token-1","expires_at":"2099-01-01T00:00:00Z"}`))
@@ -315,10 +289,9 @@ func TestAirwallexQueryOrderMapsSucceeded(t *testing.T) {
 		default:
 			http.NotFound(w, r)
 		}
-	}))
-	defer server.Close()
+	})
 
-	prov := mustTestAirwallexProvider(t, server)
+	prov := mustTestAirwallexProvider(t, handler)
 	resp, err := prov.QueryOrder(context.Background(), "int_123")
 	require.NoError(t, err)
 	require.Equal(t, payment.ProviderStatusPaid, resp.Status)
@@ -327,7 +300,7 @@ func TestAirwallexQueryOrderMapsSucceeded(t *testing.T) {
 	require.Equal(t, "SUCCEEDED", resp.Metadata["status"])
 }
 
-func mustTestAirwallexProvider(t *testing.T, server *httptest.Server) *Airwallex {
+func mustTestAirwallexProvider(t *testing.T, handler http.Handler) *Airwallex {
 	t.Helper()
 	prov, err := NewAirwallex("1", map[string]string{
 		"clientId":      "cid",
@@ -336,8 +309,8 @@ func mustTestAirwallexProvider(t *testing.T, server *httptest.Server) *Airwallex
 		"apiBase":       airwallexDemoAPIBase,
 	})
 	require.NoError(t, err)
-	prov.config["apiBase"] = server.URL + "/api/v1"
-	prov.httpClient = server.Client()
+	prov.httpClient = newInProcessHTTPClient(handler)
+	airwallexAccessTokens.Delete(prov.tokenCacheKey())
 	return prov
 }
 

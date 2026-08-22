@@ -1453,6 +1453,48 @@ func TestAPIKeyAuthBillingInfoSkipsBillingAndSideEffects(t *testing.T) {
 	require.Zero(t, touchCalls)
 }
 
+func TestAPIKeyAuthBatchImageReadsSkipBillingButMutationsDoNot(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	user := &service.User{ID: 7, Role: service.RoleUser, Status: service.StatusActive, Balance: 10}
+	apiKey := &service.APIKey{
+		ID:     106,
+		UserID: user.ID,
+		Key:    "batch-read-auth-only",
+		Status: service.StatusAPIKeyQuotaExhausted,
+		User:   user,
+	}
+	repo := &stubApiKeyRepo{getByKey: func(context.Context, string) (*service.APIKey, error) {
+		clone := *apiKey
+		return &clone, nil
+	}}
+	group := &service.Group{ID: 7, Name: "batch-read-group", Status: service.StatusActive, Hydrated: true}
+	apiKey.Group = group
+	apiKey.GroupID = &group.ID
+	subscriptionCalls := 0
+	subscriptionRepo := &stubUserSubscriptionRepo{getActiveCoveringGroup: func(context.Context, int64, int64) (*service.UserSubscription, error) {
+		subscriptionCalls++
+		return nil, service.ErrSubscriptionNotFound
+	}}
+	cfg := &config.Config{RunMode: config.RunModeStandard}
+	apiKeyService := service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, cfg)
+	subscriptionService := service.NewSubscriptionService(nil, subscriptionRepo, nil, nil, cfg)
+	t.Cleanup(subscriptionService.Stop)
+	router := newAuthTestRouter(apiKeyService, subscriptionService, cfg)
+
+	read := httptest.NewRecorder()
+	readReq := httptest.NewRequest(http.MethodGet, "/v1/images/batches/imgbatch_read/items", nil)
+	readReq.Header.Set("x-api-key", apiKey.Key)
+	router.ServeHTTP(read, readReq)
+	require.Equal(t, http.StatusOK, read.Code)
+	require.Zero(t, subscriptionCalls)
+
+	mutate := httptest.NewRecorder()
+	mutateReq := httptest.NewRequest(http.MethodPost, "/v1/images/batches", strings.NewReader(`{}`))
+	mutateReq.Header.Set("x-api-key", apiKey.Key)
+	router.ServeHTTP(mutate, mutateReq)
+	require.Equal(t, http.StatusTooManyRequests, mutate.Code)
+}
+
 func TestAPIKeyAuthBillingInfoSkipsLastUsedInSimpleMode(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -1680,6 +1722,8 @@ func newAuthTestRouter(apiKeyService *service.APIKeyService, subscriptionService
 	router.POST("/v1/messages", ok)
 	router.GET("/v1/usage", ok)
 	router.GET("/v1/sub2api/billing", ok)
+	router.GET("/v1/images/batches/*path", ok)
+	router.POST("/v1/images/batches", ok)
 	return router
 }
 

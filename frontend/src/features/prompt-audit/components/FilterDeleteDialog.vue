@@ -3,6 +3,8 @@
     :show="show"
     :title="t('admin.promptAudit.events.filterDeleteDialogTitle')"
     :close-label="t('common.close')"
+    :close-on-escape="!deleting && !previewing"
+    :show-close-button="!deleting && !previewing"
     width="wide"
     @close="emit('close')"
   >
@@ -67,7 +69,7 @@
     <template #footer>
       <div class="prompt-delete__footer">
         <p v-if="confirmDisabledReason" data-test="confirm-disabled-reason">{{ t(confirmDisabledReason) }}</p>
-        <UiButton @click="emit('close')">{{ t('common.cancel') }}</UiButton>
+        <UiButton :disabled="deleting || previewing" @click="emit('close')">{{ t('common.cancel') }}</UiButton>
         <UiButton
           :disabled="!canPreview || deleting"
           :loading="previewing"

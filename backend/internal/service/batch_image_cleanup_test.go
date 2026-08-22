@@ -32,6 +32,91 @@ func TestBatchImageCleanupService_DeleteOutputsForOwner(t *testing.T) {
 		requireBatchImagePublicJSONHasNoInternals(t, body)
 	})
 
+	t.Run("deletes retry child outputs with the root", func(t *testing.T) {
+		svc, repo, provider := newTestBatchImageCleanupService()
+		root := repo.jobs["imgbatch_cleanup"]
+		parentID := root.BatchID
+		child := cleanupTestJob("imgbatch_cleanup_retry", BatchImageJobStatusCompleted)
+		child.ParentBatchID = &parentID
+		repo.jobs[child.BatchID] = child
+
+		got, err := svc.DeleteOutputsForOwner(ctx, testBatchImageOwner(), root.BatchID)
+		require.NoError(t, err)
+		require.Equal(t, BatchImageJobStatusOutputDeleted, got.Status)
+		require.NotNil(t, root.OutputDeletedAt)
+		require.NotNil(t, child.OutputDeletedAt)
+		require.Equal(t, []CleanupTarget{CleanupTargetOutput, CleanupTargetOutput}, provider.cleanupTargets)
+	})
+
+	t.Run("retries children after a partial provider failure without marking root first", func(t *testing.T) {
+		svc, repo, provider := newTestBatchImageCleanupService()
+		root := repo.jobs["imgbatch_cleanup"]
+		parentID := root.BatchID
+		child := cleanupTestJob("imgbatch_cleanup_retry_failure", BatchImageJobStatusCompleted)
+		child.ParentBatchID = &parentID
+		repo.jobs[child.BatchID] = child
+		provider.cleanupErrByID = map[string]error{child.BatchID: errors.New("child cleanup temporarily unavailable")}
+
+		_, err := svc.DeleteOutputsForOwner(ctx, testBatchImageOwner(), root.BatchID)
+		require.ErrorIs(t, err, ErrBatchImageProviderCleanupFailed)
+		// The child is attempted before the root, so a failed child cannot make
+		// the root look idempotently complete and hide the retry opportunity.
+		require.Equal(t, []CleanupTarget{CleanupTargetOutput}, provider.cleanupTargets)
+		require.Nil(t, root.OutputDeletedAt)
+		require.Nil(t, child.OutputDeletedAt)
+
+		provider.cleanupErrByID = nil
+		got, err := svc.DeleteOutputsForOwner(ctx, testBatchImageOwner(), root.BatchID)
+		require.NoError(t, err)
+		require.Equal(t, BatchImageJobStatusOutputDeleted, got.Status)
+		require.NotNil(t, root.OutputDeletedAt)
+		require.NotNil(t, child.OutputDeletedAt)
+		require.Equal(t, []CleanupTarget{CleanupTargetOutput, CleanupTargetOutput, CleanupTargetOutput}, provider.cleanupTargets)
+	})
+
+	t.Run("does not delete root while a retry child is active", func(t *testing.T) {
+		svc, repo, provider := newTestBatchImageCleanupService()
+		root := repo.jobs["imgbatch_cleanup"]
+		parentID := root.BatchID
+		child := cleanupTestJob("imgbatch_cleanup_running_retry", BatchImageJobStatusRunning)
+		child.ParentBatchID = &parentID
+		repo.jobs[child.BatchID] = child
+
+		_, err := svc.DeleteOutputsForOwner(ctx, testBatchImageOwner(), root.BatchID)
+		require.ErrorIs(t, err, ErrBatchImageOutputDeleteNotReady)
+		require.Nil(t, root.OutputDeletedAt)
+		require.Empty(t, provider.cleanupTargets)
+	})
+
+	t.Run("deletes failed retry root and terminal child outputs", func(t *testing.T) {
+		svc, repo, provider := newTestBatchImageCleanupService()
+		root := repo.jobs["imgbatch_cleanup"]
+		root.Status = BatchImageJobStatusFailed
+		parentID := root.BatchID
+		child := cleanupTestJob("imgbatch_cleanup_failed_root_retry", BatchImageJobStatusCompleted)
+		child.ParentBatchID = &parentID
+		repo.jobs[child.BatchID] = child
+
+		got, err := svc.DeleteOutputsForOwner(ctx, testBatchImageOwner(), root.BatchID)
+		require.NoError(t, err)
+		require.Equal(t, BatchImageJobStatusFailed, got.Status)
+		require.NotNil(t, root.OutputDeletedAt)
+		require.NotNil(t, child.OutputDeletedAt)
+		require.Len(t, provider.cleanupTargets, 2)
+	})
+
+	t.Run("deletes a failed root output when the provider returned an output ref", func(t *testing.T) {
+		svc, repo, provider := newTestBatchImageCleanupService()
+		root := repo.jobs["imgbatch_cleanup"]
+		root.Status = BatchImageJobStatusFailed
+
+		got, err := svc.DeleteOutputsForOwner(ctx, testBatchImageOwner(), root.BatchID)
+		require.NoError(t, err)
+		require.Equal(t, BatchImageJobStatusFailed, got.Status)
+		require.NotNil(t, root.OutputDeletedAt)
+		require.Equal(t, []CleanupTarget{CleanupTargetOutput}, provider.cleanupTargets)
+	})
+
 	t.Run("repeated delete is idempotent", func(t *testing.T) {
 		svc, repo, provider := newTestBatchImageCleanupService()
 		deletedAt := time.Now()
@@ -140,6 +225,42 @@ func TestBatchImageCleanupService_InputOutputAndWorker(t *testing.T) {
 		require.Equal(t, BatchImageJobStatusRunning, repo.jobs["imgbatch_running"].Status)
 		require.Nil(t, repo.jobs["imgbatch_future"].OutputDeletedAt)
 		require.NotContains(t, strings.Join(repo.events["imgbatch_running"], ","), "cleanup")
+	})
+
+	t.Run("worker defers expired root while retry child is active", func(t *testing.T) {
+		svc, repo, provider := newTestBatchImageCleanupService()
+		expired := now.Add(-time.Minute)
+		root := repo.jobs["imgbatch_cleanup"]
+		root.OutputExpiresAt = &expired
+		parentID := root.BatchID
+		child := cleanupTestJob("imgbatch_cleanup_active_retry", BatchImageJobStatusRunning)
+		child.ParentBatchID = &parentID
+		repo.jobs[child.BatchID] = child
+
+		result, err := svc.RunOnce(ctx, now)
+		require.NoError(t, err)
+		require.Zero(t, result.OutputCleaned)
+		require.Nil(t, root.OutputDeletedAt)
+		require.NotContains(t, provider.cleanupTargets, CleanupTargetOutput)
+	})
+
+	t.Run("worker cleans expired failed and cancelled outputs", func(t *testing.T) {
+		svc, repo, provider := newTestBatchImageCleanupService()
+		expired := now.Add(-time.Minute)
+		for _, status := range []string{BatchImageJobStatusFailed, BatchImageJobStatusCancelled} {
+			job := cleanupTestJob("imgbatch_cleanup_"+status, status)
+			job.OutputExpiresAt = &expired
+			repo.jobs[job.BatchID] = job
+		}
+
+		result, err := svc.RunOnce(ctx, now)
+		require.NoError(t, err)
+		require.Equal(t, 2, result.OutputCleaned)
+		for _, status := range []string{BatchImageJobStatusFailed, BatchImageJobStatusCancelled} {
+			job := repo.jobs["imgbatch_cleanup_"+status]
+			require.NotNil(t, job.OutputDeletedAt)
+			require.Contains(t, provider.cleanupTargets, CleanupTargetOutput)
+		}
 	})
 }
 

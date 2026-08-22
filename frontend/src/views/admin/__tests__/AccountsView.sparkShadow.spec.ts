@@ -18,6 +18,7 @@ const {
   getAllGroups,
   duplicateAccount,
   createSparkShadow,
+  exportData,
   deleteAccount,
   refreshCredentials,
   recoverState,
@@ -36,6 +37,7 @@ const {
   getAllGroups: vi.fn(),
   duplicateAccount: vi.fn(),
   createSparkShadow: vi.fn(),
+  exportData: vi.fn(),
   deleteAccount: vi.fn(),
   refreshCredentials: vi.fn(),
   recoverState: vi.fn(),
@@ -56,6 +58,7 @@ vi.mock('@/api/admin', () => ({
       duplicate: duplicateAccount,
       getUpstreamBillingProbeSettings,
       createSparkShadow,
+      exportData,
       delete: deleteAccount,
       refreshCredentials,
       recoverState,
@@ -128,7 +131,7 @@ const mountView = () =>
 describe('admin AccountsView — 外审 F2:spark 影子创建接线', () => {
   beforeEach(() => {
     localStorage.clear()
-    for (const fn of [listAccounts, listWithEtag, getBatchTodayStats, getServiceStatus, getUpstreamBillingProbeSettings, getAllProxies, getAllGroups, duplicateAccount, createSparkShadow, deleteAccount, refreshCredentials, recoverState, resetAccountQuota, setPrivacy, revertProxyFallback, showSuccess, showError]) {
+    for (const fn of [listAccounts, listWithEtag, getBatchTodayStats, getServiceStatus, getUpstreamBillingProbeSettings, getAllProxies, getAllGroups, duplicateAccount, createSparkShadow, exportData, deleteAccount, refreshCredentials, recoverState, resetAccountQuota, setPrivacy, revertProxyFallback, showSuccess, showError]) {
       fn.mockReset()
     }
     listAccounts.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, pages: 0 })
@@ -140,6 +143,7 @@ describe('admin AccountsView — 外审 F2:spark 影子创建接线', () => {
     getAllGroups.mockResolvedValue([])
     duplicateAccount.mockResolvedValue({ id: 998, name: 'parent-acc (Copy)' })
     createSparkShadow.mockResolvedValue({ id: 999, name: 'parent-acc (Spark)' })
+    exportData.mockResolvedValue({ items: [] })
     deleteAccount.mockResolvedValue(undefined)
     refreshCredentials.mockResolvedValue({ id: 42, name: 'parent-acc' })
     recoverState.mockResolvedValue({ id: 42, name: 'parent-acc' })
@@ -203,6 +207,25 @@ describe('admin AccountsView — 外审 F2:spark 影子创建接线', () => {
 
     finishDelete()
     await Promise.all([first, second])
+    wrapper.unmount()
+  })
+
+  it('导出失败时保留确认上下文以便重试', async () => {
+    exportData.mockRejectedValueOnce(new Error('export fixture failure'))
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      showExportDataDialog: boolean
+      exportingData: boolean
+      handleExportData: () => Promise<void>
+    }
+    vm.showExportDataDialog = true
+
+    await vm.handleExportData()
+
+    expect(vm.showExportDataDialog).toBe(true)
+    expect(vm.exportingData).toBe(false)
+    expect(showError).toHaveBeenCalledWith('export fixture failure')
     wrapper.unmount()
   })
 

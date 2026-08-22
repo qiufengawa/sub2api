@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -763,7 +764,12 @@ func TestResponsesWebSocketCredentialFailoverLoop(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	dial := func(t *testing.T, router *gin.Engine) (*coderws.Conn, func()) {
 		t.Helper()
-		server := httptest.NewServer(router)
+		listener, err := net.Listen("tcp4", "127.0.0.1:0")
+		if err != nil {
+			t.Skipf("websocket listener unavailable in this environment: %v", err)
+		}
+		server := &httptest.Server{Listener: listener, Config: &http.Server{Handler: router}}
+		server.Start()
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		conn, _, err := coderws.Dial(ctx, "ws"+strings.TrimPrefix(server.URL, "http")+"/openai/v1/responses", nil)
 		cancel()

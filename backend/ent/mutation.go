@@ -49509,6 +49509,8 @@ type UserMutation struct {
 	addfrozen_balance             *float64
 	concurrency                   *int
 	addconcurrency                *int
+	revocation_version            *int64
+	addrevocation_version         *int64
 	status                        *string
 	billing_preference            *string
 	username                      *string
@@ -50066,6 +50068,62 @@ func (m *UserMutation) AddedConcurrency() (r int, exists bool) {
 func (m *UserMutation) ResetConcurrency() {
 	m.concurrency = nil
 	m.addconcurrency = nil
+}
+
+// SetRevocationVersion sets the "revocation_version" field.
+func (m *UserMutation) SetRevocationVersion(i int64) {
+	m.revocation_version = &i
+	m.addrevocation_version = nil
+}
+
+// RevocationVersion returns the value of the "revocation_version" field in the mutation.
+func (m *UserMutation) RevocationVersion() (r int64, exists bool) {
+	v := m.revocation_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevocationVersion returns the old "revocation_version" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldRevocationVersion(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevocationVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevocationVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevocationVersion: %w", err)
+	}
+	return oldValue.RevocationVersion, nil
+}
+
+// AddRevocationVersion adds i to the "revocation_version" field.
+func (m *UserMutation) AddRevocationVersion(i int64) {
+	if m.addrevocation_version != nil {
+		*m.addrevocation_version += i
+	} else {
+		m.addrevocation_version = &i
+	}
+}
+
+// AddedRevocationVersion returns the value that was added to the "revocation_version" field in this mutation.
+func (m *UserMutation) AddedRevocationVersion() (r int64, exists bool) {
+	v := m.addrevocation_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRevocationVersion resets all changes to the "revocation_version" field.
+func (m *UserMutation) ResetRevocationVersion() {
+	m.revocation_version = nil
+	m.addrevocation_version = nil
 }
 
 // SetStatus sets the "status" field.
@@ -51506,7 +51564,7 @@ func (m *UserMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserMutation) Fields() []string {
-	fields := make([]string, 0, 25)
+	fields := make([]string, 0, 26)
 	if m.created_at != nil {
 		fields = append(fields, user.FieldCreatedAt)
 	}
@@ -51533,6 +51591,9 @@ func (m *UserMutation) Fields() []string {
 	}
 	if m.concurrency != nil {
 		fields = append(fields, user.FieldConcurrency)
+	}
+	if m.revocation_version != nil {
+		fields = append(fields, user.FieldRevocationVersion)
 	}
 	if m.status != nil {
 		fields = append(fields, user.FieldStatus)
@@ -51608,6 +51669,8 @@ func (m *UserMutation) Field(name string) (ent.Value, bool) {
 		return m.FrozenBalance()
 	case user.FieldConcurrency:
 		return m.Concurrency()
+	case user.FieldRevocationVersion:
+		return m.RevocationVersion()
 	case user.FieldStatus:
 		return m.Status()
 	case user.FieldBillingPreference:
@@ -51667,6 +51730,8 @@ func (m *UserMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldFrozenBalance(ctx)
 	case user.FieldConcurrency:
 		return m.OldConcurrency(ctx)
+	case user.FieldRevocationVersion:
+		return m.OldRevocationVersion(ctx)
 	case user.FieldStatus:
 		return m.OldStatus(ctx)
 	case user.FieldBillingPreference:
@@ -51770,6 +51835,13 @@ func (m *UserMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetConcurrency(v)
+		return nil
+	case user.FieldRevocationVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevocationVersion(v)
 		return nil
 	case user.FieldStatus:
 		v, ok := value.(string)
@@ -51900,6 +51972,9 @@ func (m *UserMutation) AddedFields() []string {
 	if m.addconcurrency != nil {
 		fields = append(fields, user.FieldConcurrency)
 	}
+	if m.addrevocation_version != nil {
+		fields = append(fields, user.FieldRevocationVersion)
+	}
 	if m.addbalance_notify_threshold != nil {
 		fields = append(fields, user.FieldBalanceNotifyThreshold)
 	}
@@ -51923,6 +51998,8 @@ func (m *UserMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedFrozenBalance()
 	case user.FieldConcurrency:
 		return m.AddedConcurrency()
+	case user.FieldRevocationVersion:
+		return m.AddedRevocationVersion()
 	case user.FieldBalanceNotifyThreshold:
 		return m.AddedBalanceNotifyThreshold()
 	case user.FieldTotalRecharged:
@@ -51958,6 +52035,13 @@ func (m *UserMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddConcurrency(v)
+		return nil
+	case user.FieldRevocationVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRevocationVersion(v)
 		return nil
 	case user.FieldBalanceNotifyThreshold:
 		v, ok := value.(float64)
@@ -52072,6 +52156,9 @@ func (m *UserMutation) ResetField(name string) error {
 		return nil
 	case user.FieldConcurrency:
 		m.ResetConcurrency()
+		return nil
+	case user.FieldRevocationVersion:
+		m.ResetRevocationVersion()
 		return nil
 	case user.FieldStatus:
 		m.ResetStatus()

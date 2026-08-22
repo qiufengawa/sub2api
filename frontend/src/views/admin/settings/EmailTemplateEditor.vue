@@ -9,7 +9,7 @@
         <UiButton
           density="compact"
           :loading="previewing"
-          :disabled="loadingTemplate || !canPreview"
+          :disabled="loadingTemplate || saving || restoring || !canPreview"
           @click="refreshPreview"
         >
           {{ t("admin.settings.emailTemplates.preview") }}
@@ -26,7 +26,7 @@
           variant="primary"
           density="compact"
           :loading="saving"
-          :disabled="loadingTemplate || !canSave"
+          :disabled="loadingTemplate || previewing || restoring || !canSave"
           @click="saveTemplate"
         >
           {{ t("admin.settings.emailTemplates.save") }}
@@ -156,7 +156,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { adminAPI } from "@/api";
 import type {
@@ -265,6 +265,8 @@ const placeholders = ref<string[]>([]);
 const previewSubject = ref("");
 const previewHtml = ref("");
 const initializingSelection = ref(false);
+let templateRequestSequence = 0;
+let previewRequestSequence = 0;
 
 // CID references belong to MIME email parts and cannot be resolved by the
 // standalone browser iframe used for the admin preview. Keep the preview
@@ -559,19 +561,28 @@ function applyTemplate(template: {
 }
 
 async function loadTemplate() {
-  if (!selectedEvent.value || !selectedLocale.value) return;
+  const event = selectedEvent.value;
+  const localeValue = selectedLocale.value;
+  if (!event || !localeValue) return;
+  const sequence = ++templateRequestSequence;
+  // A template switch also invalidates an in-flight preview for the prior
+  // event/locale.  The old request may still reject with a generic transport
+  // error, so generation checks must not rely on AbortError semantics.
+  previewRequestSequence++;
   loadingTemplate.value = true;
   try {
     const template = await adminAPI.settings.getEmailTemplate(
-      selectedEvent.value,
-      selectedLocale.value,
+      event,
+      localeValue,
     );
+    if (sequence !== templateRequestSequence || selectedEvent.value !== event || selectedLocale.value !== localeValue) return;
     applyTemplate(template);
-    await refreshPreview();
+    await refreshPreview(true);
   } catch (err: unknown) {
+    if (sequence !== templateRequestSequence || selectedEvent.value !== event || selectedLocale.value !== localeValue) return;
     appStore.showError(extractApiErrorMessage(err, t("common.error")));
   } finally {
-    loadingTemplate.value = false;
+    if (sequence === templateRequestSequence) loadingTemplate.value = false;
   }
 }
 
@@ -596,6 +607,7 @@ async function loadTemplateList() {
 }
 
 async function saveTemplate() {
+  if (saving.value) return;
   if (!canSave.value) {
     appStore.showError(t("admin.settings.emailTemplates.validationRequired"));
     return;
@@ -611,7 +623,7 @@ async function saveTemplate() {
       },
     );
     applyTemplate(template);
-    await refreshPreview();
+    await refreshPreview(true);
     appStore.showSuccess(t("admin.settings.emailTemplates.saveSuccess"));
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, t("common.error")));
@@ -620,26 +632,32 @@ async function saveTemplate() {
   }
 }
 
-async function refreshPreview() {
+async function refreshPreview(force = false) {
+  if (!force && (previewing.value || saving.value || restoring.value)) return;
   if (!canPreview.value) {
     previewSubject.value = "";
     previewHtml.value = "";
     return;
   }
+  const event = selectedEvent.value;
+  const localeValue = selectedLocale.value;
+  const sequence = ++previewRequestSequence;
   previewing.value = true;
   try {
     const preview = await adminAPI.settings.previewEmailTemplate({
-      event: selectedEvent.value,
-      locale: selectedLocale.value,
+      event,
+      locale: localeValue,
       subject: subject.value,
       html: html.value,
     });
+    if (sequence !== previewRequestSequence || selectedEvent.value !== event || selectedLocale.value !== localeValue) return;
     previewSubject.value = preview.subject;
     previewHtml.value = normalizePreviewHtml(preview.html);
   } catch (err: unknown) {
+    if (sequence !== previewRequestSequence || selectedEvent.value !== event || selectedLocale.value !== localeValue) return;
     appStore.showError(extractApiErrorMessage(err, t("common.error")));
   } finally {
-    previewing.value = false;
+    if (sequence === previewRequestSequence) previewing.value = false;
   }
 }
 
@@ -657,7 +675,7 @@ async function restoreOfficial() {
       selectedLocale.value,
     );
     applyTemplate(template);
-    await refreshPreview();
+    await refreshPreview(true);
     appStore.showSuccess(t("admin.settings.emailTemplates.restoreSuccess"));
     restoreConfirmOpen.value = false;
   } catch (err: unknown) {
@@ -685,6 +703,11 @@ watch([selectedEvent, selectedLocale], ([eventValue, localeValue], [oldEvent, ol
 
 onMounted(() => {
   void loadTemplateList();
+});
+
+onBeforeUnmount(() => {
+  templateRequestSequence += 1;
+  previewRequestSequence += 1;
 });
 </script>
 

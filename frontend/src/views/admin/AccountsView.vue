@@ -723,7 +723,7 @@
       :cancel-text="t('common.cancel')"
       :pending="exportingData"
       @confirm="handleExportData"
-      @cancel="showExportDataDialog = false"
+      @cancel="closeExportDataDialog"
     >
       <UiCheckbox
         v-model="includeProxyOnExport"
@@ -2281,10 +2281,41 @@ const handleBulkRefreshToken = async () => {
   if (bulkActionPending.value) return;
   bulkConfirmation.value = { kind: "refresh-token", ids: [...selIds.value] };
 };
+
+type BulkAccountActionResult = {
+  failed_ids?: number[];
+  errors?: Array<{ account_id?: number }>;
+  results?: Array<{ account_id?: number; success?: boolean }>;
+};
+
+function failedAccountIds(
+  result: BulkAccountActionResult,
+  actionIds: number[],
+): number[] {
+  const allowed = new Set(actionIds);
+  const collect = (ids: Array<number | undefined>): number[] =>
+    Array.from(new Set(ids.filter((id): id is number => id != null && allowed.has(id))));
+
+  // Newer endpoints return an explicit failed_ids list.  Older batch-clear and
+  // batch-refresh responses expose the same information through errors/results,
+  // so prefer those details before falling back to the original selection.
+  const explicit = collect(result.failed_ids ?? []);
+  if (explicit.length > 0) return explicit;
+
+  const detailIds = collect([
+    ...(result.errors ?? []).map((entry) => entry.account_id),
+    ...(result.results ?? [])
+      .filter((entry) => entry.success === false)
+      .map((entry) => entry.account_id),
+  ]);
+  return detailIds.length > 0 ? detailIds : [...actionIds];
+}
+
 const confirmBulkAction = async () => {
   if (bulkActionPending.value || !bulkConfirmation.value) return;
   const action = bulkConfirmation.value;
   bulkActionPending.value = true;
+  let keepConfirmation = false;
   try {
     if (action.kind === "delete") {
       const result = await adminAPI.accounts.batchDelete(action.ids);
@@ -2295,7 +2326,10 @@ const confirmBulkAction = async () => {
             failed: result.failed,
           }),
         );
-        setSelectedIds(result.failed_ids?.length ? result.failed_ids : action.ids);
+        const failedIds = failedAccountIds(result, action.ids);
+        setSelectedIds(failedIds);
+        bulkConfirmation.value = { ...action, ids: failedIds };
+        keepConfirmation = true;
       } else {
         appStore.showSuccess(t("admin.accounts.bulkActions.deleteSuccess", { count: result.success }));
         clearSelection();
@@ -2304,6 +2338,10 @@ const confirmBulkAction = async () => {
       const result = await adminAPI.accounts.batchClearError(action.ids);
       if (result.failed > 0) {
         appStore.showError(t("admin.accounts.bulkActions.partialSuccess", { success: result.success, failed: result.failed }));
+        const failedIds = failedAccountIds(result, action.ids);
+        setSelectedIds(failedIds);
+        bulkConfirmation.value = { ...action, ids: failedIds };
+        keepConfirmation = true;
       } else {
         appStore.showSuccess(t("admin.accounts.bulkActions.resetStatusSuccess", { count: result.success }));
         clearSelection();
@@ -2312,12 +2350,16 @@ const confirmBulkAction = async () => {
       const result = await adminAPI.accounts.batchRefresh(action.ids);
       if (result.failed > 0) {
         appStore.showError(t("admin.accounts.bulkActions.partialSuccess", { success: result.success, failed: result.failed }));
+        const failedIds = failedAccountIds(result, action.ids);
+        setSelectedIds(failedIds);
+        bulkConfirmation.value = { ...action, ids: failedIds };
+        keepConfirmation = true;
       } else {
         appStore.showSuccess(t("admin.accounts.bulkActions.refreshTokenSuccess", { count: result.success }));
         clearSelection();
       }
     }
-    bulkConfirmation.value = null;
+    if (!keepConfirmation) bulkConfirmation.value = null;
     await reload();
   } catch (error) {
     console.error("Failed to complete bulk account action:", error);
@@ -2804,6 +2846,10 @@ const openExportDataDialog = () => {
   includeProxyOnExport.value = true;
   showExportDataDialog.value = true;
 };
+const closeExportDataDialog = () => {
+  if (exportingData.value) return;
+  showExportDataDialog.value = false;
+};
 const handleExportData = async () => {
   if (exportingData.value) return;
   exportingData.value = true;
@@ -2828,7 +2874,9 @@ const handleExportData = async () => {
     link.href = url;
     link.download = filename;
     link.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => {
+      if (typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
+    }, 0);
     // spark 影子账号被后端排除出备份(其凭据透传母账号、调度配置不可经凭据型导入重建);
     // 跳过非零时明确提示用户,避免「下载成功但少了账号」的静默丢失。
     if (dataPayload.skipped_shadows && dataPayload.skipped_shadows > 0) {
@@ -2840,9 +2888,11 @@ const handleExportData = async () => {
     } else {
       appStore.showSuccess(t("admin.accounts.dataExported"));
     }
+    showExportDataDialog.value = false;
   } catch (error: any) {
     if (isStepUpCancelled(error)) {
       // 用户主动取消 step-up 验证，静默返回，不弹错误提示。
+      showExportDataDialog.value = false;
     } else if (isStepUpBlocked(error)) {
       appStore.showError(
         stepUpBlockReason(error) === "STEP_UP_ADMIN_API_KEY_FORBIDDEN"
@@ -2856,7 +2906,6 @@ const handleExportData = async () => {
     }
   } finally {
     exportingData.value = false;
-    showExportDataDialog.value = false;
   }
 };
 const accountExportStepUp = useStepUp();

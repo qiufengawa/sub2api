@@ -10,6 +10,14 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+// roundTripFunc adapts an in-process HTTP handler to the http.Client transport
+// interface, avoiding a real listener while preserving request/response flow.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
 func TestNormalizeLenientJSONRequestBody_accepts_client_control_chars_in_strings(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -101,7 +109,7 @@ func TestNormalizeLenientJSONRequestBody_keeps_invalid_structure_invalid(t *test
 }
 
 func TestNormalizeLenientJSONRequestBody_allows_http_requests_with_client_control_chars(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Given
 		body, err := ReadLenientJSONRequestBodyWithPrealloc(r, 1024)
 		if err != nil {
@@ -115,8 +123,12 @@ func TestNormalizeLenientJSONRequestBody_allows_http_requests_with_client_contro
 			return
 		}
 		w.WriteHeader(http.StatusAccepted)
-	}))
-	defer server.Close()
+	})
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, req)
+		return recorder.Result(), nil
+	})}
 
 	tests := []struct {
 		name string
@@ -147,13 +159,13 @@ func TestNormalizeLenientJSONRequestBody_allows_http_requests_with_client_contro
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req, err := http.NewRequest(http.MethodPost, server.URL+"/v1/chat/completions", bytes.NewReader(tt.body))
+			req, err := http.NewRequest(http.MethodPost, "http://in-process/v1/chat/completions", bytes.NewReader(tt.body))
 			if err != nil {
 				t.Fatalf("NewRequest: %v", err)
 			}
 			req.Header.Set("Content-Type", "application/json")
 
-			resp, err := server.Client().Do(req)
+			resp, err := client.Do(req)
 			if err != nil {
 				t.Fatalf("Do: %v", err)
 			}

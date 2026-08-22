@@ -971,7 +971,9 @@ const exportToCSV = async () => {
     link.href = url
     link.download = `usage_${appliedStartDate.value}_to_${appliedEndDate.value}.csv`
     link.click()
-    window.URL.revokeObjectURL(url)
+    window.setTimeout(() => {
+      if (typeof window.URL.revokeObjectURL === 'function') window.URL.revokeObjectURL(url)
+    }, 0)
     appStore.showSuccess(t('usage.exportSuccess'))
   } catch (error) {
     console.error('CSV Export failed:', error)

@@ -219,33 +219,48 @@ func (s *PaymentService) EnsureProviders(ctx context.Context) {
 	s.providerMu.Lock()
 	defer s.providerMu.Unlock()
 	if !s.providersLoaded {
-		s.loadProviders(ctx)
+		if err := s.loadProviders(ctx); err != nil {
+			// Keep providersLoaded false so a later request can retry after a
+			// transient database/cache outage.  In particular, never mark an
+			// empty registry as successfully initialized.
+			slog.Warn("[PaymentService] provider initialization deferred", "error", err)
+			return
+		}
 		s.providersLoaded = true
 	}
 }
 
-// RefreshProviders clears and re-registers all providers from the database.
+// RefreshProviders rebuilds providers off to the side and publishes them only
+// after the complete load succeeds.  A transient query/decryption failure
+// therefore leaves the currently serving registry intact.
 func (s *PaymentService) RefreshProviders(ctx context.Context) {
 	s.providerMu.Lock()
 	defer s.providerMu.Unlock()
-	s.registry.Clear()
-	s.loadProviders(ctx)
+	if err := s.loadProviders(ctx); err != nil {
+		slog.Warn("[PaymentService] provider refresh deferred", "error", err)
+		return
+	}
 	s.providersLoaded = true
 }
 
-func (s *PaymentService) loadProviders(ctx context.Context) {
+func (s *PaymentService) loadProviders(ctx context.Context) error {
+	if s.entClient == nil {
+		return fmt.Errorf("payment provider database is unavailable")
+	}
 	instances, err := s.entClient.PaymentProviderInstance.Query().
 		Where(paymentproviderinstance.EnabledEQ(true)).
 		All(ctx)
 	if err != nil {
-		slog.Error("[PaymentService] failed to query provider instances", "error", err)
-		return
+		return fmt.Errorf("query provider instances: %w", err)
 	}
+	if len(instances) > 0 && s.loadBalancer == nil {
+		return fmt.Errorf("payment provider config loader is unavailable")
+	}
+	loaded := make([]payment.Provider, 0, len(instances))
 	for _, inst := range instances {
 		cfg, err := s.loadBalancer.GetInstanceConfig(ctx, int64(inst.ID))
 		if err != nil {
-			slog.Warn("[PaymentService] failed to decrypt config for instance", "instanceID", inst.ID, "error", err)
-			continue
+			return fmt.Errorf("decrypt config for instance %d: %w", inst.ID, err)
 		}
 		if inst.PaymentMode != "" {
 			cfg["paymentMode"] = inst.PaymentMode
@@ -253,11 +268,15 @@ func (s *PaymentService) loadProviders(ctx context.Context) {
 		instID := fmt.Sprintf("%d", inst.ID)
 		p, err := provider.CreateProvider(inst.ProviderKey, instID, cfg)
 		if err != nil {
-			slog.Warn("[PaymentService] failed to create provider for instance", "instanceID", inst.ID, "key", inst.ProviderKey, "error", err)
-			continue
+			return fmt.Errorf("create provider for instance %d (%s): %w", inst.ID, inst.ProviderKey, err)
 		}
-		s.registry.Register(p)
+		loaded = append(loaded, p)
 	}
+	if s.registry == nil {
+		s.registry = payment.NewRegistry()
+	}
+	s.registry.Replace(loaded)
+	return nil
 }
 
 // --- Helpers ---

@@ -343,6 +343,25 @@ describe('AuditLogView contracts', () => {
     expect(vm.clearTotpVisible).toBe(false)
   })
 
+  it('deduplicates the destructive clear request while TOTP is pending', async () => {
+    const pending = deferred<{ deleted: number }>()
+    clear.mockReturnValueOnce(pending.promise)
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.clearTotpCode = '123456'
+
+    const first = vm.submitClear()
+    const second = vm.submitClear()
+    expect(clear).toHaveBeenCalledOnce()
+    expect(vm.clearing).toBe(true)
+
+    pending.resolve({ deleted: 2 })
+    await Promise.all([first, second])
+    expect(vm.clearing).toBe(false)
+    wrapper.unmount()
+  })
+
   it('exposes a pending state and deduplicates the TOTP status check', async () => {
     const pending = deferred<{ enabled: boolean }>()
     getStatus.mockReturnValueOnce(pending.promise)

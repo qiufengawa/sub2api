@@ -133,7 +133,7 @@
       danger
       :pending="transferring"
       @confirm="transferQuota"
-      @cancel="showTransferConfirm = false"
+      @cancel="cancelTransferConfirm"
     />
   </AppLayout>
 </template>
@@ -242,21 +242,36 @@ function requestTransferQuota(): void {
   showTransferConfirm.value = true
 }
 
+function cancelTransferConfirm(): void {
+  if (transferring.value) return
+  showTransferConfirm.value = false
+}
+
 async function transferQuota(): Promise<void> {
   if (!detail.value || detail.value.aff_quota <= 0 || transferring.value) return
   transferring.value = true
   try {
     const resp = await userAPI.transferAffiliateQuota()
+    // Apply the successful mutation locally before the best-effort detail
+    // refresh. If the follow-up GET is unavailable, do not leave the old
+    // quota and an actionable transfer button on screen for a second attempt.
+    if (detail.value) {
+      const transferred = Math.max(0, Number(resp.transferred_quota) || 0)
+      detail.value = {
+        ...detail.value,
+        aff_quota: Math.max(0, detail.value.aff_quota - transferred),
+      }
+    }
     appStore.showSuccess(t('affiliate.transfer.success', { amount: formatCurrency(resp.transferred_quota) }))
+    showTransferConfirm.value = false
     await Promise.all([
       loadAffiliateDetail(true),
-      authStore.refreshUser().catch(() => undefined),
+      Promise.resolve(authStore.refreshUser()).catch(() => undefined),
     ])
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('affiliate.transferFailed')))
   } finally {
     transferring.value = false
-    showTransferConfirm.value = false
   }
 }
 

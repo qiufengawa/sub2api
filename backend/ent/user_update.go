@@ -171,6 +171,27 @@ func (_u *UserUpdate) AddConcurrency(v int) *UserUpdate {
 	return _u
 }
 
+// SetRevocationVersion sets the "revocation_version" field.
+func (_u *UserUpdate) SetRevocationVersion(v int64) *UserUpdate {
+	_u.mutation.ResetRevocationVersion()
+	_u.mutation.SetRevocationVersion(v)
+	return _u
+}
+
+// SetNillableRevocationVersion sets the "revocation_version" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableRevocationVersion(v *int64) *UserUpdate {
+	if v != nil {
+		_u.SetRevocationVersion(*v)
+	}
+	return _u
+}
+
+// AddRevocationVersion adds value to the "revocation_version" field.
+func (_u *UserUpdate) AddRevocationVersion(v int64) *UserUpdate {
+	_u.mutation.AddRevocationVersion(v)
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *UserUpdate) SetStatus(v string) *UserUpdate {
 	_u.mutation.SetStatus(v)
@@ -1049,6 +1070,12 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.AddedConcurrency(); ok {
 		_spec.AddField(user.FieldConcurrency, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.RevocationVersion(); ok {
+		_spec.SetField(user.FieldRevocationVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedRevocationVersion(); ok {
+		_spec.AddField(user.FieldRevocationVersion, field.TypeInt64, value)
+	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(user.FieldStatus, field.TypeString, value)
 	}
@@ -1866,6 +1893,27 @@ func (_u *UserUpdateOne) SetNillableConcurrency(v *int) *UserUpdateOne {
 // AddConcurrency adds value to the "concurrency" field.
 func (_u *UserUpdateOne) AddConcurrency(v int) *UserUpdateOne {
 	_u.mutation.AddConcurrency(v)
+	return _u
+}
+
+// SetRevocationVersion sets the "revocation_version" field.
+func (_u *UserUpdateOne) SetRevocationVersion(v int64) *UserUpdateOne {
+	_u.mutation.ResetRevocationVersion()
+	_u.mutation.SetRevocationVersion(v)
+	return _u
+}
+
+// SetNillableRevocationVersion sets the "revocation_version" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableRevocationVersion(v *int64) *UserUpdateOne {
+	if v != nil {
+		_u.SetRevocationVersion(*v)
+	}
+	return _u
+}
+
+// AddRevocationVersion adds value to the "revocation_version" field.
+func (_u *UserUpdateOne) AddRevocationVersion(v int64) *UserUpdateOne {
+	_u.mutation.AddRevocationVersion(v)
 	return _u
 }
 
@@ -2776,6 +2824,12 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if value, ok := _u.mutation.AddedConcurrency(); ok {
 		_spec.AddField(user.FieldConcurrency, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.RevocationVersion(); ok {
+		_spec.SetField(user.FieldRevocationVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedRevocationVersion(); ok {
+		_spec.AddField(user.FieldRevocationVersion, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(user.FieldStatus, field.TypeString, value)

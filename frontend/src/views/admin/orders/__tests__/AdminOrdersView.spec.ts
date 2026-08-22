@@ -5,8 +5,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AdminOrdersView from '../AdminOrdersView.vue'
 import type { PaymentOrder } from '@/types/payment'
 
-const { getOrders, cancelOrder, retryRecharge, refundOrder, queryRefund } = vi.hoisted(() => ({
+const { getOrders, getOrder, cancelOrder, retryRecharge, refundOrder, queryRefund } = vi.hoisted(() => ({
   getOrders: vi.fn(),
+  getOrder: vi.fn(),
   cancelOrder: vi.fn(),
   retryRecharge: vi.fn(),
   refundOrder: vi.fn(),
@@ -16,7 +17,7 @@ const { getOrders, cancelOrder, retryRecharge, refundOrder, queryRefund } = vi.h
 vi.mock('@/api/admin/payment', () => {
   const api = {
     getOrders,
-    getOrder: vi.fn(),
+    getOrder,
     cancelOrder,
     retryRecharge,
     refundOrder,
@@ -78,11 +79,13 @@ const UiPaginationStub = {
 describe('AdminOrdersView', () => {
   beforeEach(() => {
     getOrders.mockReset()
+    getOrder.mockReset()
     cancelOrder.mockReset()
     retryRecharge.mockReset()
     refundOrder.mockReset()
     queryRefund.mockReset()
     getOrders.mockResolvedValue({ data: { items: [order], total: 1 } })
+    getOrder.mockResolvedValue({ data: { order, auditLogs: [] } })
   })
 
   function deferred<T>() {
@@ -108,6 +111,7 @@ describe('AdminOrdersView', () => {
           UiButton: { template: '<button><slot name="icon"/><slot /></button>' },
           UiIconButton: { template: '<button><slot /></button>' },
           UiBadge: { template: '<span><slot /></span>' },
+          UiAlert: { template: '<div role="alert"><slot /></div>' },
           UiDescriptionList: { template: '<dl><slot /></dl>' },
           UiDialog: { props: ['show'], template: '<div v-if="show"><slot /><slot name="footer" /></div>' },
           UiTimeline: { template: '<ol />' },
@@ -133,6 +137,20 @@ describe('AdminOrdersView', () => {
       page_size: 20,
       status: undefined,
     }))
+  })
+
+  it('surfaces a retryable detail error while retaining the cached order row', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    getOrder.mockRejectedValueOnce(new Error('detail unavailable'))
+
+    await (wrapper.vm as any).showOrderDetail(order)
+    await flushPromises()
+
+    expect((wrapper.vm as any).orderDetailError).toContain('detail unavailable')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="order-detail-grid"]')).toBeTruthy()
+    wrapper.unmount()
   })
 
   it('associates the advanced filter toggle with a persistent filter region', async () => {
@@ -238,6 +256,34 @@ describe('AdminOrdersView', () => {
     expect(queryRefund).toHaveBeenCalledTimes(1)
     queryPending.resolve({ data: { success: true } })
     await Promise.all([firstQuery, secondQuery])
+  })
+
+  it('does not close the refund dialog while the refund request is pending', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      openRefundDialog: (value: PaymentOrder) => void
+      handleRefund: (data: { amount: number; reason: string; deduct_balance: boolean; force: boolean }) => Promise<void>
+      closeRefundDialog: () => void
+      showRefundDialog: boolean
+      refundSubmitting: boolean
+    }
+    vm.openRefundDialog(order)
+
+    let resolveRefund!: (value: { data: { success: boolean; warning?: string } }) => void
+    refundOrder.mockReturnValueOnce(new Promise(resolve => { resolveRefund = resolve }))
+    const request = vm.handleRefund({ amount: 10, reason: 'pending close guard', deduct_balance: true, force: false })
+    await flushPromises()
+
+    expect(vm.refundSubmitting).toBe(true)
+    vm.closeRefundDialog()
+    expect(vm.showRefundDialog).toBe(true)
+
+    resolveRefund({ data: { success: false, warning: 'fixture failure' } })
+    await request
+    expect(vm.refundSubmitting).toBe(false)
+    vm.closeRefundDialog()
+    expect(vm.showRefundDialog).toBe(false)
   })
 
   it('keeps a pending refund target stable and ignores a late replacement target', async () => {

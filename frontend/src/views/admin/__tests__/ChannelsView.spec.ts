@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import ChannelsView from '../ChannelsView.vue'
 
-const { list, remove, getAllGroups, getWebSearchEmulationConfig, showError, showSuccess } = vi.hoisted(() => ({
+const { list, update, remove, getAllGroups, getWebSearchEmulationConfig, showError, showSuccess } = vi.hoisted(() => ({
   list: vi.fn(),
+  update: vi.fn(),
   remove: vi.fn(),
   getAllGroups: vi.fn(),
   getWebSearchEmulationConfig: vi.fn(),
@@ -14,7 +15,7 @@ const { list, remove, getAllGroups, getWebSearchEmulationConfig, showError, show
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
-    channels: { list, remove },
+    channels: { list, update, remove },
     groups: { getAll: getAllGroups },
     settings: { getWebSearchEmulationConfig },
   },
@@ -72,6 +73,7 @@ const mountView = () => mount(ChannelsView, {
 describe('admin ChannelsView', () => {
   beforeEach(() => {
     list.mockReset().mockResolvedValue({ items: [channel], total: 1, page: 1, page_size: 20 })
+    update.mockReset().mockResolvedValue(undefined)
     remove.mockReset().mockResolvedValue(undefined)
     getAllGroups.mockReset().mockResolvedValue([])
     getWebSearchEmulationConfig.mockReset().mockResolvedValue({ enabled: false, providers: [] })
@@ -130,5 +132,24 @@ describe('admin ChannelsView', () => {
     await vm.confirmDelete()
     expect(vm.showDeleteDialog).toBe(true)
     expect(showError).toHaveBeenCalled()
+  })
+
+  it('single-flight guards channel status toggles and clears the pending id', async () => {
+    let resolveUpdate!: () => void
+    update.mockImplementationOnce(() => new Promise<void>((resolve) => { resolveUpdate = resolve }))
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+
+    const first = vm.toggleChannelStatus(channel)
+    const second = vm.toggleChannelStatus(channel)
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(update).toHaveBeenCalledWith(channel.id, { status: 'disabled' })
+    expect(vm.channelStatusPendingIds.has(channel.id)).toBe(true)
+
+    resolveUpdate()
+    await Promise.all([first, second])
+    expect(vm.channelStatusPendingIds.has(channel.id)).toBe(false)
+    expect(channel.status).toBe('disabled')
   })
 })

@@ -165,4 +165,24 @@ describe('ScheduledTestsPanel', () => {
     pending.resolve()
     await Promise.all([first, second])
   })
+
+  it('keeps a failed plan deletion confirmation open for retry', async () => {
+    api.delete.mockRejectedValueOnce(new Error('delete fixture failure'))
+    const wrapper = await openPanel()
+    await wrapper.get('button[aria-label="admin.scheduledTests.deletePlan"]').trigger('click')
+    const confirm = wrapper.findAll('button').find(button => button.text().includes('common.delete'))
+    expect(confirm).toBeDefined()
+    await confirm!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('button').some(button => button.text().includes('common.delete'))).toBe(true)
+    expect(notifications.showError).toHaveBeenCalled()
+
+    api.delete.mockResolvedValueOnce(undefined)
+    const retry = wrapper.findAll('button').find(button => button.text().includes('common.delete'))
+    await retry!.trigger('click')
+    await flushPromises()
+    expect(api.delete).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).not.toContain('gpt-5.6-sol')
+  })
 })

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -265,7 +264,7 @@ func TestResolveDingTalkDeptPath_SingleLevel(t *testing.T) {
 		"42": `{"errcode":0,"result":{"dept_id":42,"name":"研发部","parent_id":1}}`,
 		"1":  `{"errcode":0,"result":{"dept_id":1,"name":"公司","parent_id":0}}`,
 	}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	httpHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
 		var req struct {
 			DeptID int64 `json:"dept_id"`
@@ -277,12 +276,11 @@ func TestResolveDingTalkDeptPath_SingleLevel(t *testing.T) {
 		} else {
 			_, _ = w.Write([]byte(`{"errcode":60003,"errmsg":"not found"}`))
 		}
-	}))
-	defer server.Close()
+	})
 
 	cli := &DingTalkClient{
-		cfg:        dingTalkClientConfig{UserInfoURL: server.URL + "/stub"},
-		httpClient: server.Client(),
+		cfg:        dingTalkClientConfig{UserInfoURL: "https://dingtalk.test/stub"},
+		httpClient: newDingTalkFixtureHTTPClient(httpHandler),
 	}
 	cli.appToken = "tok"
 	cli.appTokenExp = time.Now().Add(time.Hour)
@@ -362,7 +360,7 @@ func TestResolveDingTalkDeptPath_MultiLevel(t *testing.T) {
 		"10": `{"errcode":0,"result":{"dept_id":10,"name":"研发部","parent_id":1}}`,
 		"1":  `{"errcode":0,"result":{"dept_id":1,"name":"公司","parent_id":0}}`,
 	}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	httpHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 解析请求 body 拿到 dept_id
 		var req struct {
 			DeptID int64 `json:"dept_id"`
@@ -375,12 +373,11 @@ func TestResolveDingTalkDeptPath_MultiLevel(t *testing.T) {
 		} else {
 			_, _ = w.Write([]byte(`{"errcode":60003,"errmsg":"not found"}`))
 		}
-	}))
-	defer server.Close()
+	})
 
 	cli := &DingTalkClient{
-		cfg:        dingTalkClientConfig{UserInfoURL: server.URL + "/stub"},
-		httpClient: server.Client(),
+		cfg:        dingTalkClientConfig{UserInfoURL: "https://dingtalk.test/stub"},
+		httpClient: newDingTalkFixtureHTTPClient(httpHandler),
 	}
 	cli.appToken = "tok"
 	cli.appTokenExp = time.Now().Add(time.Hour)

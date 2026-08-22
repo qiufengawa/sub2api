@@ -376,6 +376,77 @@ describe('API Client', () => {
       })
     })
 
+    it('无 refresh_token 时旧请求 401 不会清除替换后的会话', async () => {
+      localStorage.setItem('auth_token', 'user-a-access')
+      localStorage.setItem('auth_user', JSON.stringify({ id: 7 }))
+
+      let rejectRequest!: (reason: unknown) => void
+      const adapter = vi.fn().mockReturnValueOnce(new Promise((_resolve, reject) => {
+        rejectRequest = reject
+      }))
+      apiClient.defaults.adapter = adapter
+
+      const staleRequest = apiClient.get('/test')
+      await vi.waitFor(() => expect(adapter).toHaveBeenCalledTimes(1))
+
+      localStorage.setItem('auth_token', 'user-b-access')
+      localStorage.setItem('auth_user', JSON.stringify({ id: 8 }))
+      rejectRequest({
+        response: {
+          status: 401,
+          data: { code: 'TOKEN_EXPIRED', message: 'Token expired' },
+        },
+        config: {
+          url: '/test',
+          headers: { Authorization: 'Bearer user-a-access' },
+        },
+        code: 'ERR_BAD_REQUEST',
+      })
+
+      await expect(staleRequest).rejects.toMatchObject({ code: 'AUTH_SESSION_CHANGED' })
+      expect(localStorage.getItem('auth_token')).toBe('user-b-access')
+      expect(localStorage.getItem('auth_user')).toBe(JSON.stringify({ id: 8 }))
+      expect(window.location.pathname).toBe('/')
+    })
+
+    it('认证端点 401 不会清除仍在使用的会话', async () => {
+      localStorage.setItem('auth_token', 'current-access')
+      localStorage.setItem('auth_user', JSON.stringify({ id: 8 }))
+
+      const originalLocation = window.location
+      Object.defineProperty(window, 'location', {
+        value: { ...originalLocation, pathname: '/dashboard', href: '/dashboard' },
+        writable: true,
+      })
+
+      const adapter = vi.fn().mockRejectedValue({
+        response: {
+          status: 401,
+          data: { code: 'INVALID_CREDENTIALS', message: 'Invalid credentials' },
+        },
+        config: {
+          url: '/auth/login',
+          headers: { Authorization: 'Bearer current-access' },
+        },
+        code: 'ERR_BAD_REQUEST',
+        message: 'Request failed with status code 401',
+      })
+      apiClient.defaults.adapter = adapter
+
+      await expect(apiClient.post('/auth/login', { email: 'fixture@example.com' })).rejects.toMatchObject({
+        status: 401,
+        code: 'INVALID_CREDENTIALS',
+      })
+      expect(localStorage.getItem('auth_token')).toBe('current-access')
+      expect(localStorage.getItem('auth_user')).toBe(JSON.stringify({ id: 8 }))
+      expect(window.location.pathname).toBe('/dashboard')
+
+      Object.defineProperty(window, 'location', {
+        value: originalLocation,
+        writable: true,
+      })
+    })
+
     it('有 refresh_token 时刷新并重试原请求', async () => {
       localStorage.setItem('auth_token', 'expired-token')
       localStorage.setItem('refresh_token', 'refresh-token')

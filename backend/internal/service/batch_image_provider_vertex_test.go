@@ -186,7 +186,7 @@ func TestVertexProvider_OpenResultReturnsCombinedJSONLStream(t *testing.T) {
 		},
 	}
 	provider := newTestVertexProvider(&fakeVertexBatchClient{}, store)
-	r, contentType, err := provider.OpenResult(context.Background(), &BatchImageJob{ProviderOutputRef: &output}, vertexServiceAccount())
+	r, contentType, err := provider.OpenResult(context.Background(), &BatchImageJob{BatchID: "imgbatch_abc123", ProviderOutputRef: &output}, vertexServiceAccount())
 	require.NoError(t, err)
 	defer r.Close()
 
@@ -199,7 +199,7 @@ func TestVertexProvider_OpenResultReturnsCombinedJSONLStream(t *testing.T) {
 func TestVertexProvider_OpenResultMissingObjectsReturnsTypedError(t *testing.T) {
 	output := "gs://managed-bucket/batch-image/test/imgbatch_abc123/output/"
 	provider := newTestVertexProvider(&fakeVertexBatchClient{}, &fakeVertexObjectStore{})
-	_, _, err := provider.OpenResult(context.Background(), &BatchImageJob{ProviderOutputRef: &output}, vertexServiceAccount())
+	_, _, err := provider.OpenResult(context.Background(), &BatchImageJob{BatchID: "imgbatch_abc123", ProviderOutputRef: &output}, vertexServiceAccount())
 	require.Error(t, err)
 	require.Equal(t, "VERTEX_RESULT_OBJECTS_MISSING", infraerrors.Reason(err))
 }
@@ -231,6 +231,17 @@ func TestVertexProvider_CleanupRejectsUnsafePath(t *testing.T) {
 
 	err := provider.Cleanup(context.Background(), &BatchImageJob{BatchID: "imgbatch_abc123", ProviderInputRef: &input}, vertexServiceAccount(), CleanupTargetInput)
 	require.ErrorIs(t, err, ErrBatchImageProviderUnsafeCleanupPath)
+}
+
+func TestVertexProvider_OpenResultRejectsUnsafeManagedPrefix(t *testing.T) {
+	unsafe := "gs://other-bucket/batch-image/test/imgbatch_abc123/output/"
+	provider := newTestVertexProvider(&fakeVertexBatchClient{}, &fakeVertexObjectStore{})
+
+	_, _, err := provider.OpenResult(context.Background(), &BatchImageJob{
+		BatchID:           "imgbatch_abc123",
+		ProviderOutputRef: &unsafe,
+	}, vertexServiceAccount())
+	require.ErrorIs(t, err, ErrBatchImageProviderUnsafeResultPath)
 }
 
 func TestVertexProvider_ErrorsDoNotExposeServiceAccountSecrets(t *testing.T) {
@@ -315,7 +326,7 @@ func vertexServiceAccount() *Account {
 }
 
 func vertexJobWithName(name string) *BatchImageJob {
-	return &BatchImageJob{ProviderJobName: &name}
+	return &BatchImageJob{BatchID: "imgbatch_abc123", ProviderJobName: &name}
 }
 
 type fakeVertexBatchClient struct {

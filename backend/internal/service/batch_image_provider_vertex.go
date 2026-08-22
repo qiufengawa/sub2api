@@ -268,6 +268,9 @@ func (p *VertexBatchImageProvider) Get(ctx context.Context, job *BatchImageJob, 
 	if outputRef == "" && job != nil && job.GCSOutputURI != nil {
 		outputRef = strings.TrimSpace(*job.GCSOutputURI)
 	}
+	if outputRef != "" && !p.isSafeManagedOutput(job, outputRef) {
+		return nil, ErrBatchImageProviderUnsafeResultPath
+	}
 	status.ProviderOutputRef = outputRef
 	return status, nil
 }
@@ -297,6 +300,9 @@ func (p *VertexBatchImageProvider) OpenResult(ctx context.Context, job *BatchIma
 	}
 	if outputRef == "" {
 		return nil, "", ErrBatchImageProviderMissingResultRef
+	}
+	if !p.isSafeManagedOutput(job, outputRef) {
+		return nil, "", ErrBatchImageProviderUnsafeResultPath
 	}
 	accessToken, err := p.accessToken(ctx, account)
 	if err != nil {
@@ -639,6 +645,7 @@ func mapVertexClientError(err error) error {
 	if errors.Is(err, ErrBatchImageProviderMissingServiceAccount) ||
 		errors.Is(err, ErrBatchImageProviderMissingJobName) ||
 		errors.Is(err, ErrBatchImageProviderMissingResultRef) ||
+		errors.Is(err, ErrBatchImageProviderUnsafeResultPath) ||
 		errors.Is(err, ErrBatchImageProviderUnsafeCleanupPath) ||
 		errors.Is(err, ErrUnsupportedCleanupTarget) {
 		return err

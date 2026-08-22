@@ -1,5 +1,8 @@
 <template>
   <aside
+    id="app-sidebar"
+    ref="sidebarRef"
+    tabindex="-1"
     class="app-sidebar"
     :class="{
       'app-sidebar--collapsed': sidebarCollapsed,
@@ -51,6 +54,7 @@
                   'sidebar-link-collapsed': sidebarCollapsed
                 }"
                 :title="sidebarCollapsed ? item.label : undefined"
+                :aria-label="item.label"
                 :aria-expanded="isGroupExpanded(item)"
                 @click="handleGroupClick(item)"
               >
@@ -265,11 +269,25 @@ const isMobileViewport = ref(
 )
 const isAdmin = computed(() => authStore.isAdmin)
 const sidebarNavRef = ref<HTMLElement | null>(null)
+const sidebarRef = ref<HTMLElement | null>(null)
 const isDark = ref(document.documentElement.classList.contains('dark'))
 let mobileViewportMediaQuery: MediaQueryList | null = null
+let mobileReturnFocus: HTMLElement | null = null
+let mobileFocusRequest = 0
 
 function syncMobileViewport(event?: MediaQueryListEvent): void {
-  isMobileViewport.value = event?.matches ?? mobileViewportMediaQuery?.matches ?? false
+  const next = event?.matches ?? mobileViewportMediaQuery?.matches ?? false
+  const wasMobile = isMobileViewport.value
+  isMobileViewport.value = next
+
+  // A mobile drawer can remain open while the viewport is resized to desktop.
+  // Clear the mobile focus transaction and close the drawer at that boundary so
+  // a later mobile reopen never restores focus to a stale desktop element.
+  if (wasMobile && !next) {
+    mobileFocusRequest += 1
+    mobileReturnFocus = null
+    if (mobileOpen.value) appStore.setMobileOpen(false)
+  }
 }
 
 const homePath = computed(() => (isAdmin.value ? '/admin/dashboard' : '/dashboard'))
@@ -468,6 +486,54 @@ function closeMobile() {
   appStore.setMobileOpen(false)
 }
 
+function focusableSidebarElements(): HTMLElement[] {
+  const root = sidebarRef.value
+  if (!root) return []
+  return Array.from(
+    root.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((element) => {
+    if (element.getAttribute('aria-hidden') === 'true') return false
+    if (element.closest('[aria-hidden="true"]')) return false
+    if (element.hidden) return false
+    const style = window.getComputedStyle(element)
+    return style.display !== 'none' && style.visibility !== 'hidden'
+  })
+}
+
+function queueMobileFocus(open: boolean): void {
+  if (!isMobileViewport.value) return
+  const request = ++mobileFocusRequest
+  if (open) {
+    if (!mobileReturnFocus) {
+      const active = document.activeElement
+      if (active instanceof HTMLElement && active !== document.body) {
+        mobileReturnFocus = active
+      } else {
+        const trigger = document.getElementById('app-mobile-menu-trigger')
+        if (trigger instanceof HTMLElement) mobileReturnFocus = trigger
+      }
+    }
+    void nextTick(() => {
+      if (request !== mobileFocusRequest || !mobileOpen.value || !isMobileViewport.value) return
+      const first = focusableSidebarElements()[0]
+      const target = first || sidebarRef.value
+      target?.focus()
+    })
+    return
+  }
+
+  const target = mobileReturnFocus?.isConnected
+    ? mobileReturnFocus
+    : document.getElementById('app-mobile-menu-trigger')
+  mobileReturnFocus = null
+  void nextTick(() => {
+    if (request !== mobileFocusRequest || mobileOpen.value) return
+    if (target instanceof HTMLElement && !target.hasAttribute('disabled')) target.focus()
+  })
+}
+
 function handleMenuItemClick(itemPath: string) {
   if (mobileOpen.value) {
     setTimeout(() => {
@@ -565,8 +631,43 @@ watch(
 )
 
 function handleGlobalKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && mobileOpen.value) closeMobile()
+  if (!mobileOpen.value || !isMobileViewport.value) return
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeMobile()
+    return
+  }
+  if (event.key !== 'Tab') return
+
+  const focusable = focusableSidebarElements()
+  if (focusable.length === 0) {
+    event.preventDefault()
+    sidebarRef.value?.focus()
+    return
+  }
+  const current = document.activeElement
+  const index = current instanceof HTMLElement ? focusable.indexOf(current) : -1
+  if (index < 0) {
+    event.preventDefault()
+    const target = event.shiftKey ? focusable[focusable.length - 1] : focusable[0]
+    target.focus()
+  } else if (event.shiftKey && index === 0) {
+    event.preventDefault()
+    focusable[focusable.length - 1].focus()
+  } else if (!event.shiftKey && index === focusable.length - 1) {
+    event.preventDefault()
+    focusable[0].focus()
+  }
 }
+
+watch(
+  () => [mobileOpen.value, isMobileViewport.value] as const,
+  ([open, mobile]) => {
+    if (mobile && open) queueMobileFocus(true)
+    else if (!open) queueMobileFocus(false)
+  },
+  { flush: 'post' },
+)
 
 onMounted(() => {
   document.addEventListener('keydown', handleGlobalKeydown)
@@ -579,6 +680,7 @@ onMounted(() => {
       mobileViewportMediaQuery.addListener?.(syncMobileViewport)
     }
   }
+  if (mobileOpen.value && isMobileViewport.value) queueMobileFocus(true)
   void refreshBatchImageAccess()
   if (isAdmin.value) {
     adminSettingsStore.fetch()
@@ -601,6 +703,8 @@ onBeforeUnmount(() => {
     mobileViewportMediaQuery?.removeListener?.(syncMobileViewport)
   }
   mobileViewportMediaQuery = null
+  mobileFocusRequest += 1
+  mobileReturnFocus = null
   document.body.classList.remove('sidebar-open')
   if (sidebarNavRef.value) {
     appStore.sidebarScrollTop = sidebarNavRef.value.scrollTop

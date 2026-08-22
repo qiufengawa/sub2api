@@ -54,6 +54,27 @@ func TestUserRepositoryGetByEmailNormalizesLegacySpacingAndCase(t *testing.T) {
 	require.Equal(t, " Legacy@Example.com ", got.Email)
 }
 
+func TestUserRepositoryIncrementRevocationVersionIsAtomicAndDurable(t *testing.T) {
+	repo, client := newUserEntRepo(t)
+	ctx := context.Background()
+
+	user, err := client.User.Create().
+		SetEmail("revocation-version@example.com").
+		SetPasswordHash("hash").
+		SetRole(service.RoleUser).
+		SetStatus(service.StatusActive).
+		Save(ctx)
+	require.NoError(t, err)
+
+	got, err := repo.IncrementRevocationVersion(ctx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), got)
+
+	reloaded, err := repo.GetByID(ctx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), reloaded.RevocationVersion)
+}
+
 func TestUserRepositoryExistsByEmailNormalizesLegacySpacingAndCase(t *testing.T) {
 	repo, _ := newUserEntRepo(t)
 	ctx := context.Background()

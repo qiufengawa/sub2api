@@ -59,7 +59,7 @@ const ConfirmStub = defineComponent({ props: ['show', 'title', 'message'], emits
 const FilterDeleteStub = defineComponent({
   props: ['show', 'initialFilters', 'preview', 'previewing', 'deleting'],
   emits: ['close', 'preview', 'confirm', 'criteria-change'],
-  template: '<div v-if="show" data-test="filter-delete-dialog"><button data-test="dialog-preview" @click="$emit(\'preview\', { ...initialFilters, start_at: \'2026-07-15T00:00\', end_at: \'2026-07-16T00:00\' })">run</button><button data-test="dialog-confirm" @click="$emit(\'confirm\', { ...initialFilters, start_at: \'2026-07-15T00:00\', end_at: \'2026-07-16T00:00\' })">confirm</button><span data-test="dialog-preview-state">{{ preview ? preview.matched_count : \'none\' }}</span></div>',
+  template: '<div v-if="show" data-test="filter-delete-dialog"><button data-test="dialog-preview" @click="$emit(\'preview\', { ...initialFilters, start_at: \'2026-07-15T00:00\', end_at: \'2026-07-16T00:00\' })">run</button><button data-test="dialog-confirm" @click="$emit(\'confirm\', { ...initialFilters, start_at: \'2026-07-15T00:00\', end_at: \'2026-07-16T00:00\' })">confirm</button><button data-test="dialog-change" @click="$emit(\'criteria-change\')">change</button><span data-test="dialog-preview-state">{{ preview ? preview.matched_count : \'none\' }}</span></div>',
 })
 
 function mountView() {
@@ -168,6 +168,10 @@ describe('PromptAuditView', () => {
     await wrapper.get('[data-test="inject-secret"]').trigger('click')
     await wrapper.get('[data-test="save-config"]').trigger('click')
     await wrapper.get('[data-test="store-pass-toggle"]').trigger('click')
+    // A second imperative invocation must be ignored while the first update
+    // is pending, even if a caller bypasses the disabled save control.
+    await (wrapper.vm as any).saveConfig()
+    expect(mocks.updateConfig).toHaveBeenCalledOnce()
 
     pendingSave.resolve({ ...baseConfig(), config_version: 8 })
     await flushPromises()
@@ -325,5 +329,46 @@ describe('PromptAuditView', () => {
       confirmation_token: 'opaque-confirmation',
     }))
     expect(wrapper.find('[data-test="filter-delete-dialog"]').exists()).toBe(false)
+  })
+
+  it('ignores a stale filter-delete rejection after the dialog session closes', async () => {
+    const pendingDelete = deferred<{ deleted_events: number; deleted_jobs: number }>()
+    mocks.deleteEventsByFilter.mockReturnValueOnce(pendingDelete.promise)
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-test="preview"]').trigger('click')
+    await wrapper.get('[data-test="dialog-preview"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="dialog-confirm"]').trigger('click')
+    await flushPromises()
+
+    ;(wrapper.vm as any).closeFilterDelete()
+    pendingDelete.reject(new Error('stale delete failure'))
+    await flushPromises()
+
+    expect(mocks.showError).not.toHaveBeenCalledWith('stale delete failure')
+    expect((wrapper.vm as any).loading.deleting).toBe(false)
+  })
+
+  it('fences a filter delete when criteria change while confirmation is pending', async () => {
+    const pendingDelete = deferred<{ deleted_events: number; deleted_jobs: number }>()
+    mocks.deleteEventsByFilter.mockReturnValueOnce(pendingDelete.promise)
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-test="preview"]').trigger('click')
+    await wrapper.get('[data-test="dialog-preview"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="dialog-confirm"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="dialog-change"]').trigger('click')
+
+    pendingDelete.reject(new Error('stale criteria failure'))
+    await flushPromises()
+
+    expect(mocks.showError).not.toHaveBeenCalledWith('stale criteria failure')
+    expect(mocks.deleteEventsByFilter).toHaveBeenCalledOnce()
+    expect((wrapper.vm as any).loading.deleting).toBe(false)
   })
 })

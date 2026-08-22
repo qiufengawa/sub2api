@@ -9,6 +9,10 @@ const {
   getImageStorageConfig,
   getSchedule,
   updateSchedule,
+  updateS3Config,
+  testS3Connection,
+  updateImageStorageConfig,
+  testImageStorageConnection,
   createBackup,
   listBackups,
   getBackup,
@@ -19,6 +23,10 @@ const {
   getImageStorageConfig: vi.fn(),
   getSchedule: vi.fn(),
   updateSchedule: vi.fn(),
+  updateS3Config: vi.fn(),
+  testS3Connection: vi.fn(),
+  updateImageStorageConfig: vi.fn(),
+  testImageStorageConnection: vi.fn(),
   createBackup: vi.fn(),
   listBackups: vi.fn(),
   getBackup: vi.fn(),
@@ -30,11 +38,11 @@ vi.mock('@/api', () => ({
   adminAPI: {
     backup: {
       getS3Config,
-      updateS3Config: vi.fn(),
-      testS3Connection: vi.fn(),
+      updateS3Config,
+      testS3Connection,
       getImageStorageConfig,
-      updateImageStorageConfig: vi.fn(),
-      testImageStorageConnection: vi.fn(),
+      updateImageStorageConfig,
+      testImageStorageConnection,
       getSchedule,
       updateSchedule,
       createBackup,
@@ -97,6 +105,10 @@ describe('admin BackupView 分卷备份', () => {
     getImageStorageConfig.mockReset()
     getSchedule.mockReset()
     updateSchedule.mockReset()
+    updateS3Config.mockReset()
+    testS3Connection.mockReset()
+    updateImageStorageConfig.mockReset()
+    testImageStorageConnection.mockReset()
     createBackup.mockReset()
     listBackups.mockReset()
     getBackup.mockReset()
@@ -105,6 +117,10 @@ describe('admin BackupView 分卷备份', () => {
     getS3Config.mockResolvedValue({})
     getImageStorageConfig.mockResolvedValue({ config: {}, secret_configured: false })
     getSchedule.mockResolvedValue({ enabled: false, cron_expr: '', retain_days: 14, retain_count: 10 })
+    updateS3Config.mockResolvedValue(undefined)
+    testS3Connection.mockResolvedValue({ ok: true })
+    updateImageStorageConfig.mockResolvedValue(undefined)
+    testImageStorageConnection.mockResolvedValue({ ok: true })
     listBackups.mockResolvedValue({ items: [] })
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
   })
@@ -241,6 +257,38 @@ describe('admin BackupView 分卷备份', () => {
     await vm.saveSchedule()
 
     expect(updateSchedule).toHaveBeenCalledWith(expect.objectContaining({ retain_days: 0, retain_count: 0 }))
+    wrapper.unmount()
+  })
+
+  it('keeps backup configuration and connection mutations single-flight at the function boundary', async () => {
+    const wrapper = mountBackupView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+
+    const saveS3First = vm.saveS3Config()
+    const saveS3Second = vm.saveS3Config()
+    expect(updateS3Config).toHaveBeenCalledOnce()
+    await Promise.all([saveS3First, saveS3Second])
+
+    const testS3First = vm.testS3()
+    const testS3Second = vm.testS3()
+    expect(testS3Connection).toHaveBeenCalledOnce()
+    await Promise.all([testS3First, testS3Second])
+
+    const saveImageFirst = vm.saveImageStorageConfig()
+    const saveImageSecond = vm.saveImageStorageConfig()
+    expect(updateImageStorageConfig).toHaveBeenCalledOnce()
+    await Promise.all([saveImageFirst, saveImageSecond])
+
+    const testImageFirst = vm.testImageStorage()
+    const testImageSecond = vm.testImageStorage()
+    expect(testImageStorageConnection).toHaveBeenCalledOnce()
+    await Promise.all([testImageFirst, testImageSecond])
+
+    const saveScheduleFirst = vm.saveSchedule()
+    const saveScheduleSecond = vm.saveSchedule()
+    expect(updateSchedule).toHaveBeenCalledOnce()
+    await Promise.all([saveScheduleFirst, saveScheduleSecond])
     wrapper.unmount()
   })
 

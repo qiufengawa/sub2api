@@ -498,6 +498,15 @@ func TestUpdateProviderInstanceRejectsProtectedConfigChangesWhilePendingOrders(t
 			wantValue:     "pid-test",
 		},
 		{
+			name:          "easypay api base",
+			providerKey:   payment.TypeEasyPay,
+			createConfig:  validEasyPayProviderConfig,
+			supportedType: []string{payment.TypeAlipay},
+			updateConfig:  map[string]string{"apiBase": "https://other-pay.example.com"},
+			fieldName:     "apiBase",
+			wantValue:     "https://pay.example.com",
+		},
+		{
 			name:          "stripe currency",
 			providerKey:   payment.TypeStripe,
 			createConfig:  validStripeProviderConfig,

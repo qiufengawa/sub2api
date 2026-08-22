@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 )
@@ -31,13 +32,18 @@ func ProvideBatchImageWorkerRuntime(
 	authCache APIKeyAuthCacheInvalidator,
 	cfg *config.Config,
 ) *BatchImageWorkerRuntime {
+	outputRetention := defaultBatchImageOutputRetentionAfterTerminal
+	if cfg != nil && cfg.BatchImage.OutputRetentionAfterTerminalHours > 0 {
+		outputRetention = time.Duration(cfg.BatchImage.OutputRetentionAfterTerminalHours) * time.Hour
+	}
 	processor := &BatchImagePipelineProcessor{
 		ProviderProcessor: &BatchImageProviderProcessor{
-			Repo:             repo,
-			ProviderRegistry: NewBatchImageProviderRegistryFromConfig(cfg),
-			AccountResolver:  &BatchImageAccountRepositoryResolver{Repo: accountRepo},
-			BillingRepo:      billingRepo,
-			AuthCache:        authCache,
+			Repo:                         repo,
+			ProviderRegistry:             NewBatchImageProviderRegistryFromConfig(cfg),
+			AccountResolver:              &BatchImageAccountRepositoryResolver{Repo: accountRepo},
+			BillingRepo:                  billingRepo,
+			AuthCache:                    authCache,
+			OutputRetentionAfterTerminal: outputRetention,
 		},
 		SettlementService: &BatchImageSettlementService{
 			Repo:         repo,

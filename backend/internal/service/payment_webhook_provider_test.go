@@ -394,6 +394,92 @@ func TestGetWebhookProviderAllowsSingleInstanceRegistryFallback(t *testing.T) {
 	require.Equal(t, payment.TypeStripe, prov.ProviderKey())
 }
 
+func TestGetWebhookProvidersUsesAllStripeCandidatesWithoutOrderID(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	stripeConfig := func(suffix string) string {
+		return encryptWebhookProviderConfig(t, map[string]string{
+			"secretKey":     "sk_test_webhook_" + suffix,
+			"webhookSecret": "whsec_test_" + suffix,
+		})
+	}
+	for _, name := range []string{"stripe-a", "stripe-b"} {
+		_, err := client.PaymentProviderInstance.Create().
+			SetProviderKey(payment.TypeStripe).
+			SetName(name).
+			SetConfig(stripeConfig(name)).
+			SetSupportedTypes("stripe").
+			SetEnabled(true).
+			Save(ctx)
+		require.NoError(t, err)
+	}
+
+	svc := &PaymentService{
+		entClient:       client,
+		loadBalancer:    newWebhookProviderTestLoadBalancer(client),
+		registry:        payment.NewRegistry(),
+		providersLoaded: true,
+	}
+
+	providers, err := svc.GetWebhookProviders(ctx, payment.TypeStripe, "")
+	require.NoError(t, err)
+	// A Stripe non-payment event has no orderId; both configured instances must
+	// be tried so the one whose webhook secret matches can return nil/notification.
+	require.Len(t, providers, 2)
+}
+
+func TestGetWebhookProvidersUsesAllAirwallexCandidatesWithoutOrderID(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	airwallexConfig := func(suffix string) string {
+		return encryptWebhookProviderConfig(t, map[string]string{
+			"clientId":      "cid_" + suffix,
+			"apiKey":        "key_" + suffix,
+			"webhookSecret": "whsec_" + suffix,
+			"apiBase":       "https://api-demo.airwallex.com/api/v1",
+		})
+	}
+	for _, name := range []string{"airwallex-a", "airwallex-b"} {
+		_, err := client.PaymentProviderInstance.Create().
+			SetProviderKey(payment.TypeAirwallex).
+			SetName(name).
+			SetConfig(airwallexConfig(name)).
+			SetSupportedTypes("airwallex").
+			SetEnabled(true).
+			Save(ctx)
+		require.NoError(t, err)
+	}
+
+	svc := &PaymentService{
+		entClient:       client,
+		loadBalancer:    newWebhookProviderTestLoadBalancer(client),
+		registry:        payment.NewRegistry(),
+		providersLoaded: true,
+	}
+
+	providers, err := svc.GetWebhookProviders(ctx, payment.TypeAirwallex, "")
+	require.NoError(t, err)
+	// Airwallex lifecycle events may omit merchant_order_id; every configured
+	// webhook secret must be tried before acknowledging an authentic event.
+	require.Len(t, providers, 2)
+}
+
+func TestGetWebhookProvidersPropagatesOrderLookupFailure(t *testing.T) {
+	client := newPaymentConfigServiceTestClient(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	svc := &PaymentService{
+		entClient:       client,
+		registry:        payment.NewRegistry(),
+		providersLoaded: true,
+	}
+
+	_, err := svc.GetWebhookProviders(ctx, payment.TypeStripe, "sub2_lookup_failure")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "lookup webhook order")
+}
+
 func TestGetWebhookProviderRejectsRegistryFallbackForPinnedOrder(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)

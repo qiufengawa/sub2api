@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const appStore = reactive({
   sidebarCollapsed: false,
+  mobileOpen: false,
 })
 const authStore = reactive({
   user: { role: 'user' as string },
@@ -46,6 +47,7 @@ function mountLayout() {
 describe('AppLayout runtime behavior', () => {
   beforeEach(() => {
     appStore.sidebarCollapsed = false
+    appStore.mobileOpen = false
     authStore.user = { role: 'user' }
     setReplayCallback.mockReset()
     replayTour.mockReset()
@@ -71,6 +73,32 @@ describe('AppLayout runtime behavior', () => {
     expect(wrapper.get('.app-shell').classes()).toContain('app-shell--collapsed')
     expect(wrapper.get('.app-shell__workspace').exists()).toBe(true)
     expect(wrapper.get('[data-test="page-content"]').exists()).toBe(true)
+  })
+
+  it('makes the workspace inert while the mobile sidebar overlay is open', () => {
+    const originalMatchMedia = window.matchMedia
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: () => ({
+        matches: true,
+        media: '(max-width: 1023px)',
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }),
+    })
+    appStore.mobileOpen = true
+    const wrapper = mountLayout()
+
+    expect(wrapper.get('.app-shell__workspace').attributes('inert')).toBeDefined()
+    wrapper.unmount()
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: originalMatchMedia,
+    })
   })
 
   it('registers the onboarding replay callback after mount and exposes it', () => {

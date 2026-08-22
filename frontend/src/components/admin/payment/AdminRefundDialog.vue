@@ -4,7 +4,9 @@
     :title="t('payment.admin.refundOrder')"
     :close-label="t('common.close')"
     width="normal"
-    @close="emit('cancel')"
+    :close-on-escape="!submitting"
+    :show-close-button="!submitting"
+    @close="requestCancel"
   >
     <form id="refund-form" @submit.prevent="handleSubmit">
       <AppStack :gap="16">
@@ -73,7 +75,7 @@
 
     <template #footer>
       <AppInline justify="flex-end">
-        <UiButton type="button" density="compact" @click="emit('cancel')">{{ t('common.cancel') }}</UiButton>
+        <UiButton type="button" density="compact" :disabled="submitting" @click="requestCancel">{{ t('common.cancel') }}</UiButton>
         <UiButton
           type="submit"
           form="refund-form"
@@ -124,6 +126,10 @@ const emit = defineEmits<{
   (e: 'confirm', data: { amount: number; reason: string; deduct_balance: boolean; force: boolean }): void
   (e: 'cancel'): void
 }>()
+
+function requestCancel(): void {
+  if (!props.submitting) emit('cancel')
+}
 
 const creditedAmountSymbol = currencySymbol('USD')
 

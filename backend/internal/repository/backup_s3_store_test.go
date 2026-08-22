@@ -6,7 +6,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 
@@ -16,22 +15,22 @@ import (
 func TestS3BackupStore_UploadFile(t *testing.T) {
 	var received []byte
 	var receivedLength int64
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, http.MethodPut, r.Method)
 		receivedLength = r.ContentLength
 		var err error
 		received, err = io.ReadAll(r.Body)
 		require.NoError(t, err)
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	}
 
 	client, err := newS3Client(context.Background(), s3ClientParams{
-		Endpoint:        server.URL,
+		Endpoint:        "https://s3.test",
 		Region:          "auto",
 		AccessKeyID:     "test-ak",
 		SecretAccessKey: "test-sk",
 		ForcePathStyle:  true,
+		HTTPClient:      &http.Client{Transport: newInProcessTransport(handler, nil)},
 	})
 	require.NoError(t, err)
 

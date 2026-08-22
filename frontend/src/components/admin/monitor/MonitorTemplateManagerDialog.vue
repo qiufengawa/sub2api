@@ -166,6 +166,10 @@ const providerTabs = computed<{ value: Provider; label: string }[]>(() => [
 
 const activeProvider = ref<Provider>(PROVIDER_ANTHROPIC)
 const templates = ref<ChannelMonitorTemplate[]>([])
+// A successful DELETE can race an eventually-consistent list response. Keep a
+// session-local tombstone so an old snapshot cannot resurrect an actionable
+// template row while the next list request catches up.
+const deletedTemplateIds = new Set<number>()
 const loading = ref(false)
 const loadError = ref(false)
 let listRequestId = 0
@@ -262,7 +266,7 @@ async function fetchTemplates() {
   try {
     const { items } = await adminAPI.channelMonitorTemplate.list({}, { signal: controller.signal })
     if (controller.signal.aborted || requestId !== listRequestId) return
-    templates.value = items
+    templates.value = items.filter((item) => !deletedTemplateIds.has(item.id))
   } catch (err: unknown) {
     if (controller.signal.aborted || requestId !== listRequestId || isAbortError(err)) return
     loadError.value = true
@@ -383,9 +387,14 @@ async function doDelete() {
   try {
     await adminAPI.channelMonitorTemplate.del(tpl.id)
     appStore.showSuccess(t('admin.channelMonitor.template.deleteSuccess'))
-    await fetchTemplates()
+    // The destructive mutation has succeeded; clear the target before the
+    // best-effort list refresh so a refresh failure cannot invite a duplicate
+    // delete against an already removed template.
     confirmDelete.show = false
     confirmDelete.tpl = null
+    deletedTemplateIds.add(tpl.id)
+    templates.value = templates.value.filter((item) => item.id !== tpl.id)
+    await fetchTemplates()
     emit('updated')
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, t('common.error')))

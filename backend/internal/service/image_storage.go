@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +27,16 @@ type ImageStorage interface {
 	// Save 把 data 以 key 存入对象存储，返回可下载的 URL（公开直链或 presigned 临时链接）。
 	// contentType 为图片 MIME 类型，如 "image/png"。
 	Save(ctx context.Context, key, contentType string, data []byte) (url string, err error)
+}
+
+// ImageStorageObjectDeleter is an optional companion to ImageStorage.  When an
+// uploader has already persisted earlier images but a later image fails, it
+// uses this hook to roll those objects back.  Keeping the hook optional
+// preserves compatibility with storage adapters that only support writes;
+// the built-in S3 adapter implements it so production uploads are
+// compensating rather than silently orphaning objects.
+type ImageStorageObjectDeleter interface {
+	Delete(ctx context.Context, key string) error
 }
 
 // ImageResultUploader 是 ImageStorage 的上层编排器（与具体厂商无关）：
@@ -54,7 +66,21 @@ func NewImageResultUploader(storage ImageStorage, prefix string, maxDownloadByte
 }
 
 func defaultImageDownloadHTTPClient() *http.Client {
-	return &http.Client{Timeout: 60 * time.Second}
+	var transport *http.Transport
+	if base, ok := http.DefaultTransport.(*http.Transport); ok && base != nil {
+		transport = base.Clone()
+	} else {
+		// http.DefaultTransport is intentionally replaceable (and tests often
+		// install a custom RoundTripper).  Do not panic when it is not an
+		// *http.Transport; the safe dial policy below still applies to the
+		// fallback transport.
+		transport = &http.Transport{}
+	}
+	// Image URLs are provider-controlled input.  Reuse the package's DNS-aware
+	// dial guard so a hostname that resolves to loopback/private/link-local
+	// space is rejected at the actual socket dial (including DNS rebinding).
+	transport.DialContext = safeDialContext
+	return &http.Client{Timeout: 60 * time.Second, Transport: transport}
 }
 
 // Rewrite 将 result（上游生图响应 JSON）里的每张图片转存到对象存储，
@@ -80,19 +106,48 @@ func (u *ImageResultUploader) Rewrite(ctx context.Context, taskID string, result
 	if len(items) == 0 {
 		return result, nil
 	}
+	savedKeys := make([]string, 0, len(items))
+	rollback := func(cause error) error {
+		if len(savedKeys) == 0 {
+			return cause
+		}
+		deleter, ok := u.storage.(ImageStorageObjectDeleter)
+		if !ok {
+			// Third-party adapters may not expose deletion.  Preserve the
+			// original error while making the lack of compensation explicit in
+			// logs/diagnostics at the call site.
+			return fmt.Errorf("%w (stored %d earlier image object(s); storage adapter has no rollback)", cause, len(savedKeys))
+		}
+		// A cancelled request must not prevent cleanup of objects that were
+		// already committed.  Bound compensation so a broken storage backend
+		// cannot hold the worker forever.
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
+		defer cancel()
+		var cleanupErrs []string
+		for i := len(savedKeys) - 1; i >= 0; i-- {
+			if err := deleter.Delete(cleanupCtx, savedKeys[i]); err != nil {
+				cleanupErrs = append(cleanupErrs, fmt.Sprintf("%s: %v", savedKeys[i], err))
+			}
+		}
+		if len(cleanupErrs) > 0 {
+			return fmt.Errorf("%w (rollback failed: %s)", cause, strings.Join(cleanupErrs, "; "))
+		}
+		return cause
+	}
 	for i, item := range items {
 		data, contentType, err := u.fetchImageBytes(ctx, item)
 		if err != nil {
-			return nil, fmt.Errorf("image %d: %w", i, err)
+			return nil, rollback(fmt.Errorf("image %d: %w", i, err))
 		}
 		key := u.buildKey(taskID, i, contentType)
 		url, err := u.storage.Save(ctx, key, contentType, data)
 		if err != nil {
-			return nil, fmt.Errorf("image %d: upload to object storage: %w", i, err)
+			return nil, rollback(fmt.Errorf("image %d: upload to object storage: %w", i, err))
 		}
+		savedKeys = append(savedKeys, key)
 		urlRaw, err := json.Marshal(url)
 		if err != nil {
-			return nil, fmt.Errorf("image %d: encode url: %w", i, err)
+			return nil, rollback(fmt.Errorf("image %d: encode url: %w", i, err))
 		}
 		item["url"] = urlRaw
 		delete(item, "b64_json")
@@ -100,12 +155,12 @@ func (u *ImageResultUploader) Rewrite(ctx context.Context, taskID string, result
 	}
 	newData, err := json.Marshal(items)
 	if err != nil {
-		return nil, fmt.Errorf("encode image response data: %w", err)
+		return nil, rollback(fmt.Errorf("encode image response data: %w", err))
 	}
 	top["data"] = newData
 	out, err := json.Marshal(top)
 	if err != nil {
-		return nil, fmt.Errorf("encode image response: %w", err)
+		return nil, rollback(fmt.Errorf("encode image response: %w", err))
 	}
 	return out, nil
 }
@@ -192,11 +247,39 @@ func (u *ImageResultUploader) decodeImageDataURL(rawURL string) ([]byte, string,
 }
 
 func (u *ImageResultUploader) download(ctx context.Context, rawURL string) ([]byte, string, error) {
+	if err := validateImageDownloadURL(rawURL); err != nil {
+		return nil, "", err
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return nil, "", fmt.Errorf("build download request: %w", err)
 	}
-	resp, err := u.httpClient.Do(req)
+	client := u.httpClient
+	if client == nil {
+		client = defaultImageDownloadHTTPClient()
+	}
+	// Do not trust a caller-provided client to validate redirects.  Clone the
+	// client for this request and fence every redirect target before net/http
+	// follows it.  The original policy (if any) still runs after our guard.
+	clientCopy := *client
+	// An http.Client with a nil Transport implicitly uses http.DefaultTransport.
+	// Replace that implicit fallback with our SSRF-aware transport; otherwise a
+	// caller-provided (but otherwise empty) client would silently bypass the
+	// DNS/IP dial guard used by the default uploader client.
+	if clientCopy.Transport == nil {
+		clientCopy.Transport = defaultImageDownloadHTTPClient().Transport
+	}
+	originalRedirect := client.CheckRedirect
+	clientCopy.CheckRedirect = func(next *http.Request, via []*http.Request) error {
+		if err := validateImageDownloadURL(next.URL.String()); err != nil {
+			return err
+		}
+		if originalRedirect != nil {
+			return originalRedirect(next, via)
+		}
+		return nil
+	}
+	resp, err := clientCopy.Do(req)
 	if err != nil {
 		return nil, "", fmt.Errorf("download image: %w", err)
 	}
@@ -220,6 +303,34 @@ func (u *ImageResultUploader) download(ctx context.Context, rawURL string) ([]by
 		contentType = detectImageContentType(data)
 	}
 	return data, contentType, nil
+}
+
+// validateImageDownloadURL blocks unsafe URL forms before a custom transport
+// (including test transports) gets a chance to issue the request.  Literal IP
+// checks cover the common SSRF targets; the production transport additionally
+// applies safeDialContext to all DNS-resolved addresses.
+func validateImageDownloadURL(rawURL string) error {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return fmt.Errorf("download image: invalid URL: %w", err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("download image: unsupported URL scheme %q", u.Scheme)
+	}
+	if u.Host == "" || u.Hostname() == "" {
+		return errors.New("download image: URL host is required")
+	}
+	if u.User != nil {
+		return errors.New("download image: URL userinfo is not allowed")
+	}
+	hostname := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
+	if isBlockedHostname(hostname) {
+		return fmt.Errorf("download image: host %q is blocked", hostname)
+	}
+	if ip := net.ParseIP(hostname); ip != nil && isPrivateIP(ip) {
+		return fmt.Errorf("download image: host %q is blocked", hostname)
+	}
+	return nil
 }
 
 func (u *ImageResultUploader) buildKey(taskID string, index int, contentType string) string {

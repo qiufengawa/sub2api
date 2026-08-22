@@ -252,7 +252,11 @@ type BatchImageItemFilter struct {
 }
 
 type BatchImageJobFilter struct {
-	Status         string
+	Status string
+	// Statuses is an optional inclusive status set.  It is used for public
+	// aliases such as "queued", which spans the created/uploading/submitted
+	// lifecycle states while the repository still applies pagination in SQL.
+	Statuses       []string
 	TaskNameLike   string
 	Downloaded     *bool
 	CreatedAfter   *time.Time
@@ -319,6 +323,12 @@ type BatchImageRepository interface {
 	// 返回 false 表示 job 已被并发推进（如已提交成功），调用方不得释放冻结。
 	FailStaleUnsubmittedBatchImageJob(ctx context.Context, batchID string, cutoff time.Time, code, message string) (bool, error)
 	UpdateBatchImageJobProviderOutputRef(ctx context.Context, batchID, providerOutputRef string) error
+	// UpdateBatchImageJobProviderOutputRefIfActive atomically records a
+	// provider output reference only while the job is non-terminal.  A
+	// processor status poll can overlap a user cancellation; the conditional
+	// write prevents a late provider response from attaching an output object
+	// to the cancelled/failed job.
+	UpdateBatchImageJobProviderOutputRefIfActive(ctx context.Context, batchID, providerOutputRef string) (updated bool, err error)
 	UpdateBatchImageJobProviderSubmit(ctx context.Context, params UpdateBatchImageJobProviderSubmitParams) error
 	RecordBatchImageJobSubmitFailure(ctx context.Context, batchID, code, message string, markFailed bool) error
 	MarkBatchImageJobSettled(ctx context.Context, params MarkBatchImageJobSettledParams) error
@@ -329,6 +339,11 @@ type BatchImageRepository interface {
 	ListBatchImageItems(ctx context.Context, batchID string, filter BatchImageItemFilter) ([]*BatchImageItem, error)
 	ListBatchImageItemsForOwner(ctx context.Context, userID, apiKeyID int64, batchID string, filter BatchImageItemFilter) ([]*BatchImageItem, error)
 	GetBatchImageJobForDownload(ctx context.Context, userID, apiKeyID int64, batchID string) (*BatchImageJob, error)
+	// ListBatchImageChildJobsForDownload returns direct retry children owned by
+	// the same API key.  It is intentionally separate from the paginated public
+	// jobs list so a ZIP download can build a complete root/child source plan
+	// without scanning or truncating unrelated jobs.
+	ListBatchImageChildJobsForDownload(ctx context.Context, userID, apiKeyID int64, parentBatchID string) ([]*BatchImageJob, error)
 	GetBatchImageItemForDownload(ctx context.Context, batchID, customID string) (*BatchImageItem, error)
 	ListBatchImageItemsForDownload(ctx context.Context, batchID string, status string, limit int) ([]*BatchImageItem, error)
 	ListBatchImageJobsDueForInputCleanup(ctx context.Context, cutoff time.Time, limit int) ([]*BatchImageJob, error)

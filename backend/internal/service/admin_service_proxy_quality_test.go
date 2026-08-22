@@ -28,67 +28,64 @@ func TestFinalizeProxyQualityResult_ScoreAndGrade(t *testing.T) {
 }
 
 func TestRunProxyQualityTarget_CloudflareChallenge(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.Header().Set("cf-ray", "test-ray-123")
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte("<!DOCTYPE html><title>Just a moment...</title><script>window._cf_chl_opt={};</script>"))
-	}))
-	defer server.Close()
+	})
 
 	target := proxyQualityTarget{
 		Target: "openai",
-		URL:    server.URL,
+		URL:    "https://proxy-fixture.test/openai",
 		Method: http.MethodGet,
 		AllowedStatuses: map[int]struct{}{
 			http.StatusUnauthorized: {},
 		},
 	}
 
-	item := runProxyQualityTarget(context.Background(), server.Client(), target)
+	item := runProxyQualityTarget(context.Background(), newProxyQualityFixtureHTTPClient(handler), target)
 	require.Equal(t, "challenge", item.Status)
 	require.Equal(t, http.StatusForbidden, item.HTTPStatus)
 	require.Equal(t, "test-ray-123", item.CFRay)
 }
 
 func TestRunProxyQualityTarget_AllowedStatusPass(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"models":[]}`))
-	}))
-	defer server.Close()
+	})
 
 	target := proxyQualityTarget{
 		Target: "gemini",
-		URL:    server.URL,
+		URL:    "https://proxy-fixture.test/gemini",
 		Method: http.MethodGet,
 		AllowedStatuses: map[int]struct{}{
 			http.StatusOK: {},
 		},
 	}
 
-	item := runProxyQualityTarget(context.Background(), server.Client(), target)
+	item := runProxyQualityTarget(context.Background(), newProxyQualityFixtureHTTPClient(handler), target)
 	require.Equal(t, "pass", item.Status)
 	require.Equal(t, http.StatusOK, item.HTTPStatus)
 }
 
 func TestRunProxyQualityTarget_AllowedStatusPassForUnauthorized(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"error":"unauthorized"}`))
-	}))
-	defer server.Close()
+	})
 
 	target := proxyQualityTarget{
 		Target: "openai",
-		URL:    server.URL,
+		URL:    "https://proxy-fixture.test/openai",
 		Method: http.MethodGet,
 		AllowedStatuses: map[int]struct{}{
 			http.StatusUnauthorized: {},
 		},
 	}
 
-	item := runProxyQualityTarget(context.Background(), server.Client(), target)
+	item := runProxyQualityTarget(context.Background(), newProxyQualityFixtureHTTPClient(handler), target)
 	require.Equal(t, "pass", item.Status)
 	require.Equal(t, http.StatusUnauthorized, item.HTTPStatus)
 	require.Contains(t, item.Message, "目标可达")
@@ -110,27 +107,40 @@ func TestProxyQualityTargets_IncludesGrok(t *testing.T) {
 }
 
 func TestRunProxyQualityTarget_GrokUnauthorizedPasses(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			t.Errorf("unexpected method: %s", r.Method)
 		}
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"error":"unauthorized"}`))
-	}))
-	defer server.Close()
+	})
 
 	target := proxyQualityTarget{
 		Target: "grok",
-		URL:    server.URL,
+		URL:    "https://proxy-fixture.test/grok",
 		Method: http.MethodGet,
 		AllowedStatuses: map[int]struct{}{
 			http.StatusUnauthorized: {},
 		},
 	}
 
-	item := runProxyQualityTarget(context.Background(), server.Client(), target)
+	item := runProxyQualityTarget(context.Background(), newProxyQualityFixtureHTTPClient(handler), target)
 	require.Equal(t, "grok", item.Target)
 	require.Equal(t, "pass", item.Status)
 	require.Equal(t, http.StatusUnauthorized, item.HTTPStatus)
 	require.Contains(t, item.Message, "目标可达")
+}
+
+type proxyQualityFixtureRoundTripper func(*http.Request) (*http.Response, error)
+
+func (f proxyQualityFixtureRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func newProxyQualityFixtureHTTPClient(handler http.Handler) *http.Client {
+	return &http.Client{Transport: proxyQualityFixtureRoundTripper(func(req *http.Request) (*http.Response, error) {
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, req)
+		return recorder.Result(), nil
+	})}
 }

@@ -21,6 +21,15 @@ const UiDialogStub = {
   template: '<div v-if="show"><slot /><slot name="footer" /></div>',
 }
 
+const UiDialogPendingStub = {
+  props: ['show', 'closeOnEscape', 'showCloseButton'],
+  emits: ['close'],
+  template: `<div v-if="show">
+    <button v-if="showCloseButton" data-testid="dialog-close" type="button" @click="$emit('close')">close</button>
+    <slot /><slot name="footer" />
+  </div>`,
+}
+
 const DataTableStub = {
   props: ['data', 'columns', 'mobileTable'],
   template: `
@@ -189,6 +198,28 @@ describe('admin order currency display', () => {
     await checkboxes[1].setValue(true)
     await wrapper.find('form').trigger('submit')
     expect(wrapper.emitted('confirm')).toHaveLength(1)
+  })
+
+  it('locks cancel and dialog close while a refund request is submitting', async () => {
+    const wrapper = mount(AdminRefundDialog, {
+      props: {
+        show: true,
+        order: orderFactory(),
+        submitting: true,
+      },
+      global: { stubs: { UiDialog: UiDialogPendingStub } },
+    })
+
+    const dialog = wrapper.findComponent(UiDialogPendingStub)
+    expect(dialog.props('closeOnEscape')).toBe(false)
+    expect(dialog.props('showCloseButton')).toBe(false)
+
+    const cancelButton = wrapper.findAll('button').find((node) => node.text() === 'common.cancel')
+    expect(cancelButton).toBeDefined()
+    expect(cancelButton?.attributes('disabled')).toBeDefined()
+    await cancelButton?.trigger('click')
+    expect(wrapper.emitted('cancel')).toBeUndefined()
+    expect(wrapper.find('[data-testid="dialog-close"]').exists()).toBe(false)
   })
 
   it('renders payment currency consistently in the shared order table', () => {

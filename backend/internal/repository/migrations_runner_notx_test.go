@@ -269,6 +269,72 @@ DROP INDEX CONCURRENTLY IF EXISTS paymentorder_out_trade_no;
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestApplyMigrationsFS_BatchImageIdempotencyMigrationFailsFastOnDuplicates(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	prepareMigrationsBootstrapExpectations(mock)
+	mock.ExpectQuery("SELECT checksum FROM schema_migrations WHERE filename = \\$1").
+		WithArgs(batchImageIdempotencyUniqueMigration).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery("SELECT user_id, api_key_id, idempotency_key, COUNT\\(\\*\\) AS duplicate_count FROM batch_image_jobs").
+		WillReturnRows(sqlmock.NewRows([]string{"user_id", "api_key_id", "idempotency_key", "duplicate_count"}).
+			AddRow(int64(7), int64(11), "duplicate-key", 2))
+	mock.ExpectExec("SELECT pg_advisory_unlock\\(\\$1\\)").
+		WithArgs(migrationsAdvisoryLockID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	fsys := fstest.MapFS{
+		batchImageIdempotencyUniqueMigration: &fstest.MapFile{Data: []byte(`
+CREATE UNIQUE INDEX IF NOT EXISTS batch_image_jobs_owner_idempotency_uq
+    ON batch_image_jobs (user_id, api_key_id, idempotency_key)
+    WHERE api_key_id IS NOT NULL AND idempotency_key IS NOT NULL AND idempotency_key <> '';
+`)},
+	}
+
+	err = applyMigrationsFS(context.Background(), db, fsys)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "duplicate batch idempotency keys")
+	require.Contains(t, err.Error(), "duplicate-key")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestApplyMigrationsFS_BatchImageIdempotencyMigrationRunsAfterCleanPreflight(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	prepareMigrationsBootstrapExpectations(mock)
+	mock.ExpectQuery("SELECT checksum FROM schema_migrations WHERE filename = \\$1").
+		WithArgs(batchImageIdempotencyUniqueMigration).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery("SELECT user_id, api_key_id, idempotency_key, COUNT\\(\\*\\) AS duplicate_count FROM batch_image_jobs").
+		WillReturnRows(sqlmock.NewRows([]string{"user_id", "api_key_id", "idempotency_key", "duplicate_count"}))
+	mock.ExpectBegin()
+	mock.ExpectExec("CREATE UNIQUE INDEX IF NOT EXISTS batch_image_jobs_owner_idempotency_uq").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("INSERT INTO schema_migrations \\(filename, checksum\\) VALUES \\(\\$1, \\$2\\)").
+		WithArgs(batchImageIdempotencyUniqueMigration, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+	mock.ExpectExec("SELECT pg_advisory_unlock\\(\\$1\\)").
+		WithArgs(migrationsAdvisoryLockID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	fsys := fstest.MapFS{
+		batchImageIdempotencyUniqueMigration: &fstest.MapFile{Data: []byte(`
+CREATE UNIQUE INDEX IF NOT EXISTS batch_image_jobs_owner_idempotency_uq
+    ON batch_image_jobs (user_id, api_key_id, idempotency_key)
+    WHERE api_key_id IS NOT NULL AND idempotency_key IS NOT NULL AND idempotency_key <> '';
+`)},
+	}
+
+	err = applyMigrationsFS(context.Background(), db, fsys)
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestApplyMigrationsFS_SchedulerOutboxPendingDedupKeyMigration_DropsInvalidIndexBeforeRetry(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)

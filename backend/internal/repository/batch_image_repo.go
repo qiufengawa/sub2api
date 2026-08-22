@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -91,7 +92,20 @@ func (r *batchImageRepository) ListBatchImageJobsForOwner(ctx context.Context, u
 	if filter.ExcludeDeleted {
 		query += " AND user_deleted_at IS NULL"
 	}
-	if filter.Status != "" {
+	if len(filter.Statuses) > 0 {
+		placeholders := make([]string, 0, len(filter.Statuses))
+		for _, status := range filter.Statuses {
+			status = strings.TrimSpace(status)
+			if status == "" {
+				continue
+			}
+			placeholders = append(placeholders, "$"+strconv.Itoa(len(args)+1))
+			args = append(args, status)
+		}
+		if len(placeholders) > 0 {
+			query += " AND status IN (" + strings.Join(placeholders, ",") + ")"
+		}
+	} else if filter.Status != "" {
 		query += " AND status = $" + strconv.Itoa(len(args)+1)
 		args = append(args, filter.Status)
 	}
@@ -203,6 +217,29 @@ WHERE batch_id = $1`, batchID, providerOutputRef, time.Now())
 		return service.ErrBatchImageJobNotFound
 	}
 	return nil
+}
+
+func (r *batchImageRepository) UpdateBatchImageJobProviderOutputRefIfActive(ctx context.Context, batchID, providerOutputRef string) (bool, error) {
+	res, err := r.sql.ExecContext(ctx, `
+UPDATE batch_image_jobs
+SET provider_output_ref = $2, updated_at = $3
+WHERE batch_id = $1
+  AND status NOT IN ('completed', 'failed', 'cancelled', 'output_deleted')`,
+		batchID, providerOutputRef, time.Now())
+	if err != nil {
+		return false, translatePersistenceError(err, service.ErrBatchImageJobNotFound, nil)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	if affected == 0 {
+		// The row may have transitioned to a terminal state between the
+		// provider poll and this write.  Let the processor re-read it and
+		// decide whether the late result should be discarded.
+		return false, nil
+	}
+	return true, nil
 }
 
 func (r *batchImageRepository) UpdateBatchImageJobProviderSubmit(ctx context.Context, params service.UpdateBatchImageJobProviderSubmitParams) error {
@@ -554,6 +591,24 @@ func (r *batchImageRepository) GetBatchImageJobForDownload(ctx context.Context, 
 	return r.GetBatchImageJobByBatchIDForOwner(ctx, userID, apiKeyID, batchID)
 }
 
+func (r *batchImageRepository) ListBatchImageChildJobsForDownload(ctx context.Context, userID, apiKeyID int64, parentBatchID string) ([]*service.BatchImageJob, error) {
+	parentBatchID = strings.TrimSpace(parentBatchID)
+	if parentBatchID == "" {
+		return nil, nil
+	}
+	rows, err := r.sql.QueryContext(ctx, batchImageJobSelectSQL+`
+ WHERE user_id = $1
+   AND api_key_id = $2
+   AND parent_batch_id = $3
+   AND user_deleted_at IS NULL
+ ORDER BY created_at ASC, id ASC`, userID, apiKeyID, parentBatchID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	return scanBatchImageJobs(rows)
+}
+
 func (r *batchImageRepository) GetBatchImageItemForDownload(ctx context.Context, batchID, customID string) (*service.BatchImageItem, error) {
 	item, err := scanBatchImageItem(r.sql.QueryRowContext(ctx, batchImageItemSelectSQL+`
  WHERE job_id = $1 AND custom_id = $2`, batchID, customID))
@@ -592,9 +647,18 @@ func (r *batchImageRepository) ListBatchImageJobsDueForOutputCleanup(ctx context
 	rows, err := r.sql.QueryContext(ctx, batchImageJobSelectSQL+`
  WHERE output_deleted_at IS NULL
    AND provider_output_ref IS NOT NULL
-   AND status = 'completed'
+   AND status IN ('completed', 'failed', 'cancelled')
    AND output_expires_at IS NOT NULL
    AND output_expires_at <= $1
+   AND NOT EXISTS (
+     SELECT 1
+       FROM batch_image_jobs child
+      WHERE child.parent_batch_id = batch_image_jobs.batch_id
+        AND child.user_id = batch_image_jobs.user_id
+        AND child.api_key_id IS NOT DISTINCT FROM batch_image_jobs.api_key_id
+        AND child.user_deleted_at IS NULL
+        AND child.status NOT IN ('completed', 'failed', 'cancelled', 'output_deleted')
+   )
  ORDER BY output_expires_at ASC, id ASC
  LIMIT $2`, now, limit)
 	if err != nil {

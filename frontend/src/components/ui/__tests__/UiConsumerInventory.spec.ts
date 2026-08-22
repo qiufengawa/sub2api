@@ -142,7 +142,7 @@ describe('Qiu UI consumer inventory', () => {
     expect(report.unsupportedBarrelImports).toEqual([])
     expect(report.dynamicBarrelImports).toEqual([])
     expect(consumerFiles.size).toBe(276)
-    expect(report.runtimeReferences).toBe(1884)
+    expect(report.runtimeReferences).toBe(1885)
   })
 
   it('keeps internal-only and staged components documented instead of silently counting showcase markup as consumers', () => {

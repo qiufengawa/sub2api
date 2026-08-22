@@ -5,6 +5,15 @@ import { getLocale } from '@/i18n'
 
 const FALLBACK_ZH_PHRASE = '我已阅读、理解并同意 Sub2API 部署与运营合规承诺'
 const FALLBACK_EN_PHRASE = 'I have read, understood, and agree to the Sub2API Deployment and Operation Compliance Commitment'
+const STALE_COMPLIANCE_REQUEST_CODE = 'AUTH_SESSION_CHANGED'
+
+function createStaleComplianceRequestError(): Error & { code: string } {
+  const error = new Error('Authentication session changed while compliance status was loading.') as Error & {
+    code: string
+  }
+  error.code = STALE_COMPLIANCE_REQUEST_CODE
+  return error
+}
 
 export const useAdminComplianceStore = defineStore('adminCompliance', () => {
   const status = ref<AdminComplianceStatus | null>(null)
@@ -12,6 +21,7 @@ export const useAdminComplianceStore = defineStore('adminCompliance', () => {
   const submitting = ref(false)
   const initialized = ref(false)
   const forceVisible = ref(false)
+  let requestGeneration = 0
 
   const required = computed(() => status.value?.required === true)
   const shouldShow = computed(() => required.value || forceVisible.value)
@@ -24,30 +34,42 @@ export const useAdminComplianceStore = defineStore('adminCompliance', () => {
   })
 
   async function fetchStatus(): Promise<AdminComplianceStatus> {
+    const generation = ++requestGeneration
     loading.value = true
     try {
       const nextStatus = await adminComplianceAPI.getStatus()
+      if (generation !== requestGeneration) {
+        throw createStaleComplianceRequestError()
+      }
       status.value = nextStatus
       initialized.value = true
       forceVisible.value = nextStatus.required
       return nextStatus
     } finally {
-      loading.value = false
+      if (generation === requestGeneration) {
+        loading.value = false
+      }
     }
   }
 
   async function accept(phrase: string): Promise<AdminComplianceStatus> {
+    const generation = ++requestGeneration
     submitting.value = true
     try {
       const nextStatus = await adminComplianceAPI.accept({
         phrase,
         language: currentLocale.value
       })
+      if (generation !== requestGeneration) {
+        throw createStaleComplianceRequestError()
+      }
       status.value = nextStatus
       forceVisible.value = nextStatus.required
       return nextStatus
     } finally {
-      submitting.value = false
+      if (generation === requestGeneration) {
+        submitting.value = false
+      }
     }
   }
 
@@ -68,6 +90,7 @@ export const useAdminComplianceStore = defineStore('adminCompliance', () => {
   }
 
   function reset(): void {
+    requestGeneration += 1
     status.value = null
     loading.value = false
     submitting.value = false

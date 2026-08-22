@@ -184,6 +184,16 @@ const ModelWhitelistSelectorStub = defineComponent({
   },
 })
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
 function findButtonByText(wrapper: VueWrapper, text: string): DOMWrapper<HTMLButtonElement> {
   const button = wrapper.findAll<HTMLButtonElement>('button').find((item) => item.text().includes(text))
   if (!button) {
@@ -252,6 +262,202 @@ describe('admin RiskControlView', () => {
       'width: 100%; height: 360px;',
     ])
     expect(loading.get('.risk-loading__metrics').findAll('.ui-skeleton')).toHaveLength(4)
+  })
+
+  it('keeps the newest runtime status when refresh responses resolve out of order', async () => {
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          UiDialog: BaseDialogStub,
+          Icon: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    const first = deferred<ReturnType<typeof runtimeStatus>>()
+    const second = deferred<ReturnType<typeof runtimeStatus>>()
+    getStatus.mockReset()
+    getStatus.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    const vm = wrapper.vm as any
+    const staleRequest = vm.loadStatus()
+    const newestRequest = vm.loadStatus()
+
+    second.resolve({ ...runtimeStatus(), processed: 22 })
+    await newestRequest
+    first.resolve({ ...runtimeStatus(), processed: 11 })
+    await staleRequest
+
+    expect(vm.status.processed).toBe(22)
+    expect(vm.statusLoading).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('completes initial proxy loading when a manual status refresh supersedes it', async () => {
+    const initialConfig = deferred<ContentModerationConfig>()
+    const initialGroups = deferred<never[]>()
+    const initialStatus = deferred<ReturnType<typeof runtimeStatus>>()
+    const initialProxies = deferred<any[]>()
+    const newestStatus = deferred<ReturnType<typeof runtimeStatus>>()
+    getConfig.mockReturnValueOnce(initialConfig.promise)
+    getGroups.mockReturnValueOnce(initialGroups.promise)
+    getStatus.mockReset().mockReturnValueOnce(initialStatus.promise).mockReturnValueOnce(newestStatus.promise)
+    getProxies.mockReturnValueOnce(initialProxies.promise)
+
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          UiDialog: BaseDialogStub,
+          Icon: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: true,
+        },
+      },
+    })
+    const vm = wrapper.vm as any
+    const manualStatus = vm.loadStatus()
+    newestStatus.resolve({ ...runtimeStatus(), processed: 30 })
+    await manualStatus
+
+    initialConfig.resolve(baseConfig())
+    initialGroups.resolve([])
+    initialStatus.resolve({ ...runtimeStatus(), processed: 20 })
+    initialProxies.resolve([{ id: 7, name: 'fixture proxy' }])
+    await flushPromises()
+
+    expect(vm.status.processed).toBe(30)
+    expect(vm.proxies).toEqual([{ id: 7, name: 'fixture proxy' }])
+    wrapper.unmount()
+  })
+
+  it('does not let an older loadAll overwrite a newer page load', async () => {
+    const firstConfig = deferred<ContentModerationConfig>()
+    const firstGroups = deferred<never[]>()
+    const firstStatus = deferred<ReturnType<typeof runtimeStatus>>()
+    const firstProxies = deferred<any[]>()
+    getConfig.mockReset().mockReturnValueOnce(firstConfig.promise)
+    getGroups.mockReset().mockReturnValueOnce(firstGroups.promise)
+    getStatus.mockReset().mockReturnValueOnce(firstStatus.promise)
+    getProxies.mockReset().mockReturnValueOnce(firstProxies.promise)
+
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          UiDialog: BaseDialogStub,
+          Icon: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: true,
+        },
+      },
+    })
+    const secondConfig = deferred<ContentModerationConfig>()
+    const secondGroups = deferred<never[]>()
+    const secondStatus = deferred<ReturnType<typeof runtimeStatus>>()
+    const secondProxies = deferred<any[]>()
+    getConfig.mockReturnValueOnce(secondConfig.promise)
+    getGroups.mockReturnValueOnce(secondGroups.promise)
+    getStatus.mockReturnValueOnce(secondStatus.promise)
+    getProxies.mockReturnValueOnce(secondProxies.promise)
+
+    const vm = wrapper.vm as any
+    const newerLoad = vm.loadAll()
+    const newerConfig = { ...baseConfig(), base_url: 'https://newer.example' }
+    secondConfig.resolve(newerConfig)
+    secondGroups.resolve([{ id: 2, name: 'newer group' }] as never[])
+    secondStatus.resolve({ ...runtimeStatus(), processed: 22 })
+    secondProxies.resolve([{ id: 2, name: 'newer proxy' }])
+    await newerLoad
+
+    firstConfig.resolve({ ...baseConfig(), base_url: 'https://older.example' })
+    firstGroups.resolve([{ id: 1, name: 'older group' }] as never[])
+    firstStatus.resolve({ ...runtimeStatus(), processed: 11 })
+    firstProxies.resolve([{ id: 1, name: 'older proxy' }])
+    await flushPromises()
+
+    expect(vm.configForm.base_url).toBe('https://newer.example')
+    expect(vm.groups).toEqual([{ id: 2, name: 'newer group' }])
+    expect(vm.proxies).toEqual([{ id: 2, name: 'newer proxy' }])
+    expect(vm.status.processed).toBe(22)
+    wrapper.unmount()
+  })
+
+  it('does not surface a stale loadAll rejection after a newer page load starts', async () => {
+    const firstConfig = deferred<ContentModerationConfig>()
+    const firstGroups = deferred<never[]>()
+    const firstStatus = deferred<ReturnType<typeof runtimeStatus>>()
+    const firstProxies = deferred<any[]>()
+    getConfig.mockReset().mockReturnValueOnce(firstConfig.promise)
+    getGroups.mockReset().mockReturnValueOnce(firstGroups.promise)
+    getStatus.mockReset().mockReturnValueOnce(firstStatus.promise)
+    getProxies.mockReset().mockReturnValueOnce(firstProxies.promise)
+
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          UiDialog: BaseDialogStub,
+          Icon: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: true,
+        },
+      },
+    })
+
+    // The initial onMounted load is still waiting.  A newer load resolves
+    // successfully before the older request rejects.
+    getConfig.mockReturnValueOnce(Promise.resolve(baseConfig()))
+    getGroups.mockReturnValueOnce(Promise.resolve([]))
+    getStatus.mockReturnValueOnce(Promise.resolve(runtimeStatus()))
+    getProxies.mockReturnValueOnce(Promise.resolve([]))
+    const newerLoad = (wrapper.vm as any).loadAll()
+    await newerLoad
+    showError.mockClear()
+
+    firstConfig.reject(new Error('stale network failure'))
+    firstGroups.resolve([])
+    firstStatus.resolve(runtimeStatus())
+    firstProxies.resolve([])
+    await flushPromises()
+
+    expect(showError).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('ignores duplicate risk-control saves while the first request is pending', async () => {
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          UiDialog: BaseDialogStub,
+          Icon: true,
+          Select: true,
+          Toggle: true,
+          Pagination: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    const pending = deferred<ContentModerationConfig>()
+    updateConfig.mockReset()
+    updateConfig.mockReturnValueOnce(pending.promise)
+    const vm = wrapper.vm as any
+    const firstSave = vm.saveConfig()
+    const duplicateSave = vm.saveConfig()
+    expect(updateConfig).toHaveBeenCalledTimes(1)
+    expect(vm.saving).toBe(true)
+
+    pending.resolve(baseConfig())
+    await Promise.all([firstSave, duplicateSave])
+    expect(vm.saving).toBe(false)
+    wrapper.unmount()
   })
 
   it('clears every log filter and reloads page one', async () => {
@@ -457,6 +663,33 @@ describe('admin RiskControlView', () => {
 
     expect(clearFlaggedHashes).toHaveBeenCalledTimes(1)
     expect(showSuccess).toHaveBeenCalledWith('admin.riskControl.flaggedHashesCleared')
+  })
+
+  it('closes the clear confirmation after success even when status refresh fails', async () => {
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          UiDialog: BaseDialogStub,
+          Icon: true,
+          Pagination: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    getStatus.mockRejectedValueOnce(new Error('refresh after clear failed'))
+    const vm = wrapper.vm as any
+    vm.clearHashesConfirmOpen = true
+    await vm.clearFlaggedHashes()
+    await flushPromises()
+
+    expect(clearFlaggedHashes).toHaveBeenCalledTimes(1)
+    expect(vm.clearHashesConfirmOpen).toBe(false)
+    expect(showSuccess).toHaveBeenCalledWith('admin.riskControl.flaggedHashesCleared')
+    wrapper.unmount()
   })
 
   it('submits edited risk control thresholds when saving moderation config', async () => {

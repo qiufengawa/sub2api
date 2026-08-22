@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
@@ -14,7 +13,7 @@ func TestOpenAIOAuthService_ValidateCodexPersonalAccessToken(t *testing.T) {
 	var gotAuthorization string
 	var gotOriginator string
 	var gotUserAgent string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuthorization = r.Header.Get("authorization")
 		gotOriginator = r.Header.Get("originator")
 		gotUserAgent = r.Header.Get("user-agent")

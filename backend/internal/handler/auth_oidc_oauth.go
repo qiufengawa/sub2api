@@ -94,6 +94,26 @@ type oidcUserInfoClaims struct {
 	AvatarURL     string
 }
 
+// oidcHTTPClientContextKey allows ID-token/JWKS helpers to use an explicit
+// req client in fixture tests without mutating req's process-wide default.
+type oidcHTTPClientContextKey struct{}
+
+func withOIDCHTTPClient(ctx context.Context, client *req.Client) context.Context {
+	if client == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, oidcHTTPClientContextKey{}, client)
+}
+
+func oidcHTTPClient(ctx context.Context) *req.Client {
+	if ctx != nil {
+		if client, ok := ctx.Value(oidcHTTPClientContextKey{}).(*req.Client); ok && client != nil {
+			return client
+		}
+	}
+	return req.C()
+}
+
 type oidcJWKSet struct {
 	Keys []oidcJWK `json:"keys"`
 }
@@ -276,7 +296,7 @@ func (h *AuthHandler) OIDCOAuthCallback(c *gin.Context) {
 		return
 	}
 
-	tokenResp, err := oidcExchangeCode(c.Request.Context(), cfg, code, redirectURI, codeVerifier)
+	tokenResp, err := oidcExchangeCode(c.Request.Context(), cfg, code, redirectURI, codeVerifier, h.oidcHTTPClient)
 	if err != nil {
 		description := ""
 		var exchangeErr *oidcTokenExchangeError
@@ -304,7 +324,7 @@ func (h *AuthHandler) OIDCOAuthCallback(c *gin.Context) {
 			return
 		}
 
-		idClaims, err = oidcParseAndValidateIDToken(c.Request.Context(), cfg, tokenResp.IDToken, expectedNonce)
+		idClaims, err = oidcParseAndValidateIDToken(withOIDCHTTPClient(c.Request.Context(), h.oidcHTTPClient), cfg, tokenResp.IDToken, expectedNonce)
 		if err != nil {
 			log.Printf("[OIDC OAuth] id_token validation failed: %v", err)
 			redirectOAuthError(c, frontendCallback, "invalid_id_token", "failed to validate id_token", "")
@@ -312,7 +332,7 @@ func (h *AuthHandler) OIDCOAuthCallback(c *gin.Context) {
 		}
 	}
 
-	userInfoClaims, err := oidcFetchUserInfo(c.Request.Context(), cfg, tokenResp)
+	userInfoClaims, err := oidcFetchUserInfo(c.Request.Context(), cfg, tokenResp, h.oidcHTTPClient)
 	if err != nil {
 		log.Printf("[OIDC OAuth] userinfo fetch failed: %v", err)
 		redirectOAuthError(c, frontendCallback, "userinfo_failed", "failed to fetch user info", "")
@@ -738,8 +758,13 @@ func oidcExchangeCode(
 	code string,
 	redirectURI string,
 	codeVerifier string,
+	clients ...*req.Client,
 ) (*oidcTokenResponse, error) {
-	client := req.C().SetTimeout(30 * time.Second)
+	client := req.C()
+	if len(clients) > 0 && clients[0] != nil {
+		client = clients[0]
+	}
+	client.SetTimeout(30 * time.Second)
 
 	form := url.Values{}
 	form.Set("grant_type", "authorization_code")
@@ -844,6 +869,7 @@ func oidcFetchUserInfo(
 	ctx context.Context,
 	cfg config.OIDCConnectConfig,
 	token *oidcTokenResponse,
+	clients ...*req.Client,
 ) (*oidcUserInfoClaims, error) {
 	if strings.TrimSpace(cfg.UserInfoURL) == "" {
 		return &oidcUserInfoClaims{}, nil
@@ -852,7 +878,11 @@ func oidcFetchUserInfo(
 		return nil, errors.New("missing access_token for userinfo request")
 	}
 
-	client := req.C().SetTimeout(30 * time.Second)
+	client := req.C()
+	if len(clients) > 0 && clients[0] != nil {
+		client = clients[0]
+	}
+	client.SetTimeout(30 * time.Second)
 	authorization, err := buildBearerAuthorization(token.TokenType, token.AccessToken)
 	if err != nil {
 		return nil, fmt.Errorf("invalid token for userinfo request: %w", err)
@@ -1040,7 +1070,7 @@ func oidcFetchJWKSet(ctx context.Context, jwksURL string) (*oidcJWKSet, error) {
 	if jwksURL == "" {
 		return nil, errors.New("missing jwks_url")
 	}
-	resp, err := req.C().
+	resp, err := oidcHTTPClient(ctx).
 		SetTimeout(30*time.Second).
 		R().
 		SetContext(ctx).

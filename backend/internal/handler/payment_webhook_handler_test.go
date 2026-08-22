@@ -147,6 +147,52 @@ func TestWebhookConstants(t *testing.T) {
 	})
 }
 
+func TestWebhookProviderLookupStatusDoesNotAckTransientFailures(t *testing.T) {
+	tests := []struct {
+		name        string
+		providerKey string
+		err         error
+		wantStatus  int
+	}{
+		{
+			name:        "unconfigured stripe provider can be acknowledged",
+			providerKey: payment.TypeStripe,
+			err:         payment.ErrProviderNotFound,
+			wantStatus:  http.StatusOK,
+		},
+		{
+			name:        "stripe database failure is retriable",
+			providerKey: payment.TypeStripe,
+			err:         errors.New("lookup webhook order: connection refused"),
+			wantStatus:  http.StatusInternalServerError,
+		},
+		{
+			name:        "ambiguous multi-instance stripe is retriable",
+			providerKey: payment.TypeStripe,
+			err:         errors.New("webhook provider fallback is ambiguous for stripe"),
+			wantStatus:  http.StatusInternalServerError,
+		},
+		{
+			name:        "wxpay database failure is retriable",
+			providerKey: payment.TypeWxpay,
+			err:         errors.New("lookup failed"),
+			wantStatus:  http.StatusInternalServerError,
+		},
+		{
+			name:        "unconfigured wxpay provider can be acknowledged",
+			providerKey: payment.TypeWxpay,
+			err:         payment.ErrProviderNotFound,
+			wantStatus:  http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantStatus, webhookProviderLookupStatus(tt.providerKey, tt.err))
+		})
+	}
+}
+
 func TestExtractOutTradeNo(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -177,6 +223,24 @@ func TestExtractOutTradeNo(t *testing.T) {
 			providerKey: payment.TypeAirwallex,
 			rawBody:     `{"name":"payment_intent.succeeded","data":{"object":{"merchant_order_id":"sub2_awx_123"}}}`,
 			want:        "sub2_awx_123",
+		},
+		{
+			name:        "stripe payment intent metadata order id",
+			providerKey: payment.TypeStripe,
+			rawBody:     `{"type":"payment_intent.succeeded","data":{"object":{"metadata":{"orderId":"sub2_stripe_123","unrelated":"ignored"}}}}`,
+			want:        "sub2_stripe_123",
+		},
+		{
+			name:        "stripe payload without order id",
+			providerKey: payment.TypeStripe,
+			rawBody:     `{"type":"payment_intent.succeeded","data":{"object":{"metadata":{"other":"value"}}}}`,
+			want:        "",
+		},
+		{
+			name:        "malformed stripe payload",
+			providerKey: payment.TypeStripe,
+			rawBody:     "{not-json",
+			want:        "",
 		},
 	}
 

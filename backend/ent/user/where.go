@@ -100,6 +100,11 @@ func Concurrency(v int) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldConcurrency, v))
 }
 
+// RevocationVersion applies equality check predicate on the "revocation_version" field. It's identical to RevocationVersionEQ.
+func RevocationVersion(v int64) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldRevocationVersion, v))
+}
+
 // Status applies equality check predicate on the "status" field. It's identical to StatusEQ.
 func Status(v string) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldStatus, v))
@@ -623,6 +628,46 @@ func ConcurrencyLT(v int) predicate.User {
 // ConcurrencyLTE applies the LTE predicate on the "concurrency" field.
 func ConcurrencyLTE(v int) predicate.User {
 	return predicate.User(sql.FieldLTE(FieldConcurrency, v))
+}
+
+// RevocationVersionEQ applies the EQ predicate on the "revocation_version" field.
+func RevocationVersionEQ(v int64) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldRevocationVersion, v))
+}
+
+// RevocationVersionNEQ applies the NEQ predicate on the "revocation_version" field.
+func RevocationVersionNEQ(v int64) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldRevocationVersion, v))
+}
+
+// RevocationVersionIn applies the In predicate on the "revocation_version" field.
+func RevocationVersionIn(vs ...int64) predicate.User {
+	return predicate.User(sql.FieldIn(FieldRevocationVersion, vs...))
+}
+
+// RevocationVersionNotIn applies the NotIn predicate on the "revocation_version" field.
+func RevocationVersionNotIn(vs ...int64) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldRevocationVersion, vs...))
+}
+
+// RevocationVersionGT applies the GT predicate on the "revocation_version" field.
+func RevocationVersionGT(v int64) predicate.User {
+	return predicate.User(sql.FieldGT(FieldRevocationVersion, v))
+}
+
+// RevocationVersionGTE applies the GTE predicate on the "revocation_version" field.
+func RevocationVersionGTE(v int64) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldRevocationVersion, v))
+}
+
+// RevocationVersionLT applies the LT predicate on the "revocation_version" field.
+func RevocationVersionLT(v int64) predicate.User {
+	return predicate.User(sql.FieldLT(FieldRevocationVersion, v))
+}
+
+// RevocationVersionLTE applies the LTE predicate on the "revocation_version" field.
+func RevocationVersionLTE(v int64) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldRevocationVersion, v))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.

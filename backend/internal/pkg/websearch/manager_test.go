@@ -1,16 +1,21 @@
 package websearch
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestNewManager_PreservesOrder(t *testing.T) {
 	configs := []ProviderConfig{
@@ -47,24 +52,18 @@ func TestManager_SearchWithBestProvider_SkipExpired(t *testing.T) {
 }
 
 func TestManager_SearchWithBestProvider_UsesFirstAvailable(t *testing.T) {
-	srvBrave := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		resp := braveResponse{}
 		resp.Web.Results = []braveResult{{URL: "https://brave.com", Title: "Brave", Description: "from brave"}}
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer srvBrave.Close()
-
-	origURL := *braveSearchURL
-	u, _ := http.NewRequest("GET", srvBrave.URL, nil)
-	*braveSearchURL = *u.URL
-	defer func() { *braveSearchURL = origURL }()
+		body, _ := json.Marshal(resp)
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(body)), Header: make(http.Header), Request: r}, nil
+	})}
 
 	m := NewManager([]ProviderConfig{
 		{Type: "brave", APIKey: "k1"},
 		{Type: "tavily", APIKey: "k2"},
 	}, nil)
-	m.clientCache[srvBrave.URL] = srvBrave.Client()
-	m.clientCache[""] = srvBrave.Client()
+	m.clientCache[""] = client
 
 	resp, providerName, err := m.SearchWithBestProvider(context.Background(), SearchRequest{Query: "test"})
 	require.NoError(t, err)
@@ -74,22 +73,17 @@ func TestManager_SearchWithBestProvider_UsesFirstAvailable(t *testing.T) {
 }
 
 func TestManager_SearchWithBestProvider_NilRedis(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		resp := braveResponse{}
 		resp.Web.Results = []braveResult{{URL: "https://test.com", Title: "Test", Description: "result"}}
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer srv.Close()
-
-	origURL := *braveSearchURL
-	u, _ := http.NewRequest("GET", srv.URL, nil)
-	*braveSearchURL = *u.URL
-	defer func() { *braveSearchURL = origURL }()
+		body, _ := json.Marshal(resp)
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(body)), Header: make(http.Header), Request: r}, nil
+	})}
 
 	m := NewManager([]ProviderConfig{
 		{Type: "brave", APIKey: "k", QuotaLimit: 100},
 	}, nil)
-	m.clientCache[""] = srv.Client()
+	m.clientCache[""] = client
 
 	resp, _, err := m.SearchWithBestProvider(context.Background(), SearchRequest{Query: "test"})
 	require.NoError(t, err)

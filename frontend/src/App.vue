@@ -67,8 +67,13 @@ function onAdminComplianceRequired(event: Event) {
 }
 
 watch(
-  () => authStore.isAuthenticated,
-  (isAuthenticated, oldValue) => {
+  [
+    () => authStore.isAuthenticated,
+    () => authStore.token,
+    () => authStore.user?.id,
+  ],
+  ([isAuthenticated], oldState) => {
+    const oldIsAuthenticated = oldState?.[0]
     authAnnouncementGeneration += 1
     const generation = authAnnouncementGeneration
     if (delayedAnnouncementTimer) {
@@ -78,6 +83,9 @@ watch(
     if (isAuthenticated) {
       if (authStore.isAdmin) {
         adminComplianceStore.fetchStatus().catch((error) => {
+          if ((error as { code?: string })?.code === 'AUTH_SESSION_CHANGED') {
+            return
+          }
           console.error('Failed to fetch admin compliance status:', error)
         })
       }
@@ -89,7 +97,7 @@ watch(
       subscriptionStore.startPolling()
 
       // Announcements: new login vs page refresh restore
-      if (oldValue === false) {
+      if (oldIsAuthenticated === false) {
         // New login: delay 3s then force fetch
         delayedAnnouncementTimer = setTimeout(() => {
           delayedAnnouncementTimer = null

@@ -51,6 +51,16 @@ const fakeAuthResponse = {
   user: { ...fakeUser },
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
 describe('useAuthStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -363,6 +373,113 @@ describe('useAuthStore', () => {
     it('未认证时抛出错误', async () => {
       const store = useAuthStore()
       await expect(store.refreshUser()).rejects.toThrow('Not authenticated')
+    })
+
+    it('旧会话请求在注销后完成时不会恢复用户状态', async () => {
+      mockLogin.mockResolvedValue(fakeAuthResponse)
+      mockLogout.mockResolvedValue(undefined)
+      const store = useAuthStore()
+      await store.login({ email: 'test@example.com', password: '123456' })
+
+      const pendingUser = deferred<{ data: typeof fakeUser }>()
+      mockGetCurrentUser.mockReturnValueOnce(pendingUser.promise)
+      const refresh = store.refreshUser()
+
+      await store.logout()
+      pendingUser.resolve({ data: { ...fakeUser, username: 'stale-user' } })
+
+      await expect(refresh).rejects.toMatchObject({ code: 'AUTH_SESSION_CHANGED' })
+      expect(store.user).toBeNull()
+      expect(localStorage.getItem('auth_user')).toBeNull()
+    })
+
+    it('切换账号后旧用户请求不会覆盖新账号', async () => {
+      mockLogin.mockResolvedValueOnce(fakeAuthResponse).mockResolvedValueOnce({
+        ...fakeAuthResponse,
+        access_token: 'admin-token',
+        refresh_token: 'admin-refresh',
+        user: { ...fakeAdminUser },
+      })
+      const store = useAuthStore()
+      await store.login({ email: 'test@example.com', password: '123456' })
+
+      const pendingUser = deferred<{ data: typeof fakeUser }>()
+      mockGetCurrentUser.mockReturnValueOnce(pendingUser.promise)
+      const refresh = store.refreshUser()
+
+      await store.login({ email: 'admin@example.com', password: '123456' })
+      pendingUser.resolve({ data: { ...fakeUser, username: 'stale-user' } })
+
+      await expect(refresh).rejects.toMatchObject({ code: 'AUTH_SESSION_CHANGED' })
+      expect(store.user).toEqual(fakeAdminUser)
+      expect(localStorage.getItem('auth_user')).toBe(JSON.stringify(fakeAdminUser))
+    })
+
+    it('旧刷新响应不会清除仍在加载用户的新 token', async () => {
+      mockLogin.mockResolvedValue(fakeAuthResponse)
+      const store = useAuthStore()
+      await store.login({ email: 'test@example.com', password: '123456' })
+
+      const pendingOldUser = deferred<{ data: typeof fakeUser }>()
+      const pendingNewUser = deferred<{ data: typeof fakeAdminUser }>()
+      mockGetCurrentUser
+        .mockReturnValueOnce(pendingOldUser.promise)
+        .mockReturnValueOnce(pendingNewUser.promise)
+
+      const staleRefresh = store.refreshUser()
+      const replacementSession = store.setToken('replacement-access')
+
+      pendingOldUser.resolve({ data: { ...fakeUser, username: 'stale-user' } })
+      await expect(staleRefresh).rejects.toMatchObject({ code: 'AUTH_SESSION_CHANGED' })
+      expect(store.token).toBe('replacement-access')
+      expect(localStorage.getItem('auth_token')).toBe('replacement-access')
+
+      pendingNewUser.resolve({ data: fakeAdminUser })
+      await expect(replacementSession).resolves.toEqual(fakeAdminUser)
+      expect(store.user).toEqual(fakeAdminUser)
+    })
+  })
+
+  describe('proactive token refresh', () => {
+    it('旧 token 刷新响应不会覆盖切换后的账号', async () => {
+      localStorage.setItem('auth_token', 'old-access')
+      localStorage.setItem('auth_user', JSON.stringify(fakeUser))
+      localStorage.setItem('refresh_token', 'old-refresh')
+      localStorage.setItem('token_expires_at', String(Date.now() - 1))
+      mockGetCurrentUser.mockResolvedValue({ data: fakeUser })
+      const pendingRefresh = deferred<{
+        access_token: string
+        refresh_token: string
+        expires_in: number
+        token_type: string
+      }>()
+      mockRefreshToken.mockReturnValueOnce(pendingRefresh.promise)
+
+      const store = useAuthStore()
+      store.checkAuth()
+      await Promise.resolve()
+      expect(mockRefreshToken).toHaveBeenCalledOnce()
+
+      mockLogin.mockResolvedValue({
+        ...fakeAuthResponse,
+        access_token: 'new-access',
+        refresh_token: 'new-refresh',
+        user: { ...fakeAdminUser },
+      })
+      await store.login({ email: 'admin@example.com', password: '123456' })
+
+      pendingRefresh.resolve({
+        access_token: 'stale-access',
+        refresh_token: 'stale-refresh',
+        expires_in: 3600,
+        token_type: 'Bearer',
+      })
+      await Promise.resolve()
+      await Promise.resolve()
+
+      expect(store.token).toBe('new-access')
+      expect(localStorage.getItem('auth_token')).toBe('new-access')
+      expect(localStorage.getItem('refresh_token')).toBe('new-refresh')
     })
   })
 

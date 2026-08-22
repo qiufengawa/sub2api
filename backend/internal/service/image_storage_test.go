@@ -24,9 +24,13 @@ type savedImage struct {
 }
 
 type fakeImageStorage struct {
-	saved []savedImage
-	url   string
-	err   error
+	saved     []savedImage
+	url       string
+	err       error
+	failAt    int
+	saveCalls int
+	deleted   []string
+	deleteErr error
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -36,14 +40,23 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (f *fakeImageStorage) Save(_ context.Context, key, contentType string, data []byte) (string, error) {
+	f.saveCalls++
 	if f.err != nil {
 		return "", f.err
+	}
+	if f.failAt > 0 && f.saveCalls == f.failAt {
+		return "", errors.New("injected save failure")
 	}
 	f.saved = append(f.saved, savedImage{key: key, contentType: contentType, data: append([]byte(nil), data...)})
 	if f.url != "" {
 		return f.url, nil
 	}
 	return "https://cdn.test/" + key, nil
+}
+
+func (f *fakeImageStorage) Delete(_ context.Context, key string) error {
+	f.deleted = append(f.deleted, key)
+	return f.deleteErr
 }
 
 func TestImageResultUploaderRewritesB64JSON(t *testing.T) {
@@ -72,17 +85,34 @@ func TestImageResultUploaderRewritesB64JSON(t *testing.T) {
 	require.JSONEq(t, `"a cat"`, string(parsed.Data[0]["revised_prompt"]), "unrelated fields preserved")
 }
 
+func TestNewImageResultUploaderHandlesCustomDefaultTransport(t *testing.T) {
+	original := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = original })
+	http.DefaultTransport = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("fixture transport")
+	})
+
+	uploader := NewImageResultUploader(&fakeImageStorage{}, "images/", 0, nil)
+	require.NotNil(t, uploader.httpClient)
+	require.NotNil(t, uploader.httpClient.Transport)
+}
+
 func TestImageResultUploaderRewritesURL(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/pic.png", r.URL.Path)
 		w.Header().Set("Content-Type", "image/png")
 		_, _ = w.Write(pngBytes)
-	}))
-	defer upstream.Close()
+	})
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, req)
+		return recorder.Result(), nil
+	})}
 
 	storage := &fakeImageStorage{}
-	uploader := NewImageResultUploader(storage, "images/", 0, nil)
+	uploader := NewImageResultUploader(storage, "images/", 0, client)
 
-	result := json.RawMessage(`{"created":1,"data":[{"url":"` + upstream.URL + `/pic.png"}]}`)
+	result := json.RawMessage(`{"created":1,"data":[{"url":"https://upstream.test/pic.png"}]}`)
 	out, err := uploader.Rewrite(context.Background(), "imgtask_xyz", result)
 	require.NoError(t, err)
 
@@ -95,6 +125,44 @@ func TestImageResultUploaderRewritesURL(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(out, &parsed))
 	require.JSONEq(t, `"https://cdn.test/images/imgtask_xyz-0.png"`, string(parsed.Data[0]["url"]))
+}
+
+func TestImageResultUploaderRejectsPrivateDownloadTargets(t *testing.T) {
+	httpCalls := 0
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		httpCalls++
+		return nil, errors.New("transport must not be reached")
+	})}
+	uploader := NewImageResultUploader(&fakeImageStorage{}, "images/", 0, client)
+
+	for _, rawURL := range []string{
+		"http://127.0.0.1/metadata",
+		"http://[::1]/metadata",
+		"http://169.254.169.254/latest/meta-data",
+		"http://localhost/internal",
+	} {
+		result := json.RawMessage(`{"data":[{"url":"` + rawURL + `"}]}`)
+		_, err := uploader.Rewrite(context.Background(), "imgtask_private", result)
+		require.ErrorContains(t, err, "blocked", rawURL)
+	}
+	require.Zero(t, httpCalls)
+}
+
+func TestImageResultUploaderRejectsRedirectIntoPrivateNetwork(t *testing.T) {
+	httpCalls := 0
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		httpCalls++
+		recorder := httptest.NewRecorder()
+		recorder.Header().Set("Location", "http://127.0.0.1/metadata")
+		recorder.WriteHeader(http.StatusFound)
+		return recorder.Result(), nil
+	})}
+	uploader := NewImageResultUploader(&fakeImageStorage{}, "images/", 0, client)
+	result := json.RawMessage(`{"data":[{"url":"https://upstream.test/redirect"}]}`)
+
+	_, err := uploader.Rewrite(context.Background(), "imgtask_redirect", result)
+	require.ErrorContains(t, err, "blocked")
+	require.Equal(t, 1, httpCalls, "redirect target must be rejected before a second transport call")
 }
 
 func TestImageResultUploaderRewritesImageDataURLWithoutHTTP(t *testing.T) {
@@ -190,6 +258,30 @@ func TestImageResultUploaderPropagatesStorageError(t *testing.T) {
 	_, err := uploader.Rewrite(context.Background(), "imgtask_err", result)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "bucket unreachable")
+}
+
+func TestImageResultUploaderRollsBackEarlierObjectsWhenLaterUploadFails(t *testing.T) {
+	storage := &fakeImageStorage{failAt: 2}
+	uploader := NewImageResultUploader(storage, "images/", 0, nil)
+	b64 := base64.StdEncoding.EncodeToString(pngBytes)
+	result := json.RawMessage(`{"data":[{"b64_json":"` + b64 + `"},{"b64_json":"` + b64 + `"}]}`)
+
+	_, err := uploader.Rewrite(context.Background(), "imgtask_partial", result)
+	require.ErrorContains(t, err, "injected save failure")
+	require.Len(t, storage.saved, 1)
+	require.Equal(t, []string{"images/imgtask_partial-0.png"}, storage.deleted)
+}
+
+func TestImageResultUploaderReportsRollbackFailureWithoutHidingOriginalError(t *testing.T) {
+	storage := &fakeImageStorage{failAt: 2, deleteErr: errors.New("delete unavailable")}
+	uploader := NewImageResultUploader(storage, "images/", 0, nil)
+	b64 := base64.StdEncoding.EncodeToString(pngBytes)
+	result := json.RawMessage(`{"data":[{"b64_json":"` + b64 + `"},{"b64_json":"` + b64 + `"}]}`)
+
+	_, err := uploader.Rewrite(context.Background(), "imgtask_partial_cleanup_error", result)
+	require.ErrorContains(t, err, "injected save failure")
+	require.ErrorContains(t, err, "rollback failed")
+	require.Equal(t, []string{"images/imgtask_partial_cleanup_error-0.png"}, storage.deleted)
 }
 
 func TestImageResultUploaderNilStoragePassthrough(t *testing.T) {

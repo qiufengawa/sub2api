@@ -336,6 +336,10 @@ const restorePassword = ref('')
 const manualExpireDays = ref(14)
 const deleteBackupId = ref('')
 const deletingBackup = ref(false)
+// Keep the mutation guards at the function boundary as well as on the
+// buttons.  A dialog/step-up flow can emit the same action more than once
+// before Vue has a chance to update the disabled state.
+const downloadingBackupIds = ref(new Set<string>())
 const downloadParts = ref<BackupDownloadPart[]>([])
 const downloadPartsModalOpen = ref(false)
 
@@ -525,6 +529,7 @@ async function loadS3Config() {
 }
 
 async function saveS3Config() {
+  if (savingS3.value) return
   savingS3.value = true
   try {
     await backupStepUp.run(() => adminAPI.backup.updateS3Config(s3Form.value))
@@ -571,6 +576,7 @@ async function loadImageStorageConfig() {
 }
 
 async function saveImageStorageConfig() {
+  if (savingImageStorage.value) return
   savingImageStorage.value = true
   try {
     await backupStepUp.run(() => adminAPI.backup.updateImageStorageConfig(imageStorageForm.value))
@@ -588,6 +594,7 @@ async function saveImageStorageConfig() {
 }
 
 async function testImageStorage() {
+  if (testingImageStorage.value) return
   testingImageStorage.value = true
   try {
     const result = await adminAPI.backup.testImageStorageConnection(imageStorageForm.value)
@@ -604,6 +611,7 @@ async function testImageStorage() {
 }
 
 async function testS3() {
+  if (testingS3.value) return
   testingS3.value = true
   try {
     const result = await adminAPI.backup.testS3Connection(s3Form.value)
@@ -639,6 +647,7 @@ async function loadSchedule() {
 }
 
 async function saveSchedule() {
+  if (savingSchedule.value) return
   savingSchedule.value = true
   try {
     await adminAPI.backup.updateSchedule(scheduleForm.value)
@@ -670,6 +679,7 @@ async function loadBackups(): Promise<boolean> {
 }
 
 async function createBackup() {
+  if (creatingBackup.value) return
   creatingBackup.value = true
   try {
     const record = await backupStepUp.run(() => adminAPI.backup.createBackup({ expire_days: manualExpireDays.value }))
@@ -702,6 +712,8 @@ async function createBackup() {
 }
 
 async function downloadBackup(id: string) {
+  if (downloadingBackupIds.value.has(id)) return
+  downloadingBackupIds.value.add(id)
   try {
     const result = await backupStepUp.run(() => adminAPI.backup.getDownloadURL(id))
     if (result.parts?.length) {
@@ -722,6 +734,10 @@ async function downloadBackup(id: string) {
     if (isStepUpCancelled(error)) return
     if (reportStepUpBlocked(error)) return
     appStore.showError((error as { message?: string })?.message || t('errors.networkError'))
+  } finally {
+    const next = new Set(downloadingBackupIds.value)
+    next.delete(id)
+    downloadingBackupIds.value = next
   }
 }
 

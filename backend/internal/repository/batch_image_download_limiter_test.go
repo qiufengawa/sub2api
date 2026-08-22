@@ -8,14 +8,13 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
-	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBatchImageDownloadLimiter_AcquireDenyReleaseAndTTL(t *testing.T) {
 	ctx := context.Background()
-	mr := miniredis.RunT(t)
+	mr := newRepositoryMiniRedis(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	t.Cleanup(func() { _ = rdb.Close() })
 	limiter := &batchImageDownloadLimiter{
@@ -40,4 +39,30 @@ func TestBatchImageDownloadLimiter_AcquireDenyReleaseAndTTL(t *testing.T) {
 	permit, err = limiter.Acquire(ctx, "11", "zip")
 	require.NoError(t, err)
 	require.NotNil(t, permit)
+}
+
+func TestBatchImageDownloadLimiter_ReleaseCanceledContextStillDecrements(t *testing.T) {
+	ctx := context.Background()
+	mr := newRepositoryMiniRedis(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+	limiter := &batchImageDownloadLimiter{
+		rdb:          rdb,
+		activePrefix: defaultBatchImageDownloadActivePrefix,
+		maxActive:    1,
+		ttl:          time.Minute,
+	}
+
+	permit, err := limiter.Acquire(ctx, "cancel-release", "zip")
+	require.NoError(t, err)
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	require.NoError(t, permit.Release(canceled))
+
+	// If Release used the canceled request context, the once guard would have
+	// consumed the attempt while the Redis counter remained active and this
+	// acquire would be incorrectly denied.
+	next, err := limiter.Acquire(ctx, "cancel-release", "zip")
+	require.NoError(t, err)
+	require.NotNil(t, next)
 }

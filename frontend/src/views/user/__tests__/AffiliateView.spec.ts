@@ -252,4 +252,71 @@ describe('AffiliateView', () => {
     await flushPromises()
     expect(dialog.props('show')).toBe(false)
   })
+
+  it('keeps a failed quota transfer confirmation open for retry', async () => {
+    getAffiliateDetail.mockResolvedValue({
+      user_id: 1,
+      aff_code: affiliateCode,
+      inviter_id: null,
+      aff_count: 1,
+      aff_quota: 25,
+      aff_frozen_quota: 0,
+      aff_history_quota: 25,
+      effective_rebate_rate_percent: 10,
+      invitees: [],
+    })
+    transferAffiliateQuota.mockRejectedValueOnce(new Error('transfer fixture failure'))
+
+    const wrapper = mount(AffiliateView, {
+      global: { stubs: { AppLayout: { template: '<main><slot /></main>' }, Icon: true } },
+    })
+    await flushPromises()
+    const transferButton = wrapper.findAll('button').find((button) =>
+      button.text().includes('affiliate.transfer.button'),
+    )
+    await transferButton!.trigger('click')
+    const dialog = wrapper.findComponent(UiConfirmDialog)
+    dialog.vm.$emit('confirm')
+    await flushPromises()
+
+    expect(dialog.props('show')).toBe(true)
+    expect(dialog.props('pending')).toBe(false)
+    expect(transferAffiliateQuota).toHaveBeenCalledTimes(1)
+  })
+
+  it('removes the transfer action locally when the post-transfer detail refresh fails', async () => {
+    const detailWithQuota = {
+      user_id: 1,
+      aff_code: affiliateCode,
+      inviter_id: null,
+      aff_count: 1,
+      aff_quota: 25,
+      aff_frozen_quota: 0,
+      aff_history_quota: 25,
+      effective_rebate_rate_percent: 10,
+      invitees: [],
+    }
+    getAffiliateDetail
+      .mockResolvedValueOnce(detailWithQuota)
+      .mockRejectedValueOnce(new Error('detail refresh fixture failure'))
+    transferAffiliateQuota.mockResolvedValueOnce({ transferred_quota: 25 })
+
+    const wrapper = mount(AffiliateView, {
+      global: { stubs: { AppLayout: { template: '<main><slot /></main>' }, Icon: true } },
+    })
+    await flushPromises()
+    const transferButton = wrapper.findAll('button').find((button) =>
+      button.text().includes('affiliate.transfer.button'),
+    )
+    await transferButton!.trigger('click')
+    const dialog = wrapper.findComponent(UiConfirmDialog)
+    dialog.vm.$emit('confirm')
+    await flushPromises()
+
+    expect((wrapper.vm as any).detail.aff_quota).toBe(0)
+    const transferAction = wrapper.findAll('button').find(button => button.text().includes('affiliate.transfer.button'))
+    expect(transferAction).toBeDefined()
+    expect(transferAction!.attributes('disabled')).toBeDefined()
+    expect(dialog.props('show')).toBe(false)
+  })
 })

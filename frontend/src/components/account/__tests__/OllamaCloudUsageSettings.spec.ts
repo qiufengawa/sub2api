@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import OllamaCloudUsageSettings from '../OllamaCloudUsageSettings.vue'
 import type { Account, OllamaCloudUsageState } from '@/types'
+import { UiConfirmDialog } from '@/components/ui'
 
 const api = vi.hoisted(() => ({
   getOllamaCloudUsage: vi.fn(),
@@ -171,5 +172,24 @@ describe('OllamaCloudUsageSettings', () => {
     await flushPromises()
 
     expect(notifications.showError).toHaveBeenCalledWith('retry in 18 seconds')
+  })
+
+  it('keeps the session deletion confirmation open after a failed request', async () => {
+    api.deleteOllamaCloudUsageSession.mockRejectedValueOnce(new Error('delete fixture failure'))
+    const wrapper = mount(OllamaCloudUsageSettings, {
+      props: { account: account(detailedState()) },
+    })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="ollama-cloud-session-delete"]').trigger('click')
+    const dialog = wrapper.findComponent(UiConfirmDialog)
+    expect(dialog.props('show')).toBe(true)
+    dialog.vm.$emit('confirm')
+    await flushPromises()
+
+    expect(api.deleteOllamaCloudUsageSession).toHaveBeenCalledTimes(1)
+    expect(dialog.props('show')).toBe(true)
+    expect(dialog.props('pending')).toBe(false)
+    expect(notifications.showError).toHaveBeenCalled()
   })
 })

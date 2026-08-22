@@ -36,20 +36,24 @@ func IsValidBillingPreference(value string) bool {
 }
 
 type User struct {
-	ID                int64
-	Email             string
-	Username          string
-	Notes             string
-	AvatarURL         string
-	AvatarSource      string
-	AvatarMIME        string
-	AvatarByteSize    int
-	AvatarSHA256      string
-	PasswordHash      string
-	Role              string
-	Balance           float64
-	FrozenBalance     float64
-	Concurrency       int
+	ID             int64
+	Email          string
+	Username       string
+	Notes          string
+	AvatarURL      string
+	AvatarSource   string
+	AvatarMIME     string
+	AvatarByteSize int
+	AvatarSHA256   string
+	PasswordHash   string
+	Role           string
+	Balance        float64
+	FrozenBalance  float64
+	Concurrency    int
+	// RevocationVersion is the durable user-wide access-session generation.
+	// It is atomically bumped by revoke-all-sessions and is distinct from the
+	// legacy password/email fingerprint stored in TokenVersion.
+	RevocationVersion int64
 	Status            string
 	BillingPreference string
 	AllowedGroups     []int64

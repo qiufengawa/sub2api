@@ -84,4 +84,9 @@ describe('admin SettingsView layout hierarchy', () => {
       switches.every((switchSource) => /(?:\:label|\baria-label)=/.test(switchSource)),
     ).toBe(true)
   })
+
+  it('disambiguates switches rendered inside repeated settings rows', () => {
+    expect(componentSource).toContain("quotaNotifyToggleLabel(entry.email, index)")
+    expect(componentSource).toContain("systemBlockCacheControl')} ${index + 1}")
+  })
 })

@@ -90,11 +90,19 @@ func (h *PaymentWebhookHandler) handleNotify(c *gin.Context, providerKey string)
 	providers, err := h.paymentService.GetWebhookProviders(c.Request.Context(), providerKey, outTradeNo)
 	if err != nil {
 		slog.Warn("[Payment Webhook] provider not found", "provider", providerKey, "outTradeNo", outTradeNo, "error", err)
-		if providerKey == payment.TypeWxpay {
+		status := webhookProviderLookupStatus(providerKey, err)
+		if status == http.StatusBadRequest {
 			c.String(http.StatusBadRequest, "verify failed")
 			return
 		}
-		writeSuccessResponse(c, providerKey)
+		if status == http.StatusOK {
+			// A genuinely unconfigured provider is safe to acknowledge: there is
+			// no local instance that could verify or fulfil this event.  All other
+			// lookup failures are transient/ambiguous and must be retried.
+			writeSuccessResponse(c, providerKey)
+			return
+		}
+		c.String(http.StatusInternalServerError, "provider lookup failed")
 		return
 	}
 
@@ -144,6 +152,17 @@ func (h *PaymentWebhookHandler) handleNotify(c *gin.Context, providerKey string)
 	writeSuccessResponse(c, resolvedProviderKey)
 }
 
+// webhookProviderLookupStatus distinguishes an unconfigured provider from a
+// transient database/configuration failure.  Returning 200 for the latter
+// would acknowledge a payment without verification and suppress provider
+// retries (especially with multiple Stripe instances).
+func webhookProviderLookupStatus(providerKey string, err error) int {
+	if errors.Is(err, payment.ErrProviderNotFound) {
+		return http.StatusOK
+	}
+	return http.StatusInternalServerError
+}
+
 // extractOutTradeNo parses the webhook body to find the out_trade_no.
 // This allows looking up the correct provider instance before verification.
 func extractOutTradeNo(rawBody, providerKey string) string {
@@ -164,8 +183,22 @@ func extractOutTradeNo(rawBody, providerKey string) string {
 		if err := json.Unmarshal([]byte(rawBody), &payload); err == nil {
 			return strings.TrimSpace(payload.Data.Object.MerchantOrderID)
 		}
+	case payment.TypeStripe:
+		// Stripe PaymentIntent creation stores the Sub2API order number in
+		// metadata.orderId.  Read it before provider verification so a
+		// multi-instance Stripe setup can select the pinned merchant config.
+		var payload struct {
+			Data struct {
+				Object struct {
+					Metadata map[string]string `json:"metadata"`
+				} `json:"object"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(rawBody), &payload); err == nil {
+			return strings.TrimSpace(payload.Data.Object.Metadata["orderId"])
+		}
 	}
-	// For other providers (Stripe, Alipay direct, WxPay direct), the registry
+	// For other providers (Alipay direct, WxPay direct), the registry
 	// typically has only one instance, so no instance lookup is needed.
 	return ""
 }

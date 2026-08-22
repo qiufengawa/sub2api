@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"strings"
 	"sync"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/imroc/req/v3"
 )
 
 // AuthHandler handles authentication-related requests
@@ -30,6 +32,11 @@ type AuthHandler struct {
 
 	dingTalkClientInstance *DingTalkClient
 	dingTalkClientMu       sync.Mutex
+	// linuxDoHTTPClient is nil in production and allows tests to inject an
+	// in-process transport without mutating req's global client.
+	linuxDoHTTPClient *req.Client
+	oidcHTTPClient    *req.Client
+	wechatHTTPClient  *http.Client
 }
 
 // NewAuthHandler creates a new AuthHandler
@@ -109,8 +116,10 @@ func ensureLoginUserActive(user *service.User) error {
 	return nil
 }
 
-// respondWithTokenPair 生成 Token 对并返回认证响应
-// 如果 Token 对生成失败，回退到只返回 Access Token（向后兼容）
+// respondWithTokenPair 生成 Token 对并返回认证响应。
+// 只有明确未配置 refresh-token cache 的旧部署才回退到无状态 Access
+// Token；一旦 cache 已配置但暂时不可用，继续发无索引 token 会绕过会话
+// 撤销与轮转，故应直接返回服务错误。
 func (h *AuthHandler) respondWithTokenPair(c *gin.Context, user *service.User) {
 	respondWithTokenPair(c, h.authService, user)
 }
@@ -124,7 +133,11 @@ func respondWithTokenPair(c *gin.Context, authService *service.AuthService, user
 	tokenPair, err := authService.GenerateTokenPair(c.Request.Context(), user, "")
 	if err != nil {
 		slog.Error("failed to generate token pair", "error", err, "user_id", user.ID)
-		// 回退到只返回Access Token
+		if authService.HasRefreshTokenCache() {
+			response.ErrorFrom(c, service.ErrServiceUnavailable)
+			return
+		}
+		// 未配置 refresh cache 的旧部署回退到只返回 Access Token。
 		token, tokenErr := authService.GenerateToken(c.Request.Context(), user)
 		if tokenErr != nil {
 			response.InternalError(c, "Failed to generate token")

@@ -14,7 +14,7 @@ import (
 
 func newLeaderLockTestCache(t *testing.T) (*leaderLockCache, *miniredis.Miniredis) {
 	t.Helper()
-	mr := miniredis.RunT(t)
+	mr := newRepositoryMiniRedis(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	t.Cleanup(func() { _ = rdb.Close() })
 	return &leaderLockCache{rdb: rdb}, mr

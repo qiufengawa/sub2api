@@ -7,6 +7,22 @@
   "failedRequests": 0,
   "consoleMessages": 0,
   "pageErrors": 4,
+  "expectedSandboxErrors": 4,
+  "unexpectedPageErrors": 0,
+  "pageErrorClassification": {
+    "category": "expected-sandbox-iframe-localStorage",
+    "message": "SecurityError: Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+    "targets": ["/admin/settings"],
+    "modes": ["light", "dark-reduced"],
+    "viewports": ["desktop", "mobile"],
+    "cases": [
+      {"target": "/admin/settings", "mode": "light", "viewport": "desktop"},
+      {"target": "/admin/settings", "mode": "light", "viewport": "mobile"},
+      {"target": "/admin/settings", "mode": "dark-reduced", "viewport": "desktop"},
+      {"target": "/admin/settings", "mode": "dark-reduced", "viewport": "mobile"}
+    ],
+    "count": 4
+  },
   "unnamedInteractiveNodes": 0,
   "rows": [
     {

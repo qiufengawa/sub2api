@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -287,12 +288,30 @@ func TestBatchImageProviderProcessor_StatusFlow(t *testing.T) {
 	t.Run("failed provider marks job failed", func(t *testing.T) {
 		repo := newFakeBatchImageRepository()
 		repo.jobs["imgbatch_flow"] = newJob(BatchImageJobStatusRunning)
-		provider := &fakeProcessorProvider{status: &BatchProviderStatus{InternalState: BatchProviderStateFailed, RawState: "FAILED", ErrorCode: "BAD_PROMPT", ErrorMessage: "bad prompt"}}
+		provider := &fakeProcessorProvider{status: &BatchProviderStatus{InternalState: BatchProviderStateFailed, RawState: "FAILED", ProviderOutputRef: "files/failed-output", ErrorCode: "BAD_PROMPT", ErrorMessage: "bad prompt"}}
 		got, err := newTestBatchImageProcessor(repo, provider).Process(ctx, "imgbatch_flow")
 		require.NoError(t, err)
 		require.True(t, got.Terminal)
 		require.Equal(t, BatchImageJobStatusFailed, repo.jobs["imgbatch_flow"].Status)
 		require.Equal(t, "BAD_PROMPT", batchImageDerefString(repo.jobs["imgbatch_flow"].LastErrorCode))
+		require.NotNil(t, repo.jobs["imgbatch_flow"].OutputExpiresAt)
+	})
+
+	t.Run("indexing failure marks retained provider output for cleanup", func(t *testing.T) {
+		repo := newFakeBatchImageRepository()
+		outputRef := "files/index-failed-output"
+		repo.jobs["imgbatch_flow"] = newJob(BatchImageJobStatusIndexing)
+		repo.jobs["imgbatch_flow"].ProviderOutputRef = &outputRef
+		provider := &fakeProcessorProvider{result: strings.Join([]string{
+			`{"key":"duplicate","error":{"message":"first"}}`,
+			`{"key":"duplicate","error":{"message":"second"}}`,
+		}, "\n") + "\n"}
+
+		got, err := newTestBatchImageProcessor(repo, provider).Process(ctx, "imgbatch_flow")
+		require.NoError(t, err)
+		require.True(t, got.Terminal)
+		require.Equal(t, BatchImageJobStatusFailed, repo.jobs["imgbatch_flow"].Status)
+		require.NotNil(t, repo.jobs["imgbatch_flow"].OutputExpiresAt)
 	})
 
 	t.Run("cancelled provider marks job cancelled", func(t *testing.T) {
@@ -315,6 +334,104 @@ func TestBatchImageProviderProcessor_StatusFlow(t *testing.T) {
 		require.Len(t, billing.releases, 1)
 		require.Equal(t, BatchImageReleaseRequestID("imgbatch_flow"), billing.releases[0].RequestID)
 	})
+}
+
+func TestBatchImageProviderProcessor_DropsLateOutputRefAfterCancellation(t *testing.T) {
+	ctx := context.Background()
+	accountID := int64(10)
+	providerJob := "providers/job"
+	repo := newFakeBatchImageRepository()
+	repo.jobs["imgbatch_cancel_race"] = &BatchImageJob{
+		BatchID:         "imgbatch_cancel_race",
+		Status:          BatchImageJobStatusSubmitted,
+		Provider:        "fake",
+		AccountID:       &accountID,
+		ProviderJobName: &providerJob,
+	}
+	provider := &fakeProcessorProvider{
+		status: &BatchProviderStatus{
+			InternalState:     BatchProviderStateSucceeded,
+			RawState:          "SUCCEEDED",
+			ProviderOutputRef: "files/late-output",
+		},
+		onGet: func() {
+			// Simulate the user cancel committing while provider.Get is in
+			// flight.  The processor still holds a stale submitted snapshot.
+			repo.jobs["imgbatch_cancel_race"].Status = BatchImageJobStatusCancelled
+		},
+	}
+
+	got, err := newTestBatchImageProcessor(repo, provider).Process(ctx, "imgbatch_cancel_race")
+	require.NoError(t, err)
+	require.True(t, got.Terminal)
+	require.Nil(t, repo.jobs["imgbatch_cancel_race"].ProviderOutputRef,
+		"a late provider response must not attach output to a cancelled job")
+}
+
+func TestBatchImageProviderProcessor_DropsLateStatusWithoutOutputRefAfterCancellation(t *testing.T) {
+	ctx := context.Background()
+	accountID := int64(10)
+	providerJob := "providers/job-no-output-ref"
+	repo := newFakeBatchImageRepository()
+	repo.jobs["imgbatch_cancel_no_ref"] = &BatchImageJob{
+		BatchID:         "imgbatch_cancel_no_ref",
+		Status:          BatchImageJobStatusSubmitted,
+		Provider:        "fake",
+		AccountID:       &accountID,
+		ProviderJobName: &providerJob,
+	}
+	provider := &fakeProcessorProvider{
+		status: &BatchProviderStatus{
+			InternalState: BatchProviderStateSucceeded,
+			RawState:      "SUCCEEDED",
+			// Some providers report the result in a later indexing call and do
+			// not include an output reference in this status response.
+		},
+		onGet: func() {
+			latest := *repo.jobs["imgbatch_cancel_no_ref"]
+			latest.Status = BatchImageJobStatusCancelled
+			repo.jobs["imgbatch_cancel_no_ref"] = &latest
+		},
+	}
+
+	got, err := newTestBatchImageProcessor(repo, provider).Process(ctx, "imgbatch_cancel_no_ref")
+	require.NoError(t, err)
+	require.True(t, got.Terminal)
+	require.Equal(t, BatchImageJobStatusCancelled, repo.jobs["imgbatch_cancel_no_ref"].Status)
+}
+
+func TestBatchImageProviderProcessor_RechecksTerminalStateWhenOutputRefIsUnchanged(t *testing.T) {
+	ctx := context.Background()
+	accountID := int64(10)
+	providerJob := "providers/job-existing-ref"
+	existingRef := "files/already-persisted"
+	repo := newFakeBatchImageRepository()
+	repo.jobs["imgbatch_cancel_same_ref"] = &BatchImageJob{
+		BatchID:           "imgbatch_cancel_same_ref",
+		Status:            BatchImageJobStatusSubmitted,
+		Provider:          "fake",
+		AccountID:         &accountID,
+		ProviderJobName:   &providerJob,
+		ProviderOutputRef: &existingRef,
+	}
+	provider := &fakeProcessorProvider{
+		status: &BatchProviderStatus{
+			InternalState:     BatchProviderStateRunning,
+			RawState:          "RUNNING",
+			ProviderOutputRef: existingRef,
+		},
+		onGet: func() {
+			// The provider returned the same ref that was on the stale snapshot,
+			// but cancellation committed while the poll was in flight.  The
+			// conditional write must still re-check the terminal lifecycle state.
+			repo.jobs["imgbatch_cancel_same_ref"].Status = BatchImageJobStatusCancelled
+		},
+	}
+
+	got, err := newTestBatchImageProcessor(repo, provider).Process(ctx, "imgbatch_cancel_same_ref")
+	require.NoError(t, err)
+	require.True(t, got.Terminal)
+	require.Equal(t, BatchImageJobStatusCancelled, repo.jobs["imgbatch_cancel_same_ref"].Status)
 }
 
 func TestCanTransitionBatchImageJob_PR5DirectIndexing(t *testing.T) {
@@ -348,6 +465,7 @@ type fakeProcessorProvider struct {
 	status *BatchProviderStatus
 	getErr error
 	result string
+	onGet  func()
 
 	getCalled        bool
 	openResultCalled bool
@@ -362,6 +480,9 @@ func (p *fakeProcessorProvider) Submit(context.Context, *BatchImageJob, *Account
 }
 func (p *fakeProcessorProvider) Get(context.Context, *BatchImageJob, *Account) (*BatchProviderStatus, error) {
 	p.getCalled = true
+	if p.onGet != nil {
+		p.onGet()
+	}
 	if p.getErr != nil {
 		return nil, p.getErr
 	}
@@ -380,13 +501,16 @@ func (p *fakeProcessorProvider) Cleanup(context.Context, *BatchImageJob, *Accoun
 }
 
 type fakeBatchImageRepository struct {
-	jobs          map[string]*BatchImageJob
-	items         map[string][]CreateBatchImageItemParams
-	counts        map[string]BatchImageCounts
-	transitions   map[string][]string
-	events        map[string][]string
-	transitionErr error
-	replaceCalls  int
+	jobs                map[string]*BatchImageJob
+	items               map[string][]CreateBatchImageItemParams
+	counts              map[string]BatchImageCounts
+	transitions         map[string][]string
+	events              map[string][]string
+	transitionErr       error
+	replaceCalls        int
+	createErr           error
+	forceCreateConflict bool
+	idempotencyReads    int
 }
 
 func newFakeBatchImageRepository() *fakeBatchImageRepository {
@@ -400,6 +524,9 @@ func newFakeBatchImageRepository() *fakeBatchImageRepository {
 }
 
 func (r *fakeBatchImageRepository) CreateBatchImageJob(_ context.Context, params CreateBatchImageJobParams) (*BatchImageJob, error) {
+	if r.createErr != nil {
+		return nil, r.createErr
+	}
 	job := &BatchImageJob{
 		BatchID:                 params.BatchID,
 		UserID:                  params.UserID,
@@ -441,6 +568,10 @@ func (r *fakeBatchImageRepository) GetBatchImageJobByBatchID(_ context.Context, 
 }
 
 func (r *fakeBatchImageRepository) GetBatchImageJobByIdempotencyKey(_ context.Context, userID, apiKeyID int64, key string) (*BatchImageJob, error) {
+	r.idempotencyReads++
+	if r.forceCreateConflict && r.idempotencyReads == 1 {
+		return nil, ErrBatchImageJobNotFound
+	}
 	for _, job := range r.jobs {
 		if job.UserID == userID && job.APIKeyID != nil && *job.APIKeyID == apiKeyID && batchImageDerefString(job.IdempotencyKey) == key {
 			return job, nil
@@ -471,7 +602,18 @@ func (r *fakeBatchImageRepository) ListBatchImageJobsForOwner(_ context.Context,
 		if job.UserID != userID || job.APIKeyID == nil || *job.APIKeyID != apiKeyID {
 			continue
 		}
-		if filter.Status != "" && job.Status != filter.Status {
+		if len(filter.Statuses) > 0 {
+			matched := false
+			for _, status := range filter.Statuses {
+				if job.Status == status {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		} else if filter.Status != "" && job.Status != filter.Status {
 			continue
 		}
 		if filter.TaskNameLike != "" && !strings.Contains(strings.ToLower(job.TaskName), strings.ToLower(filter.TaskNameLike)) {
@@ -572,6 +714,18 @@ func (r *fakeBatchImageRepository) UpdateBatchImageJobProviderOutputRef(_ contex
 	}
 	job.ProviderOutputRef = &providerOutputRef
 	return nil
+}
+
+func (r *fakeBatchImageRepository) UpdateBatchImageJobProviderOutputRefIfActive(_ context.Context, batchID, providerOutputRef string) (bool, error) {
+	job, ok := r.jobs[batchID]
+	if !ok {
+		return false, ErrBatchImageJobNotFound
+	}
+	if IsTerminalBatchImageJobStatus(job.Status) {
+		return false, nil
+	}
+	job.ProviderOutputRef = &providerOutputRef
+	return true, nil
 }
 
 func (r *fakeBatchImageRepository) UpdateBatchImageJobProviderSubmit(_ context.Context, params UpdateBatchImageJobProviderSubmitParams) error {
@@ -741,6 +895,26 @@ func (r *fakeBatchImageRepository) GetBatchImageJobForDownload(ctx context.Conte
 	return r.GetBatchImageJobByBatchIDForOwner(ctx, userID, apiKeyID, batchID)
 }
 
+func (r *fakeBatchImageRepository) ListBatchImageChildJobsForDownload(_ context.Context, userID, apiKeyID int64, parentBatchID string) ([]*BatchImageJob, error) {
+	children := make([]*BatchImageJob, 0)
+	for _, job := range r.jobs {
+		if job == nil || job.UserID != userID || job.APIKeyID == nil || *job.APIKeyID != apiKeyID || job.UserDeletedAt != nil {
+			continue
+		}
+		if job.ParentBatchID == nil || *job.ParentBatchID != parentBatchID {
+			continue
+		}
+		children = append(children, job)
+	}
+	sort.SliceStable(children, func(i, j int) bool {
+		if children[i].CreatedAt.Equal(children[j].CreatedAt) {
+			return children[i].ID < children[j].ID
+		}
+		return children[i].CreatedAt.Before(children[j].CreatedAt)
+	})
+	return children, nil
+}
+
 func (r *fakeBatchImageRepository) GetBatchImageItemForDownload(_ context.Context, batchID, customID string) (*BatchImageItem, error) {
 	for _, item := range r.items[batchID] {
 		if item.CustomID != customID {
@@ -805,7 +979,27 @@ func (r *fakeBatchImageRepository) ListBatchImageJobsDueForOutputCleanup(_ conte
 	}
 	var jobs []*BatchImageJob
 	for _, job := range r.jobs {
-		if job.OutputDeletedAt != nil || batchImageDerefString(job.ProviderOutputRef) == "" || job.Status != BatchImageJobStatusCompleted || job.OutputExpiresAt == nil || job.OutputExpiresAt.After(now) {
+		if job.OutputDeletedAt != nil || batchImageDerefString(job.ProviderOutputRef) == "" ||
+			(job.Status != BatchImageJobStatusCompleted && job.Status != BatchImageJobStatusFailed && job.Status != BatchImageJobStatusCancelled) ||
+			job.OutputExpiresAt == nil || job.OutputExpiresAt.After(now) {
+			continue
+		}
+		activeChild := false
+		for _, child := range r.jobs {
+			if child == nil || child.ParentBatchID == nil || *child.ParentBatchID != job.BatchID || child.UserDeletedAt != nil {
+				continue
+			}
+			switch child.Status {
+			case BatchImageJobStatusCompleted, BatchImageJobStatusFailed, BatchImageJobStatusCancelled, BatchImageJobStatusOutputDeleted:
+				// Terminal children do not block root TTL cleanup.
+			default:
+				activeChild = true
+			}
+			if activeChild {
+				break
+			}
+		}
+		if activeChild {
 			continue
 		}
 		jobs = append(jobs, job)

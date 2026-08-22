@@ -15,7 +15,7 @@ import (
 func TestFetchChatGPTSubscriptionExpiresAt(t *testing.T) {
 	const wantExpiresAt = "2026-06-10T02:52:15Z"
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/backend-api/subscriptions", r.URL.Path)
 		require.Equal(t, "acc_123", r.URL.Query().Get("account_id"))
 		require.Equal(t, "Bearer access-token", r.Header.Get("Authorization"))
@@ -44,7 +44,7 @@ func TestFetchChatGPTSubscriptionExpiresAt(t *testing.T) {
 func TestFetchChatGPTAccountInfo_SkipsExpiredWorkspaceCandidate(t *testing.T) {
 	expiredAt := time.Now().Add(-24 * time.Hour).UTC().Format(time.RFC3339)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/backend-api/accounts/check/v4-2023-04-27", r.URL.Path)
 		require.Equal(t, "Bearer access-token", r.Header.Get("Authorization"))
 
@@ -84,7 +84,7 @@ func TestFetchChatGPTAccountInfo_SkipsExpiredWorkspaceCandidate(t *testing.T) {
 }
 
 func TestFetchChatGPTAccountInfo_SkipsDeactivatedWorkspaceCandidate(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/backend-api/accounts/check/v4-2023-04-27", r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
@@ -142,7 +142,7 @@ func TestChatGPTAccountInfoBelongsToTokenAccount(t *testing.T) {
 func TestFetchChatGPTAccountInfo_ReportsAccountID(t *testing.T) {
 	futureAt := time.Now().Add(720 * time.Hour).UTC().Format(time.RFC3339)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"accounts": map[string]any{
@@ -311,7 +311,7 @@ type chatGPTBackendTestServerConfig struct {
 // 并在 t.Cleanup 里还原包级 URL 变量。
 func newChatGPTBackendTestServer(t *testing.T, cfg chatGPTBackendTestServerConfig) *httptest.Server {
 	t.Helper()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/backend-api/accounts/check/v4-2023-04-27":

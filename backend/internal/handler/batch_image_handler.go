@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -199,7 +200,9 @@ func (h *BatchImageHandler) ItemContent(c *gin.Context) {
 
 	c.Header("Content-Type", stream.ContentType)
 	c.Header("Content-Disposition", service.BatchImageContentDispositionAttachment(stream.Filename))
-	c.Header("Cache-Control", "private, max-age=300")
+	// Item content can be removed independently of the record (TTL/manual
+	// output cleanup). Do not let an intermediary serve a deleted preview.
+	c.Header("Cache-Control", "private, no-store")
 	c.Header("X-Content-Type-Options", "nosniff")
 	if stream.ContentLength != nil && *stream.ContentLength >= 0 {
 		c.Header("Content-Length", strconv.FormatInt(*stream.ContentLength, 10))
@@ -208,10 +211,10 @@ func (h *BatchImageHandler) ItemContent(c *gin.Context) {
 	if _, err := io.Copy(c.Writer, stream.Reader); err != nil {
 		return
 	}
-	h.markDownloadedBestEffort(c, owner)
 }
 
-// markDownloadedBestEffort 在响应体已写出后标记下载状态；
+// markDownloadedBestEffort 在 ZIP 响应体已写出后标记下载状态；
+// 单项预览不会调用此方法，因为 downloaded_at 的契约是“首次成功下载 ZIP”。
 // 此时无法再向客户端返回错误，失败只能记日志（不能静默丢弃）。
 func (h *BatchImageHandler) markDownloadedBestEffort(c *gin.Context, owner service.BatchImageOwner) {
 	if err := h.service.MarkDownloaded(c.Request.Context(), owner, c.Param("id")); err != nil {
@@ -230,19 +233,45 @@ func (h *BatchImageHandler) Download(c *gin.Context) {
 	}
 	maxItems, _ := strconv.Atoi(c.Query("max_items"))
 
+	// Build into a private temporary file before committing the HTTP response.
+	// StreamZip may discover a provider/JSONL error after opening the ZIP; if
+	// bytes were written directly to c.Writer Gin can no longer emit the JSON
+	// error envelope and clients receive a misleading 200 partial archive.
+	tmp, err := os.CreateTemp("", "sub2api-batch-image-*.zip")
+	if err != nil {
+		batchImageError(c, infraerrors.New(http.StatusInternalServerError, "BATCH_IMAGE_DOWNLOAD_TEMP_FAILED", "batch image download failed"))
+		return
+	}
+	tmpName := tmp.Name()
+	defer func() {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+	}()
+	_, err = h.download.StreamZip(c.Request.Context(), owner, c.Param("id"), service.BatchImageZipOptions{
+		Status:          c.Query("status"),
+		MaxItems:        maxItems,
+		IncludeManifest: true,
+	}, tmp)
+	if err != nil {
+		batchImageError(c, err)
+		return
+	}
+	if err := tmp.Close(); err != nil {
+		batchImageError(c, infraerrors.New(http.StatusInternalServerError, "BATCH_IMAGE_DOWNLOAD_TEMP_FAILED", "batch image download failed"))
+		return
+	}
+	file, err := os.Open(tmpName)
+	if err != nil {
+		batchImageError(c, infraerrors.New(http.StatusInternalServerError, "BATCH_IMAGE_DOWNLOAD_TEMP_FAILED", "batch image download failed"))
+		return
+	}
+	defer file.Close()
 	c.Header("Content-Type", "application/zip")
 	c.Header("Content-Disposition", service.BatchImageContentDispositionAttachment(c.Param("id")+".zip"))
 	c.Header("Cache-Control", "private, no-store")
 	c.Header("X-Content-Type-Options", "nosniff")
-	result, err := h.download.StreamZip(c.Request.Context(), owner, c.Param("id"), service.BatchImageZipOptions{
-		Status:          c.Query("status"),
-		MaxItems:        maxItems,
-		IncludeManifest: true,
-	}, c.Writer)
-	if err != nil {
-		if result == nil || !c.Writer.Written() {
-			batchImageError(c, err)
-		}
+	c.Status(http.StatusOK)
+	if _, err := io.Copy(c.Writer, file); err != nil {
 		return
 	}
 	h.markDownloadedBestEffort(c, owner)

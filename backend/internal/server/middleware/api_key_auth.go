@@ -61,9 +61,9 @@ func NewPlaygroundAPIKeyAuthMiddleware(apiKeyService *service.APIKeyService, sub
 //   - 鉴权（Authentication）：验证 Key 有效性、用户状态、IP 限制 —— 始终执行
 //   - 计费执行（Billing Enforcement）：过期/配额/订阅/余额检查 —— skipBilling 时整块跳过
 //
-// /v1/usage、/v1/sub2api/billing 端点与异步生图任务查询只需鉴权，不需要计费执行。
+// /v1/usage、/v1/sub2api/billing 端点与异步生图/批量生图结果查询只需鉴权，不需要计费执行。
 // usage 允许过期/配额耗尽的 Key 查询自身用量，billing 用于读取当前 Key 的倍率配置，
-// 异步生图查询允许已耗尽额度的 Key 拉取自身任务结果。
+// 生图结果查询允许已耗尽额度的 Key 拉取自身任务结果。
 func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscriptionService *service.SubscriptionService, cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// ── 1. 提取 API Key ──────────────────────────────────────────
@@ -195,7 +195,8 @@ func authorizeLoadedAPIKey(c *gin.Context, apiKey *service.APIKey, apiKeyService
 	ctx := context.WithValue(c.Request.Context(), ctxkey.UserID, apiKey.User.ID)
 	c.Request = c.Request.WithContext(ctx)
 	billingInfoRequest := c.Request.URL.Path == "/v1/sub2api/billing"
-	skipBilling := c.Request.URL.Path == "/v1/usage" || billingInfoRequest || isAsyncImageTaskRead(c.Request.Method, c.Request.URL.Path)
+	readOnlyBillingExempt := c.Request.URL.Path == "/v1/usage" || isAsyncImageTaskRead(c.Request.Method, c.Request.URL.Path) || isBatchImageRead(c.Request.Method, c.Request.URL.Path)
+	skipBilling := readOnlyBillingExempt || billingInfoRequest
 
 	if cfg.RunMode == config.RunModeSimple {
 		setAuthenticatedAPIKeyContext(c, apiKey, nil)
@@ -207,7 +208,7 @@ func authorizeLoadedAPIKey(c *gin.Context, apiKey *service.APIKey, apiKeyService
 	}
 
 	var subscription *service.UserSubscription
-	if apiKey.Group != nil && subscriptionService != nil && !billingInfoRequest {
+	if apiKey.Group != nil && subscriptionService != nil && !billingInfoRequest && !readOnlyBillingExempt {
 		sub, subErr := subscriptionService.GetActiveSubscriptionForGroup(c.Request.Context(), apiKey.User.ID, apiKey.Group.ID)
 		if subErr == nil {
 			subscription = sub
@@ -324,6 +325,22 @@ func isAsyncImageTaskRead(method, path string) bool {
 		return false
 	}
 	return strings.HasPrefix(path, "/v1/images/tasks/") || strings.HasPrefix(path, "/images/tasks/")
+}
+
+// isBatchImageRead exempts only GET batch-image routes from quota/expiry
+// enforcement.  Existing results must remain readable/downloadable after a
+// key has exhausted its future-generation quota; POST/cancel/delete mutations
+// still go through normal billing/status checks.
+func isBatchImageRead(method, path string) bool {
+	if method != http.MethodGet {
+		return false
+	}
+	for _, root := range []string{"/v1/images/batches", "/images/batches"} {
+		if path == root || strings.HasPrefix(path, root+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // GetAPIKeyFromContext 从上下文中获取API key

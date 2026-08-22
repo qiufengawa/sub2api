@@ -581,6 +581,37 @@ describe('admin UsageView errors tab filter forwarding', () => {
     expect(vm.errRows).toEqual([{ id: 2 }])
     expect(vm.errLoading).toBe(false)
   })
+
+  it('does not surface a generic stale rejection after a newer usage-log request starts', async () => {
+    let rejectFirst!: (reason?: unknown) => void
+
+    const wrapper = mount(UsageView, {
+      global: { stubs: {
+        AppLayout: AppLayoutStub, UsageStatsCards: true, UsageFilters: UsageFiltersStub,
+        UsageTable: true, UsageExportProgress: true, UsageCleanupDialog: true,
+        UserBalanceHistoryModal: true, AuditLogModal: true, Pagination: true, Select: true,
+        DateRangePicker: true, Icon: true, TokenUsageTrend: true,
+        ModelDistributionChart: true, GroupDistributionChart: true, EndpointDistributionChart: true,
+        UserTokenRanking: true,
+      } },
+    })
+    vi.advanceTimersByTime(120)
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    // The first call is the mount request; start a fresh pair explicitly.
+    list.mockReturnValueOnce(new Promise((_, reject) => { rejectFirst = reject }))
+    list.mockResolvedValueOnce({ items: [{ id: 3 }], total: 1, pages: 1 })
+    const first = vm.loadLogs()
+    const second = vm.loadLogs()
+    await second
+    rejectFirst(new Error('aborted by transport'))
+    await first
+
+    expect(vm.usageLogs).toEqual([{ id: 3 }])
+    expect(vm.logsError).toBe(false)
+    wrapper.unmount()
+  })
 })
 
 describe('admin UsageView ranking tab', () => {

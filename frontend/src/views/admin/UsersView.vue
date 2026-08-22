@@ -1348,7 +1348,13 @@ const loadUsers = async () => {
     }
   } catch (error: any) {
     const errorInfo = error as { name?: string; code?: string }
-    if (errorInfo?.name === 'AbortError' || errorInfo?.name === 'CanceledError' || errorInfo?.code === 'ERR_CANCELED') {
+    if (
+      signal.aborted ||
+      abortController !== currentAbortController ||
+      errorInfo?.name === 'AbortError' ||
+      errorInfo?.name === 'CanceledError' ||
+      errorInfo?.code === 'ERR_CANCELED'
+    ) {
       return
     }
     const message = error.response?.data?.detail || error.message || t('admin.users.failedToLoad')

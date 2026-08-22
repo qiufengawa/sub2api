@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -142,7 +141,7 @@ func runCRSOpenAILongContextSync(t *testing.T, repo AccountRepository, source cr
 		account["extra"] = source.extra
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+	server := newUnitHTTPServer(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
 		if request.URL.Path == "/web/auth/login" {
 			_, _ = response.Write([]byte(`{"success":true,"token":"admin-token"}`))

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -379,7 +378,7 @@ func TestProxyLiveSidebandForwardsTextAndBinary(t *testing.T) {
 		liveAttestationCipher:     attestationCipher,
 	}
 	proxyResult := make(chan error, 1)
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	server := newUnitHTTPServer(t, http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		downstream, err := coderws.Accept(writer, request, nil)
 		if err != nil {
 			proxyResult <- err

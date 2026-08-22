@@ -203,6 +203,11 @@ export async function getCurrentUser() {
  */
 export async function logout(): Promise<void> {
   const refreshToken = getRefreshToken()
+  const sessionSnapshot = {
+    accessToken: getAuthToken(),
+    refreshToken,
+    user: localStorage.getItem('auth_user'),
+  }
 
   // Try to revoke the refresh token on the server
   if (refreshToken) {
@@ -213,7 +218,17 @@ export async function logout(): Promise<void> {
     }
   }
 
-  clearAuthToken()
+  // Do not clear a newer session which replaced this one while the revoke
+  // request was in flight (for example, logout followed immediately by a
+  // second login).  The store applies the same generation fence to its
+  // reactive state; this protects direct API callers and localStorage too.
+  if (
+    getAuthToken() === sessionSnapshot.accessToken &&
+    getRefreshToken() === sessionSnapshot.refreshToken &&
+    localStorage.getItem('auth_user') === sessionSnapshot.user
+  ) {
+    clearAuthToken()
+  }
 }
 
 /**

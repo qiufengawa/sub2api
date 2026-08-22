@@ -1735,6 +1735,8 @@ const compositeRoutePendingDelete = ref<CompositeModelRoute | null>(null);
 const compositeRouteDeleting = ref(false);
 let compositeRoutesRequestId = 0;
 let compositeRouteDeleteRequestId = 0;
+let compositeRouteMutationRequestId = 0;
+let compositePreviewRequestId = 0;
 const compositePreviewModel = ref("");
 const compositePreviewEndpoint = ref<CompositeRouteEndpoint>("any");
 const compositePreviewLoading = ref(false);
@@ -2623,6 +2625,7 @@ const validateProfitControlForm = (form: ProfitControlFormState): boolean => {
 };
 
 const handleCreateGroup = async () => {
+  if (submitting.value) return;
   if (!createForm.name.trim()) {
     appStore.showError(t("admin.groups.nameRequired"));
     return;
@@ -2866,6 +2869,7 @@ const closeEditModal = () => {
 };
 
 const handleUpdateGroup = async () => {
+  if (submitting.value) return;
   if (!editingGroup.value) return;
   if (!editForm.name.trim()) {
     appStore.showError(t("admin.groups.nameRequired"));
@@ -3145,10 +3149,14 @@ const loadCompositeRoutes = async () => {
 
 const handleCompositeRoutes = async (group: AdminGroup) => {
   compositeRoutesRequestId += 1;
+  compositeRouteMutationRequestId += 1;
+  compositePreviewRequestId += 1;
   compositeRoutesGroup.value = group;
   compositePreviewModel.value = "";
   compositePreviewEndpoint.value = "any";
   compositePreviewDecision.value = null;
+  compositeRouteSaving.value = false;
+  compositePreviewLoading.value = false;
   resetCompositeRouteForm();
   showCompositeRoutesModal.value = true;
   await loadCompositeRoutes();
@@ -3157,8 +3165,12 @@ const handleCompositeRoutes = async (group: AdminGroup) => {
 const closeCompositeRoutesModal = () => {
   compositeRoutesRequestId += 1;
   compositeRouteDeleteRequestId += 1;
+  compositeRouteMutationRequestId += 1;
+  compositePreviewRequestId += 1;
   compositeRoutesLoading.value = false;
   compositeRouteDeleting.value = false;
+  compositeRouteSaving.value = false;
+  compositePreviewLoading.value = false;
   showCompositeRoutesModal.value = false;
   compositeRoutesGroup.value = null;
   compositeRoutes.value = [];
@@ -3185,26 +3197,37 @@ const saveCompositeRoute = async () => {
     appStore.showError(t("admin.groups.compositeRoutes.publicModelRequired"));
     return;
   }
+  const groupId = compositeRoutesGroup.value.id;
+  const editingId = compositeRouteEditingId.value;
+  const requestId = ++compositeRouteMutationRequestId;
   compositeRouteSaving.value = true;
+  const isCurrent = () =>
+    requestId === compositeRouteMutationRequestId &&
+    showCompositeRoutesModal.value &&
+    compositeRoutesGroup.value?.id === groupId;
   try {
     const payload = toCompositeRouteInput();
-    if (compositeRouteEditingId.value) {
+    if (editingId) {
       await adminAPI.groups.updateCompositeRoute(
-        compositeRoutesGroup.value.id,
-        compositeRouteEditingId.value,
+        groupId,
+        editingId,
         payload,
       );
+      if (!isCurrent()) return;
       appStore.showSuccess(t("admin.groups.compositeRoutes.routeUpdated"));
     } else {
       await adminAPI.groups.createCompositeRoute(
-        compositeRoutesGroup.value.id,
+        groupId,
         payload,
       );
+      if (!isCurrent()) return;
       appStore.showSuccess(t("admin.groups.compositeRoutes.routeCreated"));
     }
+    if (!isCurrent()) return;
     resetCompositeRouteForm();
     await loadCompositeRoutes();
   } catch (error: any) {
+    if (!isCurrent()) return;
     appStore.showError(
       error.response?.data?.detail ||
         error.response?.data?.message ||
@@ -3212,7 +3235,9 @@ const saveCompositeRoute = async () => {
     );
     console.error("Error saving composite route:", error);
   } finally {
-    compositeRouteSaving.value = false;
+    if (requestId === compositeRouteMutationRequestId) {
+      compositeRouteSaving.value = false;
+    }
   }
 };
 
@@ -3237,6 +3262,11 @@ const confirmDeleteCompositeRoute = async () => {
     if (compositeRoutesGroup.value?.id === groupId) compositeRoutePendingDelete.value = null;
     await loadCompositeRoutes();
   } catch (error: any) {
+    if (
+      requestId !== compositeRouteDeleteRequestId ||
+      !showCompositeRoutesModal.value ||
+      compositeRoutesGroup.value?.id !== groupId
+    ) return;
     appStore.showError(
       error.response?.data?.detail ||
         error.response?.data?.message ||
@@ -3252,16 +3282,29 @@ const previewCompositeRoute = async () => {
   if (!compositeRoutesGroup.value || !compositePreviewModel.value.trim()) {
     return;
   }
+  const groupId = compositeRoutesGroup.value.id;
+  const requestId = ++compositePreviewRequestId;
   compositePreviewLoading.value = true;
   try {
-    compositePreviewDecision.value = await adminAPI.groups.previewCompositeRoute(
-      compositeRoutesGroup.value.id,
+    const decision = await adminAPI.groups.previewCompositeRoute(
+      groupId,
       {
         model: compositePreviewModel.value.trim(),
         endpoint: compositePreviewEndpoint.value,
       },
     );
+    if (
+      requestId !== compositePreviewRequestId ||
+      !showCompositeRoutesModal.value ||
+      compositeRoutesGroup.value?.id !== groupId
+    ) return;
+    compositePreviewDecision.value = decision;
   } catch (error: any) {
+    if (
+      requestId !== compositePreviewRequestId ||
+      !showCompositeRoutesModal.value ||
+      compositeRoutesGroup.value?.id !== groupId
+    ) return;
     appStore.showError(
       error.response?.data?.detail ||
         error.response?.data?.message ||
@@ -3269,7 +3312,9 @@ const previewCompositeRoute = async () => {
     );
     console.error("Error previewing composite route:", error);
   } finally {
-    compositePreviewLoading.value = false;
+    if (requestId === compositePreviewRequestId) {
+      compositePreviewLoading.value = false;
+    }
   }
 };
 
@@ -3436,6 +3481,7 @@ const closeSortModal = () => {
 
 // 保存排序
 const saveSortOrder = async () => {
+  if (sortSubmitting.value) return;
   sortSubmitting.value = true;
   try {
     const updates = sortableGroups.value.map((g, index) => ({
@@ -3463,6 +3509,12 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  abortController?.abort();
+  abortController = null;
+  compositeRoutesRequestId += 1;
+  compositeRouteDeleteRequestId += 1;
+  compositeRouteMutationRequestId += 1;
+  compositePreviewRequestId += 1;
   accountSearchRunner.clearAll();
   clearAllAccountSearchState();
 });

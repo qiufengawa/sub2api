@@ -54,6 +54,10 @@ func (User) Fields() []ent.Field {
 			Default(0),
 		field.Int("concurrency").
 			Default(5),
+		// Durable access-session revocation generation. This is separate from
+		// the legacy password/email fingerprint-based TokenVersion claim.
+		field.Int64("revocation_version").
+			Default(0),
 		field.String("status").
 			MaxLen(20).
 			Default(domain.StatusActive),

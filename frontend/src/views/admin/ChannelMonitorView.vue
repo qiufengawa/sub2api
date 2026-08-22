@@ -288,7 +288,7 @@ async function reload() {
     loadError.value = false
   } catch (err: unknown) {
     const e = err as { name?: string; code?: string }
-    if (e?.name === 'AbortError' || e?.code === 'ERR_CANCELED') return
+    if (ctrl.signal.aborted || abortController !== ctrl || e?.name === 'AbortError' || e?.code === 'ERR_CANCELED') return
     loadError.value = true
     appStore.showError(extractApiErrorMessage(err, t('admin.channelMonitor.loadError')))
   } finally {

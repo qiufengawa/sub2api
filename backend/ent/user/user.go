@@ -33,6 +33,8 @@ const (
 	FieldFrozenBalance = "frozen_balance"
 	// FieldConcurrency holds the string denoting the concurrency field in the database.
 	FieldConcurrency = "concurrency"
+	// FieldRevocationVersion holds the string denoting the revocation_version field in the database.
+	FieldRevocationVersion = "revocation_version"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldBillingPreference holds the string denoting the billing_preference field in the database.
@@ -205,6 +207,7 @@ var Columns = []string{
 	FieldBalance,
 	FieldFrozenBalance,
 	FieldConcurrency,
+	FieldRevocationVersion,
 	FieldStatus,
 	FieldBillingPreference,
 	FieldUsername,
@@ -267,6 +270,8 @@ var (
 	DefaultFrozenBalance float64
 	// DefaultConcurrency holds the default value on creation for the "concurrency" field.
 	DefaultConcurrency int
+	// DefaultRevocationVersion holds the default value on creation for the "revocation_version" field.
+	DefaultRevocationVersion int64
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
@@ -350,6 +355,11 @@ func ByFrozenBalance(opts ...sql.OrderTermOption) OrderOption {
 // ByConcurrency orders the results by the concurrency field.
 func ByConcurrency(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldConcurrency, opts...).ToFunc()
+}
+
+// ByRevocationVersion orders the results by the revocation_version field.
+func ByRevocationVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRevocationVersion, opts...).ToFunc()
 }
 
 // ByStatus orders the results by the status field.

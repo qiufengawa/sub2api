@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -109,31 +110,35 @@ func TestHTTPServerRejectsOversizedHTTP1Header(t *testing.T) {
 	r := gin.New()
 	r.GET("/", func(c *gin.Context) { c.Status(http.StatusOK) })
 	srv := ProvideHTTPServer(ingressTestConfig(), r)
-	addr, stop := serveIngressTestServer(t, srv)
+	conn, stop := serveIngressTestServer(t, srv)
 	defer stop()
-
-	conn, err := net.DialTimeout("tcp", addr, time.Second)
-	require.NoError(t, err)
 	defer func() { _ = conn.Close() }()
-	_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
-	_, err = io.WriteString(conn, "GET / HTTP/1.1\r\nHost: test\r\nX-Fill: "+strings.Repeat("a", 32*1024)+"\r\n\r\n")
+
+	err := conn.SetDeadline(time.Now().Add(3 * time.Second))
 	require.NoError(t, err)
+	_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
+	writeDone := make(chan struct{})
+	go func() {
+		_, _ = io.WriteString(conn, "GET / HTTP/1.1\r\nHost: test\r\nX-Fill: "+strings.Repeat("a", 32*1024)+"\r\n\r\n")
+		close(writeDone)
+	}()
 	resp, err := http.ReadResponse(bufio.NewReader(conn), nil)
 	require.NoError(t, err)
 	defer func() { _ = resp.Body.Close() }()
 	require.Equal(t, http.StatusRequestHeaderFieldsTooLarge, resp.StatusCode)
+	<-writeDone
 }
 
 func TestHTTPServerClosesSlowIncompleteHeader(t *testing.T) {
 	r := gin.New()
 	r.GET("/", func(c *gin.Context) { c.Status(http.StatusOK) })
 	srv := ProvideHTTPServer(ingressTestConfig(), r)
-	addr, stop := serveIngressTestServer(t, srv)
+	conn, stop := serveIngressTestServer(t, srv)
 	defer stop()
-
-	conn, err := net.DialTimeout("tcp", addr, time.Second)
-	require.NoError(t, err)
 	defer func() { _ = conn.Close() }()
+
+	err := conn.SetDeadline(time.Now().Add(3 * time.Second))
+	require.NoError(t, err)
 	_, err = io.WriteString(conn, "GET / HTTP/1.1\r\nHost: test\r\nX-Slow:")
 	require.NoError(t, err)
 	time.Sleep(1200 * time.Millisecond)
@@ -163,14 +168,50 @@ func TestHTTPServerGlobalBodyLimit(t *testing.T) {
 	require.Equal(t, http.StatusRequestEntityTooLarge, rec.Code)
 }
 
-func serveIngressTestServer(t *testing.T, srv *http.Server) (string, func()) {
+type ingressPipeAddr struct{}
+
+func (ingressPipeAddr) Network() string { return "pipe" }
+func (ingressPipeAddr) String() string  { return "pipe" }
+
+type ingressPipeListener struct {
+	conn      net.Conn
+	connOnce  sync.Once
+	done      chan struct{}
+	closeOnce sync.Once
+}
+
+func (l *ingressPipeListener) Accept() (net.Conn, error) {
+	var accepted net.Conn
+	l.connOnce.Do(func() { accepted = l.conn })
+	if accepted != nil {
+		return accepted, nil
+	}
+	<-l.done
+	return nil, net.ErrClosed
+}
+
+func (l *ingressPipeListener) Close() error {
+	l.closeOnce.Do(func() {
+		close(l.done)
+		if l.conn != nil {
+			_ = l.conn.Close()
+		}
+	})
+	return nil
+}
+
+func (l *ingressPipeListener) Addr() net.Addr { return ingressPipeAddr{} }
+
+func serveIngressTestServer(t *testing.T, srv *http.Server) (net.Conn, func()) {
 	t.Helper()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
+	serverConn, clientConn := net.Pipe()
+	ln := &ingressPipeListener{conn: serverConn, done: make(chan struct{})}
 	go func() { _ = srv.Serve(ln) }()
-	return ln.Addr().String(), func() {
+	return clientConn, func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		_ = srv.Shutdown(ctx)
+		_ = ln.Close()
+		_ = clientConn.Close()
 	}
 }

@@ -210,7 +210,7 @@ func (h *AuthHandler) WeChatOAuthCallback(c *gin.Context) {
 		return
 	}
 
-	tokenResp, userInfo, err := fetchWeChatOAuthIdentity(c.Request.Context(), cfg, code)
+	tokenResp, userInfo, err := fetchWeChatOAuthIdentity(c.Request.Context(), cfg, code, h.wechatHTTPClient)
 	if err != nil {
 		redirectOAuthError(c, frontendCallback, "provider_error", "wechat_identity_fetch_failed", singleLine(err.Error()))
 		return
@@ -449,7 +449,7 @@ func (h *AuthHandler) WeChatPaymentOAuthCallback(c *gin.Context) {
 		return
 	}
 	cfg.redirectURI = h.resolveWeChatPaymentOAuthCallbackURL(c.Request.Context(), c)
-	tokenResp, err := exchangeWeChatOAuthCode(c.Request.Context(), cfg, code)
+	tokenResp, err := exchangeWeChatOAuthCode(c.Request.Context(), cfg, code, h.wechatHTTPClient)
 	if err != nil {
 		redirectOAuthError(c, frontendCallback, "token_exchange_failed", "failed to exchange oauth code", err.Error())
 		return
@@ -1134,19 +1134,19 @@ func resolveWeChatOAuthAbsoluteURL(apiBaseURL string, c *gin.Context, callbackPa
 	return scheme + "://" + host + callbackPath
 }
 
-func fetchWeChatOAuthIdentity(ctx context.Context, cfg wechatOAuthConfig, code string) (*wechatOAuthTokenResponse, *wechatOAuthUserInfoResponse, error) {
-	tokenResp, err := exchangeWeChatOAuthCode(ctx, cfg, code)
+func fetchWeChatOAuthIdentity(ctx context.Context, cfg wechatOAuthConfig, code string, clients ...*http.Client) (*wechatOAuthTokenResponse, *wechatOAuthUserInfoResponse, error) {
+	tokenResp, err := exchangeWeChatOAuthCode(ctx, cfg, code, clients...)
 	if err != nil {
 		return nil, nil, err
 	}
-	userInfo, err := fetchWeChatUserInfo(ctx, tokenResp)
+	userInfo, err := fetchWeChatUserInfo(ctx, tokenResp, clients...)
 	if err != nil {
 		return nil, nil, err
 	}
 	return tokenResp, userInfo, nil
 }
 
-func exchangeWeChatOAuthCode(ctx context.Context, cfg wechatOAuthConfig, code string) (*wechatOAuthTokenResponse, error) {
+func exchangeWeChatOAuthCode(ctx context.Context, cfg wechatOAuthConfig, code string, clients ...*http.Client) (*wechatOAuthTokenResponse, error) {
 	endpoint, err := url.Parse(wechatOAuthAccessTokenURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse wechat access token url: %w", err)
@@ -1165,6 +1165,12 @@ func exchangeWeChatOAuthCode(ctx context.Context, cfg wechatOAuthConfig, code st
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
+	if len(clients) > 0 && clients[0] != nil {
+		client = clients[0]
+		if client.Timeout == 0 {
+			client.Timeout = 30 * time.Second
+		}
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request wechat access token: %w", err)
@@ -1192,7 +1198,7 @@ func exchangeWeChatOAuthCode(ctx context.Context, cfg wechatOAuthConfig, code st
 	return &tokenResp, nil
 }
 
-func fetchWeChatUserInfo(ctx context.Context, tokenResp *wechatOAuthTokenResponse) (*wechatOAuthUserInfoResponse, error) {
+func fetchWeChatUserInfo(ctx context.Context, tokenResp *wechatOAuthTokenResponse, clients ...*http.Client) (*wechatOAuthUserInfoResponse, error) {
 	if tokenResp == nil {
 		return nil, fmt.Errorf("wechat token response is nil")
 	}
@@ -1213,6 +1219,12 @@ func fetchWeChatUserInfo(ctx context.Context, tokenResp *wechatOAuthTokenRespons
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
+	if len(clients) > 0 && clients[0] != nil {
+		client = clients[0]
+		if client.Timeout == 0 {
+			client.Timeout = 30 * time.Second
+		}
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request wechat userinfo: %w", err)

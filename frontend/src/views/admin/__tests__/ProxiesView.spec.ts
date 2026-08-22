@@ -6,6 +6,7 @@ import ProxiesView from '../ProxiesView.vue'
 
 const {
   batchDelete,
+  batchCreate,
   copyToClipboard,
   create,
   deleteProxy,
@@ -16,6 +17,7 @@ const {
   showSuccess
 } = vi.hoisted(() => ({
   batchDelete: vi.fn(),
+  batchCreate: vi.fn(),
   copyToClipboard: vi.fn(),
   create: vi.fn(),
   deleteProxy: vi.fn(),
@@ -30,6 +32,7 @@ vi.mock('@/api/admin', () => ({
   adminAPI: {
     proxies: {
       batchDelete,
+      batchCreate,
       create,
       delete: deleteProxy,
       exportData,
@@ -121,6 +124,7 @@ describe('ProxiesView workspace', () => {
   beforeEach(() => {
     list.mockReset()
     batchDelete.mockReset()
+    batchCreate.mockReset()
     create.mockReset()
     deleteProxy.mockReset()
     exportData.mockReset()
@@ -133,6 +137,7 @@ describe('ProxiesView workspace', () => {
     create.mockResolvedValue(proxy)
     deleteProxy.mockResolvedValue(undefined)
     batchDelete.mockResolvedValue({ deleted_ids: [proxy.id], skipped: [] })
+    batchCreate.mockResolvedValue({ created: 1, skipped: 0 })
     exportData.mockResolvedValue({ items: [] })
   })
 
@@ -282,5 +287,42 @@ describe('ProxiesView workspace', () => {
     resolveDelete({ deleted_ids: [proxy.id], skipped: [] })
     await flushPromises()
     expect(wrapper.find('[data-test="confirm-delete-batch"]').exists()).toBe(false)
+  })
+
+  it('retains skipped proxy IDs after a partial batch delete', async () => {
+    batchDelete.mockResolvedValueOnce({
+      deleted_ids: [10],
+      skipped: [{ id: proxy.id, reason: 'proxy in use' }],
+    })
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.setSelectedIds([proxy.id, 10])
+    vm.showBatchDeleteDialog = true
+
+    await vm.confirmBatchDelete()
+    await flushPromises()
+
+    expect(batchDelete).toHaveBeenCalledWith([proxy.id, 10])
+    expect(vm.selectedCount).toBe(1)
+    expect(Array.from(vm.selectedProxyIds as Set<number>)).toEqual([proxy.id])
+    expect(vm.showBatchDeleteDialog).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('guards create and update mutations at the function boundary', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.submitting = true
+
+    await vm.handleBatchCreate()
+    await vm.handleCreateProxy()
+    vm.editingProxy = proxy
+    await vm.handleUpdateProxy()
+
+    expect(batchCreate).not.toHaveBeenCalled()
+    expect(create).not.toHaveBeenCalled()
+    wrapper.unmount()
   })
 })

@@ -285,6 +285,32 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 		SessionID:               normalized.SessionID,
 	})
 	if err != nil {
+		// The idempotency lookup above is intentionally fast, but two requests
+		// can still pass it concurrently.  A database unique index is the
+		// final arbiter; resolve its loser through the same request-hash check
+		// instead of creating a second hold/job or returning a misleading 500.
+		if idempotencyKey != "" && errors.Is(err, ErrBatchImageJobExists) {
+			existing, lookupErr := s.Repo.GetBatchImageJobByIdempotencyKey(ctx, owner.UserID, owner.APIKeyID, idempotencyKey)
+			if lookupErr == nil {
+				if batchImageDerefString(existing.RequestHash) != requestHash {
+					return nil, ErrBatchImageIdempotencyConflict
+				}
+				// The unique-index loser can observe a job that the winner
+				// persisted as submitted but failed to enqueue.  Re-enter the
+				// same recovery path as a normal idempotency hit instead of
+				// returning a permanently stuck job.
+				if existing.Status == BatchImageJobStatusSubmitted && s.Queue != nil {
+					if enqueueErr := s.Queue.Enqueue(ctx, existing.BatchID); enqueueErr != nil && !errors.Is(enqueueErr, ErrBatchImageAlreadyQueued) {
+						_ = s.Repo.RecordBatchImageJobSubmitFailure(ctx, existing.BatchID, "QUEUE_FAILED", sanitizeBatchImagePublicMessage(enqueueErr.Error()), false)
+						return nil, ErrBatchImageQueueFailed
+					}
+				}
+				return BatchImageJobToPublic(existing), nil
+			}
+			if !errors.Is(lookupErr, ErrBatchImageJobNotFound) {
+				return nil, lookupErr
+			}
+		}
 		return nil, err
 	}
 	if err := reserveBatchImageBalanceHold(ctx, s.BillingRepo, job, owner.GroupID, true, requestHash); err != nil {
@@ -548,7 +574,11 @@ func (s *BatchImagePublicService) List(ctx context.Context, owner BatchImageOwne
 	switch strings.TrimSpace(query.Status) {
 	case "", "all":
 	case "queued":
-		filter.Status = BatchImageJobStatusSubmitted
+		filter.Statuses = []string{
+			BatchImageJobStatusCreated,
+			BatchImageJobStatusUploading,
+			BatchImageJobStatusSubmitted,
+		}
 	case "processing_results":
 		filter.Status = BatchImageJobStatusIndexing
 	case "completed":
@@ -610,10 +640,37 @@ func (s *BatchImagePublicService) DeleteRecord(ctx context.Context, owner BatchI
 	if err != nil {
 		return err
 	}
-	if !isBatchImageProcessorDoneStatus(job.Status) {
+	if !isBatchImageUserActionTerminalStatus(job.Status) {
 		return ErrBatchImageRecordDeleteNotReady
 	}
-	return s.Repo.MarkBatchImageJobUserDeleted(ctx, owner.UserID, owner.APIKeyID, job.BatchID, time.Now())
+	children, err := s.Repo.ListBatchImageChildJobsForDownload(ctx, owner.UserID, owner.APIKeyID, job.BatchID)
+	if err != nil {
+		return err
+	}
+	for _, child := range children {
+		if child == nil || child.UserDeletedAt != nil {
+			continue
+		}
+		if !IsTerminalBatchImageJobStatus(child.Status) {
+			// Hiding the root while a retry is still running leaves an orphan
+			// child that can continue charging and later expose output without a
+			// visible parent.  Require the aggregate to be terminal first.
+			return ErrBatchImageRecordDeleteNotReady
+		}
+	}
+	deletedAt := time.Now()
+	// Mark children before the root so a partial repository failure cannot
+	// strand a visible parentless retry job.  A subsequent request can retry
+	// any remaining terminal child and then the root.
+	for _, child := range children {
+		if child == nil || child.UserDeletedAt != nil {
+			continue
+		}
+		if err := s.Repo.MarkBatchImageJobUserDeleted(ctx, owner.UserID, owner.APIKeyID, child.BatchID, deletedAt); err != nil {
+			return err
+		}
+	}
+	return s.Repo.MarkBatchImageJobUserDeleted(ctx, owner.UserID, owner.APIKeyID, job.BatchID, deletedAt)
 }
 
 func (s *BatchImagePublicService) ListModels(ctx context.Context, owner BatchImageOwner) (*BatchImagePublicModelsResponse, error) {
@@ -711,7 +768,7 @@ func (s *BatchImagePublicService) Cancel(ctx context.Context, owner BatchImageOw
 	if err != nil {
 		return nil, err
 	}
-	if isBatchImageProcessorDoneStatus(job.Status) {
+	if isBatchImageUserActionTerminalStatus(job.Status) {
 		if job.Status == BatchImageJobStatusFailed || job.Status == BatchImageJobStatusCancelled {
 			if err := releaseBatchImageBalanceHold(ctx, s.BillingRepo, job, batchImageDerefString(job.RequestHash)); err != nil {
 				s.enqueueBillingRetry(ctx, job.BatchID)
@@ -771,6 +828,14 @@ func (s *BatchImagePublicService) Cancel(ctx context.Context, owner BatchImageOw
 	return BatchImageJobToPublic(updated), nil
 }
 
+// isBatchImageUserActionTerminalStatus deliberately excludes settling.
+// Settlement is an in-flight billing transition: the processor treats it as
+// done to avoid re-running provider indexing, but cancel/delete must not report
+// success while the hold is still being finalized.
+func isBatchImageUserActionTerminalStatus(status string) bool {
+	return IsTerminalBatchImageJobStatus(status)
+}
+
 func (s *BatchImagePublicService) validateSubmitRequest(req BatchImageSubmitRequest) (BatchImageSubmitRequest, error) {
 	req.Model = strings.TrimSpace(req.Model)
 	req.TaskName = strings.TrimSpace(req.TaskName)
@@ -820,6 +885,13 @@ func (s *BatchImagePublicService) validateSubmitRequest(req BatchImageSubmitRequ
 		if req.Items[i].CustomID == "" {
 			req.Items[i].CustomID = fmt.Sprintf("item_%06d", i+1)
 		}
+		// custom_id is used as a single path segment by the item-content
+		// endpoint. Reject separators and other ambiguous bytes at submission
+		// time instead of creating a batch that can be listed/ZIPed but whose
+		// individual preview URL can never match Gin's route.
+		if !isRouteSafeBatchImageCustomID(req.Items[i].CustomID) {
+			return req, ErrBatchImageInvalidItems
+		}
 		outputCount := req.Items[i].OutputCount
 		if outputCount == 0 {
 			outputCount = 1
@@ -856,6 +928,9 @@ func (s *BatchImagePublicService) validateSubmitRequest(req BatchImageSubmitRequ
 			if outputCount > 1 {
 				expanded.CustomID = fmt.Sprintf("%s_%0*d", req.Items[i].CustomID, batchImageRepeatSuffixWidth(outputCount), repeatIndex)
 			}
+			if !isRouteSafeBatchImageCustomID(expanded.CustomID) {
+				return req, ErrBatchImageInvalidItems
+			}
 			if _, ok := seen[expanded.CustomID]; ok {
 				return req, ErrBatchImageDuplicateCustomIDInRequest
 			}
@@ -865,6 +940,21 @@ func (s *BatchImagePublicService) validateSubmitRequest(req BatchImageSubmitRequ
 	}
 	req.Items = expandedItems
 	return req, nil
+}
+
+func isRouteSafeBatchImageCustomID(id string) bool {
+	if id == "" || len(id) > 255 {
+		return false
+	}
+	for _, r := range id {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		case r == '-', r == '_', r == '.':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func normalizeBatchImageReferenceInputs(model string, item *BatchImageSubmitItem) (int, int, error) {

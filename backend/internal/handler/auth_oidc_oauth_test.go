@@ -24,6 +24,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/imroc/req/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -61,7 +62,7 @@ func TestOIDCParseAndValidateIDToken(t *testing.T) {
 
 	kid := "kid-1"
 	jwks := oidcJWKSet{Keys: []oidcJWK{buildRSAJWK(kid, &priv.PublicKey)}}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := newOIDCFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.NoError(t, json.NewEncoder(w).Encode(jwks))
 	}))
 	defer srv.Close()
@@ -92,12 +93,12 @@ func TestOIDCParseAndValidateIDToken(t *testing.T) {
 		ClockSkewSeconds:   120,
 	}
 
-	parsed, err := oidcParseAndValidateIDToken(context.Background(), cfg, signed, "nonce-ok")
+	parsed, err := oidcParseAndValidateIDToken(withOIDCHTTPClient(context.Background(), srv.client), cfg, signed, "nonce-ok")
 	require.NoError(t, err)
 	require.Equal(t, "subject-1", parsed.Subject)
 	require.Equal(t, "https://issuer.example.com", parsed.Issuer)
 
-	_, err = oidcParseAndValidateIDToken(context.Background(), cfg, signed, "bad-nonce")
+	_, err = oidcParseAndValidateIDToken(withOIDCHTTPClient(context.Background(), srv.client), cfg, signed, "bad-nonce")
 	require.Error(t, err)
 }
 
@@ -220,7 +221,7 @@ func TestOIDCOAuthStartOmitsPKCEAndNonceWhenDisabled(t *testing.T) {
 }
 
 func TestOIDCOAuthCallbackAllowsOptionalPKCEAndIDTokenValidation(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := newOIDCFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/token":
 			require.NoError(t, r.ParseForm())
@@ -252,6 +253,7 @@ func TestOIDCOAuthCallbackAllowsOptionalPKCEAndIDTokenValidation(t *testing.T) {
 		ValidateIDToken:      false,
 		RequireEmailVerified: false,
 	})
+	handler.oidcHTTPClient = upstream.client
 	t.Cleanup(func() { _ = client.Close() })
 
 	recorder := httptest.NewRecorder()
@@ -271,7 +273,7 @@ func TestOIDCOAuthCallbackAllowsOptionalPKCEAndIDTokenValidation(t *testing.T) {
 }
 
 func TestOIDCOAuthCallbackCreatesLoginPendingSessionForExistingIdentityUser(t *testing.T) {
-	cfg, cleanup := newOIDCTestProvider(t, oidcProviderFixture{
+	cfg, cleanup, oidcClient := newOIDCTestProvider(t, oidcProviderFixture{
 		Subject:           "oidc-subject-login",
 		PreferredUsername: "oidc_login",
 		DisplayName:       "OIDC Login Display",
@@ -282,6 +284,7 @@ func TestOIDCOAuthCallbackCreatesLoginPendingSessionForExistingIdentityUser(t *t
 	defer cleanup()
 
 	handler, client := newOIDCOAuthHandlerAndClient(t, false, cfg)
+	handler.oidcHTTPClient = oidcClient
 	t.Cleanup(func() { _ = client.Close() })
 
 	ctx := context.Background()
@@ -342,7 +345,7 @@ func TestOIDCOAuthCallbackCreatesLoginPendingSessionForExistingIdentityUser(t *t
 }
 
 func TestOIDCOAuthCallbackRejectsDisabledExistingIdentityUser(t *testing.T) {
-	cfg, cleanup := newOIDCTestProvider(t, oidcProviderFixture{
+	cfg, cleanup, oidcClient := newOIDCTestProvider(t, oidcProviderFixture{
 		Subject:           "oidc-disabled-subject",
 		PreferredUsername: "oidc_disabled",
 		DisplayName:       "OIDC Disabled",
@@ -350,6 +353,7 @@ func TestOIDCOAuthCallbackRejectsDisabledExistingIdentityUser(t *testing.T) {
 	defer cleanup()
 
 	handler, client := newOIDCOAuthHandlerAndClient(t, false, cfg)
+	handler.oidcHTTPClient = oidcClient
 	t.Cleanup(func() { _ = client.Close() })
 
 	ctx := context.Background()
@@ -392,7 +396,7 @@ func TestOIDCOAuthCallbackRejectsDisabledExistingIdentityUser(t *testing.T) {
 }
 
 func TestOIDCOAuthCallbackCreatesBindPendingSessionForCompatEmailUser(t *testing.T) {
-	cfg, cleanup := newOIDCTestProvider(t, oidcProviderFixture{
+	cfg, cleanup, oidcClient := newOIDCTestProvider(t, oidcProviderFixture{
 		Subject:           "oidc-subject-compat",
 		PreferredUsername: "oidc_compat",
 		DisplayName:       "OIDC Compat Display",
@@ -403,6 +407,7 @@ func TestOIDCOAuthCallbackCreatesBindPendingSessionForCompatEmailUser(t *testing
 	defer cleanup()
 
 	handler, client := newOIDCOAuthHandlerAndClient(t, false, cfg)
+	handler.oidcHTTPClient = oidcClient
 	t.Cleanup(func() { _ = client.Close() })
 
 	ctx := context.Background()
@@ -457,7 +462,7 @@ func TestOIDCOAuthCallbackCreatesBindPendingSessionForCompatEmailUser(t *testing
 }
 
 func TestOIDCOAuthCallbackAllowsCompatEmailBindWhenUpstreamEmailIsUnverified(t *testing.T) {
-	cfg, cleanup := newOIDCTestProvider(t, oidcProviderFixture{
+	cfg, cleanup, oidcClient := newOIDCTestProvider(t, oidcProviderFixture{
 		Subject:           "oidc-subject-unverified-compat",
 		PreferredUsername: "oidc_unverified",
 		DisplayName:       "OIDC Unverified Compat Display",
@@ -469,6 +474,7 @@ func TestOIDCOAuthCallbackAllowsCompatEmailBindWhenUpstreamEmailIsUnverified(t *
 	cfg.RequireEmailVerified = true
 
 	handler, client := newOIDCOAuthHandlerAndClient(t, false, cfg)
+	handler.oidcHTTPClient = oidcClient
 	t.Cleanup(func() { _ = client.Close() })
 
 	ctx := context.Background()
@@ -504,7 +510,7 @@ func TestOIDCOAuthCallbackAllowsCompatEmailBindWhenUpstreamEmailIsUnverified(t *
 }
 
 func TestOIDCOAuthCallbackCreatesChoicePendingSessionWhenSignupRequiresInvite(t *testing.T) {
-	cfg, cleanup := newOIDCTestProvider(t, oidcProviderFixture{
+	cfg, cleanup, oidcClient := newOIDCTestProvider(t, oidcProviderFixture{
 		Subject:           "oidc-subject-invite",
 		PreferredUsername: "oidc_invite",
 		DisplayName:       "OIDC Invite Display",
@@ -515,6 +521,7 @@ func TestOIDCOAuthCallbackCreatesChoicePendingSessionWhenSignupRequiresInvite(t 
 	defer cleanup()
 
 	handler, client := newOIDCOAuthHandlerAndClient(t, true, cfg)
+	handler.oidcHTTPClient = oidcClient
 	t.Cleanup(func() { _ = client.Close() })
 
 	recorder := httptest.NewRecorder()
@@ -552,7 +559,7 @@ func TestOIDCOAuthCallbackCreatesChoicePendingSessionWhenSignupRequiresInvite(t 
 }
 
 func TestOIDCOAuthCallbackCreatesBindPendingSessionForCurrentUser(t *testing.T) {
-	cfg, cleanup := newOIDCTestProvider(t, oidcProviderFixture{
+	cfg, cleanup, oidcClient := newOIDCTestProvider(t, oidcProviderFixture{
 		Subject:           "oidc-subject-bind",
 		PreferredUsername: "oidc_bind",
 		DisplayName:       "OIDC Bind Display",
@@ -563,6 +570,7 @@ func TestOIDCOAuthCallbackCreatesBindPendingSessionForCurrentUser(t *testing.T) 
 	defer cleanup()
 
 	handler, client := newOIDCOAuthHandlerAndClient(t, false, cfg)
+	handler.oidcHTTPClient = oidcClient
 	t.Cleanup(func() { _ = client.Close() })
 
 	ctx := context.Background()
@@ -983,7 +991,7 @@ func TestTryOIDCVerifiedEmailFastPathCreatesUserAndIdentity(t *testing.T) {
 }
 
 func TestOIDCOAuthCallbackVerifiedEmailFastPathIssuesTokenWithoutPendingSession(t *testing.T) {
-	cfg, cleanup := newOIDCTestProvider(t, oidcProviderFixture{
+	cfg, cleanup, oidcClient := newOIDCTestProvider(t, oidcProviderFixture{
 		Subject:           "oidc-fast-callback-subject",
 		PreferredUsername: "oidc_fast_callback",
 		DisplayName:       "OIDC Fast Callback",
@@ -994,6 +1002,7 @@ func TestOIDCOAuthCallbackVerifiedEmailFastPathIssuesTokenWithoutPendingSession(
 	defer cleanup()
 
 	handler, client := newOIDCOAuthHandlerAndClientWithSettings(t, false, cfg, nil)
+	handler.oidcHTTPClient = oidcClient
 	t.Cleanup(func() { _ = client.Close() })
 
 	recorder := httptest.NewRecorder()
@@ -1044,7 +1053,7 @@ func TestOIDCOAuthCallbackVerifiedEmailFastPathIssuesTokenWithoutPendingSession(
 }
 
 func TestOIDCOAuthCallbackVerifiedEmailFastPathBackendModeBlocksBeforeUserCreation(t *testing.T) {
-	cfg, cleanup := newOIDCTestProvider(t, oidcProviderFixture{
+	cfg, cleanup, oidcClient := newOIDCTestProvider(t, oidcProviderFixture{
 		Subject:           "oidc-fast-backend-mode-subject",
 		PreferredUsername: "oidc_backend_mode",
 		DisplayName:       "OIDC Backend Mode",
@@ -1056,6 +1065,7 @@ func TestOIDCOAuthCallbackVerifiedEmailFastPathBackendModeBlocksBeforeUserCreati
 	handler, client := newOIDCOAuthHandlerAndClientWithSettings(t, false, cfg, map[string]string{
 		service.SettingKeyBackendModeEnabled: "true",
 	})
+	handler.oidcHTTPClient = oidcClient
 	t.Cleanup(func() { _ = client.Close() })
 
 	recorder := httptest.NewRecorder()
@@ -1227,7 +1237,7 @@ func newOIDCOAuthHandlerAndClientWithSettings(
 	return handler, client
 }
 
-func newOIDCTestProvider(t *testing.T, fixture oidcProviderFixture) (config.OIDCConnectConfig, func()) {
+func newOIDCTestProvider(t *testing.T, fixture oidcProviderFixture) (config.OIDCConnectConfig, func(), *req.Client) {
 	t.Helper()
 
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -1251,7 +1261,7 @@ func newOIDCTestProvider(t *testing.T, fixture oidcProviderFixture) (config.OIDC
 	}
 
 	var issuer string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newOIDCFixture(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/token":
 			require.NoError(t, json.NewEncoder(w).Encode(tokenResponse))
@@ -1306,5 +1316,28 @@ func newOIDCTestProvider(t *testing.T, fixture oidcProviderFixture) (config.OIDC
 		ClockSkewSeconds:     120,
 		RequireEmailVerified: false,
 	}
-	return cfg, server.Close
+	return cfg, server.Close, server.client
+}
+
+type oidcFixture struct {
+	URL    string
+	client *req.Client
+}
+
+func newOIDCFixture(handler http.Handler) *oidcFixture {
+	client := req.C()
+	client.GetClient().Transport = oidcFixtureRoundTripper(func(r *http.Request) (*http.Response, error) {
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, r)
+		return recorder.Result(), nil
+	})
+	return &oidcFixture{URL: "https://oidc-fixture.test", client: client}
+}
+
+func (f *oidcFixture) Close() {}
+
+type oidcFixtureRoundTripper func(*http.Request) (*http.Response, error)
+
+func (f oidcFixtureRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }

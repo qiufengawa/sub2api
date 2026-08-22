@@ -305,11 +305,12 @@ async function resetQuotaWindow(
     const data = await adminAPI.users.resetPlatformQuotaWindow(props.user.id, platform, quotaWindow)
     quotas.value = normalize(data.platform_quotas || [])
     appStore.showSuccess(t('admin.users.platformQuota.reset.success', { platform, window: windowLabel }))
+    resetting[key] = false
+    cancelConfirmation()
   } catch (e: any) {
     appStore.showError(e?.response?.data?.message || t('admin.users.platformQuota.reset.failed'))
   } finally {
     resetting[key] = false
-    cancelConfirmation()
   }
 }
 </script>

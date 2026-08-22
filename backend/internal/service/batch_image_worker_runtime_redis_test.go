@@ -17,7 +17,11 @@ import (
 )
 
 func TestBatchImageWorkerRuntime_StartupDoesNotCreateRedisBatchImageKeys(t *testing.T) {
-	mr := miniredis.RunT(t)
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Skipf("listener unavailable in this environment: %v", err)
+	}
+	t.Cleanup(mr.Close)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	t.Cleanup(func() {
 		_ = rdb.Close()

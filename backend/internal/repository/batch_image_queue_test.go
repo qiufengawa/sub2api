@@ -186,7 +186,7 @@ func TestBatchImageQueue_JobLockRefreshExtendsTTLOnlyForHolder(t *testing.T) {
 
 func newBatchImageQueueTest(t *testing.T) (*batchImageQueue, *miniredis.Miniredis) {
 	t.Helper()
-	mr := miniredis.RunT(t)
+	mr := newRepositoryMiniRedis(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	t.Cleanup(func() {
 		_ = rdb.Close()

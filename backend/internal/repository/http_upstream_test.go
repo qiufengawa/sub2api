@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strings"
 	"sync/atomic"
@@ -24,12 +23,12 @@ import (
 
 func TestHTTPUpstreamDoCanDisableRedirectsPerRequest(t *testing.T) {
 	var redirectedCalls atomic.Int64
-	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	target := newRepositoryHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		redirectedCalls.Add(1)
 		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(target.Close)
-	redirector := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	redirector := newRepositoryHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, target.URL, http.StatusFound)
 	}))
 	t.Cleanup(redirector.Close)
@@ -52,13 +51,13 @@ func TestHTTPUpstreamDoCanDisableRedirectsPerRequest(t *testing.T) {
 
 func TestHTTPUpstreamDoWithTLSPlainHTTPUsesConfiguredHTTPProxy(t *testing.T) {
 	var upstreamCalls atomic.Int64
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	upstream := newRepositoryHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		upstreamCalls.Add(1)
 		w.WriteHeader(http.StatusTeapot)
 	}))
 	t.Cleanup(upstream.Close)
 	var proxyCalls atomic.Int64
-	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	proxy := newRepositoryHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		proxyCalls.Add(1)
 		w.WriteHeader(http.StatusNoContent)
 	}))
@@ -77,7 +76,7 @@ func TestHTTPUpstreamDoWithTLSPlainHTTPUsesConfiguredHTTPProxy(t *testing.T) {
 
 func TestHTTPUpstreamDoWithTLSPlainHTTPUsesConfiguredSOCKSProxy(t *testing.T) {
 	var upstreamCalls atomic.Int64
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	upstream := newRepositoryHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		upstreamCalls.Add(1)
 		w.WriteHeader(http.StatusNoContent)
 	}))

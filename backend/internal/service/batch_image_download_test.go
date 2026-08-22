@@ -37,6 +37,21 @@ func TestBatchImageDownloadService_OpenItemContent(t *testing.T) {
 		require.Equal(t, 1, limiter.releaseCount)
 	})
 
+	t.Run("streams successful items from a failed root with retained provider output", func(t *testing.T) {
+		svc, repo, _ := newTestBatchImageDownloadService()
+		root := repo.jobs["imgbatch_download"]
+		root.Status = BatchImageJobStatusFailed
+		root.SuccessCount = 1
+		root.FailCount = 2
+
+		stream, err := svc.OpenItemContent(ctx, testBatchImageOwner(), root.BatchID, "cover/../001", 0)
+		require.NoError(t, err)
+		defer stream.Reader.Close()
+		body, err := io.ReadAll(stream.Reader)
+		require.NoError(t, err)
+		require.Equal(t, []byte("first"), body)
+	})
+
 	tests := []struct {
 		name   string
 		mutate func(*fakeBatchImageRepository)
@@ -147,6 +162,246 @@ func TestBatchImageDownloadService_StreamZip(t *testing.T) {
 		require.ErrorIs(t, err, ErrBatchImageZipTooManyItems)
 		require.Empty(t, buf.Bytes())
 	})
+
+	t.Run("rejects too many failed items instead of truncating errors manifest", func(t *testing.T) {
+		svc, repo, _ := newTestBatchImageDownloadService()
+		repo.jobs["imgbatch_download"].FailCount = 3
+		svc.Config.BatchImage.MaxDownloadItemsZip = 1
+		var buf bytes.Buffer
+
+		result, err := svc.StreamZip(ctx, testBatchImageOwner(), "imgbatch_download", BatchImageZipOptions{Status: "failed"}, &buf)
+		require.Nil(t, result)
+		require.ErrorIs(t, err, ErrBatchImageZipTooManyItems)
+		require.Empty(t, buf.Bytes())
+	})
+
+	t.Run("honors failed-only status without opening provider output", func(t *testing.T) {
+		svc, _, limiter := newTestBatchImageDownloadService()
+		var buf bytes.Buffer
+
+		result, err := svc.StreamZip(ctx, testBatchImageOwner(), "imgbatch_download", BatchImageZipOptions{Status: "failed"}, &buf)
+		require.NoError(t, err)
+		require.Equal(t, 0, result.FileCount)
+		require.Equal(t, 1, result.ErrorCount)
+		require.Zero(t, limiter.acquireCount, "failed-only exports do not need provider download permits")
+		files := readZipFiles(t, buf.Bytes())
+		require.NotContains(t, files, "images/cover___001.png")
+		require.Contains(t, files, "errors.json")
+	})
+
+	t.Run("rejects unknown status filter", func(t *testing.T) {
+		svc, _, _ := newTestBatchImageDownloadService()
+		var buf bytes.Buffer
+		result, err := svc.StreamZip(ctx, testBatchImageOwner(), "imgbatch_download", BatchImageZipOptions{Status: "pending"}, &buf)
+		require.Nil(t, result)
+		require.ErrorIs(t, err, ErrBatchImageInvalidItems)
+		require.Empty(t, buf.Bytes())
+	})
+
+	t.Run("rejects malformed provider base64 before creating an image entry", func(t *testing.T) {
+		svc, _, _ := newTestBatchImageDownloadService()
+		provider, ok := svc.ProviderRegistry.Get(BatchImageProviderGeminiAPI)
+		require.True(t, ok)
+		provider.(*publicBatchImageProvider).result = `{"key":"cover/../001","response":{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"%%%"}}]}}]}}` + "\n"
+
+		var buf bytes.Buffer
+		result, err := svc.StreamZip(ctx, testBatchImageOwner(), "imgbatch_download", BatchImageZipOptions{}, &buf)
+		require.NotNil(t, result)
+		require.ErrorIs(t, err, ErrBatchImageDownloadFailed)
+		require.Zero(t, result.FileCount)
+	})
+
+	t.Run("suffixes filenames that collide after custom ID sanitization", func(t *testing.T) {
+		svc, repo, _ := newTestBatchImageDownloadService()
+		root := repo.jobs["imgbatch_download"]
+		root.ItemCount = 2
+		root.SuccessCount = 2
+		root.FailCount = 0
+		mime := "image/png"
+		ext := "png"
+		repo.items[root.BatchID] = []CreateBatchImageItemParams{
+			{JobID: root.BatchID, CustomID: "a..b", Status: BatchImageItemStatusSuccess, MimeType: &mime, FileExtension: &ext, ImageCount: 1},
+			{JobID: root.BatchID, CustomID: "a_b", Status: BatchImageItemStatusSuccess, MimeType: &mime, FileExtension: &ext, ImageCount: 1},
+		}
+		provider, ok := svc.ProviderRegistry.Get(BatchImageProviderGeminiAPI)
+		require.True(t, ok)
+		provider.(*publicBatchImageProvider).result = strings.Join([]string{
+			`{"key":"a..b","response":{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"Zmlyc3Q="}}]}}]}}`,
+			`{"key":"a_b","response":{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"c2Vjb25k"}}]}}]}}`,
+		}, "\n") + "\n"
+
+		var buf bytes.Buffer
+		result, err := svc.StreamZip(ctx, testBatchImageOwner(), root.BatchID, BatchImageZipOptions{}, &buf)
+		require.NoError(t, err)
+		require.Equal(t, 2, result.FileCount)
+		files := readZipFiles(t, buf.Bytes())
+		require.Equal(t, []byte("first"), files["images/a_b.png"])
+		require.Equal(t, []byte("second"), files["images/a_b_2.png"])
+	})
+
+	t.Run("aggregates completed retry child output for a failed root", func(t *testing.T) {
+		svc, repo, _ := newTestBatchImageDownloadService()
+		root := repo.jobs["imgbatch_download"]
+		root.Status = BatchImageJobStatusFailed
+		root.SuccessCount = 0
+		root.FailCount = 3
+		root.ItemCount = 3
+		childID := "imgbatch_download_retry"
+		parentID := root.BatchID
+		child := *root
+		child.BatchID = childID
+		child.ParentBatchID = &parentID
+		child.Status = BatchImageJobStatusCompleted
+		child.SuccessCount = 3
+		child.FailCount = 0
+		child.ProviderOutputRef = batchImageStringPtr("gs://bucket/internal/retry-output.jsonl")
+		repo.jobs[childID] = &child
+		mime := "image/png"
+		ext := "png"
+		repo.items[childID] = []CreateBatchImageItemParams{
+			{JobID: childID, CustomID: "cover_retry_a", Status: BatchImageItemStatusSuccess, MimeType: &mime, FileExtension: &ext, ImageCount: 1},
+			{JobID: childID, CustomID: "cover_retry_b", Status: BatchImageItemStatusSuccess, MimeType: &mime, FileExtension: &ext, ImageCount: 1},
+			{JobID: childID, CustomID: "cover_retry_c", Status: BatchImageItemStatusSuccess, MimeType: &mime, FileExtension: &ext, ImageCount: 1},
+		}
+		provider, ok := svc.ProviderRegistry.Get(BatchImageProviderGeminiAPI)
+		require.True(t, ok)
+		provider.(*publicBatchImageProvider).result = strings.Join([]string{
+			`{"key":"cover_retry_a","response":{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"Zmlyc3Q="}}]}}]}}`,
+			`{"key":"cover_retry_b","response":{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"c2Vjb25k"}}]}}]}}`,
+			`{"key":"cover_retry_c","response":{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"dGhpcmQ="}}]}}]}}`,
+		}, "\n") + "\n"
+
+		var buf bytes.Buffer
+		result, err := svc.StreamZip(ctx, testBatchImageOwner(), root.BatchID, BatchImageZipOptions{}, &buf)
+		require.NoError(t, err)
+		require.Equal(t, 3, result.FileCount)
+		files := readZipFiles(t, buf.Bytes())
+		require.Equal(t, []byte("first"), files["images/cover_retry_a.png"])
+		require.Equal(t, []byte("second"), files["images/cover_retry_b.png"])
+		require.Equal(t, []byte("third"), files["images/cover_retry_c.png"])
+		var manifest struct {
+			BatchID      string `json:"batch_id"`
+			SuccessCount int    `json:"success_count"`
+		}
+		require.NoError(t, json.Unmarshal(files["manifest.json"], &manifest))
+		require.Equal(t, root.BatchID, manifest.BatchID)
+		require.Equal(t, 3, manifest.SuccessCount)
+	})
+
+	t.Run("retains successful root output when retry child completes the failed remainder", func(t *testing.T) {
+		svc, repo, _ := newTestBatchImageDownloadService()
+		root := repo.jobs["imgbatch_download"]
+		root.Status = BatchImageJobStatusFailed
+		root.ItemCount = 2
+		root.SuccessCount = 1
+		root.FailCount = 1
+		parentID := root.BatchID
+		childID := "imgbatch_download_partial_retry"
+		child := *root
+		child.BatchID = childID
+		child.ParentBatchID = &parentID
+		child.Status = BatchImageJobStatusCompleted
+		child.SuccessCount = 1
+		child.FailCount = 0
+		child.ProviderOutputRef = batchImageStringPtr("gs://bucket/internal/partial-retry.jsonl")
+		repo.jobs[childID] = &child
+
+		mime := "image/png"
+		ext := "png"
+		repo.items[root.BatchID] = []CreateBatchImageItemParams{
+			{JobID: root.BatchID, CustomID: "root_success", Status: BatchImageItemStatusSuccess, MimeType: &mime, FileExtension: &ext, ImageCount: 1},
+			{JobID: root.BatchID, CustomID: "root_failed", Status: BatchImageItemStatusFailed, ImageCount: 1},
+		}
+		repo.items[childID] = []CreateBatchImageItemParams{
+			{JobID: childID, CustomID: "root_failed_retry", Status: BatchImageItemStatusSuccess, MimeType: &mime, FileExtension: &ext, ImageCount: 1},
+		}
+		provider, ok := svc.ProviderRegistry.Get(BatchImageProviderGeminiAPI)
+		require.True(t, ok)
+		provider.(*publicBatchImageProvider).result = strings.Join([]string{
+			`{"key":"root_success","response":{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"cm9vdA=="}}]}}]}}`,
+			`{"key":"root_failed_retry","response":{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"cmV0cnk="}}]}}]}}`,
+		}, "\n") + "\n"
+
+		var buf bytes.Buffer
+		result, err := svc.StreamZip(ctx, testBatchImageOwner(), root.BatchID, BatchImageZipOptions{}, &buf)
+		require.NoError(t, err)
+		require.Equal(t, 2, result.FileCount)
+		files := readZipFiles(t, buf.Bytes())
+		require.Equal(t, []byte("root"), files["images/root_success.png"])
+		require.Equal(t, []byte("retry"), files["images/root_failed_retry.png"])
+		var manifest struct {
+			SuccessCount int `json:"success_count"`
+		}
+		require.NoError(t, json.Unmarshal(files["manifest.json"], &manifest))
+		require.Equal(t, 2, manifest.SuccessCount)
+	})
+
+	t.Run("does not aggregate a pending retry child", func(t *testing.T) {
+		svc, repo, _ := newTestBatchImageDownloadService()
+		root := repo.jobs["imgbatch_download"]
+		root.Status = BatchImageJobStatusFailed
+		parentID := root.BatchID
+		child := *root
+		child.BatchID = "imgbatch_download_pending_retry"
+		child.ParentBatchID = &parentID
+		child.Status = BatchImageJobStatusRunning
+		repo.jobs[child.BatchID] = &child
+
+		var buf bytes.Buffer
+		result, err := svc.StreamZip(ctx, testBatchImageOwner(), root.BatchID, BatchImageZipOptions{}, &buf)
+		require.Nil(t, result)
+		require.ErrorIs(t, err, ErrBatchImageNotReady)
+		require.Empty(t, buf.Bytes())
+	})
+
+	t.Run("ignores retry children owned by another API key", func(t *testing.T) {
+		svc, repo, _ := newTestBatchImageDownloadService()
+		root := repo.jobs["imgbatch_download"]
+		root.Status = BatchImageJobStatusFailed
+		parentID := root.BatchID
+		foreignKey := int64(999)
+		child := *root
+		child.BatchID = "imgbatch_download_foreign_retry"
+		child.ParentBatchID = &parentID
+		child.Status = BatchImageJobStatusCompleted
+		child.APIKeyID = &foreignKey
+		repo.jobs[child.BatchID] = &child
+
+		var buf bytes.Buffer
+		result, err := svc.StreamZip(ctx, testBatchImageOwner(), root.BatchID, BatchImageZipOptions{}, &buf)
+		require.Nil(t, result)
+		require.ErrorIs(t, err, ErrBatchImageNotReady)
+		require.Empty(t, buf.Bytes())
+	})
+
+	t.Run("checks aggregate item limit before opening child output", func(t *testing.T) {
+		svc, repo, _ := newTestBatchImageDownloadService()
+		root := repo.jobs["imgbatch_download"]
+		root.Status = BatchImageJobStatusFailed
+		root.ItemCount = 2
+		parentID := root.BatchID
+		childID := "imgbatch_download_limit_retry"
+		child := *root
+		child.BatchID = childID
+		child.ParentBatchID = &parentID
+		child.Status = BatchImageJobStatusCompleted
+		child.SuccessCount = 2
+		child.FailCount = 0
+		repo.jobs[childID] = &child
+		mime := "image/png"
+		ext := "png"
+		repo.items[childID] = []CreateBatchImageItemParams{
+			{JobID: childID, CustomID: "limit_a", Status: BatchImageItemStatusSuccess, MimeType: &mime, FileExtension: &ext, ImageCount: 1},
+			{JobID: childID, CustomID: "limit_b", Status: BatchImageItemStatusSuccess, MimeType: &mime, FileExtension: &ext, ImageCount: 1},
+		}
+		svc.Config.BatchImage.MaxDownloadItemsZip = 1
+
+		var buf bytes.Buffer
+		result, err := svc.StreamZip(ctx, testBatchImageOwner(), root.BatchID, BatchImageZipOptions{}, &buf)
+		require.Nil(t, result)
+		require.ErrorIs(t, err, ErrBatchImageZipTooManyItems)
+		require.Empty(t, buf.Bytes())
+	})
 }
 
 func TestExtractBatchImagePartsFromResultLine(t *testing.T) {
@@ -177,6 +432,7 @@ func TestExtractBatchImagePartsFromResultLine(t *testing.T) {
 				require.Equal(t, tt.wantError, got.ErrorCode)
 			}
 		})
+
 	}
 
 	_, err := ExtractBatchImagePartsFromResultLine([]byte(`{"response":{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"` + batchImageDownloadTestBase64 + `"}}]}}]}}`))

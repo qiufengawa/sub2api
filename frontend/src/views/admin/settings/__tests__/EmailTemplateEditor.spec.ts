@@ -13,6 +13,16 @@ const mocks = vi.hoisted(() => ({
   showError: vi.fn()
 }))
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key: string) => key,
@@ -116,5 +126,73 @@ describe('EmailTemplateEditor', () => {
     const iframe = wrapper.get('iframe')
     expect(iframe.attributes('srcdoc')).not.toContain('cid:')
     expect(iframe.attributes('srcdoc')).toContain('data:image/gif;base64,')
+  })
+
+  it('keeps save and preview actions single-flight when invoked programmatically', async () => {
+    const wrapper = mount(EmailTemplateEditor, {
+      global: { stubs: { Teleport: true } }
+    })
+    await flushPromises()
+
+    const saveRequest = deferred<{
+      subject: string
+      html: string
+      is_custom: boolean
+      placeholders: string[]
+    }>()
+    mocks.updateEmailTemplate.mockReturnValueOnce(saveRequest.promise)
+    const vm = wrapper.vm as any
+    const firstSave = vm.saveTemplate()
+    void vm.saveTemplate()
+    expect(mocks.updateEmailTemplate).toHaveBeenCalledOnce()
+    expect(vm.saving).toBe(true)
+
+    saveRequest.resolve({ subject: 'Saved', html: '<p>Saved</p>', is_custom: true, placeholders: [] })
+    await firstSave
+    await flushPromises()
+    expect(vm.saving).toBe(false)
+
+    mocks.previewEmailTemplate.mockClear()
+    const previewRequest = deferred<{ subject: string; html: string }>()
+    mocks.previewEmailTemplate.mockReturnValueOnce(previewRequest.promise)
+    const firstPreview = vm.refreshPreview()
+    const secondPreview = vm.refreshPreview()
+    expect(mocks.previewEmailTemplate).toHaveBeenCalledOnce()
+    expect(vm.previewing).toBe(true)
+    previewRequest.resolve({ subject: 'Preview', html: '<p>Preview</p>' })
+    await firstPreview
+    await secondPreview
+    expect(vm.previewing).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('does not let a late template response overwrite a newer event selection', async () => {
+    const wrapper = mount(EmailTemplateEditor, {
+      global: { stubs: { Teleport: true } }
+    })
+    await flushPromises()
+    mocks.getEmailTemplate.mockClear()
+
+    const oldRequest = deferred<{ subject: string; html: string; is_custom: boolean; placeholders: string[] }>()
+    const newRequest = deferred<{ subject: string; html: string; is_custom: boolean; placeholders: string[] }>()
+    mocks.getEmailTemplate
+      .mockReturnValueOnce(oldRequest.promise)
+      .mockReturnValueOnce(newRequest.promise)
+
+    const vm = wrapper.vm as any
+    // Two explicit reloads for the same selection model the watcher/manual
+    // refresh race without relying on a second fixture option.
+    const oldLoad = vm.loadTemplate()
+    const newLoad = vm.loadTemplate()
+
+    newRequest.resolve({ subject: 'New', html: '<p>new</p>', is_custom: true, placeholders: [] })
+    await flushPromises()
+    oldRequest.resolve({ subject: 'Old', html: '<p>old</p>', is_custom: true, placeholders: [] })
+    await Promise.all([oldLoad, newLoad])
+    await flushPromises()
+
+    expect(vm.subject).toBe('New')
+    expect(vm.html).toBe('<p>new</p>')
+    wrapper.unmount()
   })
 })

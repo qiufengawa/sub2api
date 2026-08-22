@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
+	"github.com/imroc/req/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -344,18 +345,30 @@ func TestCompleteEmailOAuthRegistrationRequiresPassword(t *testing.T) {
 }
 
 func TestParseGitHubOAuthProfileRejectsPublicEmailWhenEmailsEndpointFails(t *testing.T) {
-	emailServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	emailHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "missing scope", http.StatusForbidden)
-	}))
-	t.Cleanup(emailServer.Close)
+	})
+	client := req.C()
+	client.GetClient().Transport = emailOAuthFixtureRoundTripper(func(r *http.Request) (*http.Response, error) {
+		recorder := httptest.NewRecorder()
+		emailHandler.ServeHTTP(recorder, r)
+		return recorder.Result(), nil
+	})
+	ctx := withEmailOAuthHTTPClient(context.Background(), client)
 
-	profile, err := parseGitHubOAuthProfile(context.Background(), config.EmailOAuthProviderConfig{
-		EmailsURL: emailServer.URL,
+	profile, err := parseGitHubOAuthProfile(ctx, config.EmailOAuthProviderConfig{
+		EmailsURL: "https://github-fixture.test/user/emails",
 	}, &emailOAuthTokenResponse{AccessToken: "token"}, `{"id":123,"login":"octo","email":"public@example.com"}`)
 
 	require.Error(t, err)
 	require.Nil(t, profile)
 	require.Contains(t, err.Error(), "github emails endpoint status 403")
+}
+
+type emailOAuthFixtureRoundTripper func(*http.Request) (*http.Response, error)
+
+func (f emailOAuthFixtureRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }
 
 type oauthEmailAffiliateBindCall struct {

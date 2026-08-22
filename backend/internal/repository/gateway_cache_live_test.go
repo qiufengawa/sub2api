@@ -6,13 +6,12 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
-	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGatewayCacheLiveCallIdentityAndController(t *testing.T) {
-	redisServer := miniredis.RunT(t)
+	redisServer := newRepositoryMiniRedis(t)
 	client := redis.NewClient(&redis.Options{Addr: redisServer.Addr()})
 	cache, ok := NewGatewayCache(client).(service.LiveCallStore)
 	require.True(t, ok)

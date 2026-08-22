@@ -524,7 +524,9 @@ const downloadGeneratedCodes = () => {
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
-  window.URL.revokeObjectURL(url)
+  window.setTimeout(() => {
+    if (typeof window.URL.revokeObjectURL === 'function') window.URL.revokeObjectURL(url)
+  }, 0)
 }
 
 const columns = computed<Column[]>(() => [
@@ -956,7 +958,9 @@ const handleExportCodes = async () => {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
+    window.setTimeout(() => {
+      if (typeof window.URL.revokeObjectURL === 'function') window.URL.revokeObjectURL(url)
+    }, 0)
 
     appStore.showSuccess(t('admin.redeem.codesExported'))
   } catch (error: any) {

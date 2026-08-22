@@ -4,6 +4,8 @@ package xai
 
 import (
 	"context"
+	"errors"
+	"syscall"
 	"testing"
 	"time"
 
@@ -12,8 +14,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// startMiniredisOrSkip keeps these tests runnable in sandboxes that deny
+// binding localhost while still failing on any other startup error.
+func startMiniredisOrSkip(t *testing.T) *miniredis.Miniredis {
+	t.Helper()
+	mr, err := miniredis.Run()
+	if err == nil {
+		t.Cleanup(mr.Close)
+		return mr
+	}
+	if errors.Is(err, syscall.EACCES) || errors.Is(err, syscall.EPERM) {
+		t.Skipf("miniredis requires local listen permission: %v", err)
+	}
+	t.Fatalf("could not start miniredis: %v", err)
+	return nil
+}
+
 func TestSessionStoreRedisFallbackIsLimitedToFailedWrites(t *testing.T) {
-	mr := miniredis.RunT(t)
+	mr := startMiniredisOrSkip(t)
 	client := redis.NewClient(&redis.Options{Addr: mr.Addr(), MaxRetries: -1})
 	t.Cleanup(func() { _ = client.Close() })
 	store := NewRedisSessionStore(client)

@@ -118,7 +118,7 @@
       @close="closeFilterDelete"
       @preview="runFilterDeletePreview"
       @confirm="confirmFilterDelete"
-      @criteria-change="clearDeletePreview"
+      @criteria-change="handleFilterCriteriaChange"
     />
     <EventDetailDialog :show="showEventDetail" :event="activeEvent" :loading="loading.detail" @close="closeEventDetail" />
     </AppPage>
@@ -189,6 +189,7 @@ const deletePreviewFilters = ref<PromptEventFilters | null>(null)
 const showBlockingConfirmation = ref(false)
 const deleteRequest = reactive<{ mode: '' | 'single' | 'batch'; ids: number[] }>({ mode: '', ids: [] })
 const loading = reactive({ config: false, runtime: false, groups: false, events: false, saving: false, detail: false, deleting: false, previewing: false })
+const deletingOwner = ref<'id' | 'filter' | null>(null)
 const loadErrors = reactive<PromptLoadErrors>({ config: '', runtime: '', groups: '', events: '' })
 const dirty = computed(() => draftFingerprint(draft.value) !== draftFingerprint(serverConfig.value))
 let configRequestSequence = 0
@@ -300,7 +301,7 @@ function resetDraft() {
   if (serverConfig.value) draft.value = cloneData(serverConfig.value)
 }
 async function saveConfig() {
-  if (!draft.value || !dirty.value) return
+  if (!draft.value || !dirty.value || loading.saving) return
   ++configRequestSequence
   const submittedDraft = cloneData(draft.value)
   const submittedFingerprint = draftFingerprint(submittedDraft)
@@ -388,19 +389,35 @@ async function confirmIDDelete() {
   const ids = [...deleteRequest.ids]
   if (!mode || ids.length === 0) return
   loading.deleting = true
+  deletingOwner.value = 'id'
   try {
     const result = mode === 'single' ? await promptAuditAPI.deleteEvent(ids[0]) : await promptAuditAPI.batchDeleteEvents(ids)
     clearDeleteRequest()
     appStore.showSuccess(t('admin.promptAudit.messages.deleted', { count: result.deleted_events }))
     await Promise.allSettled([loadEvents(), loadRuntime()])
   } catch (error) { appStore.showError(errorMessage(error, 'admin.promptAudit.errors.delete')) }
-  finally { loading.deleting = false }
+  finally {
+    if (deletingOwner.value === 'id') {
+      deletingOwner.value = null
+      loading.deleting = false
+    }
+  }
 }
 function clearDeletePreview() {
   ++previewRequestSequence
   deletePreview.value = null
   deletePreviewFilters.value = null
   loading.previewing = false
+}
+function handleFilterCriteriaChange() {
+  // Editing filters starts a new destructive-operation generation. Any
+  // preview/delete response for the previous criteria must be ignored.
+  ++filterDeleteSessionSequence
+  clearDeletePreview()
+  if (deletingOwner.value === 'filter') {
+    deletingOwner.value = null
+    loading.deleting = false
+  }
 }
 function requestFilterDeletePreview() {
   ++filterDeleteSessionSequence
@@ -411,6 +428,13 @@ function closeFilterDelete() {
   ++filterDeleteSessionSequence
   showFilterDelete.value = false
   clearDeletePreview()
+  // The in-flight request is fenced by the session sequence.  Release the
+  // view-level busy state immediately so a newly opened dialog is independent
+  // of the old request's eventual completion.
+  if (deletingOwner.value === 'filter') {
+    deletingOwner.value = null
+    loading.deleting = false
+  }
 }
 async function runFilterDeletePreview(value: PromptEventFilters) {
   const requestSequence = ++previewRequestSequence
@@ -423,7 +447,7 @@ async function runFilterDeletePreview(value: PromptEventFilters) {
     deletePreview.value = result
     deletePreviewFilters.value = requestFilters
   } catch (error) {
-    if (requestSequence !== previewRequestSequence || sessionSequence !== filterDeleteSessionSequence) return
+    if (requestSequence !== previewRequestSequence || sessionSequence !== filterDeleteSessionSequence || !showFilterDelete.value) return
     clearDeletePreview()
     appStore.showError(errorMessage(error, 'admin.promptAudit.errors.previewDelete'))
   } finally {
@@ -435,6 +459,7 @@ async function confirmFilterDelete(filters?: PromptEventFilters) {
   const sessionSequence = filterDeleteSessionSequence
   const requestedFilters = filters ? cloneData(filters) : null
   loading.deleting = true
+  deletingOwner.value = 'filter'
   try {
     let preview = deletePreview.value
     let previewFilters = deletePreviewFilters.value ? cloneData(deletePreviewFilters.value) : null
@@ -460,9 +485,18 @@ async function confirmFilterDelete(filters?: PromptEventFilters) {
     appStore.showSuccess(t('admin.promptAudit.messages.deleted', { count: result.deleted_events }))
     await Promise.allSettled([loadEvents(), loadRuntime()])
   } catch (error) {
+    // A dialog can be closed or replaced while the destructive request is in
+    // flight.  Do not surface a stale error or clear the next session's
+    // preview when that older request rejects.
+    if (sessionSequence !== filterDeleteSessionSequence || !showFilterDelete.value) return
     clearDeletePreview()
     appStore.showError(errorMessage(error, 'admin.promptAudit.errors.deleteConfirmation'))
-  } finally { loading.deleting = false }
+  } finally {
+    if (sessionSequence === filterDeleteSessionSequence && deletingOwner.value === 'filter') {
+      deletingOwner.value = null
+      loading.deleting = false
+    }
+  }
 }
 function filterFingerprint(value: PromptEventFilters): string {
   return JSON.stringify(eventQueryParams(value))

@@ -440,7 +440,15 @@ func (h *AuthHandler) DingTalkOAuthCallback(c *gin.Context) {
 	}
 
 	// ─── Level 1：auth_identities hit ───
-	if existing, _ := h.findOAuthIdentityUser(c.Request.Context(), identityKey); existing != nil {
+	// A lookup error is an infrastructure failure, not a cache miss.  Treating
+	// it as nil would route an already-linked identity into signup/bind flow and
+	// could create a duplicate account while the database is unavailable.
+	existing, lookupErr := h.findOAuthIdentityUser(c.Request.Context(), identityKey)
+	if lookupErr != nil {
+		redirectOAuthError(c, frontendCallback, "session_error", infraerrors.Reason(lookupErr), infraerrors.Message(lookupErr))
+		return
+	}
+	if existing != nil {
 		// 身份同步：已登录用户，直接同步（user_id 已知）。
 		// 异步执行避免上游钉钉接口（GetStaffInfoByUserId / 部门递归）阻塞登录跳转。
 		runDingTalkSyncAsync(c.Request.Context(), func(ctx context.Context) {
@@ -518,7 +526,13 @@ func (h *AuthHandler) DingTalkOAuthCallback(c *gin.Context) {
 	// ─── L3/L4 有邮箱：统一 choice pending session ───
 	var compatEmailUser *dbent.User
 	if dingTalkLevelThreeEnabled && staff.Email != "" {
-		compatEmailUser, _ = h.findDingTalkCompatEmailUser(c.Request.Context(), staff.Email)
+		compatEmailUser, lookupErr = h.findDingTalkCompatEmailUser(c.Request.Context(), staff.Email)
+		if lookupErr != nil {
+			// Do not turn a database outage into an apparent "email not found"
+			// result that proceeds to account creation or binding.
+			redirectOAuthError(c, frontendCallback, "session_error", infraerrors.Reason(lookupErr), infraerrors.Message(lookupErr))
+			return
+		}
 	}
 	if err := h.createDingTalkOAuthChoicePendingSession(
 		c, identityKey, staff.Email, staff.Email,

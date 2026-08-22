@@ -54,4 +54,55 @@ describe('ProviderCard shared actions', () => {
     expect(wrapper.emitted('edit')).toHaveLength(1)
     expect(wrapper.emitted('delete')).toHaveLength(1)
   })
+
+  it('names provider switches with the provider identity for screen readers', () => {
+    const wrapper = mount(ProviderCard, {
+      props: {
+        provider: { ...provider, refund_enabled: true, allow_user_refund: true },
+        enabled: true,
+        availableTypes: [],
+      },
+      global: {
+        stubs: {
+          Icon: true,
+          ToggleSwitch: {
+            props: ['label', 'accessibleLabel', 'checked'],
+            template: '<button class="provider-toggle" :aria-label="accessibleLabel" />',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.findAll('.provider-toggle').map((toggle) => toggle.attributes('aria-label'))).toEqual([
+      'Stripe: common.enabled',
+      'Stripe: admin.settings.payment.refundEnabled',
+      'Stripe: admin.settings.payment.allowUserRefund',
+    ])
+  })
+
+  it('locks provider controls while a field or type mutation is pending', () => {
+    const wrapper = mount(ProviderCard, {
+      props: {
+        provider: { ...provider, refund_enabled: true, allow_user_refund: true },
+        enabled: true,
+        pending: true,
+        availableTypes: [{ value: 'stripe', label: 'Stripe' }],
+      },
+      global: {
+        stubs: {
+          Icon: true,
+          ToggleSwitch: {
+            props: ['label', 'accessibleLabel', 'checked', 'disabled'],
+            template: '<button class="provider-toggle" :disabled="disabled" />',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.find('[aria-busy="true"]').exists()).toBe(true)
+    expect(wrapper.findAll('.provider-toggle').every((toggle) => toggle.attributes('disabled') !== undefined)).toBe(true)
+    expect(wrapper.findAll('button[aria-pressed]').every((button) => button.attributes('disabled') !== undefined)).toBe(true)
+    expect(wrapper.get('button.ui-button--quiet').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('button.ui-button--danger').attributes('disabled')).toBeDefined()
+  })
 })

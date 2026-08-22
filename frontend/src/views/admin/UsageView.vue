@@ -381,10 +381,13 @@ const loadLogs = async () => {
     )
     if(!c.signal.aborted) { usageLogs.value = res.items; pagination.total = res.total }
   } catch (error: any) {
-    if(error?.name !== 'AbortError') {
-      logsError.value = true
-      console.error('Failed to load usage logs:', error)
-    }
+    // A transport may reject an aborted request with a generic Error instead
+    // of DOMException('AbortError').  The controller identity is the
+    // authoritative generation fence; stale failures must not surface an
+    // error banner for the newer request.
+    if (abortController !== c || c.signal.aborted || error?.name === 'AbortError') return
+    logsError.value = true
+    console.error('Failed to load usage logs:', error)
   } finally { if(abortController === c) loading.value = false }
 }
 const loadStats = async (force = false) => {

@@ -165,6 +165,9 @@ async function submit(): Promise<void> {
       attemptedSubmit.value = false
     }
   } catch (error) {
+    if ((error as { code?: string })?.code === 'AUTH_SESSION_CHANGED') {
+      return
+    }
     const message = (error as { message?: string })?.message || t('adminCompliance.acceptFailed')
     appStore.showError(message)
   }

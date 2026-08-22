@@ -6,13 +6,12 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
-	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
 
 func TestImageTaskStoreRoundTripAndTTL(t *testing.T) {
-	mr := miniredis.RunT(t)
+	mr := newRepositoryMiniRedis(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	t.Cleanup(func() { _ = rdb.Close() })
 	store := NewImageTaskStore(rdb)
@@ -33,7 +32,7 @@ func TestImageTaskStoreRoundTripAndTTL(t *testing.T) {
 }
 
 func TestImageTaskStoreMissing(t *testing.T) {
-	mr := miniredis.RunT(t)
+	mr := newRepositoryMiniRedis(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	t.Cleanup(func() { _ = rdb.Close() })
 	store := NewImageTaskStore(rdb)

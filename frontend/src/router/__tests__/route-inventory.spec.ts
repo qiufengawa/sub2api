@@ -47,4 +47,57 @@ describe('production route inventory', () => {
       meta: { requiresAuth: false },
     })
   })
+
+  it('keeps privileged admin feature gates attached to current page routes', () => {
+    const expectations = [
+      { path: '/admin/ui-system', meta: { requiresAuth: true, requiresAdmin: true } },
+      { path: '/admin/promo-codes', meta: { requiresAuth: true, requiresAdmin: true } },
+      { path: '/admin/risk-control', meta: { requiresAuth: true, requiresAdmin: true, requiresRiskControl: true } },
+      { path: '/admin/prompt-audit', meta: { requiresAuth: true, requiresAdmin: true, requiresRiskControl: true } },
+      { path: '/admin/orders/dashboard', meta: { requiresAuth: true, requiresAdmin: true, requiresPayment: true } },
+      { path: '/admin/orders', meta: { requiresAuth: true, requiresAdmin: true, requiresPayment: true } },
+    ]
+
+    for (const expectation of expectations) {
+      const route = productionRecords.find((record) => record.path === expectation.path)
+      expect(route, expectation.path).toBeDefined()
+      expect(route?.meta).toMatchObject(expectation.meta)
+    }
+  })
+
+  it('keeps every current admin page behind the admin auth boundary', () => {
+    const adminPagePaths = [
+      '/admin/dashboard',
+      '/admin/ui-system',
+      '/admin/ops',
+      '/admin/audit-logs',
+      '/admin/users',
+      '/admin/groups',
+      '/admin/channels/pricing',
+      '/admin/channels/monitor',
+      '/admin/subscriptions',
+      '/admin/accounts',
+      '/admin/announcements',
+      '/admin/proxies',
+      '/admin/redeem',
+      '/admin/promo-codes',
+      '/admin/settings',
+      '/admin/risk-control',
+      '/admin/prompt-audit',
+      '/admin/usage',
+      '/admin/affiliates/invites',
+      '/admin/affiliates/rebates',
+      '/admin/affiliates/transfers',
+      '/admin/orders/dashboard',
+      '/admin/orders',
+      '/admin/orders/plans',
+    ]
+
+    for (const path of adminPagePaths) {
+      const route = productionRecords.find((record) => record.path === path)
+      expect(route, path).toBeDefined()
+      expect(route?.component, `${path} should be a page route`).toBeDefined()
+      expect(route?.meta).toMatchObject({ requiresAuth: true, requiresAdmin: true })
+    }
+  })
 })

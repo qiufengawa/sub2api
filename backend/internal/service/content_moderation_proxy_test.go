@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -104,7 +103,7 @@ func moderationProxyIDPtr(v int64) *int64 { return &v }
 // 请求只有走代理才能得到响应。
 func TestContentModerationCallRoutesThroughProxy(t *testing.T) {
 	var proxied atomic.Int64
-	proxySrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	proxySrv := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// HTTP 目标经正向代理时，代理收到的是绝对 URI 请求。
 		if !strings.HasPrefix(r.RequestURI, "http://moderation-proxy-test.invalid") {
 			t.Errorf("expected absolute-URI proxy request, got %q", r.RequestURI)
@@ -147,7 +146,7 @@ func TestContentModerationCallRoutesThroughProxy(t *testing.T) {
 // 代理解析失败必须报错，而不是静默回退直连。
 func TestContentModerationProxyResolveFailureDoesNotFallBackToDirect(t *testing.T) {
 	var direct atomic.Int64
-	directSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	directSrv := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		direct.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(moderationAPIResponse{Results: []moderationAPIResult{{Flagged: false}}})
@@ -234,7 +233,7 @@ func TestContentModerationUpdateConfigProxyIDSemantics(t *testing.T) {
 // TestAPIKeys 的 proxy_id 语义：nil 沿用已保存配置的代理；0 强制直连；>0 指定代理。
 func TestContentModerationTestAPIKeysProxySemantics(t *testing.T) {
 	var proxied atomic.Int64
-	proxySrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	proxySrv := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxied.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(moderationAPIResponse{Results: []moderationAPIResult{{Flagged: false}}})
@@ -275,7 +274,7 @@ func TestContentModerationTestAPIKeysProxySemantics(t *testing.T) {
 
 	// 0：强制直连；BaseURL 指向本地可直连服务器，应成功且不再经过代理。
 	var direct atomic.Int64
-	directSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	directSrv := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		direct.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(moderationAPIResponse{Results: []moderationAPIResult{{Flagged: false}}})

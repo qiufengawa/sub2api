@@ -99,6 +99,24 @@ describe('admin payment dashboard', () => {
     expect(wrapper.get('[data-test="stats"]').text()).toBe('7')
   })
 
+  it('ignores an older request rejection after a newer range succeeds', async () => {
+    let rejectInitial: ((reason?: unknown) => void) | undefined
+    getDashboard
+      .mockReturnValueOnce(new Promise((_resolve, reject) => { rejectInitial = reject }))
+      .mockResolvedValueOnce({ data: { ...stats, today_count: 7 } })
+    const wrapper = mountView()
+    await vi.waitFor(() => expect(getDashboard).toHaveBeenCalledTimes(1))
+
+    await wrapper.get('[data-test="day-7"]').trigger('click')
+    await vi.waitFor(() => expect(getDashboard).toHaveBeenCalledTimes(2))
+    await flushPromises()
+    rejectInitial?.(new Error('stale network'))
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="stats"]').text()).toBe('7')
+    expect(showError).not.toHaveBeenCalledWith('stale network')
+  })
+
   it('keeps the error feedback contract when loading fails', async () => {
     getDashboard.mockRejectedValueOnce(new Error('network'))
     mountView()

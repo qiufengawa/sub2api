@@ -254,4 +254,39 @@ describe('frontend refactor static contracts', () => {
     expect(existsSync(join(repositoryRoot, 'plan.md'))).toBe(true)
     expect(existsSync(join(repositoryRoot, '.git'))).toBe(true)
   })
+
+  it('keeps high-risk administrator mutations fenced at source boundaries', () => {
+    const contracts: Record<string, string[]> = {
+      'views/admin/BackupView.vue': [
+        'if (savingS3.value) return',
+        'if (savingImageStorage.value) return',
+        'if (testingImageStorage.value) return',
+        'if (testingS3.value) return',
+        'if (savingSchedule.value) return',
+        'if (creatingBackup.value) return',
+      ],
+      'views/admin/AuditLogView.vue': ['if (clearing.value) return'],
+      'views/admin/UsageView.vue': [
+        'if (abortController !== c || c.signal.aborted || error?.name === \'AbortError\') return',
+      ],
+      'views/admin/orders/AdminOrdersView.vue': [
+        'orderDetailError.value = extractI18nErrorMessage',
+        'if (requestId !== detailRequestId) return',
+      ],
+      'views/admin/settings/EmailTemplateEditor.vue': [
+        'if (saving.value) return;',
+        'if (!force && (previewing.value || saving.value || restoring.value)) return;',
+        'if (sequence !== templateRequestSequence',
+        'if (sequence !== previewRequestSequence',
+      ],
+    }
+
+    for (const [file, snippets] of Object.entries(contracts)) {
+      const source = sourceByFile.get(file)
+      expect(source, `${file} should be part of the production source inventory`).toBeTruthy()
+      for (const snippet of snippets) {
+        expect(source, `${file} is missing mutation/late-response fence: ${snippet}`).toContain(snippet)
+      }
+    }
+  })
 })

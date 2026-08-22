@@ -1258,7 +1258,7 @@ func (r *contentModerationHandlerTestRepo) UpdateLogEmailSent(ctx context.Contex
 func TestOpenAIResponsesWebSocket_ContentModerationBlocksFirstFrame(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	moderationServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	moderationServer := newHandlerUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/v1/moderations", r.URL.Path)
 		_, _ = w.Write([]byte(`{"results":[{"category_scores":{"sexual":0.9}}]}`))
 	}))
@@ -1761,7 +1761,7 @@ func newOpenAIWSHandlerTestServer(t *testing.T, h *OpenAIGatewayHandler, subject
 		c.Next()
 	})
 	router.GET("/openai/v1/responses", h.ResponsesWebSocket)
-	return httptest.NewServer(router)
+	return newHandlerUnitHTTPServer(t, router)
 }
 
 type openAIResponsesWSUsageLogCase struct {
@@ -2291,7 +2291,7 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 	firstHitCh := make(chan []byte, 1)
 	secondHitCh := make(chan []byte, 1)
 
-	firstUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	firstUpstream := newHandlerUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := coderws.Accept(w, r, &coderws.AcceptOptions{CompressionMode: coderws.CompressionContextTakeover})
 		if err != nil {
 			return
@@ -2311,7 +2311,7 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 	}))
 	defer firstUpstream.Close()
 
-	secondUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	secondUpstream := newHandlerUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := coderws.Accept(w, r, &coderws.AcceptOptions{CompressionMode: coderws.CompressionContextTakeover})
 		if err != nil {
 			return
@@ -2443,7 +2443,7 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 		c.Next()
 	})
 	router.GET("/openai/v1/responses", h.ResponsesWebSocket)
-	handlerServer := httptest.NewServer(router)
+	handlerServer := newHandlerUnitHTTPServer(t, router)
 	defer handlerServer.Close()
 
 	dialCtx, cancelDial := context.WithTimeout(context.Background(), 3*time.Second)
@@ -2489,7 +2489,7 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 	var firstConnections atomic.Int32
 	var secondConnections atomic.Int32
 
-	firstUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	firstUpstream := newHandlerUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		firstConnections.Add(1)
 		conn, err := coderws.Accept(w, r, &coderws.AcceptOptions{CompressionMode: coderws.CompressionContextTakeover})
 		if err != nil {
@@ -2511,7 +2511,7 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 	}))
 	defer firstUpstream.Close()
 
-	secondUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	secondUpstream := newHandlerUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		secondConnections.Add(1)
 		conn, err := coderws.Accept(w, r, &coderws.AcceptOptions{CompressionMode: coderws.CompressionContextTakeover})
 		if err != nil {
@@ -2633,7 +2633,7 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 		h.ResponsesWebSocket(c)
 		close(handlerDone)
 	})
-	handlerServer := httptest.NewServer(router)
+	handlerServer := newHandlerUnitHTTPServer(t, router)
 	defer handlerServer.Close()
 
 	dialCtx, cancelDial := context.WithTimeout(context.Background(), 3*time.Second)
@@ -2698,7 +2698,7 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 	upstreamPayloadCh := make(chan []byte, turnCount)
 	upstreamErrCh := make(chan error, 1)
 	var channelSvc *service.ChannelService
-	upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstreamServer := newHandlerUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := coderws.Accept(w, r, &coderws.AcceptOptions{
 			CompressionMode: coderws.CompressionContextTakeover,
 		})
@@ -2853,7 +2853,7 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		c.Next()
 	})
 	router.GET("/openai/v1/responses", h.ResponsesWebSocket)
-	handlerServer := httptest.NewServer(router)
+	handlerServer := newHandlerUnitHTTPServer(t, router)
 	defer handlerServer.Close()
 
 	headers := http.Header{}

@@ -4,6 +4,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -47,11 +48,12 @@ func TestAuthHandlerRevokeAllSessionsInvalidatesAccessTokens(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Equal(t, []int64{29}, refreshTokenCache.revokedUserIDs)
-	// users 表没有 token_version 列（见 resolvedTokenVersion：JWT 里的值由
-	// email+password_hash 指纹推导），所以自增 TokenVersion 只停留在内存里。
-	// 此前紧跟其后的整行 Update 不写任何有效数据，却会用旧快照覆盖并发写入的列，
-	// 已移除。会话撤销由上面的 refresh session 清理承担。
+	// The production repository atomically bumps the durable revocation
+	// generation before clearing refresh sessions. The stub implements that
+	// optional repository capability so this handler contract exercises the
+	// access-token invalidation path as well.
 	require.Equal(t, int64(7), repo.user.TokenVersion)
+	require.Equal(t, int64(1), repo.user.RevocationVersion)
 
 	var resp struct {
 		Code int `json:"code"`
@@ -62,4 +64,26 @@ func TestAuthHandlerRevokeAllSessionsInvalidatesAccessTokens(t *testing.T) {
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
 	require.Equal(t, 0, resp.Code)
 	require.Equal(t, "All sessions have been revoked. Please log in again.", resp.Data.Message)
+}
+
+func TestRespondWithTokenPairDoesNotFallbackToUntrackedTokenWhenCacheFails(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cache := &userHandlerRefreshTokenCacheStub{addUserErr: errors.New("refresh index unavailable")}
+	cfg := &config.Config{JWT: config.JWTConfig{Secret: "test-secret", ExpireHour: 1, RefreshTokenExpireDays: 7}}
+	authService := service.NewAuthService(nil, nil, nil, cache, cfg, nil, nil, nil, nil, nil, nil, nil, nil)
+	user := &service.User{ID: 31, Email: "cache-failure@example.com", Username: "cache-failure", Role: service.RoleUser, Status: service.StatusActive}
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
+
+	respondWithTokenPair(c, authService, user)
+
+	require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
+	var resp struct {
+		Code int `json:"code"`
+		Data any `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
+	require.Equal(t, http.StatusServiceUnavailable, resp.Code)
 }

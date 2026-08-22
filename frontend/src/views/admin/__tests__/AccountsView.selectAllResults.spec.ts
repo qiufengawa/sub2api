@@ -156,6 +156,8 @@ describe('admin AccountsView select all filtered results', () => {
     getAllGroups.mockReset()
     showError.mockReset()
     batchDelete.mockReset()
+    batchClearError.mockReset()
+    batchRefresh.mockReset()
 
     listWithEtag.mockResolvedValue({
       notModified: true,
@@ -298,6 +300,67 @@ describe('admin AccountsView select all filtered results', () => {
     expect(api).toHaveBeenCalledWith([1, 2])
     finish({ success: 2, failed: 0 })
     await Promise.all([first, second])
+    wrapper.unmount()
+  })
+
+  it.each([
+    ['delete', 'handleBulkDelete', 'batchDelete'],
+    ['reset status', 'handleBulkResetStatus', 'batchClearError'],
+    ['refresh token', 'handleBulkRefreshToken', 'batchRefresh'],
+  ] as const)('retains only failed IDs after a partial bulk %s result', async (_label, openMethod, apiKey) => {
+    const currentPage = makeAccounts(2)
+    listAccounts.mockResolvedValue({ items: currentPage, total: 2, page: 1, page_size: 20, pages: 1 })
+    const api = apiKey === 'batchDelete'
+      ? batchDelete
+      : apiKey === 'batchClearError'
+        ? batchClearError
+        : batchRefresh
+    api.mockResolvedValueOnce({ total: 2, success: 1, failed: 1, success_ids: [1], failed_ids: [2] })
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-test="select-page"]').trigger('click')
+    const vm = wrapper.vm as any
+
+    await vm[openMethod]()
+    await vm.confirmBulkAction()
+    await flushPromises()
+
+    expect(vm.bulkConfirmation).toEqual({ kind: expect.any(String), ids: [2] })
+    expect(vm.selIds).toEqual([2])
+
+    api.mockResolvedValueOnce({ total: 1, success: 1, failed: 0, success_ids: [2], failed_ids: [] })
+    await vm.confirmBulkAction()
+    await flushPromises()
+    expect(api).toHaveBeenCalledTimes(2)
+    expect(api).toHaveBeenLastCalledWith([2])
+    expect(vm.bulkConfirmation).toBeNull()
+    wrapper.unmount()
+  })
+
+  it.each([
+    ['reset status', 'handleBulkResetStatus', 'batchClearError'],
+    ['refresh token', 'handleBulkRefreshToken', 'batchRefresh'],
+  ] as const)('derives failed %s IDs from per-account errors when the endpoint omits failed_ids', async (_label, openMethod, apiKey) => {
+    const currentPage = makeAccounts(2)
+    listAccounts.mockResolvedValue({ items: currentPage, total: 2, page: 1, page_size: 20, pages: 1 })
+    const api = apiKey === 'batchClearError' ? batchClearError : batchRefresh
+    api.mockResolvedValueOnce({
+      total: 2,
+      success: 1,
+      failed: 1,
+      errors: [{ account_id: 2, error: 'fixture failure' }]
+    })
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-test="select-page"]').trigger('click')
+    const vm = wrapper.vm as any
+
+    await vm[openMethod]()
+    await vm.confirmBulkAction()
+    await flushPromises()
+
+    expect(vm.bulkConfirmation).toEqual({ kind: expect.any(String), ids: [2] })
+    expect(vm.selIds).toEqual([2])
     wrapper.unmount()
   })
 })

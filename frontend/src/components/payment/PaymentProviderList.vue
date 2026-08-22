@@ -15,7 +15,7 @@
           <UiButton
             type="button"
             density="compact"
-            :disabled="loading"
+            :disabled="loading || hasPendingProvider"
             :title="t('common.refresh')"
             @click="emit('refresh')"
           >
@@ -25,7 +25,7 @@
             type="button"
             density="compact"
             variant="primary"
-            :disabled="!canCreate"
+            :disabled="!canCreate || hasPendingProvider"
             @click="emit('create')"
           >
             {{ t('admin.settings.payment.createProvider') }}
@@ -46,6 +46,7 @@
         v-if="providers.length"
         v-model="localProviders"
         :animation="200"
+        :disabled="hasPendingProvider"
         handle=".drag-handle"
         class="space-y-3"
         @end="onDragEnd"
@@ -59,6 +60,7 @@
               :provider="p"
               :enabled="isEnabled(p.provider_key)"
               :available-types="getTypes(p.provider_key)"
+              :pending="isPending(p.id)"
               @toggle-field="(field) => emit('toggleField', p, field)"
               @toggle-type="(type) => emit('toggleType', p, type)"
               @edit="emit('edit', p)"
@@ -78,6 +80,7 @@
         <UiButton
           type="button"
           v-if="canCreate"
+          :disabled="hasPendingProvider"
           @click="emit('create')"
           class="mt-2"
           variant="primary"
@@ -91,7 +94,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { VueDraggable } from 'vue-draggable-plus'
 import Icon from '@/components/icons/Icon.vue'
@@ -108,6 +111,8 @@ const props = defineProps<{
   enabledPaymentTypes: string[]
   allPaymentTypes: TypeOption[]
   redirectLabel: string
+  pendingProviderIds?: number[]
+  mutationPending?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -123,6 +128,11 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const localProviders = ref<ProviderInstance[]>([])
+const hasPendingProvider = computed(
+  () =>
+    props.mutationPending === true ||
+    (props.pendingProviderIds?.length ?? 0) > 0,
+)
 
 watch(() => props.providers, (val) => {
   localProviders.value = [...val]
@@ -146,5 +156,12 @@ function getTypes(providerKey: string): TypeOption[] {
       ? { ...opt, label: t(`payment.methods.${opt.value}`, opt.value) }
       : opt,
     )
+}
+
+function isPending(providerId: number): boolean {
+  return (
+    hasPendingProvider.value ||
+    (props.pendingProviderIds?.includes(providerId) ?? false)
+  )
 }
 </script>

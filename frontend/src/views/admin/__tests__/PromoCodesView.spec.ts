@@ -210,6 +210,30 @@ describe('admin PromoCodesView', () => {
     })
   })
 
+  it('ignores duplicate create and update submissions while each request is pending', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const vm = wrapper.vm as any
+
+    const createRequest = deferred<unknown>()
+    create.mockReturnValueOnce(createRequest.promise)
+    const firstCreate = vm.handleCreate()
+    const duplicateCreate = vm.handleCreate()
+    expect(create).toHaveBeenCalledOnce()
+    createRequest.resolve({})
+    await Promise.all([firstCreate, duplicateCreate])
+
+    const updateRequest = deferred<unknown>()
+    update.mockReturnValueOnce(updateRequest.promise)
+    vm.editingCode = code
+    const firstUpdate = vm.handleUpdate()
+    const duplicateUpdate = vm.handleUpdate()
+    expect(update).toHaveBeenCalledOnce()
+    updateRequest.resolve({})
+    await Promise.all([firstUpdate, duplicateUpdate])
+    wrapper.unmount()
+  })
+
   it('prevents duplicate deletes until deletion and refresh complete', async () => {
     const wrapper = mountView()
     await flushPromises()

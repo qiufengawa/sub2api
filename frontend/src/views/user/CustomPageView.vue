@@ -141,6 +141,8 @@
             :src="embeddedUrl"
             :title="menuItem.label || t('customPage.title')"
             class="custom-embed-frame"
+            sandbox="allow-scripts allow-forms allow-popups allow-presentation"
+            referrerpolicy="no-referrer"
             allowfullscreen
           />
         </div>

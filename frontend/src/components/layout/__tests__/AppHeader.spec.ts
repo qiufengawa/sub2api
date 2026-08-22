@@ -39,6 +39,7 @@ vi.mock('@/stores', () => ({
     contactInfo: '',
     docUrl: '',
     cachedPublicSettings: { custom_menu_items: [] },
+    mobileOpen: false,
     toggleMobileSidebar: mocks.toggleMobileSidebar,
   }),
   useAuthStore: () => ({
@@ -114,6 +115,15 @@ describe('AppHeader shared popovers', () => {
     expect(trigger.attributes('aria-expanded')).toBe('false')
     await vi.waitFor(() => expect(document.body.querySelector('[role="dialog"]')).toBeNull())
     expect(document.activeElement).toBe(trigger.element)
+    wrapper.unmount()
+  })
+
+  it('exposes the mobile menu relationship to assistive technology', () => {
+    const wrapper = mountHeader()
+    const trigger = wrapper.get('#app-mobile-menu-trigger')
+
+    expect(trigger.attributes('aria-controls')).toBe('app-sidebar')
+    expect(trigger.attributes('aria-expanded')).toBe('false')
     wrapper.unmount()
   })
 

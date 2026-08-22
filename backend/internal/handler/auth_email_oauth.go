@@ -46,6 +46,27 @@ type emailOAuthProfile struct {
 	Metadata      map[string]any
 }
 
+// emailOAuthHTTPClientContextKey allows OAuth profile helpers to use an
+// explicitly supplied req client in tests (and in callers that need custom
+// transport policy) without mutating req's process-wide default client.
+type emailOAuthHTTPClientContextKey struct{}
+
+func withEmailOAuthHTTPClient(ctx context.Context, client *req.Client) context.Context {
+	if client == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, emailOAuthHTTPClientContextKey{}, client)
+}
+
+func emailOAuthHTTPClient(ctx context.Context) *req.Client {
+	if ctx != nil {
+		if client, ok := ctx.Value(emailOAuthHTTPClientContextKey{}).(*req.Client); ok && client != nil {
+			return client
+		}
+	}
+	return req.C()
+}
+
 func (h *AuthHandler) GitHubOAuthStart(c *gin.Context) { h.emailOAuthStart(c, "github") }
 func (h *AuthHandler) GoogleOAuthStart(c *gin.Context) { h.emailOAuthStart(c, "google") }
 
@@ -469,7 +490,7 @@ func buildEmailOAuthAuthorizeURL(cfg config.EmailOAuthProviderConfig, state stri
 }
 
 func exchangeEmailOAuthCode(ctx context.Context, cfg config.EmailOAuthProviderConfig, code string) (*emailOAuthTokenResponse, error) {
-	resp, err := req.C().
+	resp, err := emailOAuthHTTPClient(ctx).
 		R().
 		SetContext(ctx).
 		SetHeader("Accept", "application/json").
@@ -498,7 +519,7 @@ func exchangeEmailOAuthCode(ctx context.Context, cfg config.EmailOAuthProviderCo
 }
 
 func fetchEmailOAuthProfile(ctx context.Context, provider string, cfg config.EmailOAuthProviderConfig, token *emailOAuthTokenResponse) (*emailOAuthProfile, error) {
-	resp, err := req.C().
+	resp, err := emailOAuthHTTPClient(ctx).
 		R().
 		SetContext(ctx).
 		SetBearerAuthToken(token.AccessToken).
@@ -554,7 +575,7 @@ func parseGitHubOAuthProfile(ctx context.Context, cfg config.EmailOAuthProviderC
 }
 
 func fetchGitHubPrimaryVerifiedEmail(ctx context.Context, emailsURL string, accessToken string) (string, error) {
-	resp, err := req.C().
+	resp, err := emailOAuthHTTPClient(ctx).
 		R().
 		SetContext(ctx).
 		SetBearerAuthToken(accessToken).

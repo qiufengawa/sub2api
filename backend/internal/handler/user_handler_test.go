@@ -33,6 +33,10 @@ func (s *userHandlerRepoStub) GetByID(context.Context, int64) (*service.User, er
 	cloned := *s.user
 	return &cloned, nil
 }
+func (s *userHandlerRepoStub) IncrementRevocationVersion(context.Context, int64) (int64, error) {
+	s.user.RevocationVersion++
+	return s.user.RevocationVersion, nil
+}
 func (s *userHandlerRepoStub) GetByEmail(context.Context, string) (*service.User, error) {
 	cloned := *s.user
 	return &cloned, nil
@@ -487,6 +491,7 @@ type userHandlerEmailCacheStub struct {
 
 type userHandlerRefreshTokenCacheStub struct {
 	revokedUserIDs []int64
+	addUserErr     error
 }
 
 func (s *userHandlerRefreshTokenCacheStub) StoreRefreshToken(context.Context, string, *service.RefreshTokenData, time.Duration) error {
@@ -511,7 +516,7 @@ func (s *userHandlerRefreshTokenCacheStub) DeleteTokenFamily(context.Context, st
 }
 
 func (s *userHandlerRefreshTokenCacheStub) AddToUserTokenSet(context.Context, int64, string, time.Duration) error {
-	return nil
+	return s.addUserErr
 }
 
 func (s *userHandlerRefreshTokenCacheStub) AddToFamilyTokenSet(context.Context, string, string, time.Duration) error {

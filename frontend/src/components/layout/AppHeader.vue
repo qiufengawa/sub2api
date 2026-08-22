@@ -7,6 +7,9 @@
           icon="menu"
           variant="ghost"
           density="compact"
+          id="app-mobile-menu-trigger"
+          aria-controls="app-sidebar"
+          :aria-expanded="appStore.mobileOpen"
           :label="t('common.toggleMenu')"
           @click="toggleMobileSidebar"
         />

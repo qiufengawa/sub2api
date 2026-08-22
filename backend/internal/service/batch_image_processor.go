@@ -54,6 +54,11 @@ type BatchImageProviderProcessor struct {
 	BillingRepo      UsageBillingRepository
 	AuthCache        APIKeyAuthCacheInvalidator
 	DefaultRequeue   time.Duration
+	// OutputRetentionAfterTerminal is applied when a provider reports a
+	// failed/cancelled job that still has a managed output prefix.  Settlement
+	// supplies this for successful jobs; terminal provider failures need the
+	// same expiry so their objects remain cleanable.
+	OutputRetentionAfterTerminal time.Duration
 }
 
 func (p *BatchImageProviderProcessor) Process(ctx context.Context, batchID string) (BatchImageProcessResult, error) {
@@ -107,8 +112,22 @@ func (p *BatchImageProviderProcessor) Process(ctx context.Context, batchID strin
 	if status == nil {
 		return BatchImageProcessResult{RequeueAfter: p.requeueDelay(0)}, nil
 	}
-	if err := p.persistProviderOutputRef(ctx, job, status.ProviderOutputRef); err != nil {
+	updatedOutputRef, err := p.persistProviderOutputRef(ctx, job, status.ProviderOutputRef)
+	if err != nil {
 		return BatchImageProcessResult{}, err
+	}
+	if !updatedOutputRef {
+		// A cancellation/failure may have committed while the provider poll
+		// was in flight.  The conditional repository write deliberately
+		// discards the late output reference; do not attempt a transition from
+		// the stale pre-poll status.
+		if isBatchImageProcessorDoneStatus(job.Status) {
+			if err := p.releaseTerminalHold(ctx, job); err != nil {
+				return BatchImageProcessResult{}, err
+			}
+			return BatchImageProcessResult{Terminal: true}, nil
+		}
+		return BatchImageProcessResult{RequeueAfter: p.requeueDelay(status.SuggestedRequeueAfter)}, nil
 	}
 
 	switch status.InternalState {
@@ -154,6 +173,9 @@ func (p *BatchImageProviderProcessor) Process(ctx context.Context, batchID strin
 			return BatchImageProcessResult{}, err
 		}
 		job.Status = BatchImageJobStatusFailed
+		if err := p.markTerminalOutputExpiry(ctx, job); err != nil {
+			return BatchImageProcessResult{}, err
+		}
 		if err := p.releaseTerminalHold(ctx, job); err != nil {
 			return BatchImageProcessResult{}, err
 		}
@@ -166,6 +188,9 @@ func (p *BatchImageProviderProcessor) Process(ctx context.Context, batchID strin
 			return BatchImageProcessResult{}, err
 		}
 		job.Status = BatchImageJobStatusCancelled
+		if err := p.markTerminalOutputExpiry(ctx, job); err != nil {
+			return BatchImageProcessResult{}, err
+		}
 		if err := p.releaseTerminalHold(ctx, job); err != nil {
 			return BatchImageProcessResult{}, err
 		}
@@ -209,6 +234,12 @@ func (p *BatchImageProviderProcessor) indexAndSettle(ctx context.Context, job *B
 			return BatchImageProcessResult{}, transitionErr
 		}
 		job.Status = BatchImageJobStatusFailed
+		// Indexing can fail after the provider output reference has already been
+		// persisted.  Give that terminal output the same retention deadline as
+		// provider-reported failures so the cleanup worker can reclaim it.
+		if err := p.markTerminalOutputExpiry(ctx, job); err != nil {
+			return BatchImageProcessResult{}, err
+		}
 		if err := p.releaseTerminalHold(ctx, job); err != nil {
 			return BatchImageProcessResult{}, err
 		}
@@ -244,15 +275,60 @@ func (p *BatchImageProviderProcessor) releaseTerminalHold(ctx context.Context, j
 	return nil
 }
 
-func (p *BatchImageProviderProcessor) persistProviderOutputRef(ctx context.Context, job *BatchImageJob, ref string) error {
+func (p *BatchImageProviderProcessor) persistProviderOutputRef(ctx context.Context, job *BatchImageJob, ref string) (bool, error) {
 	ref = strings.TrimSpace(ref)
-	if ref == "" || job == nil || batchImageDerefString(job.ProviderOutputRef) == ref {
-		return nil
+	if job == nil {
+		return true, nil
 	}
-	if err := p.Repo.UpdateBatchImageJobProviderOutputRef(ctx, job.BatchID, ref); err != nil {
-		return err
+	if ref == "" {
+		// There is no output column to update, but the provider poll can still
+		// race a user cancellation/status transition.  Re-read the row so an
+		// empty-ref response cannot drive a stale snapshot into indexing or a
+		// terminal transition.
+		latest, err := p.Repo.GetBatchImageJobByBatchID(ctx, job.BatchID)
+		if err != nil {
+			return false, err
+		}
+		if latest.Status != job.Status {
+			*job = *latest
+			return false, nil
+		}
+		return true, nil
+	}
+	// Even when the provider returns the same reference already present on the
+	// stale snapshot, perform the conditional write.  Besides keeping the
+	// persisted value current, this re-checks the row's lifecycle state.  A
+	// cancellation can commit while provider.Get is in flight; an early return
+	// here would let the stale processor snapshot transition that terminal job.
+	updated, err := p.Repo.UpdateBatchImageJobProviderOutputRefIfActive(ctx, job.BatchID, ref)
+	if err != nil {
+		return false, err
+	}
+	if !updated {
+		latest, err := p.Repo.GetBatchImageJobByBatchID(ctx, job.BatchID)
+		if err != nil {
+			return false, err
+		}
+		*job = *latest
+		return false, nil
 	}
 	job.ProviderOutputRef = &ref
+	return true, nil
+}
+
+func (p *BatchImageProviderProcessor) markTerminalOutputExpiry(ctx context.Context, job *BatchImageJob) error {
+	if job == nil || strings.TrimSpace(batchImageDerefString(job.ProviderOutputRef)) == "" || job.OutputExpiresAt != nil {
+		return nil
+	}
+	retention := p.OutputRetentionAfterTerminal
+	if retention <= 0 {
+		retention = defaultBatchImageOutputRetentionAfterTerminal
+	}
+	expiresAt := time.Now().Add(retention)
+	if err := p.Repo.SetBatchImageOutputExpiresAt(ctx, job.BatchID, expiresAt); err != nil {
+		return err
+	}
+	job.OutputExpiresAt = &expiresAt
 	return nil
 }
 

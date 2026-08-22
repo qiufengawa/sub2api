@@ -62,6 +62,10 @@ type JWTClaims struct {
 	Email        string `json:"email"`
 	Role         string `json:"role"`
 	TokenVersion int64  `json:"token_version"` // Used to invalidate tokens on password change
+	// RevocationVersion is a durable user-wide generation.  A pointer keeps
+	// legacy JWTs (which predate this claim) distinguishable from new tokens
+	// issued while the generation is still zero.
+	RevocationVersion *int64 `json:"rv,omitempty"`
 	// SessionID 会话 ID（与 refresh token family 对应），用于单会话撤销与 step-up 授权绑定。
 	SessionID string `json:"sid,omitempty"`
 	// BindingHash 会话指纹哈希（IP+UA），会话绑定开启时校验；空值表示旧 token（平滑升级）。
@@ -144,6 +148,15 @@ func (s *AuthService) EntClient() *dbent.Client {
 		return nil
 	}
 	return s.entClient
+}
+
+// HasRefreshTokenCache reports whether authentication is configured for
+// revocable refresh sessions.  Handlers use this to distinguish an
+// intentionally legacy/stateless deployment from a cache outage: when a
+// cache is configured, silently falling back to an untracked access token
+// would bypass refresh-token rotation and session revocation guarantees.
+func (s *AuthService) HasRefreshTokenCache() bool {
+	return s != nil && s.refreshTokenCache != nil
 }
 
 func (s *AuthService) SetTencentCaptchaService(tencentCaptchaService *TencentCaptchaService) {
@@ -1372,13 +1385,18 @@ func (s *AuthService) generateAccessToken(user *User, sessionID, bindingHash str
 		expiresAt = now.Add(time.Duration(s.cfg.JWT.ExpireHour) * time.Hour)
 	}
 
+	revocationVersion := int64(0)
+	if user != nil {
+		revocationVersion = user.RevocationVersion
+	}
 	claims := &JWTClaims{
-		UserID:       user.ID,
-		Email:        user.Email,
-		Role:         user.Role,
-		TokenVersion: resolvedTokenVersion(user),
-		SessionID:    sessionID,
-		BindingHash:  bindingHash,
+		UserID:            user.ID,
+		Email:             user.Email,
+		Role:              user.Role,
+		TokenVersion:      resolvedTokenVersion(user),
+		RevocationVersion: &revocationVersion,
+		SessionID:         sessionID,
+		BindingHash:       bindingHash,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -1445,6 +1463,9 @@ func (s *AuthService) RefreshToken(ctx context.Context, oldTokenString string) (
 	// Security: Check TokenVersion to prevent refreshing revoked tokens
 	// This ensures tokens issued before a password change cannot be refreshed
 	if claims.TokenVersion != resolvedTokenVersion(user) {
+		return "", ErrTokenRevoked
+	}
+	if !RevocationVersionMatches(claims, user) {
 		return "", ErrTokenRevoked
 	}
 
@@ -1691,12 +1712,13 @@ func (s *AuthService) generateRefreshToken(ctx context.Context, user *User, fami
 	ttl := time.Duration(s.cfg.JWT.RefreshTokenExpireDays) * 24 * time.Hour
 
 	data := &RefreshTokenData{
-		UserID:       user.ID,
-		TokenVersion: resolvedTokenVersion(user),
-		FamilyID:     familyID,
-		BindingHash:  sessionBindingHashFromContext(ctx),
-		CreatedAt:    now,
-		ExpiresAt:    now.Add(ttl),
+		UserID:            user.ID,
+		TokenVersion:      resolvedTokenVersion(user),
+		RevocationVersion: user.RevocationVersion,
+		FamilyID:          familyID,
+		BindingHash:       sessionBindingHashFromContext(ctx),
+		CreatedAt:         now,
+		ExpiresAt:         now.Add(ttl),
 	}
 
 	// 存储Token数据
@@ -1706,14 +1728,25 @@ func (s *AuthService) generateRefreshToken(ctx context.Context, user *User, fami
 
 	// 添加到用户Token集合
 	if err := s.refreshTokenCache.AddToUserTokenSet(ctx, user.ID, tokenHash, ttl); err != nil {
-		logger.LegacyPrintf("service.auth", "[Auth] Failed to add token to user set: %v", err)
-		// 不影响主流程
+		// A token that is not indexed cannot be revoked by the user/session
+		// revocation paths.  Do not return it to the caller in that state: remove
+		// the primary token key and fail issuance closed.  The set operation may
+		// have partially succeeded, but a stale set member is harmless and will be
+		// discarded by the normal revocation/TTL sweep.
+		if cleanupErr := s.refreshTokenCache.DeleteRefreshToken(ctx, tokenHash); cleanupErr != nil {
+			return "", fmt.Errorf("add refresh token to user set: %w (cleanup failed: %v)", err, cleanupErr)
+		}
+		return "", fmt.Errorf("add refresh token to user set: %w", err)
 	}
 
 	// 添加到家族Token集合
 	if err := s.refreshTokenCache.AddToFamilyTokenSet(ctx, familyID, tokenHash, ttl); err != nil {
-		logger.LegacyPrintf("service.auth", "[Auth] Failed to add token to family set: %v", err)
-		// 不影响主流程
+		// The family index is required for session-family revocation.  As above,
+		// fail closed rather than issuing a token that cannot be revoked.
+		if cleanupErr := s.refreshTokenCache.DeleteRefreshToken(ctx, tokenHash); cleanupErr != nil {
+			return "", fmt.Errorf("add refresh token to family set: %w (cleanup failed: %v)", err, cleanupErr)
+		}
+		return "", fmt.Errorf("add refresh token to family set: %w", err)
 	}
 
 	return rawToken, nil
@@ -1778,6 +1811,10 @@ func (s *AuthService) RefreshTokenPair(ctx context.Context, refreshToken string)
 		_ = s.refreshTokenCache.DeleteTokenFamily(ctx, data.FamilyID)
 		return nil, ErrTokenRevoked
 	}
+	if data.RevocationVersion != user.RevocationVersion {
+		_ = s.refreshTokenCache.DeleteTokenFamily(ctx, data.FamilyID)
+		return nil, ErrTokenRevoked
+	}
 
 	// 会话绑定检查：IP/UA 任一变化即撤销整个会话家族。
 	// data.BindingHash 为空表示功能开启前签发的旧会话，放行并在轮转时补齐绑定。
@@ -1789,10 +1826,24 @@ func (s *AuthService) RefreshTokenPair(ctx context.Context, refreshToken string)
 		}
 	}
 
-	// Token轮转：立即使旧Token失效
-	if err := s.refreshTokenCache.DeleteRefreshToken(ctx, tokenHash); err != nil {
-		logger.LegacyPrintf("service.auth", "[Auth] Failed to delete old refresh token: %v", err)
-		// 继续处理，不影响主流程
+	// Token轮转：原子地消费旧 Token。Redis-backed caches implement
+	// GET+DEL in one Lua script so concurrent refresh requests cannot both
+	// spend the same token.  Legacy cache implementations use delete as a
+	// fallback, but any deletion failure is fail-closed: issuing a new pair
+	// while the old token is still reusable would defeat rotation.
+	if atomicCache, ok := s.refreshTokenCache.(AtomicRefreshTokenConsumer); ok {
+		consumed, consumeErr := atomicCache.ConsumeRefreshToken(ctx, tokenHash)
+		if consumeErr != nil {
+			logger.LegacyPrintf("service.auth", "[Auth] Failed to consume old refresh token: %v", consumeErr)
+			return nil, ErrServiceUnavailable
+		}
+		if consumed == nil {
+			logger.LegacyPrintf("service.auth", "[Auth] Refresh token was consumed concurrently")
+			return nil, ErrRefreshTokenInvalid
+		}
+	} else if deleteErr := s.refreshTokenCache.DeleteRefreshToken(ctx, tokenHash); deleteErr != nil {
+		logger.LegacyPrintf("service.auth", "[Auth] Failed to delete old refresh token: %v", deleteErr)
+		return nil, ErrServiceUnavailable
 	}
 
 	// 生成新的Token对，保持同一个家族ID
@@ -1845,14 +1896,39 @@ func (s *AuthService) RevokeAllUserSessions(ctx context.Context, userID int64) e
 // 会话撤销由下面的 refresh session 清理承担；改密路径通过 password_hash 变化
 // 改变指纹，从而使旧 token 失效。
 func (s *AuthService) RevokeAllUserTokens(ctx context.Context, userID int64) error {
-	if _, err := s.userRepo.GetByID(ctx, userID); err != nil {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
 		return fmt.Errorf("get user: %w", err)
+	}
+	if revocationRepo, ok := s.userRepo.(UserRevocationRepository); ok {
+		if _, err := revocationRepo.IncrementRevocationVersion(ctx, userID); err != nil {
+			return fmt.Errorf("increment user revocation version: %w", err)
+		}
+	} else {
+		// Narrow test/legacy repositories may not expose durable generations.
+		// Keep their refresh-only behavior rather than pretending an in-memory
+		// increment is authoritative across instances.
+		user.RevocationVersion++
 	}
 
 	if err := s.RevokeAllUserSessions(ctx, userID); err != nil {
 		logger.LegacyPrintf("service.auth", "[Auth] Failed to revoke refresh sessions after token invalidation for user %d: %v", userID, err)
 	}
 	return nil
+}
+
+// RevocationVersionMatches validates the durable revoke-all generation while
+// preserving compatibility with legacy JWTs that do not carry the rv claim.
+func RevocationVersionMatches(claims *JWTClaims, user *User) bool {
+	if claims == nil || user == nil {
+		return false
+	}
+	if claims.RevocationVersion == nil {
+		// Legacy tokens are accepted only before the first durable bump.  Their
+		// existing password/email fingerprint check remains enforced separately.
+		return user.RevocationVersion == 0
+	}
+	return *claims.RevocationVersion == user.RevocationVersion
 }
 
 // hashToken 计算Token的SHA256哈希

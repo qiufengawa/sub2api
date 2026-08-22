@@ -179,7 +179,7 @@ func TestForwardAlphaSearchPATBackfillsMissingChatGPTAccountMetadata(t *testing.
 	c.Request.Header.Set("Content-Type", "application/json")
 
 	var whoamiCalls int32
-	whoamiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	whoamiServer := newUnitHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&whoamiCalls, 1)
 		require.Equal(t, "Bearer at-test-token", r.Header.Get("Authorization"))
 		require.Equal(t, "application/json", r.Header.Get("Accept"))

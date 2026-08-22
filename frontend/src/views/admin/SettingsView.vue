@@ -34,7 +34,7 @@
       </div>
 
       <!-- Settings Form -->
-      <form v-else @submit.prevent="saveSettings" class="min-w-0 space-y-6" novalidate>
+      <form ref="settingsFormRef" v-else @submit.prevent="saveSettings" class="min-w-0 space-y-6" novalidate>
         <!-- Tab Navigation -->
         <div class="settings-tabs-shell">
           <UiTabs
@@ -4924,7 +4924,7 @@
                           </div>
                           <Toggle
                             v-model="block.cacheControlEnabled"
-                            :label="t('admin.settings.gatewayForwarding.systemBlockCacheControl')"
+                            :label="`${t('admin.settings.gatewayForwarding.systemBlockCacheControl')} ${index + 1}`"
                           />
                         </div>
                         <div v-if="block.cacheControlEnabled">
@@ -7241,6 +7241,11 @@
                       :aria-pressed="isPaymentTypeEnabled(pt.value)"
                       :variant="isPaymentTypeEnabled(pt.value) ? 'primary' : 'secondary'"
                       density="compact"
+                      :disabled="
+                        saving ||
+                        providerListMutationPending ||
+                        isPaymentTypeTogglePending(pt.value)
+                      "
                       @click="togglePaymentType(pt.value)"
                     >
                       {{ pt.label }}
@@ -7297,6 +7302,8 @@
             :can-create="hasAnyPaymentTypeEnabled"
             :enabled-payment-types="form.payment_enabled_types"
             :all-payment-types="allPaymentTypes"
+            :pending-provider-ids="providerTogglePendingIds"
+            :mutation-pending="providerListMutationPending"
             :redirect-label="t('admin.settings.payment.easypayRedirect')"
             @refresh="loadProviders"
             @create="openCreateProvider"
@@ -7598,7 +7605,7 @@
                   >
                     <Toggle
                       :model-value="!entry.disabled"
-                      :label="t('admin.settings.quotaNotify.enabled')"
+                      :label="quotaNotifyToggleLabel(entry.email, index)"
                       @update:model-value="entry.disabled = !$event"
                     />
                     <UiTextField
@@ -7655,7 +7662,7 @@
         <div v-show="activeTab !== 'backup'" class="flex justify-end">
           <UiButton
             type="submit"
-            :disabled="saving || loadFailed"
+            :disabled="saving || loadFailed || providerMutationsPending || providerSaving"
             variant="primary"
             :loading="saving"
           >
@@ -7686,15 +7693,17 @@
         :title="t('admin.settings.payment.deleteProvider')"
         :message="t('admin.settings.payment.deleteProviderConfirm')"
         :confirm-text="t('common.delete')"
+        :pending="deletingProviderPending"
         danger
         @confirm="handleDeleteProvider"
-        @cancel="showDeleteProviderDialog = false"
+        @cancel="cancelDeleteProvider"
       />
       <ConfirmDialog
         :show="affiliateConfirmDialog.show"
         :title="affiliateConfirmDialog.title"
         :message="affiliateConfirmDialog.message"
         :confirm-text="affiliateConfirmDialog.confirmText"
+        :pending="affiliateConfirmDialog.running"
         danger
         @confirm="handleAffiliateConfirm"
         @cancel="cancelAffiliateConfirm"
@@ -7716,7 +7725,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from "vue";
+import { ref, reactive, computed, nextTick, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { adminAPI } from "@/api";
 import {
@@ -7875,6 +7884,7 @@ const { copyToClipboard } = useClipboard();
 
 const loading = ref(true);
 const loadFailed = ref(false);
+const settingsFormRef = ref<HTMLFormElement | null>(null);
 const saving = ref(false);
 const testingSmtp = ref(false);
 const sendingTestEmail = ref(false);
@@ -7884,6 +7894,11 @@ const registrationEmailSuffixWhitelistTags = ref<string[]>([]);
 const registrationEmailSuffixWhitelistDraft = ref("");
 const forwardedClientIpHeaderDraft = ref("");
 const tablePageSizeOptionsInput = ref("10, 20, 50, 100");
+
+function quotaNotifyToggleLabel(email: string | undefined, index: number): string {
+  const identifier = String(email || '').trim() || String(index + 1);
+  return `${t('admin.settings.quotaNotify.enabled')} ${identifier}`;
+}
 
 // Admin API Key 状态
 const adminApiKeyLoading = ref(true);
@@ -9763,6 +9778,7 @@ const codexSyncedVersionLabel = computed(() => {
 });
 
 async function loadSettings() {
+  const wasRetry = loadFailed.value;
   loading.value = true;
   loadFailed.value = false;
   try {
@@ -9931,6 +9947,10 @@ async function loadSettings() {
   } finally {
     loading.value = false;
   }
+  if (wasRetry && !loadFailed.value) {
+    await nextTick();
+    settingsFormRef.value?.querySelector<HTMLElement>('[role="tab"]')?.focus();
+  }
 }
 
 async function loadSubscriptionPlans() {
@@ -9998,8 +10018,24 @@ function findDuplicateDefaultSubscription(
   });
 }
 
-async function saveSettings() {
+async function saveSettings(
+  options: { allowProviderSaving?: boolean } | SubmitEvent = {},
+) {
   if (saving.value) return;
+  const allowProviderSaving =
+    "allowProviderSaving" in options && options.allowProviderSaving === true;
+  if (
+    providerMutationsPending.value ||
+    (providerSaving.value && !allowProviderSaving)
+  ) {
+    appStore.showError(
+      localText(
+        "支付服务商更新正在进行，请完成后再保存设置。",
+        "A payment provider update is still in progress. Save settings after it completes.",
+      ),
+    );
+    return;
+  }
   saving.value = true;
   try {
     const normalizedTableDefaultPageSize = Math.floor(
@@ -11201,28 +11237,63 @@ const hasAnyPaymentTypeEnabled = computed(
 );
 
 function togglePaymentType(type: string) {
+  if (paymentTypeTogglePending.value.has(type) || isProviderMutationBlocked()) return;
   if (form.payment_enabled_types.includes(type)) {
     form.payment_enabled_types = form.payment_enabled_types.filter(
       (t) => t !== type,
     );
     // Disable all provider instances matching this type
-    disableProvidersByType(type);
+    paymentTypeTogglePending.value.add(type);
+    void disableProvidersByType(type).finally(() => {
+      paymentTypeTogglePending.value.delete(type);
+    });
   } else {
     form.payment_enabled_types = [...form.payment_enabled_types, type];
   }
 }
 
 async function disableProvidersByType(type: string) {
-  const matching = providers.value.filter(
-    (p) => p.provider_key === type && p.enabled,
+  const matching = providers.value.filter((p) =>
+    providerMatchesPaymentType(p, type),
   );
-  for (const p of matching) {
+  const failedProviderIds: number[] = [];
+  for (const candidate of matching) {
+    const existing = providerToggleTasks.get(candidate.id);
+    if (existing) {
+      try {
+        await existing;
+      } catch {
+        // A failed concurrent toggle still leaves the provider eligible for
+        // this explicit type-disable operation.
+      }
+    }
+    const p = providers.value.find((item) => item.id === candidate.id);
+    if (!p || !providerMatchesPaymentType(p, type) || !p.enabled) continue;
     try {
-      await adminAPI.payment.updateProvider(p.id, { enabled: false });
-      p.enabled = false;
+      await runProviderToggle(p.id, async () => {
+        await adminAPI.payment.updateProvider(p.id, { enabled: false });
+        recordProviderPatch(p.id, { enabled: false });
+        const latest = providers.value.find((item) => item.id === p.id);
+        if (latest) latest.enabled = false;
+      });
     } catch (err: unknown) {
       slog("disable provider failed", p.id, err);
+      failedProviderIds.push(p.id);
     }
+  }
+  if (failedProviderIds.length > 0) {
+    // Keep the setting consistent with the provider state and expose a
+    // visible retry path instead of silently leaving an enabled provider
+    // behind a disabled payment type.
+    if (!form.payment_enabled_types.includes(type)) {
+      form.payment_enabled_types = [...form.payment_enabled_types, type];
+    }
+    appStore.showError(
+      localText(
+        "部分支付服务商未能关闭，已恢复该支付类型，请稍后重试。",
+        "Some payment providers could not be disabled. The payment type was restored; retry after checking the provider.",
+      ),
+    );
   }
 }
 
@@ -11233,6 +11304,31 @@ function slog(...args: unknown[]) {
 const providersLoading = ref(false);
 const providerSaving = ref(false);
 const providers = ref<ProviderInstance[]>([]);
+const providerTogglePending = ref<Set<number>>(new Set());
+const providerToggleTasks = new Map<number, Promise<void>>();
+const providerTogglePendingIds = computed(() => Array.from(providerTogglePending.value));
+const paymentTypeTogglePending = ref<Set<string>>(new Set());
+const providerReorderPending = ref(false);
+const deletingProviderPending = ref(false);
+const providerMutationsPending = computed(
+  () =>
+    providerTogglePending.value.size > 0 ||
+    paymentTypeTogglePending.value.size > 0 ||
+    providerReorderPending.value ||
+    deletingProviderPending.value,
+);
+const providerListMutationPending = computed(
+  () => providerMutationsPending.value || providerSaving.value || saving.value,
+);
+let providerLoadSequence = 0;
+let latestProviderLoadSequence = 0;
+let providerStateVersion = 0;
+let providerMutationTail: Promise<void> = Promise.resolve();
+const providerOptimisticPatches = new Map<number, Partial<ProviderInstance>>();
+// A successful DELETE can be followed by an eventually-consistent GET that
+// still contains the deleted row. Keep a session-local tombstone so that old
+// snapshots cannot resurrect an actionable provider card.
+const providerDeletedIds = new Set<number>();
 const showProviderDialog = ref(false);
 const showDeleteProviderDialog = ref(false);
 const editingProvider = ref<ProviderInstance | null>(null);
@@ -11240,6 +11336,101 @@ const deletingProviderId = ref<number | null>(null);
 const providerDialogRef = ref<InstanceType<
   typeof PaymentProviderDialog
 > | null>(null);
+
+// Rendered controls are disabled while these operations run, but imperative
+// child callbacks can still arrive between renders. Keep the same fence in
+// the handlers so a stale event cannot race a settings save or another
+// provider mutation.
+function isProviderMutationBlocked(): boolean {
+  // Provider field/type toggles intentionally remain queueable: a payment
+  // type disable must be able to wait for one already in flight, and a second
+  // provider toggle must reach the in-queue visible-method conflict check.
+  return (
+    saving.value ||
+    providerSaving.value ||
+    paymentTypeTogglePending.value.size > 0 ||
+    providerReorderPending.value ||
+    deletingProviderPending.value
+  );
+}
+
+function isPaymentTypeTogglePending(type: string): boolean {
+  return paymentTypeTogglePending.value.has(type);
+}
+
+function invalidateProviderReads() {
+  providerStateVersion += 1;
+}
+
+function recordProviderPatch(
+  providerId: number,
+  patch: Partial<ProviderInstance>,
+) {
+  const definedPatch = Object.fromEntries(
+    Object.entries(patch).filter(([, value]) => value !== undefined),
+  ) as Partial<ProviderInstance>;
+  providerOptimisticPatches.set(providerId, {
+    ...(providerOptimisticPatches.get(providerId) ?? {}),
+    ...definedPatch,
+  });
+}
+
+function providerPatchValueMatches(actual: unknown, expected: unknown): boolean {
+  if (Array.isArray(actual) && Array.isArray(expected)) {
+    return JSON.stringify(actual) === JSON.stringify(expected);
+  }
+  return Object.is(actual, expected);
+}
+
+function applyProviderPatches(
+  nextProviders: ProviderInstance[],
+): ProviderInstance[] {
+  return nextProviders.map((provider) => {
+    const patch = providerOptimisticPatches.get(provider.id);
+    if (!patch) return provider;
+    const merged = { ...provider, ...patch };
+    const acknowledged = Object.entries(patch).every(([key, expected]) =>
+      providerPatchValueMatches(
+        (provider as unknown as Record<string, unknown>)[key],
+        expected,
+      ),
+    );
+    if (acknowledged) {
+      providerOptimisticPatches.delete(provider.id);
+    }
+    return merged;
+  });
+}
+
+function enqueueProviderMutation<T>(operation: () => Promise<T>): Promise<T> {
+  const task = providerMutationTail.then(operation, operation);
+  providerMutationTail = task.then(
+    () => undefined,
+    () => undefined,
+  );
+  return task;
+}
+
+function runProviderToggle(
+  providerId: number,
+  operation: () => Promise<void>,
+): Promise<void> {
+  const existing = providerToggleTasks.get(providerId);
+  if (existing) return existing;
+
+  providerTogglePending.value.add(providerId);
+  invalidateProviderReads();
+  const task = enqueueProviderMutation(async () => {
+    try {
+      await operation();
+    } finally {
+      providerTogglePending.value.delete(providerId);
+      providerToggleTasks.delete(providerId);
+    }
+  });
+  providerToggleTasks.set(providerId, task);
+  return task;
+}
 
 const providerKeyOptions = computed(() => [
   { value: "easypay", label: t("admin.settings.payment.providerEasypay") },
@@ -11335,6 +11526,26 @@ function getProviderVisibleMethods(
   return Array.from(methods);
 }
 
+function providerMatchesPaymentType(
+  provider: ProviderInstance,
+  type: string,
+): boolean {
+  if (provider.provider_key === type) return true;
+  if (type !== "alipay" && type !== "wxpay") return false;
+
+  // EasyPay exposes visible Alipay/WeChat methods through supported_types,
+  // rather than through provider_key. Force an enabled candidate only for the
+  // matching calculation; the caller still checks the actual enabled state
+  // before issuing a disable mutation.
+  return getProviderVisibleMethods({
+    id: provider.id,
+    provider_key: provider.provider_key,
+    supported_types: provider.supported_types,
+    enabled: true,
+    name: provider.name,
+  }).includes(type);
+}
+
 function findProviderEnablementConflict(
   candidate: ProviderEnablementCandidate,
 ): { method: "alipay" | "wxpay"; conflicting: ProviderInstance } | null {
@@ -11375,22 +11586,40 @@ function showProviderEnablementConflict(
 }
 
 async function loadProviders() {
+  const requestSequence = ++providerLoadSequence;
+  latestProviderLoadSequence = requestSequence;
+  const stateVersion = providerStateVersion;
   providersLoading.value = true;
   try {
     const res = await adminAPI.payment.getProviders();
     // Normalize supported_types: backend returns null when the list is empty
     // (Go nil slice → JSON null). Without this, ProviderCard's isSelected()
     // throws TypeError on null.includes(), causing the card to vanish.
-    providers.value = (res.data || []).map((p) => ({
+    const nextProviders = (res.data || []).map((p) => ({
       ...p,
       supported_types: Array.isArray(p.supported_types)
         ? p.supported_types
         : [],
     }));
+    if (
+      requestSequence === latestProviderLoadSequence &&
+      stateVersion === providerStateVersion
+    ) {
+      providers.value = applyProviderPatches(
+        nextProviders.filter((provider) => !providerDeletedIds.has(provider.id)),
+      );
+    }
   } catch (err: unknown) {
-    appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
+    if (
+      requestSequence === latestProviderLoadSequence &&
+      stateVersion === providerStateVersion
+    ) {
+      appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
+    }
   } finally {
-    providersLoading.value = false;
+    if (requestSequence === latestProviderLoadSequence) {
+      providersLoading.value = false;
+    }
   }
 }
 
@@ -11409,6 +11638,15 @@ function openEditProvider(provider: ProviderInstance) {
 }
 
 async function handleSaveProvider(payload: Partial<ProviderInstance>) {
+  if (saving.value || providerSaving.value || providerMutationsPending.value) {
+    appStore.showError(
+      localText(
+        "设置保存正在进行，请完成后再修改支付服务商。",
+        "Settings are currently saving. Edit the payment provider after the save completes.",
+      ),
+    );
+    return;
+  }
   providerSaving.value = true;
   try {
     const candidate: ProviderEnablementCandidate = {
@@ -11426,16 +11664,50 @@ async function handleSaveProvider(payload: Partial<ProviderInstance>) {
       return;
     }
 
-    if (editingProvider.value) {
-      await adminAPI.payment.updateProvider(editingProvider.value.id, payload);
-    } else {
-      await adminAPI.payment.createProvider(payload);
-    }
+    invalidateProviderReads();
+    let queuedConflict = false;
+    await enqueueProviderMutation(async () => {
+      // Re-check after earlier queued mutations have settled. The dialog
+      // snapshot may no longer describe the provider list at write time.
+      const latest = editingProvider.value;
+      const queuedCandidate: ProviderEnablementCandidate = {
+        id: latest?.id ?? candidate.id,
+        provider_key:
+          payload.provider_key ?? latest?.provider_key ?? candidate.provider_key,
+        supported_types:
+          payload.supported_types ?? latest?.supported_types ?? candidate.supported_types,
+        enabled: payload.enabled ?? latest?.enabled ?? candidate.enabled,
+        name: payload.name ?? latest?.name ?? candidate.name,
+      };
+      const queuedConflictResult = findProviderEnablementConflict(queuedCandidate);
+      if (queuedConflictResult) {
+        queuedConflict = true;
+        showProviderEnablementConflict(queuedConflictResult);
+        return;
+      }
+      if (editingProvider.value) {
+        const providerId = editingProvider.value.id;
+        await adminAPI.payment.updateProvider(providerId, payload);
+        // Keep eventually-consistent list reads from reverting visible edits,
+        // but never retain the provider config here.  `config` contains API
+        // keys/secrets and the list endpoint may intentionally redact it;
+        // putting the form payload into an optimistic list patch would expose
+        // those values in the provider card state.
+        const {
+          config: _sensitiveConfig,
+          ...safeListPatch
+        } = payload;
+        recordProviderPatch(providerId, safeListPatch);
+      } else {
+        await adminAPI.payment.createProvider(payload);
+      }
+    });
+    if (queuedConflict) return;
     showProviderDialog.value = false;
     // Reload full list (API returns decrypted/formatted data with correct sort order)
     await loadProviders();
     // Auto-save settings so provider changes take effect immediately
-    await saveSettings();
+    await saveSettings({ allowProviderSaving: true });
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
   } finally {
@@ -11447,6 +11719,7 @@ async function handleToggleField(
   provider: ProviderInstance,
   field: "enabled" | "refund_enabled" | "allow_user_refund",
 ) {
+  if (providerTogglePending.value.has(provider.id) || isProviderMutationBlocked()) return;
   let newValue: boolean;
   if (field === "enabled") newValue = !provider.enabled;
   else if (field === "refund_enabled") newValue = !provider.refund_enabled;
@@ -11472,14 +11745,33 @@ async function handleToggleField(
     payload.allow_user_refund = false;
   }
   try {
-    await adminAPI.payment.updateProvider(provider.id, payload);
-    await loadProviders();
+    await runProviderToggle(provider.id, async () => {
+      if (field === "enabled" && newValue) {
+        const conflict = findProviderEnablementConflict({
+          id: provider.id,
+          provider_key: provider.provider_key,
+          supported_types: provider.supported_types,
+          enabled: true,
+          name: provider.name,
+        });
+        if (conflict) {
+          showProviderEnablementConflict(conflict);
+          return;
+        }
+      }
+      await adminAPI.payment.updateProvider(provider.id, payload);
+      recordProviderPatch(provider.id, payload);
+      const local = providers.value.find((item) => item.id === provider.id);
+      if (local) Object.assign(local, payload);
+      await loadProviders();
+    });
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
   }
 }
 
 async function handleToggleType(provider: ProviderInstance, type: string) {
+  if (providerTogglePending.value.has(provider.id) || isProviderMutationBlocked()) return;
   const currentTypes = Array.isArray(provider.supported_types)
     ? provider.supported_types
     : [];
@@ -11498,47 +11790,110 @@ async function handleToggleType(provider: ProviderInstance, type: string) {
     return;
   }
   try {
-    await adminAPI.payment.updateProvider(provider.id, {
-      supported_types: updated,
-    } as any);
-    await loadProviders();
+    await runProviderToggle(provider.id, async () => {
+      const latest = providers.value.find((item) => item.id === provider.id);
+      const latestTypes = Array.isArray(latest?.supported_types)
+        ? latest.supported_types
+        : [];
+      const latestUpdated = latestTypes.includes(type)
+        ? latestTypes.filter((item) => item !== type)
+        : [...latestTypes, type];
+      const conflict = findProviderEnablementConflict({
+        id: provider.id,
+        provider_key: latest?.provider_key ?? provider.provider_key,
+        supported_types: latestUpdated,
+        enabled: latest?.enabled ?? provider.enabled,
+        name: latest?.name ?? provider.name,
+      });
+      if (conflict) {
+        showProviderEnablementConflict(conflict);
+        return;
+      }
+      await adminAPI.payment.updateProvider(provider.id, {
+        supported_types: latestUpdated,
+      } as any);
+      recordProviderPatch(provider.id, { supported_types: latestUpdated });
+      const local = providers.value.find((item) => item.id === provider.id);
+      if (local) local.supported_types = latestUpdated;
+      await loadProviders();
+    });
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
   }
 }
 
 function confirmDeleteProvider(provider: ProviderInstance) {
+  if (deletingProviderPending.value) return;
   deletingProviderId.value = provider.id;
   showDeleteProviderDialog.value = true;
+}
+
+function cancelDeleteProvider() {
+  if (deletingProviderPending.value) return;
+  showDeleteProviderDialog.value = false;
+  deletingProviderId.value = null;
 }
 
 async function handleReorderProviders(
   updates: { id: number; sort_order: number }[],
 ) {
+  if (
+    providerReorderPending.value ||
+    providerTogglePending.value.size > 0 ||
+    isProviderMutationBlocked()
+  ) return;
+  providerReorderPending.value = true;
+  invalidateProviderReads();
   try {
-    await Promise.all(
-      updates.map((u) =>
-        adminAPI.payment.updateProvider(u.id, {
-          sort_order: u.sort_order,
-        } as Partial<ProviderInstance>),
-      ),
+    await enqueueProviderMutation(() =>
+      Promise.all(
+        updates.map((u) =>
+          adminAPI.payment.updateProvider(u.id, {
+            sort_order: u.sort_order,
+          } as Partial<ProviderInstance>),
+        ),
+      ).then(() => undefined),
+    );
+    updates.forEach((update) =>
+      recordProviderPatch(update.id, { sort_order: update.sort_order }),
     );
     await loadProviders();
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
-    loadProviders();
+    void loadProviders();
+  } finally {
+    providerReorderPending.value = false;
   }
 }
 
 async function handleDeleteProvider() {
-  if (!deletingProviderId.value) return;
+  if (
+    !deletingProviderId.value ||
+    deletingProviderPending.value ||
+    saving.value ||
+    providerSaving.value ||
+    providerMutationsPending.value
+  ) return;
+  const providerId = deletingProviderId.value;
+  deletingProviderPending.value = true;
+  invalidateProviderReads();
   try {
-    await adminAPI.payment.deleteProvider(deletingProviderId.value);
+    await enqueueProviderMutation(() =>
+      adminAPI.payment.deleteProvider(providerId).then(() => undefined),
+    );
+    // Remove the card before the best-effort refresh so a successful delete
+    // cannot leave a stale actionable card when the follow-up GET fails.
+    providerDeletedIds.add(providerId);
+    providerOptimisticPatches.delete(providerId);
+    providers.value = providers.value.filter((provider) => provider.id !== providerId);
     appStore.showSuccess(t("common.deleted"));
     showDeleteProviderDialog.value = false;
-    loadProviders();
+    deletingProviderId.value = null;
+    await loadProviders();
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
+  } finally {
+    deletingProviderPending.value = false;
   }
 }
 
@@ -11582,6 +11937,12 @@ const affiliateState = reactive<AffiliateState>({
   selected: [],
   searchTimer: null,
 });
+
+// A successful reset removes the user from the custom-settings list. Keep a
+// view-local tombstone until the next mount so an eventually-consistent list
+// response (or a refresh failure) cannot put an already-reset row back on
+// screen with an actionable Reset control.
+const affiliateResetUserIds = new Set<number>();
 
 // `rate` is typed as string|number because <input type="number"> makes Vue's
 // v-model auto-cast the bound value to a Number on every keystroke. We keep
@@ -11632,12 +11993,14 @@ const affiliateConfirmDialog = reactive<{
   message: string;
   confirmText: string;
   pending: (() => Promise<unknown>) | null;
+  running: boolean;
 }>({
   show: false,
   title: "",
   message: "",
   confirmText: "",
   pending: null,
+  running: false,
 });
 
 function openAffiliateConfirm(
@@ -11655,19 +12018,23 @@ function openAffiliateConfirm(
 
 async function handleAffiliateConfirm() {
   const fn = affiliateConfirmDialog.pending;
-  affiliateConfirmDialog.show = false;
-  affiliateConfirmDialog.pending = null;
-  if (!fn) return;
+  if (!fn || affiliateConfirmDialog.running) return;
+  affiliateConfirmDialog.running = true;
   try {
     await fn();
     appStore.showSuccess(t("common.saved"));
+    affiliateConfirmDialog.show = false;
+    affiliateConfirmDialog.pending = null;
     await loadAffiliateUsers();
   } catch (err) {
     appStore.showError(extractApiErrorMessage(err, t("common.error")));
+  } finally {
+    affiliateConfirmDialog.running = false;
   }
 }
 
 function cancelAffiliateConfirm() {
+  if (affiliateConfirmDialog.running) return;
   affiliateConfirmDialog.show = false;
   affiliateConfirmDialog.pending = null;
 }
@@ -11706,8 +12073,13 @@ async function loadAffiliateUsers() {
       page_size: affiliateState.pageSize,
       search: affiliateState.search,
     });
-    affiliateState.entries = res.items ?? [];
-    affiliateState.total = res.total ?? 0;
+    affiliateState.entries = (res.items ?? []).filter(
+      (entry) => !affiliateResetUserIds.has(entry.user_id),
+    );
+    affiliateState.total = Math.max(
+      0,
+      (res.total ?? 0) - Math.max(0, (res.items ?? []).length - affiliateState.entries.length),
+    );
     // Drop selections that are no longer visible.
     const visibleIds = new Set(affiliateState.entries.map((e) => e.user_id));
     affiliateState.selected = affiliateState.selected.filter((id) => visibleIds.has(id));
@@ -11863,7 +12235,17 @@ function askResetAffiliateUser(entry: AffiliateAdminEntry) {
       email: entry.email || `#${entry.user_id}`,
     }),
     t("common.delete"),
-    () => affiliatesAPI.clearUserSettings(entry.user_id),
+    async () => {
+      await affiliatesAPI.clearUserSettings(entry.user_id);
+      affiliateResetUserIds.add(entry.user_id);
+      affiliateState.entries = affiliateState.entries.filter(
+        (item) => item.user_id !== entry.user_id,
+      );
+      affiliateState.selected = affiliateState.selected.filter(
+        (id) => id !== entry.user_id,
+      );
+      affiliateState.total = Math.max(0, affiliateState.total - 1);
+    },
   );
 }
 

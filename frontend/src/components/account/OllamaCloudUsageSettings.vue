@@ -115,7 +115,7 @@
       :danger="true"
       :pending="saving"
       @confirm="deleteSession"
-      @cancel="showDeleteConfirm = false"
+      @cancel="cancelDeleteSession"
     />
   </section>
 </template>
@@ -229,17 +229,23 @@ const saveSession = async () => {
 }
 
 const deleteSession = async () => {
+  if (saving.value) return
   saving.value = true
-  showDeleteConfirm.value = false
   try {
     applyState(await adminAPI.accounts.deleteOllamaCloudUsageSession(props.account.id))
     session.value = ''
     appStore.showSuccess(t('admin.accounts.ollamaCloud.sessionDeleted'))
+    showDeleteConfirm.value = false
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('admin.accounts.ollamaCloud.sessionDeleteFailed')))
   } finally {
     saving.value = false
   }
+}
+
+const cancelDeleteSession = () => {
+  if (saving.value) return
+  showDeleteConfirm.value = false
 }
 
 const setAutoRefresh = async (enabled: boolean) => {

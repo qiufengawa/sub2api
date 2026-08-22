@@ -219,6 +219,8 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 			{name: "missing_model", mutate: func(r *BatchImageSubmitRequest) { r.Model = "" }, want: ErrBatchImageInvalidModel},
 			{name: "empty_items", mutate: func(r *BatchImageSubmitRequest) { r.Items = nil }, want: ErrBatchImageInvalidItems},
 			{name: "duplicate_custom_ids", mutate: func(r *BatchImageSubmitRequest) { r.Items[1].CustomID = r.Items[0].CustomID }, want: ErrBatchImageDuplicateCustomIDInRequest},
+			{name: "custom_id_path_separator", mutate: func(r *BatchImageSubmitRequest) { r.Items[0].CustomID = "cover/001" }, want: ErrBatchImageInvalidItems},
+			{name: "custom_id_too_long", mutate: func(r *BatchImageSubmitRequest) { r.Items[0].CustomID = strings.Repeat("x", 256) }, want: ErrBatchImageInvalidItems},
 			{name: "empty_prompt", mutate: func(r *BatchImageSubmitRequest) { r.Items[0].Prompt = " " }, want: ErrBatchImageInvalidItems},
 			{name: "prompt_too_long", mutate: func(r *BatchImageSubmitRequest) { r.Items[0].Prompt = strings.Repeat("x", 9) }, want: ErrBatchImagePromptTooLong},
 			{name: "unsupported_provider", mutate: func(r *BatchImageSubmitRequest) { r.Provider = "other" }, want: ErrBatchImageUnsupportedProvider},
@@ -421,6 +423,70 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 		require.NotEmpty(t, first.ID)
 	})
 
+	t.Run("database idempotency conflict resolves concurrent loser", func(t *testing.T) {
+		svc, repo, _, _, _ := newTestBatchImagePublicService(true)
+		req := validBatchImageSubmitRequest()
+		normalized, err := svc.validateSubmitRequest(req)
+		require.NoError(t, err)
+		requestHash := HashBatchImageSubmitRequest(normalized)
+		apiKeyID := int64(22)
+		hold := 0.25
+		idempotencyKey := "concurrent-key"
+		existing := &BatchImageJob{
+			BatchID:        "existing-concurrent-batch",
+			UserID:         11,
+			APIKeyID:       &apiKeyID,
+			Provider:       BatchImageProviderGeminiAPI,
+			Model:          req.Model,
+			Status:         BatchImageJobStatusCreated,
+			ItemCount:      len(req.Items),
+			HoldAmount:     &hold,
+			IdempotencyKey: &idempotencyKey,
+			RequestHash:    &requestHash,
+			CreatedAt:      time.Now(),
+		}
+		repo.jobs[existing.BatchID] = existing
+		repo.forceCreateConflict = true
+		repo.createErr = ErrBatchImageJobExists
+
+		got, err := svc.Submit(ctx, testBatchImageOwner(), req, idempotencyKey)
+		require.NoError(t, err)
+		require.Equal(t, existing.BatchID, got.ID)
+		require.Equal(t, 2, repo.idempotencyReads, "one read-before-create plus one loser-resolution read")
+	})
+
+	t.Run("database idempotency loser re-enqueues an existing submitted job", func(t *testing.T) {
+		svc, repo, queue, _, _ := newTestBatchImagePublicService(true)
+		req := validBatchImageSubmitRequest()
+		normalized, err := svc.validateSubmitRequest(req)
+		require.NoError(t, err)
+		requestHash := HashBatchImageSubmitRequest(normalized)
+		apiKeyID := int64(22)
+		hold := 0.25
+		idempotencyKey := "submitted-concurrent-key"
+		existing := &BatchImageJob{
+			BatchID:        "existing-submitted-batch",
+			UserID:         11,
+			APIKeyID:       &apiKeyID,
+			Provider:       BatchImageProviderGeminiAPI,
+			Model:          req.Model,
+			Status:         BatchImageJobStatusSubmitted,
+			ItemCount:      len(req.Items),
+			HoldAmount:     &hold,
+			IdempotencyKey: &idempotencyKey,
+			RequestHash:    &requestHash,
+			CreatedAt:      time.Now(),
+		}
+		repo.jobs[existing.BatchID] = existing
+		repo.forceCreateConflict = true
+		repo.createErr = ErrBatchImageJobExists
+
+		got, err := svc.Submit(ctx, testBatchImageOwner(), req, idempotencyKey)
+		require.NoError(t, err)
+		require.Equal(t, existing.BatchID, got.ID)
+		require.Equal(t, []string{existing.BatchID}, queue.enqueued)
+	})
+
 	t.Run("public response does not expose internals", func(t *testing.T) {
 		svc, _, _, _, _ := newTestBatchImagePublicService(true)
 		got, err := svc.Submit(ctx, testBatchImageOwner(), validBatchImageSubmitRequest(), "")
@@ -465,6 +531,41 @@ func TestBatchImagePublicService_List(t *testing.T) {
 	require.Len(t, got.Data, 1)
 	require.Equal(t, "visible-1", got.Data[0].ID)
 	require.False(t, got.HasMore)
+
+	for _, status := range []string{
+		BatchImageJobStatusCreated,
+		BatchImageJobStatusUploading,
+		BatchImageJobStatusSubmitted,
+		BatchImageJobStatusRunning,
+	} {
+		id := "queued-" + status
+		repo.jobs[id] = &BatchImageJob{
+			BatchID:   id,
+			UserID:    11,
+			APIKeyID:  &visibleKeyID,
+			Status:    status,
+			Provider:  BatchImageProviderVertex,
+			Model:     "gemini-3.1-flash-lite-image",
+			CreatedAt: time.Now(),
+		}
+	}
+	queued, err := svc.List(ctx, BatchImageOwner{UserID: 11, APIKeyID: visibleKeyID}, BatchImageJobsQuery{
+		Status: "queued",
+		Limit:  20,
+	})
+	require.NoError(t, err)
+	queuedIDs := make(map[string]bool, len(queued.Data))
+	for _, job := range queued.Data {
+		queuedIDs[job.ID] = true
+	}
+	for _, status := range []string{
+		BatchImageJobStatusCreated,
+		BatchImageJobStatusUploading,
+		BatchImageJobStatusSubmitted,
+	} {
+		require.True(t, queuedIDs["queued-"+status], "queued alias should include %s", status)
+	}
+	require.False(t, queuedIDs["queued-"+BatchImageJobStatusRunning], "running is not queued")
 }
 
 func TestBatchImagePublicService_ListModels(t *testing.T) {
@@ -689,6 +790,106 @@ func TestBatchImagePublicService_StatusItemsAndCancel(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "completed", got.Status)
 		require.Zero(t, gemini.cancelCount)
+	})
+
+	t.Run("cancel settling job is not reported as a successful no-op", func(t *testing.T) {
+		svc, repo, _, gemini, _ := newTestBatchImagePublicService(true)
+		apiKeyID := int64(22)
+		repo.jobs["imgbatch_settling_cancel"] = &BatchImageJob{
+			BatchID:   "imgbatch_settling_cancel",
+			UserID:    11,
+			APIKeyID:  &apiKeyID,
+			Provider:  BatchImageProviderGeminiAPI,
+			Model:     "gemini-2.5-flash-image",
+			Status:    BatchImageJobStatusSettling,
+			CreatedAt: time.Now(),
+		}
+
+		_, err := svc.Cancel(ctx, testBatchImageOwner(), "imgbatch_settling_cancel")
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrBatchImageInvalidTransition)
+		require.Equal(t, BatchImageJobStatusSettling, repo.jobs["imgbatch_settling_cancel"].Status)
+		require.Zero(t, gemini.cancelCount)
+	})
+
+	t.Run("record delete refuses settling job before repository mutation", func(t *testing.T) {
+		svc, repo, _, _, _ := newTestBatchImagePublicService(true)
+		apiKeyID := int64(22)
+		repo.jobs["imgbatch_settling_delete"] = &BatchImageJob{
+			BatchID:   "imgbatch_settling_delete",
+			UserID:    11,
+			APIKeyID:  &apiKeyID,
+			Provider:  BatchImageProviderGeminiAPI,
+			Model:     "gemini-2.5-flash-image",
+			Status:    BatchImageJobStatusSettling,
+			CreatedAt: time.Now(),
+		}
+
+		err := svc.DeleteRecord(ctx, testBatchImageOwner(), "imgbatch_settling_delete")
+		require.ErrorIs(t, err, ErrBatchImageRecordDeleteNotReady)
+		require.NotNil(t, repo.jobs["imgbatch_settling_delete"])
+	})
+
+	t.Run("record delete refuses a root with an active retry child", func(t *testing.T) {
+		svc, repo, _, _, _ := newTestBatchImagePublicService(true)
+		apiKeyID := int64(22)
+		parent := "imgbatch_delete_active_parent"
+		repo.jobs[parent] = &BatchImageJob{
+			BatchID:   parent,
+			UserID:    11,
+			APIKeyID:  &apiKeyID,
+			Provider:  BatchImageProviderGeminiAPI,
+			Model:     "gemini-2.5-flash-image",
+			Status:    BatchImageJobStatusFailed,
+			CreatedAt: time.Now(),
+		}
+		child := parent + "_retry"
+		repo.jobs[child] = &BatchImageJob{
+			BatchID:       child,
+			UserID:        11,
+			APIKeyID:      &apiKeyID,
+			ParentBatchID: batchImageStringPtr(parent),
+			Provider:      BatchImageProviderGeminiAPI,
+			Model:         "gemini-2.5-flash-image",
+			Status:        BatchImageJobStatusSubmitted,
+			CreatedAt:     time.Now(),
+		}
+
+		err := svc.DeleteRecord(ctx, testBatchImageOwner(), parent)
+		require.ErrorIs(t, err, ErrBatchImageRecordDeleteNotReady)
+		require.Nil(t, repo.jobs[parent].UserDeletedAt)
+		require.Nil(t, repo.jobs[child].UserDeletedAt)
+	})
+
+	t.Run("record delete cascades terminal retry children", func(t *testing.T) {
+		svc, repo, _, _, _ := newTestBatchImagePublicService(true)
+		apiKeyID := int64(22)
+		parent := "imgbatch_delete_terminal_parent"
+		repo.jobs[parent] = &BatchImageJob{
+			BatchID:   parent,
+			UserID:    11,
+			APIKeyID:  &apiKeyID,
+			Provider:  BatchImageProviderGeminiAPI,
+			Model:     "gemini-2.5-flash-image",
+			Status:    BatchImageJobStatusFailed,
+			CreatedAt: time.Now(),
+		}
+		child := parent + "_retry"
+		repo.jobs[child] = &BatchImageJob{
+			BatchID:       child,
+			UserID:        11,
+			APIKeyID:      &apiKeyID,
+			ParentBatchID: batchImageStringPtr(parent),
+			Provider:      BatchImageProviderGeminiAPI,
+			Model:         "gemini-2.5-flash-image",
+			Status:        BatchImageJobStatusCompleted,
+			CreatedAt:     time.Now(),
+		}
+
+		err := svc.DeleteRecord(ctx, testBatchImageOwner(), parent)
+		require.NoError(t, err)
+		require.NotNil(t, repo.jobs[parent].UserDeletedAt)
+		require.NotNil(t, repo.jobs[child].UserDeletedAt)
 	})
 
 	t.Run("cancel hides provider raw errors behind public error", func(t *testing.T) {
@@ -934,6 +1135,7 @@ type publicBatchImageProvider struct {
 	result         string
 	cleanupTargets []CleanupTarget
 	cleanupErr     error
+	cleanupErrByID map[string]error
 }
 
 func (p *publicBatchImageProvider) Name() string { return p.name }
@@ -965,8 +1167,13 @@ func (p *publicBatchImageProvider) OpenResult(context.Context, *BatchImageJob, *
 	return io.NopCloser(strings.NewReader(p.result)), "application/jsonl", nil
 }
 
-func (p *publicBatchImageProvider) Cleanup(_ context.Context, _ *BatchImageJob, _ *Account, target CleanupTarget) error {
+func (p *publicBatchImageProvider) Cleanup(_ context.Context, job *BatchImageJob, _ *Account, target CleanupTarget) error {
 	p.cleanupTargets = append(p.cleanupTargets, target)
+	if p.cleanupErrByID != nil && job != nil {
+		if err, ok := p.cleanupErrByID[job.BatchID]; ok {
+			return err
+		}
+	}
 	return p.cleanupErr
 }
 

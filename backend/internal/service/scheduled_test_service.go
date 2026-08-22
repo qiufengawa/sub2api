@@ -10,6 +10,11 @@ import (
 
 var scheduledTestCronParser = cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 
+// ScheduledTestResultLimitMax bounds administrative result reads.  Results
+// contain response text and can be large; accepting an unbounded LIMIT lets a
+// single request force an avoidable database read and response allocation.
+const ScheduledTestResultLimitMax = 500
+
 // ScheduledTestService provides CRUD operations for scheduled test plans and results.
 type ScheduledTestService struct {
 	planRepo   ScheduledTestPlanRepository
@@ -72,6 +77,9 @@ func (s *ScheduledTestService) DeletePlan(ctx context.Context, id int64) error {
 func (s *ScheduledTestService) ListResults(ctx context.Context, planID int64, limit int) ([]*ScheduledTestResult, error) {
 	if limit <= 0 {
 		limit = 50
+	}
+	if limit > ScheduledTestResultLimitMax {
+		limit = ScheduledTestResultLimitMax
 	}
 	return s.resultRepo.ListByPlanID(ctx, planID, limit)
 }

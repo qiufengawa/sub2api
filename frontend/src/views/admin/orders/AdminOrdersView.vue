@@ -117,6 +117,12 @@
       @close="closeOrderDetail"
     >
       <AppStack v-if="selectedOrder" :gap="16">
+        <UiAlert v-if="orderDetailError" role="alert" tone="warning">
+          <span>{{ orderDetailError }}</span>
+          <UiButton density="dense" variant="quiet" @click="showOrderDetail(selectedOrder)">
+            {{ t('common.retry') }}
+          </UiButton>
+        </UiAlert>
         <UiDescriptionList :items="orderDetailItems" :columns="2" data-testid="order-detail-grid">
           <template #status><OrderStatusBadge :status="selectedOrder.status" /></template>
         </UiDescriptionList>
@@ -136,7 +142,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminPaymentAPI } from '@/api/admin/payment'
@@ -156,6 +162,7 @@ import {
   AppSection,
   AppStack,
   UiBadge,
+  UiAlert,
   UiButton,
   UiDescriptionList,
   UiDialog,
@@ -188,6 +195,7 @@ const advancedFiltersOpen = ref(false)
 const orderPagination = reactive({ page: 1, page_size: 20, total: 0 })
 const selectedOrder = ref<PaymentOrder | null>(null)
 const showDetailDialog = ref(false)
+const orderDetailError = ref('')
 const showRefundDialog = ref(false)
 const refundSubmitting = ref(false)
 const refundRequireForce = ref(false)
@@ -310,6 +318,7 @@ async function showOrderDetail(order: PaymentOrder) {
   const requestId = ++detailRequestId
   selectedOrder.value = order
   orderAuditLogs.value = []
+  orderDetailError.value = ''
   showDetailDialog.value = true
   try {
     const res = await adminPaymentAPI.getOrder(order.id)
@@ -317,12 +326,19 @@ async function showOrderDetail(order: PaymentOrder) {
     if (requestId !== detailRequestId) return
     if (data.order) selectedOrder.value = data.order as PaymentOrder
     orderAuditLogs.value = ((data.auditLogs || data.audit_logs || []) as unknown) as AuditLog[]
-  } catch (_err: unknown) { /* keep cached order data */ }
+  } catch (err: unknown) {
+    if (requestId !== detailRequestId) return
+    // Keep the cached row visible, but make a failed detail/audit request
+    // observable and retryable instead of silently presenting incomplete data.
+    orderDetailError.value = extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))
+    appStore.showError(orderDetailError.value)
+  }
 }
 
 function closeOrderDetail() {
   detailRequestId += 1
   showDetailDialog.value = false
+  orderDetailError.value = ''
 }
 
 async function handleCancelOrder(order: PaymentOrder) {
@@ -350,11 +366,17 @@ function openRefundDialog(order: PaymentOrder) {
   showRefundDialog.value = true
 }
 
-function closeRefundDialog() {
+function resetRefundDialogState() {
   refundRequestId += 1
+  refundSubmitting.value = false
   showRefundDialog.value = false
   refundRequireForce.value = false
   refundWarning.value = ''
+}
+
+function closeRefundDialog() {
+  if (refundSubmitting.value) return
+  resetRefundDialogState()
 }
 
 function isRefundPendingWarning(warning: string | undefined): boolean {
@@ -366,18 +388,19 @@ async function handleRefund(data: { amount: number; reason: string; deduct_balan
   const order = selectedOrder.value
   const requestId = ++refundRequestId
   refundSubmitting.value = true
+  const isCurrent = () => requestId === refundRequestId && selectedOrder.value?.id === order.id
   try {
     const res = await adminPaymentAPI.refundOrder(order.id, { amount: data.amount, reason: data.reason, deduct_balance: data.deduct_balance, force: data.force })
     if (requestId !== refundRequestId || selectedOrder.value?.id !== order.id) return
     if (res.data.success) {
       appStore.showSuccess(t('payment.admin.refundSuccess'))
-      closeRefundDialog()
+      resetRefundDialogState()
       await loadOrders()
       return
     }
     if (isRefundPendingWarning(res.data.warning)) {
       appStore.showSuccess(t('payment.admin.refundPending'))
-      closeRefundDialog()
+      resetRefundDialogState()
       await loadOrders()
       return
     }
@@ -390,8 +413,13 @@ async function handleRefund(data: { amount: number; reason: string; deduct_balan
       return
     }
     appStore.showError(res.data.warning || t('common.error'))
-  } catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
-  finally { refundSubmitting.value = false }
+  } catch (err: unknown) {
+    if (!isCurrent()) return
+    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+  }
+  finally {
+    if (isCurrent()) refundSubmitting.value = false
+  }
 }
 
 async function handleQueryRefund(order: PaymentOrder) {
@@ -419,4 +447,9 @@ async function handleQueryRefund(order: PaymentOrder) {
 function formatDateTime(dateStr: string): string { return formatOrderDateTime(dateStr) }
 
 onMounted(() => loadOrders())
+onUnmounted(() => {
+  ordersRequestId += 1
+  detailRequestId += 1
+  refundRequestId += 1
+})
 </script>

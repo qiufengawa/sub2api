@@ -185,6 +185,13 @@ type UserRepository interface {
 	DisableTotp(ctx context.Context, userID int64) error
 }
 
+// UserRevocationRepository is an optional persistence extension implemented
+// by the production repository. Keeping it separate avoids forcing every
+// narrow in-memory UserRepository test double to implement the atomic bump.
+type UserRevocationRepository interface {
+	IncrementRevocationVersion(ctx context.Context, userID int64) (int64, error)
+}
+
 // RegistrationEmailDomainRepository 是生产用户仓储为非白名单域名单账户兜底策略提供的可选能力。
 // 它独立于 UserRepository，避免无关测试桩和服务消费者实现注册专用方法。
 type RegistrationEmailDomainRepository interface {

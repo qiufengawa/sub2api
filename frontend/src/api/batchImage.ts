@@ -82,6 +82,15 @@ export interface BatchImageItemsResponse {
   has_more: boolean
 }
 
+export interface BatchImageItemsListOptions {
+  /** Maximum number of items to return (the backend defaults to 100). */
+  limit?: number
+  /** Offset cursor returned/accepted by the public batch-items endpoint. */
+  cursor?: string
+  /** Optional item status filter. */
+  status?: string
+}
+
 export interface BatchImageJobsResponse {
   object: string
   data: BatchImageJob[]
@@ -190,9 +199,21 @@ export async function listBatchImageModels(apiKey: string): Promise<BatchImageMo
 export async function listBatchImageItems(
   apiKey: string,
   batchId: string,
-  status = '',
+  statusOrOptions: string | BatchImageItemsListOptions = '',
+  options: BatchImageItemsListOptions = {},
 ): Promise<BatchImageItemsResponse> {
-  const query = status ? `?status=${encodeURIComponent(status)}` : ''
+  // Keep the historical `(apiKey, batchId, status)` call shape while also
+  // allowing callers that need pagination to pass an options object. This
+  // avoids silently dropping items when a batch contains more than the
+  // backend's default page size.
+  const queryOptions = typeof statusOrOptions === 'string'
+    ? { ...options, status: statusOrOptions }
+    : statusOrOptions
+  const params = new URLSearchParams()
+  if (queryOptions.status) params.set('status', queryOptions.status)
+  if (queryOptions.limit !== undefined) params.set('limit', String(queryOptions.limit))
+  if (queryOptions.cursor) params.set('cursor', queryOptions.cursor)
+  const query = params.toString() ? `?${params.toString()}` : ''
   const response = await fetch(buildGatewayUrl(`/v1/images/batches/${encodeURIComponent(batchId)}/items${query}`), {
     headers: authHeaders(apiKey),
   })
@@ -233,6 +254,15 @@ export async function deleteBatchImageJobRecord(apiKey: string, batchId: string)
   if (!response.ok) throw await parseBatchImageError(response)
 }
 
+/** Delete generated outputs while retaining the batch record and its status history. */
+export async function deleteBatchImageOutputs(apiKey: string, batchId: string): Promise<void> {
+  const response = await fetch(buildGatewayUrl(`/v1/images/batches/${encodeURIComponent(batchId)}/outputs`), {
+    method: 'DELETE',
+    headers: authHeaders(apiKey),
+  })
+  if (!response.ok) throw await parseBatchImageError(response)
+}
+
 export function saveBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -241,5 +271,7 @@ export function saveBlob(blob: Blob, filename: string) {
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+  // Let Chromium start the download before releasing the object URL. A
+  // synchronous revoke can race the click and produce an empty ZIP/blob.
+  setTimeout(() => URL.revokeObjectURL(url), 0)
 }

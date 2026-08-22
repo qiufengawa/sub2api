@@ -56,19 +56,58 @@ func (s *BatchImageCleanupService) DeleteOutputsForOwner(ctx context.Context, ow
 	if err != nil {
 		return nil, err
 	}
-	if job.Status == BatchImageJobStatusOutputDeleted || job.OutputDeletedAt != nil {
-		return BatchImageJobToPublic(job), nil
+	children, err := s.Repo.ListBatchImageChildJobsForDownload(ctx, owner.UserID, owner.APIKeyID, job.BatchID)
+	if err != nil {
+		return nil, err
 	}
-	if job.Status != BatchImageJobStatusCompleted {
+	rootDeleted := job.Status == BatchImageJobStatusOutputDeleted || job.OutputDeletedAt != nil
+	// A root can already be marked deleted when a previous attempt cleaned the
+	// root provider output but a retry child failed.  Do not treat that marker
+	// as an idempotent terminal result until all children have also been
+	// processed; otherwise a transient child failure strands its output forever.
+	if !rootDeleted {
+		if job.Status != BatchImageJobStatusCompleted &&
+			job.Status != BatchImageJobStatusFailed &&
+			job.Status != BatchImageJobStatusCancelled {
+			return nil, ErrBatchImageOutputDeleteNotReady
+		}
+	}
+	// A failed/cancelled retry root may still own provider output through its
+	// completed children.  Permit cleanup only when every child has reached a
+	// terminal state; a failed/cancelled root with no provider output keeps the
+	// historical not-ready contract.
+	if !rootDeleted && job.Status != BatchImageJobStatusCompleted && len(children) == 0 && strings.TrimSpace(batchImageDerefString(job.ProviderOutputRef)) == "" {
 		return nil, ErrBatchImageOutputDeleteNotReady
 	}
-	s.appendCleanupEvent(ctx, job.BatchID, "manual_output_delete_requested", map[string]any{
-		"batch_id":       job.BatchID,
-		"cleanup_target": "output",
-		"reason":         "manual",
-	})
-	if err := s.cleanupJob(ctx, job, CleanupTargetOutput, "manual"); err != nil {
-		return nil, err
+	cleanupJobs := make([]*BatchImageJob, 0, len(children)+1)
+	for _, child := range children {
+		if child == nil || child.Status == BatchImageJobStatusOutputDeleted || child.OutputDeletedAt != nil {
+			continue
+		}
+		if !IsTerminalBatchImageJobStatus(child.Status) {
+			return nil, ErrBatchImageOutputDeleteNotReady
+		}
+		cleanupJobs = append(cleanupJobs, child)
+	}
+	// Process children first.  Marking a completed root output_deleted changes
+	// the root's status and used to make a later retry return early, so a child
+	// failure after root success could permanently orphan the child output.
+	if !rootDeleted {
+		cleanupJobs = append(cleanupJobs, job)
+	}
+	if len(cleanupJobs) == 0 {
+		return BatchImageJobToPublic(job), nil
+	}
+	for _, cleanupJob := range cleanupJobs {
+		s.appendCleanupEvent(ctx, cleanupJob.BatchID, "manual_output_delete_requested", map[string]any{
+			"batch_id":       cleanupJob.BatchID,
+			"root_batch_id":  job.BatchID,
+			"cleanup_target": "output",
+			"reason":         "manual",
+		})
+		if err := s.cleanupJob(ctx, cleanupJob, CleanupTargetOutput, "manual"); err != nil {
+			return nil, err
+		}
 	}
 	updated, err := s.Repo.GetBatchImageJobByBatchIDForOwner(ctx, owner.UserID, owner.APIKeyID, batchID)
 	if err != nil {

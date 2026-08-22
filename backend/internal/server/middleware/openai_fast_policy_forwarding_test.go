@@ -22,7 +22,7 @@ func TestAPIKeyAuthForwardsUserScopedOpenAIFastPolicyToUpstream(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	upstreamBodies := make(chan []byte, 2)
-	upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstreamHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "read request body", http.StatusInternalServerError)
@@ -31,8 +31,12 @@ func TestAPIKeyAuthForwardsUserScopedOpenAIFastPolicyToUpstream(t *testing.T) {
 		upstreamBodies <- body
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"id":"resp_test","object":"response","model":"gpt-5","status":"completed","usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}`))
-	}))
-	defer upstreamServer.Close()
+	})
+	upstreamClient := &http.Client{Transport: openAIFastPolicyForwardingRoundTripper(func(r *http.Request) (*http.Response, error) {
+		recorder := httptest.NewRecorder()
+		upstreamHandler.ServeHTTP(recorder, r)
+		return recorder.Result(), nil
+	})}
 
 	settings := &service.OpenAIFastPolicySettings{
 		Rules: []service.OpenAIFastPolicyRule{
@@ -61,7 +65,7 @@ func TestAPIKeyAuthForwardsUserScopedOpenAIFastPolicyToUpstream(t *testing.T) {
 	}, cfg)
 	gatewayService := service.NewOpenAIGatewayService(
 		nil, nil, nil, nil, nil, nil, nil, cfg,
-		nil, nil, nil, nil, nil, &openAIFastPolicyForwardingHTTPUpstream{client: upstreamServer.Client()},
+		nil, nil, nil, nil, nil, &openAIFastPolicyForwardingHTTPUpstream{client: upstreamClient},
 		nil, nil, nil, nil, nil, nil, settingService, nil,
 	)
 
@@ -88,7 +92,7 @@ func TestAPIKeyAuthForwardsUserScopedOpenAIFastPolicyToUpstream(t *testing.T) {
 		Concurrency: 1,
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
-			"base_url": upstreamServer.URL,
+			"base_url": "http://in-process",
 		},
 		Extra: map[string]any{"use_responses_api": true},
 	}
@@ -129,6 +133,12 @@ func TestAPIKeyAuthForwardsUserScopedOpenAIFastPolicyToUpstream(t *testing.T) {
 	otherUserBody := <-upstreamBodies
 	require.Equal(t, service.OpenAIFastTierPriority, gjson.GetBytes(allowedUserBody, "service_tier").String())
 	require.False(t, gjson.GetBytes(otherUserBody, "service_tier").Exists())
+}
+
+type openAIFastPolicyForwardingRoundTripper func(*http.Request) (*http.Response, error)
+
+func (f openAIFastPolicyForwardingRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }
 
 func newOpenAIFastPolicyForwardingAPIKey(id int64, key string, userID, groupID int64, group *service.Group) *service.APIKey {

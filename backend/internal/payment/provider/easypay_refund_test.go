@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -43,7 +42,7 @@ func TestEasyPayRefundNormalizesAPIBaseAndSendsOutTradeNoOnly(t *testing.T) {
 	var gotPath string
 	var gotQuery url.Values
 	var gotForm url.Values
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		gotQuery = r.URL.Query()
 		if err := r.ParseForm(); err != nil {
@@ -52,10 +51,10 @@ func TestEasyPayRefundNormalizesAPIBaseAndSendsOutTradeNoOnly(t *testing.T) {
 		gotForm = r.PostForm
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"code":1,"msg":"ok"}`))
-	}))
-	defer server.Close()
+	})
 
-	provider := newTestEasyPay(t, server.URL+"/mapi.php")
+	provider := newTestEasyPay(t, "https://zpayz.cn/mapi.php")
+	provider.httpClient = newInProcessHTTPClient(handler)
 	resp, err := provider.Refund(context.Background(), payment.RefundRequest{
 		TradeNo: "trade-123",
 		OrderID: "out-456",
@@ -92,7 +91,7 @@ func TestEasyPayRefundRetriesWithTradeNoWhenOutTradeNoNotFound(t *testing.T) {
 	t.Parallel()
 
 	var gotForms []url.Values
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api.php" {
 			t.Errorf("refund path = %q, want /api.php", r.URL.Path)
 		}
@@ -109,10 +108,10 @@ func TestEasyPayRefundRetriesWithTradeNoWhenOutTradeNoNotFound(t *testing.T) {
 			return
 		}
 		_, _ = w.Write([]byte(`{"code":1,"msg":"ok"}`))
-	}))
-	defer server.Close()
+	})
 
-	provider := newTestEasyPay(t, server.URL+"/mapi.php")
+	provider := newTestEasyPay(t, "https://zpayz.cn/mapi.php")
+	provider.httpClient = newInProcessHTTPClient(handler)
 	resp, err := provider.Refund(context.Background(), payment.RefundRequest{
 		TradeNo: "trade-123",
 		OrderID: "out-456",
@@ -159,13 +158,13 @@ func TestEasyPayRefundResponseErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(tt.statusCode)
 				_, _ = w.Write([]byte(tt.body))
-			}))
-			defer server.Close()
+			})
 
-			provider := newTestEasyPay(t, server.URL)
+			provider := newTestEasyPay(t, "https://zpayz.cn")
+			provider.httpClient = newInProcessHTTPClient(handler)
 			_, err := provider.Refund(context.Background(), payment.RefundRequest{
 				OrderID: "out-456",
 				Amount:  "1.50",
