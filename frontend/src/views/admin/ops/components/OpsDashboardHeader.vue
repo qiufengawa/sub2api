@@ -15,7 +15,6 @@ import {
   UiLiveMetric,
   UiPopover,
   UiProgressBar,
-  UiProgressRing,
   UiPulseIndicator,
   UiSegmentedControl,
   UiSelect,
@@ -411,6 +410,18 @@ const healthScoreValue = computed<number | null>(() => {
   return typeof v === 'number' && Number.isFinite(v) ? v : null
 })
 
+const healthScorePercent = computed(() => {
+  if (isSystemIdle.value || healthScoreValue.value == null) return 0
+  return Math.max(0, Math.min(100, Math.round(healthScoreValue.value)))
+})
+
+const healthScoreTone = computed(() => {
+  if (isSystemIdle.value || healthScoreValue.value == null) return 'is-neutral'
+  if (healthScoreValue.value >= 90) return 'is-success'
+  if (healthScoreValue.value >= 60) return 'is-warning'
+  return 'is-danger'
+})
+
 interface DiagnosisItem {
   type: 'critical' | 'warning' | 'info'
   message: string
@@ -630,13 +641,6 @@ const dbUsagePercent = computed<number | null>(() => {
   return Math.min(100, Math.max(0, (dbConnOpenValue.value / dbMaxOpenConnsValue.value) * 100))
 })
 
-const dbMiddleLabel = computed(() => {
-  if (systemMetrics.value?.db_ok === false) return 'FAIL'
-  if (dbUsagePercent.value != null) return `${dbUsagePercent.value.toFixed(0)}%`
-  if (systemMetrics.value?.db_ok === true) return t('admin.ops.ok')
-  return t('admin.ops.noData')
-})
-
 const redisConnTotalValue = computed<number | null>(() => {
   const v = systemMetrics.value?.redis_conn_total
   return typeof v === 'number' && Number.isFinite(v) ? v : null
@@ -660,13 +664,6 @@ const redisPoolSizeValue = computed<number | null>(() => {
 const redisUsagePercent = computed<number | null>(() => {
   if (redisConnTotalValue.value == null || redisPoolSizeValue.value == null || redisPoolSizeValue.value <= 0) return null
   return Math.min(100, Math.max(0, (redisConnTotalValue.value / redisPoolSizeValue.value) * 100))
-})
-
-const redisMiddleLabel = computed(() => {
-  if (systemMetrics.value?.redis_ok === false) return 'FAIL'
-  if (redisUsagePercent.value != null) return `${redisUsagePercent.value.toFixed(0)}%`
-  if (systemMetrics.value?.redis_ok === true) return t('admin.ops.ok')
-  return t('admin.ops.noData')
 })
 
 const goroutineCountValue = computed<number | null>(() => {
@@ -797,14 +794,13 @@ function handleToolbarRefresh() {
       <UiPopover placement="bottom-start" panel-role="dialog" :aria-label="t('admin.ops.diagnosis.title')" width="320px">
         <template #trigger>
           <UiButton type="button" variant="quiet" density="default" class="ops-health" data-overview-section="health">
-            <UiProgressRing
-              :value="isSystemIdle ? 0 : healthScoreValue ?? 0"
-              :size="props.fullscreen ? 132 : 104"
-              :display-value="isSystemIdle ? t('admin.ops.idleStatus') : healthScoreValue == null ? '-' : String(Math.round(healthScoreValue))"
-              :label="t('admin.ops.health')"
-              :tone="isSystemIdle || healthScoreValue == null ? 'neutral' : healthScoreValue >= 90 ? 'success' : healthScoreValue >= 60 ? 'warning' : 'danger'"
-              :aria-label="t('admin.ops.healthScoreAria', { value: isSystemIdle ? t('admin.ops.idleStatus') : healthScoreValue == null ? t('admin.ops.noData') : Math.round(healthScoreValue), description: t('admin.ops.healthHelp') })"
-            />
+            <div class="ops-health__score" aria-hidden="true">
+              <div class="ops-health__score-row">
+                <strong>{{ isSystemIdle ? t('admin.ops.idleStatus') : healthScoreValue == null ? '-' : Math.round(healthScoreValue) }}</strong>
+                <span>{{ t('admin.ops.health') }}</span>
+              </div>
+              <div class="ops-health__bar"><span :class="healthScoreTone" :style="{ width: `${healthScorePercent}%` }" /></div>
+            </div>
             <span class="ops-health__copy"><strong>{{ t('admin.ops.healthCondition') }}</strong><small>{{ t('admin.ops.healthHelp') }}</small></span>
           </UiButton>
         </template>
@@ -908,28 +904,28 @@ function handleToolbarRefresh() {
       <div class="ops-resources__grid">
         <article data-resource-kind="cpu" class="ops-resource">
           <header><span>CPU</span><UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.cpu')" /></header>
-          <UiProgressBar :value="cpuPercentValue ?? 0" :tone="cpuPercentValue == null ? 'neutral' : cpuPercentValue >= 95 ? 'danger' : cpuPercentValue >= 80 ? 'warning' : 'success'" label="CPU" test-id="ops-resource-cpu-progress" />
-          <small>{{ t('common.warning') }} 80% · {{ t('common.critical') }} 95%</small>
+          <UiProgressBar :value="cpuPercentValue ?? 0" :tone="cpuPercentValue == null ? 'neutral' : cpuPercentValue >= 95 ? 'danger' : cpuPercentValue >= 80 ? 'warning' : 'success'" test-id="ops-resource-cpu-progress" />
+          <small class="ops-resource__thresholds"><span class="is-warning">{{ t('common.warning') }} 80%</span> · <span class="is-critical">{{ t('common.critical') }} 95%</span></small>
         </article>
         <article data-resource-kind="memory" class="ops-resource">
           <header><span>{{ t('admin.ops.memory') }}</span><UiFieldHelp v-if="!props.fullscreen" :content="t('admin.ops.tooltips.memory')" /></header>
-          <UiProgressBar :value="memPercentValue ?? 0" :tone="memPercentValue == null ? 'neutral' : memPercentValue >= 95 ? 'danger' : memPercentValue >= 85 ? 'warning' : 'success'" :label="t('admin.ops.memory')" test-id="ops-resource-memory-progress" />
+          <UiProgressBar :value="memPercentValue ?? 0" :tone="memPercentValue == null ? 'neutral' : memPercentValue >= 95 ? 'danger' : memPercentValue >= 85 ? 'warning' : 'success'" test-id="ops-resource-memory-progress" />
           <small>{{ systemMetrics?.memory_used_mb == null || systemMetrics?.memory_total_mb == null ? '-' : formatMemorySizeMB(systemMetrics.memory_used_mb) + ' / ' + formatMemorySizeMB(systemMetrics.memory_total_mb) }}</small>
         </article>
         <article data-resource-kind="database" class="ops-resource">
-          <header><span>{{ t('admin.ops.db') }}</span><UiStatusBadge :status="systemMetrics?.db_ok === false ? 'offline' : systemMetrics?.db_ok === true ? 'healthy' : 'neutral'" :label="dbMiddleLabel" /></header>
+          <header><span>{{ t('admin.ops.db') }}</span><UiStatusBadge v-if="systemMetrics?.db_ok === false" status="offline" label="FAIL" /></header>
           <UiProgressBar :value="dbUsagePercent ?? 0" :tone="systemMetrics?.db_ok === false ? 'danger' : dbUsagePercent == null ? 'neutral' : dbUsagePercent >= 90 ? 'danger' : dbUsagePercent >= 70 ? 'warning' : 'success'" :label="t('admin.ops.conns')" test-id="ops-resource-database-progress" />
-          <small>{{ t('admin.ops.active') }} {{ dbConnActiveValue ?? '-' }} · {{ t('admin.ops.idle') }} {{ dbConnIdleValue ?? '-' }} · {{ t('admin.ops.waiting') }} {{ dbConnWaitingValue ?? '-' }}</small>
+          <small><span class="ops-resource__label--active">{{ t('admin.ops.active') }} {{ dbConnActiveValue ?? '-' }}</span> · <span class="ops-resource__label--idle">{{ t('admin.ops.idle') }} {{ dbConnIdleValue ?? '-' }}</span> · <span class="ops-resource__label--waiting">{{ t('admin.ops.waiting') }} {{ dbConnWaitingValue ?? '-' }}</span></small>
         </article>
         <article data-resource-kind="redis" class="ops-resource">
-          <header><span>Redis</span><UiStatusBadge :status="systemMetrics?.redis_ok === false ? 'offline' : systemMetrics?.redis_ok === true ? 'healthy' : 'neutral'" :label="redisMiddleLabel" /></header>
+          <header><span>Redis</span><UiStatusBadge v-if="systemMetrics?.redis_ok === false" status="offline" label="FAIL" /></header>
           <UiProgressBar :value="redisUsagePercent ?? 0" :tone="systemMetrics?.redis_ok === false ? 'danger' : redisUsagePercent == null ? 'neutral' : redisUsagePercent >= 90 ? 'danger' : redisUsagePercent >= 70 ? 'warning' : 'success'" :label="t('admin.ops.conns')" test-id="ops-resource-redis-progress" />
-          <small>{{ t('admin.ops.active') }} {{ redisConnActiveValue ?? '-' }} · {{ t('admin.ops.idle') }} {{ redisConnIdleValue ?? '-' }}</small>
+          <small><span class="ops-resource__label--active">{{ t('admin.ops.active') }} {{ redisConnActiveValue ?? '-' }}</span> · <span class="ops-resource__label--idle">{{ t('admin.ops.idle') }} {{ redisConnIdleValue ?? '-' }}</span></small>
         </article>
         <article data-resource-kind="goroutines" class="ops-resource ops-resource--status">
           <header><span>{{ t('admin.ops.goroutines') }}</span><UiStatusBadge :status="goroutineStatus === 'ok' ? 'healthy' : goroutineStatus === 'critical' ? 'danger' : goroutineStatus" :label="goroutineStatusLabel" /></header>
           <strong class="ui-numeric">{{ goroutineCountValue ?? '-' }}</strong>
-          <small>{{ t('common.warning') }} {{ goroutinesWarnThreshold }} · {{ t('common.critical') }} {{ goroutinesCriticalThreshold }} · {{ t('admin.ops.queue') }} {{ systemMetrics?.concurrency_queue_depth ?? '-' }}</small>
+          <small><span class="ops-resource__label--warning">{{ t('common.warning') }} {{ goroutinesWarnThreshold }}</span> · <span class="ops-resource__label--critical">{{ t('common.critical') }} {{ goroutinesCriticalThreshold }}</span> · {{ t('admin.ops.queue') }} {{ systemMetrics?.concurrency_queue_depth ?? '-' }}</small>
         </article>
         <article data-resource-kind="jobs" class="ops-resource ops-resource--status">
           <header><span>{{ t('admin.ops.jobs') }}</span><UiIconButton v-if="!props.fullscreen" icon="eye" density="mini" variant="ghost" :label="t('admin.ops.requestDetails.details')" @click="openJobsDetails" /></header>
@@ -980,17 +976,19 @@ function handleToolbarRefresh() {
 .ops-toolbar__status-line{flex-wrap:wrap;color:var(--ui-text-soft);font-size:11px}
 .ops-toolbar__controls{justify-content:flex-end}.ops-filter{min-width:132px}.ops-filter--group{min-width:156px}
 .ops-diagnosis__action{display:block;margin-top:4px;color:var(--ui-text)}.ops-diagnosis__action b{margin-left:6px}
-.ops-kpi-layout{display:grid;min-width:0;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);grid-template-areas:"health traffic" "stability resources" "latency latency";gap:16px;align-items:stretch}
-.ops-health-card{display:grid;grid-area:health;min-width:0}
+.ops-kpi-layout{display:grid;min-width:0;grid-template-columns:minmax(0,1fr);gap:16px}
+.ops-health-card{display:grid;min-width:0;order:1}
 .ops-health-card>:deep(.ui-popover){display:block;min-width:0;width:100%;height:100%}
 .ops-health-card>:deep(.ui-popover)>span:first-child{display:block;width:100%;height:100%}
-.ops-traffic{display:grid;grid-area:traffic;min-width:0;gap:10px;padding:16px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius-panel);background:var(--ui-surface)}
-.ops-kpi-layout>section[data-overview-section="stability"]{display:grid;grid-area:stability;min-width:0;gap:8px;padding:16px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius-panel);background:var(--ui-surface)}
-.ops-kpi-layout>section[data-overview-section="latency"]{display:grid;grid-area:latency;min-width:0;gap:8px;padding:16px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius-panel);background:var(--ui-surface)}
-.ops-resources{grid-area:resources;padding:16px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius-panel);background:var(--ui-surface)}
-.ops-health{display:flex;width:100%;height:100%;min-height:168px;align-items:center;justify-content:center;gap:18px;padding:20px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius-panel);color:var(--ui-text);background:var(--ui-surface);text-align:left;cursor:pointer}
+.ops-traffic{display:grid;min-width:0;order:4;gap:10px;padding:16px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius-panel);background:var(--ui-surface)}
+.ops-kpi-layout>section[data-overview-section="stability"],.ops-kpi-layout>section[data-overview-section="latency"]{display:grid;min-width:0;gap:8px;padding:16px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius-panel);background:var(--ui-surface)}
+.ops-kpi-layout>section[data-overview-section="stability"]{order:3}.ops-kpi-layout>section[data-overview-section="latency"]{order:5}
+.ops-resources{display:grid;min-width:0;order:2;gap:8px;padding:16px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius-panel);background:var(--ui-surface)}
+.ops-health{display:flex;width:100%;min-height:132px;align-items:center;justify-content:flex-start;padding:20px 24px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius-panel);color:var(--ui-text);background:var(--ui-surface);text-align:left;cursor:pointer}
 .ops-health:hover{border-color:var(--ui-border);background:var(--ui-surface-muted)}
-.ops-health__copy{display:grid;max-width:150px;gap:4px}.ops-health__copy strong{font-size:14px}.ops-health__copy small{color:var(--ui-text-soft);font-size:11px;line-height:17px}
+.ops-health-card :deep(.ops-health > span){display:grid;width:100%;min-width:0;gap:12px}
+.ops-health__score{display:grid;width:100%;min-width:0;gap:8px}.ops-health__score-row{display:flex;align-items:baseline;gap:8px}.ops-health__score-row strong{font-size:28px;line-height:32px;font-variant-numeric:tabular-nums}.ops-health__score-row span{color:var(--ui-text-soft);font-size:11px}.ops-health__bar{width:100%;height:10px;overflow:hidden;border-radius:999px;background:var(--ui-surface-strong)}.ops-health__bar span{display:block;height:100%;border-radius:inherit;background:var(--ui-success);transition:width .25s ease}.ops-health__bar span.is-warning{background:var(--ui-warning)}.ops-health__bar span.is-danger{background:var(--ui-danger)}.ops-health__bar span.is-neutral{background:var(--ui-text-muted)}
+.ops-health__copy{display:grid;max-width:none;gap:4px;padding-top:2px}.ops-health__copy strong{font-size:14px}.ops-health__copy small{color:var(--ui-text-soft);font-size:11px;line-height:17px}
 .ops-diagnosis{display:grid;gap:10px;padding:6px}.ops-diagnosis>header{display:flex;align-items:center;gap:8px;padding:4px 4px 10px;border-bottom:1px solid var(--ui-border-soft)}
 .ops-diagnosis__item{display:grid;grid-template-columns:16px minmax(0,1fr);gap:9px;padding:4px}.ops-diagnosis__item strong{display:block;font-size:12px;line-height:18px}
 .ops-diagnosis__item p,.ops-diagnosis__item small{display:block;margin:2px 0 0;color:var(--ui-text-muted);font-size:11px;line-height:17px}.ops-diagnosis__item small{color:var(--ui-text)}
@@ -1001,17 +999,18 @@ function handleToolbarRefresh() {
 .ops-quality{display:grid;min-width:0;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:16px;padding-top:4px;border-top:1px solid var(--ui-border-soft)}
 .ops-quality>section{display:grid;min-width:0;gap:8px}.ops-quality__grid{display:grid;min-width:0;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .ops-metric-with-action{position:relative;min-width:0}.ops-metric-with-action>.ui-icon-button{position:absolute;z-index:1;top:6px;right:6px;width:20px;height:20px}.ops-metric-with-action>.ui-icon-button :deep(svg){width:12px;height:12px}.ops-metric-with-action>:deep(.ui-threshold),.ops-metric-with-action>:deep(.ui-stat){padding-right:34px}
-.ops-latency-grid{display:grid;min-width:0;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ops-latency{display:grid;min-width:0;gap:6px}
+.ops-latency-grid{display:grid;min-width:0;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(152px,auto);gap:8px;align-items:stretch}.ops-latency{display:grid;min-width:0;min-height:152px;grid-template-rows:minmax(122px,auto) auto;align-content:start;gap:6px}.ops-latency> :deep(.ui-stat),.ops-latency> :deep(.ui-threshold){min-height:122px;height:100%;box-sizing:border-box}
 .ops-percentiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;color:var(--ui-text-soft);font-size:10px}.ops-percentiles span{display:flex;min-width:0;justify-content:space-between;gap:4px;padding:0 4px}.ops-percentiles b{color:var(--ui-text);font-weight:500;font-variant-numeric:tabular-nums}
 .ops-resources{display:grid;min-width:0;gap:8px;padding-top:4px;border-top:1px solid var(--ui-border-soft)}.ops-resources__grid{display:grid;min-width:0;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.ops-resource{display:grid;min-width:0;min-height:112px;align-content:start;gap:9px;padding:10px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius);background:var(--ui-surface)}
+.ops-resource{display:grid;min-width:0;min-height:124px;align-content:start;gap:9px;padding:10px;border:1px solid var(--ui-border-soft);border-radius:var(--ui-radius);background:var(--ui-surface)}
 .ops-resource>header,.ops-resource__status-value{display:flex;min-width:0;align-items:center;justify-content:space-between;gap:8px}.ops-resource>header>span{color:var(--ui-text-muted);font-size:11px;font-weight:600}
 .ops-resource>small{overflow:hidden;color:var(--ui-text-soft);font-size:10px;line-height:16px;text-overflow:ellipsis;white-space:nowrap}.ops-resource--status>strong,.ops-resource__status-value>strong{font-size:22px;font-weight:500;line-height:28px}
+.ops-resource__thresholds .is-warning,.ops-resource__label--warning{color:var(--ui-warning)}.ops-resource__thresholds .is-critical,.ops-resource__label--critical{color:var(--ui-danger)}.ops-resource__label--active{color:var(--ui-success)}.ops-resource__label--idle{color:var(--ui-text-soft)}.ops-resource__label--waiting{color:var(--ui-warning)}
 .ops-job{display:grid;gap:10px;padding:12px 0;border-bottom:1px solid var(--ui-border-soft)}.ops-job:last-child{border-bottom:0}.ops-job>header{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .ops-job dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;gap:8px 16px}.ops-job dl>div{display:grid;grid-template-columns:minmax(80px,.6fr) minmax(0,1fr);gap:8px}
 .ops-job dt{color:var(--ui-text-soft);font-size:11px}.ops-job dd{min-width:0;margin:0;overflow-wrap:anywhere;font-family:var(--ui-font-mono);font-size:11px}
-@media(max-width:1199px){.ops-kpi-layout{grid-template-columns:1fr;grid-template-areas:"health" "traffic" "stability" "resources" "latency"}.ops-quality{grid-template-columns:1fr}.ops-resources__grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:767px){.ops-toolbar__controls{width:100%;flex-wrap:wrap}.ops-filter{min-width:min(100%,140px);flex:1 1 140px}.ops-health{min-height:150px}.ops-quality__grid{grid-template-columns:1fr}.ops-resources__grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:479px){.ops-command{gap:12px}.ops-command--fullscreen{padding:16px}.ops-toolbar__button-label{display:none}.ops-health{justify-content:flex-start}.ops-traffic__grid,.ops-latency-grid,.ops-resources__grid{grid-template-columns:1fr}.ops-percentiles{grid-template-columns:repeat(2,minmax(0,1fr))}.ops-job dl{grid-template-columns:1fr}}
+@media(max-width:1199px){.ops-quality{grid-template-columns:1fr}.ops-resources__grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:767px){.ops-toolbar__controls{width:100%;flex-wrap:wrap}.ops-filter{min-width:min(100%,140px);flex:1 1 140px}.ops-health{min-height:132px;padding:16px}.ops-health__score-row strong{font-size:24px}.ops-quality__grid{grid-template-columns:1fr}.ops-resources__grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:479px){.ops-command{gap:12px}.ops-command--fullscreen{padding:16px}.ops-toolbar__button-label{display:none}.ops-health{min-height:132px}.ops-traffic__grid,.ops-latency-grid,.ops-resources__grid{grid-template-columns:1fr}.ops-percentiles{grid-template-columns:repeat(2,minmax(0,1fr))}.ops-job dl{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.ops-health{transition:none}}
 </style>

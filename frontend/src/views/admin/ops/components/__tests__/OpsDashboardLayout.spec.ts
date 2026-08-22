@@ -19,7 +19,8 @@ describe('OpsDashboard command-center layout contract', () => {
     expect(logs).toBeGreaterThan(tokens)
     expect(dashboardSource).toContain('ops-dashboard__traffic-grid')
     expect(dashboardSource).toContain('ops-dashboard__quality-grid')
-    expect(dashboardSource).toContain('grid-template-columns:minmax(0,7fr) minmax(0,5fr)')
+    expect(dashboardSource).toContain('.ops-dashboard__traffic-grid{display:grid;min-width:0;grid-template-columns:minmax(0,1fr)')
+    expect(dashboardSource).not.toContain('grid-template-columns:minmax(0,7fr) minmax(0,5fr)')
   })
 
   it('mirrors alert, token and log structures in skeleton order', () => {
