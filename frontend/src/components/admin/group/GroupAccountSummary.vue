@@ -1,23 +1,35 @@
 <template>
   <div class="group-account-summary">
-    <div>
-      <span>{{ t("admin.groups.accountsAvailable") }}</span>
-      <UiBadge tone="success" :label="formatCount(active)" />
-    </div>
-    <div v-if="rateLimited > 0">
-      <span>{{ t("admin.groups.accountsRateLimited") }}</span>
-      <UiBadge tone="warning" :label="formatCount(rateLimited)" />
-    </div>
-    <div>
-      <span>{{ t("admin.groups.accountsTotal") }}</span>
+    <span
+      class="is-success"
+      :title="t('admin.groups.accountsAvailable')"
+      :aria-label="t('admin.groups.accountsAvailable')"
+    >
+      <Icon name="userPlus" size="xs" />
+      <strong>{{ formatCount(active) }}</strong>
+    </span>
+    <span
+      v-if="rateLimited > 0"
+      class="is-warning"
+      :title="t('admin.groups.accountsRateLimited')"
+      :aria-label="t('admin.groups.accountsRateLimited')"
+    >
+      <Icon name="clock" size="xs" />
+      <strong>{{ formatCount(rateLimited) }}</strong>
+    </span>
+    <span
+      :title="t('admin.groups.accountsTotal')"
+      :aria-label="t('admin.groups.accountsTotal')"
+    >
+      <Icon name="users" size="xs" />
       <strong>{{ formatCount(total) }}</strong>
-    </div>
+    </span>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import { UiBadge } from "@/components/ui";
+import Icon from "@/components/icons/Icon.vue";
 
 withDefaults(
   defineProps<{
@@ -39,25 +51,31 @@ const formatCount = (value: number) => value.toLocaleString();
 <style scoped>
 .group-account-summary {
   display: grid;
-  min-width: 108px;
-  gap: 2px;
+  min-width: 88px;
+  gap: 4px;
 }
 
-.group-account-summary > div {
+.group-account-summary > span {
   display: flex;
   min-height: 20px;
   align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
+  gap: 2px;
   color: var(--ui-text-soft);
-  font-size: 11px;
+  font-family: var(--ui-font-sans);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
 }
 
 .group-account-summary strong {
   color: var(--ui-text);
-  font-family: var(--ui-font-sans);
-  font-size: 11px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.group-account-summary .is-success {
+  color: var(--ui-success);
+}
+
+.group-account-summary .is-warning {
+  color: var(--ui-warning);
 }
 </style>
