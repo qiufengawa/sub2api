@@ -7,6 +7,12 @@
       <UiTextField density="mini" :label="`${t('admin.channels.form.outputPrice')} $/M`" :model-value="interval.output_price ?? ''" type="number" min="0" step="any" :invalid="isEmpty && !interval.output_price" @update:model-value="emitField('output_price', String($event))" />
       <UiTextField density="mini" :label="`${t('admin.channels.form.cacheWritePriceShort')} $/M`" :model-value="interval.cache_write_price ?? ''" type="number" min="0" step="any" @update:model-value="emitField('cache_write_price', String($event))" />
       <UiTextField density="mini" :label="`${t('admin.channels.form.cacheReadPriceShort')} $/M`" :model-value="interval.cache_read_price ?? ''" type="number" min="0" step="any" @update:model-value="emitField('cache_read_price', String($event))" />
+      <template v-if="enableMultipliers">
+        <UiTextField density="mini" :label="t('admin.channels.form.inputMultiplier')" :model-value="interval.input_multiplier ?? ''" type="number" min="0.000001" step="any" @update:model-value="emitField('input_multiplier', String($event))" />
+        <UiTextField density="mini" :label="t('admin.channels.form.outputMultiplier')" :model-value="interval.output_multiplier ?? ''" type="number" min="0.000001" step="any" @update:model-value="emitField('output_multiplier', String($event))" />
+        <UiTextField density="mini" :label="t('admin.channels.form.cacheWriteMultiplier')" :model-value="interval.cache_write_multiplier ?? ''" type="number" min="0.000001" step="any" @update:model-value="emitField('cache_write_multiplier', String($event))" />
+        <UiTextField density="mini" :label="t('admin.channels.form.cacheReadMultiplier')" :model-value="interval.cache_read_multiplier ?? ''" type="number" min="0.000001" step="any" @update:model-value="emitField('cache_read_multiplier', String($event))" />
+      </template>
     </template>
     <template v-else>
       <UiTextField density="mini" :label="mode === 'image' ? t('admin.channels.form.resolution') : t('admin.channels.form.tierLabel')" :model-value="interval.tier_label" :placeholder="mode === 'image' ? '1K / 2K / 4K' : ''" @update:model-value="emitField('tier_label', String($event))" />
@@ -26,7 +32,7 @@ import type { BillingMode } from '@/api/admin/channels'
 import { UiIconButton, UiTextField } from '@/components/ui'
 
 const { t } = useI18n()
-const props = defineProps<{ interval: IntervalFormEntry; mode: BillingMode }>()
+const props = defineProps<{ interval: IntervalFormEntry; mode: BillingMode; enableMultipliers?: boolean }>()
 const emit = defineEmits<{ update: [interval: IntervalFormEntry]; remove: [] }>()
 
 const isEmpty = computed(() => {
@@ -35,6 +41,10 @@ const isEmpty = computed(() => {
     (iv.output_price == null || iv.output_price === '') &&
     (iv.cache_write_price == null || iv.cache_write_price === '') &&
     (iv.cache_read_price == null || iv.cache_read_price === '') &&
+    (iv.input_multiplier == null || iv.input_multiplier === '') &&
+    (iv.output_multiplier == null || iv.output_multiplier === '') &&
+    (iv.cache_write_multiplier == null || iv.cache_write_multiplier === '') &&
+    (iv.cache_read_multiplier == null || iv.cache_read_multiplier === '') &&
     (iv.per_request_price == null || iv.per_request_price === '')
 })
 

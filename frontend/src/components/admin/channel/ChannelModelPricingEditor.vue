@@ -23,6 +23,7 @@
         :key="index"
         :entry="entry"
         :platform="platform"
+        enable-tier-multipliers
         @update="emit('update', index, $event)"
         @remove="emit('remove', index)"
       />
