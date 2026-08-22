@@ -15,7 +15,7 @@
         {{ ipGeoBatchLoading ? t('usage.ipGeo.batchFetching') : t('usage.ipGeo.batchFetch') }}
       </UiButton>
     </div>
-    <UiMobileTableScroller min-width="760px" :label="t('usage.noRecords')">
+    <UiMobileTableScroller class="usage-table__scroller" min-width="760px" :label="t('usage.noRecords')">
       <UiDataTable
         :columns="columns"
         :data="data"
@@ -512,6 +512,14 @@ const formatDuration = (ms: number | null | undefined): string => {
 <style scoped>
 .usage-table {
   min-width: 0;
+}
+
+/* Keep one horizontal scroll owner (the data-table's table-wrapper).  The
+ * outer accessibility scroller must not force a second 760px viewport on
+ * narrow phones, otherwise sticky columns move with the outer container. */
+.usage-table__scroller :deep(> div) {
+  width: 100%;
+  min-width: 0 !important;
 }
 
 .usage-table--framed {

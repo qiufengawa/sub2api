@@ -3,7 +3,7 @@
     <div class="ui-panel flex min-h-0 flex-1 flex-col">
       <IpGeoBatchToolbar :ips="rows.map((r) => r.client_ip)" @failed="emit('ipGeoBatchFailed')" />
 
-      <UiMobileTableScroller :label="t('usage.errors.title')" min-width="920px">
+      <UiMobileTableScroller class="error-table__scroller" :label="t('usage.errors.title')" min-width="920px">
       <UiDataTable
         :columns="columns"
         :data="rows"
@@ -201,3 +201,13 @@ function openDetail(id: number) {
 
 const statusClass = statusCodeBadgeClass
 </script>
+
+<style scoped>
+/* Let UiDataTable's own table-wrapper own horizontal scrolling so its
+ * sticky-first-column remains pinned at 425px and the outer panel does not
+ * clip the final columns. */
+.error-table__scroller :deep(> div) {
+  width: 100%;
+  min-width: 0 !important;
+}
+</style>

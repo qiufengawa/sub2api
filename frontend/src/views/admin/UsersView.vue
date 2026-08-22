@@ -228,10 +228,12 @@
       </template>
 
       <!-- Users Table -->
+      <UiMobileTableScroller class="users-table-scroller" min-width="980px" :label="t('admin.users.title')">
       <UiDataTable
           :columns="columns"
           :data="sortedUsers"
           :loading="false"
+          mobile-table
           row-key="id"
           selectable
           :selected-keys="selectedIds"
@@ -486,6 +488,7 @@
             </UiEmptyState>
           </template>
       </UiDataTable>
+      </UiMobileTableScroller>
 
       <!-- Pagination -->
       <template #pagination>
@@ -571,6 +574,7 @@ import {
   UiEmptyState,
   UiFilterChips,
   UiIconButton,
+  UiMobileTableScroller,
   UiPopover,
   UiPagination,
   UiSearchInput,
@@ -1616,5 +1620,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.users-table-scroller { min-width: 0; }
+.users-table-scroller :deep(> div) { width: 100%; min-width: 0 !important; }
 .users-workspace-toolbar{display:grid;gap:8px}.users-filter-controls{display:flex;width:100%;min-width:0;flex:1;flex-wrap:wrap;align-items:center;gap:8px}.users-search-field{width:min(256px,100%)}.users-filter-field{width:min(176px,100%);min-width:0}.users-filter-field--short{width:min(128px,100%)}.users-filter-field--attribute{width:min(144px,100%)}.users-advanced-filters{display:flex;width:100%;min-width:0;flex:0 0 100%;flex-wrap:wrap;align-items:center;gap:8px;padding-top:10px;border-top:1px solid var(--ui-border-soft)}.users-advanced-filters > *{min-width:0;flex:0 1 176px}.users-toolbar-actions,.users-toolbar-secondary{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}.users-filter-menu{display:grid;min-width:192px;gap:8px;padding:4px}.users-filter-menu__divider{border-top:1px solid var(--ui-border-soft)}.users-user-cell,.users-inline-actions,.users-sort-header{display:flex;min-width:0;align-items:center;gap:6px}.users-groups-cell{display:grid;gap:4px}.users-group-menu,.users-sort-menu{display:grid;min-width:200px;gap:2px}.users-group-menu>span{padding:4px 8px;color:var(--ui-text-soft);font-size:11px}.users-group-menu :deep(button),.users-sort-menu :deep(button){justify-content:flex-start}.users-public-groups{display:inline-flex;align-items:center;gap:4px;color:var(--ui-text-muted);font-size:12px}.users-cell-empty{color:var(--ui-text-soft);font-size:12px}.users-subscriptions{display:flex;max-width:240px;flex-wrap:wrap;gap:5px}.users-subscriptions :deep(.ui-badge){max-width:100%}.users-subscriptions :deep(.ui-badge>span){overflow:hidden;text-overflow:ellipsis}.users-subscriptions small{flex:none;font-size:10px;font-weight:500;opacity:.8}.users-sort-header__metric{font-size:10px;font-weight:500;text-transform:none}.users-sort-menu{min-width:128px}.users-sort-menu__hint{margin-top:4px;padding:5px 8px;border-top:1px solid var(--ui-border-soft);color:var(--ui-text-soft);font-size:10px;font-weight:400;text-transform:none}@media(max-width:640px){.users-search-field,.users-filter-field,.users-filter-field--short,.users-filter-field--attribute,.users-advanced-filters > *{width:100%;flex-basis:100%}.users-toolbar-actions{justify-content:stretch}.users-toolbar-actions>:deep(button){flex:1}.users-toolbar-secondary{display:contents}}
 </style>

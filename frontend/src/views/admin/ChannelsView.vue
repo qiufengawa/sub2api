@@ -21,7 +21,7 @@
           </UiTableToolbar>
         </template>
 
-        <UiMobileTableScroller :label="t('admin.channels.title', 'Channels')" min-width="760px">
+        <UiMobileTableScroller class="channels-table-scroller" :label="t('admin.channels.title', 'Channels')" min-width="760px">
           <UiDataTable :columns="columns" :data="channels" :loading="loading" :mobile-table="true" :aria-label="t('admin.channels.title', 'Channels')" :server-side-sort="true" default-sort-key="created_at" default-sort-order="desc" @sort="handleSort">
           <template #cell-name="{ value }"><UiDataCell :value="String(value)" /></template>
           <template #cell-description="{ value }"><UiDataCell :value="value || '-'" /></template>
@@ -271,13 +271,13 @@ interface PlatformSection {
 
 // ── Table columns ──
 const columns = computed<Column[]>(() => [
-  { key: 'name', label: t('admin.channels.columns.name', 'Name'), sortable: true },
-  { key: 'description', label: t('admin.channels.columns.description', 'Description'), sortable: false },
-  { key: 'status', label: t('admin.channels.columns.status', 'Status'), sortable: true },
-  { key: 'group_count', label: t('admin.channels.columns.groups', 'Groups'), sortable: false },
-  { key: 'pricing_count', label: t('admin.channels.columns.pricing', 'Pricing'), sortable: false },
-  { key: 'created_at', label: t('admin.channels.columns.createdAt', 'Created'), sortable: true },
-  { key: 'actions', label: t('admin.channels.columns.actions', 'Actions'), sortable: false }
+  { key: 'name', label: t('admin.channels.columns.name', 'Name'), sortable: true, class: 'channels-column-name' },
+  { key: 'description', label: t('admin.channels.columns.description', 'Description'), sortable: false, class: 'channels-column-description' },
+  { key: 'status', label: t('admin.channels.columns.status', 'Status'), sortable: true, class: 'channels-column-status' },
+  { key: 'group_count', label: t('admin.channels.columns.groups', 'Groups'), sortable: false, class: 'channels-column-count' },
+  { key: 'pricing_count', label: t('admin.channels.columns.pricing', 'Pricing'), sortable: false, class: 'channels-column-count' },
+  { key: 'created_at', label: t('admin.channels.columns.createdAt', 'Created'), sortable: true, class: 'channels-column-created' },
+  { key: 'actions', label: t('admin.channels.columns.actions', 'Actions'), sortable: false, class: 'channels-column-actions' }
 ])
 
 const statusFilterOptions = computed(() => [
@@ -1267,5 +1267,17 @@ onUnmounted(() => {
   padding-top: 12px;
   overflow-y: auto;
 }
+
+.channels-table-scroller :deep(table) {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.channels-table-scroller :deep(.channels-column-name) { width: 16%; }
+.channels-table-scroller :deep(.channels-column-description) { width: 24%; }
+.channels-table-scroller :deep(.channels-column-status) { width: 12%; }
+.channels-table-scroller :deep(.channels-column-count) { width: 11%; }
+.channels-table-scroller :deep(.channels-column-created) { width: 14%; }
+.channels-table-scroller :deep(.channels-column-actions) { width: 11%; }
 
 </style>

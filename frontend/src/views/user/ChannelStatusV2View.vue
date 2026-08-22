@@ -924,7 +924,9 @@ onBeforeUnmount(() => {
 }
 
 .monitor-chart-section {
+  height: 340px;
   min-height: 340px;
+  overflow: hidden;
 }
 
 .monitor-toolbar-modes {

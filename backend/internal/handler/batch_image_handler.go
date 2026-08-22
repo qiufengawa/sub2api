@@ -265,7 +265,7 @@ func (h *BatchImageHandler) Download(c *gin.Context) {
 		batchImageError(c, infraerrors.New(http.StatusInternalServerError, "BATCH_IMAGE_DOWNLOAD_TEMP_FAILED", "batch image download failed"))
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	c.Header("Content-Type", "application/zip")
 	c.Header("Content-Disposition", service.BatchImageContentDispositionAttachment(c.Param("id")+".zip"))
 	c.Header("Cache-Control", "private, no-store")

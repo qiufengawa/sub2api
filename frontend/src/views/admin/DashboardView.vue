@@ -107,7 +107,7 @@
           <!-- Date Range Filter -->
           <AppToolbar>
             <AppInline justify="space-between">
-              <AppInline>
+              <AppInline class="dashboard-chart-range-controls">
                 <UiFormField :label="t('admin.dashboard.timeRange')">
                 <UiDateRangePicker
                   v-model:start-date="startDate"
@@ -623,7 +623,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.dashboard-page{display:grid;gap:16px}.dashboard-action{justify-content:flex-start;width:100%}.dashboard-user-trend{height:288px}
+.dashboard-page{display:grid;gap:16px}.dashboard-action{justify-content:flex-start;width:100%}.dashboard-user-trend{height:288px}.dashboard-chart-range-controls{align-items:flex-end}
 .dashboard-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media(min-width:1280px){.dashboard-stat-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:640px){.dashboard-stat-grid{grid-template-columns:1fr}}

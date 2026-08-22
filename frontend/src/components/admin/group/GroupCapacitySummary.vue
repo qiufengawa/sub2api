@@ -55,9 +55,9 @@ function tone(used: number, max: number) {
   display: flex;
   min-height: 20px;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   color: var(--ui-text-soft);
-  font-family: var(--ui-font-mono);
+  font-family: var(--ui-font-sans);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
 }

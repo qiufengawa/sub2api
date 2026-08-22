@@ -719,6 +719,7 @@ onBeforeUnmount(() => {
 :deep(.ui-nav-item.sidebar-nav-item),:deep(.ui-nav-item.sidebar-child-item){
   min-height:32px;
   font-size:13px;
+  font-weight:400;
   line-height:20px;
 }
 .sidebar-child-item{min-height:32px}

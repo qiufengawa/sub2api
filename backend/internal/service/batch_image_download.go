@@ -255,7 +255,7 @@ func (s *BatchImageDownloadService) StreamZip(ctx context.Context, owner BatchIm
 	var manifestFiles []batchImageZipManifestFile
 	var zipErrors []batchImageZipError
 	seenFilenames := make(map[string]struct{})
-	var streamCtx context.Context = ctx
+	streamCtx := ctx
 	var cancel context.CancelFunc = func() {}
 	if includeSuccess {
 		permit, permitErr := s.acquirePermit(ctx, owner.UserID, "zip")

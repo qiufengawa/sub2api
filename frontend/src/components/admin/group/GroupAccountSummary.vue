@@ -40,22 +40,22 @@ const formatCount = (value: number) => value.toLocaleString();
 .group-account-summary {
   display: grid;
   min-width: 108px;
-  gap: 4px;
+  gap: 2px;
 }
 
 .group-account-summary > div {
   display: flex;
   min-height: 20px;
   align-items: center;
-  justify-content: space-between;
-  gap: 4px;
+  justify-content: flex-start;
+  gap: 6px;
   color: var(--ui-text-soft);
   font-size: 11px;
 }
 
 .group-account-summary strong {
   color: var(--ui-text);
-  font-family: var(--ui-font-mono);
+  font-family: var(--ui-font-sans);
   font-size: 11px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;

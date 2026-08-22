@@ -107,7 +107,9 @@ const bucketLabel = computed(() => {
 })
 
 const chartData = computed(() => {
-  const points = visibleTrend.value
+  // Keep Chart.js bounded for long monitoring windows while preserving the
+  // zoom window and its endpoints. Only the rendered dataset is reduced.
+  const points = downsampleTrend(visibleTrend.value, 240)
   if (!points.length) return null
   const labels = points.map((p) => dateFormatter.value.format(new Date(p.bucket_start)))
   const errorRates = smoothTrend(points.map((p) => (p.metrics.error_rate || 0) * 100))

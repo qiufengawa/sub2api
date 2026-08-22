@@ -264,10 +264,12 @@ function downloadChart() {
       </UiButton>
     </div>
 
-    <Line v-if="chartData" ref="throughputChartRef" :data="chartData" :options="options" />
+    <div v-if="chartData" class="ops-throughput__canvas">
+      <Line ref="throughputChartRef" :data="chartData" :options="options" />
+    </div>
   </UiChartFrame>
 </template>
 
 <style scoped>
-.ops-throughput__drilldown{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.ops-throughput__name{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ops-throughput__platform{text-transform:uppercase}.ops-throughput__count{color:var(--ui-text-soft);font-variant-numeric:tabular-nums}
+.ops-throughput__drilldown{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.ops-throughput__name{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ops-throughput__platform{text-transform:uppercase}.ops-throughput__count{color:var(--ui-text-soft);font-variant-numeric:tabular-nums}.ops-throughput__canvas{position:relative;width:100%;height:260px;min-height:0;overflow:hidden}.ops-throughput__canvas :deep(canvas){display:block!important;width:100%!important;height:100%!important;max-height:260px}
 </style>
