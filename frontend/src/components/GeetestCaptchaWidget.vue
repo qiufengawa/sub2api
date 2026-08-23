@@ -27,7 +27,12 @@ export interface GeetestCaptchaProof {
 declare global {
   interface Window {
     initGeetest4?: (
-      config: { captchaId: string; product?: 'popup' | 'float' | 'bind' },
+      config: {
+        captchaId: string
+        product?: 'popup' | 'float' | 'bind'
+        language?: string
+        protocol?: 'http://' | 'https://'
+      },
       callback: (captcha: GeetestInstance) => void
     ) => void
   }
@@ -95,7 +100,16 @@ function init(): void {
     state.value = 'idle'
     return
   }
-  window.initGeetest4({ captchaId: props.captchaId, product: 'popup' }, (instance) => {
+  // This component owns the visible trigger button and opens the official
+  // GeeTest dialog programmatically. GeeTest documents `showCaptcha()` for
+  // the `bind` product; `popup` expects an `appendTo` host button instead and
+  // silently ignores this trigger in some browser builds.
+  window.initGeetest4({
+    captchaId: props.captchaId,
+    product: 'bind',
+    language: 'zho',
+    protocol: window.location.protocol === 'https:' ? 'https://' : 'http://'
+  }, (instance) => {
     captcha = instance
     instance.onReady?.(() => { state.value = 'idle' })
     instance.onSuccess?.(() => {
