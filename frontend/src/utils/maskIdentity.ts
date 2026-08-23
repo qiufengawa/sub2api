@@ -15,4 +15,3 @@ export function maskUserIdentity(value: unknown): string {
   if (runes.length === 2) return `${runes[0]}***`
   return `${runes[0]}***${runes[runes.length - 1]}`
 }
-
