@@ -339,6 +339,19 @@ func TestEnhanceCSPPolicy(t *testing.T) {
 		assert.Equal(t, 1, countDirectiveValue(enhanced, "worker-src", TencentCaptchaWorkerSource))
 	})
 
+	t.Run("adds_geetest_gt4_domains_for_web_sdk", func(t *testing.T) {
+		policy := "default-src 'self'; script-src 'self' __CSP_NONCE__; connect-src 'self'; frame-src 'self'"
+		enhanced := enhanceCSPPolicy(policy)
+
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "script-src", GeeTestStaticDomain))
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "script-src", GeeTestStaticFallbackDomain))
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "connect-src", GeeTestAPIDomain))
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "connect-src", GeeTestAPIFallbackDomain))
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "connect-src", GeeTestAPISecondaryFallbackDomain))
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "frame-src", GeeTestStaticDomain))
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "frame-src", GeeTestStaticFallbackDomain))
+	})
+
 	t.Run("does_not_duplicate_tencent_captcha_worker_source", func(t *testing.T) {
 		policy := "default-src 'self'; worker-src 'self' blob:; script-src 'self' __CSP_NONCE__"
 		enhanced := enhanceCSPPolicy(policy)

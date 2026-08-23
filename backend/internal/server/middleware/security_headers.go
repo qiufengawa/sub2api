@@ -47,6 +47,16 @@ const (
 	AirwallexDemoStaticDomain = "https://static-demo.airwallex.com"
 	// AirwallexDemoCheckoutDomain 是 Airwallex 沙箱环境收银台元素和 iframe 域名。
 	AirwallexDemoCheckoutDomain = "https://checkout-demo.airwallex.com"
+	// GeeTestStaticDomain is the GT4 browser SDK host.
+	GeeTestStaticDomain = "https://static.geetest.com"
+	// GeeTestStaticFallbackDomain is the GT4 static-resource failover host.
+	GeeTestStaticFallbackDomain = "https://static.geevisit.com"
+	// GeeTestAPIDomain is the GT4 browser API host used for challenge loading.
+	GeeTestAPIDomain = "https://gcaptcha4.geetest.com"
+	// GeeTestAPIFallbackDomain and GeeTestAPISecondaryFallbackDomain are the
+	// documented GT4 API failover hosts.
+	GeeTestAPIFallbackDomain          = "https://gcaptcha4.geevisit.com"
+	GeeTestAPISecondaryFallbackDomain = "https://gcaptcha4.gsensebot.com"
 )
 
 var requiredCSPDirectiveValues = []struct {
@@ -80,6 +90,13 @@ var requiredCSPDirectiveValues = []struct {
 	{"style-src", AirwallexDemoStaticDomain},
 	{"style-src", AirwallexDemoCheckoutDomain},
 	{"frame-src", AirwallexDemoCheckoutDomain},
+	{"script-src", GeeTestStaticDomain},
+	{"script-src", GeeTestStaticFallbackDomain},
+	{"connect-src", GeeTestAPIDomain},
+	{"connect-src", GeeTestAPIFallbackDomain},
+	{"connect-src", GeeTestAPISecondaryFallbackDomain},
+	{"frame-src", GeeTestStaticDomain},
+	{"frame-src", GeeTestStaticFallbackDomain},
 }
 
 // GenerateNonce generates a cryptographically secure random nonce.
