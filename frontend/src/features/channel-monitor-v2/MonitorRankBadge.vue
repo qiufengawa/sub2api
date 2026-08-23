@@ -1,7 +1,11 @@
 <template>
-  <UiBadge :tone="rankTone" :title="titleText">
+  <UiBadge
+    class="monitor-rank-badge"
+    :tone="rankTone"
+    :title="titleText"
+    :aria-label="ariaLabel"
+  >
     <Icon v-if="showTrophy" name="trophy" size="xs" aria-hidden="true" />
-    <span v-if="showTrophy" class="sr-only">{{ ariaLabel }}</span>
     <span class="ui-numeric">{{ label }}</span>
   </UiBadge>
 </template>
@@ -47,3 +51,9 @@ const rankTone = computed<'neutral' | 'warning' | 'info'>(() => {
   return 'neutral'
 })
 </script>
+
+<style scoped>
+.monitor-rank-badge {
+  white-space: nowrap;
+}
+</style>

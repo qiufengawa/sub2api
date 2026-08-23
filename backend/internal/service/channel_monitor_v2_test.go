@@ -305,6 +305,24 @@ func TestChannelMonitorV2UsersRemovesOtherUserIdentity(t *testing.T) {
 	require.Equal(t, "Me", result.Items[1].DisplayLabel)
 }
 
+func TestChannelMonitorV2AdminUsersMaskIdentity(t *testing.T) {
+	userID := int64(7)
+	repo := &channelMonitorV2RepoStub{
+		config: ChannelMonitorV2Config{Enabled: true},
+		users: &ChannelMonitorV2List[ChannelMonitorV2UserRow]{Items: []ChannelMonitorV2UserRow{
+			{UserID: &userID, Email: "alice@example.com", Username: "alice", DisplayLabel: "alice"},
+		}},
+	}
+
+	result, err := NewChannelMonitorV2Service(repo).Users(context.Background(), ChannelMonitorV2Filter{}, userID, true)
+	require.NoError(t, err)
+	require.Len(t, result.Items, 1)
+	require.Equal(t, "a***e", result.Items[0].DisplayLabel)
+	require.Equal(t, "a***e", result.Items[0].Username)
+	require.Equal(t, "a***m", result.Items[0].Email)
+	require.NotContains(t, result.Items[0].DisplayLabel, "alice")
+}
+
 func TestChannelMonitorV2UsersAppendsSelfWhenMissingFromRanking(t *testing.T) {
 	selfID, otherID := int64(7), int64(9)
 	repo := &channelMonitorV2RepoStub{config: ChannelMonitorV2Config{Enabled: true}, users: &ChannelMonitorV2List[ChannelMonitorV2UserRow]{Items: []ChannelMonitorV2UserRow{

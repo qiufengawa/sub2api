@@ -370,7 +370,7 @@
                   :key="row.user_id || row.display_label"
                   :class="{ 'monitor-table__current': row.is_self }"
                 >
-                  <td><MonitorRankBadge :rank="row.rank" /></td>
+                  <td class="monitor-rank-cell"><MonitorRankBadge :rank="row.rank" /></td>
                   <td>
                     <strong>{{ row.display_label }}</strong>
                     <UiBadge v-if="row.is_self" tone="info">{{ t('channelMonitorV2.currentUser') }}</UiBadge>
@@ -960,10 +960,11 @@ onBeforeUnmount(() => {
 }
 
 .monitor-records__body {
+  max-height: min(56vh, 560px);
   min-height: 180px;
   padding-top: 12px;
   min-width: 0;
-  overflow: visible;
+  overflow-y: auto;
 }
 
 .monitor-records__loading {
@@ -998,6 +999,11 @@ onBeforeUnmount(() => {
 .monitor-table td {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+}
+
+.monitor-rank-cell {
+  width: 1%;
+  white-space: nowrap;
 }
 
 .monitor-table td > span,

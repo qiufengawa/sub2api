@@ -233,7 +233,11 @@ const allBucketStarts = computed(() => {
 const bucketStarts = computed(() => sliceByZoom(allBucketStarts.value, zoom.value))
 const tableStyle = computed(() => ({
   '--bucket-count': String(Math.max(1, bucketStarts.value.length)),
-  minWidth: zoomed.value ? `calc(260px + ${pulseMinWidth.value})` : '720px',
+  // Fill the chart frame on wide screens while retaining a real horizontal
+  // scroll surface when the time axis is zoomed.
+  minWidth: zoomed.value
+    ? `max(100%, 720px, calc(260px + ${pulseMinWidth.value}))`
+    : '100%',
 }))
 const pulseMinWidth = computed(() => {
   const count = Math.max(1, bucketStarts.value.length)
@@ -499,11 +503,10 @@ function formatBucketRange(value: string) {
   width: 100%;
   min-width: 0;
   max-width: 100%;
+  max-height: min(42vh, 420px);
   padding: 2px;
-  overflow-x: auto;
-  overflow-y: visible;
-  overscroll-behavior-x: contain;
-  overscroll-behavior-y: auto;
+  overflow: auto;
+  overscroll-behavior: contain;
   touch-action: pan-x pan-y;
   -webkit-overflow-scrolling: touch;
 }
@@ -515,6 +518,7 @@ function formatBucketRange(value: string) {
 
 .matrix-table {
   width: max-content;
+  min-width: 100%;
   max-width: none;
 }
 

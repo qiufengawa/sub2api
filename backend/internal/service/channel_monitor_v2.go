@@ -720,7 +720,10 @@ func (s *ChannelMonitorV2Service) Users(ctx context.Context, filter ChannelMonit
 	result.Items = channelMonitorV2TopUsersWithSelf(result.Items, selfIndex, 10)
 	hideTP := s.hideThroughputForViewer(ctx, admin)
 	if admin {
-		// Keep identity for admin; still mark self for UI highlight.
+		// Keep the ranking useful for operators, but never expose raw account
+		// identities in the monitor response. The dashboard ranking endpoint has
+		// the same privacy contract; apply it here as well so the V2 API cannot
+		// be used to recover usernames/emails from the network response.
 		for i := range result.Items {
 			if result.Items[i].UserID != nil && *result.Items[i].UserID == viewerID {
 				result.Items[i].IsSelf = true
@@ -734,6 +737,11 @@ func (s *ChannelMonitorV2Service) Users(ctx context.Context, filter ChannelMonit
 						result.Items[i].DisplayLabel = "Me"
 					}
 				}
+			}
+			result.Items[i].Email = maskChannelMonitorV2Identity(result.Items[i].Email)
+			result.Items[i].Username = maskChannelMonitorV2Identity(result.Items[i].Username)
+			if result.Items[i].DisplayLabel != "Me" {
+				result.Items[i].DisplayLabel = maskChannelMonitorV2Identity(result.Items[i].DisplayLabel)
 			}
 		}
 		return result, nil
@@ -751,6 +759,22 @@ func (s *ChannelMonitorV2Service) Users(ctx context.Context, filter ChannelMonit
 		row.DisplayLabel = fmt.Sprintf("Other user #%d", i+1)
 	}
 	return result, nil
+}
+
+// maskChannelMonitorV2Identity keeps the ranking recognizable without
+// returning a full username or email address to the browser.
+func maskChannelMonitorV2Identity(value string) string {
+	runes := []rune(strings.TrimSpace(value))
+	switch len(runes) {
+	case 0:
+		return ""
+	case 1:
+		return "***"
+	case 2:
+		return string(runes[0]) + "***" + string(runes[1])
+	default:
+		return string(runes[0]) + "***" + string(runes[len(runes)-1])
+	}
 }
 
 func channelMonitorV2TopUsersWithSelf(items []ChannelMonitorV2UserRow, selfIndex int, limit int) []ChannelMonitorV2UserRow {
