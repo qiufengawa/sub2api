@@ -1063,6 +1063,37 @@ export async function updateSettings(
   return data;
 }
 
+export interface TestCaptchaProof {
+  lot_number: string;
+  captcha_output: string;
+  pass_token: string;
+  gen_time: string;
+}
+
+export interface TestCaptchaRequest {
+  provider: "geetest";
+  geetest_captcha_id: string;
+  geetest_captcha_key?: string;
+  proof: TestCaptchaProof;
+}
+
+export interface CaptchaTestResult {
+  provider: string;
+  verified: boolean;
+  message: string;
+}
+
+/** Verify a captcha draft without persisting the submitted credentials. */
+export async function testCaptcha(
+  request: TestCaptchaRequest,
+): Promise<CaptchaTestResult> {
+  const { data } = await apiClient.post<CaptchaTestResult>(
+    "/admin/settings/test-captcha",
+    request,
+  );
+  return data;
+}
+
 /**
  * Test SMTP connection request
  */
@@ -1556,6 +1587,7 @@ export async function resetWebSearchUsage(payload: {
 export const settingsAPI = {
   getSettings,
   updateSettings,
+  testCaptcha,
   testSmtpConnection,
   sendTestEmail,
   getEmailTemplates,

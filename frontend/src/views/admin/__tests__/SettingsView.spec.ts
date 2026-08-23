@@ -11,6 +11,7 @@ import SettingsView from "../SettingsView.vue";
 const {
   getSettings,
   updateSettings,
+  testCaptcha,
   getWebSearchEmulationConfig,
   updateWebSearchEmulationConfig,
   resetWebSearchUsage,
@@ -47,6 +48,11 @@ const {
 } = vi.hoisted(() => ({
   getSettings: vi.fn(),
   updateSettings: vi.fn(),
+  testCaptcha: vi.fn().mockResolvedValue({
+    provider: "geetest",
+    verified: true,
+    message: "GeeTest verification successful",
+  }),
   getWebSearchEmulationConfig: vi.fn(),
   updateWebSearchEmulationConfig: vi.fn(),
   resetWebSearchUsage: vi.fn(),
@@ -102,6 +108,7 @@ vi.mock("@/api", () => ({
     settings: {
       getSettings,
       updateSettings,
+      testCaptcha,
       getWebSearchEmulationConfig,
       updateWebSearchEmulationConfig,
       resetWebSearchUsage,
@@ -460,6 +467,16 @@ const ImageUploadStub = defineComponent({
   },
 });
 
+const GeetestCaptchaWidgetStub = defineComponent({
+  props: {
+    captchaId: { type: String, default: "" },
+  },
+  setup(_, { expose }) {
+    expose({ reset: vi.fn() });
+    return () => h("button", { "data-testid": "geetest-widget-stub" }, "verify");
+  },
+});
+
 const baseSettingsResponse = {
   registration_enabled: true,
   email_verify_enabled: false,
@@ -659,6 +676,7 @@ function mountView(options: { attachTo?: Element } = {}) {
         ProxySelector: true,
         ImageUpload: ImageUploadStub,
         BackupSettings: true,
+        GeetestCaptchaWidget: GeetestCaptchaWidgetStub,
       },
     },
   });
@@ -1014,6 +1032,49 @@ describe("admin SettingsView payment visible method controls", () => {
         tencent_captcha_region: "cn",
       }),
     );
+  });
+
+  it("GeeTest 配置支持打开前端挑战并提交服务端接入测试", async () => {
+    testCaptcha.mockClear();
+    const wrapper = mountView();
+    await flushPromises();
+    await openSecurityTab(wrapper);
+
+    await wrapper.get('[data-testid="captcha-enabled-toggle"]').setValue(true);
+    await wrapper.get('[data-testid="captcha-provider-geetest"]').trigger("click");
+
+    const card = wrapper.get('[data-testid="captcha-settings"]');
+    const inputs = card
+      .findAll("input")
+      .filter((input) => input.attributes("type") !== "checkbox");
+    await inputs[0]!.setValue("geetest-id");
+    await inputs[1]!.setValue("geetest-key");
+
+    await card.get('[data-testid="geetest-test-button"]').trigger("click");
+    await flushPromises();
+    expect(card.get('[data-testid="geetest-test-panel"]').exists()).toBe(true);
+
+    const widget = wrapper.findComponent(GeetestCaptchaWidgetStub);
+    await widget.vm.$emit("verify", {
+      lot_number: "lot-1",
+      captcha_output: "output",
+      pass_token: "pass",
+      gen_time: "123",
+    });
+    await flushPromises();
+
+    expect(testCaptcha).toHaveBeenCalledWith({
+      provider: "geetest",
+      geetest_captcha_id: "geetest-id",
+      geetest_captcha_key: "geetest-key",
+      proof: {
+        lot_number: "lot-1",
+        captcha_output: "output",
+        pass_token: "pass",
+        gen_time: "123",
+      },
+    });
+    expect(card.text()).toContain("GeeTest 接入成功");
   });
 
   it("腾讯天御切换到国际站后保存站点并更新控制台入口", async () => {

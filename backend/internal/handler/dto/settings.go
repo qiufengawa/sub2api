@@ -353,6 +353,14 @@ type DefaultSubscriptionSetting struct {
 	ValidityDays int   `json:"validity_days"`
 }
 
+// CaptchaTestResult is returned after an administrator completes a real
+// browser captcha challenge against the submitted draft credentials.
+type CaptchaTestResult struct {
+	Provider string `json:"provider"`
+	Verified bool   `json:"verified"`
+	Message  string `json:"message"`
+}
+
 type PublicSettings struct {
 	RegistrationEnabled                 bool                     `json:"registration_enabled"`
 	EmailVerifyEnabled                  bool                     `json:"email_verify_enabled"`

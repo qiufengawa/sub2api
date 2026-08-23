@@ -55,6 +55,7 @@ type SettingHandler struct {
 	emailService             *service.EmailService
 	turnstileService         *service.TurnstileService
 	aliyunCaptchaService     *service.AliyunCaptchaService
+	geetestCaptchaService    *service.GeetestCaptchaService
 	opsService               *service.OpsService
 	paymentConfigService     *service.PaymentConfigService
 	paymentService           *service.PaymentService
@@ -87,6 +88,13 @@ func (h *SettingHandler) SetNotificationEmailService(notificationEmailService *s
 // changing the constructor signature used by existing unit tests.
 func (h *SettingHandler) SetAliyunCaptchaService(aliyunCaptchaService *service.AliyunCaptchaService) {
 	h.aliyunCaptchaService = aliyunCaptchaService
+}
+
+// SetGeetestCaptchaService attaches the GT4 verifier used by the admin
+// configuration test endpoint. Keeping this as a setter preserves the
+// constructor signature used by existing handlers and tests.
+func (h *SettingHandler) SetGeetestCaptchaService(geetestCaptchaService *service.GeetestCaptchaService) {
+	h.geetestCaptchaService = geetestCaptchaService
 }
 
 // SetStepUpDeps attaches the services backing the step-up switch preconditions

@@ -1837,6 +1837,57 @@
                         : localText("启用前必须填写。", "Required before enabling.") }}
                     </p>
                   </div>
+                  <div
+                    class="rounded-lg border border-primary-200 bg-primary-50/50 p-4 dark:border-primary-900/60 dark:bg-primary-950/20"
+                    data-testid="geetest-test-panel"
+                  >
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">
+                          {{ localText("测试 GeeTest 接入", "Test GeeTest integration") }}
+                        </p>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          {{ localText("不会保存表单内容；完成一次真实验证后检查服务端二次校验。", "Nothing is saved. Complete one real challenge to test server-side validation.") }}
+                        </p>
+                      </div>
+                      <UiButton
+                        type="button"
+                        variant="secondary"
+                        density="compact"
+                        data-testid="geetest-test-button"
+                        :disabled="captchaTestRunning"
+                        @click="beginCaptchaTest"
+                      >
+                        {{ localText("开始测试", "Start test") }}
+                      </UiButton>
+                    </div>
+                    <div
+                      v-if="captchaTestVisible"
+                      class="mt-4 space-y-3 border-t border-primary-200 pt-4 dark:border-primary-900/60"
+                    >
+                      <p class="text-xs text-gray-600 dark:text-gray-300">
+                        {{ localText("点击下方按钮完成极验，验证结果会自动提交。", "Click the button below to complete GeeTest; the result will be submitted automatically.") }}
+                      </p>
+                      <GeetestCaptchaWidget
+                        ref="geetestTestWidget"
+                        :captcha-id="form.geetest_captcha_id"
+                        :button-text="localText('点击验证并测试', 'Verify and test')"
+                        :loading-text="localText('验证码加载中…', 'Loading captcha…')"
+                        :verified-text="localText('验证完成', 'Verified')"
+                        @verify="handleGeetestTestProof"
+                        @error="handleGeetestTestError"
+                      />
+                      <p
+                        v-if="captchaTestMessage"
+                        class="text-sm"
+                        :class="captchaTestSucceeded ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        {{ captchaTestMessage }}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- Tencent Captcha fields -->
@@ -7838,6 +7889,9 @@ import {
   stepUpBlockReason,
 } from "@/composables/useStepUp";
 import TotpStepUpDialog from "@/components/auth/TotpStepUpDialog.vue";
+import GeetestCaptchaWidget, {
+  type GeetestCaptchaProof,
+} from "@/components/GeetestCaptchaWidget.vue";
 import { affiliatesAPI, type AffiliateAdminEntry, type SimpleUser as AffiliateSimpleUser } from "@/api/admin/affiliates";
 import { extractApiErrorMessage, extractI18nErrorMessage } from "@/utils/apiError";
 import { useAppStore } from "@/stores";
@@ -8890,9 +8944,95 @@ const captchaMasterEnabled = computed({
     applyCaptchaSelection(enabled ? captchaProviderSelection.value : null),
 });
 
+const geetestTestWidget = ref<InstanceType<typeof GeetestCaptchaWidget> | null>(null);
+const captchaTestVisible = ref(false);
+const captchaTestRunning = ref(false);
+const captchaTestSucceeded = ref(false);
+const captchaTestMessage = ref("");
+
+function resetCaptchaTestState(): void {
+  captchaTestVisible.value = false;
+  captchaTestRunning.value = false;
+  captchaTestSucceeded.value = false;
+  captchaTestMessage.value = "";
+  geetestTestWidget.value?.reset();
+}
+
+function beginCaptchaTest(): void {
+  resetCaptchaTestState();
+  if (captchaProviderSelection.value !== "geetest") {
+    captchaTestMessage.value = localText(
+      "当前测试按钮仅支持 GeeTest，请先选择 GeeTest。",
+      "This test currently supports GeeTest only. Select GeeTest first.",
+    );
+    return;
+  }
+  if (!form.geetest_captcha_id.trim()) {
+    captchaTestMessage.value = localText(
+      "请先填写 Captcha ID。",
+      "Enter the Captcha ID first.",
+    );
+    return;
+  }
+  if (!form.geetest_captcha_key.trim() && !form.geetest_captcha_key_configured) {
+    captchaTestMessage.value = localText(
+      "请先填写私钥。",
+      "Enter the private key first.",
+    );
+    return;
+  }
+  captchaTestVisible.value = true;
+  captchaTestMessage.value = localText(
+    "点击下方验证码开始测试。",
+    "Click the captcha below to start the test.",
+  );
+}
+
+async function handleGeetestTestProof(proof: GeetestCaptchaProof): Promise<void> {
+  if (!captchaTestVisible.value || captchaTestRunning.value) return;
+  captchaTestRunning.value = true;
+  captchaTestMessage.value = localText("正在提交测试结果…", "Submitting test result…");
+  try {
+    const result = await adminAPI.settings.testCaptcha({
+      provider: "geetest",
+      geetest_captcha_id: form.geetest_captcha_id.trim(),
+      geetest_captcha_key: form.geetest_captcha_key.trim() || undefined,
+      proof,
+    });
+    captchaTestSucceeded.value = result.verified;
+    captchaTestMessage.value = localText(
+      "GeeTest 接入成功，前后端验证均已通过。",
+      "GeeTest integration succeeded. Browser and server verification passed.",
+    );
+    appStore.showSuccess(captchaTestMessage.value);
+  } catch (error: unknown) {
+    captchaTestSucceeded.value = false;
+    captchaTestMessage.value = extractApiErrorMessage(
+      error,
+      localText(
+        "GeeTest 测试失败，请检查 ID、私钥、CSP 和网络。",
+        "GeeTest test failed. Check the ID, private key, CSP, and network.",
+      ),
+    );
+  } finally {
+    captchaTestRunning.value = false;
+  }
+}
+
+function handleGeetestTestError(): void {
+  if (!captchaTestRunning.value) {
+    captchaTestSucceeded.value = false;
+    captchaTestMessage.value = localText(
+      "验证码加载或验证失败，请检查 CSP 和浏览器网络请求。",
+      "Captcha loading or verification failed. Check CSP and browser network requests.",
+    );
+  }
+}
+
 function selectCaptchaProvider(provider: CaptchaProviderSelection): void {
   captchaProviderSelection.value = provider;
   applyCaptchaSelection(provider);
+  resetCaptchaTestState();
 }
 
 // 天御中国站与国际站是两套独立账号体系，控制台与文档入口不通用，
