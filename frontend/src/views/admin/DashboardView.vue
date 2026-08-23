@@ -43,9 +43,6 @@
             :label="t('admin.dashboard.apiKeys')"
             :value="formatNumber(stats.total_api_keys)"
           >
-            <template #status>
-              <span class="dashboard-status dashboard-status--success">{{ t('common.enabled') }}</span>
-            </template>
             <template #context>
               <span class="dashboard-stat-context">
                 <span class="dashboard-status-item dashboard-status-item--success">
@@ -62,9 +59,6 @@
             :label="t('admin.dashboard.accounts')"
             :value="formatNumber(stats.total_accounts)"
           >
-            <template #status>
-              <span class="dashboard-status dashboard-status--success">{{ t('common.enabled') }}</span>
-            </template>
             <template #context>
               <span class="dashboard-stat-context">
                 <span class="dashboard-status-item dashboard-status-item--success">
@@ -81,9 +75,6 @@
             :label="t('admin.dashboard.todayRequests')"
             :value="formatNumber(stats.today_requests)"
           >
-            <template #status>
-              <span class="dashboard-status dashboard-status--success">{{ t('admin.dashboard.realtime') }}</span>
-            </template>
             <template #context>
               <span class="dashboard-stat-context">
                 <span>{{ t('common.total') }}: {{ formatNumber(stats.total_requests) }}</span>
@@ -105,9 +96,6 @@
             :label="t('admin.dashboard.todayTokens')"
             :value="formatTokens(stats.today_tokens)"
           >
-            <template #status>
-              <span class="dashboard-status dashboard-status--success">{{ t('admin.dashboard.realtime') }}</span>
-            </template>
             <template #context>
               <span class="dashboard-stat-context">
                 <span>{{ t('common.total') }}: {{ formatTokens(stats.total_tokens) }}</span>
@@ -687,7 +675,6 @@ onMounted(() => {
 
 <style scoped>
 .dashboard-page{display:grid;gap:16px}.dashboard-action{justify-content:flex-start;width:100%}.dashboard-user-trend{height:288px}.dashboard-chart-range-controls{align-items:flex-end;min-width:0}.dashboard-chart-range-controls :deep(.ui-form-field){min-width:0}.dashboard-chart-range-controls :deep(.ui-date-range__trigger){min-width:0;width:100%}.dashboard-chart-toolbar__controls{min-width:0}.dashboard-granularity-field{min-width:87px}
-.dashboard-status{display:inline-flex;align-items:center;min-height:18px;padding:0 5px;border-radius:4px;font-size:10px;font-weight:500;line-height:16px;white-space:nowrap}.dashboard-status--success{color:var(--ui-success);background:color-mix(in srgb,var(--ui-success) 12%,transparent)}
 :deep(.dashboard-stat-context){display:flex;min-width:0;align-items:center;flex-wrap:wrap;gap:4px 8px}.dashboard-status-item{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}.dashboard-status-item--success{color:var(--ui-success)}.dashboard-status-item--danger{color:var(--ui-danger)}.dashboard-status-item--muted{color:var(--ui-text-soft)}.dashboard-status-dot{width:6px;height:6px;flex:none;border-radius:50%;background:currentColor}.dashboard-growth{display:inline-flex;align-items:center;min-height:18px;padding:0 5px;border-radius:4px;font-size:10px;font-weight:600;line-height:16px;white-space:nowrap}.dashboard-growth--up{color:var(--ui-success);background:color-mix(in srgb,var(--ui-success) 12%,transparent)}.dashboard-growth--down{color:var(--ui-danger);background:color-mix(in srgb,var(--ui-danger) 12%,transparent)}.dashboard-growth--flat{color:var(--ui-text-soft);background:var(--ui-surface-muted)}
 .dashboard-chart-toolbar:has(.dashboard-granularity-field .ui-select__trigger--open){margin-bottom:68px}
 .dashboard-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}

@@ -10,13 +10,15 @@ import (
 )
 
 type channelMonitorV2RepoStub struct {
-	config serviceChannelMonitorV2ConfigAlias
-	users  *ChannelMonitorV2List[ChannelMonitorV2UserRow]
-	matrix *ChannelMonitorV2Matrix
-	errors *ChannelMonitorV2List[ChannelMonitorV2ErrorRow]
-	snap   *ChannelMonitorV2Snapshot
-	group  ChannelMonitorV2GroupBy
-	admin  bool
+	config     serviceChannelMonitorV2ConfigAlias
+	users      *ChannelMonitorV2List[ChannelMonitorV2UserRow]
+	dimensions *ChannelMonitorV2Dimensions
+	models     *ChannelMonitorV2List[ChannelMonitorV2ModelRow]
+	matrix     *ChannelMonitorV2Matrix
+	errors     *ChannelMonitorV2List[ChannelMonitorV2ErrorRow]
+	snap       *ChannelMonitorV2Snapshot
+	group      ChannelMonitorV2GroupBy
+	admin      bool
 }
 
 // Alias keeps composite literals readable without introducing another package.
@@ -30,7 +32,7 @@ func (s *channelMonitorV2RepoStub) UpdateConfig(context.Context, ChannelMonitorV
 	return nil, nil
 }
 func (s *channelMonitorV2RepoStub) GetDimensions(context.Context, ChannelMonitorV2Filter, ChannelMonitorV2Config) (*ChannelMonitorV2Dimensions, error) {
-	return nil, nil
+	return s.dimensions, nil
 }
 func (s *channelMonitorV2RepoStub) GetSnapshot(_ context.Context, _ ChannelMonitorV2Filter, _ ChannelMonitorV2Config, admin bool) (*ChannelMonitorV2Snapshot, error) {
 	s.admin = admin
@@ -50,7 +52,7 @@ func (s *channelMonitorV2RepoStub) GetSnapshot(_ context.Context, _ ChannelMonit
 	return &out, nil
 }
 func (s *channelMonitorV2RepoStub) GetModels(context.Context, ChannelMonitorV2Filter, ChannelMonitorV2Config, bool) (*ChannelMonitorV2List[ChannelMonitorV2ModelRow], error) {
-	return nil, nil
+	return s.models, nil
 }
 func (s *channelMonitorV2RepoStub) GetMatrix(_ context.Context, _ ChannelMonitorV2Filter, _ ChannelMonitorV2Config, groupBy ChannelMonitorV2GroupBy, admin bool) (*ChannelMonitorV2Matrix, error) {
 	s.group, s.admin = groupBy, admin
@@ -357,7 +359,7 @@ func TestApplyIgnoredErrorsAdjustsRateOnly(t *testing.T) {
 	require.Equal(t, int64(100), m.RequestCount)
 }
 
-func TestErrorsForViewerStripsDetailsAndCountsForNonAdmin(t *testing.T) {
+func TestErrorsForViewerHidesFleetTelemetryForNonAdmin(t *testing.T) {
 	fixture := &ChannelMonitorV2List[ChannelMonitorV2ErrorRow]{
 		Items: []ChannelMonitorV2ErrorRow{{
 			Category: "timeout",
@@ -380,10 +382,7 @@ func TestErrorsForViewerStripsDetailsAndCountsForNonAdmin(t *testing.T) {
 	userList, err := svc.ErrorsForViewer(context.Background(), ChannelMonitorV2Filter{}, false)
 	require.NoError(t, err)
 	require.False(t, repo.admin)
-	require.Len(t, userList.Items, 1)
-	require.Zero(t, userList.Items[0].Count)
-	require.Empty(t, userList.Items[0].Details)
-	require.InDelta(t, 0.4, userList.Items[0].Rate, 0.0001)
+	require.Empty(t, userList.Items)
 
 	adminList, err := svc.ErrorsForViewer(context.Background(), ChannelMonitorV2Filter{}, true)
 	require.NoError(t, err)
@@ -391,6 +390,31 @@ func TestErrorsForViewerStripsDetailsAndCountsForNonAdmin(t *testing.T) {
 	require.Equal(t, int64(42), adminList.Items[0].Count)
 	require.Len(t, adminList.Items[0].Details, 1)
 	require.Contains(t, adminList.Items[0].Details[0].Message, "gateway timeout")
+}
+
+func TestChannelMonitorV2OnlyReturnsModelsWithObservedTraffic(t *testing.T) {
+	modelMetrics := ChannelMonitorV2Metric{RequestCount: 3, SuccessRequests: 3}
+	repo := &channelMonitorV2RepoStub{
+		config: ChannelMonitorV2Config{Enabled: true},
+		dimensions: &ChannelMonitorV2Dimensions{Models: []ChannelMonitorV2Dimension{
+			{Value: "unused", Label: "unused", RequestCount: 0},
+			{Value: "used", Label: "used", RequestCount: 3},
+		}},
+		models: &ChannelMonitorV2List[ChannelMonitorV2ModelRow]{Items: []ChannelMonitorV2ModelRow{
+			{Platform: "openai", Model: "unused", Metrics: ChannelMonitorV2Metric{}},
+			{Platform: "openai", Model: "used", Metrics: modelMetrics},
+		}},
+	}
+	svc := NewChannelMonitorV2Service(repo)
+
+	dimensions, err := svc.Dimensions(context.Background(), ChannelMonitorV2Filter{})
+	require.NoError(t, err)
+	require.Equal(t, []ChannelMonitorV2Dimension{{Value: "used", Label: "used", RequestCount: 3}}, dimensions.Models)
+
+	models, err := svc.Models(context.Background(), ChannelMonitorV2Filter{}, true)
+	require.NoError(t, err)
+	require.Len(t, models.Items, 1)
+	require.Equal(t, "used", models.Items[0].Model)
 }
 
 func TestSnapshotRedactsPublicConfigPolicyFields(t *testing.T) {

@@ -477,11 +477,16 @@ const ranges = computed(() => [
   { value: '7d' as MonitorRange, label: t('channelMonitorV2.ranges.7d') },
   { value: '30d' as MonitorRange, label: t('channelMonitorV2.ranges.30d') },
 ])
-const tabs = computed(() => [
-  { value: 'models' as Tab, label: t('channelMonitorV2.tabs.models') },
-  { value: 'errors' as Tab, label: t('channelMonitorV2.tabs.errors') },
-  { value: 'users' as Tab, label: t('channelMonitorV2.tabs.users') },
-])
+const tabs = computed(() => {
+  const result = [
+    { value: 'models' as Tab, label: t('channelMonitorV2.tabs.models') },
+    { value: 'errors' as Tab, label: t('channelMonitorV2.tabs.errors') },
+    { value: 'users' as Tab, label: t('channelMonitorV2.tabs.users') },
+  ]
+  // Error categories are fleet-wide operational telemetry, not the current
+  // user's errors. Keep this tab available to operators only.
+  return isAdmin.value ? result : result.filter((tab) => tab.value !== 'errors')
+})
 const matrixGroupOptions = computed(() => [
   { value: 'platform' as MonitorMatrixGroupBy, label: t('channelMonitorV2.groupBy.platform') },
   { value: 'platform_group' as MonitorMatrixGroupBy, label: t('channelMonitorV2.groupBy.platformGroup') },
@@ -506,7 +511,10 @@ const filter = ref<MonitorFilter>({
   models: csv(route.query.model),
 })
 const activeTab = ref<Tab>(
-  (['models', 'errors', 'users'].includes(String(route.query.tab)) ? route.query.tab : 'models') as Tab
+  (['models', 'errors', 'users'].includes(String(route.query.tab)) &&
+  (String(route.query.tab) !== 'errors' || authStore.isAdmin)
+    ? route.query.tab
+    : 'models') as Tab
 )
 const matrixGroupBy = ref<MonitorMatrixGroupBy>(parseMatrixGroupBy(route.query.group_by))
 const healthMode = ref<HealthMode>(parseHealthMode(route.query.health_mode))
@@ -609,10 +617,11 @@ const bootstrapPercent = computed(() => {
 const matrixRows = computed(() => {
   const items = matrix.value?.items || []
   // platform_group views should only show real groups, never bare platform placeholders.
+  const observed = items.filter((row) => !row.model || hasObservedTraffic(row.metrics))
   if (matrixGroupBy.value === 'platform_group' || matrixGroupBy.value === 'platform_group_model') {
-    return items.filter((row) => row.group_id != null && Number(row.group_id) > 0)
+    return observed.filter((row) => row.group_id != null && Number(row.group_id) > 0)
   }
-  return items
+  return observed
 })
 
 function csv(value: unknown) {
@@ -741,8 +750,13 @@ async function loadTab(signal?: AbortSignal, id = sequence) {
     if (requestedTab === 'models') {
       const next = (await api.getModels(filter.value, isAdmin.value, signal)).items || []
       if (id !== sequence || tabRequestId !== tabSequence || activeTab.value !== requestedTab) return
-      modelRows.value = next
+      modelRows.value = next.filter((row) => hasObservedTraffic(row.metrics))
     } else if (requestedTab === 'errors') {
+      if (!isAdmin.value) {
+        activeTab.value = 'models'
+        errorRows.value = []
+        return
+      }
       const next = (await api.getErrors(filter.value, isAdmin.value, signal)).items || []
       if (id !== sequence || tabRequestId !== tabSequence || activeTab.value !== requestedTab) return
       errorRows.value = next
@@ -791,6 +805,12 @@ function drillModel(row: MonitorModelRow) {
 }
 function formatRate(value: number) {
   return formatMonitorThroughput(value)
+}
+function hasObservedTraffic(metrics: { request_count?: number; success_requests?: number; error_requests?: number; token_count?: number }) {
+  return (metrics.request_count || 0) > 0 ||
+    (metrics.success_requests || 0) > 0 ||
+    (metrics.error_requests || 0) > 0 ||
+    (metrics.token_count || 0) > 0
 }
 function exactRate(value: number) {
   return Intl.NumberFormat(locale.value || undefined, { maximumFractionDigits: 2 }).format(value || 0)
@@ -924,9 +944,7 @@ onBeforeUnmount(() => {
 }
 
 .monitor-chart-section {
-  height: 340px;
-  min-height: 340px;
-  overflow: hidden;
+  min-width: 0;
 }
 
 .monitor-toolbar-modes {
@@ -942,10 +960,10 @@ onBeforeUnmount(() => {
 }
 
 .monitor-records__body {
-  max-height: min(56vh, 560px);
   min-height: 180px;
   padding-top: 12px;
-  overflow-y: auto;
+  min-width: 0;
+  overflow: visible;
 }
 
 .monitor-records__loading {

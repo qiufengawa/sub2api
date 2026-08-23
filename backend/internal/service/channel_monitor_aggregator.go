@@ -210,6 +210,12 @@ func buildStatusSummary(
 		}
 	}
 	for _, model := range extras {
+		// Extra models are an optional configured catalog. Only include models
+		// with an observed check in the selected data window; showing an empty
+		// configured model makes the availability table look like it is broken.
+		if _, ok := latestByModel[model]; !ok {
+			continue
+		}
 		entry := ExtraModelStatus{Model: model}
 		if l, ok := latestByModel[model]; ok {
 			entry.Status = l.Status
@@ -271,6 +277,13 @@ func mergeModelDetails(
 	latestByModel := indexLatestByModel(latest)
 	out := make([]ModelDetail, 0, len(all))
 	for _, model := range all {
+		_, hasLatest := latestByModel[model]
+		_, has7d := availMap[monitorAvailability7Days][model]
+		_, has15d := availMap[monitorAvailability15Days][model]
+		_, has30d := availMap[monitorAvailability30Days][model]
+		if !hasLatest && !has7d && !has15d && !has30d {
+			continue
+		}
 		d := ModelDetail{Model: model}
 		if l, ok := latestByModel[model]; ok {
 			d.LatestStatus = l.Status

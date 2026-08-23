@@ -176,7 +176,11 @@ function downsampleTrend(points: Array<{ bucket_start: string; metrics: MonitorM
 }
 
 function onChartWheel(event: WheelEvent) {
-  // Plain vertical wheel zooms X (narrower time range); shift/horizontal pans.
+  // Keep normal page and horizontal scrolling native. Zoom is explicit
+  // Ctrl/Cmd+wheel; ordinary touchpad/mouse gestures must not be trapped by
+  // the chart or the surrounding monitor page.
+  const isZoom = event.ctrlKey || event.metaKey
+  if (!isZoom) return
   event.preventDefault()
   const ratio = clientXRatio(event.clientX, chartRef.value)
   zoom.value = applyWheelZoom(zoom.value, event, ratio)

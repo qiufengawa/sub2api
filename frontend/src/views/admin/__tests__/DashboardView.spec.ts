@@ -245,4 +245,13 @@ describe('admin DashboardView', () => {
     expect(wrapper.get('[data-testid="today-requests-growth"]').text()).toBe('↑ 18.6%')
     expect(wrapper.get('[data-testid="today-tokens-growth"]').text()).toBe('↓ 4.2%')
   })
+
+  it('does not render static enabled or realtime badges on summary metrics', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const metricText = wrapper.text()
+    expect(metricText).not.toContain('common.enabled')
+    expect(metricText).not.toContain('admin.dashboard.realtime')
+  })
 })

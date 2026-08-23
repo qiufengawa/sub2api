@@ -101,7 +101,8 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1023px) {
   .app-shell {
-    --app-content-inline-padding: 20px;
+    /* Keep the page gutter compact and consistent across tablet/mobile views. */
+    --app-content-inline-padding: 12px;
     --app-content-block-padding: 18px;
   }
 
@@ -113,7 +114,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 639px) {
   .app-shell {
-    --app-content-inline-padding: 16px;
+    --app-content-inline-padding: 8px;
     --app-content-block-padding: 16px;
   }
 }

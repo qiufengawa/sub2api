@@ -114,6 +114,13 @@ withDefaults(defineProps<{
 }
 
 @media (max-width: 640px) {
+  .ui-table-workspace > header,
+  .ui-table-workspace > footer,
+  .ui-table-workspace > :deep(.ui-table-toolbar),
+  .ui-table-workspace > :deep(.ui-filter-bar) {
+    padding-inline: 8px;
+  }
+
   .ui-table-workspace > header {
     align-items: flex-start;
     flex-direction: column;

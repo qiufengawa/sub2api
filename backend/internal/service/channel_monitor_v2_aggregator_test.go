@@ -47,3 +47,25 @@ func TestChannelMonitorV2AggregatorAdaptiveChunk(t *testing.T) {
 	require.Greater(t, s.backfillChunk, 30*time.Minute)
 	require.LessOrEqual(t, s.backfillChunk, channelMonitorV2MaxChunkForDepth(now, cursor.Add(-30*time.Minute)))
 }
+
+func TestChannelMonitorUserDetailsHideUnobservedExtraModels(t *testing.T) {
+	primary := "gpt-5.4"
+	extraUsed := "gpt-4.1"
+	extraUnused := "o4-mini"
+	m := &ChannelMonitor{PrimaryModel: primary, ExtraModels: []string{extraUsed, extraUnused}}
+	latest := []*ChannelMonitorLatest{{Model: primary, Status: "operational"}, {Model: extraUsed, Status: "operational"}}
+	availability := map[int]map[string]*ChannelMonitorAvailability{
+		monitorAvailability7Days:  {primary: {Model: primary, AvailabilityPct: 99}},
+		monitorAvailability15Days: {primary: {Model: primary, AvailabilityPct: 99}},
+		monitorAvailability30Days: {primary: {Model: primary, AvailabilityPct: 99}},
+	}
+
+	details := mergeModelDetails(m, latest, availability)
+	require.Len(t, details, 2)
+	require.Equal(t, primary, details[0].Model)
+	require.Equal(t, extraUsed, details[1].Model)
+
+	summary := buildStatusSummary(indexLatestByModel(latest), indexAvailabilityByModel(nil), primary, m.ExtraModels)
+	require.Len(t, summary.ExtraModels, 1)
+	require.Equal(t, extraUsed, summary.ExtraModels[0].Model)
+}

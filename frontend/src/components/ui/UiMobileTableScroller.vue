@@ -14,7 +14,11 @@ minWidth?:string}>(),{label:'可横向滚动的数据表',minWidth:'720px'})
   max-width:100%;
   overflow-x:auto;
   overscroll-behavior-x:contain;
-  touch-action:pan-x;
+  /* Allow a finger gesture to transition from horizontal table scrolling
+     into the page's vertical scroll. `pan-x` alone traps the gesture on
+     mobile and makes long tables appear frozen in the audit/usage views. */
+  overscroll-behavior-y:auto;
+  touch-action:pan-x pan-y;
   -webkit-overflow-scrolling:touch;
 }
 
@@ -35,6 +39,8 @@ minWidth?:string}>(),{label:'可横向滚动的数据表',minWidth:'720px'})
   width:max-content;
   min-width:100%;
   overflow-x:visible;
+  overflow-y:visible;
+  touch-action:pan-x pan-y;
 }
 
 .ui-table-scroller__content :deep(table){

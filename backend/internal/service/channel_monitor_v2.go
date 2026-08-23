@@ -461,6 +461,17 @@ func (s *ChannelMonitorV2Service) Dimensions(ctx context.Context, filter Channel
 	if err != nil {
 		return nil, err
 	}
+	// A model selector is a traffic catalog, not a configured-model catalog: do
+	// not surface models that have no observed requests in the selected window.
+	if dims != nil {
+		models := dims.Models[:0]
+		for _, model := range dims.Models {
+			if model.RequestCount > 0 {
+				models = append(models, model)
+			}
+		}
+		dims.Models = models
+	}
 	// Dimension request_count is operational volume; strip for non-admin callers
 	// at the API edge. Dimensions is shared by user/admin routes — redaction is
 	// applied in the handler for user routes only, so keep raw here.
@@ -491,6 +502,15 @@ func (s *ChannelMonitorV2Service) Models(ctx context.Context, filter ChannelMoni
 	if err != nil {
 		return nil, err
 	}
+	if list != nil {
+		items := list.Items[:0]
+		for _, item := range list.Items {
+			if channelMonitorV2HasObservedTraffic(item.Metrics) {
+				items = append(items, item)
+			}
+		}
+		list.Items = items
+	}
 	if !admin && list != nil {
 		hideTP := s.hideThroughputForViewer(ctx, admin)
 		for i := range list.Items {
@@ -511,6 +531,17 @@ func (s *ChannelMonitorV2Service) Matrix(ctx context.Context, filter ChannelMoni
 	matrix, err := s.repo.GetMatrix(ctx, filter, *cfg, groupBy, admin)
 	if err != nil {
 		return nil, err
+	}
+	if matrix != nil {
+		// Keep channel rows for availability context, but do not add configured
+		// model rows that have never seen traffic to the matrix.
+		items := matrix.Items[:0]
+		for _, item := range matrix.Items {
+			if item.Model == "" || channelMonitorV2HasObservedTraffic(item.Metrics) {
+				items = append(items, item)
+			}
+		}
+		matrix.Items = items
 	}
 	if !admin && matrix != nil {
 		hideTP := s.hideThroughputForViewer(ctx, admin)
@@ -550,9 +581,14 @@ func (s *ChannelMonitorV2Service) Errors(ctx context.Context, filter ChannelMoni
 }
 
 // ErrorsForViewer returns the error breakdown.
-// Non-admin callers receive category rates + ignored flags only: absolute Count
-// is zeroed and Details (upstream messages / status codes / volume) are omitted.
+// Error categories are fleet-wide operational telemetry. Only administrators
+// can query them; normal viewers receive an empty result and no error detail.
 func (s *ChannelMonitorV2Service) ErrorsForViewer(ctx context.Context, filter ChannelMonitorV2Filter, admin bool) (*ChannelMonitorV2List[ChannelMonitorV2ErrorRow], error) {
+	// Error categories and their rates are fleet-wide telemetry. They are not
+	// attributable to the current user, so never expose them on the user route.
+	if !admin {
+		return &ChannelMonitorV2List[ChannelMonitorV2ErrorRow]{Items: []ChannelMonitorV2ErrorRow{}}, nil
+	}
 	cfg, err := s.getEnabledConfig(ctx)
 	if err != nil {
 		return nil, err
@@ -568,6 +604,10 @@ func (s *ChannelMonitorV2Service) ErrorsForViewer(ctx context.Context, filter Ch
 		}
 	}
 	return list, nil
+}
+
+func channelMonitorV2HasObservedTraffic(m ChannelMonitorV2Metric) bool {
+	return m.RequestCount > 0 || m.SuccessRequests > 0 || m.ErrorRequests > 0 || m.TokenCount > 0
 }
 
 // RedactChannelMonitorV2Dimensions clears absolute request counts on filter chips.

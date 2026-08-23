@@ -299,12 +299,12 @@ function onMatrixWheel(event: WheelEvent) {
   const target = event.target as HTMLElement | null
   const pulse = target?.closest('.pulse-track') as HTMLElement | null
   const overMatrix = Boolean(target?.closest('.matrix-scroll'))
-  // Plain vertical wheel over the matrix zooms X (narrower range → wider cells).
-  // Shift+wheel or horizontal delta pans; leave non-matrix page scroll alone.
-  const isPan = event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)
-  if (!overMatrix && !pulse) return
-  // When not zoomed and user scrolls vertically outside pulse, still zoom if over matrix body.
-  if (!overMatrix && !isPan) return
+  // Keep ordinary vertical and horizontal wheel scrolling native. The matrix
+  // itself owns horizontal overflow; preventing a pan here made mobile
+  // swipes stop at the first viewport. Only an explicit Ctrl/Cmd gesture
+  // changes the time-axis zoom.
+  const isZoom = event.ctrlKey || event.metaKey
+  if ((!overMatrix && !pulse) || !isZoom) return
   event.preventDefault()
   const ratioEl = pulse || track
   const ratio = clientXRatio(event.clientX, ratioEl)
@@ -496,16 +496,26 @@ function formatBucketRange(value: string) {
 
 <style scoped>
 .matrix-scroll {
+  width: 100%;
+  min-width: 0;
   max-width: 100%;
-  max-height: min(42vh, 420px);
   padding: 2px;
-  overflow: auto;
-  overscroll-behavior: contain;
+  overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 .matrix-table,
 .pulse-track {
   min-width: 0;
+}
+
+.matrix-table {
+  width: max-content;
+  max-width: none;
 }
 
 .matrix-row {
