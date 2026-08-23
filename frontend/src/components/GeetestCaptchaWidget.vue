@@ -67,6 +67,7 @@ const state = ref<'idle' | 'loading' | 'verified'>('loading')
 let captcha: GeetestInstance | null = null
 let pending: { resolve: (proof: GeetestCaptchaProof | null) => void; reject: (error: unknown) => void } | null = null
 let scriptPromise: Promise<void> | null = null
+let lastProof: GeetestCaptchaProof | null = null
 const scriptSrc = 'https://static.geetest.com/v4/gt4.js'
 
 function loadScript(): Promise<void> {
@@ -107,18 +108,24 @@ function init(): void {
         return
       }
       state.value = 'verified'
+      lastProof = proof
       emit('verify', proof)
       pending?.resolve(proof)
       pending = null
     })
     instance.onError?.((error) => {
       state.value = 'idle'
+      lastProof = null
       emit('error')
       pending?.reject(error ?? new Error('GeeTest verification failed'))
       pending = null
     })
     instance.onClose?.(() => {
-      state.value = 'idle'
+      const completed = state.value === 'verified'
+      if (!completed) {
+        state.value = 'idle'
+        lastProof = null
+      }
       pending?.resolve(null)
       pending = null
     })
@@ -126,7 +133,11 @@ function init(): void {
 }
 
 function open(): Promise<GeetestCaptchaProof | null> {
-  if (state.value === 'verified') return Promise.resolve(null)
+  // A successful proof is emitted immediately when the user completes the
+  // visible GeeTest challenge. Reuse it when the form submits afterwards;
+  // opening the widget a second time would otherwise return null and abort
+  // the login request before it reaches the backend.
+  if (state.value === 'verified') return Promise.resolve(lastProof)
   if (pending) return new Promise((resolve, reject) => {
     const original = pending
     pending = {
@@ -148,6 +159,7 @@ function open(): Promise<GeetestCaptchaProof | null> {
 function reset(): void {
   captcha?.reset?.()
   state.value = 'idle'
+  lastProof = null
   pending?.resolve(null)
   pending = null
 }
@@ -161,6 +173,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   pending?.resolve(null)
   pending = null
+  lastProof = null
   captcha?.destroy?.()
   captcha = null
 })

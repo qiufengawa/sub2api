@@ -319,7 +319,10 @@ onMounted(async () => {
   }
 
   try {
-    const settings = await getPublicSettings()
+    // App.vue normally hydrates the shared public-settings cache before this
+    // view mounts. Reuse it to avoid a second request racing the captcha
+    // configuration; fall back to the API for direct navigation/tests.
+    const settings = appStore.cachedPublicSettings ?? await getPublicSettings()
     turnstileEnabled.value = settings.turnstile_enabled
     turnstileSiteKey.value = settings.turnstile_site_key || ''
     tencentCaptchaEnabled.value = settings.tencent_captcha_enabled === true
@@ -331,6 +334,9 @@ onMounted(async () => {
     aliyunCaptchaRegion.value = settings.aliyun_captcha_region || 'cn'
     geetestCaptchaEnabled.value = settings.geetest_captcha_enabled === true
     geetestCaptchaId.value = settings.geetest_captcha_id || ''
+    if (geetestCaptchaEnabled.value && !geetestCaptchaId.value.trim()) {
+      throw new Error('GeeTest is enabled but its public captcha ID is missing')
+    }
     linuxdoOAuthEnabled.value = settings.linuxdo_oauth_enabled
     dingtalkOAuthEnabled.value = settings.dingtalk_oauth_enabled ?? false
     wechatOAuthEnabled.value = isWeChatWebOAuthEnabled(settings)
@@ -343,12 +349,18 @@ onMounted(async () => {
     passwordResetEnabled.value = settings.password_reset_enabled
     passkeyEnabled.value = settings.passkey_enabled === true
     applyLoginAgreementSettings(settings)
+    // Keep the form locked until a complete settings response has been
+    // applied. The backend enforces GeeTest when enabled, so submitting
+    // without the public captcha configuration would only produce a generic
+    // verification failure with no widget for the user to complete.
+    publicSettingsLoaded.value = true
   } catch (error) {
     console.error('Failed to load public settings:', error)
     loginAgreementEnabled.value = false
     agreementAccepted.value = true
-  } finally {
-    publicSettingsLoaded.value = true
+    // Deliberately leave publicSettingsLoaded=false. authActionDisabled then
+    // prevents login/OAuth/passkey actions until the page can be reloaded with
+    // valid public settings instead of failing closed at the backend.
   }
 })
 

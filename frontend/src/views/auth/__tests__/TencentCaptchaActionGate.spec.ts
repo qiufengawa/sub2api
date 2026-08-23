@@ -199,6 +199,19 @@ describe('Tencent captcha action gate', () => {
     expect(loginMock).not.toHaveBeenCalled()
   })
 
+  it('keeps authentication actions locked when public settings fail to load', async () => {
+    getPublicSettingsMock.mockRejectedValueOnce(new Error('settings unavailable'))
+    const wrapper = mountLogin()
+    await flushPromises()
+
+    expect((wrapper.get('#email').element as HTMLInputElement).disabled).toBe(true)
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(loginMock).not.toHaveBeenCalled()
+    expect(verifyActionMock).not.toHaveBeenCalled()
+  })
+
   it('does not open Tencent captcha when login form validation fails', async () => {
     const wrapper = mountLogin()
     await flushPromises()

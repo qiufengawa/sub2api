@@ -117,6 +117,42 @@ func TestSettingHandler_GetPublicSettings_ExposesTencentCaptchaConfiguration(t *
 	require.Equal(t, service.TencentCaptchaRegionINTL, resp.Data.TencentCaptchaRegion)
 }
 
+func TestSettingHandler_GetPublicSettings_ExposesGeetestCaptchaConfiguration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	repo := &settingHandlerPublicRepoStub{
+		values: map[string]string{
+			service.SettingKeyGeetestCaptchaEnabled: "true",
+			service.SettingKeyGeetestCaptchaID:      "geetest-captcha-id",
+			service.SettingKeyGeetestCaptchaKey:     "server-only-key",
+		},
+	}
+	h := NewSettingHandler(service.NewSettingService(repo, &config.Config{}), "test-version")
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/settings/public", nil)
+
+	h.GetPublicSettings(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+
+	var resp struct {
+		Code int `json:"code"`
+		Data struct {
+			GeetestCaptchaEnabled bool   `json:"geetest_captcha_enabled"`
+			GeetestCaptchaID      string `json:"geetest_captcha_id"`
+			GeetestCaptchaKey     string `json:"geetest_captcha_key"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.True(t, resp.Data.GeetestCaptchaEnabled)
+	require.Equal(t, "geetest-captcha-id", resp.Data.GeetestCaptchaID)
+	// The private key must never be exposed through the public settings endpoint.
+	require.Empty(t, resp.Data.GeetestCaptchaKey)
+}
+
 func TestSettingHandler_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := NewSettingHandler(service.NewSettingService(&settingHandlerPublicRepoStub{
