@@ -178,9 +178,15 @@ func checkResultToResponse(r *service.CheckResult) channelMonitorCheckResultResp
 		Status:        r.Status,
 		LatencyMs:     r.LatencyMs,
 		PingLatencyMs: r.PingLatencyMs,
-		Message:       r.Message,
-		CheckedAt:     r.CheckedAt.UTC().Format(time.RFC3339),
+		// Run results are an availability view, not an upstream error console.
+		// Do not expose provider/user-specific error text to the browser.
+		Message:   "",
+		CheckedAt: r.CheckedAt.UTC().Format(time.RFC3339),
 	}
+}
+
+func isRequestableMonitorStatus(status string) bool {
+	return status == service.MonitorStatusOperational || status == service.MonitorStatusDegraded
 }
 
 func historyEntryToResponse(e *service.ChannelMonitorHistoryEntry) channelMonitorHistoryItemResponse {
@@ -455,6 +461,9 @@ func (h *ChannelMonitorHandler) Run(c *gin.Context) {
 	}
 	out := make([]channelMonitorCheckResultResponse, 0, len(results))
 	for _, r := range results {
+		if r == nil || !isRequestableMonitorStatus(r.Status) {
+			continue
+		}
 		out = append(out, checkResultToResponse(r))
 	}
 	response.Success(c, gin.H{"results": out})

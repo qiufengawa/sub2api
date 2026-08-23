@@ -64,7 +64,7 @@ describe('UserTokenRanking', () => {
     expect(rows).toHaveLength(2)
 
     await rows[0].trigger('click')
-    expect(wrapper.emitted('select-user')![0]).toEqual([1, 'u1@test.com'])
+    expect(wrapper.emitted('select-user')![0]).toEqual([1, 'u***m'])
   })
 
   it('reloads when shared filters change', async () => {

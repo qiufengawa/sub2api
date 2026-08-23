@@ -557,6 +557,7 @@ export default {
         kindRequired: '请选择供应商'
       },
       runResultTitle: '检测结果',
+      noAvailableModels: '当前没有可请求的模型',
       history: {
         action: '查看检测历史',
         title: '「{name}」检测历史',

@@ -250,9 +250,12 @@ const handleUserClick = async (userId: number) => {
 
 // Drill down from the per-user token ranking: scope the whole usage view to
 // that user and jump to the usage-detail tab so the drill-down is visible.
-const handleRankingSelectUser = (userId: number, email: string) => {
+const handleRankingSelectUser = (userId: number, _displayName: string) => {
   filters.value = { ...filters.value, user_id: userId }
-  usageFiltersRef.value?.setUserKeyword?.(email || '')
+  // Ranking identities are intentionally masked. Drill down by the stable
+  // user ID instead of sending the masked display value into the keyword
+  // filter, which would produce an incorrect search constraint.
+  usageFiltersRef.value?.setUserKeyword?.('')
   activeTab.value = 'usage'
   applyFilters()
 }

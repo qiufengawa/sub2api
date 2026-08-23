@@ -215,6 +215,7 @@ import type { ModelStat, UserSpendingRankingItem, UserBreakdownItem } from '@/ty
 import { getUserBreakdown } from '@/api/admin/dashboard'
 import { getStableCategoryColor } from '@/utils/categoricalColors'
 import { useReducedMotion } from '@/composables/useReducedMotion'
+import { maskUserIdentity } from '@/utils/maskIdentity'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -540,8 +541,8 @@ const formatNumber = (value: number): string => {
 }
 
 const getRankingUserLabel = (item: UserSpendingRankingItem): string => {
-  if (item.username?.trim()) return item.username.trim()
-  if (item.email?.trim()) return item.email.trim()
+  if (item.username?.trim()) return maskUserIdentity(item.username)
+  if (item.email?.trim()) return maskUserIdentity(item.email)
   return t('admin.redeem.userPrefix', { id: item.user_id })
 }
 

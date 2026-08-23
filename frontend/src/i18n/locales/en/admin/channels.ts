@@ -557,6 +557,7 @@ export default {
         kindRequired: 'Please select a provider'
       },
       runResultTitle: 'Check Result',
+      noAvailableModels: 'No currently requestable models',
       history: {
         action: 'View check history',
         title: 'Check history for "{name}"',

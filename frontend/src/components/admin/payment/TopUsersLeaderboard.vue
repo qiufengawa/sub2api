@@ -26,7 +26,7 @@
             >
               {{ idx + 1 }}
             </span>
-            <span class="text-sm text-gray-700 dark:text-gray-300">{{ user.email }}</span>
+            <span class="text-sm text-gray-700 dark:text-gray-300">{{ maskUserIdentity(user.email) }}</span>
           </div>
           <span class="text-sm font-medium text-gray-900 dark:text-white">
             {{ formatMoney(currency, user.amount) }}
@@ -40,6 +40,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { TopUserPaymentStats } from '@/types/payment'
+import { maskUserIdentity } from '@/utils/maskIdentity'
 
 const { t } = useI18n()
 

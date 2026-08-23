@@ -15,6 +15,7 @@ const messages: Record<string, string> = {
   'admin.dashboard.spendingRankingRequests': 'Requests',
   'admin.dashboard.spendingRankingTokens': 'Tokens',
   'admin.dashboard.spendingRankingSpend': 'Spend',
+  'admin.channelMonitor.noAvailableModels': 'No currently requestable models',
   'admin.dashboard.spendingRankingOther': 'Others',
   'admin.dashboard.model': 'Model',
   'admin.dashboard.requests': 'Requests',
@@ -232,8 +233,8 @@ describe('ModelDistributionChart', () => {
 
     const chartData = JSON.parse(wrapper.find('.chart-data').text())
     expect(chartData.labels).toEqual([
-      '#1 alpha',
-      '#2 beta@example.com',
+      '#1 a***a',
+      '#2 b***m',
       '#3 User #3',
       'Others',
     ])
@@ -244,9 +245,9 @@ describe('ModelDistributionChart', () => {
 
     const rows = wrapper.findAll('tbody tr')
     expect(rows).toHaveLength(4)
-    expect(rows[0].text()).toContain('alpha')
+    expect(rows[0].text()).toContain('a***a')
     expect(rows[0].text()).not.toContain('alpha@example.com')
-    expect(rows[1].text()).toContain('beta@example.com')
+    expect(rows[1].text()).toContain('b***m')
     expect(rows[2].text()).toContain('User #3')
     expect(rows[3].text()).toContain('Others')
     expect(rows[3].text()).toContain('4')

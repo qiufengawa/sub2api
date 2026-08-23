@@ -522,6 +522,42 @@ func parseRankingLimit(raw string) int {
 	return limit
 }
 
+// maskDashboardIdentity keeps the ranking useful for recognition while never
+// exposing a user's full username or email address to the browser. The raw
+// identity remains server-side only; ranking rows are cached after masking.
+func maskDashboardIdentity(value string) string {
+	runes := []rune(strings.TrimSpace(value))
+	switch len(runes) {
+	case 0:
+		return ""
+	case 1:
+		return "***"
+	case 2:
+		return string(runes[0]) + "***"
+	default:
+		return string(runes[0]) + "***" + string(runes[len(runes)-1])
+	}
+}
+
+func maskDashboardRanking(items []usagestats.UserSpendingRankingItem) []usagestats.UserSpendingRankingItem {
+	masked := make([]usagestats.UserSpendingRankingItem, len(items))
+	for i, item := range items {
+		item.Email = maskDashboardIdentity(item.Email)
+		item.Username = maskDashboardIdentity(item.Username)
+		masked[i] = item
+	}
+	return masked
+}
+
+func maskDashboardBreakdown(items []usagestats.UserBreakdownItem) []usagestats.UserBreakdownItem {
+	masked := make([]usagestats.UserBreakdownItem, len(items))
+	for i, item := range items {
+		item.Email = maskDashboardIdentity(item.Email)
+		masked[i] = item
+	}
+	return masked
+}
+
 // GetUserSpendingRanking handles getting user spending ranking data.
 // GET /api/v1/admin/dashboard/users-ranking
 func (h *DashboardHandler) GetUserSpendingRanking(c *gin.Context) {
@@ -551,7 +587,7 @@ func (h *DashboardHandler) GetUserSpendingRanking(c *gin.Context) {
 	}
 
 	payload := gin.H{
-		"ranking":           ranking.Ranking,
+		"ranking":           maskDashboardRanking(ranking.Ranking),
 		"total_actual_cost": ranking.TotalActualCost,
 		"total_requests":    ranking.TotalRequests,
 		"total_tokens":      ranking.TotalTokens,
@@ -729,7 +765,7 @@ func (h *DashboardHandler) GetUserBreakdown(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{
-		"users":      stats,
+		"users":      maskDashboardBreakdown(stats),
 		"start_date": startTime.Format("2006-01-02"),
 		"end_date":   endTime.Add(-24 * time.Hour).Format("2006-01-02"),
 	})
