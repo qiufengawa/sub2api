@@ -142,6 +142,9 @@ func TestSettingHandler_GetSettings_InjectsAuthSourceDefaults(t *testing.T) {
 		values: map[string]string{
 			service.SettingKeyRegistrationEnabled:                 "true",
 			service.SettingKeyPromoCodeEnabled:                    "true",
+			service.SettingKeyGeetestCaptchaEnabled:               "true",
+			service.SettingKeyGeetestCaptchaID:                    "geetest-captcha-id",
+			service.SettingKeyGeetestCaptchaKey:                   "server-only-key",
 			service.SettingKeyAuthSourceDefaultEmailBalance:       "9.5",
 			service.SettingKeyAuthSourceDefaultEmailConcurrency:   "8",
 			service.SettingKeyAuthSourceDefaultEmailSubscriptions: `[{"plan_id":31,"validity_days":15}]`,
@@ -168,6 +171,9 @@ func TestSettingHandler_GetSettings_InjectsAuthSourceDefaults(t *testing.T) {
 	require.Equal(t, 9.5, data["auth_source_default_email_balance"])
 	require.Equal(t, float64(8), data["auth_source_default_email_concurrency"])
 	require.Equal(t, true, data["force_email_on_third_party_signup"])
+	require.Equal(t, true, data["geetest_captcha_enabled"])
+	require.Equal(t, "geetest-captcha-id", data["geetest_captcha_id"])
+	require.Equal(t, true, data["geetest_captcha_key_configured"])
 
 	subscriptions, ok := data["auth_source_default_email_subscriptions"].([]any)
 	require.True(t, ok)
