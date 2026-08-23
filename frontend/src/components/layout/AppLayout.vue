@@ -18,17 +18,12 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/onboarding.css'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useAppStore } from '@/stores'
-import { useAuthStore } from '@/stores/auth'
-import { useOnboardingTour } from '@/composables/useOnboardingTour'
-import { useOnboardingStore } from '@/stores/onboarding'
 import AppSidebar from './AppSidebar.vue'
 import AppHeader from './AppHeader.vue'
 
 const appStore = useAppStore()
-const authStore = useAuthStore()
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
 const isMobileViewport = ref(
@@ -42,17 +37,7 @@ let mobileViewportMediaQuery: MediaQueryList | null = null
 function syncMobileViewport(event?: MediaQueryListEvent): void {
   isMobileViewport.value = event?.matches ?? mobileViewportMediaQuery?.matches ?? false
 }
-const isAdmin = computed(() => authStore.user?.role === 'admin')
-
-const { replayTour } = useOnboardingTour({
-  storageKey: isAdmin.value ? 'admin_guide' : 'user_guide',
-  autoStart: true
-})
-
-const onboardingStore = useOnboardingStore()
-
 onMounted(() => {
-  onboardingStore.setReplayCallback(replayTour)
   if (typeof window.matchMedia === 'function') {
     mobileViewportMediaQuery = window.matchMedia('(max-width: 1023px)')
     if (mobileViewportMediaQuery.addEventListener) {
@@ -74,7 +59,6 @@ onBeforeUnmount(() => {
   mobileViewportMediaQuery = null
 })
 
-defineExpose({ replayTour })
 </script>
 
 <style scoped>

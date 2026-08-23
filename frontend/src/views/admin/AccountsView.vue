@@ -7,7 +7,12 @@
       />
       <UiServerTableWorkspace class="accounts-workspace">
         <template #toolbar>
-          <UiTableToolbar>
+          <UiFilterBar
+            class="accounts-filter-bar"
+            :active-count="accountFilterCount"
+            :clear-label="t('common.clearFilters')"
+            @clear="clearAccountFilters"
+          >
             <AccountTableFilters
               v-model:searchQuery="params.search"
               :filters="params"
@@ -16,6 +21,8 @@
               @change="debouncedReload"
               @update:searchQuery="debouncedReload"
             />
+          </UiFilterBar>
+          <UiTableToolbar class="accounts-actions-toolbar">
             <template #actions>
               <AccountTableActions
                 :loading="loading"
@@ -792,6 +799,7 @@ import {
   UiConfirmDialog,
   UiDataTable,
   UiDivider,
+  UiFilterBar,
   UiIconButton,
   UiNumberStepper,
   UiPagination,
@@ -1455,6 +1463,22 @@ const {
     sort_order: sortState.sort_order,
   },
 });
+
+const accountFilterCount = computed(() =>
+  [params.search, params.platform, params.type, params.status, params.privacy_mode, params.group]
+    .filter((value) => String(value ?? '').trim() !== '')
+    .length,
+);
+
+const clearAccountFilters = () => {
+  params.search = '';
+  params.platform = '';
+  params.type = '';
+  params.status = '';
+  params.privacy_mode = '';
+  params.group = '';
+  debouncedReload();
+};
 
 const {
   selectedSet,
@@ -3234,15 +3258,9 @@ onUnmounted(() => {
   gap: 12px;
 }
 
-/* Keep the filter grid and account actions on separate rows before the
- * filters reach their three-column breakpoint; this prevents the refresh
- * action from being covered by a minimum-width select. */
-@media (max-width: 1100px) {
-  .accounts-workspace :deep(.ui-table-toolbar) { align-items: flex-start; flex-wrap: wrap; }
-  .accounts-workspace :deep(.ui-table-toolbar__primary),
-  .accounts-workspace :deep(.ui-table-toolbar__actions) { width: 100%; flex-basis: 100%; }
-  .accounts-workspace :deep(.ui-table-toolbar__actions) { justify-content: flex-end; }
-}
+.accounts-filter-bar :deep(.ui-filter-bar__fields) { width: 100%; }
+.accounts-filter-bar :deep(.account-table-filters) { flex: 1 1 auto; }
+.accounts-actions-toolbar { padding-top: 4px; padding-bottom: 6px; }
 
 .accounts-workspace {
   display: flex;

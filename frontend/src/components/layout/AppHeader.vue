@@ -156,12 +156,6 @@
                 <strong>{{ contactInfo }}</strong>
               </div>
 
-              <div v-if="showOnboardingButton" class="app-header__menu-group app-header__menu-group--separated">
-                <button type="button" role="menuitem" @click="handleReplayGuide(close)">
-                  <Icon name="questionCircle" size="sm" />{{ $t('onboarding.restartTour') }}
-                </button>
-              </div>
-
               <div class="app-header__menu-group app-header__menu-group--separated">
                 <button type="button" class="is-danger" role="menuitem" @click="handleLogout(close)">
                   <Icon name="logout" size="sm" />{{ t('nav.logout') }}
@@ -179,7 +173,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAppStore, useAuthStore, useOnboardingStore, useSubscriptionStore } from '@/stores'
+import { useAppStore, useAuthStore, useSubscriptionStore } from '@/stores'
 import { useAdminSettingsStore } from '@/stores/adminSettings'
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
@@ -194,7 +188,6 @@ const { t } = useI18n()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const adminSettingsStore = useAdminSettingsStore()
-const onboardingStore = useOnboardingStore()
 const subscriptionStore = useSubscriptionStore()
 
 const user = computed(() => authStore.user)
@@ -210,7 +203,6 @@ const balanceTotalText = computed(() => t('common.totalBalance') === 'common.tot
 const balanceFrozenLabel = computed(() => `${balanceFrozenText.value} ${formatHeaderMoney(frozenBalance.value)}`)
 const activeSubscriptionCount = computed(() => subscriptionStore.activeSubscriptions.length)
 const roleLabel = computed(() => authStore.isAdmin ? t('profile.administrator') : t('profile.user'))
-const showOnboardingButton = computed(() => !authStore.isSimpleMode && user.value?.role === 'admin')
 const displayName = computed(() => user.value?.username || user.value?.email?.split('@')[0] || '')
 
 const pageTitle = computed(() => {
@@ -242,11 +234,6 @@ async function handleLogout(closeMenu: () => void) {
     console.error('Logout error:', error)
   }
   await router.push('/login')
-}
-
-function handleReplayGuide(closeMenu: () => void) {
-  closeMenu()
-  onboardingStore.replay()
 }
 
 function formatHeaderMoney(value: number) {

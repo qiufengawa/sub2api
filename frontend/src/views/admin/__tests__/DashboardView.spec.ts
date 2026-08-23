@@ -223,4 +223,26 @@ describe('admin DashboardView', () => {
     expect((wrapper.vm as any).stats.total_users).toBe(42)
     expect((wrapper.vm as any).snapshotError).toBe(false)
   })
+
+  it('shows comparable growth badges for requests and tokens when provided', async () => {
+    getSnapshotV2.mockReset().mockResolvedValue({
+      stats: {
+        ...createDashboardStats(),
+        total_requests: 1200,
+        today_requests: 120,
+        total_tokens: 240000,
+        today_tokens: 24000,
+        today_requests_growth_percent: 18.6,
+        today_tokens_growth_percent: -4.2
+      },
+      trend: [],
+      models: []
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="today-requests-growth"]').text()).toBe('↑ 18.6%')
+    expect(wrapper.get('[data-testid="today-tokens-growth"]').text()).toBe('↓ 4.2%')
+  })
 })

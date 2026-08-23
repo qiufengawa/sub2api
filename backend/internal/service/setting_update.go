@@ -205,6 +205,11 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 
 	// Cloudflare Turnstile 设置（只有非空才更新密钥）
 	updates[SettingKeyTurnstileEnabled] = strconv.FormatBool(settings.TurnstileEnabled)
+	updates[SettingKeyGeetestCaptchaEnabled] = strconv.FormatBool(settings.GeetestCaptchaEnabled)
+	updates[SettingKeyGeetestCaptchaID] = settings.GeetestCaptchaID
+	if settings.GeetestCaptchaKey != "" {
+		updates[SettingKeyGeetestCaptchaKey] = settings.GeetestCaptchaKey
+	}
 	updates[SettingKeyTurnstileSiteKey] = settings.TurnstileSiteKey
 	if settings.TurnstileSecretKey != "" {
 		updates[SettingKeyTurnstileSecretKey] = settings.TurnstileSecretKey

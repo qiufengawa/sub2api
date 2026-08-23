@@ -36,6 +36,8 @@
         :aliyun-scene-id="aliyunCaptchaSceneId"
         :aliyun-prefix="aliyunCaptchaPrefix"
         :aliyun-region="aliyunCaptchaRegion"
+        :geetest-enabled="geetestCaptchaEnabled"
+        :geetest-captcha-id="geetestCaptchaId"
         @verify="onTurnstileVerify"
         @expire="onTurnstileExpire"
         @error="onTurnstileError"
@@ -170,6 +172,8 @@ const aliyunCaptchaEnabled = ref(false)
 const aliyunCaptchaSceneId = ref('')
 const aliyunCaptchaPrefix = ref('')
 const aliyunCaptchaRegion = ref('cn')
+const geetestCaptchaEnabled = ref(false)
+const geetestCaptchaId = ref('')
 const turnstileToken = ref('')
 const tencentCaptchaRandstr = ref('')
 const turnstileRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
@@ -183,7 +187,8 @@ const aliyunCaptchaReady = computed(
 const actionCaptchaEnabled = computed(
   () =>
     (tencentCaptchaEnabled.value && Boolean(tencentCaptchaAppId.value)) ||
-    aliyunCaptchaReady.value
+    aliyunCaptchaReady.value ||
+    (geetestCaptchaEnabled.value && Boolean(geetestCaptchaId.value))
 )
 const captchaEnabled = computed(
   () =>
@@ -307,7 +312,7 @@ async function handleSendCode() {
     const response = await sendPendingOAuthVerifyCode({
       email: trimmedEmail,
       turnstile_token:
-        turnstileEnabled.value || aliyunCaptchaEnabled.value ? turnstileToken.value : undefined,
+        turnstileEnabled.value || aliyunCaptchaEnabled.value || geetestCaptchaEnabled.value ? turnstileToken.value : undefined,
       tencent_captcha_ticket: tencentCaptchaEnabled.value ? turnstileToken.value : undefined,
       tencent_captcha_randstr: tencentCaptchaEnabled.value ? tencentCaptchaRandstr.value : undefined
     })
@@ -345,7 +350,7 @@ async function handleSubmit() {
     email: trimmedEmail,
     password: password.value,
     verifyCode: emailVerifyEnabled.value ? verifyCode.value.trim() : '',
-    ...((turnstileEnabled.value || aliyunCaptchaEnabled.value) && turnstileToken.value
+    ...((turnstileEnabled.value || aliyunCaptchaEnabled.value || geetestCaptchaEnabled.value) && turnstileToken.value
       ? { turnstileToken: turnstileToken.value }
       : {}),
     ...(tencentCaptchaEnabled.value && turnstileToken.value
@@ -380,6 +385,8 @@ onMounted(async () => {
     aliyunCaptchaSceneId.value = settings.aliyun_captcha_scene_id || ''
     aliyunCaptchaPrefix.value = settings.aliyun_captcha_prefix || ''
     aliyunCaptchaRegion.value = settings.aliyun_captcha_region || 'cn'
+    geetestCaptchaEnabled.value = settings.geetest_captcha_enabled === true
+    geetestCaptchaId.value = settings.geetest_captcha_id || ''
   } catch {
     invitationCodeEnabled.value = false
     emailVerifyEnabled.value = true
@@ -392,6 +399,8 @@ onMounted(async () => {
     aliyunCaptchaSceneId.value = ''
     aliyunCaptchaPrefix.value = ''
     aliyunCaptchaRegion.value = 'cn'
+    geetestCaptchaEnabled.value = false
+    geetestCaptchaId.value = ''
   }
 })
 

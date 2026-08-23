@@ -487,9 +487,19 @@ type AliyunCaptchaConfig struct {
 	Region          string
 }
 
+// GeetestCaptchaConfig contains the public captcha ID and the server-only
+// private key used by GeeTest GT4 second-step validation. The private key is
+// never included in public settings responses.
+type GeetestCaptchaConfig struct {
+	Enabled    bool
+	CaptchaID  string
+	CaptchaKey string
+}
+
 type CaptchaProviderConfig struct {
 	TurnstileEnabled   bool
 	TurnstileSecretKey string
+	Geetest            GeetestCaptchaConfig
 	Tencent            TencentCaptchaConfig
 	Aliyun             AliyunCaptchaConfig
 }
@@ -498,6 +508,9 @@ func (s *SettingService) GetCaptchaProviderConfig(ctx context.Context) (CaptchaP
 	values, err := s.settingRepo.GetMultiple(ctx, []string{
 		SettingKeyTurnstileEnabled,
 		SettingKeyTurnstileSecretKey,
+		SettingKeyGeetestCaptchaEnabled,
+		SettingKeyGeetestCaptchaID,
+		SettingKeyGeetestCaptchaKey,
 		SettingKeyTencentCaptchaEnabled,
 		SettingKeyTencentCaptchaAppID,
 		SettingKeyTencentCaptchaAppSecretKey,
@@ -516,6 +529,11 @@ func (s *SettingService) GetCaptchaProviderConfig(ctx context.Context) (CaptchaP
 	return CaptchaProviderConfig{
 		TurnstileEnabled:   values[SettingKeyTurnstileEnabled] == "true",
 		TurnstileSecretKey: values[SettingKeyTurnstileSecretKey],
+		Geetest: GeetestCaptchaConfig{
+			Enabled:    values[SettingKeyGeetestCaptchaEnabled] == "true",
+			CaptchaID:  values[SettingKeyGeetestCaptchaID],
+			CaptchaKey: values[SettingKeyGeetestCaptchaKey],
+		},
 		Tencent: TencentCaptchaConfig{
 			Enabled:        values[SettingKeyTencentCaptchaEnabled] == "true",
 			AppID:          values[SettingKeyTencentCaptchaAppID],

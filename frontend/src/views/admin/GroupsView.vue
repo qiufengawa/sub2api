@@ -18,7 +18,7 @@
       <UiServerTableWorkspace :loading="loading" :loading-text="t('common.loading')">
         <template #toolbar>
           <UiTableToolbar>
-            <UiFilterBar>
+            <div class="groups-filter-fields">
               <UiSearchInput
                 v-model="searchQuery"
                 density="compact"
@@ -43,10 +43,10 @@
               v-model="filters.is_exclusive"
               density="compact"
               :options="exclusiveOptions"
-              :placeholder="t('admin.groups.allGroups')"
-              @change="loadGroups"
-            />
-            </UiFilterBar>
+                :placeholder="t('admin.groups.allGroups')"
+                @change="loadGroups"
+              />
+            </div>
             <template #actions>
               <UiIconButton
                 icon="refresh"
@@ -76,7 +76,7 @@
           </UiTableToolbar>
         </template>
 
-        <UiMobileTableScroller :label="t('admin.groups.title')" min-width="920px">
+        <UiMobileTableScroller class="groups-table-scroller" :label="t('admin.groups.title')" min-width="1120px">
           <UiDataTable
           :columns="columns"
           :data="groups"
@@ -1109,7 +1109,6 @@
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useAppStore } from "@/stores/app";
-import { useOnboardingStore } from "@/stores/onboarding";
 import { adminAPI } from "@/api/admin";
 import type {
   AdminGroup,
@@ -1142,7 +1141,6 @@ import {
   UiDescriptionList,
   UiDialog,
   UiEmptyState,
-  UiFilterBar,
   UiIconButton,
   UiMobileTableScroller,
   UiPagination,
@@ -1290,7 +1288,6 @@ const groupPricingToAPI = (
 
 const { t } = useI18n();
 const appStore = useAppStore();
-const onboardingStore = useOnboardingStore();
 
 const ALWAYS_VISIBLE_COLUMNS = new Set(["name", "actions"]);
 // Default hidden columns (hidden on first load / after schema bumps).
@@ -2728,10 +2725,6 @@ const handleCreateGroup = async () => {
     appStore.showSuccess(t("admin.groups.groupCreated"));
     closeCreateModal();
     loadGroups();
-    // Only advance tour if active, on submit step, and creation succeeded
-    if (onboardingStore.isCurrentStep('[data-tour="group-form-submit"]')) {
-      onboardingStore.nextStep(500);
-    }
   } catch (error: any) {
     appStore.showError(
       error.response?.data?.detail || t("admin.groups.failedToCreate"),
@@ -3519,3 +3512,42 @@ onUnmounted(() => {
   clearAllAccountSearchState();
 });
 </script>
+
+<style scoped>
+.groups-table-scroller { width: 100%; max-width: 100%; overflow-x: auto; }
+.groups-table-scroller :deep(.ui-table-scroller__content) { width: max-content; min-width: 1120px !important; }
+.groups-table-scroller :deep(.ui-data-table),
+.groups-table-scroller :deep(.table-wrapper),
+.groups-table-scroller :deep(table) { width: max-content; min-width: 1120px !important; }
+
+.groups-filter-fields {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.groups-filter-fields > :deep(.ui-form-field),
+.groups-filter-fields > :deep(.ui-search) {
+  min-width: 0;
+  flex: 0 1 160px;
+}
+
+.groups-filter-fields > :deep(.ui-search) {
+  flex-basis: 256px;
+}
+
+@media (max-width: 640px) {
+  .groups-filter-fields {
+    width: 100%;
+  }
+
+  .groups-filter-fields > :deep(.ui-form-field),
+  .groups-filter-fields > :deep(.ui-search) {
+    width: 100%;
+    flex-basis: 100%;
+  }
+}
+</style>

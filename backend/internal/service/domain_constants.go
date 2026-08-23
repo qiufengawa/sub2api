@@ -179,6 +179,11 @@ const (
 	SettingKeyTurnstileSiteKey   = "turnstile_site_key"   // Turnstile Site Key
 	SettingKeyTurnstileSecretKey = "turnstile_secret_key" // Turnstile Secret Key
 
+	// Geetest 验证码设置
+	SettingKeyGeetestCaptchaEnabled = "geetest_captcha_enabled"
+	SettingKeyGeetestCaptchaID      = "geetest_captcha_id"
+	SettingKeyGeetestCaptchaKey     = "geetest_captcha_key"
+
 	// 腾讯天御验证码设置
 	SettingKeyTencentCaptchaEnabled        = "tencent_captcha_enabled"
 	SettingKeyTencentCaptchaAppID          = "tencent_captcha_app_id"

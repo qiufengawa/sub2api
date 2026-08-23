@@ -43,6 +43,10 @@ type SystemSettings struct {
 	TurnstileSiteKey                       string
 	TurnstileSecretKey                     string
 	TurnstileSecretKeyConfigured           bool
+	GeetestCaptchaEnabled                  bool
+	GeetestCaptchaID                       string
+	GeetestCaptchaKey                      string
+	GeetestCaptchaKeyConfigured            bool
 	TencentCaptchaEnabled                  bool
 	TencentCaptchaAppID                    string
 	TencentCaptchaAppSecretKey             string
@@ -332,6 +336,8 @@ type PublicSettings struct {
 	LoginAgreementDocuments             []LoginAgreementDocument
 	TurnstileEnabled                    bool
 	TurnstileSiteKey                    string
+	GeetestCaptchaEnabled               bool
+	GeetestCaptchaID                    string
 	TencentCaptchaEnabled               bool
 	TencentCaptchaAppID                 string
 	TencentCaptchaRegion                string

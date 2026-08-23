@@ -54,6 +54,8 @@
             :aliyun-scene-id="aliyunCaptchaSceneId"
             :aliyun-prefix="aliyunCaptchaPrefix"
             :aliyun-region="aliyunCaptchaRegion"
+            :geetest-enabled="geetestCaptchaEnabled"
+            :geetest-captcha-id="geetestCaptchaId"
             @verify="onTurnstileVerify"
             @expire="onTurnstileExpire"
             @error="onTurnstileError"
@@ -73,6 +75,8 @@
             :aliyun-scene-id="aliyunCaptchaSceneId"
             :aliyun-prefix="aliyunCaptchaPrefix"
             :aliyun-region="aliyunCaptchaRegion"
+            :geetest-enabled="geetestCaptchaEnabled"
+            :geetest-captcha-id="geetestCaptchaId"
             @verify="onCreateAccountTurnstileVerify"
             @expire="onCreateAccountTurnstileExpire"
             @error="onCreateAccountTurnstileError"
@@ -217,6 +221,8 @@ const aliyunCaptchaEnabled = ref<boolean>(false)
 const aliyunCaptchaSceneId = ref<string>('')
 const aliyunCaptchaPrefix = ref<string>('')
 const aliyunCaptchaRegion = ref<string>('cn')
+const geetestCaptchaEnabled = ref<boolean>(false)
+const geetestCaptchaId = ref<string>('')
 const siteName = ref<string>('Sub2API')
 const registrationEmailSuffixWhitelist = ref<string[]>([])
 // 域名限量注册开关：开启时非白名单域名可注册 1 个账户（由后端判定），前端不做白名单预检。
@@ -240,7 +246,8 @@ const aliyunCaptchaReady = computed(
 const actionCaptchaEnabled = computed(
   () =>
     (tencentCaptchaEnabled.value && Boolean(tencentCaptchaAppId.value)) ||
-    aliyunCaptchaReady.value
+    aliyunCaptchaReady.value ||
+    (geetestCaptchaEnabled.value && Boolean(geetestCaptchaId.value))
 )
 const captchaEnabled = computed(
   () =>
@@ -319,6 +326,8 @@ onMounted(async () => {
     aliyunCaptchaSceneId.value = settings.aliyun_captcha_scene_id || ''
     aliyunCaptchaPrefix.value = settings.aliyun_captcha_prefix || ''
     aliyunCaptchaRegion.value = settings.aliyun_captcha_region || 'cn'
+    geetestCaptchaEnabled.value = settings.geetest_captcha_enabled === true
+    geetestCaptchaId.value = settings.geetest_captcha_id || ''
     siteName.value = settings.site_name || 'Sub2API'
     registrationEmailSuffixWhitelist.value = normalizeRegistrationEmailSuffixWhitelist(
       settings.registration_email_suffix_whitelist || []
@@ -491,7 +500,7 @@ async function sendCode(): Promise<void> {
       [pendingAuthTokenField.value]: pendingAuthToken.value || undefined,
       // 优先使用重发时新获取的 token（因为初始 token 可能已被使用）
       turnstile_token:
-        turnstileEnabled.value || aliyunCaptchaEnabled.value
+        turnstileEnabled.value || aliyunCaptchaEnabled.value || geetestCaptchaEnabled.value
           ? resendTurnstileToken.value || initialTurnstileToken.value || undefined
           : undefined,
       tencent_captcha_ticket: tencentCaptchaEnabled.value

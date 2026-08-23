@@ -56,6 +56,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 	// 初始化默认设置
 	defaults := map[string]string{
 		SettingKeyRegistrationEnabled:                       "true",
+		SettingKeyGeetestCaptchaEnabled:                     "false",
+		SettingKeyGeetestCaptchaID:                          "",
+		SettingKeyGeetestCaptchaKey:                         "",
 		SettingKeyEmailVerifyEnabled:                        "false",
 		SettingKeyRegistrationEmailSuffixWhitelist:          "[]",
 		SettingKeyRegistrationEmailDomainQuotaEnabled:       "false",
@@ -334,6 +337,9 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		SMTPUseTLS:                             settings[SettingKeySMTPUseTLS] == "true",
 		SMTPPasswordConfigured:                 settings[SettingKeySMTPPassword] != "",
 		TurnstileEnabled:                       settings[SettingKeyTurnstileEnabled] == "true",
+		GeetestCaptchaEnabled:                  settings[SettingKeyGeetestCaptchaEnabled] == "true",
+		GeetestCaptchaID:                       settings[SettingKeyGeetestCaptchaID],
+		GeetestCaptchaKeyConfigured:            settings[SettingKeyGeetestCaptchaKey] != "",
 		TurnstileSiteKey:                       settings[SettingKeyTurnstileSiteKey],
 		TurnstileSecretKeyConfigured:           settings[SettingKeyTurnstileSecretKey] != "",
 		TencentCaptchaEnabled:                  settings[SettingKeyTencentCaptchaEnabled] == "true",
@@ -420,6 +426,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	// 敏感信息直接返回，方便测试连接时使用
 	result.SMTPPassword = settings[SettingKeySMTPPassword]
 	result.TurnstileSecretKey = settings[SettingKeyTurnstileSecretKey]
+	result.GeetestCaptchaKey = settings[SettingKeyGeetestCaptchaKey]
 	result.TencentCaptchaAppSecretKey = settings[SettingKeyTencentCaptchaAppSecretKey]
 	result.TencentCaptchaCloudSecretID = settings[SettingKeyTencentCaptchaCloudSecretID]
 	result.TencentCaptchaCloudSecretKey = settings[SettingKeyTencentCaptchaCloudSecretKey]

@@ -55,6 +55,11 @@ type UpdateSettingsRequest struct {
 	TurnstileSiteKey   string `json:"turnstile_site_key"`
 	TurnstileSecretKey string `json:"turnstile_secret_key"`
 
+	// Geetest 验证码设置
+	GeetestCaptchaEnabled bool   `json:"geetest_captcha_enabled"`
+	GeetestCaptchaID      string `json:"geetest_captcha_id"`
+	GeetestCaptchaKey     string `json:"geetest_captcha_key"`
+
 	// 腾讯天御验证码设置
 	TencentCaptchaEnabled        bool   `json:"tencent_captcha_enabled"`
 	TencentCaptchaAppID          string `json:"tencent_captcha_app_id"`
@@ -472,6 +477,8 @@ func settingsAuditRequest(req UpdateSettingsRequest) UpdateSettingsRequest {
 	req.TencentCaptchaAppSecretKey = strings.TrimSpace(req.TencentCaptchaAppSecretKey)
 	req.TencentCaptchaCloudSecretID = strings.TrimSpace(req.TencentCaptchaCloudSecretID)
 	req.TencentCaptchaCloudSecretKey = strings.TrimSpace(req.TencentCaptchaCloudSecretKey)
+	req.GeetestCaptchaID = strings.TrimSpace(req.GeetestCaptchaID)
+	req.GeetestCaptchaKey = strings.TrimSpace(req.GeetestCaptchaKey)
 	req.AliyunCaptchaAccessKeySecret = strings.TrimSpace(req.AliyunCaptchaAccessKeySecret)
 	return req
 }
@@ -645,14 +652,19 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	if _, sent := sentFields["aliyun_captcha_enabled"]; !sent {
 		aliyunCaptchaEnabled = previousSettings.AliyunCaptchaEnabled
 	}
+	geetestCaptchaEnabled := req.GeetestCaptchaEnabled
+	if _, sent := sentFields["geetest_captcha_enabled"]; !sent {
+		geetestCaptchaEnabled = previousSettings.GeetestCaptchaEnabled
+	}
+	req.GeetestCaptchaEnabled = geetestCaptchaEnabled
 	enabledCaptchaProviders := 0
-	for _, enabled := range []bool{turnstileEnabled, tencentCaptchaEnabled, aliyunCaptchaEnabled} {
+	for _, enabled := range []bool{turnstileEnabled, tencentCaptchaEnabled, aliyunCaptchaEnabled, geetestCaptchaEnabled} {
 		if enabled {
 			enabledCaptchaProviders++
 		}
 	}
 	if enabledCaptchaProviders > 1 {
-		response.BadRequest(c, "Multiple captcha providers (Cloudflare Turnstile / Tencent Captcha / Aliyun Captcha) cannot be enabled at the same time")
+		response.BadRequest(c, "Multiple captcha providers (Cloudflare Turnstile / Tencent Captcha / Aliyun Captcha / Geetest) cannot be enabled at the same time")
 		return
 	}
 	// 阿里云地域 normalize：未发送保留已存值，非法值一律按中国内地落库
@@ -694,6 +706,23 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 				response.ErrorFrom(c, err)
 				return
 			}
+		}
+	}
+
+	if geetestCaptchaEnabled {
+		if _, sent := sentFields["geetest_captcha_id"]; !sent {
+			req.GeetestCaptchaID = previousSettings.GeetestCaptchaID
+		}
+		if strings.TrimSpace(req.GeetestCaptchaID) == "" {
+			response.BadRequest(c, "Geetest Captcha ID is required when enabled")
+			return
+		}
+		if req.GeetestCaptchaKey == "" {
+			req.GeetestCaptchaKey = previousSettings.GeetestCaptchaKey
+		}
+		if strings.TrimSpace(req.GeetestCaptchaKey) == "" {
+			response.BadRequest(c, "Geetest Captcha Key is required when enabled")
+			return
 		}
 	}
 
@@ -1523,6 +1552,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		TurnstileEnabled:                    req.TurnstileEnabled,
 		TurnstileSiteKey:                    req.TurnstileSiteKey,
 		TurnstileSecretKey:                  req.TurnstileSecretKey,
+		GeetestCaptchaEnabled:               req.GeetestCaptchaEnabled,
+		GeetestCaptchaID:                    req.GeetestCaptchaID,
+		GeetestCaptchaKey:                   req.GeetestCaptchaKey,
 		TencentCaptchaEnabled:               req.TencentCaptchaEnabled,
 		TencentCaptchaAppID:                 req.TencentCaptchaAppID,
 		TencentCaptchaAppSecretKey:          req.TencentCaptchaAppSecretKey,
@@ -2145,6 +2177,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		TurnstileEnabled:                                       updatedSettings.TurnstileEnabled,
 		TurnstileSiteKey:                                       updatedSettings.TurnstileSiteKey,
 		TurnstileSecretKeyConfigured:                           updatedSettings.TurnstileSecretKeyConfigured,
+		GeetestCaptchaEnabled:                                  updatedSettings.GeetestCaptchaEnabled,
+		GeetestCaptchaID:                                       updatedSettings.GeetestCaptchaID,
+		GeetestCaptchaKeyConfigured:                            updatedSettings.GeetestCaptchaKeyConfigured,
 		TencentCaptchaEnabled:                                  updatedSettings.TencentCaptchaEnabled,
 		TencentCaptchaAppID:                                    updatedSettings.TencentCaptchaAppID,
 		TencentCaptchaAppSecretKeyConfigured:                   updatedSettings.TencentCaptchaAppSecretKeyConfigured,

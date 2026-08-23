@@ -38,6 +38,7 @@ withDefaults(defineProps<{
 
 <style scoped>
 .ui-button { display:inline-flex;
+min-width:0;
 align-items:center;
 justify-content:center;
 gap:4px;
@@ -49,9 +50,16 @@ background:var(--ui-surface);
 font-size:13px;
 font-weight:500;
 line-height:1;
+white-space:nowrap;
 text-decoration:none;
 cursor:pointer;
 transition:background var(--ui-motion-fast),border-color var(--ui-motion-fast),color var(--ui-motion-fast),opacity var(--ui-motion-fast);
+}
+.ui-button > span:last-child { display:inline-flex;
+min-width:0;
+align-items:center;
+gap:4px;
+white-space:nowrap;
 }
 .ui-button--dense { height:var(--ui-control-dense);
 padding-inline:10px;

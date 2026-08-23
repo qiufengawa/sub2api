@@ -54,24 +54,29 @@
         </template>
 
         <template #cell-model="{ row }">
-          <div class="space-y-0.5 text-xs">
+          <div class="usage-model-cell">
             <div v-if="row.model_mapping_chain && row.model_mapping_chain.includes('→')" class="space-y-0.5">
-              <div v-for="(step, i) in row.model_mapping_chain.split('→')" :key="i"
-                   class="break-all"
-                   :class="i === 0 ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'"
-                   :style="i > 0 ? `padding-left: ${i * 0.75}rem` : ''">
-                <span v-if="i > 0" class="mr-0.5">↳</span>{{ step }}
+              <div v-for="(step, i) in row.model_mapping_chain.split('→')" :key="i" class="usage-model-line" :class="i === 0 ? 'usage-model-line--primary' : 'usage-model-line--upstream'">
+                <span class="usage-model-role">{{ i === 0 ? t('usage.requestedModel') : t('usage.sentUpstreamModel') }}</span>
+                <span v-if="i > 0" class="usage-model-arrow" aria-hidden="true">↳</span>
+                <span class="usage-model-name">{{ step.trim() }}</span>
               </div>
             </div>
             <div v-else-if="row.upstream_model && row.upstream_model !== row.model" class="space-y-0.5">
-              <div class="break-all font-medium text-gray-900 dark:text-white">
-                {{ row.model }}
+              <div class="usage-model-line usage-model-line--primary">
+                <span class="usage-model-role">{{ t('usage.requestedModel') }}</span>
+                <span class="usage-model-name">{{ row.model }}</span>
               </div>
-              <div class="break-all text-gray-500 dark:text-gray-400">
-                <span class="mr-0.5">↳</span>{{ row.upstream_model }}
+              <div class="usage-model-line usage-model-line--upstream">
+                <span class="usage-model-role">{{ t('usage.sentUpstreamModel') }}</span>
+                <span class="usage-model-arrow" aria-hidden="true">↳</span>
+                <span class="usage-model-name">{{ row.upstream_model }}</span>
               </div>
             </div>
-            <span v-else class="font-medium text-gray-900 dark:text-white">{{ row.model }}</span>
+            <div v-else class="usage-model-line usage-model-line--primary">
+              <span class="usage-model-role">{{ t('usage.requestedModel') }}</span>
+              <span class="usage-model-name">{{ row.model }}</span>
+            </div>
             <div
               v-if="row.upstream_model_mismatch === true && row.upstream_response_model"
               class="break-all pl-3 text-[11px]"
@@ -544,6 +549,15 @@ const formatDuration = (ms: number | null | undefined): string => {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
+
+.usage-model-cell { display: grid; min-width: 180px; gap: 3px; font-size: 12px; }
+.usage-model-line { display: flex; min-width: 0; align-items: center; gap: 5px; line-height: 18px; }
+.usage-model-role { flex: none; border-radius: 999px; padding: 1px 5px; font-size: 10px; font-weight: 600; line-height: 15px; }
+.usage-model-line--primary .usage-model-role { color: var(--ui-text-muted); background: var(--ui-surface-muted); }
+.usage-model-line--upstream .usage-model-role { color: var(--ui-info); background: color-mix(in srgb, var(--ui-info) 12%, transparent); }
+.usage-model-arrow { flex: none; color: var(--ui-info); font-weight: 600; }
+.usage-model-name { min-width: 0; overflow-wrap: anywhere; color: var(--ui-text); font-family: var(--ui-font-mono); font-size: 11px; }
+.usage-model-line--upstream .usage-model-name { color: var(--ui-info); }
 
 .usage-latency {
   display: flex;

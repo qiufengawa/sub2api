@@ -15,6 +15,7 @@ minWidth?:string}>(),{label:'可横向滚动的数据表',minWidth:'720px'})
   overflow-x:auto;
   overscroll-behavior-x:contain;
   touch-action:pan-x;
+  -webkit-overflow-scrolling:touch;
 }
 
 /*
@@ -25,12 +26,20 @@ minWidth?:string}>(),{label:'可横向滚动的数据表',minWidth:'720px'})
  * lets the outer region measure the complete table and exposes every column.
  */
 .ui-table-scroller__content{
+  display:inline-block;
   width:max-content;
   min-width:100%;
 }
 .ui-table-scroller__content :deep(.ui-data-table),
 .ui-table-scroller__content :deep(.table-wrapper){
+  width:max-content;
+  min-width:100%;
   overflow-x:visible;
+}
+
+.ui-table-scroller__content :deep(table){
+  width:max-content;
+  min-width:100%;
 }
 
 .ui-table-scroller:focus-visible{

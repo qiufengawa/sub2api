@@ -13,6 +13,7 @@ export default {
       totalAccounts: '账号总数',
       activeAccounts: '活跃账号',
       todayRequests: '今日请求',
+      realtime: '实时',
       totalRequests: '总请求数',
       todayCost: '今日消费',
       totalCost: '总消费',

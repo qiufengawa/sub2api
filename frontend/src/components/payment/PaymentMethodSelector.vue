@@ -97,7 +97,7 @@ function methodLabel(method: PaymentMethodOption): string {
 .payment-methods__grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,156px),1fr)); gap:8px; }
 .payment-methods__option { display:grid; min-width:0; min-height:48px; grid-template-columns:24px minmax(0,1fr); align-items:center; gap:9px; padding:7px 10px; border:1px solid var(--ui-border); border-radius:var(--ui-radius); color:var(--ui-text); background:var(--ui-surface); text-align:left; cursor:pointer; }
 .payment-methods__option:hover { border-color:var(--ui-text-soft); background:var(--ui-surface-muted); }
-.payment-methods__option.is-selected { border-color:var(--ui-text); background:var(--ui-surface-muted); box-shadow:inset 2px 0 0 var(--ui-text); }
+.payment-methods__option.is-selected { border-color:var(--ui-text); background:var(--ui-surface-muted); }
 .payment-methods__option:disabled { cursor:not-allowed; opacity:.45; }
 .payment-methods__option img { width:24px; height:24px; object-fit:contain; }
 .payment-methods__copy { display:flex; min-width:0; flex-direction:column; gap:4px; }

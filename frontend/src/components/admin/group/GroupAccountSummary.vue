@@ -50,15 +50,18 @@ const formatCount = (value: number) => value.toLocaleString();
 
 <style scoped>
 .group-account-summary {
-  display: grid;
-  min-width: 88px;
-  gap: 4px;
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .group-account-summary > span {
   display: flex;
   min-height: 20px;
   align-items: center;
+  white-space: nowrap;
   gap: 2px;
   color: var(--ui-text-soft);
   font-family: var(--ui-font-sans);

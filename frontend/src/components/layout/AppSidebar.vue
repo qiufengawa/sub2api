@@ -24,7 +24,7 @@
           class="sidebar-brand-title ui-focus-ring"
           :title="siteName"
           :tabindex="sidebarCollapsed ? -1 : undefined"
-          @click="handleMenuItemClick(homePath)"
+          @click="handleMenuItemClick"
         >
           <img
             v-if="siteLogo"
@@ -82,7 +82,7 @@
                   class="sidebar-child-item"
                   :label="child.label"
                   :active="route.path === child.path"
-                  @click="handleMenuItemClick(child.path)"
+                  @click="handleMenuItemClick"
                 >
                   <template #icon><Icon :name="child.icon" size="xs" /></template>
                 </UiNavItem>
@@ -105,7 +105,7 @@
                       ? 'sidebar-wallet'
                       : undefined
               "
-              @click="handleMenuItemClick(item.path)"
+              @click="handleMenuItemClick"
             >
               <template #icon><Icon :name="item.icon" size="sm" /></template>
             </UiNavItem>
@@ -129,7 +129,7 @@
             :active="isActive(item.path)"
             :collapsed="sidebarCollapsed"
             :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
-            @click="handleMenuItemClick(item.path)"
+            @click="handleMenuItemClick"
           >
             <template #icon><Icon :name="item.icon" size="sm" /></template>
           </UiNavItem>
@@ -148,7 +148,7 @@
             :active="isActive(item.path)"
             :collapsed="sidebarCollapsed"
             :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
-            @click="handleMenuItemClick(item.path)"
+            @click="handleMenuItemClick"
           >
             <template #icon><Icon :name="item.icon" size="sm" /></template>
           </UiNavItem>
@@ -205,7 +205,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
+import { useAdminSettingsStore, useAppStore, useAuthStore } from '@/stores'
 import VersionBadge from '@/components/common/VersionBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { UiNavItem } from '@/components/ui'
@@ -256,7 +256,6 @@ const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
 const authStore = useAuthStore()
-const onboardingStore = useOnboardingStore()
 const adminSettingsStore = useAdminSettingsStore()
 const { canUseBatchImage, refreshBatchImageAccess } = useBatchImageAccess()
 
@@ -534,24 +533,13 @@ function queueMobileFocus(open: boolean): void {
   })
 }
 
-function handleMenuItemClick(itemPath: string) {
+function handleMenuItemClick() {
   if (mobileOpen.value) {
     setTimeout(() => {
       appStore.setMobileOpen(false)
     }, 150)
   }
 
-  // Map paths to tour selectors
-  const pathToSelector: Record<string, string> = {
-    '/admin/groups': '#sidebar-group-manage',
-    '/admin/accounts': '#sidebar-channel-manage',
-    '/keys': '[data-tour="sidebar-my-keys"]'
-  }
-
-  const selector = pathToSelector[itemPath]
-  if (selector && onboardingStore.isCurrentStep(selector)) {
-    onboardingStore.nextStep(500)
-  }
 }
 
 function navTarget(item: NavItem): string | { path: string; query: Record<string, string> } {

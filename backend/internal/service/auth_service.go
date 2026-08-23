@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/mail"
@@ -85,6 +86,7 @@ type AuthService struct {
 	turnstileService      *TurnstileService
 	tencentCaptchaService *TencentCaptchaService
 	aliyunCaptchaService  *AliyunCaptchaService
+	geetestCaptchaService *GeetestCaptchaService
 	emailQueueService     *EmailQueueService
 	promoService          *PromoService
 	affiliateService      *AffiliateService
@@ -93,10 +95,19 @@ type AuthService struct {
 }
 
 type CaptchaProof struct {
-	// TurnstileToken 承载 Cloudflare Turnstile token；阿里云验证码复用该字段承载 captchaVerifyParam
+	// TurnstileToken 承载 Cloudflare Turnstile token；阿里云验证码复用该字段承载 captchaVerifyParam。
+	// GeeTest GT4 将四个一次性校验字段序列化为 JSON 放入同一字段，避免改变既有认证请求契约。
 	TurnstileToken string
 	TencentTicket  string
 	TencentRandstr string
+}
+
+// SetGeetestCaptchaService attaches the GT4 server-side verifier without
+// changing the long-standing AuthService constructor signature.
+func (s *AuthService) SetGeetestCaptchaService(geetestCaptchaService *GeetestCaptchaService) {
+	if s != nil {
+		s.geetestCaptchaService = geetestCaptchaService
+	}
 }
 
 type DefaultSubscriptionAssigner interface {
@@ -437,8 +448,27 @@ func (s *AuthService) VerifyCaptcha(ctx context.Context, proof CaptchaProof, rem
 	turnstileEnabled := providerConfig.TurnstileEnabled
 	tencentEnabled := providerConfig.Tencent.Enabled
 	aliyunEnabled := providerConfig.Aliyun.Enabled
-	if captchaProvidersConflict(turnstileEnabled, tencentEnabled, aliyunEnabled) {
+	geetestEnabled := providerConfig.Geetest.Enabled
+	if captchaProvidersConflict(turnstileEnabled, tencentEnabled, aliyunEnabled, geetestEnabled) {
 		return ErrCaptchaProviderConflict
+	}
+	if geetestEnabled {
+		if s.geetestCaptchaService == nil {
+			return ErrGeetestCaptchaNotConfigured
+		}
+		var geetestProof GeetestCaptchaProof
+		if strings.TrimSpace(proof.TurnstileToken) == "" || json.Unmarshal([]byte(proof.TurnstileToken), &geetestProof) != nil {
+			return ErrGeetestCaptchaVerificationFailed
+		}
+		verificationErr := s.geetestCaptchaService.VerifyWithCredentials(ctx, GeetestCaptchaCredentials{
+			CaptchaID:  providerConfig.Geetest.CaptchaID,
+			CaptchaKey: providerConfig.Geetest.CaptchaKey,
+		}, geetestProof)
+		if IsGeetestCaptchaProviderUnavailable(verificationErr) {
+			logger.LegacyPrintf("service.auth", "[Auth] GeeTest provider unavailable; applying fail-open policy: %v", verificationErr)
+			return nil
+		}
+		return verificationErr
 	}
 	if tencentEnabled {
 		if s.tencentCaptchaService == nil {
@@ -489,11 +519,30 @@ func (s *AuthService) VerifyActionCaptchaIfEnabled(ctx context.Context, proof Ca
 	}
 	tencentEnabled := providerConfig.Tencent.Enabled
 	aliyunEnabled := providerConfig.Aliyun.Enabled
-	if !tencentEnabled && !aliyunEnabled {
+	geetestEnabled := providerConfig.Geetest.Enabled
+	if !tencentEnabled && !aliyunEnabled && !geetestEnabled {
 		return nil
 	}
-	if captchaProvidersConflict(providerConfig.TurnstileEnabled, tencentEnabled, aliyunEnabled) {
+	if captchaProvidersConflict(providerConfig.TurnstileEnabled, tencentEnabled, aliyunEnabled, geetestEnabled) {
 		return ErrCaptchaProviderConflict
+	}
+	if geetestEnabled {
+		if s.geetestCaptchaService == nil {
+			return ErrGeetestCaptchaNotConfigured
+		}
+		var geetestProof GeetestCaptchaProof
+		if json.Unmarshal([]byte(proof.TurnstileToken), &geetestProof) != nil {
+			return ErrGeetestCaptchaVerificationFailed
+		}
+		verificationErr := s.geetestCaptchaService.VerifyWithCredentials(ctx, GeetestCaptchaCredentials{
+			CaptchaID:  providerConfig.Geetest.CaptchaID,
+			CaptchaKey: providerConfig.Geetest.CaptchaKey,
+		}, geetestProof)
+		if IsGeetestCaptchaProviderUnavailable(verificationErr) {
+			logger.LegacyPrintf("service.auth", "[Auth] GeeTest provider unavailable; applying fail-open policy: %v", verificationErr)
+			return nil
+		}
+		return verificationErr
 	}
 	if aliyunEnabled {
 		if s.aliyunCaptchaService == nil {

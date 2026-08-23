@@ -120,8 +120,19 @@ const accountBilled = computed(() => {
 <style scoped>
 .usage-cost-details {
   display: grid;
-  min-width: 300px;
+  width: 100%;
+  min-width: min(300px, 100%);
   gap: 5px;
+}
+
+/* The tooltip is teleported to <body>, so this width rule must be global.
+ * The default 280px tooltip cap is narrower than the cost breakdown's
+ * 300px content and caused the right side to overflow/clamp near the edge.
+ */
+:global(.ui-tooltip.usage-cost-tooltip) {
+  width: min(380px, calc(100vw - 16px));
+  max-width: min(380px, calc(100vw - 16px));
+  box-sizing: border-box;
 }
 
 .usage-cost-details > strong {

@@ -50,6 +50,7 @@ export default {
     hours: 'Hours',
     minutesLabel: 'Minutes',
     clearSearch: 'Clear search',
+    clearFilters: 'Clear filters',
     pagination: 'Pagination',
     pageSize: 'Per page',
     previousPage: 'Previous page',

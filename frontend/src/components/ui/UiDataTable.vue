@@ -51,6 +51,7 @@ defineExpose({
 .ui-data-table :deep(.table-wrapper){border:0!important;border-radius:0!important;tab-size:4}
 .ui-data-table :deep(thead){background:var(--ui-surface-muted)!important}
 .ui-data-table :deep(tbody){background:var(--ui-surface)!important}
+.ui-data-table :deep(table),.ui-data-table :deep(th),.ui-data-table :deep(td){font-family:var(--ui-font-sans)!important}
 .ui-data-table :deep(th){color:var(--ui-text-soft)!important;letter-spacing:0!important;font-size:12px!important;font-weight:500!important}
 .ui-data-table :deep(td){color:var(--ui-text)!important;font-size:13px!important;font-variant-numeric:tabular-nums}
 </style>

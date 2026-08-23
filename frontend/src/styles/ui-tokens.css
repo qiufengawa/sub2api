@@ -92,7 +92,10 @@
 .ui-text-input:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-focus) 16%, transparent) !important; }
 .ui-badge { border-radius: var(--ui-radius-mini) !important; font-size: 11px !important; line-height: 16px !important; }
 .ui-focus-ring:focus-visible { outline: 2px solid color-mix(in srgb, var(--ui-focus) 26%, transparent); outline-offset: 1px; }
-.ui-numeric { font-variant-numeric: tabular-nums; }
+.ui-numeric {
+  font-family: var(--ui-font-sans);
+  font-variant-numeric: tabular-nums;
+}
 .ui-panel { min-width: 0; border: 1px solid var(--ui-border-soft); border-radius: var(--ui-radius-panel); background: var(--ui-surface); }
 .ui-field-label { display: block; margin: 0 0 6px; color: var(--ui-text); font-size: 13px; font-weight: 500; line-height: 20px; }
 .ui-field-hint { margin: 4px 0 0; color: var(--ui-text-soft); font-size: 11px; line-height: 18px; }
@@ -117,6 +120,19 @@ select,
 textarea {
   font-family: var(--ui-font-sans);
   letter-spacing: 0;
+}
+
+/* Headings and tabular content use the same sans family as the controls.
+   Numeric/code cells may still opt into the dedicated monospace token. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+th,
+td {
+  font-family: var(--ui-font-sans);
 }
 
 .ui-numeric {

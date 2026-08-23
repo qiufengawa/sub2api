@@ -1713,7 +1713,7 @@
                     {{ t("admin.settings.captcha.provider") }}
                   </label>
                   <div
-                    class="grid grid-cols-3 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700"
+                    class="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700 sm:grid-cols-4"
                   >
                     <UiButton
                       type="button"
@@ -1724,6 +1724,16 @@
                       @click="selectCaptchaProvider('turnstile')"
                     >
                       {{ t("admin.settings.captcha.providerTurnstile") }}
+                    </UiButton>
+                    <UiButton
+                      type="button"
+                      data-testid="captcha-provider-geetest"
+                      :aria-pressed="captchaProviderSelection === 'geetest'"
+                      :variant="captchaProviderSelection === 'geetest' ? 'primary' : 'secondary'"
+                      density="compact"
+                      @click="selectCaptchaProvider('geetest')"
+                    >
+                      {{ localText("极验 GeeTest", "GeeTest") }}
                     </UiButton>
                     <UiButton
                       type="button"
@@ -1790,6 +1800,41 @@
                             )
                           : t("admin.settings.turnstile.secretKeyHint")
                       }}
+                    </p>
+                  </div>
+                </div>
+
+                <!-- GeeTest fields -->
+                <div
+                  v-else-if="captchaProviderSelection === 'geetest'"
+                  class="grid grid-cols-1 gap-6"
+                >
+                  <div>
+                    <UiTextField
+                      v-model="form.geetest_captcha_id"
+                      type="text"
+                      density="compact"
+                      monospace
+                      :label="localText('Captcha ID', 'Captcha ID')"
+                      :placeholder="localText('请输入 Captcha ID', 'Enter Captcha ID')"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{ localText("从极验管理后台获取的验证 ID。", "The Captcha ID from the GeeTest console.") }}
+                    </p>
+                  </div>
+                  <div>
+                    <UiPasswordField
+                      v-model="form.geetest_captcha_key"
+                      density="compact"
+                      monospace
+                      :label="localText('私钥', 'Private key')"
+                      autocomplete="new-password"
+                      :placeholder="localText('留空以保留当前值', 'Leave empty to keep current value')"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{ form.geetest_captcha_key_configured
+                        ? localText("密钥已配置，留空不会覆盖。", "Key configured. Leave empty to keep it.")
+                        : localText("启用前必须填写。", "Required before enabling.") }}
                     </p>
                   </div>
                 </div>
@@ -8493,6 +8538,7 @@ type SettingsForm = Omit<
   channel_monitor_hide_throughput: boolean;
   smtp_password: string;
   turnstile_secret_key: string;
+  geetest_captcha_key: string;
   tencent_captcha_app_secret_key: string;
   tencent_captcha_cloud_secret_id: string;
   tencent_captcha_cloud_secret_key: string;
@@ -8632,6 +8678,10 @@ const form = reactive<SettingsForm>({
   turnstile_site_key: "",
   turnstile_secret_key: "",
   turnstile_secret_key_configured: false,
+  geetest_captcha_enabled: false,
+  geetest_captcha_id: "",
+  geetest_captcha_key: "",
+  geetest_captcha_key_configured: false,
   tencent_captcha_enabled: false,
   tencent_captcha_app_id: "",
   tencent_captcha_app_secret_key: "",
@@ -8817,14 +8867,15 @@ const form = reactive<SettingsForm>({
   allow_user_view_error_requests: false,
 });
 
-// 人机验证 UI 状态：单卡片「总开关 + 服务商单选」，落库仍是三个独立
+// 人机验证 UI 状态：单卡片「总开关 + 服务商单选」，落库仍是独立
 // enabled 键（与上游一致），由下面的映射保证同一时间至多一家启用。
-type CaptchaProviderSelection = "turnstile" | "tencent" | "aliyun";
+type CaptchaProviderSelection = "turnstile" | "geetest" | "tencent" | "aliyun";
 
 const captchaProviderSelection = ref<CaptchaProviderSelection>("turnstile");
 
 function applyCaptchaSelection(provider: CaptchaProviderSelection | null): void {
   form.turnstile_enabled = provider === "turnstile";
+  form.geetest_captcha_enabled = provider === "geetest";
   form.tencent_captcha_enabled = provider === "tencent";
   form.aliyun_captcha_enabled = provider === "aliyun";
 }
@@ -8832,6 +8883,7 @@ function applyCaptchaSelection(provider: CaptchaProviderSelection | null): void 
 const captchaMasterEnabled = computed({
   get: () =>
     form.turnstile_enabled ||
+    form.geetest_captcha_enabled ||
     form.tencent_captcha_enabled ||
     form.aliyun_captcha_enabled,
   set: (enabled: boolean) =>
@@ -8860,7 +8912,9 @@ const tencentCaptchaLinks = computed(() =>
 );
 
 function syncCaptchaProviderSelection(): void {
-  if (form.tencent_captcha_enabled) {
+  if (form.geetest_captcha_enabled) {
+    captchaProviderSelection.value = "geetest";
+  } else if (form.tencent_captcha_enabled) {
     captchaProviderSelection.value = "tencent";
   } else if (form.aliyun_captcha_enabled) {
     captchaProviderSelection.value = "aliyun";
@@ -9854,6 +9908,7 @@ async function loadSettings() {
     form.smtp_password = "";
     smtpPasswordManuallyEdited.value = false;
     form.turnstile_secret_key = "";
+    form.geetest_captcha_key = "";
     form.tencent_captcha_app_secret_key = "";
     form.tencent_captcha_cloud_secret_id = "";
     form.tencent_captcha_cloud_secret_key = "";
@@ -10248,6 +10303,9 @@ async function saveSettings(
       turnstile_enabled: form.turnstile_enabled,
       turnstile_site_key: form.turnstile_site_key,
       turnstile_secret_key: form.turnstile_secret_key || undefined,
+      geetest_captcha_enabled: form.geetest_captcha_enabled,
+      geetest_captcha_id: form.geetest_captcha_id,
+      geetest_captcha_key: form.geetest_captcha_key || undefined,
       tencent_captcha_enabled: form.tencent_captcha_enabled,
       tencent_captcha_app_id: form.tencent_captcha_app_id,
       tencent_captcha_app_secret_key:
@@ -10568,6 +10626,7 @@ async function saveSettings(
     form.smtp_password = "";
     smtpPasswordManuallyEdited.value = false;
     form.turnstile_secret_key = "";
+    form.geetest_captcha_key = "";
     form.aliyun_captcha_access_key_secret = "";
     form.linuxdo_connect_client_secret = "";
     form.dingtalk_connect_client_secret = "";

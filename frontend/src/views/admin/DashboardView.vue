@@ -42,18 +42,60 @@
           <UiStatMetric
             :label="t('admin.dashboard.apiKeys')"
             :value="formatNumber(stats.total_api_keys)"
-            :context="`${formatNumber(stats.active_api_keys)} ${t('common.active')}`"
-          />
+          >
+            <template #status>
+              <span class="dashboard-status dashboard-status--success">{{ t('common.enabled') }}</span>
+            </template>
+            <template #context>
+              <span class="dashboard-stat-context">
+                <span class="dashboard-status-item dashboard-status-item--success">
+                  <span class="dashboard-status-dot" aria-hidden="true" />
+                  {{ formatNumber(stats.active_api_keys) }} {{ t('common.active') }}
+                </span>
+                <span class="dashboard-status-item dashboard-status-item--muted">
+                  {{ formatNumber(disabledApiKeys) }} {{ t('common.disabled') }}
+                </span>
+              </span>
+            </template>
+          </UiStatMetric>
           <UiStatMetric
             :label="t('admin.dashboard.accounts')"
             :value="formatNumber(stats.total_accounts)"
-            :context="accountStatusContext"
-          />
+          >
+            <template #status>
+              <span class="dashboard-status dashboard-status--success">{{ t('common.enabled') }}</span>
+            </template>
+            <template #context>
+              <span class="dashboard-stat-context">
+                <span class="dashboard-status-item dashboard-status-item--success">
+                  <span class="dashboard-status-dot" aria-hidden="true" />
+                  {{ formatNumber(stats.normal_accounts) }} {{ t('common.active') }}
+                </span>
+                <span v-if="stats.error_accounts > 0" class="dashboard-status-item dashboard-status-item--danger">
+                  {{ formatNumber(stats.error_accounts) }} {{ t('common.error') }}
+                </span>
+              </span>
+            </template>
+          </UiStatMetric>
           <UiStatMetric
             :label="t('admin.dashboard.todayRequests')"
             :value="formatNumber(stats.today_requests)"
-            :context="`${t('common.total')}: ${formatNumber(stats.total_requests)}`"
-          />
+          >
+            <template #status>
+              <span class="dashboard-status dashboard-status--success">{{ t('admin.dashboard.realtime') }}</span>
+            </template>
+            <template #context>
+              <span class="dashboard-stat-context">
+                <span>{{ t('common.total') }}: {{ formatNumber(stats.total_requests) }}</span>
+                <span
+                  v-if="growthLabel(stats.today_requests_growth_percent)"
+                  class="dashboard-growth"
+                  :class="growthTone(stats.today_requests_growth_percent)"
+                  data-testid="today-requests-growth"
+                >{{ growthLabel(stats.today_requests_growth_percent) }}</span>
+              </span>
+            </template>
+          </UiStatMetric>
           <UiStatMetric
             :label="t('admin.dashboard.users')"
             :value="`+${formatNumber(stats.today_new_users)}`"
@@ -62,8 +104,22 @@
           <UiStatMetric
             :label="t('admin.dashboard.todayTokens')"
             :value="formatTokens(stats.today_tokens)"
-            :context="todayCostContext"
-          />
+          >
+            <template #status>
+              <span class="dashboard-status dashboard-status--success">{{ t('admin.dashboard.realtime') }}</span>
+            </template>
+            <template #context>
+              <span class="dashboard-stat-context">
+                <span>{{ t('common.total') }}: {{ formatTokens(stats.total_tokens) }}</span>
+                <span
+                  v-if="growthLabel(stats.today_tokens_growth_percent)"
+                  class="dashboard-growth"
+                  :class="growthTone(stats.today_tokens_growth_percent)"
+                  data-testid="today-tokens-growth"
+                >{{ growthLabel(stats.today_tokens_growth_percent) }}</span>
+              </span>
+            </template>
+          </UiStatMetric>
           <UiStatMetric
             :label="t('admin.dashboard.totalTokens')"
             :value="formatTokens(stats.total_tokens)"
@@ -71,9 +127,9 @@
           />
           <UiStatMetric
             :label="t('admin.dashboard.performance')"
-            :value="formatTokens(stats.rpm)"
+            :value="formatRate(stats.rpm)"
             unit="RPM"
-            :context="`TPM ${formatTokens(stats.tpm)}`"
+            :context="`TPM ${formatRate(stats.tpm)}`"
           />
           <UiStatMetric
             :label="t('admin.dashboard.avgResponse')"
@@ -105,8 +161,8 @@
         <!-- Charts Section -->
         <AppStack :gap="16">
           <!-- Date Range Filter -->
-          <AppToolbar>
-            <AppInline justify="space-between">
+          <AppToolbar class="dashboard-chart-toolbar">
+            <AppInline class="dashboard-chart-toolbar__controls" justify="space-between">
               <AppInline class="dashboard-chart-range-controls">
                 <UiFormField :label="t('admin.dashboard.timeRange')">
                 <UiDateRangePicker
@@ -122,7 +178,7 @@
                 {{ t('common.refresh') }}
               </UiButton>
               </AppInline>
-              <UiFormField :label="t('admin.dashboard.granularity')">
+              <UiFormField class="dashboard-granularity-field" :label="t('admin.dashboard.granularity')">
                   <UiSelect
                     density="compact"
                     v-model="granularity"
@@ -428,6 +484,8 @@ const formatTokens = (value: number | undefined): string => {
   return value.toLocaleString()
 }
 
+const formatRate = (value: number | undefined): string => formatTokens(value)
+
 const toFiniteNumber = (value: unknown): number => {
   const numberValue = Number(value)
   return Number.isFinite(numberValue) ? numberValue : 0
@@ -449,18 +507,23 @@ const formatCost = (value: number | null | undefined): string => {
   return safeValue.toFixed(4)
 }
 
-const accountStatusContext = computed(() => {
-  if (!stats.value) return ''
-  const active = `${formatNumber(stats.value.normal_accounts)} ${t('common.active')}`
-  return stats.value.error_accounts > 0
-    ? `${active} · ${formatNumber(stats.value.error_accounts)} ${t('common.error')}`
-    : active
+const disabledApiKeys = computed(() => {
+  if (!stats.value) return 0
+  return Math.max(0, toFiniteNumber(stats.value.total_api_keys) - toFiniteNumber(stats.value.active_api_keys))
 })
 
-const todayCostContext = computed(() => {
-  if (!stats.value) return ''
-  return `${t('admin.dashboard.actual')}: $${formatCost(stats.value.today_actual_cost)} · ${t('admin.dashboard.accountCost')}: $${formatCost(stats.value.today_account_cost)} · ${t('admin.dashboard.standard')}: $${formatCost(stats.value.today_cost)}`
-})
+const growthLabel = (value: number | null | undefined): string => {
+  if (value === null || value === undefined || !Number.isFinite(value)) return ''
+  const sign = value > 0 ? '↑' : value < 0 ? '↓' : '→'
+  return `${sign} ${Math.abs(value).toFixed(1)}%`
+}
+
+const growthTone = (value: number | null | undefined): string => {
+  if (value === null || value === undefined || !Number.isFinite(value)) return ''
+  if (value < 0) return 'dashboard-growth--down'
+  if (value === 0) return 'dashboard-growth--flat'
+  return 'dashboard-growth--up'
+}
 
 const totalCostContext = computed(() => {
   if (!stats.value) return ''
@@ -623,8 +686,19 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.dashboard-page{display:grid;gap:16px}.dashboard-action{justify-content:flex-start;width:100%}.dashboard-user-trend{height:288px}.dashboard-chart-range-controls{align-items:flex-end}
+.dashboard-page{display:grid;gap:16px}.dashboard-action{justify-content:flex-start;width:100%}.dashboard-user-trend{height:288px}.dashboard-chart-range-controls{align-items:flex-end;min-width:0}.dashboard-chart-range-controls :deep(.ui-form-field){min-width:0}.dashboard-chart-range-controls :deep(.ui-date-range__trigger){min-width:0;width:100%}.dashboard-chart-toolbar__controls{min-width:0}.dashboard-granularity-field{min-width:87px}
+.dashboard-status{display:inline-flex;align-items:center;min-height:18px;padding:0 5px;border-radius:4px;font-size:10px;font-weight:500;line-height:16px;white-space:nowrap}.dashboard-status--success{color:var(--ui-success);background:color-mix(in srgb,var(--ui-success) 12%,transparent)}
+:deep(.dashboard-stat-context){display:flex;min-width:0;align-items:center;flex-wrap:wrap;gap:4px 8px}.dashboard-status-item{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}.dashboard-status-item--success{color:var(--ui-success)}.dashboard-status-item--danger{color:var(--ui-danger)}.dashboard-status-item--muted{color:var(--ui-text-soft)}.dashboard-status-dot{width:6px;height:6px;flex:none;border-radius:50%;background:currentColor}.dashboard-growth{display:inline-flex;align-items:center;min-height:18px;padding:0 5px;border-radius:4px;font-size:10px;font-weight:600;line-height:16px;white-space:nowrap}.dashboard-growth--up{color:var(--ui-success);background:color-mix(in srgb,var(--ui-success) 12%,transparent)}.dashboard-growth--down{color:var(--ui-danger);background:color-mix(in srgb,var(--ui-danger) 12%,transparent)}.dashboard-growth--flat{color:var(--ui-text-soft);background:var(--ui-surface-muted)}
+.dashboard-chart-toolbar:has(.dashboard-granularity-field .ui-select__trigger--open){margin-bottom:68px}
 .dashboard-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media(min-width:1280px){.dashboard-stat-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:640px){.dashboard-stat-grid{grid-template-columns:1fr}}
+@media(max-width:640px){
+  .dashboard-chart-toolbar{min-height:140px;flex:none}
+  .dashboard-chart-toolbar :deep(.dashboard-chart-toolbar__controls){display:grid;grid-template-columns:minmax(0,1fr);align-items:stretch;gap:8px;width:100%}
+  .dashboard-chart-toolbar :deep(.dashboard-chart-range-controls){display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px;width:100%}
+  .dashboard-chart-toolbar :deep(.dashboard-granularity-field){width:100%;min-width:0}
+  .dashboard-chart-toolbar :deep(.dashboard-granularity-field .ui-select),
+  .dashboard-chart-toolbar :deep(.dashboard-granularity-field .ui-select__trigger){width:100%;min-width:0}
+}
 </style>

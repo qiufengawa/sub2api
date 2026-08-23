@@ -50,6 +50,7 @@ export default {
     hours: '小时',
     minutesLabel: '分钟',
     clearSearch: '清除搜索',
+    clearFilters: '清除筛选',
     pagination: '分页',
     pageSize: '每页',
     previousPage: '上一页',

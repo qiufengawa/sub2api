@@ -1,8 +1,8 @@
 <template>
   <AppLayout>
-    <AppPage density="compact">
+    <AppPage class="users-page" density="compact">
       <AppPageHeader :title="t('admin.users.title')" :description="t('admin.users.description')" />
-      <UiServerTableWorkspace :loading="loading" :loading-text="t('common.loading')">
+      <UiServerTableWorkspace class="users-workspace" :loading="loading" :loading-text="t('common.loading')">
       <!-- Single Row: Search, Filters, and Actions -->
       <template #toolbar>
         <div class="users-workspace-toolbar">
@@ -48,7 +48,7 @@
               density="compact"
               :aria-expanded="advancedFiltersExpanded"
               data-testid="users-advanced-toggle"
-              @click="advancedFiltersExpanded = !advancedFiltersExpanded"
+              @click="toggleAdvancedFilters"
             >
               <template #icon><Icon name="filter" size="sm" /></template>
               {{ t('admin.users.advancedFilters') }}
@@ -62,7 +62,7 @@
               data-testid="users-advanced-filters"
             >
               <!-- Group Filter (visible when enabled) -->
-              <div v-if="visibleFilters.has('group')" class="users-filter-field">
+              <div v-if="advancedFiltersExpanded || visibleFilters.has('group')" class="users-filter-field">
                 <UiSelect
                   density="compact"
                   v-model="filters.group"
@@ -76,7 +76,7 @@
               </div>
 
               <!-- API Key Group Filter (visible when enabled) -->
-              <div v-if="visibleFilters.has('apiKeyGroup')" class="users-filter-field">
+              <div v-if="advancedFiltersExpanded || visibleFilters.has('apiKeyGroup')" class="users-filter-field">
                 <UiSelect
                   density="compact"
                   v-model="filters.apiKeyGroup"
@@ -1431,6 +1431,16 @@ const toggleBuiltInFilter = (key: string) => {
   loadUsers()
 }
 
+// The advanced panel is an actionable filter surface, not just a settings
+// toggle.  Always expose the built-in group selectors when it is opened so a
+// fresh session can use them without first configuring visible filters.
+const toggleAdvancedFilters = () => {
+  advancedFiltersExpanded.value = !advancedFiltersExpanded.value
+  if (!advancedFiltersExpanded.value) return
+  if (!visibleFilters.has('group')) void loadAllGroups()
+  if (!visibleFilters.has('apiKeyGroup')) void loadAllGroupsForApiKeyFilter()
+}
+
 // Toggle a custom attribute filter
 const toggleAttributeFilter = (attr: UserAttributeDefinition) => {
   const key = `attr_${attr.id}`
@@ -1620,7 +1630,34 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.users-table-scroller { min-width: 0; }
+.users-page { display: flex; min-height: 0; flex-direction: column; gap: 16px; }
+.users-workspace { min-height: 0; }
+.users-table-scroller { min-width: 0; margin: 12px; border: 1px solid var(--ui-border-soft); border-radius: var(--ui-radius); }
 .users-table-scroller :deep(> div) { width: 100%; min-width: 0 !important; }
-.users-workspace-toolbar{display:grid;gap:8px}.users-filter-controls{display:flex;width:100%;min-width:0;flex:1;flex-wrap:wrap;align-items:center;gap:8px}.users-search-field{width:min(256px,100%)}.users-filter-field{width:min(176px,100%);min-width:0}.users-filter-field--short{width:min(128px,100%)}.users-filter-field--attribute{width:min(144px,100%)}.users-advanced-filters{display:flex;width:100%;min-width:0;flex:0 0 100%;flex-wrap:wrap;align-items:center;gap:8px;padding-top:10px;border-top:1px solid var(--ui-border-soft)}.users-advanced-filters > *{min-width:0;flex:0 1 176px}.users-toolbar-actions,.users-toolbar-secondary{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}.users-filter-menu{display:grid;min-width:192px;gap:8px;padding:4px}.users-filter-menu__divider{border-top:1px solid var(--ui-border-soft)}.users-user-cell,.users-inline-actions,.users-sort-header{display:flex;min-width:0;align-items:center;gap:6px}.users-groups-cell{display:grid;gap:4px}.users-group-menu,.users-sort-menu{display:grid;min-width:200px;gap:2px}.users-group-menu>span{padding:4px 8px;color:var(--ui-text-soft);font-size:11px}.users-group-menu :deep(button),.users-sort-menu :deep(button){justify-content:flex-start}.users-public-groups{display:inline-flex;align-items:center;gap:4px;color:var(--ui-text-muted);font-size:12px}.users-cell-empty{color:var(--ui-text-soft);font-size:12px}.users-subscriptions{display:flex;max-width:240px;flex-wrap:wrap;gap:5px}.users-subscriptions :deep(.ui-badge){max-width:100%}.users-subscriptions :deep(.ui-badge>span){overflow:hidden;text-overflow:ellipsis}.users-subscriptions small{flex:none;font-size:10px;font-weight:500;opacity:.8}.users-sort-header__metric{font-size:10px;font-weight:500;text-transform:none}.users-sort-menu{min-width:128px}.users-sort-menu__hint{margin-top:4px;padding:5px 8px;border-top:1px solid var(--ui-border-soft);color:var(--ui-text-soft);font-size:10px;font-weight:400;text-transform:none}@media(max-width:640px){.users-search-field,.users-filter-field,.users-filter-field--short,.users-filter-field--attribute,.users-advanced-filters > *{width:100%;flex-basis:100%}.users-toolbar-actions{justify-content:stretch}.users-toolbar-actions>:deep(button){flex:1}.users-toolbar-secondary{display:contents}}
+.users-workspace-toolbar{display:grid;gap:8px;padding:10px 12px 12px;background:var(--ui-surface)}
+.users-filter-controls{display:flex;width:100%;min-width:0;flex:1;flex-wrap:wrap;align-items:center;gap:8px}
+.users-search-field{width:min(256px,100%)}
+.users-filter-field{width:min(176px,100%);min-width:0}
+.users-filter-field--short{width:min(128px,100%)}
+.users-filter-field--attribute{width:min(144px,100%)}
+.users-advanced-filters{display:flex;width:100%;min-width:0;flex:0 0 100%;flex-wrap:wrap;align-items:center;gap:8px;margin-top:2px;padding-top:8px}
+.users-advanced-filters > *{min-width:0;flex:0 1 176px}
+.users-toolbar-actions,.users-toolbar-secondary{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}
+.users-filter-menu{display:grid;min-width:192px;gap:8px;padding:4px}
+.users-filter-menu__divider{border-top:1px solid var(--ui-border-soft)}
+.users-user-cell,.users-inline-actions,.users-sort-header{display:flex;min-width:0;align-items:center;gap:6px}
+.users-groups-cell{display:grid;gap:4px}
+.users-group-menu,.users-sort-menu{display:grid;min-width:200px;gap:2px}
+.users-group-menu>span{padding:4px 8px;color:var(--ui-text-soft);font-size:11px}
+.users-group-menu :deep(button),.users-sort-menu :deep(button){justify-content:flex-start}
+.users-public-groups{display:inline-flex;align-items:center;gap:4px;color:var(--ui-text-muted);font-size:12px}
+.users-cell-empty{color:var(--ui-text-soft);font-size:12px}
+.users-subscriptions{display:flex;max-width:240px;flex-wrap:wrap;gap:5px}
+.users-subscriptions :deep(.ui-badge){max-width:100%}
+.users-subscriptions :deep(.ui-badge>span){overflow:hidden;text-overflow:ellipsis}
+.users-subscriptions small{flex:none;font-size:10px;font-weight:500;opacity:.8}
+.users-sort-header__metric{font-size:10px;font-weight:500;text-transform:none}
+.users-sort-menu{min-width:128px}
+.users-sort-menu__hint{margin-top:4px;padding:5px 8px;border-top:1px solid var(--ui-border-soft);color:var(--ui-text-soft);font-size:10px;font-weight:400;text-transform:none}
+@media(max-width:640px){.users-search-field,.users-filter-field,.users-filter-field--short,.users-filter-field--attribute,.users-advanced-filters > *{width:100%;flex-basis:100%}.users-filter-controls > :deep(.ui-button){width:100%;justify-content:flex-start}.users-toolbar-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));justify-content:stretch}.users-toolbar-actions>:deep(.ui-button--primary){grid-column:1/-1;width:100%}.users-toolbar-actions>:deep(.ui-icon-button),.users-toolbar-actions>:deep(.ui-button){min-width:0}.users-toolbar-secondary{display:contents}}
 </style>

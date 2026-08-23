@@ -61,15 +61,17 @@ type DashboardStats struct {
 	TotalAccountCost         float64 `json:"total_account_cost"` // 累计账号成本
 
 	// 今日 Token 使用统计
-	TodayRequests            int64   `json:"today_requests"`
-	TodayInputTokens         int64   `json:"today_input_tokens"`
-	TodayOutputTokens        int64   `json:"today_output_tokens"`
-	TodayCacheCreationTokens int64   `json:"today_cache_creation_tokens"`
-	TodayCacheReadTokens     int64   `json:"today_cache_read_tokens"`
-	TodayTokens              int64   `json:"today_tokens"`
-	TodayCost                float64 `json:"today_cost"`         // 今日标准计费
-	TodayActualCost          float64 `json:"today_actual_cost"`  // 今日实际扣除
-	TodayAccountCost         float64 `json:"today_account_cost"` // 今日账号成本
+	TodayRequests              int64    `json:"today_requests"`
+	TodayInputTokens           int64    `json:"today_input_tokens"`
+	TodayOutputTokens          int64    `json:"today_output_tokens"`
+	TodayCacheCreationTokens   int64    `json:"today_cache_creation_tokens"`
+	TodayCacheReadTokens       int64    `json:"today_cache_read_tokens"`
+	TodayTokens                int64    `json:"today_tokens"`
+	TodayRequestsGrowthPercent *float64 `json:"today_requests_growth_percent,omitempty"` // 今日请求量相对昨日同期的变化百分比
+	TodayTokensGrowthPercent   *float64 `json:"today_tokens_growth_percent,omitempty"`   // 今日 Token 量相对昨日同期的变化百分比
+	TodayCost                  float64  `json:"today_cost"`                              // 今日标准计费
+	TodayActualCost            float64  `json:"today_actual_cost"`                       // 今日实际扣除
+	TodayAccountCost           float64  `json:"today_account_cost"`                      // 今日账号成本
 
 	// 系统运行统计
 	AverageDurationMs float64 `json:"average_duration_ms"` // 平均响应时间

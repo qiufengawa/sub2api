@@ -122,6 +122,8 @@
           :mobile-table="true"
           :aria-label="t('admin.subscriptions.title')"
           :server-side-sort="true"
+          :sticky-first-column="true"
+          :sticky-actions-column="true"
           default-sort-key="created_at"
           default-sort-order="desc"
           @sort="handleSort"

@@ -78,6 +78,17 @@ func (r *usageLogRepository) GetUserStats(ctx context.Context, userID int64, sta
 // DashboardStats 仪表盘统计
 type DashboardStats = usagestats.DashboardStats
 
+// dashboardGrowthPercent returns a comparable percentage only when the
+// previous period has a non-zero baseline. A nil result keeps the dashboard
+// from presenting a misleading percentage for a brand-new installation.
+func dashboardGrowthPercent(current, previous int64) *float64 {
+	if previous <= 0 {
+		return nil
+	}
+	change := (float64(current) - float64(previous)) / float64(previous) * 100
+	return &change
+}
+
 func (r *usageLogRepository) GetDashboardStats(ctx context.Context) (*DashboardStats, error) {
 	stats := &DashboardStats{}
 	now := timezone.Now()
@@ -229,25 +240,28 @@ func (r *usageLogRepository) fillDashboardUsageStatsAggregated(ctx context.Conte
 		stats.AverageDurationMs = float64(totalDurationMs) / float64(stats.TotalRequests)
 	}
 
+	yesterdayUTC := todayUTC.Add(-24 * time.Hour)
 	todayStatsQuery := `
 		SELECT
-			total_requests as today_requests,
-			input_tokens as today_input_tokens,
-			output_tokens as today_output_tokens,
-			cache_creation_tokens as today_cache_creation_tokens,
-			cache_read_tokens as today_cache_read_tokens,
-			total_cost as today_cost,
-			actual_cost as today_actual_cost,
-			account_cost as today_account_cost,
-			active_users as active_users
+			COALESCE(SUM(total_requests) FILTER (WHERE bucket_date = $1::date), 0) as today_requests,
+			COALESCE(SUM(input_tokens) FILTER (WHERE bucket_date = $1::date), 0) as today_input_tokens,
+			COALESCE(SUM(output_tokens) FILTER (WHERE bucket_date = $1::date), 0) as today_output_tokens,
+			COALESCE(SUM(cache_creation_tokens) FILTER (WHERE bucket_date = $1::date), 0) as today_cache_creation_tokens,
+			COALESCE(SUM(cache_read_tokens) FILTER (WHERE bucket_date = $1::date), 0) as today_cache_read_tokens,
+			COALESCE(SUM(total_cost) FILTER (WHERE bucket_date = $1::date), 0) as today_cost,
+			COALESCE(SUM(actual_cost) FILTER (WHERE bucket_date = $1::date), 0) as today_actual_cost,
+			COALESCE(SUM(account_cost) FILTER (WHERE bucket_date = $1::date), 0) as today_account_cost,
+			COALESCE(SUM(active_users) FILTER (WHERE bucket_date = $1::date), 0) as active_users,
+			COALESCE(SUM(total_requests) FILTER (WHERE bucket_date = $2::date), 0) as yesterday_requests,
+			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens) FILTER (WHERE bucket_date = $2::date), 0) as yesterday_tokens
 		FROM usage_dashboard_daily
-		WHERE bucket_date = $1::date
 	`
+	var yesterdayRequests, yesterdayTokens int64
 	if err := scanSingleRow(
 		ctx,
 		r.sql,
 		todayStatsQuery,
-		[]any{todayUTC},
+		[]any{todayUTC, yesterdayUTC},
 		&stats.TodayRequests,
 		&stats.TodayInputTokens,
 		&stats.TodayOutputTokens,
@@ -257,12 +271,14 @@ func (r *usageLogRepository) fillDashboardUsageStatsAggregated(ctx context.Conte
 		&stats.TodayActualCost,
 		&stats.TodayAccountCost,
 		&stats.ActiveUsers,
+		&yesterdayRequests,
+		&yesterdayTokens,
 	); err != nil {
-		if err != sql.ErrNoRows {
-			return err
-		}
+		return err
 	}
 	stats.TodayTokens = stats.TodayInputTokens + stats.TodayOutputTokens + stats.TodayCacheCreationTokens + stats.TodayCacheReadTokens
+	stats.TodayRequestsGrowthPercent = dashboardGrowthPercent(stats.TodayRequests, yesterdayRequests)
+	stats.TodayTokensGrowthPercent = dashboardGrowthPercent(stats.TodayTokens, yesterdayTokens)
 
 	hourlyActiveQuery := `
 		SELECT active_users
@@ -281,6 +297,7 @@ func (r *usageLogRepository) fillDashboardUsageStatsAggregated(ctx context.Conte
 
 func (r *usageLogRepository) fillDashboardUsageStatsFromUsageLogs(ctx context.Context, stats *DashboardStats, startUTC, endUTC, todayUTC, now time.Time) error {
 	todayEnd := todayUTC.Add(24 * time.Hour)
+	yesterdayUTC := todayUTC.Add(-24 * time.Hour)
 	combinedStatsQuery := `
 		WITH scoped AS (
 			SELECT
@@ -294,8 +311,8 @@ func (r *usageLogRepository) fillDashboardUsageStatsFromUsageLogs(ctx context.Co
 				COALESCE(account_stats_cost, total_cost) * COALESCE(account_rate_multiplier, 1) AS account_cost,
 				COALESCE(duration_ms, 0) AS duration_ms
 			FROM usage_logs
-			WHERE created_at >= LEAST($1::timestamptz, $3::timestamptz)
-				AND created_at < GREATEST($2::timestamptz, $4::timestamptz)
+			WHERE created_at >= LEAST($1::timestamptz, $3::timestamptz, $5::timestamptz)
+				AND created_at < GREATEST($2::timestamptz, $4::timestamptz, $6::timestamptz)
 		)
 		SELECT
 			COUNT(*) FILTER (WHERE created_at >= $1::timestamptz AND created_at < $2::timestamptz) AS total_requests,
@@ -315,14 +332,18 @@ func (r *usageLogRepository) fillDashboardUsageStatsFromUsageLogs(ctx context.Co
 			COALESCE(SUM(total_cost) FILTER (WHERE created_at >= $3::timestamptz AND created_at < $4::timestamptz), 0) AS today_cost,
 			COALESCE(SUM(actual_cost) FILTER (WHERE created_at >= $3::timestamptz AND created_at < $4::timestamptz), 0) AS today_actual_cost,
 			COALESCE(SUM(account_cost) FILTER (WHERE created_at >= $3::timestamptz AND created_at < $4::timestamptz), 0) AS today_account_cost
+			,
+			COUNT(*) FILTER (WHERE created_at >= $5::timestamptz AND created_at < $6::timestamptz) AS yesterday_requests,
+			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens) FILTER (WHERE created_at >= $5::timestamptz AND created_at < $6::timestamptz), 0) AS yesterday_tokens
 		FROM scoped
 	`
 	var totalDurationMs int64
+	var yesterdayRequests, yesterdayTokens int64
 	if err := scanSingleRow(
 		ctx,
 		r.sql,
 		combinedStatsQuery,
-		[]any{startUTC, endUTC, todayUTC, todayEnd},
+		[]any{startUTC, endUTC, todayUTC, todayEnd, yesterdayUTC, todayUTC},
 		&stats.TotalRequests,
 		&stats.TotalInputTokens,
 		&stats.TotalOutputTokens,
@@ -340,6 +361,8 @@ func (r *usageLogRepository) fillDashboardUsageStatsFromUsageLogs(ctx context.Co
 		&stats.TodayCost,
 		&stats.TodayActualCost,
 		&stats.TodayAccountCost,
+		&yesterdayRequests,
+		&yesterdayTokens,
 	); err != nil {
 		return err
 	}
@@ -349,6 +372,8 @@ func (r *usageLogRepository) fillDashboardUsageStatsFromUsageLogs(ctx context.Co
 	}
 
 	stats.TodayTokens = stats.TodayInputTokens + stats.TodayOutputTokens + stats.TodayCacheCreationTokens + stats.TodayCacheReadTokens
+	stats.TodayRequestsGrowthPercent = dashboardGrowthPercent(stats.TodayRequests, yesterdayRequests)
+	stats.TodayTokensGrowthPercent = dashboardGrowthPercent(stats.TodayTokens, yesterdayTokens)
 
 	hourStart := now.UTC().Truncate(time.Hour)
 	hourEnd := hourStart.Add(time.Hour)

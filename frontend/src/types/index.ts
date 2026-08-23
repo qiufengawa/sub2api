@@ -228,6 +228,8 @@ export interface PublicSettings {
   login_agreement_revision?: string;
   login_agreement_documents?: LoginAgreementDocument[];
   turnstile_enabled: boolean;
+  geetest_captcha_enabled?: boolean;
+  geetest_captcha_id?: string;
   tencent_captcha_enabled?: boolean;
   tencent_captcha_app_id?: string;
   tencent_captcha_region?: string;
@@ -1844,6 +1846,8 @@ export interface DashboardStats {
   today_cache_creation_tokens: number;
   today_cache_read_tokens: number;
   today_tokens: number;
+  today_requests_growth_percent?: number | null; // 今日请求量相对昨日的变化百分比
+  today_tokens_growth_percent?: number | null; // 今日 Token 量相对昨日的变化百分比
   today_cost: number; // 今日标准计费
   today_actual_cost: number; // 今日实际扣除
   today_account_cost: number; // 今日账号成本

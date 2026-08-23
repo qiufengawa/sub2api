@@ -963,6 +963,7 @@ defineExpose({
 
 .mobile-table-wrapper {
   overscroll-behavior-inline: contain;
+  touch-action: pan-x;
   -webkit-overflow-scrolling: touch;
 }
 

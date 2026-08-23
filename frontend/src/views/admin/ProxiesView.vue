@@ -2,7 +2,7 @@
   <AppLayout>
     <UiServerTableWorkspace>
       <template #filters>
-        <UiFilterBar>
+        <UiFilterBar class="proxies-filter-bar">
           <div class="proxies-filter-grid">
             <UiSearchInput
               v-model="searchQuery"
@@ -1813,7 +1813,17 @@ onUnmounted(() => {
 
 <style scoped>
 .proxies-filter-grid { display: grid; min-width: 0; flex: 1; grid-template-columns: minmax(240px, 1fr) 160px 144px; gap: 8px; }
-.proxies-toolbar-actions { display: flex; width: 100%; align-items: center; gap: 8px; overflow-x: auto; padding-bottom: 1px; }
+.proxies-toolbar-actions { display: flex; width: 100%; flex-wrap: wrap; align-items: center; gap: 8px; overflow: visible; padding-bottom: 1px; }
+.proxies-toolbar-actions > * { flex: 0 0 auto; }
+.proxies-filter-bar { flex-wrap: wrap; align-items: center; }
+.proxies-filter-bar :deep(.ui-filter-bar__fields) { flex: 1 1 100%; width: 100%; }
+.proxies-filter-bar :deep(.ui-filter-bar__actions) {
+  flex: 1 1 100%;
+  justify-content: flex-end;
+  min-width: 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--ui-border-soft);
+}
 .proxies-table-shell { min-width: 0; overflow: hidden; }
 .proxy-cell-strong { color: var(--ui-text); font-weight: 600; }
 .proxy-cell-empty { color: var(--ui-text-soft); font-size: 12px; }
@@ -1848,7 +1858,8 @@ onUnmounted(() => {
   .proxies-filter-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 640px) {
-  .proxies-toolbar-actions { flex-wrap: nowrap; }
+  .proxies-filter-bar :deep(.ui-filter-bar__actions) { justify-content: flex-start; }
+  .proxies-toolbar-actions { flex-wrap: wrap; overflow: visible; }
   .proxy-form-grid, .proxy-expiry-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) { .proxies-spin { animation: none; } }

@@ -7,6 +7,7 @@ import UsersView from '../UsersView.vue'
 const {
   listUsers,
   getAllGroups,
+  getAllGroupsIncludingInactive,
   getBatchUsersUsage,
   listEnabledDefinitions,
   getBatchUserAttributes,
@@ -16,6 +17,7 @@ const {
 } = vi.hoisted(() => ({
   listUsers: vi.fn(),
   getAllGroups: vi.fn(),
+  getAllGroupsIncludingInactive: vi.fn(),
   getBatchUsersUsage: vi.fn(),
   listEnabledDefinitions: vi.fn(),
   getBatchUserAttributes: vi.fn(),
@@ -32,7 +34,8 @@ vi.mock('@/api/admin', () => ({
       delete: deleteUser
     },
     groups: {
-      getAll: getAllGroups
+      getAll: getAllGroups,
+      getAllIncludingInactive: getAllGroupsIncludingInactive
     },
     dashboard: {
       getBatchUsersUsage
@@ -132,6 +135,7 @@ describe('admin UsersView', () => {
 
     listUsers.mockReset()
     getAllGroups.mockReset()
+    getAllGroupsIncludingInactive.mockReset()
     getBatchUsersUsage.mockReset()
     listEnabledDefinitions.mockReset()
     getBatchUserAttributes.mockReset()
@@ -147,6 +151,7 @@ describe('admin UsersView', () => {
       pages: 1
     })
     getAllGroups.mockResolvedValue([])
+    getAllGroupsIncludingInactive.mockResolvedValue([])
     getBatchUsersUsage.mockResolvedValue({ stats: {} })
     listEnabledDefinitions.mockResolvedValue([])
     getBatchUserAttributes.mockResolvedValue({ values: {} })
@@ -265,6 +270,40 @@ describe('admin UsersView', () => {
 
     expect(wrapper.get('[data-test="row-order"]').text()).toBe('fresh-user@example.com')
     expect(showError).not.toHaveBeenCalledWith('stale users request')
+  })
+
+  it('opens actionable group filters even when no filter visibility is saved', async () => {
+    const wrapper = mount(UsersView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          UiDataTable: DataTableStub,
+          UiPagination: true,
+          UiConfirmDialog: true,
+          UserAttributesConfigModal: true,
+          UserConcurrencyCell: true,
+          UserCreateModal: true,
+          UserEditModal: true,
+          BulkEditUserModal: BulkEditUserModalStub,
+          UserPlatformQuotaModal: true,
+          UserApiKeysModal: true,
+          UserAllowedGroupsModal: true,
+          UserBalanceModal: true,
+          UserBalanceHistoryModal: true,
+          GroupReplaceModal: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    await flushPromises()
+    await wrapper.get('[data-testid="users-advanced-toggle"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="users-advanced-filters"]').exists()).toBe(true)
+    expect(getAllGroups).toHaveBeenCalled()
+    expect(getAllGroupsIncludingInactive).toHaveBeenCalled()
   })
 
   it('clears usage current-page sort when switching to last_used_at server sort', async () => {

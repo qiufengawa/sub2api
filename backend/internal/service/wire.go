@@ -88,6 +88,10 @@ func ProvideAuthService(
 	)
 	svc.SetTencentCaptchaService(tencentCaptchaService)
 	svc.SetAliyunCaptchaService(aliyunCaptchaService)
+	// GT4 uses the admin-stored captcha ID/key at verification time, so the
+	// service is created with empty credentials and receives the current config
+	// from SettingService through VerifyWithCredentials.
+	svc.SetGeetestCaptchaService(NewGeetestCaptchaService(GeetestCaptchaCredentials{}, nil))
 	return svc
 }
 

@@ -9,8 +9,6 @@ const appStore = reactive({
 const authStore = reactive({
   user: { role: 'user' as string },
 })
-const setReplayCallback = vi.fn()
-const replayTour = vi.fn()
 
 vi.mock('@/stores', () => ({
   useAppStore: () => appStore,
@@ -18,14 +16,6 @@ vi.mock('@/stores', () => ({
 
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => authStore,
-}))
-
-vi.mock('@/stores/onboarding', () => ({
-  useOnboardingStore: () => ({ setReplayCallback }),
-}))
-
-vi.mock('@/composables/useOnboardingTour', () => ({
-  useOnboardingTour: () => ({ replayTour }),
 }))
 
 import AppLayout from '../AppLayout.vue'
@@ -49,8 +39,6 @@ describe('AppLayout runtime behavior', () => {
     appStore.sidebarCollapsed = false
     appStore.mobileOpen = false
     authStore.user = { role: 'user' }
-    setReplayCallback.mockReset()
-    replayTour.mockReset()
   })
 
   afterEach(() => {
@@ -101,13 +89,4 @@ describe('AppLayout runtime behavior', () => {
     })
   })
 
-  it('registers the onboarding replay callback after mount and exposes it', () => {
-    const wrapper = mountLayout()
-
-    expect(setReplayCallback).toHaveBeenCalledTimes(1)
-    expect(setReplayCallback).toHaveBeenCalledWith(replayTour)
-
-    ;(wrapper.vm as unknown as { replayTour: () => void }).replayTour()
-    expect(replayTour).toHaveBeenCalledTimes(1)
-  })
 })

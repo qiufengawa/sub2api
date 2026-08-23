@@ -12,6 +12,7 @@ export default {
       users: 'Users',
       totalUsers: 'Total Users',
       todayRequests: 'Today Requests',
+      realtime: 'Live',
       totalRequests: 'Total Requests',
       todayCost: 'Today Cost',
       totalCost: 'Total Cost',
