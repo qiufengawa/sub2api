@@ -47,7 +47,31 @@ func (h *PaymentHandler) GetDashboard(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, stats)
+	response.Success(c, maskPaymentDashboardTopUsers(stats))
+}
+
+// maskPaymentDashboardTopUsers prevents the payment leaderboard from leaking
+// full user email addresses through the JSON response. Keep the service model
+// unchanged for internal accounting; only the admin-facing projection is
+// masked.
+func maskPaymentDashboardTopUsers(stats *service.DashboardStats) *service.DashboardStats {
+	if stats == nil {
+		return nil
+	}
+	masked := *stats
+	if stats.TopUsers == nil {
+		return &masked
+	}
+	masked.TopUsers = make(service.TopUsersByCurrency, len(stats.TopUsers))
+	for currency, users := range stats.TopUsers {
+		rows := make([]service.TopUserStat, len(users))
+		for i, user := range users {
+			user.Email = maskDashboardIdentity(user.Email)
+			rows[i] = user
+		}
+		masked.TopUsers[currency] = rows
+	}
+	return &masked
 }
 
 // --- Orders ---

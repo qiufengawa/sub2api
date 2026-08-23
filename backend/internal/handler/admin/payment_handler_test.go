@@ -48,6 +48,25 @@ func TestSanitizeAdminPaymentOrderForResponseAddsCurrency(t *testing.T) {
 	}
 }
 
+func TestMaskPaymentDashboardTopUsers(t *testing.T) {
+	stats := &service.DashboardStats{
+		TopUsers: service.TopUsersByCurrency{
+			"USD": {{UserID: 7, Email: "alice@example.com", Amount: 12.5}},
+		},
+	}
+
+	masked := maskPaymentDashboardTopUsers(stats)
+	if masked == stats {
+		t.Fatal("expected a response projection copy")
+	}
+	if got := masked.TopUsers["USD"][0].Email; got != "a***m" {
+		t.Fatalf("expected masked email, got %q", got)
+	}
+	if got := stats.TopUsers["USD"][0].Email; got != "alice@example.com" {
+		t.Fatalf("expected service model to remain unchanged, got %q", got)
+	}
+}
+
 func TestAdminSubscriptionPlansForResponseIncludesCompositeGroupInfo(t *testing.T) {
 	weekly := 25.0
 	cycleQuota := 100.0
