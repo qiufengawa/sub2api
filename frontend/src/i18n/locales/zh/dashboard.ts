@@ -855,6 +855,13 @@ export default {
   profile: {
     title: '个人设置',
     description: '管理您的账户信息和设置',
+    navigation: {
+      label: '个人设置导航',
+      profile: '个人资料',
+      security: '账号安全',
+      preferences: '偏好设置',
+      notifications: '通知偏好',
+    },
     loadFailed: '个人资料加载失败',
     loadFailedDescription: '当前无法获取个人资料，请在本页重试。',
     settingsLoadFailed: '部分个人设置加载失败，已保留当前可用信息。',

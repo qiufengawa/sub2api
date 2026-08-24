@@ -850,6 +850,13 @@ export default {
   profile: {
     title: 'Profile Settings',
     description: 'Manage your account information and settings',
+    navigation: {
+      label: 'Profile settings navigation',
+      profile: 'Profile',
+      security: 'Account security',
+      preferences: 'Preferences',
+      notifications: 'Notifications',
+    },
     loadFailed: 'Profile could not be loaded',
     loadFailedDescription: 'Your current profile is unavailable. Retry without leaving this page.',
     settingsLoadFailed: 'Some profile settings could not be loaded. Existing information is still shown.',

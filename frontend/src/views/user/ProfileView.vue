@@ -22,114 +22,138 @@
       />
 
       <UiLoadingOverlay v-else :show="initialLoading || refreshing" :label="t('common.loading')">
-      <div data-testid="profile-shell" class="profile-workspace">
-        <div v-if="profileError || settingsError" class="profile-retry-banner">
-          <UiBanner
-            tone="danger"
-            :message="settingsError ? t('profile.settingsLoadFailed') : t('profile.loadFailedDescription')"
-          />
-          <UiButton density="dense" @click="loadProfile">{{ t('common.retry') }}</UiButton>
+        <div data-testid="profile-shell" class="profile-workspace">
+          <div class="profile-settings-layout">
+            <aside class="profile-settings-nav-shell">
+              <nav class="profile-settings-nav" :aria-label="t('profile.navigation.label')">
+                <UiNavItem
+                  v-for="item in profileNavigation"
+                  :key="item.key"
+                  :data-testid="`profile-nav-item-${item.key}`"
+                  :label="item.label"
+                  :active="activeSection === item.key"
+                  @click="activeSection = item.key"
+                >
+                  <template #icon><Icon :name="item.icon" size="sm" /></template>
+                </UiNavItem>
+              </nav>
+            </aside>
+
+            <div class="profile-settings-content">
+              <div v-if="profileError || settingsError" class="profile-retry-banner">
+                <UiBanner
+                  tone="danger"
+                  :message="settingsError ? t('profile.settingsLoadFailed') : t('profile.loadFailedDescription')"
+                />
+                <UiButton density="dense" @click="loadProfile">{{ t('common.retry') }}</UiButton>
+              </div>
+
+              <div v-show="activeSection === 'profile'" data-testid="profile-section-profile">
+                <ProfileInfoCard
+                  :user="user"
+                  :linuxdo-enabled="linuxdoOAuthEnabled"
+                  :dingtalk-enabled="dingtalkOAuthEnabled"
+                  :oidc-enabled="oidcOAuthEnabled"
+                  :oidc-provider-name="oidcOAuthProviderName"
+                  :wechat-enabled="wechatOAuthEnabled"
+                  :wechat-open-enabled="wechatOAuthOpenEnabled"
+                  :wechat-mp-enabled="wechatOAuthMPEnabled"
+                />
+
+                <AppSection
+                  data-testid="profile-settings-panel"
+                  :title="t('profile.basicsTitle')"
+                  :description="t('profile.basicsDescription')"
+                >
+                  <div data-testid="profile-basics-panel" class="profile-basics-grid">
+                    <div class="profile-basics-grid__avatar">
+                      <ProfileAvatarCard :user="user" embedded />
+                    </div>
+                    <ProfileEditForm :initial-username="user?.username || ''" embedded />
+                  </div>
+                </AppSection>
+              </div>
+
+              <div v-show="activeSection === 'security'" data-testid="profile-section-security">
+                <AppSection data-testid="profile-auth-bindings-panel">
+                  <ProfileIdentityBindingsSection
+                    :user="user"
+                    :linuxdo-enabled="linuxdoOAuthEnabled"
+                    :dingtalk-enabled="dingtalkOAuthEnabled"
+                    :oidc-enabled="oidcOAuthEnabled"
+                    :oidc-provider-name="oidcOAuthProviderName"
+                    :wechat-enabled="wechatOAuthEnabled"
+                    :wechat-open-enabled="wechatOAuthOpenEnabled"
+                    :wechat-mp-enabled="wechatOAuthMPEnabled"
+                    embedded
+                    compact
+                  />
+                </AppSection>
+
+                <AppSection
+                  data-testid="profile-security-panel"
+                  :title="t('profile.securityTitle')"
+                  :description="t('profile.securityDescription')"
+                >
+                  <div class="profile-security-row">
+                    <span class="profile-security-row__icon" aria-hidden="true"><Icon name="lock" size="sm" /></span>
+                    <div class="profile-security-row__copy">
+                      <strong>{{ t('profile.changePassword') }}</strong>
+                      <span>{{ t('profile.passwordHint') }}</span>
+                    </div>
+                    <UiButton
+                      data-testid="profile-password-toggle"
+                      variant="secondary"
+                      density="compact"
+                      :aria-expanded="passwordFormExpanded"
+                      aria-controls="profile-password-form-panel"
+                      @click="passwordFormExpanded = !passwordFormExpanded"
+                    >
+                      {{ passwordFormExpanded ? t('common.collapse') : t('profile.changePassword') }}
+                    </UiButton>
+                  </div>
+
+                  <div
+                    v-if="passwordFormExpanded"
+                    id="profile-password-form-panel"
+                    class="profile-password-panel"
+                    data-testid="profile-password-form-panel"
+                  >
+                    <ProfilePasswordForm embedded />
+                  </div>
+
+                  <ProfileTotpCard embedded />
+                  <ProfilePasskeyCard :enabled="passkeyEnabled" embedded />
+                </AppSection>
+              </div>
+
+              <div v-show="activeSection === 'preferences'" data-testid="profile-section-preferences">
+                <AppSection v-if="user" data-testid="profile-billing-preference-panel">
+                  <ProfileBillingPreferenceSection :value="user.billing_preference" />
+                </AppSection>
+              </div>
+
+              <div v-show="activeSection === 'notifications'" data-testid="profile-section-notifications">
+                <AppSection v-if="user && balanceLowNotifyEnabled">
+                  <ProfileBalanceNotifyCard
+                    :enabled="user.balance_notify_enabled ?? true"
+                    :threshold="user.balance_notify_threshold"
+                    :extra-emails="user.balance_notify_extra_emails ?? []"
+                    :system-default-threshold="systemDefaultThreshold"
+                    :user-email="user.email"
+                    embedded
+                    flat
+                  />
+                </AppSection>
+              </div>
+            </div>
+          </div>
+
+          <AppSection v-if="contactInfo" class="profile-support" :title="t('common.contactSupport')">
+            <span class="profile-support__icon" aria-hidden="true"><Icon name="chat" size="sm" /></span>
+            <p>{{ contactInfo }}</p>
+          </AppSection>
         </div>
-
-        <ProfileInfoCard
-          :user="user"
-          :linuxdo-enabled="linuxdoOAuthEnabled"
-          :dingtalk-enabled="dingtalkOAuthEnabled"
-          :oidc-enabled="oidcOAuthEnabled"
-          :oidc-provider-name="oidcOAuthProviderName"
-          :wechat-enabled="wechatOAuthEnabled"
-          :wechat-open-enabled="wechatOAuthOpenEnabled"
-          :wechat-mp-enabled="wechatOAuthMPEnabled"
-        />
-
-        <AppSection
-          data-testid="profile-settings-panel"
-          :title="t('profile.basicsTitle')"
-          :description="t('profile.basicsDescription')"
-          divided
-        >
-          <div data-testid="profile-basics-panel" class="profile-basics-grid">
-            <div class="profile-basics-grid__avatar">
-              <ProfileAvatarCard :user="user" embedded />
-            </div>
-            <ProfileEditForm :initial-username="user?.username || ''" embedded />
-          </div>
-        </AppSection>
-
-        <AppSection data-testid="profile-auth-bindings-panel" divided>
-          <ProfileIdentityBindingsSection
-            :user="user"
-            :linuxdo-enabled="linuxdoOAuthEnabled"
-            :dingtalk-enabled="dingtalkOAuthEnabled"
-            :oidc-enabled="oidcOAuthEnabled"
-            :oidc-provider-name="oidcOAuthProviderName"
-            :wechat-enabled="wechatOAuthEnabled"
-            :wechat-open-enabled="wechatOAuthOpenEnabled"
-            :wechat-mp-enabled="wechatOAuthMPEnabled"
-            embedded
-            compact
-          />
-        </AppSection>
-
-        <AppSection
-          data-testid="profile-security-panel"
-          :title="t('profile.securityTitle')"
-          :description="t('profile.securityDescription')"
-          divided
-        >
-
-          <div class="profile-security-row">
-            <span class="profile-security-row__icon" aria-hidden="true"><Icon name="lock" size="sm" /></span>
-            <div class="profile-security-row__copy">
-              <strong>{{ t('profile.changePassword') }}</strong>
-              <span>{{ t('profile.passwordHint') }}</span>
-            </div>
-            <UiButton
-              data-testid="profile-password-toggle"
-              variant="secondary"
-              density="compact"
-              :aria-expanded="passwordFormExpanded"
-              aria-controls="profile-password-form-panel"
-              @click="passwordFormExpanded = !passwordFormExpanded"
-            >
-              {{ passwordFormExpanded ? t('common.collapse') : t('profile.changePassword') }}
-            </UiButton>
-          </div>
-
-          <div
-            v-if="passwordFormExpanded"
-            id="profile-password-form-panel"
-            class="profile-password-panel"
-            data-testid="profile-password-form-panel"
-          >
-            <ProfilePasswordForm embedded />
-          </div>
-
-          <ProfileTotpCard embedded />
-          <ProfilePasskeyCard :enabled="passkeyEnabled" embedded />
-        </AppSection>
-
-        <AppSection v-if="user" divided data-testid="profile-billing-preference-panel">
-          <ProfileBillingPreferenceSection :value="user.billing_preference" />
-        </AppSection>
-
-        <AppSection v-if="user && balanceLowNotifyEnabled" divided>
-          <ProfileBalanceNotifyCard
-            :enabled="user.balance_notify_enabled ?? true"
-            :threshold="user.balance_notify_threshold"
-            :extra-emails="user.balance_notify_extra_emails ?? []"
-            :system-default-threshold="systemDefaultThreshold"
-            :user-email="user.email"
-            embedded
-            flat
-          />
-        </AppSection>
-
-        <AppSection v-if="contactInfo" class="profile-support" :title="t('common.contactSupport')">
-          <span class="profile-support__icon" aria-hidden="true"><Icon name="chat" size="sm" /></span>
-          <p>{{ contactInfo }}</p>
-        </AppSection>
-      </div>
       </UiLoadingOverlay>
     </AppPage>
   </AppLayout>
@@ -148,6 +172,7 @@ import {
   UiButton,
   UiErrorState,
   UiLoadingOverlay,
+  UiNavItem,
   UiSkeleton,
 } from '@/components/ui'
 import ProfileBalanceNotifyCard from '@/components/user/profile/ProfileBalanceNotifyCard.vue'
@@ -180,11 +205,31 @@ const oidcOAuthEnabled = ref(false)
 const oidcOAuthProviderName = ref('OIDC')
 const passkeyEnabled = ref(false)
 const passwordFormExpanded = ref(false)
+type ProfileSectionKey = 'profile' | 'security' | 'preferences' | 'notifications'
+const activeSection = ref<ProfileSectionKey>('profile')
 const initialLoading = ref(true)
 const refreshing = ref(false)
 const profileError = ref(false)
 const settingsError = ref(false)
 const hasLoaded = ref(false)
+
+const profileNavigation = computed(() => {
+  const items: Array<{ key: ProfileSectionKey; label: string; icon: 'user' | 'shield' | 'cog' | 'bell' }> = [
+    { key: 'profile', label: t('profile.navigation.profile'), icon: 'user' },
+    { key: 'security', label: t('profile.navigation.security'), icon: 'shield' },
+    { key: 'preferences', label: t('profile.navigation.preferences'), icon: 'cog' },
+  ]
+
+  if (balanceLowNotifyEnabled.value) {
+    items.push({
+      key: 'notifications',
+      label: t('profile.navigation.notifications'),
+      icon: 'bell',
+    })
+  }
+
+  return items
+})
 
 const applySettings = (settings: Awaited<ReturnType<typeof appStore.fetchPublicSettings>>) => {
   if (!settings) return false
@@ -247,6 +292,38 @@ onMounted(() => {
   padding-top: 16px;
 }
 
+.profile-settings-layout {
+  display: grid;
+  grid-template-columns: minmax(168px, 196px) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+
+.profile-settings-nav-shell {
+  position: sticky;
+  top: 76px;
+  min-width: 0;
+  padding-right: 16px;
+  border-right: 1px solid var(--ui-border-soft);
+}
+
+.profile-settings-nav {
+  display: grid;
+  gap: 4px;
+}
+
+.profile-settings-content {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+
+.profile-settings-content > [data-testid^='profile-section-'] {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+
 .profile-retry-banner {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -263,9 +340,15 @@ onMounted(() => {
 .profile-security-row__copy span { overflow: hidden; color: var(--ui-text-muted); font-size: 12px; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
 .profile-password-panel { padding: 12px 0; border-bottom: 1px solid var(--ui-border-soft); }
 .profile-support { display: grid; grid-template-columns: 20px minmax(0, 1fr); align-items: start; gap: 10px; }
-.profile-support p { margin: 0; }
 .profile-support p { margin-top: 2px; color: var(--ui-text-muted); font-size: 13px; line-height: 20px; overflow-wrap: anywhere; }
-@media (max-width: 800px) { .profile-basics-grid { grid-template-columns: 1fr; gap: 16px; } .profile-basics-grid__avatar { padding-right: 0; padding-bottom: 16px; border-right: 0; border-bottom: 1px solid var(--ui-border-soft); } }
+@media (max-width: 800px) {
+  .profile-settings-layout { grid-template-columns: 1fr; gap: 16px; }
+  .profile-settings-nav-shell { position: static; padding-right: 0; padding-bottom: 8px; border-right: 0; border-bottom: 1px solid var(--ui-border-soft); }
+  .profile-settings-nav { display: flex; flex-wrap: wrap; gap: 4px; }
+  .profile-settings-nav :deep(.ui-nav-item) { width: auto; flex: 0 1 auto; max-width: 100%; }
+  .profile-basics-grid { grid-template-columns: 1fr; gap: 16px; }
+  .profile-basics-grid__avatar { padding-right: 0; padding-bottom: 16px; border-right: 0; border-bottom: 1px solid var(--ui-border-soft); }
+}
 @media (max-width: 520px) {
   .profile-retry-banner { grid-template-columns: minmax(0, 1fr); }
   .profile-security-row { grid-template-columns: 20px minmax(0, 1fr); }
