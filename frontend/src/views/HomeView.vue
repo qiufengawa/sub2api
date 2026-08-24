@@ -28,7 +28,7 @@
       :is-dark="isDark"
       :is-authenticated="isAuthenticated"
       :dashboard-path="dashboardPath"
-      :model-plaza-enabled="modelPlazaEnabled"
+      :model-plaza-enabled="showModelPlazaEntry"
       :compact-brand-link="false"
       @toggle-theme="toggleTheme"
     />
@@ -65,7 +65,7 @@
       :is-dark="isDark"
       :is-authenticated="isAuthenticated"
       :dashboard-path="dashboardPath"
-      :model-plaza-enabled="modelPlazaEnabled"
+      :model-plaza-enabled="showModelPlazaEntry"
       @toggle-theme="toggleTheme"
     />
 
@@ -94,7 +94,7 @@
                 <span class="qiu-hero-button-arrow" aria-hidden="true">&#8594;</span>
               </RouterLink>
               <RouterLink
-                v-if="modelPlazaEnabled"
+                v-if="showModelPlazaEntry"
                 class="qiu-hero-button qiu-hero-button-outline"
                 to="/model-plaza"
               >
@@ -190,7 +190,7 @@
               </div>
             </article>
           </div>
-          <RouterLink v-if="modelPlazaEnabled" to="/model-plaza" class="qiu-text-link">
+          <RouterLink v-if="showModelPlazaEntry" to="/model-plaza" class="qiu-text-link">
             {{ t('home.sections.models.openPlaza') }}
             <Icon name="arrowRight" size="sm" />
           </RouterLink>
@@ -200,7 +200,7 @@
           <div class="qiu-pricing-intro">
             <h3 id="pricing-title">{{ t('home.sections.pricing.title') }}</h3>
             <p>{{ t('home.sections.pricing.description') }}</p>
-            <RouterLink v-if="modelPlazaEnabled" to="/model-plaza" class="qiu-pricing-action">
+            <RouterLink v-if="showModelPlazaEntry" to="/model-plaza" class="qiu-pricing-action">
               {{ t('home.viewModelsAndPricing') }}
               <span aria-hidden="true">&#8594;</span>
             </RouterLink>

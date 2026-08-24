@@ -405,6 +405,7 @@ const adminNavItems = computed((): NavItem[] => {
     },
     { path: '/admin/subscriptions', label: t('nav.subscriptions'), icon: 'creditCard', hideInSimpleMode: true },
     { path: '/admin/accounts', label: t('nav.accounts'), icon: 'globe' },
+    { path: '/admin/plugins', label: t('nav.plugins'), icon: 'cube', featureFlag: flagPluginManagement },
     { path: '/admin/announcements', label: t('nav.announcements'), icon: 'bell' },
     { path: '/admin/proxies', label: t('nav.proxies'), icon: 'server' },
     {

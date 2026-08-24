@@ -28,6 +28,14 @@
         <div class="qiu-locale-control">
           <LocaleSwitcher :compact="compact" />
         </div>
+        <RouterLink
+          v-if="compact && modelPlazaEnabled"
+          to="/model-plaza"
+          class="qiu-model-plaza-link ui-focus-ring ui-motion"
+        >
+          {{ t('home.nav.modelPlaza') }}
+          <Icon name="arrowRight" size="xs" />
+        </RouterLink>
         <a
           v-if="docUrl && !compact"
           :href="docUrl"

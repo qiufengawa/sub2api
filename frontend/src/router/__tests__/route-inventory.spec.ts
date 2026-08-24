@@ -13,9 +13,9 @@ describe('production route inventory', () => {
   const productionRecords = allRecords.filter((record) => record.name !== 'UiSystemPreview')
 
   it('keeps the documented production and preview route counts stable', () => {
-    expect(productionRecords).toHaveLength(66)
+    expect(productionRecords).toHaveLength(67)
     expect(previewRecords).toHaveLength(import.meta.env.DEV ? 1 : 0)
-    expect(productionRecords.filter((record) => record.component)).toHaveLength(62)
+    expect(productionRecords.filter((record) => record.component)).toHaveLength(63)
     expect(productionRecords.filter((record) => record.redirect)).toHaveLength(5)
   })
 
@@ -77,6 +77,7 @@ describe('production route inventory', () => {
       '/admin/channels/monitor',
       '/admin/subscriptions',
       '/admin/accounts',
+      '/admin/plugins',
       '/admin/announcements',
       '/admin/proxies',
       '/admin/redeem',

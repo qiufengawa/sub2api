@@ -6493,12 +6493,12 @@
                   {{ t('admin.settings.features.pluginManagement.enabledHint') }}
                 </p>
               </div>
-              <Toggle v-model="form.plugin_management_enabled" />
+              <Toggle v-model="form.plugin_management_enabled" :label="t('admin.settings.features.pluginManagement.enabled')" />
             </div>
           </div>
         </div>
 
-        <div class="card">
+        <div class="settings-section">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
               {{ t('admin.settings.features.riskControl.title') }}
@@ -8938,6 +8938,7 @@ const form = reactive<SettingsForm>({
   model_plaza_enabled: false,
   model_plaza_require_auth: false,
   model_plaza_description: '',
+  plugin_management_enabled: false,
   playground_enabled: true,
   // Affiliate (邀请返利) feature switch
   affiliate_enabled: false,
@@ -10715,6 +10716,7 @@ async function saveSettings(
       model_plaza_enabled: form.model_plaza_enabled,
       model_plaza_require_auth: form.model_plaza_require_auth,
       model_plaza_description: form.model_plaza_description,
+      plugin_management_enabled: form.plugin_management_enabled,
       playground_enabled: form.playground_enabled,
       // Affiliate (邀请返利) feature switch
       affiliate_enabled: form.affiliate_enabled,

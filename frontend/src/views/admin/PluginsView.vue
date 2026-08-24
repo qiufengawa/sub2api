@@ -31,25 +31,25 @@
             accept=".s2plugin,application/zip"
             @change="handleFileSelected"
           />
-          <button
-            type="button"
-            class="btn btn-primary"
+          <UiButton
+            variant="primary"
+            :loading="uploading"
             :disabled="uploading"
             @click="fileInput?.click()"
           >
-            <Icon name="upload" size="sm" />
+            <template #icon><Icon name="upload" size="sm" /></template>
             {{ uploading ? t("common.processing") : t("admin.plugins.upload") }}
-          </button>
-          <button
-            type="button"
-            class="btn btn-secondary"
+          </UiButton>
+          <UiButton
+            variant="secondary"
+            density="compact"
             :disabled="loading"
             :title="t('common.refresh')"
             @click="loadPlugins"
           >
-            <Icon name="refresh" size="sm" />
+            <template #icon><Icon name="refresh" size="sm" /></template>
             <span class="sr-only">{{ t("common.refresh") }}</span>
-          </button>
+          </UiButton>
         </div>
       </section>
 
@@ -88,7 +88,7 @@
         <article
           v-for="plugin in plugins"
           :key="plugin.id"
-          class="card overflow-hidden border border-gray-200 dark:border-dark-700"
+          class="plugin-card-surface overflow-hidden border border-gray-200 dark:border-dark-700"
         >
           <div
             class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 p-5 dark:border-dark-700"
@@ -121,14 +121,14 @@
                 {{ plugin.description }}
               </p>
             </div>
-            <button
-              type="button"
-              class="btn btn-secondary btn-sm"
+            <UiButton
+              variant="secondary"
+              density="compact"
               @click="openConfiguration(plugin)"
             >
-              <Icon name="cog" size="sm" />
+              <template #icon><Icon name="cog" size="sm" /></template>
               {{ t("admin.plugins.configure") }}
-            </button>
+            </UiButton>
           </div>
 
           <div class="grid grid-cols-1 gap-x-6 gap-y-4 p-5 md:grid-cols-2">
@@ -238,29 +238,29 @@
           <div
             class="flex flex-wrap justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-dark-700"
           >
-            <button
-              type="button"
-              class="btn btn-secondary btn-sm"
+            <UiButton
+              variant="secondary"
+              density="compact"
               :disabled="busyID === plugin.id"
               @click="testPlugin(plugin)"
             >
-              <Icon name="beaker" size="sm" />
+              <template #icon><Icon name="beaker" size="sm" /></template>
               {{ t("admin.plugins.test") }}
-            </button>
-            <button
+            </UiButton>
+            <UiButton
               v-if="hasEnabledBinding(plugin)"
-              type="button"
-              class="btn btn-secondary btn-sm"
+              variant="secondary"
+              density="compact"
               :disabled="busyID === plugin.id"
               @click="disablePlugin(plugin)"
             >
-              <Icon name="ban" size="sm" />
+              <template #icon><Icon name="ban" size="sm" /></template>
               {{ t("admin.plugins.disable") }}
-            </button>
-            <button
+            </UiButton>
+            <UiButton
               v-else
-              type="button"
-              class="btn btn-primary btn-sm"
+              variant="primary"
+              density="compact"
               :disabled="
                 busyID === plugin.id ||
                 plugin.state === 'starting' ||
@@ -268,23 +268,23 @@
               "
               @click="enablePlugin(plugin)"
             >
-              <Icon name="play" size="sm" />
+              <template #icon><Icon name="play" size="sm" /></template>
               {{ t("admin.plugins.enable") }}
-            </button>
-            <button
-              type="button"
-              class="btn btn-danger btn-sm"
+            </UiButton>
+            <UiButton
+              variant="danger"
+              density="compact"
               :disabled="busyID === plugin.id || hasEnabledBinding(plugin)"
               @click="uninstallPlugin(plugin)"
             >
-              <Icon name="trash" size="sm" />
+              <template #icon><Icon name="trash" size="sm" /></template>
               {{ t("admin.plugins.uninstall") }}
-            </button>
+            </UiButton>
           </div>
         </article>
       </div>
 
-      <BaseDialog
+      <UiDialog
         :show="configPlugin !== null"
         :title="
           t('admin.plugins.configTitle', { name: configPlugin?.name || '' })
@@ -325,7 +325,7 @@
             @load="handlePluginFrameLoad"
           />
         </div>
-      </BaseDialog>
+      </UiDialog>
 
       <TotpStepUpDialog :controller="pluginStepUp" />
     </div>
@@ -342,8 +342,8 @@ import {
 } from "@/api/admin";
 import { useAppStore } from "@/stores";
 import AppLayout from "@/components/layout/AppLayout.vue";
-import BaseDialog from "@/components/common/BaseDialog.vue";
 import Icon from "@/components/icons/Icon.vue";
+import { UiButton, UiDialog } from "@/components/ui";
 import TotpStepUpDialog from "@/components/auth/TotpStepUpDialog.vue";
 import {
   isStepUpBlocked,
