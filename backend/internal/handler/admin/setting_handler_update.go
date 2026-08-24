@@ -353,6 +353,9 @@ type UpdateSettingsRequest struct {
 	ModelPlazaDescription *string `json:"model_plaza_description"`
 	PlaygroundEnabled     *bool   `json:"playground_enabled"`
 
+	// Plugin management menu visibility switch; plugin runtime is unaffected.
+	PluginManagementEnabled *bool `json:"plugin_management_enabled"`
+
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled *bool `json:"affiliate_enabled"`
 
