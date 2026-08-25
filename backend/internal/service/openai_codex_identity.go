@@ -126,6 +126,12 @@ func resolveCodexOutboundIdentity(candidateUA string) codexOutboundIdentity {
 	return codexOutboundIdentity{userAgent: pairedUA, originator: originator, version: version}
 }
 
+// CodexCanonicalClientVersion returns the currently effective Codex client
+// version used for OAuth model-manifest requests and outbound identity headers.
+func CodexCanonicalClientVersion() string {
+	return resolveCodexOutboundIdentity("").version
+}
+
 // codexClientVersionFromUA 取 UA 的版本段作为生效版本；
 // 非法或低于上游门槛（低于则上游 404，issue #3901）时回退编译期常量。
 func codexClientVersionFromUA(ua string) string {
