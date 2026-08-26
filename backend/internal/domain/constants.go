@@ -24,6 +24,9 @@ const (
 	PlatformAntigravity = "antigravity"
 	PlatformGrok        = "grok"
 	PlatformComposite   = "composite"
+	// PlatformDeepseek is used by composite routing and generated Codex catalogs.
+	// The broader CN-provider account subsystem remains intentionally separate.
+	PlatformDeepseek = "deepseek"
 )
 
 // Account type constants
