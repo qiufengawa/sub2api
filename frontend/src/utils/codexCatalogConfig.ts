@@ -1,0 +1,54 @@
+export interface CodexCatalogReasoningLevel {
+  effort?: unknown
+}
+
+export interface CodexCatalogModel {
+  slug: string
+  default_reasoning_level?: unknown
+  supported_reasoning_levels?: CodexCatalogReasoningLevel[]
+}
+
+function trimValue(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+export function parseCodexCatalogModels(content: string | null | undefined): CodexCatalogModel[] {
+  if (!content) return []
+  try {
+    const payload: unknown = JSON.parse(content)
+    if (typeof payload !== 'object' || payload === null || !('models' in payload)) return []
+    const models = (payload as { models?: unknown }).models
+    if (!Array.isArray(models)) return []
+    return models.flatMap((model) => {
+      if (typeof model !== 'object' || model === null || !('slug' in model)) return []
+      const slug = trimValue((model as { slug?: unknown }).slug)
+      return slug ? [{ ...(model as CodexCatalogModel), slug }] : []
+    })
+  } catch {
+    return []
+  }
+}
+
+export function findCodexCatalogModel(
+  content: string | null | undefined,
+  slug: string
+): CodexCatalogModel | undefined {
+  const wanted = slug.trim()
+  return wanted ? parseCodexCatalogModels(content).find((model) => model.slug === wanted) : undefined
+}
+
+export function selectCodexConfigReasoningEffort(model: CodexCatalogModel | undefined): string | null {
+  if (!model) return null
+  const efforts = (model.supported_reasoning_levels ?? []).flatMap((level) => {
+    const effort = trimValue(level?.effort)
+    return effort ? [effort] : []
+  })
+  if (efforts.length === 0) return null
+  const defaultLevel = trimValue(model.default_reasoning_level)
+  if (defaultLevel && efforts.includes(defaultLevel)) return defaultLevel === 'none' ? null : defaultLevel
+  return efforts.find((effort) => effort !== 'none') ?? null
+}
+
+export function formatCodexReasoningEffortTomlLine(effort: string | null): string {
+  return effort ? `model_reasoning_effort = "${effort}"\n` : ''
+}

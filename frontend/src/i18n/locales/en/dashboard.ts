@@ -331,6 +331,11 @@ export default {
         codexConfigTomlHint: 'Download the model catalog below, save both files under the Codex config directory, and restart Codex.',
         codexNote: 'Export SUB2API_API_KEY before starting Codex. Model requests are routed by the selected catalog slug.',
       },
+      routedCodex: {
+        description: 'Configure Codex with this group API key and its routed model catalog.',
+        configTomlHint: 'Fetch and download the model catalog, then save it beside config.toml in the Codex config directory.',
+        note: 'Export SUB2API_API_KEY before starting Codex. The downloaded catalog contains model metadata only, not your API key.',
+      },
       codexModelCatalog: {
         title: 'Codex model catalog',
         description: 'Fetch with this API key, then save the catalog at the path referenced by config.toml.',

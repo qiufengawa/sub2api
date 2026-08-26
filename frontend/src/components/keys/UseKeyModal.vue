@@ -165,6 +165,61 @@
           </div>
         </div>
 
+        <section
+          v-if="showCodexModelCatalog"
+          data-testid="codex-model-catalog"
+          class="flex flex-col gap-3 border-t border-gray-200 pt-4 dark:border-dark-700 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div class="min-w-0">
+            <h3 class="text-sm font-medium text-gray-900 dark:text-white">
+              {{ t('keys.useKeyModal.codexModelCatalog.title') }}
+            </h3>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('keys.useKeyModal.codexModelCatalog.description') }}
+            </p>
+            <p class="mt-1 truncate font-mono text-xs text-gray-700 dark:text-gray-300">
+              {{ codexModelCatalogPath }}
+            </p>
+            <p
+              v-if="codexModelManifestState === 'ready'"
+              class="mt-1 text-xs text-emerald-700 dark:text-emerald-300"
+            >
+              {{ t('keys.useKeyModal.codexModelCatalog.modelsCount', { count: codexModelManifestModelCount }) }}
+            </p>
+            <p
+              v-else-if="codexModelManifestState === 'error'"
+              class="mt-1 text-xs text-red-700 dark:text-red-300"
+            >
+              {{ t('keys.useKeyModal.codexModelCatalog.errorDescription') }}
+            </p>
+          </div>
+          <UiButton
+            v-if="codexModelManifestState === 'ready'"
+            density="compact"
+            variant="primary"
+            class="flex-shrink-0"
+            @click="downloadCodexModelManifest"
+          >
+            <template #icon><Icon name="download" size="sm" /></template>
+            {{ t('keys.useKeyModal.codexModelCatalog.download') }}
+          </UiButton>
+          <UiButton
+            v-else
+            data-testid="codex-model-catalog-fetch"
+            density="compact"
+            variant="primary"
+            class="flex-shrink-0"
+            :loading="codexModelManifestState === 'loading'"
+            :disabled="!apiKey"
+            @click="loadCodexModelManifest"
+          >
+            <template #icon><Icon name="refresh" size="sm" /></template>
+            {{ codexModelManifestState === 'error'
+              ? t('keys.useKeyModal.codexModelCatalog.retry')
+              : t('keys.useKeyModal.codexModelCatalog.fetch') }}
+          </UiButton>
+        </section>
+
         <!-- Usage Note -->
         <div v-if="showPlatformNote" class="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
           <Icon name="infoCircle" size="md" class="text-blue-500 flex-shrink-0 mt-0.5" />
@@ -184,10 +239,18 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { saveAs } from 'file-saver'
+import { fetchCodexModelsManifest } from '@/api/codex'
 import Icon from '@/components/icons/Icon.vue'
 import { UiButton, UiDialog } from '@/components/ui'
 import { useClipboard } from '@/composables/useClipboard'
 import type { GroupPlatform } from '@/types'
+import {
+  findCodexCatalogModel,
+  formatCodexReasoningEffortTomlLine,
+  parseCodexCatalogModels,
+  selectCodexConfigReasoningEffort
+} from '@/utils/codexCatalogConfig'
 
 interface Props {
   show: boolean
@@ -225,6 +288,28 @@ const activeTab = ref<string>('unix')
 const activeClientTab = ref<string>('claude')
 type CodexAuthMode = 'legacy' | 'api-key'
 const codexAuthMode = ref<CodexAuthMode>('legacy')
+type CodexModelManifestState = 'idle' | 'loading' | 'ready' | 'error'
+const codexModelManifestState = ref<CodexModelManifestState>('idle')
+const codexModelManifestContent = ref('')
+const codexModelManifestModelCount = ref(0)
+let codexModelManifestController: AbortController | null = null
+let codexModelManifestRequestID = 0
+
+const showCodexModelCatalog = computed(() =>
+  props.show &&
+  (activeClientTab.value === 'codex' || activeClientTab.value === 'codex-ws')
+)
+
+const codexModelCatalogPath = computed(() => {
+  const isWindows = activeTab.value === 'windows'
+  const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
+  return joinConfigPath(configDir, 'codex-models.json', isWindows)
+})
+
+const codexManifestContext = computed(() => {
+  if (!showCodexModelCatalog.value) return ''
+  return `${props.platform}|${props.baseUrl}|${props.apiKey}|${activeClientTab.value}`
+})
 
 // Reset tabs when platform changes
 const defaultClientTab = computed(() => {
@@ -251,7 +336,13 @@ watch(() => props.platform, () => {
 watch(() => props.show, (show) => {
   if (show) {
     codexAuthMode.value = 'legacy'
+  } else {
+    resetCodexModelManifest()
   }
+})
+
+watch(codexManifestContext, (context, previousContext) => {
+  if (context !== previousContext) resetCodexModelManifest()
 })
 
 // Reset shell tab when client changes
@@ -276,12 +367,14 @@ const clientTabs = computed((): TabConfig[] => {
     case 'gemini':
       return [
         { id: 'gemini', label: t('keys.useKeyModal.cliTabs.geminiCli'), icon: 'sparkles' },
+        { id: 'codex', label: t('keys.useKeyModal.cliTabs.codexCli'), icon: 'terminal' },
         { id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: 'terminal' }
       ]
     case 'antigravity':
       return [
         { id: 'claude', label: t('keys.useKeyModal.cliTabs.claudeCode'), icon: 'terminal' },
         { id: 'gemini', label: t('keys.useKeyModal.cliTabs.geminiCli'), icon: 'sparkles' },
+        { id: 'codex', label: t('keys.useKeyModal.cliTabs.codexCli'), icon: 'terminal' },
         { id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: 'terminal' }
       ]
     case 'grok':
@@ -291,9 +384,16 @@ const clientTabs = computed((): TabConfig[] => {
         { id: 'codex', label: t('keys.useKeyModal.cliTabs.codexCli'), icon: 'terminal' },
         { id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: 'terminal' }
       ]
+    case 'composite':
+      return [
+        { id: 'claude', label: t('keys.useKeyModal.cliTabs.claudeCode'), icon: 'terminal' },
+        { id: 'codex', label: t('keys.useKeyModal.cliTabs.codexCli'), icon: 'terminal' },
+        { id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: 'terminal' }
+      ]
     default:
       return [
         { id: 'claude', label: t('keys.useKeyModal.cliTabs.claudeCode'), icon: 'terminal' },
+        { id: 'codex', label: t('keys.useKeyModal.cliTabs.codexCli'), icon: 'terminal' },
         { id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: 'terminal' }
       ]
   }
@@ -335,8 +435,14 @@ const platformDescription = computed(() => {
       }
       return t('keys.useKeyModal.openai.description')
     case 'gemini':
+      if (activeClientTab.value === 'codex') {
+        return t('keys.useKeyModal.routedCodex.description')
+      }
       return t('keys.useKeyModal.gemini.description')
     case 'antigravity':
+      if (activeClientTab.value === 'codex') {
+        return t('keys.useKeyModal.routedCodex.description')
+      }
       return t('keys.useKeyModal.antigravity.description')
     case 'grok':
       if (activeClientTab.value === 'claude') {
@@ -346,7 +452,14 @@ const platformDescription = computed(() => {
         return t('keys.useKeyModal.grok.codexDescription')
       }
       return t('keys.useKeyModal.grok.description')
+    case 'composite':
+      return activeClientTab.value === 'codex'
+        ? t('keys.useKeyModal.composite.codexDescription')
+        : t('keys.useKeyModal.composite.description')
     default:
+      if (activeClientTab.value === 'codex') {
+        return t('keys.useKeyModal.routedCodex.description')
+      }
       return t('keys.useKeyModal.description')
   }
 })
@@ -361,8 +474,14 @@ const platformNote = computed(() => {
         ? t('keys.useKeyModal.openai.noteWindows')
         : t('keys.useKeyModal.openai.note')
     case 'gemini':
+      if (activeClientTab.value === 'codex') {
+        return t('keys.useKeyModal.routedCodex.note')
+      }
       return t('keys.useKeyModal.gemini.note')
     case 'antigravity':
+      if (activeClientTab.value === 'codex') {
+        return t('keys.useKeyModal.routedCodex.note')
+      }
       return activeClientTab.value === 'claude'
         ? t('keys.useKeyModal.antigravity.claudeNote')
         : t('keys.useKeyModal.antigravity.geminiNote')
@@ -383,12 +502,76 @@ const platformNote = computed(() => {
         return t('keys.useKeyModal.grok.noteWindows')
       }
       return t('keys.useKeyModal.grok.note')
+    case 'composite':
+      return activeClientTab.value === 'codex'
+        ? t('keys.useKeyModal.composite.codexNote')
+        : t('keys.useKeyModal.note')
     default:
+      if (activeClientTab.value === 'codex') {
+        return t('keys.useKeyModal.routedCodex.note')
+      }
       return t('keys.useKeyModal.note')
   }
 })
 
 const showPlatformNote = computed(() => activeClientTab.value !== 'opencode')
+
+function resetCodexModelManifest() {
+  codexModelManifestController?.abort()
+  codexModelManifestController = null
+  codexModelManifestRequestID += 1
+  codexModelManifestState.value = 'idle'
+  codexModelManifestContent.value = ''
+  codexModelManifestModelCount.value = 0
+}
+
+async function loadCodexModelManifest() {
+  if (!showCodexModelCatalog.value || !props.apiKey) return
+  codexModelManifestController?.abort()
+  const controller = new AbortController()
+  const requestID = ++codexModelManifestRequestID
+  codexModelManifestController = controller
+  codexModelManifestState.value = 'loading'
+
+  try {
+    const result = await fetchCodexModelsManifest(props.baseUrl, props.apiKey, controller.signal)
+    if (requestID !== codexModelManifestRequestID) return
+    codexModelManifestContent.value = result.content
+    codexModelManifestModelCount.value = result.modelCount
+    codexModelManifestState.value = 'ready'
+  } catch (error) {
+    const errorName = error && typeof error === 'object' && 'name' in error
+      ? String((error as { name?: unknown }).name || '')
+      : ''
+    if (requestID !== codexModelManifestRequestID || errorName === 'AbortError') return
+    codexModelManifestState.value = 'error'
+  } finally {
+    if (requestID === codexModelManifestRequestID) codexModelManifestController = null
+  }
+}
+
+function downloadCodexModelManifest() {
+  if (!codexModelManifestContent.value) return
+  saveAs(
+    new Blob([codexModelManifestContent.value], { type: 'application/json;charset=utf-8' }),
+    'codex-models.json'
+  )
+}
+
+const codexCatalogModelSlugs = computed(() =>
+  parseCodexCatalogModels(codexModelManifestContent.value).map((model) => model.slug)
+)
+
+function selectCodexCatalogModel(preferredModel: string): string {
+  if (codexCatalogModelSlugs.value.includes(preferredModel)) return preferredModel
+  return codexCatalogModelSlugs.value[0] || preferredModel
+}
+
+function codexReasoningEffortTomlLine(modelSlug: string): string {
+  return formatCodexReasoningEffortTomlLine(
+    selectCodexConfigReasoningEffort(findCodexCatalogModel(codexModelManifestContent.value, modelSlug))
+  )
+}
 
 const escapeHtml = (value: string) => value
   .replace(/&/g, '&amp;')
@@ -445,6 +628,10 @@ const currentFiles = computed((): FileConfig[] => {
       default:
         return [generateOpenCodeConfig('openai', apiBase, apiKey)]
     }
+  }
+
+  if (activeClientTab.value === 'codex' && props.platform && props.platform !== 'openai' && props.platform !== 'grok') {
+    return generateRoutedCodexFiles(apiBase, apiKey, props.platform)
   }
 
   switch (props.platform) {
@@ -636,12 +823,14 @@ ${keyword('$env:')}${variable('GEMINI_MODEL')}${operator('=')}${string(`"${model
 function generateOpenAIFiles(baseUrl: string, apiKey: string): FileConfig[] {
   const isWindows = activeTab.value === 'windows'
   const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
+  const model = selectCodexCatalogModel('gpt-5.5')
+  const reasoningEffortLine = codexReasoningEffortTomlLine(model)
 
   // config.toml content
   const configContent = `model_provider = "OpenAI"
-model = "gpt-5.5"
-review_model = "gpt-5.5"
-model_reasoning_effort = "xhigh"
+model = "${model}"
+review_model = "${model}"
+${reasoningEffortLine}model_catalog_json = "${escapeTomlBasicString(codexModelCatalogPath.value)}"
 disable_response_storage = true
 network_access = "enabled"
 windows_wsl_setup_acknowledged = true
@@ -685,6 +874,10 @@ http_headers = { "x-openai-actor-authorization" = "local-image-extension" }`
 function joinConfigPath(dir: string, file: string, windows: boolean): string {
   if (!windows) return `${dir}/${file}`
   return `${dir}\\${file}`
+}
+
+function escapeTomlBasicString(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
 function generateGrokFiles(baseUrl: string, apiKey: string): FileConfig[] {
@@ -835,6 +1028,8 @@ function generateGrokCodexFiles(baseUrl: string, apiKey: string): FileConfig[] {
   const shell = activeTab.value
   const isWindowsPath = shell === 'windows' || shell === 'cmd' || shell === 'powershell'
   const configDir = isWindowsPath ? '%userprofile%\\.codex' : '~/.codex'
+  const model = selectCodexCatalogModel('grok-4.5')
+  const reasoningEffortLine = codexReasoningEffortTomlLine(model)
 
   let envPath: string
   let envContent: string
@@ -860,10 +1055,10 @@ function generateGrokCodexFiles(baseUrl: string, apiKey: string): FileConfig[] {
 # Switch model: grok-4.5 | grok-4.3 | grok-build-0.1 | grok-4.20-multi-agent-0309 (text / web_search)
 
 model_provider = "sub2api"
-model = "grok-4.5"
+model = "${model}"
+${reasoningEffortLine}model_catalog_json = "${escapeTomlBasicString(codexModelCatalogPath.value)}"
 # Optional:
-# review_model = "grok-4.5"
-# model_reasoning_effort = "medium"
+# review_model = "${model}"
 # model_context_window = 500000
 # disable_response_storage = true
 # network_access = "enabled"
@@ -896,15 +1091,74 @@ supports_websockets = false
   ]
 }
 
+function generateRoutedCodexFiles(
+  baseUrl: string,
+  apiKey: string,
+  platform: GroupPlatform
+): FileConfig[] {
+  const isWindows = activeTab.value === 'windows'
+  const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
+  const preferredModels: Record<GroupPlatform, string> = {
+    anthropic: 'claude-sonnet-4-6',
+    openai: 'gpt-5.5',
+    gemini: 'gemini-2.5-pro',
+    antigravity: 'claude-sonnet-4-6',
+    grok: 'grok-4.5',
+    composite: 'gpt-5.5'
+  }
+  const labels: Record<GroupPlatform, string> = {
+    anthropic: 'Anthropic',
+    openai: 'OpenAI',
+    gemini: 'Gemini',
+    antigravity: 'Antigravity',
+    grok: 'Grok',
+    composite: 'Composite'
+  }
+  const model = selectCodexCatalogModel(preferredModels[platform])
+  const reasoningEffortLine = codexReasoningEffortTomlLine(model)
+  const envContent = isWindows
+    ? `$env:SUB2API_API_KEY="${apiKey}"`
+    : `export SUB2API_API_KEY="${apiKey}"`
+  const configContent = `# Codex CLI -> Sub2API ${labels[platform]} group
+model_provider = "sub2api"
+model = "${model}"
+review_model = "${model}"
+${reasoningEffortLine}disable_response_storage = true
+model_catalog_json = "${escapeTomlBasicString(codexModelCatalogPath.value)}"
+
+[model_providers.sub2api]
+name = "Sub2API ${labels[platform]}"
+base_url = "${baseUrl}"
+env_key = "SUB2API_API_KEY"
+wire_api = "responses"
+requires_openai_auth = false
+supports_websockets = false`
+
+  return [
+    { path: isWindows ? 'PowerShell' : 'Terminal', content: envContent },
+    {
+      path: joinConfigPath(configDir, 'config.toml', isWindows),
+      content: configContent,
+      hint: t(
+        platform === 'composite'
+          ? 'keys.useKeyModal.composite.codexConfigTomlHint'
+          : 'keys.useKeyModal.routedCodex.configTomlHint'
+      )
+    }
+  ]
+}
+
 function generateOpenAIWsFiles(baseUrl: string, apiKey: string): FileConfig[] {
   const isWindows = activeTab.value === 'windows'
   const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
+  const model = selectCodexCatalogModel('gpt-5.5')
+  const reasoningEffortLine = codexReasoningEffortTomlLine(model)
 
   // config.toml content with WebSocket v2
   const configContent = `model_provider = "OpenAI"
-model = "gpt-5.5"
-review_model = "gpt-5.5"
-model_reasoning_effort = "xhigh"
+model = "${model}"
+review_model = "${model}"
+${reasoningEffortLine}model_catalog_json = "${escapeTomlBasicString(codexModelCatalogPath.value)}"
 disable_response_storage = true
 network_access = "enabled"
 windows_wsl_setup_acknowledged = true
